@@ -1,0 +1,215 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Actions{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<span>Actions</span>
+{% endblock %}
+
+{% block page_title %}Actions{% endblock %}
+
+{% block content %}
+
+<div class="list-page-shell">
+<div class="list-card">
+<div class="filter-bar">
+    <div class="filter-field">
+        <label for="name-search">Name Search</label>
+        <input type="text" id="name-search" placeholder="Find items">
+    </div>
+    <div class="filter-field">
+        <label for="category-filter">Category</label>
+        <select id="category-filter">
+            <option value="">All</option>
+            {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <label for="assigned-filter">Assigned To</label>
+        <select id="assigned-filter">
+            <option value="">All</option>
+            <option value="unassigned">Unassigned</option>
+            {% for staff in staff_list %}
+            <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <label for="status-filter">Status</label>
+        <select id="status-filter">
+            <option value="">All</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <label for="me-select">Staff Assigned</label>
+        <select id="me-select">
+            <option value="">Select yourself…</option>
+            {% for staff in staff_list %}
+            <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <label>Overdue Only</label>
+        <div class="filter-toggle-wrap">
+            <button type="button" id="overdue-toggle" class="toggle-pill" aria-pressed="false" aria-label="Overdue Only"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-field">
+        <label>Assigned to Me</label>
+        <div class="filter-toggle-wrap">
+            <button type="button" id="assigned-to-me-toggle" class="toggle-pill" aria-pressed="false" aria-label="Assigned to Me"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-field">
+        <button type="button" id="clear-filters" class="btn btn-sm filter-bar-clear">Clear Filters</button>
+    </div>
+</div>
+
+<div class="entity-list" data-selectable="single">
+    {% for action in actions %}
+    <div class="entity-row selectable action-row" tabindex="0" role="button" aria-pressed="false"
+        data-name="{{ action.referral.student.first_name|lower }} {{ action.referral.student.last_name|lower }}"
+        data-category="{{ action.category_id|default:'' }}"
+        data-assigned="{% if action.assigned_to_id %}{{ action.assigned_to_id }}{% else %}unassigned{% endif %}"
+        data-status="{{ action.status }}"
+        data-overdue="{% if action.status == 'incomplete' and action.due_date and action.due_date < today %}true{% else %}false{% endif %}"
+        data-student-id="{{ action.referral.student_id }}"
+        data-referral-id="{{ action.referral_id }}">
+        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+        <div class="entity-body">
+            <div class="entity-title">{{ action.referral.student }}</div>
+            <div class="entity-meta">{{ action.category|default:"No category" }} &middot; Assigned: {{ action.assigned_to|default:"Unassigned" }} &middot; Due: {{ action.due_date|default:"—" }} &middot; <span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span></div>
+            {% if action.note %}<div class="entity-meta">{{ action.note }}</div>{% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <p class="empty-note">No actions yet.</p>
+    {% endfor %}
+</div>
+</div>
+
+<div class="stats-strip">
+    <div class="stat-card">
+        <div class="stat-value" id="visible-count">{{ actions_count }}</div>
+        <div class="stat-label">Actions</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="students-total">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="referrals-total">{{ referrals_count }}</div>
+        <div class="stat-label">Referrals</div>
+    </div>
+</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var search = document.getElementById('name-search');
+    var categoryFilter = document.getElementById('category-filter');
+    var assignedFilter = document.getElementById('assigned-filter');
+    var statusFilter = document.getElementById('status-filter');
+    var overdueToggle = document.getElementById('overdue-toggle');
+    var meSelect = document.getElementById('me-select');
+    var assignedToMeToggle = document.getElementById('assigned-to-me-toggle');
+    var clearFiltersBtn = document.getElementById('clear-filters');
+    var visibleCount = document.getElementById('visible-count');
+    var studentsTotal = document.getElementById('students-total');
+    var referralsTotal = document.getElementById('referrals-total');
+    var rows = document.querySelectorAll('.action-row');
+
+    // No login system exists yet, so "who am I" is just remembered per-browser —
+    // same pattern as the theme/colour prefs in main.js.
+    var ME_STORAGE_KEY = 'inclusion-current-staff-id';
+    if (meSelect) {
+        try { meSelect.value = localStorage.getItem(ME_STORAGE_KEY) || ''; } catch (e) { }
+        meSelect.addEventListener('change', function () {
+            try { localStorage.setItem(ME_STORAGE_KEY, meSelect.value); } catch (e) { }
+            applyFilters();
+        });
+    }
+
+    function applyFilters() {
+        var term = search ? search.value.trim().toLowerCase() : '';
+        var category = categoryFilter ? categoryFilter.value : '';
+        var status = statusFilter ? statusFilter.value : '';
+        var overdueOnly = overdueToggle && overdueToggle.classList.contains('on');
+        var assignedToMeOnly = assignedToMeToggle && assignedToMeToggle.classList.contains('on');
+        var assigned = assignedToMeOnly ? (meSelect ? meSelect.value : '') : (assignedFilter ? assignedFilter.value : '');
+        var shown = 0;
+        var students = new Set();
+        var referrals = new Set();
+        rows.forEach(function (row) {
+            var matches = row.dataset.name.indexOf(term) !== -1
+                && (!category || row.dataset.category === category)
+                && (!assigned || row.dataset.assigned === assigned)
+                && (!status || row.dataset.status === status)
+                && (!overdueOnly || row.dataset.overdue === 'true');
+            row.style.display = matches ? '' : 'none';
+            if (matches) {
+                shown++;
+                students.add(row.dataset.studentId);
+                referrals.add(row.dataset.referralId);
+            }
+        });
+        if (visibleCount) visibleCount.textContent = shown;
+        if (studentsTotal) studentsTotal.textContent = students.size;
+        if (referralsTotal) referralsTotal.textContent = referrals.size;
+    }
+
+    function clearFilters() {
+        if (search) search.value = '';
+        if (categoryFilter) categoryFilter.value = '';
+        if (assignedFilter) assignedFilter.value = '';
+        if (statusFilter) statusFilter.value = '';
+        [overdueToggle, assignedToMeToggle].forEach(function (toggle) {
+            if (!toggle) return;
+            toggle.classList.remove('on');
+            toggle.setAttribute('aria-pressed', 'false');
+        });
+        applyFilters();
+    }
+
+    // Arriving from a student's "Actions" button pre-fills the name search
+    // with that student so this page opens already scoped to them.
+    var params = new URLSearchParams(window.location.search);
+    var name = params.get('name');
+    if (name && search) search.value = name;
+
+    if (search) search.addEventListener('input', applyFilters);
+    if (categoryFilter) categoryFilter.addEventListener('change', applyFilters);
+    if (assignedFilter) assignedFilter.addEventListener('change', applyFilters);
+    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
+    if (overdueToggle) overdueToggle.addEventListener('click', function () {
+        var isOn = overdueToggle.classList.toggle('on');
+        overdueToggle.setAttribute('aria-pressed', String(isOn));
+        applyFilters();
+    });
+    if (assignedToMeToggle) assignedToMeToggle.addEventListener('click', function () {
+        var isOn = assignedToMeToggle.classList.toggle('on');
+        assignedToMeToggle.setAttribute('aria-pressed', String(isOn));
+        applyFilters();
+    });
+    if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
+
+    applyFilters();
+});
+</script>
+{% endblock %}

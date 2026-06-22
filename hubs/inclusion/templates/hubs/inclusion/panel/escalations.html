@@ -1,0 +1,43 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Escalations{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<span>Escalations</span>
+{% endblock %}
+
+{% block page_title %}Escalations{% endblock %}
+
+{% block content %}
+<p>Referrals raised for MAT-level attention.</p>
+
+<div class="entity-list">
+    {% for escalation in escalations %}
+    <div class="entity-row">
+        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+        <div class="entity-body">
+            <div class="entity-title">{{ escalation.referral.student }}</div>
+            <div class="entity-meta">Escalated by {{ escalation.escalated_by|default:"—" }} on {{ escalation.escalated_at|date:"d/m/Y H:i" }}</div>
+            <div class="entity-meta">{{ escalation.reason }}</div>
+            <form method="post" action="{% url 'inclusion_panel_escalation_resolve' escalation.id %}" class="escalation-resolve-form">
+                {% csrf_token %}
+                <textarea name="resolution_notes" placeholder="Resolution notes..."></textarea>
+                <button type="submit" class="btn btn-primary btn-sm">Resolve</button>
+            </form>
+        </div>
+    </div>
+    {% empty %}
+    <p class="empty-note">No open escalations.</p>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Panel Setup{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel_meetings' %}">Panel Meetings</a>
+	<span class="sep">></span>
+	<span>Panel Setup</span>
+{% endblock %}
+
+{% block page_title %}Panel Setup{% endblock %}
+
+{% block content %}
+<p>Panel: {{ panel.date }}</p>
+
+<div class="setup-columns">
+    <div class="setup-col">
+        <h2>Panel Details</h2>
+        <form method="post" class="field-group">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="update_details">
+            <label for="panel-date">Date</label>
+            <input type="date" id="panel-date" name="date" value="{{ panel.date|date:'Y-m-d' }}">
+            <label for="panel-group">Panel Group</label>
+            <select id="panel-group" name="panel_group">
+                <option value="">No group</option>
+                {% for group in panel_groups %}
+                <option value="{{ group.id }}" data-default-chair="{{ group.default_chair_id|default:'' }}" {% if panel.panel_group_id == group.id %}selected{% endif %}>{{ group.name }}</option>
+                {% endfor %}
+            </select>
+            <label for="panel-chair">Chair</label>
+            <select id="panel-chair" name="chair">
+                <option value="">No chair set</option>
+                {% for staff in staff_list %}
+                <option value="{{ staff.id }}" {% if panel.chair_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">Update</button>
+        </form>
+        {% if panel.panel_group_id %}
+        <form method="post" style="margin-top:8px">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="apply_group_roster">
+            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Apply Default Roster</button>
+        </form>
+        {% endif %}
+
+        <h2>Panel Members</h2>
+        <ul>
+            {% for member in members %}
+            <li>{{ member.staff }} — {{ member.get_role_display }}</li>
+            {% empty %}
+            <li class="empty-note">No members added yet.</li>
+            {% endfor %}
+        </ul>
+        <form method="post" class="field-group">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_member">
+            <label for="member-staff">Staff</label>
+            <select id="member-staff" name="staff" required>
+                <option value="">Select staff…</option>
+                {% for staff in staff_list %}
+                <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
+                {% endfor %}
+            </select>
+            <label for="member-role">Role</label>
+            <select id="member-role" name="role">
+                <option value="chair">Chair</option>
+                <option value="member" selected>Member</option>
+                <option value="note_taker">Note Taker</option>
+                <option value="other">Other</option>
+            </select>
+            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add Member</button>
+        </form>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var groupSelect = document.getElementById('panel-group');
+        var chairSelect = document.getElementById('panel-chair');
+        if (groupSelect && chairSelect) {
+            groupSelect.addEventListener('change', function () {
+                var opt = groupSelect.options[groupSelect.selectedIndex];
+                var defaultChair = opt ? opt.dataset.defaultChair : '';
+                if (defaultChair) chairSelect.value = defaultChair;
+            });
+        }
+    });
+    </script>
+
+    <div class="setup-col">
+        <h2>Referral Selection</h2>
+        {% for referral in unassigned_referrals %}
+        <div class="referral-pick-item">
+            <h4>{{ referral.student }}</h4>
+            <div class="meta">Created: {{ referral.created_at|date:"d/m/Y" }}</div>
+            <div class="btn-row">
+                <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-primary btn-sm">Referral Details</a>
+                <form method="post" style="display:inline">
+    {% csrf_token %}
+                    <input type="hidden" name="form_action" value="add_referral">
+                    <input type="hidden" name="referral_id" value="{{ referral.id }}">
+                    <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add</button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <p class="empty-note">No unassigned referrals.</p>
+        {% endfor %}
+    </div>
+
+    <div class="setup-col">
+        <h2>Panel Agenda</h2>
+        {% for pr in agenda %}
+        <div class="referral-pick-item">
+            <h4>{{ pr.referral.student }}</h4>
+            <div class="meta">{{ pr.get_discussion_status_display }}</div>
+        </div>
+        {% empty %}
+        <p class="empty-note">No Referrals Selected</p>
+        {% endfor %}
+        <a href="{% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-primary">Go to Agenda</a>
+    </div>
+</div>
+{% endblock %}

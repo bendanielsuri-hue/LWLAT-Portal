@@ -1,0 +1,1225 @@
+/* Reset and base */
+:root {
+    --primary: #7c3aed;
+    --primary-dark: #5b21b6;
+    --primary-light: #f3e8ff;
+    --active-text: var(--primary-dark);
+
+    --bg-page: #f7fafc;
+    --bg-surface: #ffffff;
+    --bg-surface-alt: #fbfdff;
+    --text-primary: #0f1724;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-faint: #94a3b8;
+    --border-color: #e6eef4;
+    --badge-bg: #f1f7fb;
+
+    --success: #15803d;
+    --success-bg: #dcfce7;
+    --warning: #b45309;
+    --warning-bg: #fef3c7;
+
+    /* Standard radius scale — every border-radius in the app should reference
+       one of these rather than a hardcoded px value. */
+    --radius-xs: 6px;
+    --radius-sm: 8px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
+    --radius-xl: 14px;
+    --radius-pill: 999px;
+}
+
+/* Primary colour choices (light theme) */
+[data-color="blue"] { --primary: #2563eb; --primary-dark: #1e3a8a; --primary-light: #dbeafe; }
+[data-color="indigo"] { --primary: #4338ca; --primary-dark: #312e81; --primary-light: #e0e7ff; }
+[data-color="teal"] { --primary: #0d9488; --primary-dark: #134e4a; --primary-light: #ccfbf1; }
+[data-color="green"] { --primary: #16a34a; --primary-dark: #14532d; --primary-light: #dcfce7; }
+[data-color="yellow"] { --primary: #ca8a04; --primary-dark: #854d0e; --primary-light: #fef9c3; }
+[data-color="orange"] { --primary: #ea580c; --primary-dark: #7c2d12; --primary-light: #ffedd5; }
+[data-color="burnt"] { --primary: #b3502f; --primary-dark: #7a3220; --primary-light: #fbe4d8; }
+[data-color="red"] { --primary: #dc2626; --primary-dark: #7f1d1d; --primary-light: #fee2e2; }
+[data-color="pink"] { --primary: #db2777; --primary-dark: #9d174d; --primary-light: #fce7f3; }
+
+/* Dark theme base (default primary colour: purple) */
+[data-theme="dark"] {
+    --primary: #a78bfa;
+    --primary-dark: #7c3aed;
+    --primary-light: #34206b;
+    --active-text: var(--text-primary);
+
+    --bg-page: #0f1420;
+    --bg-surface: #161b29;
+    --bg-surface-alt: #1b2233;
+    --text-primary: #e2e8f0;
+    --text-secondary: #aab4c5;
+    --text-muted: #8a93a6;
+    --text-faint: #6b7385;
+    --border-color: #2a3142;
+    --badge-bg: #232b3d;
+
+    --success: #4ade80;
+    --success-bg: #143d24;
+    --warning: #fbbf24;
+    --warning-bg: #4a3b09;
+
+    /* The browser's default scrollbar stays light-colored regardless of
+       page theme unless overridden — style it to match dark mode instead. */
+    scrollbar-color: var(--border-color) var(--bg-surface-alt);
+    scrollbar-width: thin;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: var(--bg-surface-alt);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: var(--radius-sm);
+    border: 3px solid var(--bg-surface-alt);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-faint);
+}
+
+/* Primary colour choices (dark theme) */
+[data-theme="dark"][data-color="blue"] { --primary: #60a5fa; --primary-dark: #2563eb; --primary-light: #1e3a5f; }
+[data-theme="dark"][data-color="indigo"] { --primary: #818cf8; --primary-dark: #4338ca; --primary-light: #2a2a5c; }
+[data-theme="dark"][data-color="teal"] { --primary: #2dd4bf; --primary-dark: #0d9488; --primary-light: #103937; }
+[data-theme="dark"][data-color="green"] { --primary: #4ade80; --primary-dark: #16a34a; --primary-light: #143d24; }
+[data-theme="dark"][data-color="yellow"] { --primary: #facc15; --primary-dark: #ca8a04; --primary-light: #4a3b09; }
+[data-theme="dark"][data-color="orange"] { --primary: #fb923c; --primary-dark: #ea580c; --primary-light: #4a2a12; }
+[data-theme="dark"][data-color="burnt"] { --primary: #e2825b; --primary-dark: #b3502f; --primary-light: #3a2418; }
+[data-theme="dark"][data-color="red"] { --primary: #f87171; --primary-dark: #dc2626; --primary-light: #4a1d1d; }
+[data-theme="dark"][data-color="pink"] { --primary: #f472b6; --primary-dark: #db2777; --primary-light: #4a1942; }
+
+/* Text size choices — scale the whole app via the rem-based font sizes below */
+[data-text-size="sm"] { font-size: 87.5%; }
+[data-text-size="lg"] { font-size: 112.5%; }
+[data-text-size="xl"] { font-size: 125%; }
+[data-text-size="xxl"] { font-size: 137.5%; }
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    line-height: 1.4;
+    transition: background-color 160ms ease, color 160ms ease;
+}
+
+html, body {
+    height: 100%;
+}
+
+/* The shell is a fixed-height viewport split into nav + main, so scrolling page
+   content never drags the sidebars or header along with it — only main scrolls. */
+.page-shell {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.side-nav {
+    width: 240px;
+    flex-shrink: 0;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px;
+    background-color: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
+}
+.side-nav { transition: transform 360ms cubic-bezier(.2,.8,.2,1), box-shadow 360ms cubic-bezier(.2,.8,.2,1), background-color 160ms ease, border-color 160ms ease; }
+
+/* Overlay sidebars ("Change Hub", "Change School", "Settings") sit fixed in the same
+   spot as the regular hub sidebar, but elevated above it — opening one covers the
+   hub sidebar in place rather than hiding/removing it, so main content never reflows. */
+.side-nav.overlay-nav {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 240px;
+    transform: translateX(-100%);
+    transition: transform 360ms cubic-bezier(.2,.8,.2,1), box-shadow 360ms cubic-bezier(.2,.8,.2,1);
+    z-index: 50;
+    background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+    border-right: 1px solid var(--border-color);
+}
+.side-nav.overlay-nav.open {
+    transform: translateX(0);
+    box-shadow: 0 18px 50px rgba(2,6,23,0.12);
+    z-index: 60;
+}
+.global-backdrop { opacity: 0; transition: opacity 360ms cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+.global-backdrop.active { opacity: 1; position: fixed; left: 0; top: 0; width: 100%; height: 100%; background: rgba(3,6,23,0.45); z-index: 45; pointer-events: auto; }
+/* The dark-theme page background is itself a dark navy, so the light-mode
+   overlay colour above all but disappears against it — use solid black
+   instead so opening a side panel still visibly dims the page. */
+[data-theme="dark"] .global-backdrop.active { background: rgba(0,0,0,0.65); }
+
+.side-nav .nav-title {
+    align-self: stretch;
+    text-align: center;
+    font-size: 1.625rem;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.side-nav ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.side-nav .nav-menu {
+    flex: 1;
+    gap: 0;
+}
+
+.side-nav a,
+.side-nav .school-nav-option {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    text-align: left;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 140ms ease, transform 140ms ease;
+}
+
+/* Hover is a quiet nudge — a softer tint than the bolder "selected" state below,
+   plus a tiny shift so it doesn't feel static. */
+.side-nav a:hover,
+.side-nav .school-nav-option:hover {
+    background: var(--bg-surface-alt);
+    transform: translateX(3px);
+    font-weight: 600;
+}
+
+.side-nav a.active,
+.side-nav .school-nav-option.selected {
+    background: var(--primary-light);
+    color: var(--active-text);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* The hub sidebar's local menu (nav-menu) has no gaps between items — spacing comes
+   from padding instead — and keeps the original full-pill shape. No background
+   change on hover/selected: instead a left-edge rectangle indicates state — grey
+   for hover, purple for the selected item (hovering the selected item stays purple,
+   it doesn't turn grey). */
+.side-nav .nav-menu a {
+    position: relative;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+}
+
+.side-nav .nav-menu a:hover {
+    background: transparent;
+    color: var(--text-primary);
+    box-shadow: none;
+}
+
+.side-nav .nav-menu a.active {
+    background: transparent;
+    color: var(--primary);
+    box-shadow: none;
+}
+
+.side-nav .nav-menu a::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 20%;
+    bottom: 20%;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--text-faint);
+    opacity: 0;
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: opacity 160ms ease, background-color 160ms ease, transform 200ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.side-nav .nav-menu a:hover::before {
+    opacity: 1;
+    transform: scaleY(1);
+}
+
+.side-nav .nav-menu a.active::before {
+    opacity: 1;
+    transform: scaleY(1);
+    background: var(--primary);
+}
+
+.nav-footer {
+    margin-top: auto;
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.school-nav-logo {
+    color: var(--text-faint);
+}
+
+.school-nav-divider {
+    border-top: 1px solid var(--border-color);
+    margin: 2px 4px;
+}
+
+.nav-search {
+    margin-bottom: 16px;
+}
+
+main {
+    flex: 1;
+    height: 100%;
+    overflow-y: auto;
+}
+/* Padding lives on an inner wrapper, not on the scrolling element itself — position:sticky
+   children measure their stuck offset against the scroll container's padding box, and
+   having padding directly on that container is what let scrolled content visually creep
+   over the "stuck" header instead of staying cleanly underneath it. */
+.main-inner {
+    min-width: 0;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 32px;
+}
+
+/* Pin the page header (breadcrumbs/actions) and the home screen's title+search
+   row to the top of main's own scroll area, so they stay put while the content
+   beneath them scrolls. */
+.page-header,
+.home-header-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-page);
+    margin: -32px -32px 0;
+    padding: 24px 32px 16px;
+}
+
+main h1 {
+    margin-bottom: 12px;
+}
+
+section {
+    display: flex;
+    flex-flow: column;
+    gap: 12px;
+}
+
+.hub-cards h1 {
+    font-size: 1.75rem;
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.home-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto 8px;
+}
+
+.home-toolbar h1 {
+    margin: 0;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.home-search-row {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto 20px;
+}
+
+.app-search { position: relative; width: 100%; }
+
+.app-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.app-search-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 30px rgba(15, 23, 36, 0.09);
+    overflow: hidden;
+}
+
+.app-search-results.hidden { display: none; }
+
+.app-search-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    font-size: 0.8125rem;
+}
+
+.app-search-result:last-child { border-bottom: none; }
+
+.app-search-result-hub {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.app-search-result:hover,
+.app-search-result.active {
+    background: var(--primary-light);
+}
+
+.app-search-empty {
+    padding: 10px 14px;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+}
+
+.hub-cards p {
+    font-size: 0.875rem;
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+}
+
+.cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    align-content: flex-start;
+}
+
+.hub-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px;
+    border-radius: var(--radius-xl);
+    background: var(--bg-surface);
+    box-shadow: 0 6px 18px rgba(15, 23, 36, 0.06);
+    transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--border-color);
+    flex: 0 0 280px;
+    max-width: 320px;
+    min-height: 220px;
+    position: relative;
+    overflow: hidden;
+}
+
+.hub-card-content { width: 100%; box-sizing: border-box; }
+
+.hub-card-content {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Whole card animates on hover; only the top section behaves as the link */
+.hub-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 30px rgba(15, 23, 36, 0.09);
+}
+
+.hub-card-top {
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+}
+
+.hub-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    align-self: stretch;
+    margin: -18px -18px 0 -18px;
+    padding: 16px 18px;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    transition: background 160ms ease;
+}
+.hub-card-icon svg { width: 34px; height: 34px; display:block; border-radius:var(--radius-sm); }
+
+.hub-card-top:hover .hub-card-header {
+    background: var(--primary-light);
+}
+
+.hub-card-top:hover .icon-cutout,
+.side-nav a:hover .icon-cutout {
+    fill: var(--primary);
+}
+
+.hub-card h2 {
+    font-size: 1.125rem;
+    margin-bottom: 6px;
+}
+
+.hub-card p {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.hub-card-items {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: auto;
+}
+
+/* Badge styles */
+.hub-card .hub-badge {
+    font-size: 0.75rem;
+    padding: 6px 8px;
+    background: var(--badge-bg);
+    color: var(--text-primary);
+    border-radius: var(--radius-pill);
+    display: inline-block;
+    cursor: pointer;
+    transition: transform 140ms ease, background 160ms ease;
+}
+.hub-card .hub-badge:hover {
+    transform: translateY(-3px);
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.hub-card .hub-badge-extra { display: none; }
+.hub-card-items.expanded .hub-badge-extra { display: inline-block; }
+
+/* Tertiary style — less prominent than the secondary app badges */
+.hub-card .hub-more-toggle {
+    border: none;
+    font-family: inherit;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: color 140ms ease, text-decoration-color 140ms ease;
+}
+.hub-card .hub-more-toggle:hover {
+    transform: none;
+    background: transparent;
+    color: var(--primary);
+    text-decoration-color: var(--primary);
+}
+small { color: var(--text-muted); }
+
+a { color: inherit; }
+
+.form-with-validation { max-width: 600px; font-size: 0.875rem; }
+
+.errorlist { color: #b91c1c; margin-left: 0.5rem; }
+
+.logout-button { background: transparent; border: none; cursor: pointer; }
+
+.side-nav .menu-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    margin-right: 8px;
+}
+.side-nav .menu-icon svg { width: 20px; height: 20px; display: block; }
+.side-nav .menu-icon img { width: 20px; height: 20px; display: block; }
+.side-nav .menu-label { flex: 1; min-width: 0; display: block; white-space: normal; line-height: 22px; }
+.nav-header { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap:12px; margin-bottom: 20px; }
+.side-nav.hidden { display: none; }
+/* Overlay header: a full-width "Close" row sits on its own line above the title —
+   closing is its own clear action, not a cramped corner icon. */
+.nav-close-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+.nav-close-btn:hover,
+.nav-close-btn:focus-visible {
+    background: var(--bg-surface-alt);
+    color: var(--primary);
+    transform: translateX(-3px);
+}
+
+/* Top row of the sidebar header: "All Hubs" + (optional) parent-hub buttons —
+   kept off the title itself so the title reads as plain text, not a link. */
+.nav-top-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.side-nav { position: relative; }
+
+/* Ensure global overlay sits above everything */
+.side-nav.global-nav { z-index: 50; }
+.side-nav.global-nav.open { z-index: 60; }
+.global-backdrop.active { z-index: 55; }
+
+/* Hub chooser (compact hub switcher) */
+/* hub chooser removed */
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.btn:hover, .btn:focus-visible { border-color: var(--primary); color: var(--primary); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
+/* Creation actions (e.g. "New Referral") get a fixed green regardless of the
+   user's chosen accent colour — "create a new record" is a semantic action,
+   not a brand-colour one. */
+.btn-success { background: #15803d; border-color: #15803d; color: #fff; }
+.btn-success:hover { background: #166534; border-color: #166534; color: #fff; }
+/* Standard action button trio (Add / Edit / Delete) — fixed colours regardless
+   of the user's chosen accent colour, since these are semantic actions. */
+.btn-add { background: #15803d; border-color: #15803d; color: #fff; }
+.btn-add:hover { background: #166534; border-color: #166534; color: #fff; }
+.btn-edit { background: #eab308; border-color: #eab308; color: #1f2937; }
+.btn-edit:hover { background: #a16207; border-color: #a16207; color: #fff; }
+.btn-delete { background: #dc2626; border-color: #dc2626; color: #fff; }
+.btn-delete:hover { background: #7f1d1d; border-color: #7f1d1d; color: #fff; }
+.btn-sm { padding: 6px 10px; font-size: 0.8125rem; }
+.btn-disabled, .btn-disabled:hover,
+.btn:disabled, .btn:disabled:hover { opacity: 0.45; cursor: not-allowed; pointer-events: none; border-color: var(--border-color); color: var(--text-secondary); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-row[hidden] { display: none; }
+
+/* Low-emphasis text-link action (e.g. "Escalate to MAT") — for actions that
+   exist but shouldn't visually compete with the page's primary action button. */
+.btn-subtle {
+    background: none;
+    border: none;
+    padding: 6px 4px;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.btn-subtle:hover { color: var(--text-primary); }
+
+/* List page shell (Students/Referrals/Actions/Panel Home): fills the space
+   between the sticky page header and the bottom of the viewport — height is
+   set inline by main.js so neither the shell nor the page itself ever
+   scrolls. The main card(s) stay one continuous, always-fully-bordered box;
+   only the row list(s) inside scroll internally. The stats strip sits below
+   as a fixed footer bar. */
+.list-page-shell {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* List card (Students/Referrals/Actions): wraps the filter bar and the
+   entity-list beneath it so they read as one card instead of two stacked
+   boxes. The card itself never scrolls, so its border/radius stay intact at
+   all times — only .entity-list scrolls internally. */
+.list-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    margin-bottom: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+.list-card .filter-bar {
+    position: static;
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: none;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.list-card .entity-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.list-page-shell .stats-strip {
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+
+/* Generic overflow "More" dropdown — populated by setupOverflowTabs() in
+   main.js for any opted-in tab row (Inclusion Panel's per-card .tab-row,
+   any .card-switcher, or a future row via [data-overflow-tabs]). Shared
+   sitewide so any page's tab row can opt in without redefining this. */
+.tab-row-more { position: relative; flex-shrink: 0; }
+.tab-row-more-btn {
+    position: relative;
+    background: transparent;
+    border: none;
+    padding: 8px 16px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 140ms ease;
+}
+.tab-row-more-btn:hover { color: var(--text-primary); }
+.tab-row-more-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 30px rgba(15, 23, 36, 0.12);
+    padding: 6px;
+}
+.tab-row-more-menu.hidden { display: none; }
+.tab-row-more-menu button {
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-xs);
+    padding: 8px 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 140ms ease, color 140ms ease;
+}
+.tab-row-more-menu button:hover { background: var(--bg-surface-alt); color: var(--text-primary); }
+.tab-row-more-menu button.active { color: var(--primary); }
+
+/* Generic card switcher: pairs a .card-switcher (row of .card-tab buttons,
+   wired up by main.js) with a .switch-card-group of full-size cards sharing
+   class .switch-card. Hidden by default — only relevant on pages whose card
+   group can't fit side-by-side below the breakpoint. The active tab is
+   fused to the card below it (shared background, no bottom border, sitting
+   flush via the -1px margin overlap), while inactive tabs recede with a
+   page-colored background — a classic browser/folder tab look. Any page can
+   reuse this: give the cards' container class .switch-card-group, each card
+   class .switch-card plus a unique id, and add a .card-switcher of
+   .card-tab buttons with data-card-target="<id>" pointing at them. */
+.card-switcher { display: none; gap: 4px; margin-bottom: -1px; position: relative; z-index: 1; flex-shrink: 0; }
+.card-tab {
+    background: var(--bg-page);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    padding: 10px 18px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.card-tab:hover { color: var(--text-primary); }
+/* The active tab keeps the exact same box (no position offset — that's what
+   caused a 1px seam between the tab and card border previously) and instead
+   recolors the bottom edge to match the card's own background, erasing the
+   seam where tab meets card instead of removing the border outright. */
+.card-tab.active {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border-bottom-color: var(--bg-surface);
+    z-index: 1;
+}
+
+@media (max-width: 1024px) {
+    .card-switcher { display: flex; }
+    /* .switch-card repeated to outrank a page's own unconditional display
+       rule for its cards (e.g. .panel-card's display: flex in panel.css) on
+       specificity alone, regardless of which stylesheet loads first. */
+    .switch-card-group .switch-card.switch-card {
+        display: none;
+        width: 100%;
+        min-width: 0;
+    }
+    /* The tab row spans the card's full width (inactive tabs included, not
+       just the active one), so both top corners are flattened — not just
+       whichever side the active tab happens to be on — otherwise a rounded
+       corner peeks out from under a tab regardless of which is active. */
+    .switch-card-group .switch-card.switch-card.active-card {
+        display: flex;
+        flex: 1 1 auto;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+}
+
+.filter-bar {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    align-items: flex-end;
+    position: sticky;
+    top: 0;
+    z-index: 9;
+    box-shadow: 0 4px 10px rgba(15, 23, 36, 0.05);
+}
+
+.filter-bar-clear {
+    align-self: flex-end;
+}
+.filter-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.8125rem; color: var(--text-secondary); }
+.filter-field input, .filter-field select {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-family: inherit;
+}
+
+/* Wraps a toggle-pill inside a .filter-field so its label lines up with
+   sibling text-input/select labels, despite the pill being shorter than
+   those controls. */
+.filter-toggle-wrap { display: flex; align-items: center; height: 38px; }
+
+.toggle-pill {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    border-radius: var(--radius-pill);
+    background: var(--border-color);
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.toggle-pill.on { background: var(--primary); }
+.toggle-pill .toggle-knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 160ms ease;
+}
+.toggle-pill.on .toggle-knob { transform: translateX(20px); }
+
+/* Generic entity list (Students) */
+.entity-list {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+.entity-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+.entity-row:last-child { border-bottom: none; }
+.entity-thumb {
+    width: 42px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+}
+.entity-thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
+.entity-body { flex: 1; min-width: 0; }
+.entity-title { font-weight: 600; font-size: 0.9375rem; }
+.entity-meta { font-size: 0.8125rem; color: var(--text-secondary); }
+
+/* Selectable cards/rows (Panel Meetings, Students)
+   Ecosystem row standard, two distinct states:
+   - hover: a quiet, neutral tint (--bg-surface-alt) plus a heavier title
+     weight, just enough feedback that the row is live.
+   - chosen/selected (persistent, click-to-select): the bolder --primary-light
+     fill plus an inset accent bar, matching .side-nav a.active, with the same
+     heavier title weight as hover. Reused for plain list/table rows that
+     aren't clickable themselves (see .agenda-table, .panel-list in panel.css). */
+.selectable { cursor: pointer; transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
+.selectable:hover { background: var(--bg-surface-alt); }
+.selectable:hover .entity-title { font-weight: 700; }
+.selectable:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.entity-row.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--primary); }
+.entity-row.chosen .entity-title { font-weight: 700; }
+.entity-row.chosen:hover { background: var(--primary-light); }
+
+.field-group { margin-bottom: 16px; }
+.field-group label { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.field-group input, .field-group select, .field-group .field-box {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-family: inherit;
+}
+.field-group .field-box { min-height: 44px; }
+
+/* Home page summary stats strip */
+.stats-strip {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+.stat-card {
+    flex: 1 1 200px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+}
+.stat-card .stat-value { font-size: 1.625rem; font-weight: 700; color: var(--text-primary); }
+.stat-card .stat-value.warning { color: var(--warning); }
+.stat-card .stat-label { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 2px; }
+
+/* Color-coded accent cards (Inclusion Panel Home) — a left border + tinted
+   icon tie each card to its meaning instead of all three looking identical. */
+.stat-card-icon {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 20px;
+    height: 20px;
+}
+.stat-card[class*="stat-card--accent-"] { position: relative; padding-right: 48px; }
+.stat-card--accent-primary { border-left: 4px solid var(--primary); }
+.stat-card--accent-primary .stat-card-icon { color: var(--primary); }
+.stat-card--accent-warning { border-left: 4px solid var(--warning); }
+.stat-card--accent-warning .stat-card-icon { color: var(--warning); }
+.stat-card--accent-success { border-left: 4px solid var(--success); }
+.stat-card--accent-success .stat-card-icon { color: var(--success); }
+
+.field-group textarea {
+    width: 100%;
+    min-height: 60px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.back-link { font-size: 0.875rem; color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+
+/* Sidebar top row: "Change Hub" + (optional) "Parent Hub" — stacked, full-width
+   pill buttons, not breadcrumb text, so both are equally prominent, clickable
+   targets and long parent-hub names have room to breathe. */
+.side-nav .nav-pill-btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    text-decoration: none;
+    text-align: center;
+    white-space: normal;
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.side-nav .nav-pill-btn:hover,
+.side-nav .nav-pill-btn:focus-visible {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-color: var(--primary);
+    font-weight: 700;
+}
+
+.side-nav .nav-pill-select {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.side-nav .nav-pill-select:hover,
+.side-nav .nav-pill-select:focus-visible {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.side-nav .settings-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.side-nav .settings-trigger .menu-icon { margin-right: 0; }
+
+/* Page header: a left container (breadcrumbs stacked above the page title +
+   optional subtitle) and a right "extras" container (key actions/buttons),
+   side by side — keeping the buttons out of the breadcrumbs row is what
+   stops their height from stretching the breadcrumbs' line-height. */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.page-header-main { min-width: 0; }
+.page-header-extras { display: flex; align-items: center; flex-shrink: 0; }
+.key-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Breadcrumbs */
+.breadcrumbs { font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 8px; margin-left: -8px; }
+.breadcrumbs a { color: var(--primary); text-decoration: none; padding: 3px 8px; margin-right: 2px; border-radius: var(--radius-pill); transition: background-color 0.15s, color 0.15s; }
+.breadcrumbs a:hover, .breadcrumbs a:focus-visible { background: var(--primary-light); color: var(--primary); text-shadow: 0 0 currentColor; }
+.breadcrumbs .sep { margin-right: 8px; color: var(--text-faint); }
+.breadcrumbs > span:last-child { font-weight: 600; color: var(--text-primary); text-shadow: 0 0 currentColor; }
+
+.page-heading h1 { margin: 0; font-size: 1.75rem; }
+.page-subtitle { margin: 6px 0 0; font-size: 0.9375rem; font-weight: 400; line-height: 1.4; color: var(--text-secondary); }
+
+/* Settings panel (overlay reachable from the cog button at the bottom of any sidebar) */
+.settings-nav .settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+.settings-nav .settings-group .settings-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Primary colour swatches */
+.colour-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.colour-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-surface);
+    background: var(--swatch);
+    padding: 0;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px var(--border-color);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.colour-swatch:hover {
+    transform: scale(1.12);
+}
+.colour-swatch:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
+}
+.colour-swatch.selected {
+    box-shadow: 0 0 0 2px var(--swatch), 0 0 0 4px var(--bg-surface), 0 0 0 5px var(--swatch);
+}
+.settings-current {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+/* Theme toggle (sun / moon) */
+.theme-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 64px;
+    height: 32px;
+    padding: 0 7px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    cursor: pointer;
+    transition: border-color 140ms ease, transform 140ms ease;
+}
+.theme-toggle:hover {
+    border-color: var(--primary);
+    transform: scale(1.04);
+}
+.theme-toggle-icon {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    transition: color 160ms ease;
+}
+.theme-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    transition: transform 200ms ease;
+}
+.theme-toggle[aria-checked="true"] .theme-toggle-thumb {
+    transform: translateX(32px);
+}
+.theme-toggle[aria-checked="false"] .theme-toggle-sun {
+    color: var(--bg-surface);
+}
+.theme-toggle[aria-checked="true"] .theme-toggle-moon {
+    color: var(--bg-surface);
+}
+
+/* Text size picker — each option previews its own size. Sizes are fixed px so the
+   preview always shows the true target size, regardless of the currently active scale,
+   and the row wraps instead of overflowing the fixed-width sidebar at larger scales. */
+.text-size-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.text-size-option {
+    flex: 1 1 30%;
+    min-width: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 2px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color 140ms ease, transform 140ms ease;
+}
+.text-size-option:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+.text-size-option .size-preview {
+    line-height: 1;
+    font-weight: 600;
+}
+.text-size-option .size-name {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.text-size-option.selected {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+.text-size-option.selected .size-name {
+    color: var(--primary);
+}

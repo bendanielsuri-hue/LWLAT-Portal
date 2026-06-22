@@ -1,0 +1,101 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Referral Questions{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<span>Referral Questions</span>
+{% endblock %}
+
+{% block page_title %}Referral Questions{% endblock %}
+
+{% block content %}
+{% include 'hubs/inclusion/panel/_settings_tabs.html' %}
+<p>Categories and questions shown on the "New Referral" form. Deactivating hides a category/question from new referrals without losing answers already recorded against it.</p>
+
+{% for category in categories %}
+<details class="settings-section" open>
+    <summary>{{ category.name }}</summary>
+    <div class="settings-body">
+        <form method="post" style="display:inline-block; margin-bottom:12px">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="deactivate_category">
+            <input type="hidden" name="category_id" value="{{ category.id }}">
+            <button type="submit" class="btn btn-sm">Deactivate category</button>
+        </form>
+
+        {% for question in category.questions.all %}
+        {% if question.is_active %}
+        <div class="settings-row">
+            <span>{{ question.label }}</span>
+            <form method="post" style="display:inline">
+    {% csrf_token %}
+                <input type="hidden" name="form_action" value="deactivate_question">
+                <input type="hidden" name="question_id" value="{{ question.id }}">
+                <button type="submit" class="btn btn-sm">Deactivate</button>
+            </form>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        <form method="post" class="field-group" style="margin-top:14px">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_question">
+            <input type="hidden" name="category" value="{{ category.id }}">
+            <label>Add question</label>
+            <input type="text" name="label" placeholder="Question label" required>
+            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add</button>
+        </form>
+    </div>
+</details>
+{% endfor %}
+
+<details class="settings-section" open>
+    <summary>Other Questions</summary>
+    <div class="settings-body">
+        <p class="empty-note" style="padding:0 0 10px; text-align:left">Plain questions with no category heading.</p>
+        {% for question in flat_questions %}
+        <div class="settings-row">
+            <span>{{ question.label }}</span>
+            <form method="post" style="display:inline">
+    {% csrf_token %}
+                <input type="hidden" name="form_action" value="deactivate_question">
+                <input type="hidden" name="question_id" value="{{ question.id }}">
+                <button type="submit" class="btn btn-sm">Deactivate</button>
+            </form>
+        </div>
+        {% empty %}
+        <p class="empty-note">No flat questions yet.</p>
+        {% endfor %}
+
+        <form method="post" class="field-group" style="margin-top:14px">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_question">
+            <label>Add question</label>
+            <input type="text" name="label" placeholder="Question label" required>
+            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add</button>
+        </form>
+    </div>
+</details>
+
+<details class="settings-section">
+    <summary>Add Category</summary>
+    <div class="settings-body">
+        <form method="post" class="field-group">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_category">
+            <input type="text" name="name" placeholder="Category name" required>
+            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add Category</button>
+        </form>
+    </div>
+</details>
+{% endblock %}

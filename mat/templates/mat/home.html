@@ -1,0 +1,60 @@
+{% extends 'layout.html' %}
+
+{% block title %}LWLAT Portal{% endblock %}
+
+{% block hub_sidebar %}
+<nav class="side-nav school-nav" data-hub="school">
+    <div class="nav-header">
+        <div class="nav-title">Change School</div>
+    </div>
+    {% include '_school_list.html' %}
+</nav>
+
+<nav class="side-nav settings-nav" data-hub="settings">
+    <div class="nav-header">
+        <div class="nav-title">Settings</div>
+    </div>
+    {% include '_settings_content.html' %}
+</nav>
+{% endblock %}
+
+{% block breadcrumbs_wrapper %}{% endblock %}
+
+{% block content %}
+<section class="hub-cards">
+    <div class="home-header-sticky">
+        <div class="home-toolbar">
+            <h1 id="portal-title">LWLAT Portal</h1>
+        </div>
+        <div class="home-search-row">
+            <div class="app-search">
+                <input type="text" class="app-search-input" id="app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
+                <div class="app-search-results hidden" id="app-search-results" role="listbox"></div>
+            </div>
+        </div>
+    </div>
+    <div class="cards">
+        {% for section in sections %}
+            <div class="hub-card">
+                <div class="hub-card-content">
+                    <div class="hub-card-top" data-url="{{ section.url }}" role="link" tabindex="0" aria-label="Launch {{ section.title }}">
+                        <div class="hub-card-header">
+                            <span class="hub-card-icon">{% include section.icon_template %}</span>
+                            <h2>{{ section.title }}</h2>
+                        </div>
+                        <p>{{ section.description }}</p>
+                    </div>
+                    <div class="hub-card-items">
+                        {% for item in section.items %}
+                            <a class="hub-badge" href="{{ item.url }}">{{ item.name }}</a>
+                        {% endfor %}
+                        {% if section.items %}
+                            <button type="button" class="hub-badge hub-more-toggle" style="display:none;">+0 more</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,188 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Panel Agenda{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel_meetings' %}">Panel Meetings</a>
+	<span class="sep">></span>
+	<span>Panel Agenda</span>
+{% endblock %}
+
+{% block page_extras %}
+<a href="{% url 'inclusion_panel_meetings' %}" class="btn btn-sm">Panel Meetings</a>
+{% endblock %}
+
+{% block page_title %}Panel Agenda{% endblock %}
+
+{% block content %}
+<p>Panel: {{ panel.date }}</p>
+
+{% if not_today %}
+<div class="agenda-banner">
+    <span>This panel isn't scheduled for today — you're viewing/editing the agenda without starting the timer.</span>
+    <a href="{% url 'inclusion_panel_meeting_setup' panel.id %}" class="btn btn-sm">Edit Date</a>
+</div>
+{% endif %}
+
+<div class="stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ pending|length }}</div>
+        <div class="stat-label">Students pending</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ discussed|length }}</div>
+        <div class="stat-label">Students discussed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ progress_pct }}%</div>
+        <div class="stat-label">Progress</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="panel-timer">{% if panel.started_at %}00:00:00{% else %}—{% endif %}</div>
+        <div class="stat-label">Elapsed</div>
+    </div>
+</div>
+
+<div class="attendance-card">
+    <details {% if just_started %}open{% endif %}>
+        <summary><h2 style="display:inline">Attendance</h2></summary>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="update_attendance">
+            <ul class="attendance-list">
+                {% for member in members %}
+                <li>
+                    <label><input type="checkbox" name="attended_{{ member.id }}" {% if member.attended %}checked{% endif %}> {{ member.staff }} — {{ member.get_role_display }}</label>
+                </li>
+                {% empty %}
+                <li class="empty-note">No members on this panel's roster yet — add some from Panel Setup.</li>
+                {% endfor %}
+            </ul>
+            {% if members %}
+            <button type="submit" class="btn btn-primary btn-sm">Save Attendance</button>
+            {% endif %}
+        </form>
+    </details>
+</div>
+
+{% if followups_due %}
+<div class="followups-card">
+    <h2>Follow-ups Due ({{ followups_due|length }})</h2>
+    {% for fpr in followups_due %}
+    <div class="agenda-preview-item">
+        <div>
+            <strong>{{ fpr.referral.student }}</strong>
+            <div class="meta">Follow up due {{ fpr.follow_up_date }} — from Panel {{ fpr.panel.date }}</div>
+        </div>
+        <form method="post" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_followup_to_agenda">
+            <input type="hidden" name="referral_id" value="{{ fpr.referral.id }}">
+            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add to Agenda</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="agenda-columns">
+    <div class="agenda-section">
+        <div class="agenda-section-header">Students Pending ({{ pending|length }})</div>
+        <div class="entity-list">
+            {% for pr in pending %}
+            <div class="entity-row">
+                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                <div class="entity-body">
+                    <div class="entity-title">{{ pr.referral.student }}</div>
+                    <div class="entity-meta"><span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span> &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %}</div>
+                    <form method="post" class="priority-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="update_priority">
+                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <select name="priority" class="priority-select" onchange="this.form.submit()">
+                            <option value="low" {% if pr.priority == 'low' %}selected{% endif %}>Low</option>
+                            <option value="medium" {% if pr.priority == 'medium' %}selected{% endif %}>Medium</option>
+                            <option value="high" {% if pr.priority == 'high' %}selected{% endif %}>High</option>
+                        </select>
+                    </form>
+                </div>
+                <div class="btn-row">
+                    <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-primary btn-sm">Discuss</a>
+                    <form method="post" onsubmit="return confirm('Remove this student from the agenda?');" style="display:inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="unassign_referral">
+                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <button type="submit" class="btn btn-sm">Remove</button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <p class="empty-note">No students pending discussion.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="agenda-section">
+        <div class="agenda-section-header">Students Discussed ({{ discussed|length }})</div>
+        <div class="entity-list">
+            {% for pr in discussed %}
+            <div class="entity-row">
+                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                <div class="entity-body">
+                    <div class="entity-title">{{ pr.referral.student }}</div>
+                    <div class="entity-meta"><span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span> &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %} &middot; Time discussed: {{ pr.duration|default:"—" }}</div>
+                    <div class="entity-meta">Follow up: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
+                </div>
+                <div class="btn-row">
+                    <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-sm">Continue Discussion</a>
+                    <a href="{% url 'inclusion_panel_referral_escalate' pr.referral.id %}?next={% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-sm">Escalate to MAT</a>
+                </div>
+            </div>
+            {% empty %}
+            <p class="empty-note">No students discussed yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="agenda-footer">
+    <div class="agenda-stats">
+        <span>Students pending discussion: {{ pending|length }}</span>
+        <span>Students discussed: {{ discussed|length }}</span>
+        <span>Progress: {{ progress_pct }}%</span>
+    </div>
+    <div class="btn-row">
+        <a href="{% url 'inclusion_panel_meeting_setup' panel.id %}" class="btn btn-add">{% include 'icons/new_svg.html' %} Add Referral</a>
+        <a href="{% url 'inclusion_panel_meetings' %}" class="btn btn-primary">End Panel Meeting</a>
+    </div>
+</div>
+
+{% if panel.started_at %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var timerEl = document.getElementById('panel-timer');
+    var startedAt = new Date('{{ panel.started_at|date:"c" }}').getTime();
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function tick() {
+        var elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+        var h = Math.floor(elapsed / 3600);
+        var m = Math.floor((elapsed % 3600) / 60);
+        var s = elapsed % 60;
+        timerEl.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+    }
+    tick();
+    setInterval(tick, 1000);
+});
+</script>
+{% endif %}
+{% endblock %}

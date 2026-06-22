@@ -1,0 +1,83 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Action Categories{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<span>Action Categories</span>
+{% endblock %}
+
+{% block page_title %}Action Categories{% endblock %}
+
+{% block content %}
+{% include 'hubs/inclusion/panel/_settings_tabs.html' %}
+<p>An "Auto-assign job title" pre-fills the assignee when staff add an Action under that category (e.g. "SENDCo") — it only pre-fills the picker, never locks it, and only fires if exactly one active staff member holds that job title.</p>
+
+{% if missing_presets %}
+<div class="quick-add-row">
+    {% for preset in missing_presets %}
+    <form method="post" style="display:inline">
+    {% csrf_token %}
+        <input type="hidden" name="form_action" value="add_preset_category">
+        <input type="hidden" name="name" value="{{ preset }}">
+        <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} {{ preset }}</button>
+    </form>
+    {% endfor %}
+</div>
+{% endif %}
+
+<details class="settings-section" open>
+    <summary>Categories</summary>
+    <div class="settings-body">
+        <table class="agenda-table">
+            <thead>
+                <tr><th>Name</th><th>Auto-assign job title</th><th>Sensitive</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                <tr>
+                    <td>{{ category.name }}</td>
+                    <td>{{ category.auto_assign_job_title|default:"—" }}</td>
+                    <td>{% if category.is_sensitive %}<span class="status-pill">Sensitive</span>{% else %}—{% endif %}</td>
+                    <td>
+                        <form method="post" style="display:inline">
+    {% csrf_token %}
+                            <input type="hidden" name="form_action" value="deactivate_category">
+                            <input type="hidden" name="category_id" value="{{ category.id }}">
+                            <button type="submit" class="btn btn-sm">Deactivate</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="4">No categories yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+
+<details class="settings-section">
+    <summary>Add Category</summary>
+    <div class="settings-body">
+        <form method="post" class="field-group">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_category">
+            <label>Name</label>
+            <input type="text" name="name" placeholder="e.g. SEND Screening" required>
+            <label>Auto-assign job title</label>
+            <input type="text" name="auto_assign_job_title" placeholder="e.g. SENDCo">
+            <label><input type="checkbox" name="is_sensitive"> Sensitive (hidden from non-panel staff)</label>
+            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add Category</button>
+        </form>
+    </div>
+</details>
+{% endblock %}

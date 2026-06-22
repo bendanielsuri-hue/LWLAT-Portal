@@ -1,0 +1,42 @@
+<div class="field-group referral-student-picker" data-referral-student-picker>
+    <input type="hidden" name="student" value="{% if selected_student %}{{ selected_student.id }}{% endif %}" data-referral-student-input required>
+    <div data-referral-student-search-panel {% if selected_student %}hidden{% endif %}>
+        <input type="text" id="referral-student-search" placeholder="Search students by name…" autocomplete="off" data-referral-student-search>
+        <div class="referral-student-list-label">Students</div>
+        <div class="referral-student-results" data-referral-student-results>
+            {% for s in students %}
+            <button type="button" class="referral-student-option" data-id="{{ s.id }}" data-name="{{ s.first_name }} {{ s.last_name }}" data-display="{{ s.first_name }} {{ s.last_name }} — Year {{ s.year_group }}{% if s.reg_form %} ({{ s.reg_form }}){% endif %}">
+                <span class="referral-student-option-name">{{ s.first_name }} {{ s.last_name }}</span>
+                <span class="referral-student-option-meta">Year {{ s.year_group }}{% if s.reg_form %} · {{ s.reg_form }}{% endif %}</span>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="referral-student-selected" data-referral-student-selected {% if not selected_student %}hidden{% endif %}>
+        <label>Student</label>
+        <div class="referral-student-selected-row">
+            <span data-referral-student-selected-name>{% if selected_student %}{{ selected_student.first_name }} {{ selected_student.last_name }} — Year {{ selected_student.year_group }}{% if selected_student.reg_form %} ({{ selected_student.reg_form }}){% endif %}{% endif %}</span>
+            <button type="button" class="btn btn-sm" data-referral-student-change>Change</button>
+        </div>
+    </div>
+</div>
+
+<div data-referral-question-fields {% if not selected_student %}hidden{% endif %}>
+{% for group in question_groups %}
+{% for question in group.questions %}
+<div class="field-group">
+    <label for="question_{{ question.id }}">{{ question.label }}</label>
+    {% if question.question_type == 'select' %}
+    <select id="question_{{ question.id }}" name="question_{{ question.id }}" required>
+        <option value="">Select…</option>
+        {% for option in question.choice_list %}
+        <option value="{{ option }}" {% if question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+    </select>
+    {% else %}
+    <textarea id="question_{{ question.id }}" name="question_{{ question.id }}">{{ question.existing_answer }}</textarea>
+    {% endif %}
+</div>
+{% endfor %}
+{% endfor %}
+</div>

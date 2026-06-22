@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+{% load static %}
+{% load hub_extras %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var root = document.documentElement;
+                root.setAttribute('data-theme', localStorage.getItem('pref-theme') || 'light');
+                root.setAttribute('data-color', localStorage.getItem('pref-color') || 'purple');
+                root.setAttribute('data-text-size', localStorage.getItem('pref-text-size') || 'md');
+            } catch (e) { }
+        })();
+    </script>
+    <title>
+        {% block title %}
+            Django App
+        {% endblock %}
+    </title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=47">
+    <script src="{% static 'js/main.js' %}?v=21" defer></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {{ search_items|json_script:"app-search-data" }}
+    <div class="page-shell">
+        <nav class="side-nav global-nav overlay-nav" id="global-nav-overlay" data-hub="global">
+            <div class="nav-header">
+                <button type="button" class="nav-close-btn" aria-label="Close hub switcher">✕ Close</button>
+                <div class="nav-title">Change Hub</div>
+            </div>
+            <div class="nav-search">
+                <div class="app-search">
+                    <input type="text" class="app-search-input" id="nav-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
+                    <div class="app-search-results hidden" id="nav-app-search-results" role="listbox"></div>
+                </div>
+            </div>
+            <ul>
+                <li><a href="{% url 'homepage' %}" class="{% if request.path == '/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/house_svg.html' %}</span><span class="menu-label">LWLAT Portal</span></a></li>
+                <li><a href="{% url 'staff_hub' %}" class="{% if request.path|starts_with:'/staff/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/staff_svg.html' %}</span><span class="menu-label">Staff</span></a></li>
+                <li><a href="{% url 'student_hub' %}" class="{% if request.path|starts_with:'/student/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/student_svg.html' %}</span><span class="menu-label">Student</span></a></li>
+                <li><a href="{% url 'services' %}" class="{% if request.path|starts_with:'/services/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/services_svg.html' %}</span><span class="menu-label">Operations</span></a></li>
+                <li><a href="{% url 'registers' %}" class="{% if request.path|starts_with:'/registers/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/registers_svg.html' %}</span><span class="menu-label">Registers</span></a></li>
+                <li><a href="{% url 'resources_hub' %}" class="{% if request.path|starts_with:'/resources/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/resources_svg.html' %}</span><span class="menu-label">Resources</span></a></li>
+                <li><a href="{% url 'inclusion_hub' %}" class="{% if request.path|starts_with:'/inclusion/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/send_svg.html' %}</span><span class="menu-label">SEND & Provision</span></a></li>
+                <li><a href="{% url 'careers_hub' %}" class="{% if request.path|starts_with:'/careers/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/careers_svg.html' %}</span><span class="menu-label">Careers</span></a></li>
+            </ul>
+        </nav>
+
+        {% if not home_inline_panels %}
+        <nav class="side-nav school-nav overlay-nav" id="school-nav-overlay" data-hub="school">
+            <div class="nav-header">
+                <button type="button" class="nav-close-btn" aria-label="Close school switcher">✕ Close</button>
+                <div class="nav-title">Change School</div>
+            </div>
+            {% include '_school_list.html' %}
+        </nav>
+
+        {% include '_settings_panel.html' %}
+        {% endif %}
+
+        {% block hub_sidebar %}{% endblock %}
+        <main>
+            <div class="main-inner">
+                {% block breadcrumbs_wrapper %}
+                <div class="page-header">
+                    <div class="page-header-main">
+                        <nav class="breadcrumbs">
+                            {% block breadcrumbs %}{% endblock %}
+                        </nav>
+                        <div class="page-heading">
+                            <h1>{% block page_title %}{% endblock %}</h1>
+                            {% block page_subtitle %}{% endblock %}
+                        </div>
+                    </div>
+                    <div class="page-header-extras">
+                        {% block page_extras %}{% endblock %}
+                    </div>
+                </div>
+                {% endblock %}
+                {% block content %}
+                {% endblock %}
+            </div>
+        </main>
+    </div>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

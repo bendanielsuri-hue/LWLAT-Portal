@@ -1,0 +1,207 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Inclusion Panel{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<span>Inclusion Panel</span>
+{% endblock %}
+
+{% block page_title %}Home{% endblock %}
+
+{% block content %}
+
+{% if not current_staff %}
+<p class="empty-note">Select who you are from the sidebar to see your referrals and actions.</p>
+{% endif %}
+
+<div class="list-page-shell">
+<div class="card-switcher">
+    <button type="button" class="card-tab active" data-card-target="referrals-card">My Referrals ({{ my_referrals|length }})</button>
+    <button type="button" class="card-tab" data-card-target="actions-card">My Actions ({{ my_actions|length }})</button>
+</div>
+<div class="panel-columns switch-card-group">
+    <div class="panel-card switch-card active-card" id="referrals-card">
+        <div class="panel-card-header">
+            <h2>My Referrals</h2>
+            <span class="panel-card-count">({{ my_referrals|length }})</span>
+        </div>
+        <div class="tab-row">
+            <button type="button" data-referral-tab="all">All ({{ my_referrals|length }})</button>
+            {% if referrals_awaiting_count %}<button type="button" data-referral-tab="awaiting">Awaiting Discussion ({{ referrals_awaiting_count }})</button>{% endif %}
+            {% if referrals_discussed_count %}<button type="button" data-referral-tab="discussed">Discussed ({{ referrals_discussed_count }})</button>{% endif %}
+        </div>
+        <ul class="panel-list" id="my-referrals-list" data-selectable="single">
+            {% for referral in my_referrals %}
+            <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-discussed="{{ referral.discussed_pr|yesno:'discussed,awaiting' }}">
+                <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                <div class="panel-item-body">
+                    <div class="panel-item-title">{{ referral.student }}</div>
+                    <div class="panel-item-meta">
+                        {{ referral.created_at|date:"d/m/Y H:i" }}
+                        &middot;
+                        {% if referral.discussed_pr %}<span class="status-pill discussed">Discussed</span>{% else %}<span class="status-pill">Awaiting Discussion</span>{% endif %}
+                    </div>
+                    {% if referral.discussed_pr %}
+                    <div class="panel-item-update">
+                        <span>Actions given: {{ referral.actions_count }}</span>
+                        {% if referral.discussed_pr.duration %}<span>Time discussed: {{ referral.discussed_pr.duration }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="panel-item-actions">
+                    <a href="{% url 'inclusion_panel_referral_edit' referral.id %}?next={% url 'inclusion_panel' %}" class="btn btn-edit btn-sm">Edit</a>
+                    {% if referral.can_delete %}
+                    <form method="post" action="{% url 'inclusion_panel_referral_delete' referral.id %}" onsubmit="return confirm('Delete this referral? This cannot be undone.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
+                        <button type="submit" class="btn btn-delete btn-sm">Delete</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </li>
+            {% empty %}
+            <li class="empty-note">No open referrals.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="panel-card switch-card" id="actions-card">
+        <div class="panel-card-header">
+            <h2>My Actions</h2>
+            <span class="panel-card-count">({{ my_actions|length }})</span>
+        </div>
+        <div class="tab-row">
+            <button type="button" data-action-tab="all">All ({{ my_actions|length }})</button>
+            {% if actions_incomplete_count %}<button type="button" data-action-tab="incomplete">Incomplete ({{ actions_incomplete_count }})</button>{% endif %}
+            {% if overdue_actions %}<button type="button" data-action-tab="overdue">Overdue ({{ overdue_actions }})</button>{% endif %}
+            {% if actions_not_needed_count %}<button type="button" data-action-tab="not_needed">Inactive ({{ actions_not_needed_count }})</button>{% endif %}
+            {% if actions_complete_count %}<button type="button" data-action-tab="complete">Complete ({{ actions_complete_count }})</button>{% endif %}
+        </div>
+        <ul class="panel-list" id="my-actions-list" data-selectable="single">
+            {% for action in my_actions %}
+            <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}">
+                <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                <div class="panel-item-body">
+                    <div class="panel-item-title">{{ action.referral.student }}</div>
+                    <div class="panel-item-meta">
+                        Due Date: {{ action.due_date|default:"—" }}
+                        &middot;
+                        {% if action.is_overdue %}<span class="status-pill incomplete">Overdue</span>{% else %}<span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span>{% endif %}
+                    </div>
+                    <div class="panel-item-note">{{ action.note }}</div>
+                </div>
+                <div class="panel-item-actions panel-item-actions-stacked">
+                    <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
+                        {% if action.status == 'incomplete' %}
+                        <input type="hidden" name="status" value="complete">
+                        <button type="submit" class="btn btn-sm btn-success">Mark Complete</button>
+                        {% else %}
+                        <input type="hidden" name="status" value="incomplete">
+                        <button type="submit" class="btn btn-sm">Reopen</button>
+                        {% endif %}
+                    </form>
+                    {% if action.status == 'incomplete' %}
+                    <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
+                        <input type="hidden" name="status" value="not_needed">
+                        <button type="submit" class="btn btn-sm">Inactive</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </li>
+            {% empty %}
+            <li class="empty-note">No actions yet.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="stats-strip">
+    <div class="stat-card stat-card--accent-primary">
+        <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
+        <div class="stat-value">{{ referrals_awaiting }}</div>
+        <div class="stat-label">Referrals awaiting panel</div>
+    </div>
+    <div class="stat-card stat-card--accent-warning">
+        <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
+        <div class="stat-value{% if overdue_actions %} warning{% endif %}">{{ overdue_actions }}</div>
+        <div class="stat-label">Actions overdue</div>
+    </div>
+    <div class="stat-card stat-card--accent-success">
+        <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
+        <div class="stat-value">{{ next_panel_date|default:"—" }}</div>
+        <div class="stat-label">Next panel meeting</div>
+    </div>
+</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function setupTabs(tabSelector, tabDataKey, rowSelector, rowDataKey) {
+        var tabButtons = document.querySelectorAll(tabSelector);
+        var rows = document.querySelectorAll(rowSelector);
+        if (!tabButtons.length) return;
+
+        function applyTab(tab) {
+            rows.forEach(function (row) {
+                row.style.display = (tab === 'all' || row.dataset[rowDataKey] === tab) ? '' : 'none';
+            });
+        }
+
+        tabButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                tabButtons.forEach(function (b) { b.classList.remove('active'); });
+                button.classList.add('active');
+                applyTab(button.dataset[tabDataKey]);
+            });
+        });
+
+        // The first rendered tab (zero-count tabs aren't rendered at all) is the default
+        tabButtons[0].classList.add('active');
+        applyTab(tabButtons[0].dataset[tabDataKey]);
+    }
+
+    setupTabs('[data-referral-tab]', 'referralTab', '#my-referrals-list li[data-discussed]', 'discussed');
+
+    var actionTabButtons = document.querySelectorAll('[data-action-tab]');
+    var actionRows = document.querySelectorAll('#my-actions-list li[data-status]');
+    var actionMatchers = {
+        all: function (row) { return true; },
+        incomplete: function (row) { return row.dataset.status === 'incomplete'; },
+        overdue: function (row) { return row.dataset.overdue === 'true'; },
+        not_needed: function (row) { return row.dataset.status === 'not_needed'; },
+        complete: function (row) { return row.dataset.status === 'complete'; },
+    };
+    actionTabButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            actionTabButtons.forEach(function (b) { b.classList.remove('active'); });
+            button.classList.add('active');
+            var matcher = actionMatchers[button.dataset.actionTab];
+            actionRows.forEach(function (row) {
+                row.style.display = matcher(row) ? '' : 'none';
+            });
+        });
+    });
+    if (actionTabButtons.length) {
+        actionTabButtons[0].classList.add('active');
+        var defaultMatcher = actionMatchers[actionTabButtons[0].dataset.actionTab];
+        actionRows.forEach(function (row) {
+            row.style.display = defaultMatcher(row) ? '' : 'none';
+        });
+    }
+    // Overflow handling for each card's own tab row (collapsing into "More"),
+    // and the My Referrals/My Actions card switcher itself, are both wired up
+    // generically in static/js/main.js � nothing page-specific needed here.
+});
+</script>
+{% endblock %}

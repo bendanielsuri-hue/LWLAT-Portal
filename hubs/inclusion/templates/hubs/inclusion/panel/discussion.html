@@ -1,0 +1,243 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Panel Discussion{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel_meetings' %}">Panel Meetings</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel_meeting_agenda' panel_referral.panel.id %}">Panel Agenda</a>
+	<span class="sep">></span>
+	<span>{{ student.first_name }} {{ student.last_name }}</span>
+{% endblock %}
+
+{% block page_title %}Panel Discussion{% endblock %}
+
+{% block content %}
+<div class="discussion-header">
+    <div class="discussion-header-main">
+        <div class="discussion-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+        <div>
+            <a href="{% url 'inclusion_panel_meeting_agenda' panel_referral.panel.id %}" class="back-link">‹ Back</a>
+            <p>{{ student.first_name }} {{ student.last_name }}</p>
+            {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
+            <span class="discussion-timer" id="discussion-timer">00:00:00</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="btn-row">
+        <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-primary">Escalate to MAT</a>
+    </div>
+</div>
+
+<div class="discussion-columns">
+    <div class="discussion-col">
+        <h2>Student Details</h2>
+        <div class="field-group">
+            <span class="field-source">Student record</span>
+            <label>Name</label>
+            <div class="field-readonly">{{ student.first_name }} {{ student.last_name }}</div>
+        </div>
+        <div class="field-group">
+            <label>Reg</label>
+            <div class="field-readonly">{{ student.reg_form }}</div>
+        </div>
+        <div class="field-group">
+            <label>Year</label>
+            <div class="field-readonly">{{ student.year_group }}</div>
+        </div>
+        <div class="field-group">
+            <label>Flags</label>
+            <div class="field-readonly">
+                {% if student.is_pp %}<span class="status-pill">PP</span>{% endif %}
+                {% if student.is_eal %}<span class="status-pill">EAL</span>{% endif %}
+                {% if student.is_lac %}<span class="status-pill">LAC</span>{% endif %}
+                {% if student.is_young_carer %}<span class="status-pill">Young Carer</span>{% endif %}
+                {% if not student.is_pp and not student.is_eal and not student.is_lac and not student.is_young_carer %}—{% endif %}
+            </div>
+        </div>
+        <div class="field-group">
+            <label>SEN Status</label>
+            <div class="field-readonly">{{ student.sen_status|default:"—" }}</div>
+        </div>
+        <div class="field-group">
+            <label>Attendance %</label>
+            <div class="field-readonly">{{ student.attendance_pct|default:"—" }}</div>
+        </div>
+        <div class="field-group">
+            <label>Behaviour Summary</label>
+            <div class="field-readonly">{{ student.behaviour_summary|default:"—" }}</div>
+        </div>
+        <div class="field-group">
+            <label>Exclusions</label>
+            <div class="field-readonly">{{ student.exclusions_count }}</div>
+        </div>
+        <div class="field-group">
+            <label>Date of Arrival</label>
+            <div class="field-readonly">{{ student.date_of_arrival|default:"—" }}</div>
+        </div>
+        <div class="field-group">
+            <label>Year Arrived</label>
+            <div class="field-readonly">{{ student.year_arrived|default:"—" }}</div>
+        </div>
+    </div>
+
+    <div class="discussion-col">
+        <h2>Referral Details</h2>
+        {% for group in response_groups %}
+        {% if group.category %}<h3>{{ group.category.name }}</h3>{% endif %}
+        {% for row in group.rows %}
+        <div class="field-group">
+            <label>{{ row.question.label }}</label>
+            <div class="field-readonly">{{ row.answer|default:"—" }}</div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+
+        {% if previous_referrals %}
+        <h3>Previous Referrals</h3>
+        {% for prev in previous_referrals %}
+        <details>
+            <summary>Referral #{{ prev.id }} — {{ prev.created_at|date:"d/m/Y" }} ({{ prev.get_status_display }})</summary>
+            {% for group in prev.response_groups %}
+            {% if group.category %}<h4>{{ group.category.name }}</h4>{% endif %}
+            {% for row in group.rows %}
+            <div class="field-group">
+                <label>{{ row.question.label }}</label>
+                <div class="field-readonly">{{ row.answer|default:"—" }}</div>
+            </div>
+            {% endfor %}
+            {% endfor %}
+        </details>
+        {% endfor %}
+        {% endif %}
+
+        <form method="post">
+    {% csrf_token %}
+            <input type="hidden" name="form_action" value="mark_discussed">
+            <div class="field-group">
+                <label for="panel-notes">Notes</label>
+                <textarea id="panel-notes" name="notes" placeholder="Add panel notes...">{{ panel_referral.notes }}</textarea>
+            </div>
+            <div class="field-group">
+                <label for="follow-up-date">Follow Up Date</label>
+                <input type="date" id="follow-up-date" name="follow_up_date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
+            </div>
+            <div class="field-group">
+                <label for="follow-up-status">Follow Up Status</label>
+                <select id="follow-up-status" name="follow_up_status">
+                    <option value="">—</option>
+                    <option value="incomplete" {% if panel_referral.follow_up_status == 'incomplete' %}selected{% endif %}>Incomplete</option>
+                    <option value="complete" {% if panel_referral.follow_up_status == 'complete' %}selected{% endif %}>Complete</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Mark Discussed</button>
+        </form>
+    </div>
+
+    <div class="discussion-col">
+        <h2>Actions</h2>
+        {% for action in actions %}
+        <div class="action-item">
+            <div class="desc">{{ action.note }}</div>
+            <div class="field-group">
+                <label>Assigned To</label>
+                <div class="field-readonly">{{ action.assigned_to|default:"Unassigned" }}</div>
+                <span class="status-pill{% if action.status == 'complete' %} complete{% else %} incomplete{% endif %}">{{ action.get_status_display }}</span>
+            </div>
+            <a href="{% url 'inclusion_panel_action_edit' action.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-edit btn-sm">Edit</a>
+        </div>
+        {% empty %}
+        <p class="empty-note">No actions yet.</p>
+        {% endfor %}
+
+        <a href="{% url 'inclusion_panel_action_new' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-add">{% include 'icons/new_svg.html' %} Add Action</a>
+    </div>
+
+    {% if is_panel_staff %}
+    <div class="discussion-col">
+        <h2>DSL Notes</h2>
+        {% for note in notes %}
+        <div class="field-group" id="note-{{ note.id }}">
+            <span class="field-source">{{ note.author|default:"Unknown" }} &middot; {{ note.created_at|date:"d/m/Y H:i" }}</span>
+            <div class="field-readonly note-display">{{ note.body|linebreaksbr }}</div>
+            <button type="button" class="btn btn-sm note-edit-toggle" data-note-id="{{ note.id }}">Edit</button>
+            <form method="post" class="note-edit-form" data-note-id="{{ note.id }}" hidden>
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="edit_note">
+                <input type="hidden" name="note_id" value="{{ note.id }}">
+                <textarea name="body">{{ note.body }}</textarea>
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            </form>
+        </div>
+        {% empty %}
+        <p class="empty-note">No DSL notes yet.</p>
+        {% endfor %}
+
+        <form method="post" class="field-group">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_note">
+            <label for="note-author">Author</label>
+            <select id="note-author" name="author">
+                <option value="">Select yourself…</option>
+                {% for staff in staff_list %}
+                <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
+                {% endfor %}
+            </select>
+            <label for="note-body">New Note</label>
+            <textarea id="note-body" name="body" placeholder="Add a DSL note..."></textarea>
+            <button type="submit" class="btn btn-add btn-sm">Add Note</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+{% if is_panel_staff %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // No login system exists yet, so "who am I" is just remembered per-browser —
+    // same pattern as the theme/colour prefs in main.js.
+    var ME_STORAGE_KEY = 'inclusion-current-staff-id';
+    var authorSelect = document.getElementById('note-author');
+    if (authorSelect) {
+        try { authorSelect.value = localStorage.getItem(ME_STORAGE_KEY) || ''; } catch (e) { }
+    }
+    document.querySelectorAll('.note-edit-toggle').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var noteId = button.dataset.noteId;
+            var form = document.querySelector('.note-edit-form[data-note-id="' + noteId + '"]');
+            if (form) form.hidden = !form.hidden;
+        });
+    });
+});
+</script>
+{% endif %}
+
+{% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var timerEl = document.getElementById('discussion-timer');
+    var startedAt = new Date('{{ panel_referral.discussion_started_at|date:"c" }}').getTime();
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function tick() {
+        var elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+        var h = Math.floor(elapsed / 3600);
+        var m = Math.floor((elapsed % 3600) / 60);
+        var s = elapsed % 60;
+        timerEl.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+    }
+    tick();
+    setInterval(tick, 1000);
+});
+</script>
+{% endif %}
+{% endblock %}

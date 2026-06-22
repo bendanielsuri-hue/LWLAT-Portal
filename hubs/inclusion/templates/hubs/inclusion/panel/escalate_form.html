@@ -1,0 +1,45 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Escalate to MAT{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<span>Escalate to MAT</span>
+{% endblock %}
+
+{% block page_title %}Escalate to MAT{% endblock %}
+
+{% block content %}
+<p>{{ referral.student }}</p>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+
+    <div class="field-group">
+        <label for="escalated_by">Escalated By</label>
+        <select id="escalated_by" name="escalated_by">
+            <option value="">Select staff memberÃ¢â‚¬Â¦</option>
+            {% for staff in staff_list %}
+            <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="field-group">
+        <label for="reason">Reason</label>
+        <textarea id="reason" name="reason" required></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Escalate</button>
+</form>
+{% endblock %}

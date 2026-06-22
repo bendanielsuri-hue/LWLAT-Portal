@@ -1,0 +1,157 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Referrals{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<span>Referrals</span>
+{% endblock %}
+
+{% block page_title %}Referrals{% endblock %}
+
+{% block content %}
+
+<div class="list-page-shell">
+<div class="list-card">
+<div class="filter-bar">
+    <div class="filter-field">
+        <label for="name-search">Name Search</label>
+        <input type="text" id="name-search" placeholder="Find items">
+    </div>
+    <div class="filter-field">
+        <label for="section-filter">Section</label>
+        <select id="section-filter">
+            <option value="">All Referrals</option>
+            <option value="unassigned">Unassigned</option>
+            <option value="due_follow_up">Due Follow-up</option>
+        </select>
+    </div>
+    <div class="filter-field">
+        <label for="status-filter">Status</label>
+        <select id="status-filter">
+            <option value="">All</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <button type="button" id="clear-filters" class="btn btn-sm filter-bar-clear">Clear Filters</button>
+    </div>
+</div>
+
+<div class="entity-list" data-selectable="single">
+    {% for referral in referrals %}
+    <div class="entity-row selectable referral-row" tabindex="0" role="button" aria-pressed="false"
+        data-name="{{ referral.student.first_name|lower }} {{ referral.student.last_name|lower }}"
+        data-status="{{ referral.status }}"
+        data-unassigned="{{ referral.is_unassigned|yesno:'true,false' }}"
+        data-due-follow-up="{{ referral.is_due_follow_up|yesno:'true,false' }}"
+        data-student-id="{{ referral.student_id }}"
+        data-actions-count="{{ referral.actions_count }}">
+        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+        <div class="entity-body">
+            <div class="entity-title">{{ referral.student }}</div>
+            <div class="entity-meta">Created {{ referral.created_at|date:"d/m/Y" }} &middot; <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span></div>
+        </div>
+        <div class="btn-row">
+            <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student|urlencode }}" class="btn btn-sm">View Actions</a>
+            <a href="{% url 'inclusion_panel_action_new' referral.id %}?next={% url 'inclusion_panel_referrals' %}" class="btn btn-add btn-sm">New Action</a>
+            <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_referrals' %}" class="btn btn-sm">Escalate to MAT</a>
+            {% if referral.can_delete %}
+            <form method="post" action="{% url 'inclusion_panel_referral_delete' referral.id %}" onsubmit="return confirm('Delete this referral? This cannot be undone.');">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'inclusion_panel_referrals' %}">
+                <button type="submit" class="btn btn-delete btn-sm">Delete</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <p class="empty-note">No referrals yet.</p>
+    {% endfor %}
+</div>
+</div>
+
+<div class="stats-strip">
+    <div class="stat-card">
+        <div class="stat-value" id="visible-count">{{ referrals|length }}</div>
+        <div class="stat-label">Referrals</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="students-total">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="actions-total">{{ actions_count }}</div>
+        <div class="stat-label">Actions</div>
+    </div>
+</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var search = document.getElementById('name-search');
+    var sectionFilter = document.getElementById('section-filter');
+    var statusFilter = document.getElementById('status-filter');
+    var rows = document.querySelectorAll('.referral-row');
+    var visibleCount = document.getElementById('visible-count');
+    var studentsTotal = document.getElementById('students-total');
+    var actionsTotal = document.getElementById('actions-total');
+    var clearFiltersBtn = document.getElementById('clear-filters');
+
+    function applyFilters() {
+        var term = search ? search.value.trim().toLowerCase() : '';
+        var section = sectionFilter ? sectionFilter.value : '';
+        var status = statusFilter ? statusFilter.value : '';
+        var shown = 0;
+        var students = new Set();
+        var actionsShown = 0;
+        rows.forEach(function (row) {
+            var matches = row.dataset.name.indexOf(term) !== -1
+                && (!status || row.dataset.status === status)
+                && (section !== 'unassigned' || row.dataset.unassigned === 'true')
+                && (section !== 'due_follow_up' || row.dataset.dueFollowUp === 'true');
+            row.style.display = matches ? '' : 'none';
+            if (matches) {
+                shown++;
+                students.add(row.dataset.studentId);
+                actionsShown += Number(row.dataset.actionsCount) || 0;
+            }
+        });
+        if (visibleCount) visibleCount.textContent = shown;
+        if (studentsTotal) studentsTotal.textContent = students.size;
+        if (actionsTotal) actionsTotal.textContent = actionsShown;
+    }
+
+    function clearFilters() {
+        if (search) search.value = '';
+        if (sectionFilter) sectionFilter.value = '';
+        if (statusFilter) statusFilter.value = '';
+        applyFilters();
+    }
+
+    // Arriving from a student's "Referrals" button pre-fills the name search
+    // with that student so this page opens already scoped to them.
+    var params = new URLSearchParams(window.location.search);
+    var name = params.get('name');
+    if (name && search) search.value = name;
+
+    if (search) search.addEventListener('input', applyFilters);
+    if (sectionFilter) sectionFilter.addEventListener('change', applyFilters);
+    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
+    if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
+
+    applyFilters();
+});
+</script>
+{% endblock %}

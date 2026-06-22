@@ -1,0 +1,17 @@
+﻿<div class="modal-header">
+    <h2>{% if is_edit %}Edit Referral{% else %}New Referral{% endif %}</h2>
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+</div>
+<div class="modal-body">
+    <form method="post" action="{% url 'inclusion_panel_referral_new' %}" class="{% if not selected_student %}is-picking-student{% endif %}" data-referral-modal-form>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+
+        {% include 'hubs/inclusion/panel/_referral_form_fields.html' %}
+
+        <div class="btn-row">
+            <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+            <button type="submit" class="btn btn-add btn-sm" data-referral-save>{% if is_edit %}Save Changes{% else %}Save Referral{% endif %}</button>
+        </div>
+    </form>
+</div>
