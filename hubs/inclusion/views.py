@@ -566,6 +566,13 @@ def inclusion_panel_meeting_start(request, panel_id):
     return redirect('inclusion_panel_meetings')
 
 
+def inclusion_panel_meeting_delete(request, panel_id):
+    panel = get_object_or_404(Panel, pk=panel_id)
+    if request.method == 'POST' and panel.started_at is None and panel.date >= timezone.localdate():
+        panel.delete()
+    return redirect('inclusion_panel_meetings')
+
+
 def inclusion_panel_meeting_setup(request, panel_id):
     panel = get_object_or_404(Panel, pk=panel_id)
 

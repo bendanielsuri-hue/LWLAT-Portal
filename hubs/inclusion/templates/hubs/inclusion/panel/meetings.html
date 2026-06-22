@@ -4,7 +4,7 @@
 {% block title %}Panel Meetings{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=12">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=19">
 {% endblock %}
 
 
@@ -44,7 +44,7 @@
         <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Create New Panel</button>
     </form>
 </div>
-<div class="list-card">
+<div class="list-card meetings-list-card">
 <div class="tab-row">
     {% if upcoming_meetings %}<button type="button" data-meetings-tab="upcoming">Upcoming ({{ upcoming_meetings|length }})</button>{% endif %}
     {% if past_meetings %}<button type="button" data-meetings-tab="past">Past ({{ past_meetings|length }})</button>{% endif %}
@@ -55,22 +55,29 @@
     <div class="meeting-card selectable" tabindex="0" role="button" aria-pressed="false">
         <div>
             <h3>
-                Panel: {{ m.panel.date }}
+                Panel: {{ m.panel.panel_group.name|default:"Unassigned Group" }}
                 {% if m.is_next %}<span class="next-badge">Next panel</span>{% endif %}
                 {% if m.panel.date == today %}<span class="status-pill in_panel">Today</span>{% endif %}
                 {% if not m.referral_count %}<span class="status-pill" title="No referrals assigned yet">Needs referrals</span>{% endif %}
+                <span class="status-pill{% if m.panel.status == 'upcoming' %} upcoming{% elif m.panel.status == 'complete' %} complete{% endif %}">{{ m.panel.get_status_display }}</span>
             </h3>
-            <div class="chair">Chair: {{ m.panel.chair|default:"—" }}</div>
+            <div class="chair">{{ m.panel.date }} &middot; Chair: {{ m.panel.chair|default:"—" }}</div>
             <div class="chair">{{ m.referral_count }} referral{{ m.referral_count|pluralize }} &middot; {{ m.member_count }} member{{ m.member_count|pluralize }}{% if m.discussed_count %} &middot; {{ m.discussed_count }} discussed{% endif %}</div>
         </div>
         <div class="btn-row">
-            <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</a>
             {% if m.panel.date < today %}
-            <span class="btn btn-primary btn-sm btn-disabled" aria-disabled="true">Start Panel</span>
+            <span class="btn btn-start btn-sm btn-disabled" aria-disabled="true"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Panel</span>
             {% else %}
             <form method="post" action="{% url 'inclusion_panel_meeting_start' m.panel.id %}" style="display:inline">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm">Start Panel</button>
+                <button type="submit" class="btn btn-start btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Panel</button>
+            </form>
+            {% endif %}
+            <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</a>
+            {% if not m.panel.started_at %}
+            <form method="post" action="{% url 'inclusion_panel_meeting_delete' m.panel.id %}" onsubmit="return confirm('Delete this panel meeting? This cannot be undone.');" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
             </form>
             {% endif %}
         </div>

@@ -26,6 +26,7 @@ urlpatterns = [
     path('panel/meetings/', views.inclusion_panel_meetings, name='inclusion_panel_meetings'),
     path('panel/meetings/new/', views.inclusion_panel_meeting_new, name='inclusion_panel_meeting_new'),
     path('panel/meetings/<int:panel_id>/start/', views.inclusion_panel_meeting_start, name='inclusion_panel_meeting_start'),
+    path('panel/meetings/<int:panel_id>/delete/', views.inclusion_panel_meeting_delete, name='inclusion_panel_meeting_delete'),
     path('panel/meetings/<int:panel_id>/setup/', views.inclusion_panel_meeting_setup, name='inclusion_panel_meeting_setup'),
     path('panel/meetings/<int:panel_id>/agenda/', views.inclusion_panel_meeting_agenda, name='inclusion_panel_meeting_agenda'),
     path('panel/meetings/discussion/<int:panel_referral_id>/', views.inclusion_panel_discussion, name='inclusion_panel_discussion'),

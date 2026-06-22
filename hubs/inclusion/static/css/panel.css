@@ -193,6 +193,7 @@
 }
 
 .status-pill.open { background: var(--warning-bg); color: var(--warning); }
+.status-pill.upcoming { background: var(--warning-bg); color: var(--warning); }
 .status-pill.in_panel { background: var(--primary-light); color: var(--primary); }
 .status-pill.closed { background: var(--success-bg); color: var(--success); }
 .status-pill.discussed { background: var(--success-bg); color: var(--success); }
@@ -201,19 +202,22 @@
    cards, so there's no extra trailing space after the last one. */
 .meeting-list { display: flex; flex-direction: column; gap: 12px; }
 .meeting-card {
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
     padding: 16px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 16px;
-    background: var(--bg-surface);
+    background: var(--bg-well);
+    box-shadow: var(--shadow-sm);
     flex-wrap: wrap;
 }
 .meeting-card h3 { font-size: var(--font-lg); margin-bottom: 4px; }
+.meeting-card:hover { border-color: var(--text-secondary); }
+.meeting-card:hover h3 { font-weight: 700; }
 .meeting-card .chair { font-size: var(--font-sm); color: var(--text-secondary); }
-.meeting-card.chosen { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+.meeting-card.chosen { border-color: var(--primary); box-shadow: var(--shadow-sm), 0 0 0 2px var(--primary-light); }
 
 /* Panel Meetings' own action card: at-a-glance stats + "Create New Panel",
    sitting as its own bordered card above the tab-row/meeting-list card
@@ -253,14 +257,22 @@
 .mini-stat-value.warning { color: var(--warning); }
 .mini-stat-label { font-size: var(--font-sm); color: var(--text-secondary); }
 
-/* Alignment note: tab text sits at margin-left(4) + the tab button's own
-   16px padding = 20px from the list-card edge. .meeting-card text should
-   line up with that same 20px, so .meeting-list only contributes 4px of
-   outer padding here and .meeting-card's own 16px padding makes up the
-   rest (4 + 16 = 20) — instead of both adding a full 20px each, which
-   pushed the card text twice as far in as the tab text above it. */
-.list-card .tab-row { flex-shrink: 0; margin-left: 4px; }
-.list-card .meeting-list { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 4px; }
+/* Alignment note: tab text sits at margin-left(16) + the tab button's own
+   16px padding = 32px from the list-card edge. .meeting-card text should
+   line up with that same 16px outer padding, so .meeting-list uses 16px
+   left/right padding to give the cards proper breathing room from the
+   list-card edges. */
+.list-card .tab-row { flex-shrink: 0; margin-left: 16px; }
+.list-card .meeting-list { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px; }
+
+/* Panel Meetings only: extra left/right breathing room around the cards.
+   Scoped to .meetings-list-card (rather than changing the shared rules
+   above) so Students/Referrals/Actions tab rows keep their 16px margin.
+   Tab text now sits at margin-left(24) + the tab's own 16px padding = 40px
+   from the list-card edge, matching .meeting-list's 24px padding + the
+   meeting-card's own 16px padding. */
+.meetings-list-card .tab-row { margin-left: 24px; }
+.meetings-list-card .meeting-list { padding: 16px 24px; }
 
 /* Multi-column setup/discussion layouts */
 .setup-columns, .discussion-columns {
@@ -351,7 +363,16 @@
 .agenda-preview-item .meta { font-size: var(--font-sm); color: var(--text-secondary); }
 .agenda-remove { background: transparent; border: none; cursor: pointer; color: var(--text-faint); flex-shrink: 0; }
 .agenda-remove:hover { color: var(--primary); }
-.empty-note { color: var(--text-muted); text-align: center; padding: 20px 0; font-size: var(--font-base); }
+.empty-note {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 40px 0;
+    font-size: var(--font-xl);
+}
 
 /* Panel Agenda page */
 .agenda-section { margin-bottom: 28px; }
