@@ -1,0 +1,50 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Expertise{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=13">
+{% endblock %}
+
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<span>Expertise</span>
+{% endblock %}
+
+{% block page_title %}Expertise{% endblock %}
+
+{% block content %}
+{% include 'hubs/inclusion/panel/_settings_tabs.html' %}
+<p>Expertise tags describe a panel group member's specialty (SEND, Pastoral, Safeguarding, etc.) and are shown alongside their name on panel group rosters.</p>
+
+<details class="settings-section" open>
+    <summary>Expertise Tags</summary>
+    <div class="settings-body">
+        {% for e in expertise_list %}
+        <div class="settings-row">
+            <span>{{ e.name }}</span>
+            <form method="post" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="deactivate_expertise">
+                <input type="hidden" name="expertise_id" value="{{ e.id }}">
+                <button type="submit" class="btn btn-sm">Deactivate</button>
+            </form>
+        </div>
+        {% empty %}
+        <p class="empty-note">No expertise tags yet.</p>
+        {% endfor %}
+        <form method="post" class="field-group" style="margin-top:14px">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_expertise">
+            <label>Name</label>
+            <input type="text" name="name" placeholder="e.g. SEND" required>
+            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add Expertise</button>
+        </form>
+    </div>
+</details>
+{% endblock %}

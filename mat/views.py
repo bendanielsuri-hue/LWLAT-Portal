@@ -4,22 +4,25 @@ from django.urls import reverse
 from core.models import School
 
 AGGREGATE_ENTRIES = [
-    {'name': 'All Schools', 'category': None, 'aggregate': True},
-    {'name': 'All Primary', 'category': 'Primary', 'aggregate': True},
-    {'name': 'All Secondary', 'category': 'Secondary', 'aggregate': True},
+    {'name': 'All Schools', 'category': None, 'aggregate': True, 'key': 'all'},
+    {'name': 'All Primary', 'category': 'Primary', 'aggregate': True, 'key': 'primary'},
+    {'name': 'All Secondary', 'category': 'Secondary', 'aggregate': True, 'key': 'secondary'},
 ]
 
 
-def build_school_nav():
-    schools = [AGGREGATE_ENTRIES[0]]
+def build_school_nav(selected_key='all'):
+    schools = [dict(AGGREGATE_ENTRIES[0])]
     for category, aggregate_entry in (('Primary', AGGREGATE_ENTRIES[1]), ('Secondary', AGGREGATE_ENTRIES[2])):
         category_schools = School.objects.filter(category=category, is_active=True)
         if not category_schools.exists():
             continue
-        schools.append(aggregate_entry)
+        schools.append(dict(aggregate_entry))
         schools.extend(
-            {'name': school.name, 'category': category, 'aggregate': False} for school in category_schools
+            {'name': school.name, 'category': category, 'aggregate': False, 'key': str(school.id)}
+            for school in category_schools
         )
+    for entry in schools:
+        entry['selected'] = entry['key'] == selected_key
     return schools
 
 

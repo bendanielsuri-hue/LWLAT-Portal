@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 
+from core.management.commands.seed_dummy_data import MAT_STAFF_CODES
 from core.models import School, Staff, Student
 
 SCHOOLS = [
@@ -28,13 +29,17 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Schools in DB: {School.objects.count()}'))
 
         staff_updated = 0
-        for i, staff in enumerate(Staff.objects.order_by('id')):
+        school_staff = [s for s in Staff.objects.order_by('id') if s.staff_code not in MAT_STAFF_CODES]
+        for i, staff in enumerate(school_staff):
             school = schools[i % len(schools)]
             if staff.school_id != school.id:
                 staff.school = school
                 staff.save(update_fields=['school'])
                 staff_updated += 1
-        self.stdout.write(self.style.SUCCESS(f'Staff assigned to a school: {staff_updated} updated.'))
+        mat_updated = Staff.objects.filter(staff_code__in=MAT_STAFF_CODES).exclude(school=None).update(school=None)
+        self.stdout.write(self.style.SUCCESS(
+            f'Staff assigned to a school: {staff_updated} updated ({mat_updated} reset to MAT-wide).'
+        ))
 
         student_updated = 0
         for i, student in enumerate(Student.objects.order_by('id')):

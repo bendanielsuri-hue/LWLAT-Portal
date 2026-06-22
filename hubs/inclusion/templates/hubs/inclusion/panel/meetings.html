@@ -4,7 +4,7 @@
 {% block title %}Panel Meetings{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=19">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=20">
 {% endblock %}
 
 
@@ -39,10 +39,7 @@
             <span class="mini-stat-label">Needing referrals</span>
         </div>
     </div>
-    <form method="post" action="{% url 'inclusion_panel_meeting_new' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Create New Panel</button>
-    </form>
+    <button type="button" class="btn btn-add btn-sm" data-create-panel-trigger>{% include 'icons/new_svg.html' %} Create New Panel</button>
 </div>
 <div class="list-card meetings-list-card">
 <div class="tab-row">
@@ -61,7 +58,7 @@
                 {% if not m.referral_count %}<span class="status-pill" title="No referrals assigned yet">Needs referrals</span>{% endif %}
                 <span class="status-pill{% if m.panel.status == 'upcoming' %} upcoming{% elif m.panel.status == 'complete' %} complete{% endif %}">{{ m.panel.get_status_display }}</span>
             </h3>
-            <div class="chair">{{ m.panel.date }} &middot; Chair: {{ m.panel.chair|default:"—" }}</div>
+            <div class="chair">{{ m.panel.date }}{% if m.panel.time %} at {{ m.panel.time|time:'H:i' }}{% endif %} &middot; Chair: {{ m.panel.chair|default:"—" }}</div>
             <div class="chair">{{ m.referral_count }} referral{{ m.referral_count|pluralize }} &middot; {{ m.member_count }} member{{ m.member_count|pluralize }}{% if m.discussed_count %} &middot; {{ m.discussed_count }} discussed{% endif %}</div>
         </div>
         <div class="btn-row">

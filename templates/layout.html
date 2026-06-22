@@ -29,35 +29,60 @@
     <div class="page-shell">
         <nav class="side-nav global-nav overlay-nav" id="global-nav-overlay" data-hub="global">
             <div class="nav-header">
-                <button type="button" class="nav-close-btn" aria-label="Close hub switcher">✕ Close</button>
                 <div class="nav-title">Change Hub</div>
             </div>
-            <div class="nav-search">
-                <div class="app-search">
-                    <input type="text" class="app-search-input" id="nav-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
-                    <div class="app-search-results hidden" id="nav-app-search-results" role="listbox"></div>
+            <div class="nav-scroll">
+                <div class="nav-search">
+                    <div class="app-search">
+                        <input type="text" class="app-search-input" id="nav-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
+                        <div class="app-search-results hidden" id="nav-app-search-results" role="listbox"></div>
+                    </div>
                 </div>
+                <ul>
+                    <li><a href="{% url 'homepage' %}" class="{% if request.path == '/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/house_svg.html' %}</span><span class="menu-label">LWLAT Portal</span></a></li>
+                    <li><a href="{% url 'staff_hub' %}" class="{% if request.path|starts_with:'/staff/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/staff_svg.html' %}</span><span class="menu-label">Staff</span></a></li>
+                    <li><a href="{% url 'student_hub' %}" class="{% if request.path|starts_with:'/student/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/student_svg.html' %}</span><span class="menu-label">Student</span></a></li>
+                    <li><a href="{% url 'services' %}" class="{% if request.path|starts_with:'/services/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/services_svg.html' %}</span><span class="menu-label">Operations</span></a></li>
+                    <li><a href="{% url 'registers' %}" class="{% if request.path|starts_with:'/registers/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/registers_svg.html' %}</span><span class="menu-label">Registers</span></a></li>
+                    <li><a href="{% url 'resources_hub' %}" class="{% if request.path|starts_with:'/resources/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/resources_svg.html' %}</span><span class="menu-label">Resources</span></a></li>
+                    <li><a href="{% url 'inclusion_hub' %}" class="{% if request.path|starts_with:'/inclusion/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/send_svg.html' %}</span><span class="menu-label">SEND & Provision</span></a></li>
+                    <li><a href="{% url 'careers_hub' %}" class="{% if request.path|starts_with:'/careers/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/careers_svg.html' %}</span><span class="menu-label">Careers</span></a></li>
+                </ul>
             </div>
-            <ul>
-                <li><a href="{% url 'homepage' %}" class="{% if request.path == '/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/house_svg.html' %}</span><span class="menu-label">LWLAT Portal</span></a></li>
-                <li><a href="{% url 'staff_hub' %}" class="{% if request.path|starts_with:'/staff/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/staff_svg.html' %}</span><span class="menu-label">Staff</span></a></li>
-                <li><a href="{% url 'student_hub' %}" class="{% if request.path|starts_with:'/student/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/student_svg.html' %}</span><span class="menu-label">Student</span></a></li>
-                <li><a href="{% url 'services' %}" class="{% if request.path|starts_with:'/services/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/services_svg.html' %}</span><span class="menu-label">Operations</span></a></li>
-                <li><a href="{% url 'registers' %}" class="{% if request.path|starts_with:'/registers/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/registers_svg.html' %}</span><span class="menu-label">Registers</span></a></li>
-                <li><a href="{% url 'resources_hub' %}" class="{% if request.path|starts_with:'/resources/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/resources_svg.html' %}</span><span class="menu-label">Resources</span></a></li>
-                <li><a href="{% url 'inclusion_hub' %}" class="{% if request.path|starts_with:'/inclusion/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/send_svg.html' %}</span><span class="menu-label">SEND & Provision</span></a></li>
-                <li><a href="{% url 'careers_hub' %}" class="{% if request.path|starts_with:'/careers/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/careers_svg.html' %}</span><span class="menu-label">Careers</span></a></li>
-            </ul>
+            <div class="nav-footer">
+                <button type="button" class="nav-close-btn" aria-label="Close hub switcher">✕ Close</button>
+            </div>
         </nav>
 
         {% if not home_inline_panels %}
         <nav class="side-nav school-nav overlay-nav" id="school-nav-overlay" data-hub="school">
             <div class="nav-header">
-                <button type="button" class="nav-close-btn" aria-label="Close school switcher">✕ Close</button>
                 <div class="nav-title">Change School</div>
             </div>
-            {% include '_school_list.html' %}
+            <div class="nav-scroll">
+                {% include '_school_list.html' %}
+            </div>
+            <div class="nav-footer">
+                <button type="button" class="nav-close-btn" aria-label="Close school switcher">✕ Close</button>
+            </div>
         </nav>
+
+        {% if current_staff_list %}
+        <nav class="side-nav staff-nav overlay-nav" id="staff-nav-overlay" data-hub="staff">
+            <div class="nav-header">
+                <div class="nav-title">Change User</div>
+            </div>
+            <div class="nav-scroll">
+                <div class="nav-search">
+                    <input type="text" class="app-search-input identity-search-input" placeholder="Search staff…" aria-label="Search staff">
+                </div>
+                {% include '_staff_list.html' %}
+            </div>
+            <div class="nav-footer">
+                <button type="button" class="nav-close-btn" aria-label="Close user switcher">✕ Close</button>
+            </div>
+        </nav>
+        {% endif %}
 
         {% include '_settings_panel.html' %}
         {% endif %}
@@ -71,9 +96,12 @@
                         <nav class="breadcrumbs">
                             {% block breadcrumbs %}{% endblock %}
                         </nav>
-                        <div class="page-heading">
-                            <h1>{% block page_title %}{% endblock %}</h1>
-                            {% block page_subtitle %}{% endblock %}
+                        <div class="page-heading-wrap">
+                            {% block page_back %}{% endblock %}
+                            <div class="page-heading">
+                                <h1>{% block page_title %}{% endblock %}</h1>
+                                {% block page_subtitle %}{% endblock %}
+                            </div>
                         </div>
                     </div>
                     <div class="page-header-extras">

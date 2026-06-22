@@ -1,0 +1,26 @@
+<div class="modal-header">
+    <h2>Create Panel</h2>
+</div>
+<div class="modal-body">
+    <form method="post" action="{% url 'inclusion_panel_meeting_new' %}" class="field-group" data-panel-meeting-modal-form>
+        {% csrf_token %}
+        <label>Panel Group</label>
+        <select name="panel_group" id="new-panel-group" required data-current-staff-school="{{ current_staff.school_id|default:'' }}">
+            <option value="">Select a group…</option>
+            {% for group in panel_groups %}
+            <option value="{{ group.id }}" data-school="{{ group.school_id|default:'' }}" data-school-name="{{ group.school.name|default:'' }}">{{ group.name }}{% if not group.school_id %} (No school){% endif %}</option>
+            {% endfor %}
+        </select>
+
+        <label>Date</label>
+        <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required>
+
+        <label>Time</label>
+        <input type="time" name="time" required>
+
+        <div class="btn-row">
+            <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+            <button type="submit" class="btn btn-add btn-sm" data-create-panel-save disabled>{% include 'icons/new_svg.html' %} Create Panel</button>
+        </div>
+    </form>
+</div>

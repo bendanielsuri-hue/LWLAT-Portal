@@ -78,6 +78,18 @@ class StudentNote(models.Model):
         return f'Note on {self.student} ({self.created_at:%Y-%m-%d})'
 
 
+class Expertise(models.Model):
+    name = models.CharField(max_length=100)
+    order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['order', 'name']
+
+    def __str__(self):
+        return self.name
+
+
 class PanelGroup(models.Model):
     name = models.CharField(max_length=100)
     school = models.ForeignKey(
@@ -91,11 +103,9 @@ class PanelGroup(models.Model):
 
 
 class PanelGroupMember(models.Model):
-    ROLE_CHOICES = [('chair', 'Chair'), ('member', 'Member'), ('note_taker', 'Note Taker'), ('other', 'Other')]
-
     panel_group = models.ForeignKey(PanelGroup, on_delete=models.CASCADE, related_name='members')
     staff = models.ForeignKey('core.Staff', on_delete=models.CASCADE)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
+    expertise = models.ForeignKey(Expertise, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
 
     class Meta:
         unique_together = [('panel_group', 'staff')]
@@ -108,6 +118,7 @@ class Panel(models.Model):
     STATUS_CHOICES = [('upcoming', 'Upcoming'), ('complete', 'Complete')]
 
     date = models.DateField()
+    time = models.TimeField(null=True, blank=True)
     chair = models.ForeignKey('core.Staff', null=True, blank=True, related_name='chaired_panels', on_delete=models.SET_NULL)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='upcoming')
     panel_group = models.ForeignKey(PanelGroup, null=True, blank=True, on_delete=models.SET_NULL, related_name='panels')
@@ -121,18 +132,17 @@ class Panel(models.Model):
 
 
 class PanelMember(models.Model):
-    ROLE_CHOICES = [('chair', 'Chair'), ('member', 'Member'), ('note_taker', 'Note Taker'), ('other', 'Other')]
-
     panel = models.ForeignKey(Panel, on_delete=models.CASCADE, related_name='members')
-    staff = models.ForeignKey('core.Staff', on_delete=models.CASCADE)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
+    staff = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.CASCADE)
+    guest_name = models.CharField(max_length=150, blank=True)
+    expertise = models.ForeignKey(Expertise, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     attended = models.BooleanField(default=True)
 
     class Meta:
         unique_together = [('panel', 'staff')]
 
     def __str__(self):
-        return f'{self.staff} on {self.panel}'
+        return str(self.staff) if self.staff_id else (self.guest_name or 'Guest')
 
 
 class PanelReferral(models.Model):

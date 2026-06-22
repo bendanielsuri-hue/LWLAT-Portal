@@ -15,39 +15,28 @@
         {% endif %}
         <div class="nav-title">{{ hub_title }}</div>
     </div>
-    <ul class="nav-menu">
-        {% for item in local_menu %}
-            <li><a href="{{ item.url }}" class="{% active_menu_item request.path item local_menu %}"><span class="menu-icon">{% include item.icon %}</span><span class="menu-label">{{ item.name }}</span></a></li>
-        {% endfor %}
-    </ul>
+    <div class="nav-scroll">
+        <ul class="nav-menu">
+            {% for item in local_menu %}
+                <li><a href="{{ item.url }}" class="{% active_menu_item request.path item local_menu %}"><span class="menu-icon">{% include item.icon %}</span><span class="menu-label">{{ item.name }}</span></a></li>
+            {% endfor %}
+        </ul>
+    </div>
     <div class="nav-footer">
         <button type="button" class="switch-school nav-row-btn" data-overlay-target="#school-nav-overlay">
             <span class="menu-icon">{% include 'icons/school_logo_placeholder_svg.html' %}</span>
-            <span class="menu-label school-current-label">{{ schools.0.name }}</span>
+            <span class="menu-label school-current-label">{{ current_school_label }}</span>
         </button>
         {% if current_staff_list %}
         <div class="nav-footer-divider"></div>
-        <details class="nav-row-dropdown" id="current-staff-switcher">
-            <summary class="nav-row-btn current-user-trigger">
-                <span class="menu-icon">{% include 'icons/avatar_placeholder_svg.html' %}</span>
-                <span class="menu-label-stack">
-                    <span class="user-name">{{ current_staff.first_name }} {{ current_staff.last_name }}</span>
-                    <span class="user-role">{{ current_staff.job_title }}</span>
-                </span>
-            </summary>
-            <ul class="nav-row-dropdown-list">
-                {% for staff in current_staff_list %}
-                <li>
-                    <button type="button" class="identity-option{% if staff.id|stringformat:'s' == current_staff_id %} selected{% endif %}" data-staff-id="{{ staff.id }}">
-                        <span class="menu-label-stack">
-                            <span class="user-name">{{ staff.first_name }} {{ staff.last_name }}</span>
-                            <span class="user-role">{{ staff.job_title }}</span>
-                        </span>
-                    </button>
-                </li>
-                {% endfor %}
-            </ul>
-        </details>
+        <button type="button" class="switch-staff nav-row-btn current-user-trigger" data-overlay-target="#staff-nav-overlay">
+            <span class="menu-icon">{% include 'icons/avatar_placeholder_svg.html' %}</span>
+            <span class="menu-label-stack">
+                <span class="user-name">{{ current_staff.first_name }} {{ current_staff.last_name }}</span>
+                <span class="user-school">{{ current_staff.school.name|default:'MAT' }}</span>
+                <span class="user-role">{{ current_staff.job_title }}</span>
+            </span>
+        </button>
         <div class="nav-footer-divider"></div>
         {% endif %}
         <button type="button" class="nav-row-btn settings-trigger" data-overlay-target="#settings-nav-overlay" aria-label="Settings">

@@ -1,3 +1,18 @@
+// Resolves which school's Panel Groups should be shown, without a page-local
+// School dropdown: the sidebar's School switcher (localStorage 'pref-school',
+// a school name — set by main.js) is the source of truth once it has run.
+// "All Schools"/"All Primary"/"All Secondary" explicitly mean "no filter" —
+// only a genuinely-unset pref-school (shouldn't normally happen) falls back
+// to the current identity's own school.
+window.resolvePanelSchoolFilter = function (groupOptions, currentStaffSchoolId) {
+    var prefSchool;
+    try { prefSchool = localStorage.getItem('pref-school'); } catch (e) { }
+    if (!prefSchool) return currentStaffSchoolId || '';
+    if (prefSchool.indexOf('All ') === 0) return '';
+    var match = groupOptions.filter(function (opt) { return opt.dataset.schoolName === prefSchool; })[0];
+    return match ? match.dataset.school : (currentStaffSchoolId || '');
+};
+
 (function () {
     var dialog = document.getElementById('new-referral-dialog');
     if (!dialog) return;
@@ -159,6 +174,152 @@
                 if (data.success) {
                     closeModal();
                     window.location.reload();
+                }
+            });
+    });
+})();
+
+(function () {
+    var dialog = document.getElementById('panel-group-dialog');
+    if (!dialog) return;
+
+    function getModalDuration() {
+        return parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 250;
+    }
+
+    function closeModal() {
+        dialog.classList.remove('is-open');
+        setTimeout(function () { dialog.close(); }, getModalDuration());
+    }
+
+    function wireAddMemberRow() {
+        var addBtn = dialog.querySelector('[data-add-member-row]');
+        var rows = dialog.querySelector('[data-member-rows]');
+        if (!addBtn || !rows) return;
+        addBtn.addEventListener('click', function () {
+            var lastRow = rows.querySelector('.panel-group-member-row:last-child');
+            if (!lastRow) return;
+            var clone = lastRow.cloneNode(true);
+            clone.querySelectorAll('select').forEach(function (select) { select.selectedIndex = 0; });
+            rows.appendChild(clone);
+        });
+    }
+
+    window.openPanelGroupModal = function (schoolId) {
+        var url = '/inclusion/panel/groups/new/?';
+        if (schoolId) url += 'school=' + encodeURIComponent(schoolId);
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.text(); })
+            .then(function (html) {
+                dialog.innerHTML = html;
+                wireAddMemberRow();
+                dialog.showModal();
+                requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+            });
+    };
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-group-dialog')) {
+            closeModal();
+        }
+    });
+
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog) closeModal();
+    });
+
+    dialog.addEventListener('submit', function (e) {
+        var form = e.target.closest('[data-panel-group-modal-form]');
+        if (!form) return;
+        e.preventDefault();
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form),
+        }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    closeModal();
+                    document.dispatchEvent(new CustomEvent('panel-group:created', { detail: data.group }));
+                }
+            });
+    });
+})();
+
+(function () {
+    var dialog = document.getElementById('panel-meeting-dialog');
+    if (!dialog) return;
+
+    function getModalDuration() {
+        return parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 250;
+    }
+
+    function closeModal() {
+        dialog.classList.remove('is-open');
+        setTimeout(function () { dialog.close(); }, getModalDuration());
+    }
+
+    function wireGroupFilter() {
+        var groupSelect = dialog.querySelector('#new-panel-group');
+        if (!groupSelect) return;
+        var options = Array.prototype.slice.call(groupSelect.options).filter(function (opt) { return opt.value; });
+        var schoolId = window.resolvePanelSchoolFilter(options, groupSelect.dataset.currentStaffSchool);
+        if (!schoolId) return;
+        options.forEach(function (opt) {
+            if (opt.dataset.school !== schoolId) opt.remove();
+        });
+    }
+
+    function wireRequiredFields() {
+        var form = dialog.querySelector('[data-panel-meeting-modal-form]');
+        var saveBtn = dialog.querySelector('[data-create-panel-save]');
+        if (!form || !saveBtn) return;
+        function updateSaveState() { saveBtn.disabled = !form.checkValidity(); }
+        form.addEventListener('input', updateSaveState);
+        form.addEventListener('change', updateSaveState);
+        updateSaveState();
+    }
+
+    window.openPanelMeetingModal = function () {
+        fetch('/inclusion/panel/meetings/new/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.text(); })
+            .then(function (html) {
+                dialog.innerHTML = html;
+                wireGroupFilter();
+                wireRequiredFields();
+                dialog.showModal();
+                requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+            });
+    };
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-create-panel-trigger]')) {
+            window.openPanelMeetingModal();
+            return;
+        }
+        if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-meeting-dialog')) {
+            closeModal();
+        }
+    });
+
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog) closeModal();
+    });
+
+    dialog.addEventListener('submit', function (e) {
+        var form = e.target.closest('[data-panel-meeting-modal-form]');
+        if (!form) return;
+        e.preventDefault();
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form),
+        }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    window.location = data.redirect;
                 }
             });
     });

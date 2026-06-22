@@ -168,18 +168,40 @@ html, body {
     overflow: hidden;
 }
 
+/* The nav itself never scrolls — it's a fixed-height column split into a
+   static header, a static footer, and a `.nav-scroll` middle region that
+   scrolls on its own. That keeps the title and the close/footer buttons
+   pinned in view even when the menu/list between them is taller than the
+   viewport. */
 .side-nav {
     width: 240px;
     flex-shrink: 0;
     height: 100%;
-    overflow-y: auto;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: 24px 20px;
     background-color: var(--bg-nav);
     border-right: 1px solid var(--border-color);
 }
 .side-nav { transition: transform var(--transition-slide), box-shadow var(--transition-slide), background-color var(--transition-base), border-color var(--transition-base); }
+
+.side-nav .nav-header {
+    flex-shrink: 0;
+    padding: 24px 20px 16px;
+}
+.side-nav .nav-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px 20px;
+}
+.side-nav .nav-footer {
+    flex-shrink: 0;
+    padding: 16px 20px 24px;
+}
 
 /* Overlay sidebars ("Change Hub", "Change School", "Settings") sit fixed in the same
    spot as the regular hub sidebar, but elevated above it — opening one covers the
@@ -193,7 +215,7 @@ html, body {
     transform: translateX(-100%);
     transition: transform var(--transition-slide), box-shadow var(--transition-slide);
     z-index: 50;
-    background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+    background-color: var(--bg-nav);
     border-right: 1px solid var(--border-color);
 }
 .side-nav.overlay-nav.open {
@@ -230,7 +252,9 @@ html, body {
 
 .side-nav a,
 .side-nav .school-nav-option,
+.side-nav .staff-nav-option,
 .side-nav .nav-row-btn {
+    position: relative;
     display: flex;
     align-items: center;
     width: 100%;
@@ -244,51 +268,25 @@ html, body {
     padding: 6px 8px;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background-color var(--transition-fast), transform var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
 }
 
-/* Hover is a quiet nudge — a softer tint than the bolder "selected" state below,
-   plus a tiny shift so it doesn't feel static. */
-.side-nav a:hover,
-.side-nav .school-nav-option:hover,
+/* Action-trigger rows (Change Hub/School/Settings/User) have no selected
+   state of their own, so hover is a quiet background nudge instead of the
+   left-bar treatment below. */
 .side-nav .nav-row-btn:hover {
     background: var(--bg-surface-alt);
     transform: translateX(3px);
     font-weight: 600;
 }
 
-.side-nav a.active,
-.side-nav .school-nav-option.selected {
-    background: var(--primary-light);
-    color: var(--active-text);
-    font-weight: 600;
-    box-shadow: inset 3px 0 0 var(--primary);
-}
-
-/* The hub sidebar's local menu (nav-menu) has no gaps between items — spacing comes
-   from padding instead — and keeps the original full-pill shape. No background
-   change on hover/selected: instead a left-edge rectangle indicates state — grey
-   for hover, purple for the selected item (hovering the selected item stays purple,
-   it doesn't turn grey). */
-.side-nav .nav-menu a {
-    position: relative;
-    padding: 11px 14px;
-    border-radius: var(--radius-sm);
-}
-
-.side-nav .nav-menu a:hover {
-    background: transparent;
-    color: var(--text-primary);
-    box-shadow: none;
-}
-
-.side-nav .nav-menu a.active {
-    background: transparent;
-    color: var(--primary);
-    box-shadow: none;
-}
-
-.side-nav .nav-menu a::before {
+/* Every selectable row (menu links, school/staff options) shares one
+   left-edge accent bar to show hover/selected state instead of a
+   background fill — grey for hover, purple for the active/selected item
+   (hovering the selected item stays purple, it doesn't turn grey). */
+.side-nav a::before,
+.side-nav .school-nav-option::before,
+.side-nav .staff-nav-option::before {
     content: '';
     position: absolute;
     left: 3px;
@@ -303,20 +301,42 @@ html, body {
     transition: opacity var(--transition-base), background-color var(--transition-base), transform var(--transition-pop);
 }
 
-.side-nav .nav-menu a:hover::before {
+.side-nav a:hover,
+.side-nav .school-nav-option:hover,
+.side-nav .staff-nav-option:hover {
+    font-weight: 600;
+}
+.side-nav a:hover::before,
+.side-nav .school-nav-option:hover::before,
+.side-nav .staff-nav-option:hover::before {
     opacity: 1;
     transform: scaleY(1);
 }
 
-.side-nav .nav-menu a.active::before {
+.side-nav a.active,
+.side-nav .school-nav-option.selected,
+.side-nav .staff-nav-option.selected {
+    color: var(--primary);
+    font-weight: 600;
+}
+.side-nav a.active::before,
+.side-nav .school-nav-option.selected::before,
+.side-nav .staff-nav-option.selected::before {
     opacity: 1;
     transform: scaleY(1);
     background: var(--primary);
 }
+.side-nav .staff-nav-option.selected .user-name {
+    color: var(--primary);
+}
+
+/* The hub sidebar's local menu (nav-menu) has no gaps between items — spacing
+   comes from padding instead — and keeps the original full-pill shape. */
+.side-nav .nav-menu a {
+    padding: 11px 14px;
+}
 
 .nav-footer {
-    margin-top: auto;
-    padding-top: 16px;
     border-top: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
@@ -327,7 +347,8 @@ html, body {
     color: var(--text-faint);
 }
 
-.school-nav-divider {
+.school-nav-divider,
+.staff-nav-divider {
     border-top: 1px solid var(--border-color);
     margin: 2px 4px;
 }
@@ -624,7 +645,7 @@ a { color: inherit; }
 .side-nav .menu-icon svg { width: 20px; height: 20px; display: block; }
 .side-nav .menu-icon img { width: 20px; height: 20px; display: block; }
 .side-nav .menu-label { flex: 1; min-width: 0; display: block; white-space: normal; line-height: 22px; }
-.nav-header { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap:12px; margin-bottom: 20px; }
+.nav-header { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; }
 .side-nav.hidden { display: none; }
 /* Overlay header: a full-width "Close" row sits on its own line above the title —
    closing is its own clear action, not a cramped corner icon. */
@@ -1004,6 +1025,7 @@ a { color: inherit; }
 
 .field-group { margin-bottom: 16px; }
 .field-group label { display: block; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.field-group label:not(:first-child) { margin-top: 14px; }
 .field-group input, .field-group select, .field-group .field-box {
     width: 100%;
     padding: 10px 12px;
@@ -1083,8 +1105,8 @@ a { color: inherit; }
 }
 
 /* "Current user" feature row: an avatar + name + job title, presented like
-   any other nav row, that opens a quick inline dropdown (a native <details>,
-   no overlay machinery needed) to switch identity for debugging. */
+   any other nav row, that opens the staff overlay (#staff-nav-overlay) —
+   same overlay-nav mechanism as "Change School". */
 .side-nav .menu-label-stack {
     flex: 1;
     min-width: 0;
@@ -1096,59 +1118,15 @@ a { color: inherit; }
     font-size: var(--font-md);
     color: var(--text-primary);
 }
+.side-nav .menu-label-stack .user-school,
 .side-nav .menu-label-stack .user-role {
     font-size: var(--font-xs);
     color: var(--text-secondary);
     font-weight: 400;
 }
 
-.side-nav .nav-row-dropdown {
-    position: relative;
-    width: 100%;
-}
-.side-nav .nav-row-dropdown summary {
-    list-style: none;
-}
-.side-nav .nav-row-dropdown summary::-webkit-details-marker {
+.side-nav .nav-row-dropdown-list li.hidden {
     display: none;
-}
-.side-nav .nav-row-dropdown[open] summary.current-user-trigger {
-    background: var(--bg-surface-alt);
-}
-
-.side-nav .nav-row-dropdown-list {
-    list-style: none;
-    margin: 4px 0 0;
-    padding: 4px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-    max-height: 240px;
-    overflow-y: auto;
-}
-.side-nav .nav-row-dropdown-list .identity-option {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 6px 8px;
-    font-family: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: background-color var(--transition-fast);
-}
-.side-nav .nav-row-dropdown-list .identity-option:hover,
-.side-nav .nav-row-dropdown-list .identity-option:focus-visible {
-    background: var(--bg-surface-alt);
-}
-.side-nav .nav-row-dropdown-list .identity-option.selected {
-    background: var(--primary-light);
-}
-.side-nav .nav-row-dropdown-list .identity-option.selected .user-name {
-    color: var(--active-text);
-    font-weight: 600;
 }
 
 /* Page header: a left container (breadcrumbs stacked above the page title +
@@ -1169,6 +1147,32 @@ a { color: inherit; }
 
 .page-heading h1 { margin: 0; font-size: var(--font-5xl); }
 .page-subtitle { margin: 6px 0 0; font-size: var(--font-md); font-weight: 400; line-height: 1.4; color: var(--text-secondary); }
+
+/* Optional back button, opted into per-page via {% block page_back %} */
+.page-heading-wrap { display: flex; align-items: stretch; gap: 12px; }
+.page-heading-wrap:has(.page-back-btn) .page-heading {
+    padding-left: 12px;
+    border-left: 1px solid var(--border-color);
+}
+.page-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    flex-shrink: 0;
+    transition: background-color 0.15s, color 0.15s;
+}
+.page-back-btn svg { width: 16px; height: 16px; }
+.page-back-btn:hover, .page-back-btn:focus-visible { color: var(--primary); background: var(--primary-light); }
 
 /* Settings panel (overlay reachable from the cog button at the bottom of any sidebar) */
 .settings-nav .settings-group {

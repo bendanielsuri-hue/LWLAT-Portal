@@ -4,7 +4,7 @@
 {% block title %}Panel Setup{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=12">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=14">
 {% endblock %}
 
 
@@ -18,25 +18,32 @@
 	<span>Panel Setup</span>
 {% endblock %}
 
+{% block page_back %}
+<a href="{% url 'inclusion_panel_meetings' %}" class="page-back-btn" aria-label="Back to Panel Meetings">{% include 'icons/arrow_left_svg.html' %} Back</a>
+{% endblock %}
+
 {% block page_title %}Panel Setup{% endblock %}
 
+{% block page_subtitle %}<p class="page-subtitle">Panel: {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}</p>{% endblock %}
+
 {% block content %}
-<p>Panel: {{ panel.date }}</p>
 
 <div class="setup-columns">
     <div class="setup-col">
         <h2>Panel Details</h2>
-        <form method="post" class="field-group">
+        <form method="post" class="field-group" id="panel-details-form">
     {% csrf_token %}
             <input type="hidden" name="form_action" value="update_details">
             <label for="panel-date">Date</label>
             <input type="date" id="panel-date" name="date" value="{{ panel.date|date:'Y-m-d' }}">
+            <label for="panel-time">Time</label>
+            <input type="time" id="panel-time" name="time" value="{{ panel.time|time:'H:i' }}">
             <label for="panel-group">Panel Group</label>
-            <select id="panel-group" name="panel_group">
-                <option value="">No group</option>
+            <select id="panel-group" name="panel_group" required data-current-staff-school="{{ current_staff.school_id|default:'' }}">
                 {% for group in panel_groups %}
-                <option value="{{ group.id }}" data-default-chair="{{ group.default_chair_id|default:'' }}" {% if panel.panel_group_id == group.id %}selected{% endif %}>{{ group.name }}</option>
+                <option value="{{ group.id }}" data-school="{{ group.school_id|default:'' }}" data-school-name="{{ group.school.name|default:'' }}" data-default-chair="{{ group.default_chair_id|default:'' }}" {% if panel.panel_group_id == group.id %}selected{% endif %}>{{ group.name }}{% if not group.school_id %} (No school){% endif %}</option>
                 {% endfor %}
+                <option value="__create_new__">+ Create new panel group</option>
             </select>
             <label for="panel-chair">Chair</label>
             <select id="panel-chair" name="chair">
@@ -45,7 +52,6 @@
                 <option value="{{ staff.id }}" {% if panel.chair_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
                 {% endfor %}
             </select>
-            <button type="submit" class="btn btn-primary">Update</button>
         </form>
         {% if panel.panel_group_id %}
         <form method="post" style="margin-top:8px">
@@ -58,42 +64,239 @@
         <h2>Panel Members</h2>
         <ul>
             {% for member in members %}
-            <li>{{ member.staff }} — {{ member.get_role_display }}</li>
+            <li>{% if member.staff %}{{ member.staff }}{% else %}{{ member.guest_name }}{% endif %}{% if member.expertise %} — {{ member.expertise.name }}{% endif %}</li>
             {% empty %}
             <li class="empty-note">No members added yet.</li>
             {% endfor %}
         </ul>
-        <form method="post" class="field-group">
-    {% csrf_token %}
-            <input type="hidden" name="form_action" value="add_member">
-            <label for="member-staff">Staff</label>
-            <select id="member-staff" name="staff" required>
-                <option value="">Select staff…</option>
-                {% for staff in staff_list %}
-                <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-                {% endfor %}
-            </select>
-            <label for="member-role">Role</label>
-            <select id="member-role" name="role">
-                <option value="chair">Chair</option>
-                <option value="member" selected>Member</option>
-                <option value="note_taker">Note Taker</option>
-                <option value="other">Other</option>
-            </select>
-            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add Member</button>
-        </form>
+        <button type="button" class="btn btn-add btn-sm" data-open-member-dialog>{% include 'icons/new_svg.html' %} Add Member</button>
     </div>
+
+    <dialog id="panel-member-dialog" class="modal-dialog">
+        <div class="modal-header">
+            <h2>Add Member</h2>
+        </div>
+        <div class="modal-body">
+            <form method="post" class="field-group" data-member-modal-form>
+    {% csrf_token %}
+                <input type="hidden" name="form_action" value="add_member">
+                <input type="hidden" name="staff" data-member-staff-input value="">
+
+                <label for="member-school">School</label>
+                <select id="member-school" data-member-school-select data-current-staff-school-name="{{ current_staff.school.name|default:'' }}">
+                    <option value="">All schools</option>
+                    {% for school in schools %}
+                    <option value="{{ school.name }}">{{ school.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <div data-member-picker>
+                    <label for="member-search">Staff</label>
+                    <input type="text" id="member-search" data-member-search placeholder="Search staff…" autocomplete="off">
+                    <div class="member-staff-list" data-member-staff-list>
+                        {% for staff in staff_list %}
+                        <button type="button" class="member-staff-option" data-name="{{ staff.first_name }} {{ staff.last_name }}" data-school-name="{{ staff.school.name|default:'' }}" data-id="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}{% if staff.school %} <span class="meta">({{ staff.school.name }})</span>{% endif %}</button>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn btn-sm" data-toggle-guest>+ Add someone not listed</button>
+                </div>
+
+                <div data-member-guest hidden>
+                    <label for="member-guest-name">Name</label>
+                    <input type="text" id="member-guest-name" name="guest_name" data-member-guest-name placeholder="e.g. Jane Doe (Social Worker)">
+                    <button type="button" class="btn btn-sm" data-toggle-guest>Choose from staff instead</button>
+                </div>
+
+                <label for="member-expertise">Expertise</label>
+                <select id="member-expertise" name="expertise">
+                    <option value="">No expertise tag</option>
+                    {% for e in expertise_list %}
+                    <option value="{{ e.id }}">{{ e.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <div class="btn-row">
+                    <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+                    <button type="submit" class="btn btn-add btn-sm" data-member-save disabled>{% include 'icons/new_svg.html' %} Add Member</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
 
     <script>
     document.addEventListener('DOMContentLoaded', function () {
+        var detailsForm = document.getElementById('panel-details-form');
+        var dateInput = document.getElementById('panel-date');
+        var timeInput = document.getElementById('panel-time');
         var groupSelect = document.getElementById('panel-group');
         var chairSelect = document.getElementById('panel-chair');
-        if (groupSelect && chairSelect) {
-            groupSelect.addEventListener('change', function () {
-                var opt = groupSelect.options[groupSelect.selectedIndex];
-                var defaultChair = opt ? opt.dataset.defaultChair : '';
-                if (defaultChair) chairSelect.value = defaultChair;
+        if (!groupSelect) return;
+
+        if (detailsForm) {
+            if (dateInput) dateInput.addEventListener('change', function () { detailsForm.requestSubmit(); });
+            if (timeInput) timeInput.addEventListener('change', function () { detailsForm.requestSubmit(); });
+            if (chairSelect) chairSelect.addEventListener('change', function () { detailsForm.requestSubmit(); });
+        }
+
+        var allGroupOptions = Array.prototype.slice.call(groupSelect.options).filter(function (opt) {
+            return opt.value !== '__create_new__';
+        });
+        var createNewOption = groupSelect.querySelector('option[value="__create_new__"]');
+
+        function applyChair() {
+            if (!chairSelect) return;
+            var opt = groupSelect.options[groupSelect.selectedIndex];
+            var defaultChair = opt ? opt.dataset.defaultChair : '';
+            if (defaultChair) chairSelect.value = defaultChair;
+        }
+
+        function resolveSchoolId() {
+            return window.resolvePanelSchoolFilter
+                ? window.resolvePanelSchoolFilter(allGroupOptions, groupSelect.dataset.currentStaffSchool)
+                : '';
+        }
+
+        function filterGroupsBySchool() {
+            var schoolId = resolveSchoolId();
+            var previousValue = groupSelect.value;
+            groupSelect.innerHTML = '';
+            var visible = [];
+            allGroupOptions.forEach(function (opt) {
+                if (!schoolId || opt.dataset.school === schoolId) {
+                    groupSelect.appendChild(opt);
+                    visible.push(opt);
+                }
             });
+            if (createNewOption) groupSelect.appendChild(createNewOption);
+
+            if (visible.some(function (opt) { return opt.value === previousValue; })) {
+                groupSelect.value = previousValue;
+            } else if (visible.length === 1) {
+                groupSelect.value = visible[0].value;
+                applyChair();
+            }
+        }
+
+        filterGroupsBySchool();
+
+        groupSelect.addEventListener('change', function () {
+            if (groupSelect.value === '__create_new__') {
+                if (window.openPanelGroupModal) {
+                    window.openPanelGroupModal(resolveSchoolId());
+                }
+                return;
+            }
+            applyChair();
+            if (detailsForm) detailsForm.requestSubmit();
+        });
+
+        document.addEventListener('panel-group:created', function (e) {
+            var group = e.detail;
+            var opt = document.createElement('option');
+            opt.value = group.id;
+            opt.dataset.school = group.school_id || '';
+            opt.textContent = group.name;
+            allGroupOptions.push(opt);
+            filterGroupsBySchool();
+            groupSelect.value = group.id;
+            applyChair();
+        });
+
+        // --- Add Member dialog ---
+        var memberDialog = document.getElementById('panel-member-dialog');
+        if (memberDialog) {
+            var memberForm = memberDialog.querySelector('[data-member-modal-form]');
+            var saveBtn = memberDialog.querySelector('[data-member-save]');
+            var staffInput = memberDialog.querySelector('[data-member-staff-input]');
+            var schoolSelect = memberDialog.querySelector('[data-member-school-select]');
+            var searchInput = memberDialog.querySelector('[data-member-search]');
+            var staffOptions = Array.prototype.slice.call(memberDialog.querySelectorAll('.member-staff-option'));
+            var pickerSection = memberDialog.querySelector('[data-member-picker]');
+            var guestSection = memberDialog.querySelector('[data-member-guest]');
+            var guestNameInput = memberDialog.querySelector('[data-member-guest-name]');
+            var isGuestMode = false;
+
+            function getModalDuration() {
+                return parseFloat(getComputedStyle(memberDialog).getPropertyValue('--modal-duration')) || 250;
+            }
+
+            function closeMemberDialog() {
+                memberDialog.classList.remove('is-open');
+                setTimeout(function () { memberDialog.close(); }, getModalDuration());
+            }
+
+            function updateSaveState() {
+                var valid = isGuestMode ? !!guestNameInput.value.trim() : !!staffInput.value;
+                saveBtn.disabled = !valid;
+            }
+
+            function filterStaffBySchool() {
+                var schoolName = schoolSelect.value;
+                staffOptions.forEach(function (btn) {
+                    btn.hidden = schoolName && btn.dataset.schoolName !== schoolName;
+                });
+            }
+
+            function setGuestMode(guest) {
+                isGuestMode = guest;
+                pickerSection.hidden = guest;
+                guestSection.hidden = !guest;
+                if (guest) {
+                    staffInput.value = '';
+                    staffOptions.forEach(function (btn) { btn.classList.remove('selected'); });
+                } else {
+                    guestNameInput.value = '';
+                }
+                updateSaveState();
+            }
+
+            document.addEventListener('click', function (e) {
+                if (e.target.closest('[data-open-member-dialog]')) {
+                    var defaultSchool = '';
+                    try {
+                        var prefSchool = localStorage.getItem('pref-school');
+                        if (prefSchool && prefSchool.indexOf('All ') !== 0) defaultSchool = prefSchool;
+                    } catch (err) { }
+                    if (!defaultSchool) defaultSchool = schoolSelect.dataset.currentStaffSchoolName || '';
+                    schoolSelect.value = defaultSchool;
+                    filterStaffBySchool();
+                    setGuestMode(false);
+                    memberForm.reset();
+                    staffInput.value = '';
+                    schoolSelect.value = defaultSchool;
+                    updateSaveState();
+                    memberDialog.showModal();
+                    requestAnimationFrame(function () { memberDialog.classList.add('is-open'); });
+                    return;
+                }
+                if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-member-dialog')) {
+                    closeMemberDialog();
+                }
+                if (e.target.closest('[data-toggle-guest]')) {
+                    setGuestMode(!isGuestMode);
+                }
+                var staffBtn = e.target.closest('.member-staff-option');
+                if (staffBtn) {
+                    staffInput.value = staffBtn.dataset.id;
+                    staffOptions.forEach(function (btn) { btn.classList.toggle('selected', btn === staffBtn); });
+                    updateSaveState();
+                }
+            });
+
+            memberDialog.addEventListener('click', function (e) {
+                if (e.target === memberDialog) closeMemberDialog();
+            });
+
+            schoolSelect.addEventListener('change', filterStaffBySchool);
+            searchInput.addEventListener('input', function () {
+                var term = searchInput.value.trim().toLowerCase();
+                staffOptions.forEach(function (btn) {
+                    var matchesSearch = !term || btn.dataset.name.toLowerCase().indexOf(term) !== -1;
+                    var matchesSchool = !schoolSelect.value || btn.dataset.schoolName === schoolSelect.value;
+                    btn.hidden = !matchesSearch || !matchesSchool;
+                });
+            });
+            guestNameInput.addEventListener('input', updateSaveState);
         }
     });
     </script>

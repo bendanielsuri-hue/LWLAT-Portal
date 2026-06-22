@@ -8,12 +8,13 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from core.identity import current_staff as _current_staff
-from core.models import Staff, Student
+from core.models import School, Staff, Student
 
 from .models import (
     Action,
     ActionCategory,
     Escalation,
+    Expertise,
     Panel,
     PanelGroup,
     PanelGroupMember,
@@ -486,7 +487,7 @@ def inclusion_panel_group_settings(request):
             if group_id and staff_id:
                 PanelGroupMember.objects.update_or_create(
                     panel_group_id=group_id, staff_id=staff_id,
-                    defaults={'role': request.POST.get('role', 'member')},
+                    defaults={'expertise_id': request.POST.get('expertise') or None},
                 )
         elif action == 'remove_group_member':
             PanelGroupMember.objects.filter(pk=request.POST.get('member_id')).delete()
@@ -496,6 +497,57 @@ def inclusion_panel_group_settings(request):
         **PANEL_BASE_CONTEXT,
         'groups': PanelGroup.objects.filter(is_active=True).prefetch_related('members__staff'),
         'staff_list': Staff.objects.filter(is_active=True),
+        'expertise_list': Expertise.objects.filter(is_active=True),
+    })
+
+
+def inclusion_panel_group_new(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    school_id = request.GET.get('school') or request.POST.get('school')
+
+    if request.method == 'POST':
+        group = PanelGroup.objects.create(
+            name=request.POST.get('name', ''),
+            school_id=request.POST.get('school') or None,
+        )
+        staff_ids = request.POST.getlist('member_staff')
+        expertise_ids = request.POST.getlist('member_expertise')
+        for staff_id, expertise_id in zip(staff_ids, expertise_ids):
+            if not staff_id:
+                continue
+            PanelGroupMember.objects.update_or_create(
+                panel_group=group, staff_id=staff_id,
+                defaults={'expertise_id': expertise_id or None},
+            )
+        if is_ajax:
+            return JsonResponse({
+                'success': True,
+                'group': {'id': group.id, 'name': group.name, 'school_id': group.school_id},
+            })
+        return redirect('inclusion_panel_group_settings')
+
+    return render(request, 'hubs/inclusion/panel/_panel_group_form_modal.html', {
+        **PANEL_BASE_CONTEXT,
+        'schools': School.objects.filter(is_active=True),
+        'staff_list': Staff.objects.filter(is_active=True),
+        'expertise_list': Expertise.objects.filter(is_active=True),
+        'preselect_school_id': school_id,
+    })
+
+
+def inclusion_panel_expertise_settings(request):
+    if request.method == 'POST':
+        action = request.POST.get('form_action')
+        if action == 'add_expertise':
+            next_order = (Expertise.objects.aggregate(Max('order'))['order__max'] or 0) + 1
+            Expertise.objects.create(name=request.POST.get('name', ''), order=next_order)
+        elif action == 'deactivate_expertise':
+            Expertise.objects.filter(pk=request.POST.get('expertise_id')).update(is_active=False)
+        return redirect('inclusion_panel_expertise_settings')
+
+    return render(request, 'hubs/inclusion/panel/expertise_settings.html', {
+        **PANEL_BASE_CONTEXT,
+        'expertise_list': Expertise.objects.filter(is_active=True),
     })
 
 
@@ -548,8 +600,24 @@ def inclusion_panel_meetings(request):
 
 
 def inclusion_panel_meeting_new(request):
-    panel = Panel.objects.create(date=timezone.localdate())
-    return redirect('inclusion_panel_meeting_setup', panel_id=panel.id)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if request.method == 'POST':
+        panel = Panel.objects.create(
+            date=request.POST.get('date') or timezone.localdate(),
+            time=request.POST.get('time') or None,
+            panel_group_id=request.POST.get('panel_group') or None,
+        )
+        setup_url = reverse('inclusion_panel_meeting_setup', args=[panel.id])
+        if is_ajax:
+            return JsonResponse({'success': True, 'redirect': setup_url})
+        return redirect(setup_url)
+
+    return render(request, 'hubs/inclusion/panel/_panel_meeting_form_modal.html', {
+        **PANEL_BASE_CONTEXT,
+        'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school'),
+        'today': timezone.localdate(),
+    })
 
 
 def inclusion_panel_meeting_start(request, panel_id):
@@ -586,18 +654,22 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 panel.chair_id = panel.panel_group.default_chair_id
             panel.save()
         elif action == 'add_member':
-            staff_id = request.POST.get('staff')
+            staff_id = request.POST.get('staff') or None
+            guest_name = request.POST.get('guest_name', '').strip()
+            expertise_id = request.POST.get('expertise') or None
             if staff_id:
                 PanelMember.objects.update_or_create(
                     panel=panel, staff_id=staff_id,
-                    defaults={'role': request.POST.get('role', 'member')},
+                    defaults={'expertise_id': expertise_id},
                 )
+            elif guest_name:
+                PanelMember.objects.create(panel=panel, guest_name=guest_name, expertise_id=expertise_id)
         elif action == 'apply_group_roster':
             if panel.panel_group_id:
                 for group_member in panel.panel_group.members.all():
                     PanelMember.objects.get_or_create(
                         panel=panel, staff_id=group_member.staff_id,
-                        defaults={'role': group_member.role},
+                        defaults={'expertise_id': group_member.expertise_id},
                     )
         elif action == 'add_referral':
             referral_id = request.POST.get('referral_id')
@@ -616,9 +688,11 @@ def inclusion_panel_meeting_setup(request, panel_id):
     return render(request, 'hubs/inclusion/panel/meeting_setup.html', {
         **PANEL_BASE_CONTEXT,
         'panel': panel,
-        'staff_list': Staff.objects.filter(is_active=True),
-        'panel_groups': PanelGroup.objects.filter(is_active=True),
-        'members': panel.members.select_related('staff'),
+        'staff_list': Staff.objects.filter(is_active=True).select_related('school'),
+        'schools': School.objects.filter(is_active=True),
+        'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school'),
+        'expertise_list': Expertise.objects.filter(is_active=True),
+        'members': panel.members.select_related('staff', 'expertise'),
         'unassigned_referrals': unassigned_referrals,
         'agenda': panel.panel_referrals.select_related('referral__student'),
     })
@@ -685,7 +759,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'pending': pending,
         'discussed': discussed,
         'progress_pct': progress_pct,
-        'members': panel.members.select_related('staff'),
+        'members': panel.members.select_related('staff', 'expertise'),
         'staff_list': Staff.objects.filter(is_active=True),
         'followups_due': followups_due,
         'just_started': request.GET.get('just_started') == '1',

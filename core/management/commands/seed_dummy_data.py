@@ -15,7 +15,13 @@ STAFF = [
     ('STF008', 'Hannah', 'O\'Brien', 'Teaching Assistant', 'Maths'),
     ('STF009', 'Ian', 'Reynolds', 'Teacher', 'English'),
     ('STF010', 'Jasmine', 'Lee', 'Teaching Assistant', 'Science'),
+    ('STF011', 'Patricia', 'Adeyemi', 'CEO', 'MAT Central'),
+    ('STF012', 'Robert', 'Kingsley', 'MAT HR Director', 'MAT Central'),
 ]
+
+# Staff who work across the whole Trust rather than at one school — seed_schools
+# leaves their `school` FK as None instead of assigning them in the round-robin.
+MAT_STAFF_CODES = {'STF011', 'STF012'}
 
 YEAR_GROUPS = [7, 8, 9, 10, 11]
 FORM_LETTERS = ['A', 'B', 'C']

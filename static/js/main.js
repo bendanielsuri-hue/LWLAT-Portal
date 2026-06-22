@@ -273,55 +273,58 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     })();
 
-    // School preference: presentation-only (no School model exists yet) — persists the
-    // chosen school name to localStorage, same as the theme prefs, and keeps every
-    // "current school" label (the sidebar trigger button) and the Change School overlay
-    // list in sync wherever they appear on the page.
-    (function setupSchoolPreference() {
-        var options = Array.prototype.slice.call(document.querySelectorAll('.school-nav-option[data-school]'));
-        if (!options.length) return;
-        var labels = Array.prototype.slice.call(document.querySelectorAll('.school-current-label'));
-
-        function applySchool(school) {
-            labels.forEach(function (el) { el.textContent = school; });
-            options.forEach(function (opt) {
-                opt.classList.toggle('selected', opt.dataset.school === school);
-            });
-        }
-
-        var current;
-        try { current = localStorage.getItem('pref-school'); } catch (e) { }
-        if (!current || !options.some(function (opt) { return opt.dataset.school === current; })) {
-            current = options[0].dataset.school;
-        }
-        applySchool(current);
-
+    // Shared by the "Change School" and "current user" switchers: both just
+    // persist a chosen value to a cookie (read server-side in core.identity)
+    // and reload, so the server re-renders everything (label, filtered staff
+    // list, default identity) consistently rather than patching the DOM.
+    function setupCookieSwitcher(options, cookieName, datasetKey, onClick) {
         options.forEach(function (opt) {
             opt.addEventListener('click', function () {
-                var school = opt.dataset.school;
-                try { localStorage.setItem('pref-school', school); } catch (e) { }
-                applySchool(school);
-                closeOverlay(closest(opt, '.overlay-nav'));
+                var value = opt.dataset[datasetKey];
+                document.cookie = cookieName + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; SameSite=Lax';
+                if (onClick) onClick(opt);
+                location.reload();
             });
+        });
+    }
+
+    // School switcher: persists the selected school via a cookie so the server
+    // can filter the identity dropdown and pick a sensible default identity.
+    (function setupSchoolSwitcher() {
+        var options = Array.prototype.slice.call(document.querySelectorAll('.school-nav-option[data-key]'));
+        if (!options.length) return;
+        setupCookieSwitcher(options, 'current_school_key', 'key', function (opt) {
+            // Mirrors the selection for hubs/inclusion/templates/hubs/inclusion/panel/meeting_setup.html,
+            // which still reads this localStorage key to default its own school filter.
+            try { localStorage.setItem('pref-school', opt.dataset.school); } catch (e) { }
         });
     })();
 
-    // Current-user identity switcher: appears on every hub's sidebar. No login
-    // system exists yet, so "who am I" is just remembered per-browser via a
-    // cookie (server-side fallback/default lives in core.identity) plus a
-    // mirrored localStorage key for client-side use.
+    // Current-user identity switcher: a full overlay nav (like "Change School"),
+    // opened via the sidebar's user row. No login system exists yet, so "who am I"
+    // is just remembered per-browser via a cookie (server-side fallback/default
+    // lives in core.identity).
     (function setupIdentitySwitcher() {
-        var dropdown = document.getElementById('current-staff-switcher');
-        if (!dropdown) return;
-        var ME_STORAGE_KEY = 'current-staff-id';
-        var options = Array.prototype.slice.call(dropdown.querySelectorAll('.identity-option'));
-        options.forEach(function (opt) {
-            opt.addEventListener('click', function () {
-                var staffId = opt.dataset.staffId;
-                try { localStorage.setItem(ME_STORAGE_KEY, staffId); } catch (e) { }
-                document.cookie = 'current_staff_id=' + encodeURIComponent(staffId) + '; path=/; max-age=31536000; SameSite=Lax';
-                dropdown.removeAttribute('open');
-                location.reload();
+        var options = Array.prototype.slice.call(document.querySelectorAll('.staff-nav-option[data-staff-id]'));
+        if (!options.length) return;
+        setupCookieSwitcher(options, 'current_staff_id', 'staffId');
+    })();
+
+    // Identity search: filters the (already server-filtered-by-school) staff
+    // list in the staff overlay by typed name, client-side only.
+    (function setupIdentitySearch() {
+        var overlay = document.getElementById('staff-nav-overlay');
+        var input = overlay && overlay.querySelector('.identity-search-input');
+        if (!input) return;
+        var items = Array.prototype.slice.call(overlay.querySelectorAll('.nav-row-dropdown-list > li'));
+
+        input.addEventListener('input', function () {
+            var query = input.value.trim().toLowerCase();
+            items.forEach(function (li) {
+                var option = li.querySelector('.staff-nav-option');
+                if (!option) return;
+                var name = (option.dataset.name || '').toLowerCase();
+                li.classList.toggle('hidden', !!query && name.indexOf(query) === -1);
             });
         });
     })();

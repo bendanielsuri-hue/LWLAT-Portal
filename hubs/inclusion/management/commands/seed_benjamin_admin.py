@@ -44,12 +44,7 @@ class Command(BaseCommand):
             panel_group.school = babington_academy
             panel_group.save()
 
-        membership, created = PanelGroupMember.objects.get_or_create(
-            panel_group=panel_group, staff=benjamin, defaults={'role': 'chair'}
-        )
-        if membership.role != 'chair':
-            membership.role = 'chair'
-            membership.save()
+        PanelGroupMember.objects.get_or_create(panel_group=panel_group, staff=benjamin)
         self.stdout.write(self.style.SUCCESS(
             f'{benjamin} is chair of "{panel_group.name}".'
         ))
