@@ -5,30 +5,11 @@
 
 {% block page_extras %}
 <div class="key-actions">
-    <button type="button" class="btn btn-add btn-sm" data-new-referral-trigger data-student-id="{% if student %}{{ student.id }}{% endif %}" data-next="{{ request.path }}">{% include 'icons/new_svg.html' %} New Referral</button>
+    <button type="button" class="btn btn-helper btn-sm" data-new-referral-trigger data-student-id="{% if student %}{{ student.id }}{% endif %}" data-next="{{ request.path }}">{% include 'icons/new_svg.html' %} Referral</button>
 </div>
 <dialog id="new-referral-dialog" class="modal-dialog"></dialog>
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="{% static 'js/panel.js' %}?v=2"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // No login system exists yet, so "who am I" is just remembered per-browser.
-    // localStorage drives client-side filters elsewhere; the cookie lets the
-    // server apply the same identity to permission checks.
-    var ME_STORAGE_KEY = 'inclusion-current-staff-id';
-    var select = document.getElementById('inclusion-who-am-i');
-    if (!select) return;
-    select.value = '{{ inclusion_current_staff_id|default:"" }}';
-    try {
-        if (!select.value) select.value = localStorage.getItem(ME_STORAGE_KEY) || '';
-    } catch (e) { }
-    select.addEventListener('change', function () {
-        try { localStorage.setItem(ME_STORAGE_KEY, select.value); } catch (e) { }
-        document.cookie = 'inclusion_staff_id=' + encodeURIComponent(select.value) + '; path=/; max-age=31536000; SameSite=Lax';
-        location.reload();
-    });
-});
-</script>
 {% endblock %}

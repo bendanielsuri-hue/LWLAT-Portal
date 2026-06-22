@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
+from core.identity import current_staff as _current_staff
 from core.models import Staff, Student
 
 from .models import (
@@ -58,16 +59,6 @@ def _safe_next(request, default_url):
     return default_url
 
 
-CURRENT_STAFF_COOKIE = 'inclusion_staff_id'
-
-
-def _current_staff(request):
-    staff_id = request.COOKIES.get(CURRENT_STAFF_COOKIE)
-    if not staff_id:
-        return None
-    return Staff.objects.filter(pk=staff_id).first()
-
-
 def _is_panel_staff(staff):
     # Lightweight, non-secure role check: anyone in a PanelGroup is treated as
     # DSL/panel staff. No real auth exists yet, see CLAUDE.md.
@@ -78,6 +69,19 @@ def _is_panel_staff(staff):
 
 def _is_referral_unassigned(referral):
     return not any(pr.removed_at is None for pr in referral.panel_referrals.all())
+
+
+def _due_followups(panel):
+    # Scoped strictly to the panel's own group so a follow-up never surfaces
+    # in a different group's meeting. Ungrouped panels see nothing due.
+    if panel.panel_group_id is None:
+        return PanelReferral.objects.none()
+    return PanelReferral.objects.filter(
+        follow_up_status='incomplete',
+        follow_up_date__lte=timezone.localdate(),
+        removed_at__isnull=True,
+        panel__panel_group_id=panel.panel_group_id,
+    ).select_related('referral__student', 'panel')
 
 
 def _grouped_questions():
@@ -145,6 +149,8 @@ def inclusion_panel_home(request):
     actions_not_needed_count = sum(1 for a in my_actions if a.status == 'not_needed')
 
     next_panel = Panel.objects.filter(status='upcoming').order_by('date').first()
+    show_referral_tabs = sum(1 for c in (referrals_awaiting_count, referrals_discussed_count) if c) > 1
+    show_action_tabs = sum(1 for c in (actions_incomplete_count, overdue_actions, actions_not_needed_count, actions_complete_count) if c) > 1
     return render(request, 'hubs/inclusion/panel/home.html', {
         **PANEL_BASE_CONTEXT,
         'current_staff': current_staff,
@@ -157,6 +163,8 @@ def inclusion_panel_home(request):
         'actions_incomplete_count': actions_incomplete_count,
         'actions_complete_count': actions_complete_count,
         'actions_not_needed_count': actions_not_needed_count,
+        'show_referral_tabs': show_referral_tabs,
+        'show_action_tabs': show_action_tabs,
         'next_panel_date': next_panel.date if next_panel else None,
     })
 
@@ -240,11 +248,11 @@ def inclusion_panel_referral_new(request):
         'question_groups': _grouped_questions(),
         'next': request.GET.get('next', ''),
     }
-    template = 'hubs/inclusion/panel/_referral_form_modal.html' if is_ajax else 'hubs/inclusion/panel/referral_form.html'
-    return render(request, template, context)
+    return render(request, 'hubs/inclusion/panel/_referral_form_modal.html', context)
 
 
 def inclusion_panel_referral_edit(request, referral_id):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     referral = get_object_or_404(Referral.objects.select_related('student'), pk=referral_id)
     question_groups = _grouped_questions()
 
@@ -255,6 +263,8 @@ def inclusion_panel_referral_edit(request, referral_id):
                 ReferralResponse.objects.update_or_create(
                     referral=referral, question=question, defaults={'answer': answer},
                 )
+        if is_ajax:
+            return JsonResponse({'success': True})
         return redirect(_safe_next(request, '/inclusion/panel/'))
 
     existing_answers = {r.question_id: r.answer for r in referral.responses.all()}
@@ -262,7 +272,7 @@ def inclusion_panel_referral_edit(request, referral_id):
         for question in group['questions']:
             question.existing_answer = existing_answers.get(question.id, '')
 
-    return render(request, 'hubs/inclusion/panel/referral_form.html', {
+    return render(request, 'hubs/inclusion/panel/_referral_form_modal.html', {
         **PANEL_BASE_CONTEXT,
         'is_edit': True,
         'referral': referral,
@@ -491,11 +501,21 @@ def inclusion_panel_group_settings(request):
 
 def inclusion_panel_meetings(request):
     today = timezone.localdate()
+    current_staff = _current_staff(request)
     upcoming_meetings = []
     past_meetings = []
     next_marked = False
+    panels_this_year = 0
+    panels_ive_been_on = 0
     panels = Panel.objects.select_related('chair').prefetch_related('panel_referrals', 'members').order_by('date')
     for panel in panels:
+        if panel.date.year == today.year:
+            panels_this_year += 1
+        if current_staff is not None and (
+            panel.chair_id == current_staff.id
+            or any(m.staff_id == current_staff.id for m in panel.members.all())
+        ):
+            panels_ive_been_on += 1
         is_next = panel.status == 'upcoming' and panel.date >= today and not next_marked
         if is_next:
             next_marked = True
@@ -515,10 +535,14 @@ def inclusion_panel_meetings(request):
         else:
             upcoming_meetings.append(entry)
     past_meetings.reverse()
+    panels_needing_referrals = sum(1 for m in upcoming_meetings if not m['referral_count'])
     return render(request, 'hubs/inclusion/panel/meetings.html', {
         **PANEL_BASE_CONTEXT,
         'upcoming_meetings': upcoming_meetings,
         'past_meetings': past_meetings,
+        'panels_needing_referrals': panels_needing_referrals,
+        'panels_this_year': panels_this_year,
+        'panels_ive_been_on': panels_ive_been_on,
         'today': today,
     })
 
@@ -621,6 +645,9 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                     pr.removed_at = None
                     pr.removed_by = None
                     pr.save()
+        elif action == 'pull_in_followups':
+            for due in _due_followups(panel):
+                PanelReferral.objects.get_or_create(panel=panel, referral_id=due.referral_id)
         return redirect('inclusion_panel_meeting_agenda', panel_id=panel.id)
 
     panel_referrals = list(
@@ -643,9 +670,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     total = len(pending) + len(discussed)
     progress_pct = round(len(discussed) / total * 100) if total else 0
 
-    followups_due = PanelReferral.objects.filter(
-        follow_up_status='incomplete', follow_up_date__lte=today, removed_at__isnull=True,
-    ).exclude(referral__student_id__in=student_ids).select_related('referral__student', 'panel')
+    followups_due = _due_followups(panel).exclude(referral__student_id__in=student_ids)
 
     return render(request, 'hubs/inclusion/panel/meeting_agenda.html', {
         **PANEL_BASE_CONTEXT,

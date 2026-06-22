@@ -1,16 +1,26 @@
 from django.shortcuts import render
 from django.urls import reverse
 
-SCHOOLS = [
+from core.models import School
+
+AGGREGATE_ENTRIES = [
     {'name': 'All Schools', 'category': None, 'aggregate': True},
     {'name': 'All Primary', 'category': 'Primary', 'aggregate': True},
-    {'name': 'Heatherbrook', 'category': 'Primary', 'aggregate': False},
-    {'name': 'Woodstock', 'category': 'Primary', 'aggregate': False},
     {'name': 'All Secondary', 'category': 'Secondary', 'aggregate': True},
-    {'name': 'Babington Academy', 'category': 'Secondary', 'aggregate': False},
-    {'name': 'Lancaster Academy', 'category': 'Secondary', 'aggregate': False},
-    {'name': 'South Wigston Academy', 'category': 'Secondary', 'aggregate': False},
 ]
+
+
+def build_school_nav():
+    schools = [AGGREGATE_ENTRIES[0]]
+    for category, aggregate_entry in (('Primary', AGGREGATE_ENTRIES[1]), ('Secondary', AGGREGATE_ENTRIES[2])):
+        category_schools = School.objects.filter(category=category, is_active=True)
+        if not category_schools.exists():
+            continue
+        schools.append(aggregate_entry)
+        schools.extend(
+            {'name': school.name, 'category': category, 'aggregate': False} for school in category_schools
+        )
+    return schools
 
 
 def build_sections():

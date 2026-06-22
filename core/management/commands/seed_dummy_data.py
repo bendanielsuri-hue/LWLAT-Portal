@@ -5,16 +5,16 @@ from django.core.management.base import BaseCommand
 from core.models import Staff, Student
 
 STAFF = [
-    ('STF001', 'Alice', 'Mitchell', 'Headteacher', 'Senior Leadership'),
-    ('STF002', 'Benjamin', 'Suri', 'Deputy Headteacher', 'Senior Leadership'),
-    ('STF003', 'Clara', 'Ng', 'Head of Maths', 'Maths'),
-    ('STF004', 'David', 'Foster', 'Head of English', 'English'),
-    ('STF005', 'Emily', 'Watson', 'Head of Science', 'Science'),
+    ('STF001', 'Alice', 'Mitchell', 'Principal', 'Senior Leadership'),
+    ('STF002', 'Benjamin', 'Suri', 'Data Guru', 'Senior Leadership'),
+    ('STF003', 'Clara', 'Ng', 'Teacher', 'Maths'),
+    ('STF004', 'David', 'Foster', 'Teacher', 'English'),
+    ('STF005', 'Emily', 'Watson', 'Teacher', 'Science'),
     ('STF006', 'Farah', 'Hussain', 'SENDCo', 'Inclusion'),
-    ('STF007', 'George', 'Patel', 'Pastoral Lead', 'Pastoral'),
-    ('STF008', 'Hannah', 'O\'Brien', 'Teacher', 'Maths'),
+    ('STF007', 'George', 'Patel', 'Administrator', 'Pastoral'),
+    ('STF008', 'Hannah', 'O\'Brien', 'Teaching Assistant', 'Maths'),
     ('STF009', 'Ian', 'Reynolds', 'Teacher', 'English'),
-    ('STF010', 'Jasmine', 'Lee', 'Teacher', 'Science'),
+    ('STF010', 'Jasmine', 'Lee', 'Teaching Assistant', 'Science'),
 ]
 
 YEAR_GROUPS = [7, 8, 9, 10, 11]
@@ -41,7 +41,7 @@ class Command(BaseCommand):
         staff_objs = []
         for staff_code, first_name, last_name, job_title, department in STAFF:
             email_last = last_name.lower().replace("'", '')
-            staff, _ = Staff.objects.get_or_create(
+            staff, _ = Staff.objects.update_or_create(
                 staff_code=staff_code,
                 defaults={
                     'first_name': first_name,

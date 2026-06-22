@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=12">
 {% endblock %}
 
 
@@ -78,6 +78,11 @@
 {% if followups_due %}
 <div class="followups-card">
     <h2>Follow-ups Due ({{ followups_due|length }})</h2>
+    <form method="post" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" name="form_action" value="pull_in_followups">
+        <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Pull In All Due Follow-ups</button>
+    </form>
     {% for fpr in followups_due %}
     <div class="agenda-preview-item">
         <div>

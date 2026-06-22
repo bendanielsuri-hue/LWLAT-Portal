@@ -28,6 +28,38 @@
     --radius-lg: 12px;
     --radius-xl: 14px;
     --radius-pill: 999px;
+
+    /* Type scale — component font-size declarations should reference one of
+       these rather than a hardcoded rem/px value. (Named --font-* rather than
+       --text-* to avoid clashing with the --text-primary/secondary/etc. color
+       variables above.) Unrelated to the [data-text-size] accessibility
+       multiplier, which scales the root font-size on top of this scale. */
+    --font-2xs: 0.6875rem;
+    --font-xs: 0.75rem;
+    --font-sm: 0.8125rem;
+    --font-base: 0.875rem;
+    --font-md: 0.9375rem;
+    --font-lg: 1rem;
+    --font-xl: 1.0625rem;
+    --font-2xl: 1.125rem;
+    --font-3xl: 1.5rem;
+    --font-4xl: 1.625rem;
+    --font-5xl: 1.75rem;
+
+    /* Elevation shadow scale — every drop-shadow should reference one of
+       these rather than a hardcoded rgba blur value. */
+    --shadow-sm: 0 4px 10px rgba(15, 23, 36, 0.05);
+    --shadow-md: 0 6px 18px rgba(15, 23, 36, 0.06);
+    --shadow-lg: 0 10px 30px rgba(15, 23, 36, 0.09);
+    --shadow-emphasis: 0 10px 24px rgba(15, 23, 36, 0.12);
+    --shadow-modal: 0 20px 48px rgba(15, 23, 36, 0.24);
+    --shadow-drawer: 0 18px 50px rgba(2, 6, 23, 0.12);
+
+    /* Transition timing scale — reused duration+easing pairs. */
+    --transition-fast: 140ms ease;
+    --transition-base: 160ms ease;
+    --transition-pop: 200ms cubic-bezier(.4, 0, .2, 1);
+    --transition-slide: 360ms cubic-bezier(.2, .8, .2, 1);
 }
 
 /* Primary colour choices (light theme) */
@@ -114,7 +146,7 @@ body {
     color: var(--text-primary);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     line-height: 1.4;
-    transition: background-color 160ms ease, color 160ms ease;
+    transition: background-color var(--transition-base), color var(--transition-base);
 }
 
 html, body {
@@ -140,7 +172,7 @@ html, body {
     background-color: var(--bg-surface);
     border-right: 1px solid var(--border-color);
 }
-.side-nav { transition: transform 360ms cubic-bezier(.2,.8,.2,1), box-shadow 360ms cubic-bezier(.2,.8,.2,1), background-color 160ms ease, border-color 160ms ease; }
+.side-nav { transition: transform var(--transition-slide), box-shadow var(--transition-slide), background-color var(--transition-base), border-color var(--transition-base); }
 
 /* Overlay sidebars ("Change Hub", "Change School", "Settings") sit fixed in the same
    spot as the regular hub sidebar, but elevated above it — opening one covers the
@@ -152,17 +184,17 @@ html, body {
     height: 100%;
     width: 240px;
     transform: translateX(-100%);
-    transition: transform 360ms cubic-bezier(.2,.8,.2,1), box-shadow 360ms cubic-bezier(.2,.8,.2,1);
+    transition: transform var(--transition-slide), box-shadow var(--transition-slide);
     z-index: 50;
     background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
     border-right: 1px solid var(--border-color);
 }
 .side-nav.overlay-nav.open {
     transform: translateX(0);
-    box-shadow: 0 18px 50px rgba(2,6,23,0.12);
+    box-shadow: var(--shadow-drawer);
     z-index: 60;
 }
-.global-backdrop { opacity: 0; transition: opacity 360ms cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+.global-backdrop { opacity: 0; transition: opacity var(--transition-slide); pointer-events: none; }
 .global-backdrop.active { opacity: 1; position: fixed; left: 0; top: 0; width: 100%; height: 100%; background: rgba(3,6,23,0.45); z-index: 45; pointer-events: auto; }
 /* The dark-theme page background is itself a dark navy, so the light-mode
    overlay colour above all but disappears against it — use solid black
@@ -172,7 +204,7 @@ html, body {
 .side-nav .nav-title {
     align-self: stretch;
     text-align: center;
-    font-size: 1.625rem;
+    font-size: var(--font-4xl);
     color: var(--text-primary);
     font-weight: 700;
 }
@@ -190,7 +222,8 @@ html, body {
 }
 
 .side-nav a,
-.side-nav .school-nav-option {
+.side-nav .school-nav-option,
+.side-nav .nav-row-btn {
     display: flex;
     align-items: center;
     width: 100%;
@@ -199,18 +232,19 @@ html, body {
     border: none;
     text-decoration: none;
     text-align: left;
-    font-size: 0.9375rem;
+    font-size: var(--font-md);
     font-family: inherit;
     padding: 6px 8px;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background-color 140ms ease, transform 140ms ease;
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
 }
 
 /* Hover is a quiet nudge — a softer tint than the bolder "selected" state below,
    plus a tiny shift so it doesn't feel static. */
 .side-nav a:hover,
-.side-nav .school-nav-option:hover {
+.side-nav .school-nav-option:hover,
+.side-nav .nav-row-btn:hover {
     background: var(--bg-surface-alt);
     transform: translateX(3px);
     font-weight: 600;
@@ -259,7 +293,7 @@ html, body {
     opacity: 0;
     transform: scaleY(0);
     transform-origin: center;
-    transition: opacity 160ms ease, background-color 160ms ease, transform 200ms cubic-bezier(.4, 0, .2, 1);
+    transition: opacity var(--transition-base), background-color var(--transition-base), transform var(--transition-pop);
 }
 
 .side-nav .nav-menu a:hover::before {
@@ -276,9 +310,10 @@ html, body {
 .nav-footer {
     margin-top: auto;
     padding-top: 16px;
+    border-top: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
 }
 
 .school-nav-logo {
@@ -334,7 +369,7 @@ section {
 }
 
 .hub-cards h1 {
-    font-size: 1.75rem;
+    font-size: var(--font-5xl);
     margin-top: 0;
     margin-bottom: 20px;
     color: var(--text-primary);
@@ -376,7 +411,7 @@ section {
     border: 1px solid var(--border-color);
     background: var(--bg-surface);
     color: var(--text-primary);
-    font-size: 0.875rem;
+    font-size: var(--font-base);
 }
 
 .app-search-results {
@@ -388,7 +423,7 @@ section {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    box-shadow: 0 10px 30px rgba(15, 23, 36, 0.09);
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
 }
 
@@ -402,14 +437,14 @@ section {
     padding: 10px 14px;
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
-    font-size: 0.8125rem;
+    font-size: var(--font-sm);
 }
 
 .app-search-result:last-child { border-bottom: none; }
 
 .app-search-result-hub {
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: var(--font-xs);
 }
 
 .app-search-result:hover,
@@ -420,11 +455,11 @@ section {
 .app-search-empty {
     padding: 10px 14px;
     color: var(--text-muted);
-    font-size: 0.8125rem;
+    font-size: var(--font-sm);
 }
 
 .hub-cards p {
-    font-size: 0.875rem;
+    font-size: var(--font-base);
     margin-bottom: 12px;
     color: var(--text-secondary);
 }
@@ -448,8 +483,8 @@ section {
     padding: 18px;
     border-radius: var(--radius-xl);
     background: var(--bg-surface);
-    box-shadow: 0 6px 18px rgba(15, 23, 36, 0.06);
-    transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+    box-shadow: var(--shadow-md);
+    transition: transform var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base), border-color var(--transition-base);
     text-decoration: none;
     color: inherit;
     border: 1px solid var(--border-color);
@@ -470,7 +505,7 @@ section {
 /* Whole card animates on hover; only the top section behaves as the link */
 .hub-card:hover {
     transform: translateY(-6px);
-    box-shadow: 0 10px 30px rgba(15, 23, 36, 0.09);
+    box-shadow: var(--shadow-lg);
 }
 
 .hub-card-top {
@@ -491,7 +526,7 @@ section {
     margin: -18px -18px 0 -18px;
     padding: 16px 18px;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    transition: background 160ms ease;
+    transition: background var(--transition-base);
 }
 .hub-card-icon svg { width: 34px; height: 34px; display:block; border-radius:var(--radius-sm); }
 
@@ -505,12 +540,12 @@ section {
 }
 
 .hub-card h2 {
-    font-size: 1.125rem;
+    font-size: var(--font-2xl);
     margin-bottom: 6px;
 }
 
 .hub-card p {
-    font-size: 0.8125rem;
+    font-size: var(--font-sm);
     color: var(--text-secondary);
     margin-bottom: 8px;
     width: 100%;
@@ -525,14 +560,14 @@ section {
 
 /* Badge styles */
 .hub-card .hub-badge {
-    font-size: 0.75rem;
+    font-size: var(--font-xs);
     padding: 6px 8px;
     background: var(--badge-bg);
     color: var(--text-primary);
     border-radius: var(--radius-pill);
     display: inline-block;
     cursor: pointer;
-    transition: transform 140ms ease, background 160ms ease;
+    transition: transform var(--transition-fast), background var(--transition-base);
 }
 .hub-card .hub-badge:hover {
     transform: translateY(-3px);
@@ -552,7 +587,7 @@ section {
     font-weight: 500;
     text-decoration: underline;
     text-decoration-color: transparent;
-    transition: color 140ms ease, text-decoration-color 140ms ease;
+    transition: color var(--transition-fast), text-decoration-color var(--transition-fast);
 }
 .hub-card .hub-more-toggle:hover {
     transform: none;
@@ -564,7 +599,7 @@ small { color: var(--text-muted); }
 
 a { color: inherit; }
 
-.form-with-validation { max-width: 600px; font-size: 0.875rem; }
+.form-with-validation { max-width: 600px; font-size: var(--font-base); }
 
 .errorlist { color: #b91c1c; margin-left: 0.5rem; }
 
@@ -595,11 +630,11 @@ a { color: inherit; }
     border: none;
     border-radius: var(--radius-sm);
     padding: 6px 8px;
-    font-size: 0.9375rem;
+    font-size: var(--font-md);
     font-weight: 600;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+    transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
 }
 .nav-close-btn:hover,
 .nav-close-btn:focus-visible {
@@ -608,14 +643,6 @@ a { color: inherit; }
     transform: translateX(-3px);
 }
 
-/* Top row of the sidebar header: "All Hubs" + (optional) parent-hub buttons —
-   kept off the title itself so the title reads as plain text, not a link. */
-.nav-top-row {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-}
 
 .side-nav { position: relative; }
 
@@ -635,7 +662,7 @@ a { color: inherit; }
     gap: 6px;
     padding: 8px 14px;
     border-radius: var(--radius-sm);
-    font-size: 0.875rem;
+    font-size: var(--font-base);
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
@@ -644,7 +671,7 @@ a { color: inherit; }
     color: var(--text-primary);
     text-decoration: none;
     white-space: nowrap;
-    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 .btn:hover, .btn:focus-visible { border-color: var(--primary); color: var(--primary); }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
@@ -652,17 +679,25 @@ a { color: inherit; }
 /* Creation actions (e.g. "New Referral") get a fixed green regardless of the
    user's chosen accent colour — "create a new record" is a semantic action,
    not a brand-colour one. */
-.btn-success { background: #15803d; border-color: #15803d; color: #fff; }
-.btn-success:hover { background: #166534; border-color: #166534; color: #fff; }
+.btn-success { background: #2f9e5b; border-color: #2f9e5b; color: #fff; }
+.btn-success:hover { background: #25803f; border-color: #25803f; color: #fff; }
 /* Standard action button trio (Add / Edit / Delete) — fixed colours regardless
-   of the user's chosen accent colour, since these are semantic actions. */
-.btn-add { background: #15803d; border-color: #15803d; color: #fff; }
-.btn-add:hover { background: #166534; border-color: #166534; color: #fff; }
-.btn-edit { background: #eab308; border-color: #eab308; color: #1f2937; }
-.btn-edit:hover { background: #a16207; border-color: #a16207; color: #fff; }
-.btn-delete { background: #dc2626; border-color: #dc2626; color: #fff; }
-.btn-delete:hover { background: #7f1d1d; border-color: #7f1d1d; color: #fff; }
-.btn-sm { padding: 6px 10px; font-size: 0.8125rem; }
+   of the user's chosen accent colour, since these are semantic actions.
+   Softened/muted tones (vs. saturated brand reds/yellows) so the row of
+   action buttons doesn't visually shout on every list item. */
+.btn-add { background: #2f9e5b; border-color: #2f9e5b; color: #fff; }
+.btn-add:hover { background: #25803f; border-color: #25803f; color: #fff; }
+.btn-edit { background: #e8c468; border-color: #d8ad42; color: #4a3a0a; }
+.btn-edit:hover { background: #d8ad42; border-color: #c49b35; color: #3a2d06; }
+.btn-delete { background: #e07a6f; border-color: #d2655a; color: #fff; }
+.btn-delete:hover { background: #c75d51; border-color: #b54f44; color: #fff; }
+.btn-sm { padding: 6px 10px; font-size: var(--font-sm); }
+
+/* Icon shown by default on Edit/Delete (and similar) buttons; add the
+   `btn-no-icon` class to a button instance to suppress it. */
+.btn-icon { display: inline-flex; align-items: center; }
+.btn-icon svg { width: 14px; height: 14px; }
+.btn-no-icon .btn-icon { display: none; }
 .btn-disabled, .btn-disabled:hover,
 .btn:disabled, .btn:disabled:hover { opacity: 0.45; cursor: not-allowed; pointer-events: none; border-color: var(--border-color); color: var(--text-secondary); }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -674,12 +709,18 @@ a { color: inherit; }
     background: none;
     border: none;
     padding: 6px 4px;
-    font-size: 0.8125rem;
+    font-size: var(--font-sm);
     color: var(--text-secondary);
     text-decoration: underline;
     cursor: pointer;
 }
 .btn-subtle:hover { color: var(--text-primary); }
+
+/* Low-emphasis bordered action (e.g. the global header "+ Referral" helper)
+   — keeps a visible outline like other buttons, but muted text/border so it
+   doesn't compete with whatever the current page's real primary action is. */
+.btn-helper { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-secondary); }
+.btn-helper:hover { border-color: var(--primary); color: var(--primary); }
 
 /* List page shell (Students/Referrals/Actions/Panel Home): fills the space
    between the sticky page header and the bottom of the viewport — height is
@@ -740,13 +781,13 @@ a { color: inherit; }
     background: transparent;
     border: none;
     padding: 8px 16px;
-    font-size: 0.875rem;
+    font-size: var(--font-base);
     font-weight: 600;
     font-family: inherit;
     color: var(--text-secondary);
     cursor: pointer;
     white-space: nowrap;
-    transition: color 140ms ease;
+    transition: color var(--transition-fast);
 }
 .tab-row-more-btn:hover { color: var(--text-primary); }
 .tab-row-more-menu {
@@ -760,7 +801,7 @@ a { color: inherit; }
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    box-shadow: 0 10px 30px rgba(15, 23, 36, 0.12);
+    box-shadow: var(--shadow-lg);
     padding: 6px;
 }
 .tab-row-more-menu.hidden { display: none; }
@@ -769,14 +810,14 @@ a { color: inherit; }
     border: none;
     border-radius: var(--radius-xs);
     padding: 8px 10px;
-    font-size: 0.875rem;
+    font-size: var(--font-base);
     font-weight: 600;
     font-family: inherit;
     color: var(--text-secondary);
     text-align: left;
     cursor: pointer;
     white-space: nowrap;
-    transition: background-color 140ms ease, color 140ms ease;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 .tab-row-more-menu button:hover { background: var(--bg-surface-alt); color: var(--text-primary); }
 .tab-row-more-menu button.active { color: var(--primary); }
@@ -797,12 +838,12 @@ a { color: inherit; }
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     padding: 10px 18px;
-    font-size: 0.875rem;
+    font-size: var(--font-base);
     font-weight: 600;
     font-family: inherit;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+    transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 .card-tab:hover { color: var(--text-primary); }
 /* The active tab keeps the exact same box (no position offset — that's what
@@ -851,20 +892,20 @@ a { color: inherit; }
     position: sticky;
     top: 0;
     z-index: 9;
-    box-shadow: 0 4px 10px rgba(15, 23, 36, 0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 .filter-bar-clear {
     align-self: flex-end;
 }
-.filter-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.8125rem; color: var(--text-secondary); }
+.filter-field { display: flex; flex-direction: column; gap: 6px; font-size: var(--font-sm); color: var(--text-secondary); }
 .filter-field input, .filter-field select {
     padding: 8px 10px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
     background: var(--bg-surface-alt);
     color: var(--text-primary);
-    font-size: 0.875rem;
+    font-size: var(--font-base);
     font-family: inherit;
 }
 
@@ -892,7 +933,7 @@ a { color: inherit; }
     height: 18px;
     border-radius: 50%;
     background: #fff;
-    transition: transform 160ms ease;
+    transition: transform var(--transition-base);
 }
 .toggle-pill.on .toggle-knob { transform: translateX(20px); }
 
@@ -927,19 +968,25 @@ a { color: inherit; }
 }
 .entity-thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
 .entity-body { flex: 1; min-width: 0; }
-.entity-title { font-weight: 600; font-size: 0.9375rem; }
-.entity-meta { font-size: 0.8125rem; color: var(--text-secondary); }
+.entity-title { font-weight: 600; font-size: var(--font-md); }
+.entity-meta { font-size: var(--font-sm); color: var(--text-secondary); }
 
-/* Selectable cards/rows (Panel Meetings, Students)
-   Ecosystem row standard, two distinct states:
-   - hover: a quiet, neutral tint (--bg-surface-alt) plus a heavier title
-     weight, just enough feedback that the row is live.
+/* Selectable cards/rows (Panel Meetings, Students, Panel Home, etc.)
+   Ecosystem row standard — apply this everywhere a list/table row or card
+   can be hovered or selected, so feedback feels consistent site-wide:
+   - hover: --row-hover-bg, a light neutral tint (mixed off --text-primary,
+     not the accent colour) — must read as lighter/quieter than the chosen
+     state below, just enough to show the row is live under the cursor.
    - chosen/selected (persistent, click-to-select): the bolder --primary-light
-     fill plus an inset accent bar, matching .side-nav a.active, with the same
-     heavier title weight as hover. Reused for plain list/table rows that
-     aren't clickable themselves (see .agenda-table, .panel-list in panel.css). */
-.selectable { cursor: pointer; transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
-.selectable:hover { background: var(--bg-surface-alt); }
+     fill plus an inset accent bar, matching .side-nav a.active, with a
+     heavier title weight. The fill/accent must span the full width of the
+     containing card/list (edge-to-edge, not indented from the card's own
+     padding) — see .entity-row below for the canonical layout that achieves
+     this, and panel.css's .panel-list li for how to replicate it when the
+     row markup isn't .entity-row itself. */
+:root { --row-hover-bg: color-mix(in srgb, var(--text-primary) 6%, var(--bg-surface)); }
+.selectable { cursor: pointer; transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast); }
+.selectable:hover { background: var(--row-hover-bg); }
 .selectable:hover .entity-title { font-weight: 700; }
 .selectable:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .entity-row.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--primary); }
@@ -947,7 +994,7 @@ a { color: inherit; }
 .entity-row.chosen:hover { background: var(--primary-light); }
 
 .field-group { margin-bottom: 16px; }
-.field-group label { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.field-group label { display: block; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
 .field-group input, .field-group select, .field-group .field-box {
     width: 100%;
     padding: 10px 12px;
@@ -955,7 +1002,7 @@ a { color: inherit; }
     border: 1px solid var(--border-color);
     background: var(--bg-surface-alt);
     color: var(--text-primary);
-    font-size: 0.875rem;
+    font-size: var(--font-base);
     font-family: inherit;
 }
 .field-group .field-box { min-height: 44px; }
@@ -974,9 +1021,9 @@ a { color: inherit; }
     border-radius: var(--radius-lg);
     padding: 16px 20px;
 }
-.stat-card .stat-value { font-size: 1.625rem; font-weight: 700; color: var(--text-primary); }
+.stat-card .stat-value { font-size: var(--font-4xl); font-weight: 700; color: var(--text-primary); }
 .stat-card .stat-value.warning { color: var(--warning); }
-.stat-card .stat-label { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 2px; }
+.stat-card .stat-label { font-size: var(--font-sm); color: var(--text-secondary); margin-top: 2px; }
 
 /* Color-coded accent cards (Inclusion Panel Home) — a left border + tinted
    icon tie each card to its meaning instead of all three looking identical. */
@@ -1003,69 +1050,97 @@ a { color: inherit; }
     border: 1px solid var(--border-color);
     background: var(--bg-surface);
     color: var(--text-primary);
-    font-size: 0.875rem;
+    font-size: var(--font-base);
     font-family: inherit;
     resize: vertical;
 }
 
-.back-link { font-size: 0.875rem; color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.back-link { font-size: var(--font-base); color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; }
 
-/* Sidebar top row: "Change Hub" + (optional) "Parent Hub" — stacked, full-width
-   pill buttons, not breadcrumb text, so both are equally prominent, clickable
-   targets and long parent-hub names have room to breathe. */
-.side-nav .nav-pill-btn {
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
+/* Sidebar top row: "Change Hub" + (optional) "Parent Hub" — and the sidebar
+   footer's "School", "Who am I" and "Settings" rows — all share the same
+   left-aligned icon+label look as the main nav menu (.nav-row-btn hooks into
+   the shared `.side-nav a` rules above), so the sidebar reads as one
+   consistent list of rows rather than several different control styles. */
+.side-nav .nav-row-btn:focus-visible {
     background: var(--bg-surface-alt);
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+.nav-footer-divider {
+    border-top: 1px solid var(--border-color);
+    margin: 2px 4px;
+}
+
+/* "Current user" feature row: an avatar + name + job title, presented like
+   any other nav row, that opens a quick inline dropdown (a native <details>,
+   no overlay machinery needed) to switch identity for debugging. */
+.side-nav .menu-label-stack {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+.side-nav .menu-label-stack .user-name {
+    font-size: var(--font-md);
+    color: var(--text-primary);
+}
+.side-nav .menu-label-stack .user-role {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.side-nav .nav-row-dropdown {
+    position: relative;
+    width: 100%;
+}
+.side-nav .nav-row-dropdown summary {
+    list-style: none;
+}
+.side-nav .nav-row-dropdown summary::-webkit-details-marker {
+    display: none;
+}
+.side-nav .nav-row-dropdown[open] summary.current-user-trigger {
+    background: var(--bg-surface-alt);
+}
+
+.side-nav .nav-row-dropdown-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 4px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    font-family: inherit;
-    color: var(--text-secondary);
-    text-decoration: none;
-    text-align: center;
-    white-space: normal;
-    cursor: pointer;
-    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+    background: var(--bg-surface);
+    max-height: 240px;
+    overflow-y: auto;
 }
-.side-nav .nav-pill-btn:hover,
-.side-nav .nav-pill-btn:focus-visible {
-    background: var(--primary-light);
-    color: var(--primary);
-    border-color: var(--primary);
-    font-weight: 700;
-}
-
-.side-nav .nav-pill-select {
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
-    background: var(--bg-surface-alt);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    font-family: inherit;
-    color: var(--text-secondary);
-    cursor: pointer;
-}
-.side-nav .nav-pill-select:hover,
-.side-nav .nav-pill-select:focus-visible {
-    border-color: var(--primary);
-    color: var(--primary);
-}
-
-.side-nav .settings-trigger {
+.side-nav .nav-row-dropdown-list .identity-option {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
 }
-.side-nav .settings-trigger .menu-icon { margin-right: 0; }
+.side-nav .nav-row-dropdown-list .identity-option:hover,
+.side-nav .nav-row-dropdown-list .identity-option:focus-visible {
+    background: var(--bg-surface-alt);
+}
+.side-nav .nav-row-dropdown-list .identity-option.selected {
+    background: var(--primary-light);
+}
+.side-nav .nav-row-dropdown-list .identity-option.selected .user-name {
+    color: var(--active-text);
+    font-weight: 600;
+}
 
 /* Page header: a left container (breadcrumbs stacked above the page title +
    optional subtitle) and a right "extras" container (key actions/buttons),
@@ -1077,14 +1152,14 @@ a { color: inherit; }
 .key-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Breadcrumbs */
-.breadcrumbs { font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 8px; margin-left: -8px; }
+.breadcrumbs { font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 8px; margin-left: -8px; }
 .breadcrumbs a { color: var(--primary); text-decoration: none; padding: 3px 8px; margin-right: 2px; border-radius: var(--radius-pill); transition: background-color 0.15s, color 0.15s; }
 .breadcrumbs a:hover, .breadcrumbs a:focus-visible { background: var(--primary-light); color: var(--primary); text-shadow: 0 0 currentColor; }
 .breadcrumbs .sep { margin-right: 8px; color: var(--text-faint); }
 .breadcrumbs > span:last-child { font-weight: 600; color: var(--text-primary); text-shadow: 0 0 currentColor; }
 
-.page-heading h1 { margin: 0; font-size: 1.75rem; }
-.page-subtitle { margin: 6px 0 0; font-size: 0.9375rem; font-weight: 400; line-height: 1.4; color: var(--text-secondary); }
+.page-heading h1 { margin: 0; font-size: var(--font-5xl); }
+.page-subtitle { margin: 6px 0 0; font-size: var(--font-md); font-weight: 400; line-height: 1.4; color: var(--text-secondary); }
 
 /* Settings panel (overlay reachable from the cog button at the bottom of any sidebar) */
 .settings-nav .settings-group {
@@ -1094,7 +1169,7 @@ a { color: inherit; }
     margin-bottom: 20px;
 }
 .settings-nav .settings-group .settings-label {
-    font-size: 0.8125rem;
+    font-size: var(--font-sm);
     font-weight: 600;
     color: var(--text-secondary);
 }
@@ -1127,7 +1202,7 @@ a { color: inherit; }
     box-shadow: 0 0 0 2px var(--swatch), 0 0 0 4px var(--bg-surface), 0 0 0 5px var(--swatch);
 }
 .settings-current {
-    font-size: 0.8125rem;
+    font-size: var(--font-sm);
     color: var(--text-muted);
 }
 
@@ -1144,7 +1219,7 @@ a { color: inherit; }
     border: 1px solid var(--border-color);
     background: var(--bg-surface-alt);
     cursor: pointer;
-    transition: border-color 140ms ease, transform 140ms ease;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
 }
 .theme-toggle:hover {
     border-color: var(--primary);
@@ -1159,7 +1234,7 @@ a { color: inherit; }
     width: 18px;
     height: 18px;
     color: var(--text-muted);
-    transition: color 160ms ease;
+    transition: color var(--transition-base);
 }
 .theme-toggle-thumb {
     position: absolute;
@@ -1202,7 +1277,7 @@ a { color: inherit; }
     background: var(--bg-surface-alt);
     color: var(--text-primary);
     cursor: pointer;
-    transition: border-color 140ms ease, transform 140ms ease;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
 }
 .text-size-option:hover {
     border-color: var(--primary);
@@ -1213,7 +1288,7 @@ a { color: inherit; }
     font-weight: 600;
 }
 .text-size-option .size-name {
-    font-size: 11px;
+    font-size: var(--font-2xs);
     color: var(--text-muted);
 }
 .text-size-option.selected {

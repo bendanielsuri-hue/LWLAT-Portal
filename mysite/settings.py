@@ -72,7 +72,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'mat.context_processors.schools',
                 'mat.context_processors.search_items',
-                'hubs.inclusion.context_processors.inclusion_panel_identity',
+                'mat.context_processors.current_identity',
             ],
         },
     },

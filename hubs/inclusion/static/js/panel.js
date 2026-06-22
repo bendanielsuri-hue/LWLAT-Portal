@@ -6,14 +6,47 @@
         var url = '/inclusion/panel/referrals/new/?';
         if (studentId) url += 'student=' + encodeURIComponent(studentId) + '&';
         if (nextUrl) url += 'next=' + encodeURIComponent(nextUrl);
+        loadModal(url);
+    }
 
+    function openEditModal(referralId, nextUrl) {
+        var url = '/inclusion/panel/referrals/' + encodeURIComponent(referralId) + '/edit/?';
+        if (nextUrl) url += 'next=' + encodeURIComponent(nextUrl);
+        loadModal(url);
+    }
+
+    function loadModal(url) {
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (res) { return res.text(); })
             .then(function (html) {
                 dialog.innerHTML = html;
                 wireStudentPicker();
                 dialog.showModal();
+                requestAnimationFrame(function () { dialog.classList.add('is-open'); });
             });
+    }
+
+    function getModalDuration() {
+        return parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 250;
+    }
+
+    function closeModal() {
+        dialog.classList.remove('is-open');
+        setTimeout(function () { dialog.close(); }, getModalDuration());
+    }
+
+    function animateHeightChange(mutate) {
+        if (!dialog.open) {
+            mutate();
+            return;
+        }
+        var startHeight = dialog.getBoundingClientRect().height;
+        dialog.style.height = startHeight + 'px';
+        mutate();
+        requestAnimationFrame(function () {
+            dialog.style.height = dialog.scrollHeight + 'px';
+        });
+        setTimeout(function () { dialog.style.height = ''; }, getModalDuration());
     }
 
     function wireStudentPicker() {
@@ -37,25 +70,29 @@
         }
 
         function showForm() {
-            searchPanel.hidden = true;
-            selectedRow.hidden = false;
-            if (questionFields) questionFields.hidden = false;
-            if (btnRow) btnRow.hidden = false;
-            if (form) form.classList.remove('is-picking-student');
-            updateSaveState();
+            animateHeightChange(function () {
+                searchPanel.hidden = true;
+                selectedRow.hidden = false;
+                if (questionFields) questionFields.hidden = false;
+                if (btnRow) btnRow.hidden = false;
+                if (form) form.classList.remove('is-picking-student');
+                updateSaveState();
+            });
         }
 
         function showPicker() {
-            input.value = '';
-            searchPanel.hidden = false;
-            selectedRow.hidden = true;
-            if (questionFields) questionFields.hidden = true;
-            if (btnRow) btnRow.hidden = true;
-            if (form) form.classList.add('is-picking-student');
-            search.value = '';
-            results.forEach(function (btn) { btn.hidden = false; });
-            search.focus();
-            updateSaveState();
+            animateHeightChange(function () {
+                input.value = '';
+                searchPanel.hidden = false;
+                selectedRow.hidden = true;
+                if (questionFields) questionFields.hidden = true;
+                if (btnRow) btnRow.hidden = true;
+                if (form) form.classList.add('is-picking-student');
+                search.value = '';
+                results.forEach(function (btn) { btn.hidden = false; });
+                search.focus();
+                updateSaveState();
+            });
         }
 
         search.addEventListener('input', function () {
@@ -74,7 +111,7 @@
             });
         });
 
-        changeBtn.addEventListener('click', showPicker);
+        if (changeBtn) changeBtn.addEventListener('click', showPicker);
 
         if (form) {
             form.addEventListener('input', updateSaveState);
@@ -94,13 +131,18 @@
             openModal(trigger.getAttribute('data-student-id'), trigger.getAttribute('data-next'));
             return;
         }
+        var editTrigger = e.target.closest('[data-edit-referral-trigger]');
+        if (editTrigger) {
+            openEditModal(editTrigger.getAttribute('data-referral-id'), editTrigger.getAttribute('data-next'));
+            return;
+        }
         if (e.target.closest('[data-modal-close]')) {
-            dialog.close();
+            closeModal();
         }
     });
 
     dialog.addEventListener('click', function (e) {
-        if (e.target === dialog) dialog.close();
+        if (e.target === dialog) closeModal();
     });
 
     dialog.addEventListener('submit', function (e) {
@@ -115,7 +157,7 @@
         }).then(function (res) { return res.json(); })
             .then(function (data) {
                 if (data.success) {
-                    dialog.close();
+                    closeModal();
                     window.location.reload();
                 }
             });

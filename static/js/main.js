@@ -306,6 +306,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     })();
 
+    // Current-user identity switcher: appears on every hub's sidebar. No login
+    // system exists yet, so "who am I" is just remembered per-browser via a
+    // cookie (server-side fallback/default lives in core.identity) plus a
+    // mirrored localStorage key for client-side use.
+    (function setupIdentitySwitcher() {
+        var dropdown = document.getElementById('current-staff-switcher');
+        if (!dropdown) return;
+        var ME_STORAGE_KEY = 'current-staff-id';
+        var options = Array.prototype.slice.call(dropdown.querySelectorAll('.identity-option'));
+        options.forEach(function (opt) {
+            opt.addEventListener('click', function () {
+                var staffId = opt.dataset.staffId;
+                try { localStorage.setItem(ME_STORAGE_KEY, staffId); } catch (e) { }
+                document.cookie = 'current_staff_id=' + encodeURIComponent(staffId) + '; path=/; max-age=31536000; SameSite=Lax';
+                dropdown.removeAttribute('open');
+                location.reload();
+            });
+        });
+    })();
+
     // App search: client-side typeahead over every hub/page link, built from the JSON
     // embedded sitewide via {{ search_items|json_script }} in layout.html. Used both by
     // the home screen's own search box and the one inside the "Change Hub" overlay.

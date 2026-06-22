@@ -4,7 +4,7 @@
 {% block title %}Inclusion Panel{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=12">
 {% endblock %}
 
 
@@ -33,11 +33,13 @@
             <h2>My Referrals</h2>
             <span class="panel-card-count">({{ my_referrals|length }})</span>
         </div>
+        {% if show_referral_tabs %}
         <div class="tab-row">
             <button type="button" data-referral-tab="all">All ({{ my_referrals|length }})</button>
             {% if referrals_awaiting_count %}<button type="button" data-referral-tab="awaiting">Awaiting Discussion ({{ referrals_awaiting_count }})</button>{% endif %}
             {% if referrals_discussed_count %}<button type="button" data-referral-tab="discussed">Discussed ({{ referrals_discussed_count }})</button>{% endif %}
         </div>
+        {% endif %}
         <ul class="panel-list" id="my-referrals-list" data-selectable="single">
             {% for referral in my_referrals %}
             <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-discussed="{{ referral.discussed_pr|yesno:'discussed,awaiting' }}">
@@ -57,12 +59,12 @@
                     {% endif %}
                 </div>
                 <div class="panel-item-actions">
-                    <a href="{% url 'inclusion_panel_referral_edit' referral.id %}?next={% url 'inclusion_panel' %}" class="btn btn-edit btn-sm">Edit</a>
+                    <button type="button" class="btn btn-edit btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
                     {% if referral.can_delete %}
                     <form method="post" action="{% url 'inclusion_panel_referral_delete' referral.id %}" onsubmit="return confirm('Delete this referral? This cannot be undone.');">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
-                        <button type="submit" class="btn btn-delete btn-sm">Delete</button>
+                        <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
                     </form>
                     {% endif %}
                 </div>
@@ -77,6 +79,7 @@
             <h2>My Actions</h2>
             <span class="panel-card-count">({{ my_actions|length }})</span>
         </div>
+        {% if show_action_tabs %}
         <div class="tab-row">
             <button type="button" data-action-tab="all">All ({{ my_actions|length }})</button>
             {% if actions_incomplete_count %}<button type="button" data-action-tab="incomplete">Incomplete ({{ actions_incomplete_count }})</button>{% endif %}
@@ -84,6 +87,7 @@
             {% if actions_not_needed_count %}<button type="button" data-action-tab="not_needed">Inactive ({{ actions_not_needed_count }})</button>{% endif %}
             {% if actions_complete_count %}<button type="button" data-action-tab="complete">Complete ({{ actions_complete_count }})</button>{% endif %}
         </div>
+        {% endif %}
         <ul class="panel-list" id="my-actions-list" data-selectable="single">
             {% for action in my_actions %}
             <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}">
@@ -103,7 +107,7 @@
                         <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
                         {% if action.status == 'incomplete' %}
                         <input type="hidden" name="status" value="complete">
-                        <button type="submit" class="btn btn-sm btn-success">Mark Complete</button>
+                        <button type="submit" class="btn btn-sm btn-success"><span class="btn-icon">{% include 'icons/checkmark_svg.html' %}</span> Mark Complete</button>
                         {% else %}
                         <input type="hidden" name="status" value="incomplete">
                         <button type="submit" class="btn btn-sm">Reopen</button>

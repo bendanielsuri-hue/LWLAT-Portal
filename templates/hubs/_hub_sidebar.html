@@ -2,12 +2,17 @@
 {% load hub_extras %}
 <nav class="side-nav hub-side expanded" data-hub="{{ hub_title|lower }}">
     <div class="nav-header">
-        <div class="nav-top-row">
-            <button type="button" class="switch-global nav-pill-btn" data-overlay-target="#global-nav-overlay">Change Hub</button>
-            {% if back_to_hub_url %}
-            <a href="{{ back_to_hub_url }}" class="exit-hub nav-pill-btn">{{ back_to_hub_label }}</a>
-            {% endif %}
-        </div>
+        {% if back_to_hub_url %}
+        <a href="{{ back_to_hub_url }}" class="exit-hub nav-row-btn">
+            <span class="menu-icon">{% include 'icons/arrow_left_svg.html' %}</span>
+            <span class="menu-label">{{ back_to_hub_label }}</span>
+        </a>
+        {% else %}
+        <button type="button" class="switch-global nav-row-btn" data-overlay-target="#global-nav-overlay">
+            <span class="menu-icon">{% include 'icons/switch_apps_svg.html' %}</span>
+            <span class="menu-label">Change Hub</span>
+        </button>
+        {% endif %}
         <div class="nav-title">{{ hub_title }}</div>
     </div>
     <ul class="nav-menu">
@@ -16,18 +21,36 @@
         {% endfor %}
     </ul>
     <div class="nav-footer">
-        <button type="button" class="switch-school nav-pill-btn" data-overlay-target="#school-nav-overlay">
-            <span class="school-current-label">{{ schools.0.name }}</span>
+        <button type="button" class="switch-school nav-row-btn" data-overlay-target="#school-nav-overlay">
+            <span class="menu-icon">{% include 'icons/school_logo_placeholder_svg.html' %}</span>
+            <span class="menu-label school-current-label">{{ schools.0.name }}</span>
         </button>
-        {% if inclusion_staff_list %}
-        <select id="inclusion-who-am-i" class="nav-pill-select">
-            <option value="">Select yourself…</option>
-            {% for staff in inclusion_staff_list %}
-            <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-            {% endfor %}
-        </select>
+        {% if current_staff_list %}
+        <div class="nav-footer-divider"></div>
+        <details class="nav-row-dropdown" id="current-staff-switcher">
+            <summary class="nav-row-btn current-user-trigger">
+                <span class="menu-icon">{% include 'icons/avatar_placeholder_svg.html' %}</span>
+                <span class="menu-label-stack">
+                    <span class="user-name">{{ current_staff.first_name }} {{ current_staff.last_name }}</span>
+                    <span class="user-role">{{ current_staff.job_title }}</span>
+                </span>
+            </summary>
+            <ul class="nav-row-dropdown-list">
+                {% for staff in current_staff_list %}
+                <li>
+                    <button type="button" class="identity-option{% if staff.id|stringformat:'s' == current_staff_id %} selected{% endif %}" data-staff-id="{{ staff.id }}">
+                        <span class="menu-label-stack">
+                            <span class="user-name">{{ staff.first_name }} {{ staff.last_name }}</span>
+                            <span class="user-role">{{ staff.job_title }}</span>
+                        </span>
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+        </details>
+        <div class="nav-footer-divider"></div>
         {% endif %}
-        <button type="button" class="nav-pill-btn settings-trigger" data-overlay-target="#settings-nav-overlay" aria-label="Settings">
+        <button type="button" class="nav-row-btn settings-trigger" data-overlay-target="#settings-nav-overlay" aria-label="Settings">
             <span class="menu-icon">{% include 'icons/cog_svg.html' %}</span>
             <span class="menu-label">Settings</span>
         </button>

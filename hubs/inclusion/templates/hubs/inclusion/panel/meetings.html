@@ -4,7 +4,7 @@
 {% block title %}Panel Meetings{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=9">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=12">
 {% endblock %}
 
 
@@ -20,13 +20,31 @@
 
 {% block content %}
 
-<div class="meeting-create">
+<div class="list-page-shell">
+<div class="meeting-actions-card">
+    <div class="mini-stats">
+        <div class="mini-stat-card">
+            <span class="mini-stat-icon">{% include 'icons/document_svg.html' %}</span>
+            <span class="mini-stat-value">{{ panels_this_year }}</span>
+            <span class="mini-stat-label">This year</span>
+        </div>
+        <div class="mini-stat-card">
+            <span class="mini-stat-icon">{% include 'icons/people_svg.html' %}</span>
+            <span class="mini-stat-value">{{ panels_ive_been_on }}</span>
+            <span class="mini-stat-label">I've been on</span>
+        </div>
+        <div class="mini-stat-card">
+            <span class="mini-stat-icon">{% include 'icons/clock_svg.html' %}</span>
+            <span class="mini-stat-value{% if panels_needing_referrals %} warning{% endif %}">{{ panels_needing_referrals }}</span>
+            <span class="mini-stat-label">Needing referrals</span>
+        </div>
+    </div>
     <form method="post" action="{% url 'inclusion_panel_meeting_new' %}">
-    {% csrf_token %}
-        <button type="submit" class="btn btn-primary">Create New Panel</button>
+        {% csrf_token %}
+        <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Create New Panel</button>
     </form>
 </div>
-
+<div class="list-card">
 <div class="tab-row">
     {% if upcoming_meetings %}<button type="button" data-meetings-tab="upcoming">Upcoming ({{ upcoming_meetings|length }})</button>{% endif %}
     {% if past_meetings %}<button type="button" data-meetings-tab="past">Past ({{ past_meetings|length }})</button>{% endif %}
@@ -46,7 +64,7 @@
             <div class="chair">{{ m.referral_count }} referral{{ m.referral_count|pluralize }} &middot; {{ m.member_count }} member{{ m.member_count|pluralize }}{% if m.discussed_count %} &middot; {{ m.discussed_count }} discussed{% endif %}</div>
         </div>
         <div class="btn-row">
-            <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm">{% include 'icons/edit_svg.html' %} Edit</a>
+            <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</a>
             {% if m.panel.date < today %}
             <span class="btn btn-primary btn-sm btn-disabled" aria-disabled="true">Start Panel</span>
             {% else %}
@@ -77,6 +95,8 @@
     {% empty %}
     <p class="empty-note">No past panels.</p>
     {% endfor %}
+</div>
+</div>
 </div>
 
 <script>

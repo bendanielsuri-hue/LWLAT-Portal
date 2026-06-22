@@ -80,6 +80,9 @@ class StudentNote(models.Model):
 
 class PanelGroup(models.Model):
     name = models.CharField(max_length=100)
+    school = models.ForeignKey(
+        'core.School', null=True, blank=True, on_delete=models.SET_NULL, related_name='panel_groups'
+    )
     default_chair = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
     is_active = models.BooleanField(default=True)
 

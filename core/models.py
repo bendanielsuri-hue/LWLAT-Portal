@@ -11,6 +11,20 @@
 from django.db import models
 
 
+class School(models.Model):
+    CATEGORY_CHOICES = [('Primary', 'Primary'), ('Secondary', 'Secondary')]
+
+    name = models.CharField(max_length=100, unique=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['category', 'name']
+
+    def __str__(self):
+        return self.name
+
+
 class Staff(models.Model):
     staff_code = models.CharField(max_length=20, unique=True)  # MIS staff ID
     first_name = models.CharField(max_length=100)
@@ -18,6 +32,9 @@ class Staff(models.Model):
     email = models.EmailField(blank=True)
     job_title = models.CharField(max_length=100, blank=True)
     department = models.CharField(max_length=100, blank=True)
+    school = models.ForeignKey(
+        School, null=True, blank=True, on_delete=models.SET_NULL, related_name='staff_members'
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -35,6 +52,9 @@ class Student(models.Model):
     reg_form = models.CharField(max_length=10, blank=True)
     form_tutor = models.ForeignKey(
         Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='tutees'
+    )
+    school = models.ForeignKey(
+        School, null=True, blank=True, on_delete=models.SET_NULL, related_name='students'
     )
     date_of_birth = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
