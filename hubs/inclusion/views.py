@@ -504,21 +504,34 @@ def inclusion_panel_group_settings(request):
 def inclusion_panel_group_new(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_id = request.GET.get('school') or request.POST.get('school')
+    preselect_school = School.objects.filter(pk=school_id).first() if school_id else None
 
     if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        post_school_id = request.POST.get('school') or None
+        if PanelGroup.objects.filter(is_active=True, name__iexact=name, school_id=post_school_id).exists():
+            if is_ajax:
+                return JsonResponse({'success': False})
+            return redirect('inclusion_panel_group_settings')
         group = PanelGroup.objects.create(
-            name=request.POST.get('name', ''),
-            school_id=request.POST.get('school') or None,
+            name=name,
+            school_id=post_school_id,
+            default_chair_id=request.POST.get('default_chair') or None,
         )
         staff_ids = request.POST.getlist('member_staff')
+        guest_names = request.POST.getlist('member_guest_name')
         expertise_ids = request.POST.getlist('member_expertise')
-        for staff_id, expertise_id in zip(staff_ids, expertise_ids):
-            if not staff_id:
-                continue
-            PanelGroupMember.objects.update_or_create(
-                panel_group=group, staff_id=staff_id,
-                defaults={'expertise_id': expertise_id or None},
-            )
+        for staff_id, guest_name, expertise_id in zip(staff_ids, guest_names, expertise_ids):
+            guest_name = guest_name.strip()
+            if staff_id:
+                PanelGroupMember.objects.update_or_create(
+                    panel_group=group, staff_id=staff_id,
+                    defaults={'expertise_id': expertise_id or None},
+                )
+            elif guest_name:
+                PanelGroupMember.objects.create(
+                    panel_group=group, guest_name=guest_name, expertise_id=expertise_id or None,
+                )
         if is_ajax:
             return JsonResponse({
                 'success': True,
@@ -526,21 +539,36 @@ def inclusion_panel_group_new(request):
             })
         return redirect('inclusion_panel_group_settings')
 
+    staff_options = [
+        {
+            'id': staff.id,
+            'name': f'{staff.first_name} {staff.last_name}',
+            'school_id': staff.school_id,
+            'is_mat_staff': staff.is_mat_staff,
+        }
+        for staff in Staff.objects.filter(is_active=True).order_by('last_name', 'first_name')
+    ]
     return render(request, 'hubs/inclusion/panel/_panel_group_form_modal.html', {
         **PANEL_BASE_CONTEXT,
         'schools': School.objects.filter(is_active=True),
-        'staff_list': Staff.objects.filter(is_active=True),
         'expertise_list': Expertise.objects.filter(is_active=True),
         'preselect_school_id': school_id,
+        'preselect_school_name': preselect_school.name if preselect_school else '',
+        'existing_groups': list(PanelGroup.objects.filter(is_active=True).values('name', 'school_id')),
+        'staff_options': staff_options,
     })
 
 
 def inclusion_panel_expertise_settings(request):
     if request.method == 'POST':
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         action = request.POST.get('form_action')
         if action == 'add_expertise':
+            name = request.POST.get('name', '').strip()
             next_order = (Expertise.objects.aggregate(Max('order'))['order__max'] or 0) + 1
-            Expertise.objects.create(name=request.POST.get('name', ''), order=next_order)
+            expertise = Expertise.objects.create(name=name, order=next_order)
+            if is_ajax:
+                return JsonResponse({'success': True, 'expertise': {'id': expertise.id, 'name': expertise.name}})
         elif action == 'deactivate_expertise':
             Expertise.objects.filter(pk=request.POST.get('expertise_id')).update(is_active=False)
         return redirect('inclusion_panel_expertise_settings')
@@ -667,10 +695,16 @@ def inclusion_panel_meeting_setup(request, panel_id):
         elif action == 'apply_group_roster':
             if panel.panel_group_id:
                 for group_member in panel.panel_group.members.all():
-                    PanelMember.objects.get_or_create(
-                        panel=panel, staff_id=group_member.staff_id,
-                        defaults={'expertise_id': group_member.expertise_id},
-                    )
+                    if group_member.staff_id:
+                        PanelMember.objects.get_or_create(
+                            panel=panel, staff_id=group_member.staff_id,
+                            defaults={'expertise_id': group_member.expertise_id},
+                        )
+                    else:
+                        PanelMember.objects.create(
+                            panel=panel, guest_name=group_member.guest_name,
+                            expertise_id=group_member.expertise_id,
+                        )
         elif action == 'add_referral':
             referral_id = request.POST.get('referral_id')
             if referral_id:

@@ -30,6 +30,10 @@ class Command(BaseCommand):
                 'School "Babington Academy" not found. Run manage.py seed_schools first.'
             )
 
+        if not benjamin.is_mat_staff:
+            benjamin.is_mat_staff = True
+            benjamin.save(update_fields=['is_mat_staff'])
+
         panel_group, _ = PanelGroup.objects.get_or_create(
             name='Babington Panel',
             defaults={'default_chair': benjamin, 'is_active': True, 'school': babington_academy},

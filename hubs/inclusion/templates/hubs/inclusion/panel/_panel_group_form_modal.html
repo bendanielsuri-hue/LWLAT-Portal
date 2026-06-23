@@ -2,43 +2,61 @@
     <h2>Create Panel Group</h2>
 </div>
 <div class="modal-body">
-    <form method="post" action="{% url 'inclusion_panel_group_new' %}" class="field-group" data-panel-group-modal-form>
+    <form method="post" action="{% url 'inclusion_panel_group_new' %}" class="field-group" data-panel-group-modal-form data-expertise-url="{% url 'inclusion_panel_expertise_settings' %}">
         {% csrf_token %}
-        <label>Name</label>
+        <label>Panel Group Name</label>
         <input type="text" name="name" required>
 
+        {% if preselect_school_id %}
+        <input type="hidden" name="school" value="{{ preselect_school_id }}">
+        {% else %}
         <label>School</label>
-        <select name="school">
-            <option value="">No school</option>
+        <select name="school" required>
+            <option value="">Select a school…</option>
             {% for school in schools %}
-            <option value="{{ school.id }}" {% if preselect_school_id == school.id|stringformat:'s' %}selected{% endif %}>{{ school.name }}</option>
+            <option value="{{ school.id }}">{{ school.name }}</option>
             {% endfor %}
         </select>
+        {% endif %}
 
-        <h3>Initial Members</h3>
+        <label class="field-section-label">Members</label>
         <div data-member-rows>
-            {% for i in "123" %}
-            <div class="panel-group-member-row">
-                <select name="member_staff">
-                    <option value="">— none —</option>
-                    {% for staff in staff_list %}
-                    <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-                    {% endfor %}
+            <div class="panel-group-member-row" data-member-row>
+                <select data-member-staff-group>
+                    <option value="school" data-school-option>{% if preselect_school_name %}{{ preselect_school_name }} Staff{% else %}School Staff{% endif %}</option>
+                    <option value="mat">MAT Staff</option>
+                    <option value="other">Other</option>
                 </select>
-                <select name="member_expertise">
-                    <option value="">No expertise tag</option>
-                    {% for e in expertise_list %}
-                    <option value="{{ e.id }}">{{ e.name }}</option>
-                    {% endfor %}
-                </select>
+
+                <span class="member-staff-field" data-member-staff-field>
+                    <input type="text" data-member-staff-search placeholder="Search staff…" autocomplete="off">
+                    <div class="member-staff-results" data-member-staff-results hidden></div>
+                </span>
+                <input type="text" name="member_guest_name" data-member-guest-field placeholder="Name" hidden>
+                <input type="hidden" name="member_staff" data-member-staff-value>
+
+                <span class="member-expertise-field">
+                    <select name="member_expertise">
+                        <option value="">No expertise tag</option>
+                        {% for e in expertise_list %}
+                        <option value="{{ e.id }}">{{ e.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn btn-add btn-sm" data-add-expertise-trigger aria-label="Add Expertise">{% include 'icons/new_svg.html' %}</button>
+                </span>
+
+                <button type="button" class="member-row-chair-btn btn btn-sm" data-row-chair-btn>Chair</button>
+                <button type="button" class="btn btn-delete btn-sm" data-remove-member-row aria-label="Remove member">{% include 'icons/delete_svg.html' %}</button>
             </div>
-            {% endfor %}
         </div>
-        <button type="button" class="btn btn-sm" data-add-member-row>+ Add another member</button>
+
+        <input type="hidden" name="default_chair" data-default-chair-input>
 
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-            <button type="submit" class="btn btn-add btn-sm">Create Group</button>
+            <button type="submit" class="btn btn-add btn-sm" data-create-group-save disabled>Create Group</button>
         </div>
     </form>
 </div>
+{{ existing_groups|json_script:"existing-panel-groups" }}
+{{ staff_options|json_script:"panel-group-staff-options" }}

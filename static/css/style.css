@@ -78,6 +78,9 @@
 [data-color="pink"] { --primary: #db2777; --primary-dark: #9d174d; --primary-light: #fce7f3; }
 
 /* Dark theme base (default primary colour: purple) */
+html { color-scheme: light; accent-color: var(--primary); }
+[data-theme="dark"] { color-scheme: dark; }
+
 [data-theme="dark"] {
     --primary: #a78bfa;
     --primary-dark: #7c3aed;
@@ -183,11 +186,84 @@ html, body {
     background-color: var(--bg-nav);
     border-right: 1px solid var(--border-color);
 }
-.side-nav { transition: transform var(--transition-slide), box-shadow var(--transition-slide), background-color var(--transition-base), border-color var(--transition-base); }
+.side-nav { transition: width var(--transition-slide), transform var(--transition-slide), box-shadow var(--transition-slide), background-color var(--transition-base), border-color var(--transition-base); }
+
+/* Icon-only rail: the hub sidebar (and the home page's single inline pane) can
+   collapse down to just its icons, either automatically below the narrow-window
+   breakpoint or via the manual toggle button — see main.js setupSidebarCollapse. */
+.side-nav.collapsed {
+    width: 64px;
+}
+.side-nav.collapsed .nav-title,
+.side-nav.collapsed .menu-label,
+.side-nav.collapsed .menu-label-stack,
+.side-nav.collapsed .nav-search,
+.side-nav.collapsed .nav-footer-divider {
+    display: none;
+}
+.side-nav.collapsed .nav-header,
+.side-nav.collapsed .nav-scroll,
+.side-nav.collapsed .nav-footer {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.side-nav.collapsed a,
+.side-nav.collapsed .nav-row-btn,
+.side-nav.collapsed .school-nav-option,
+.side-nav.collapsed .staff-nav-option {
+    justify-content: center;
+}
+.side-nav.collapsed .menu-icon {
+    margin-right: 0;
+}
+.side-nav.collapsed .collapse-toggle .menu-icon svg {
+    transform: rotate(180deg);
+}
+
+@media (max-width: 900px) {
+    .side-nav.hub-side,
+    .side-nav.school-nav:not(.overlay-nav),
+    .side-nav.settings-nav:not(.overlay-nav) {
+        width: 64px;
+    }
+    .side-nav.hub-side .nav-title,
+    .side-nav.hub-side .menu-label,
+    .side-nav.school-nav:not(.overlay-nav) .nav-title,
+    .side-nav.settings-nav:not(.overlay-nav) .nav-title {
+        display: none;
+    }
+    .side-nav.hub-side .nav-header,
+    .side-nav.hub-side .nav-scroll,
+    .side-nav.hub-side .nav-footer {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    .side-nav.hub-side a,
+    .side-nav.hub-side .nav-row-btn {
+        justify-content: center;
+    }
+    .side-nav.hub-side .menu-icon {
+        margin-right: 0;
+    }
+    .collapse-toggle {
+        display: none;
+    }
+}
 
 .side-nav .nav-header {
     flex-shrink: 0;
-    padding: 24px 20px 16px;
+    padding: 32px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* The home page's inline "Change School"/"Settings" panes sit next to each other
+   (or next to main) without the box-shadow that makes the overlay drawers' border
+   read clearly, so they get a stronger border colour to stay legible. */
+.side-nav.school-nav:not(.overlay-nav),
+.side-nav.settings-nav:not(.overlay-nav) {
+    border-right-color: var(--border-strong);
 }
 .side-nav .nav-scroll {
     flex: 1;
@@ -203,28 +279,64 @@ html, body {
     padding: 16px 20px 24px;
 }
 
-/* Overlay sidebars ("Change Hub", "Change School", "Settings") sit fixed in the same
-   spot as the regular hub sidebar, but elevated above it — opening one covers the
-   hub sidebar in place rather than hiding/removing it, so main content never reflows. */
-.side-nav.overlay-nav {
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100%;
+/* The overlay slot is the single flex item that actually slides — it's the
+   only thing that occupies real space in `.page-shell`'s flex flow, so it
+   pushes <main> over when open. The four overlay panels ("Change Hub",
+   "Change School", "Change User", "Settings") live inside it as absolutely-
+   positioned layers stacked exactly on top of each other (`inset: 0`); only
+   the one with `.open` is visible. Stacking them this way (rather than each
+   panel independently faking its own position via width/margin tricks)
+   guarantees the one you actually opened is the one you see — with separate
+   sibling flex items, every closed panel's negative margin cancels out
+   whatever space the open one contributes and they all land on the same
+   spot, so whichever is last in the DOM always paints on top regardless of
+   which is really open. */
+.overlay-slot {
     width: 240px;
-    transform: translateX(-100%);
-    transition: transform var(--transition-slide), box-shadow var(--transition-slide);
-    z-index: 50;
-    background-color: var(--bg-nav);
-    border-right: 1px solid var(--border-color);
+    min-width: 0;
+    flex-shrink: 0;
+    margin-left: -240px;
+    overflow: hidden;
+    position: relative;
+    order: 2;
+    z-index: 1;
+    transition: margin-left var(--transition-slide);
+}
+.overlay-slot.open {
+    margin-left: 0;
+}
+.side-nav.overlay-nav {
+    position: absolute;
+    inset: 0;
+    width: 240px;
+    border-right: none;
+    background-color: var(--bg-surface-alt);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base), box-shadow var(--transition-slide), border-color var(--transition-base);
 }
 .side-nav.overlay-nav.open {
-    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
     box-shadow: var(--shadow-drawer);
-    z-index: 60;
+    border-right: 1px solid var(--border-color);
 }
+/* The primary sidebar/rail (hub sidebar, or the home page's single inline pane)
+   always renders before the overlay slot, and stays above it in the stacking
+   order while the slot is sliding out from underneath it. */
+.side-nav.hub-side,
+.side-nav.school-nav:not(.overlay-nav),
+.side-nav.settings-nav:not(.overlay-nav) {
+    order: 1;
+    z-index: 2;
+}
+main { order: 3; position: relative; }
+
+/* The dimming backdrop now covers <main> only (not the sidebar/rail or the open
+   overlay column itself, which both stay fully interactive) — it signals that
+   main content isn't the current focus while a side panel is open. */
 .global-backdrop { opacity: 0; transition: opacity var(--transition-slide); pointer-events: none; }
-.global-backdrop.active { opacity: 1; position: fixed; left: 0; top: 0; width: 100%; height: 100%; background: rgba(3,6,23,0.45); z-index: 45; pointer-events: auto; }
+.global-backdrop.active { opacity: 1; position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: rgba(3,6,23,0.45); z-index: 11; pointer-events: auto; }
 /* The dark-theme page background is itself a dark navy, so the light-mode
    overlay colour above all but disappears against it — use solid black
    instead so opening a side panel still visibly dims the page. */
@@ -284,7 +396,7 @@ html, body {
    left-edge accent bar to show hover/selected state instead of a
    background fill — grey for hover, purple for the active/selected item
    (hovering the selected item stays purple, it doesn't turn grey). */
-.side-nav a::before,
+.side-nav a:not(.nav-row-btn)::before,
 .side-nav .school-nav-option::before,
 .side-nav .staff-nav-option::before {
     content: '';
@@ -301,25 +413,25 @@ html, body {
     transition: opacity var(--transition-base), background-color var(--transition-base), transform var(--transition-pop);
 }
 
-.side-nav a:hover,
+.side-nav a:not(.nav-row-btn):hover,
 .side-nav .school-nav-option:hover,
 .side-nav .staff-nav-option:hover {
     font-weight: 600;
 }
-.side-nav a:hover::before,
+.side-nav a:not(.nav-row-btn):hover::before,
 .side-nav .school-nav-option:hover::before,
 .side-nav .staff-nav-option:hover::before {
     opacity: 1;
     transform: scaleY(1);
 }
 
-.side-nav a.active,
+.side-nav a:not(.nav-row-btn).active,
 .side-nav .school-nav-option.selected,
 .side-nav .staff-nav-option.selected {
     color: var(--primary);
     font-weight: 600;
 }
-.side-nav a.active::before,
+.side-nav a:not(.nav-row-btn).active::before,
 .side-nav .school-nav-option.selected::before,
 .side-nav .staff-nav-option.selected::before {
     opacity: 1;
@@ -652,6 +764,7 @@ a { color: inherit; }
 .nav-close-btn {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     width: 100%;
     background: transparent;
@@ -673,11 +786,6 @@ a { color: inherit; }
 
 
 .side-nav { position: relative; }
-
-/* Ensure global overlay sits above everything */
-.side-nav.global-nav { z-index: 50; }
-.side-nav.global-nav.open { z-index: 60; }
-.global-backdrop.active { z-index: 55; }
 
 /* Hub chooser (compact hub switcher) */
 /* hub chooser removed */
@@ -806,6 +914,7 @@ a { color: inherit; }
    any .card-switcher, or a future row via [data-overflow-tabs]). Shared
    sitewide so any page's tab row can opt in without redefining this. */
 .tab-row-more { position: relative; flex-shrink: 0; }
+.tab-row-more.hidden { display: none; }
 .tab-row-more-btn {
     position: relative;
     background: transparent;
@@ -851,6 +960,13 @@ a { color: inherit; }
 }
 .tab-row-more-menu button:hover { background: var(--bg-surface-alt); color: var(--text-primary); }
 .tab-row-more-menu button.active { color: var(--primary); }
+/* page_extras buttons/links moved into this menu by setupPageExtrasOverflow()
+   in main.js are real <a>/<button> nodes, not clones, so they keep whatever
+   .btn styling they already had — this just matches the menu-item look. */
+.tab-row-more-menu a {
+    display: block;
+    text-decoration: none;
+}
 
 /* Generic card switcher: pairs a .card-switcher (row of .card-tab buttons,
    wired up by main.js) with a .switch-card-group of full-size cards sharing
@@ -937,6 +1053,237 @@ a { color: inherit; }
     color: var(--text-primary);
     font-size: var(--font-base);
     font-family: inherit;
+}
+
+/* Custom select chevron, swapped per theme since a data-URI SVG fill can't
+   reference a CSS variable directly — colours are hardcoded to match
+   --text-secondary in each theme (#475569 light, #aab4c5 dark). */
+.field-group select, .filter-field select {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    padding-right: 34px;
+    background-color: var(--bg-surface-alt);
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] .field-group select, [data-theme="dark"] .filter-field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+.field-group input:focus, .field-group select:focus,
+.filter-field input:focus, .filter-field select:focus {
+    outline: 1px solid var(--border-strong);
+    outline-offset: 1px;
+    border-color: var(--border-strong);
+}
+
+.field-group select option, .filter-field select option {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+.field-group input[type=date], .field-group input[type=time],
+.filter-field input[type=date], .filter-field input[type=time] {
+    padding-right: 10px;
+}
+.field-group input[type=date]::-webkit-calendar-picker-indicator,
+.field-group input[type=time]::-webkit-calendar-picker-indicator,
+.filter-field input[type=date]::-webkit-calendar-picker-indicator,
+.filter-field input[type=time]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    border-radius: var(--radius-xs);
+    padding: 4px;
+}
+.field-group input[type=date]::-webkit-calendar-picker-indicator:hover,
+.field-group input[type=time]::-webkit-calendar-picker-indicator:hover,
+.filter-field input[type=date]::-webkit-calendar-picker-indicator:hover,
+.filter-field input[type=time]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    background: var(--row-hover-bg, var(--bg-well));
+}
+
+/* Custom select / date / time controls — fully app-styled replacements for the
+   native popups above, built by enhanceSelect()/enhanceDateInput()/
+   enhanceTimeInput() in static/js/main.js. The native element is kept in the
+   DOM (just visually hidden via .ui-select-native) as the real form field. */
+.ui-select, .ui-date, .ui-time {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+select.ui-select-native, input.ui-select-native {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 1px;
+    height: 1px;
+}
+.ui-select-trigger {
+    width: 100%;
+    text-align: left;
+    padding: 10px 34px 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-surface-alt);
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+    cursor: pointer;
+}
+[data-theme="dark"] .ui-select-trigger {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+.ui-select-trigger:focus {
+    border-color: var(--border-strong);
+}
+
+/* Each popover is a <dialog> shown via showModal() (static/js/main.js), not a
+   plain positioned div — nested modal dialogs reliably stack above, and stay
+   fully interactive alongside, an already-open <dialog>. (Two earlier
+   attempts failed this: a body-appended absolute/fixed div either got
+   clipped by or expanded the outer dialog's scroll area as its descendant,
+   and the popover-attribute API's coexistence with an open modal dialog made
+   it inert in practice — clicks/hover passed straight through.) top/left/
+   width are still set per-instance by positionPopover(), anchored to the
+   trigger's getBoundingClientRect(); margin/border/backdrop here just
+   neutralize the browser's default <dialog> chrome. */
+dialog.ui-popover { margin: 0; }
+dialog.ui-popover::backdrop { background: transparent; }
+.ui-popover {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+.ui-option {
+    position: relative;
+    padding: 8px 28px 8px 10px;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-base);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.ui-option:hover, .ui-option.highlighted { background: var(--row-hover-bg); }
+/* Selected is marked by a checkmark, not a background fill — so a hover
+   fill (on this row or an adjacent one) never has another fill to visually
+   touch, regardless of which rows happen to be next to each other. */
+.ui-option.selected {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.ui-option.selected::after {
+    content: '✓';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary);
+}
+
+.ui-calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 8px;
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.ui-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+.ui-calendar-dow {
+    text-align: center;
+    font-size: var(--font-2xs);
+    color: var(--text-faint);
+    padding: 4px 0;
+}
+.ui-calendar-day {
+    text-align: center;
+    padding: 6px 0;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.ui-calendar-day:hover { background: var(--row-hover-bg); }
+.ui-calendar-day.is-today { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.ui-calendar-day.is-selected { background: var(--primary); color: #fff; font-weight: 600; }
+.ui-calendar-day.is-past { color: var(--text-faint); cursor: default; }
+
+/* Date control: three mini Day/Month/Year dropdowns (reusing .ui-select via
+   the --sm modifier) plus a calendar-icon button that opens a fixed-width
+   popover — deliberately NOT width:100% like .ui-popover's default, since a
+   7-column day grid stretched across a full-width modal field renders each
+   day as an oversized cell. */
+.ui-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+.ui-date-fields { display: flex; gap: 6px; flex: 1; }
+.ui-select--sm { flex: 1; min-width: 0; }
+.ui-select--sm .ui-select-trigger {
+    padding: 8px 26px 8px 10px;
+    font-size: var(--font-sm);
+    background-size: 12px;
+    background-position: right 8px center;
+}
+.ui-date-calendar-btn, .ui-add-group-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    color: var(--text-secondary);
+}
+
+/* Panel Group field: select + a small "+" icon button beside it (same icon-
+   button sizing as the Date field's calendar button), instead of a separate
+   full-width "Create new Panel Group" button — keeps the action next to the
+   field it affects and avoids mixing an action into the dropdown's own list
+   of selectable groups. */
+.ui-select-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+.ui-select-row > .ui-select { flex: 1; }
+.ui-calendar-popover {
+    width: 280px;
+}
+
+/* Time control: Hour/Minute mini-dropdowns mirroring Date's Day/Month/Year
+   pattern, plus a 24h/12h toggle-pill (same markup as the toggles already
+   used elsewhere, e.g. hubs/inclusion/templates/.../actions.html) and an
+   AM/PM mini-dropdown shown only in 12h mode. */
+.ui-time {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+.ui-time-fields { display: flex; gap: 6px; flex: 1; }
+.ui-time-fields .ui-select--sm.ui-hidden { display: none; }
+.ui-time-toggle-label {
+    font-size: var(--font-2xs);
+    color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 /* Wraps a toggle-pill inside a .filter-field so its label lines up with
@@ -1038,6 +1385,60 @@ a { color: inherit; }
 }
 .field-group .field-box { min-height: 44px; }
 
+.field-section-label { display: block; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: 14px 0 6px; }
+
+.panel-group-member-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.panel-group-member-row > select { width: auto; flex: 1 1 140px; }
+.panel-group-member-row .member-staff-field { position: relative; flex: 2 1 200px; }
+.panel-group-member-row .member-staff-field input,
+.panel-group-member-row input[name="member_guest_name"] { width: 100%; }
+.panel-group-member-row input[name="member_guest_name"] { flex: 2 1 200px; }
+.panel-group-member-row .member-expertise-field { display: flex; gap: 6px; flex: 1 1 160px; align-items: center; }
+.panel-group-member-row .member-expertise-field select { width: auto; flex: 1 1 auto; }
+
+.member-staff-results {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+}
+.member-staff-results[hidden] { display: none; }
+.staff-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: var(--font-sm);
+    cursor: pointer;
+}
+.staff-option:last-child { border-bottom: none; }
+.staff-option:hover:not(:disabled) { background: var(--primary-light); }
+.staff-option:disabled { color: var(--text-muted); cursor: not-allowed; }
+
+.member-row-chair-btn { white-space: nowrap; }
+.member-row-chair-btn.is-chair { background: var(--primary-light); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+.member-row-chair-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.member-expertise-add-input { display: flex; gap: 6px; flex: 1 1 auto; align-items: center; }
+.member-expertise-add-input input { width: auto; flex: 1 1 auto; padding: 6px 10px; }
+
 /* Home page summary stats strip */
 .stats-strip {
     display: flex;
@@ -1138,12 +1539,40 @@ a { color: inherit; }
 .page-header-extras { display: flex; align-items: center; flex-shrink: 0; }
 .key-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* Breadcrumbs */
-.breadcrumbs { font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 8px; margin-left: -8px; }
+/* Breadcrumbs: single line by default (overflow clipped). Pages nested more
+   than 3 crumbs deep default to a collapsed "… › <recent crumbs>" view
+   (hiding the root + hub behind the toggle even when the full trail would
+   fit) — see the breadcrumb IIFE in main.js. The single .crumb-toggle button
+   flips between that default view and a wrapped, fully-expanded one via
+   .breadcrumbs-expanded; there is no separate close control. */
+.breadcrumbs { display: flex; align-items: center; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 8px; margin-left: -8px; white-space: nowrap; overflow: hidden; }
+.breadcrumbs.breadcrumbs-expanded { white-space: normal; flex-wrap: wrap; overflow: visible; }
+.breadcrumbs > a, .breadcrumbs > span { flex-shrink: 0; }
 .breadcrumbs a { color: var(--primary); text-decoration: none; padding: 3px 8px; margin-right: 2px; border-radius: var(--radius-pill); transition: background-color 0.15s, color 0.15s; }
 .breadcrumbs a:hover, .breadcrumbs a:focus-visible { background: var(--primary-light); color: var(--primary); text-shadow: 0 0 currentColor; }
 .breadcrumbs .sep { margin-right: 8px; color: var(--text-faint); }
-.breadcrumbs > span:last-child { font-weight: 600; color: var(--text-primary); text-shadow: 0 0 currentColor; }
+.breadcrumbs > span:last-child:not(.sep) { font-weight: 600; color: var(--text-primary); text-shadow: 0 0 currentColor; }
+.breadcrumbs .crumb-toggle {
+    background: var(--primary-light);
+    border: none;
+    cursor: pointer;
+    color: var(--primary);
+    font-size: var(--font-base);
+    font-weight: 700;
+    width: 32px;
+    height: 24px;
+    line-height: 24px;
+    padding: 0;
+    text-align: center;
+    margin-right: 2px;
+    border-radius: var(--radius-pill);
+    transition: background-color 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+.breadcrumbs .crumb-toggle:hover, .breadcrumbs .crumb-toggle:focus-visible {
+    background: var(--primary);
+    color: #fff;
+}
 
 .page-heading h1 { margin: 0; font-size: var(--font-5xl); }
 .page-subtitle { margin: 6px 0 0; font-size: var(--font-md); font-weight: 400; line-height: 1.4; color: var(--text-secondary); }

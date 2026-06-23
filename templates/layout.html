@@ -20,24 +20,25 @@
             Django App
         {% endblock %}
     </title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=51">
-    <script src="{% static 'js/main.js' %}?v=21" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=61">
+    <script src="{% static 'js/main.js' %}?v=32" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     {{ search_items|json_script:"app-search-data" }}
     <div class="page-shell">
+        <div class="overlay-slot">
         <nav class="side-nav global-nav overlay-nav" id="global-nav-overlay" data-hub="global">
             <div class="nav-header">
                 <div class="nav-title">Change Hub</div>
-            </div>
-            <div class="nav-scroll">
                 <div class="nav-search">
                     <div class="app-search">
                         <input type="text" class="app-search-input" id="nav-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
                         <div class="app-search-results hidden" id="nav-app-search-results" role="listbox"></div>
                     </div>
                 </div>
+            </div>
+            <div class="nav-scroll">
                 <ul>
                     <li><a href="{% url 'homepage' %}" class="{% if request.path == '/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/house_svg.html' %}</span><span class="menu-label">LWLAT Portal</span></a></li>
                     <li><a href="{% url 'staff_hub' %}" class="{% if request.path|starts_with:'/staff/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/staff_svg.html' %}</span><span class="menu-label">Staff</span></a></li>
@@ -71,11 +72,11 @@
         <nav class="side-nav staff-nav overlay-nav" id="staff-nav-overlay" data-hub="staff">
             <div class="nav-header">
                 <div class="nav-title">Change User</div>
-            </div>
-            <div class="nav-scroll">
                 <div class="nav-search">
                     <input type="text" class="app-search-input identity-search-input" placeholder="Search staff…" aria-label="Search staff">
                 </div>
+            </div>
+            <div class="nav-scroll">
                 {% include '_staff_list.html' %}
             </div>
             <div class="nav-footer">
@@ -84,8 +85,10 @@
         </nav>
         {% endif %}
 
-        {% include '_settings_panel.html' %}
         {% endif %}
+
+        {% include '_settings_panel.html' %}
+        </div>
 
         {% block hub_sidebar %}{% endblock %}
         <main>
@@ -94,6 +97,8 @@
                 <div class="page-header">
                     <div class="page-header-main">
                         <nav class="breadcrumbs">
+                            <a href="{% url 'homepage' %}">LWLAT Portal</a>
+                            <span class="sep">&gt;</span>
                             {% block breadcrumbs %}{% endblock %}
                         </nav>
                         <div class="page-heading-wrap">

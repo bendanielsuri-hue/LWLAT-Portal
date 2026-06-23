@@ -3,19 +3,31 @@
 {% block title %}LWLAT Portal{% endblock %}
 
 {% block hub_sidebar %}
+{% if current_staff.is_mat_staff %}
 <nav class="side-nav school-nav" data-hub="school">
     <div class="nav-header">
         <div class="nav-title">Change School</div>
     </div>
-    {% include '_school_list.html' %}
+    <div class="nav-scroll">
+        {% include '_school_list.html' %}
+    </div>
+    <div class="nav-footer">
+        <button type="button" class="nav-row-btn settings-trigger" data-overlay-target="#settings-nav-overlay" aria-label="Settings">
+            <span class="menu-icon">{% include 'icons/cog_svg.html' %}</span>
+            <span class="menu-label">View Settings</span>
+        </button>
+    </div>
 </nav>
-
+{% else %}
 <nav class="side-nav settings-nav" data-hub="settings">
     <div class="nav-header">
         <div class="nav-title">Settings</div>
     </div>
-    {% include '_settings_content.html' %}
+    <div class="nav-scroll">
+        {% include '_settings_content.html' %}
+    </div>
 </nav>
+{% endif %}
 {% endblock %}
 
 {% block breadcrumbs_wrapper %}{% endblock %}

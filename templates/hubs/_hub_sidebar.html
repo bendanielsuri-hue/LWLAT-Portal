@@ -2,17 +2,16 @@
 {% load hub_extras %}
 <nav class="side-nav hub-side expanded" data-hub="{{ hub_title|lower }}">
     <div class="nav-header">
-        {% if back_to_hub_url %}
-        <a href="{{ back_to_hub_url }}" class="exit-hub nav-row-btn">
-            <span class="menu-icon">{% include 'icons/arrow_left_svg.html' %}</span>
-            <span class="menu-label">{{ back_to_hub_label }}</span>
-        </a>
-        {% else %}
-        <button type="button" class="switch-global nav-row-btn" data-overlay-target="#global-nav-overlay">
-            <span class="menu-icon">{% include 'icons/switch_apps_svg.html' %}</span>
-            <span class="menu-label">Change Hub</span>
+        <button type="button" class="collapse-toggle nav-row-btn" id="sidebar-collapse-toggle" aria-label="Collapse sidebar">
+            <span class="menu-icon">{% include 'icons/panel_collapse_svg.html' %}</span>
+            <span class="menu-label">Collapse</span>
         </button>
-        {% endif %}
+        <a href="{{ back_to_hub_url|default:'#' }}"
+           class="exit-hub nav-row-btn"
+           {% if not back_to_hub_url %}data-overlay-target="#global-nav-overlay"{% endif %}>
+            <span class="menu-icon">{% include 'icons/arrow_left_svg.html' %}</span>
+            <span class="menu-label">{{ back_to_hub_label|default:'Change Hub' }}</span>
+        </a>
         <div class="nav-title">{{ hub_title }}</div>
     </div>
     <div class="nav-scroll">

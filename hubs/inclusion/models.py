@@ -104,14 +104,17 @@ class PanelGroup(models.Model):
 
 class PanelGroupMember(models.Model):
     panel_group = models.ForeignKey(PanelGroup, on_delete=models.CASCADE, related_name='members')
-    staff = models.ForeignKey('core.Staff', on_delete=models.CASCADE)
+    # Null when this is an external (non-Staff) member — see guest_name. Mirrors
+    # the same staff/guest_name split already used on PanelMember.
+    staff = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.CASCADE)
+    guest_name = models.CharField(max_length=150, blank=True)
     expertise = models.ForeignKey(Expertise, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
 
     class Meta:
         unique_together = [('panel_group', 'staff')]
 
     def __str__(self):
-        return f'{self.staff} in {self.panel_group}'
+        return f'{self.staff if self.staff_id else (self.guest_name or "Guest")} in {self.panel_group}'
 
 
 class Panel(models.Model):

@@ -23,9 +23,10 @@ def current_school_key(request):
 
 
 def _staff_matches_school_key(staff, key):
-    # Staff with no school are MAT-wide and are considered compatible with
-    # every school/category selection.
-    if staff.school_id is None or key in (None, '', 'all'):
+    # Staff with no school, and MAT staff regardless of their school FK, are
+    # MAT-wide and are considered compatible with every school/category
+    # selection.
+    if staff.school_id is None or staff.is_mat_staff or key in (None, '', 'all'):
         return True
     if key == 'primary':
         return staff.school.category == 'Primary'
@@ -45,10 +46,10 @@ def staff_queryset_for_school_key(key):
     if key in (None, '', 'all'):
         return qs
     if key == 'primary':
-        return qs.filter(Q(school__isnull=True) | Q(school__category='Primary'))
+        return qs.filter(Q(school__isnull=True) | Q(is_mat_staff=True) | Q(school__category='Primary'))
     if key == 'secondary':
-        return qs.filter(Q(school__isnull=True) | Q(school__category='Secondary'))
-    return qs.filter(Q(school__isnull=True) | Q(school_id=key))
+        return qs.filter(Q(school__isnull=True) | Q(is_mat_staff=True) | Q(school__category='Secondary'))
+    return qs.filter(Q(school__isnull=True) | Q(is_mat_staff=True) | Q(school_id=key))
 
 
 def default_staff_for_school_key(key):

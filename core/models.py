@@ -36,6 +36,7 @@ class Staff(models.Model):
         School, null=True, blank=True, on_delete=models.SET_NULL, related_name='staff_members'
     )
     is_active = models.BooleanField(default=True)
+    is_mat_staff = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['last_name', 'first_name']

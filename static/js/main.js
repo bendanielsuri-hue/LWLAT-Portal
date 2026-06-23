@@ -7,21 +7,45 @@ document.addEventListener('DOMContentLoaded', function () {
         return null;
     }
 
-    // Generic overlay nav handling: "Change Hub", "Change School" and "Settings" are all
-    // fixed-position panels (.overlay-nav) that slide in from the left and sit ON TOP of
-    // the regular hub sidebar (same position/width, higher z-index) rather than replacing
-    // it — so opening one never reflows the page's main content.
+    // Manual collapse/expand of the hub sidebar to an icon-only rail (auto-collapse
+    // below the narrow-window breakpoint is handled purely in CSS via @media, so this
+    // only needs to apply/persist the user's manual choice at wider widths).
+    (function setupSidebarCollapse() {
+        var toggle = document.getElementById('sidebar-collapse-toggle');
+        var nav = toggle && closest(toggle, '.side-nav');
+        if (!toggle || !nav) return;
+        var STORAGE_KEY = 'pref-sidebar-collapsed';
+        if (localStorage.getItem(STORAGE_KEY) === 'true') {
+            nav.classList.add('collapsed');
+        }
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            var collapsed = nav.classList.toggle('collapsed');
+            try { localStorage.setItem(STORAGE_KEY, collapsed ? 'true' : 'false'); } catch (err) { }
+        });
+    })();
+
+    // Generic overlay nav handling: "Change Hub", "Change School", "Change User" and
+    // "Settings" are absolutely-positioned layers stacked inside one shared
+    // `.overlay-slot`, which is the actual flex column that slides out beside the
+    // primary sidebar/rail (CSS `order` places it after the rail, before <main>) —
+    // opening a panel shows that layer and widens the slot from 0, pushing <main>
+    // over, and dims <main> behind a backdrop scoped to it.
     function openOverlay(navEl) {
         if (!navEl) return;
         document.querySelectorAll('.overlay-nav.open').forEach(function (other) {
             if (other !== navEl) closeOverlay(other);
         });
         navEl.classList.add('open');
+        var slot = closest(navEl, '.overlay-slot');
+        if (slot) slot.classList.add('open');
         addBackdrop(function () { closeOverlay(navEl); });
     }
     function closeOverlay(navEl) {
         if (!navEl) return;
         navEl.classList.remove('open');
+        var slot = closest(navEl, '.overlay-slot');
+        if (slot && !slot.querySelector('.overlay-nav.open')) slot.classList.remove('open');
         removeBackdrop();
     }
 
@@ -48,25 +72,44 @@ document.addEventListener('DOMContentLoaded', function () {
         if (openNav) closeOverlay(openNav);
     });
 
+    // Switching directly from one open overlay to another (e.g. Settings -> Change
+    // School) reuses the same backdrop element rather than removing/recreating it, so
+    // its pending removal (scheduled by the close that's part of that switch) must be
+    // cancelled — otherwise the backdrop a later overlay is relying on gets deleted out
+    // from under it once that stale timer fires, and the dimming just vanishes.
+    var backdropRemovalTimer = null;
+
     function addBackdrop(onClick) {
-        var existing = document.querySelector('.global-backdrop');
-        if (existing) { existing.classList.add('active'); return; }
+        var main = document.querySelector('.page-shell > main');
+        if (!main) return;
+        if (backdropRemovalTimer) {
+            clearTimeout(backdropRemovalTimer);
+            backdropRemovalTimer = null;
+        }
+        var existing = main.querySelector('.global-backdrop');
+        if (existing) {
+            existing.classList.add('active');
+            existing.onclick = onClick;
+            return;
+        }
         var d = document.createElement('div');
         d.className = 'global-backdrop';
-        d.addEventListener('click', function () {
-            if (typeof onClick === 'function') onClick();
-        });
-        document.body.appendChild(d);
+        d.onclick = onClick;
+        main.appendChild(d);
         // allow CSS transition to animate in
         window.setTimeout(function () { d.classList.add('active'); }, 10);
     }
 
     function removeBackdrop() {
-        var existing = document.querySelector('.global-backdrop');
+        var existing = document.querySelector('.page-shell > main .global-backdrop');
         if (!existing) return;
         existing.classList.remove('active');
+        if (backdropRemovalTimer) clearTimeout(backdropRemovalTimer);
         // remove after fade out transition
-        setTimeout(function () { if (existing.parentNode) existing.parentNode.removeChild(existing); }, 380);
+        backdropRemovalTimer = setTimeout(function () {
+            if (existing.parentNode) existing.parentNode.removeChild(existing);
+            backdropRemovalTimer = null;
+        }, 380);
     }
 
     // Make the top section of each hub card clickable, without double-navigating when an inner link/button is clicked
@@ -320,11 +363,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
         input.addEventListener('input', function () {
             var query = input.value.trim().toLowerCase();
+            // Group dividers separate runs of options by school — a divider should
+            // only stay visible when it has a visible option on both sides, otherwise
+            // a fully-filtered-out group leaves a stray line with an empty gap.
+            var groupHasVisible = false;
+            var pendingDividers = [];
             items.forEach(function (li) {
+                if (li.classList.contains('staff-nav-divider')) {
+                    li.classList.add('hidden');
+                    pendingDividers.push({ li: li, precededByVisible: groupHasVisible });
+                    groupHasVisible = false;
+                    return;
+                }
                 var option = li.querySelector('.staff-nav-option');
                 if (!option) return;
                 var name = (option.dataset.name || '').toLowerCase();
-                li.classList.toggle('hidden', !!query && name.indexOf(query) === -1);
+                var visible = !query || name.indexOf(query) !== -1;
+                li.classList.toggle('hidden', !visible);
+                if (visible) {
+                    groupHasVisible = true;
+                    pendingDividers.forEach(function (entry) {
+                        if (entry.precededByVisible) entry.li.classList.remove('hidden');
+                    });
+                    pendingDividers = [];
+                }
             });
         });
     })();
@@ -528,6 +590,76 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('.panel-card .tab-row, .card-switcher, [data-overflow-tabs]').forEach(setupOverflowTabs);
 
+    // Page-header actions (the {% block page_extras %} buttons/links beside
+    // the page title, e.g. "Add Referral") crowd the title on narrow
+    // screens. Below the existing 900px sidebar-collapse breakpoint, fold
+    // them into an "Actions ▾" dropdown reusing the same .tab-row-more*
+    // look as setupOverflowTabs() above. The real nodes are moved (not
+    // cloned) so any click handlers/data attributes on them keep working.
+    (function setupPageExtrasOverflow() {
+        var mq = window.matchMedia('(max-width: 900px)');
+
+        function collectActionItems(extras) {
+            var items = [];
+            Array.prototype.forEach.call(extras.children, function (el) {
+                if (el.tagName === 'A' || el.tagName === 'BUTTON') {
+                    items.push(el);
+                } else if (el.classList.contains('key-actions')) {
+                    Array.prototype.forEach.call(el.children, function (child) {
+                        if (child.tagName === 'A' || child.tagName === 'BUTTON') items.push(child);
+                    });
+                }
+            });
+            return items;
+        }
+
+        document.querySelectorAll('.page-header-extras').forEach(function (extras) {
+            var items = collectActionItems(extras);
+            if (!items.length) return;
+
+            items.forEach(function (item) {
+                item._homeParent = item.parentElement;
+                item._homeNext = item.nextSibling;
+            });
+
+            var moreWrap = document.createElement('div');
+            moreWrap.className = 'tab-row-more hidden';
+            var moreBtn = document.createElement('button');
+            moreBtn.type = 'button';
+            moreBtn.className = 'tab-row-more-btn';
+            moreBtn.textContent = 'Actions ▾';
+            var menu = document.createElement('div');
+            menu.className = 'tab-row-more-menu hidden';
+            moreWrap.appendChild(moreBtn);
+            moreWrap.appendChild(menu);
+            extras.appendChild(moreWrap);
+
+            moreBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                menu.classList.toggle('hidden');
+            });
+            document.addEventListener('click', function () { menu.classList.add('hidden'); });
+
+            function collapse() {
+                items.forEach(function (item) { menu.appendChild(item); });
+                moreWrap.classList.remove('hidden');
+            }
+            function expand() {
+                items.slice().reverse().forEach(function (item) {
+                    item._homeParent.insertBefore(item, item._homeNext);
+                });
+                moreWrap.classList.add('hidden');
+                menu.classList.add('hidden');
+            }
+
+            function sync() {
+                if (mq.matches) collapse(); else expand();
+            }
+            sync();
+            mq.addEventListener('change', sync);
+        });
+    })();
+
     // Generic card switcher: pairs a .card-switcher (row of .card-tab buttons,
     // each with data-card-target="<id>") with a group of full-size "cards"
     // elsewhere on the page sharing class .switch-card. Below the breakpoint
@@ -552,4 +684,649 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     });
+
+    // Breadcrumbs: trail is always rooted at "LWLAT Portal" + the hub name
+    // (see layout.html), which makes deep pages verbose. Default behaviour:
+    // pages more than 3 crumbs deep always start collapsed to "… › <recent
+    // crumbs>" — hiding the root + hub behind the toggle even if the full
+    // trail would fit — and trim further from the front if even that
+    // overflows. Shallow pages (root + hub + current page) just show the
+    // full trail, no toggle. One "…"/"‹" button (never a separate close
+    // control) flips between the default tail view and the full, wrapped
+    // trail. Crumb/sep nodes are cloned once up front so any view can be
+    // rebuilt from scratch without losing markup (icons, hrefs, etc).
+    document.querySelectorAll('nav.breadcrumbs').forEach(function (nav) {
+        var nodes = Array.prototype.slice.call(nav.childNodes).filter(function (n) {
+            return !(n.nodeType === 3 && !n.textContent.trim());
+        }).map(function (n) { return n.cloneNode(true); });
+
+        function isSep(node) {
+            return node.nodeType === 1 && node.classList.contains('sep');
+        }
+
+        var crumbs = nodes.filter(function (n) { return !isSep(n); });
+        var seps = nodes.filter(isSep);
+
+        function makeToggle(expanded, onClick) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'crumb-toggle';
+            btn.setAttribute('aria-label', expanded ? 'Show fewer breadcrumbs' : 'Show earlier breadcrumbs');
+            btn.textContent = expanded ? '−' : '…';
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        function renderInline() {
+            nav.innerHTML = '';
+            nav.classList.remove('breadcrumbs-expanded');
+            crumbs.forEach(function (c, i) {
+                if (i > 0) nav.appendChild(seps[i - 1].cloneNode(true));
+                nav.appendChild(c.cloneNode(true));
+            });
+        }
+
+        function renderExpanded() {
+            nav.innerHTML = '';
+            nav.classList.add('breadcrumbs-expanded');
+            nav.appendChild(makeToggle(true, renderDefault));
+            crumbs.forEach(function (c, i) {
+                if (i > 0) nav.appendChild(seps[i - 1].cloneNode(true));
+                nav.appendChild(c.cloneNode(true));
+            });
+        }
+
+        function renderTail(startIndex) {
+            nav.innerHTML = '';
+            nav.classList.remove('breadcrumbs-expanded');
+            nav.appendChild(makeToggle(false, renderExpanded));
+            nav.appendChild(seps[0].cloneNode(true));
+            for (var i = startIndex; i < crumbs.length; i++) {
+                if (i > startIndex) nav.appendChild(seps[i - 1].cloneNode(true));
+                nav.appendChild(crumbs[i].cloneNode(true));
+            }
+        }
+
+        function fitsOneLine() {
+            return nav.scrollWidth <= nav.clientWidth;
+        }
+
+        function renderDefault() {
+            if (crumbs.length <= 3) {
+                renderInline();
+                return;
+            }
+            var startIndex = 2;
+            renderTail(startIndex);
+            requestAnimationFrame(function () {
+                while (!fitsOneLine() && startIndex < crumbs.length - 1) {
+                    startIndex++;
+                    renderTail(startIndex);
+                }
+            });
+        }
+
+        renderDefault();
+
+        var resizeTimer = null;
+        window.addEventListener('resize', function () {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(renderDefault, 150);
+        });
+    });
+
+    // Auto-enhance every plain select/date/time field already in the page on
+    // load (server-rendered pages). AJAX-injected modal content (e.g.
+    // hubs/inclusion/static/js/panel.js) isn't in the DOM yet at this point,
+    // so it calls window.enhanceFormControls(dialog) itself after injecting.
+    window.enhanceFormControls(document);
 });
+
+// Custom select / date / time controls — progressive enhancement over a native
+// <select>/<input type=date>/<input type=time>: the native element stays in the
+// DOM (visually hidden) as the real form field and the single source of truth,
+// so `required`/`value`/`form.checkValidity()`/normal POST submission all keep
+// working untouched. A custom trigger button + anchored popover (styled like
+// .tab-row-more-menu/.side-nav option rows, see style.css) reads/writes that
+// native element's value and fires a real `change` event on it whenever the
+// user picks something, which is what any existing listener on the form
+// reacts to. Top-level (not wrapped in DOMContentLoaded) so these are callable
+// as soon as this script has executed, including from content injected later
+// by AJAX-loaded modals (e.g. hubs/inclusion/static/js/panel.js).
+(function () {
+    function closeAllUiPopovers(except) {
+        document.querySelectorAll('.ui-popover[open]').forEach(function (el) {
+            if (el !== except) el.close();
+        });
+    }
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.ui-select, .ui-date, .ui-time')) return;
+        closeAllUiPopovers();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        closeAllUiPopovers();
+    });
+
+    // Each popover is a modal <dialog>, which makes every OTHER trigger on
+    // the page inert while it's open — so a click meant for a different
+    // trigger never reaches it; it lands on the open popover's own
+    // (transparent) backdrop instead, which just closes it. Once closed, the
+    // rest of the page is no longer inert, so re-resolving the same screen
+    // coordinates a tick later correctly finds the trigger the user actually
+    // meant to click and clicks it for them — turning what would otherwise
+    // be a "click to close, click again to open the other one" into one
+    // click. Restricted to known trigger classes so an incidental click on
+    // empty modal padding just closes the popover, without also forwarding
+    // into (and accidentally triggering) the outer dialog's own
+    // backdrop-click-to-close handler.
+    function forwardClickThrough(x, y) {
+        requestAnimationFrame(function () {
+            var el = document.elementFromPoint(x, y);
+            var target = el && el.closest('.ui-select-trigger, .ui-date-calendar-btn, .ui-add-group-btn');
+            if (target) target.click();
+        });
+    }
+
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+    // Positions a popover with explicit position:fixed coordinates anchored to
+    // the trigger's getBoundingClientRect(), flipping above when there isn't
+    // room below and clamping horizontally to the viewport. position:fixed
+    // (rather than position:absolute relative to an in-flow ancestor) is
+    // deliberate: these popovers live inside a scrollable <dialog>
+    // (hubs/inclusion/static/css/panel.css's max-height/overflow-y on
+    // dialog.modal-dialog), and an absolutely-positioned descendant of a
+    // scroll-clipping ancestor can render outside the modal's visible box
+    // once flipped — fixed positioning anchors purely to the viewport and
+    // sidesteps that clipping ambiguity entirely. Must run after the
+    // popover's content is rendered and made visible (display:none elements
+    // report 0 for offsetHeight/offsetWidth), otherwise there's nothing to
+    // measure.
+    function positionPopover(panel, anchorEl, opts) {
+        opts = opts || {};
+        panel.style.position = 'fixed';
+        if (opts.matchWidth) panel.style.width = anchorEl.getBoundingClientRect().width + 'px';
+        var rect = anchorEl.getBoundingClientRect();
+        var panelHeight = panel.offsetHeight;
+        var spaceBelow = window.innerHeight - rect.bottom;
+        var spaceAbove = rect.top;
+        var top = (spaceBelow < panelHeight + 12 && spaceAbove > spaceBelow)
+            ? rect.top - panelHeight - 4
+            : rect.bottom + 4;
+        var left = opts.alignRight ? rect.right - panel.offsetWidth : rect.left;
+        var maxLeft = window.innerWidth - panel.offsetWidth - 8;
+        left = Math.min(Math.max(8, left), Math.max(8, maxLeft));
+        panel.style.top = top + 'px';
+        panel.style.left = left + 'px';
+    }
+
+    window.enhanceSelect = function (selectEl) {
+        if (!selectEl || selectEl._uiSelect) return;
+
+        var wrap = document.createElement('span');
+        wrap.className = 'ui-select';
+        var trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'ui-select-trigger';
+        // A <dialog> shown via showModal(), not a plain div with the
+        // popover attribute: the popover API's coexistence with an
+        // already-open modal <dialog> turned out to make this element inert
+        // in practice (clicks/hover passed straight through to whatever was
+        // behind it) — nested modal dialogs are a far more battle-tested
+        // browser pattern for "must stay on top of, and interactive
+        // alongside, an open dialog."
+        var panel = document.createElement('dialog');
+        panel.className = 'ui-select-panel ui-popover';
+
+        selectEl.classList.add('ui-select-native');
+        selectEl.parentNode.insertBefore(wrap, selectEl);
+        wrap.appendChild(selectEl);
+        wrap.appendChild(trigger);
+        document.body.appendChild(panel);
+        panel.addEventListener('click', function (e) {
+            if (e.target !== panel) return;
+            var x = e.clientX, y = e.clientY;
+            panel.close();
+            forwardClickThrough(x, y);
+        });
+
+        function currentLabel() {
+            var opt = selectEl.options[selectEl.selectedIndex];
+            return opt ? opt.textContent : '';
+        }
+
+        function render() {
+            trigger.textContent = currentLabel();
+            panel.innerHTML = '';
+            Array.prototype.forEach.call(selectEl.options, function (opt) {
+                var row = document.createElement('div');
+                row.className = 'ui-option' + (opt.selected ? ' selected' : '');
+                row.textContent = opt.textContent;
+                row.dataset.value = opt.value;
+                row.addEventListener('click', function () {
+                    selectEl.value = opt.value;
+                    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    render();
+                    closeAllUiPopovers();
+                });
+                panel.appendChild(row);
+            });
+        }
+
+        trigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = panel.open;
+            closeAllUiPopovers(panel);
+            if (isOpen) {
+                panel.close();
+            } else {
+                panel.showModal();
+                positionPopover(panel, trigger, { matchWidth: true });
+            }
+        });
+
+        trigger.addEventListener('keydown', function (e) {
+            // Delete/Backspace clears back to a blank/placeholder option —
+            // only for selects that actually have one (optional fields like
+            // Default Chair/member staff/expertise). Required fields
+            // (Day/Month/Year/Hour/Minute/Panel Group) never have a blank
+            // `value=""` first option, so this guard naturally excludes them
+            // with no per-field configuration needed.
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectEl.options.length && selectEl.options[0].value === '' && selectEl.selectedIndex !== 0) {
+                    e.preventDefault();
+                    selectEl.selectedIndex = 0;
+                    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    render();
+                }
+                return;
+            }
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            if (!panel.open) {
+                // Matches native <select> behavior: arrow keys on a closed,
+                // focused select cycle the value directly rather than
+                // opening the list; Enter/Space still open it.
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    var delta = e.key === 'ArrowDown' ? 1 : -1;
+                    var nextIdx = Math.min(selectEl.options.length - 1, Math.max(0, selectEl.selectedIndex + delta));
+                    if (nextIdx !== selectEl.selectedIndex) {
+                        selectEl.selectedIndex = nextIdx;
+                        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                        render();
+                    }
+                    return;
+                }
+                closeAllUiPopovers(panel);
+                panel.showModal();
+                positionPopover(panel, trigger, { matchWidth: true });
+                return;
+            }
+            var rows = Array.prototype.slice.call(panel.querySelectorAll('.ui-option'));
+            var current = panel.querySelector('.ui-option.highlighted') || panel.querySelector('.ui-option.selected');
+            var idx = rows.indexOf(current);
+            if (e.key === 'ArrowDown') idx = Math.min(rows.length - 1, idx + 1);
+            else if (e.key === 'ArrowUp') idx = Math.max(0, idx - 1);
+            else if (current) { current.click(); return; }
+            rows.forEach(function (r) { r.classList.remove('highlighted'); });
+            if (rows[idx]) {
+                rows[idx].classList.add('highlighted');
+                rows[idx].scrollIntoView({ block: 'nearest' });
+            }
+        });
+
+        selectEl._uiSelect = { refresh: render };
+        render();
+    };
+
+    var CALENDAR_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+        + '<rect x="4" y="5.5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" />'
+        + '<path d="M4 9.5h16M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />'
+        + '</svg>';
+    var MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+
+    window.enhanceDateInput = function (inputEl, opts) {
+        if (!inputEl || inputEl._uiDate) return;
+        opts = opts || {};
+
+        var wrap = document.createElement('span');
+        wrap.className = 'ui-date';
+        var fields = document.createElement('span');
+        fields.className = 'ui-date-fields';
+        var daySelect = document.createElement('select');
+        var monthSelect = document.createElement('select');
+        var yearSelect = document.createElement('select');
+        var calBtn = document.createElement('button');
+        calBtn.type = 'button';
+        calBtn.className = 'ui-date-calendar-btn btn btn-sm';
+        calBtn.innerHTML = CALENDAR_ICON_SVG;
+        // A <dialog>, not a popover-attribute div — see the matching comment
+        // in enhanceSelect() for why (nested modal dialogs are the
+        // reliably-interactive way to stay on top of an open dialog).
+        var calPanel = document.createElement('dialog');
+        calPanel.className = 'ui-calendar-popover ui-popover';
+
+        inputEl.classList.add('ui-select-native');
+        inputEl.parentNode.insertBefore(wrap, inputEl);
+        wrap.appendChild(inputEl);
+        fields.appendChild(daySelect);
+        fields.appendChild(monthSelect);
+        fields.appendChild(yearSelect);
+        wrap.appendChild(fields);
+        wrap.appendChild(calBtn);
+        document.body.appendChild(calPanel);
+        calPanel.addEventListener('click', function (e) {
+            if (e.target !== calPanel) return;
+            var x = e.clientX, y = e.clientY;
+            calPanel.close();
+            forwardClickThrough(x, y);
+        });
+
+        var today = new Date();
+        var nowYear = today.getFullYear();
+        var nowMonth = today.getMonth() + 1;
+
+        for (var y = (opts.noPast ? nowYear : nowYear - 1); y <= nowYear + (opts.noPast ? 2 : 1); y++) {
+            var yOpt = document.createElement('option');
+            yOpt.value = y;
+            yOpt.textContent = y;
+            yearSelect.appendChild(yOpt);
+        }
+
+        // Only relevant when opts.noPast: the current year's month/day lists
+        // start at the current month/day instead of January/1st, so a Panel
+        // meeting can never be scheduled in the past. Any other (future)
+        // year/month is unrestricted.
+        function rebuildMonthOptions(selectedMonth) {
+            var year = parseInt(yearSelect.value, 10) || nowYear;
+            var minMonth = (opts.noPast && year === nowYear) ? nowMonth : 1;
+            monthSelect.innerHTML = '';
+            for (var m = minMonth; m <= 12; m++) {
+                var opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = MONTH_NAMES[m - 1];
+                monthSelect.appendChild(opt);
+            }
+            monthSelect.value = Math.max(minMonth, Math.min(selectedMonth || minMonth, 12));
+        }
+
+        function rebuildDayOptions(selectedDay) {
+            var year = parseInt(yearSelect.value, 10) || nowYear;
+            var month = parseInt(monthSelect.value, 10) || 1;
+            var max = daysInMonth(year, month);
+            var min = (opts.noPast && year === nowYear && month === nowMonth) ? today.getDate() : 1;
+            daySelect.innerHTML = '';
+            for (var d = min; d <= max; d++) {
+                var opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                daySelect.appendChild(opt);
+            }
+            daySelect.value = Math.max(min, Math.min(selectedDay || min, max));
+        }
+
+        function syncFromValue() {
+            var parts = (inputEl.value || '').split('-');
+            var year = parts.length === 3 ? parseInt(parts[0], 10) : nowYear;
+            var month = parts.length === 3 ? parseInt(parts[1], 10) : nowMonth;
+            var day = parts.length === 3 ? parseInt(parts[2], 10) : today.getDate();
+            if (opts.noPast && year < nowYear) year = nowYear;
+            if (!yearSelect.querySelector('option[value="' + year + '"]')) {
+                var extra = document.createElement('option');
+                extra.value = year; extra.textContent = year;
+                yearSelect.insertBefore(extra, yearSelect.firstChild);
+            }
+            yearSelect.value = year;
+            rebuildMonthOptions(month);
+            rebuildDayOptions(day);
+            [daySelect, monthSelect, yearSelect].forEach(function (s) { if (s._uiSelect) s._uiSelect.refresh(); });
+        }
+
+        function commit() {
+            var year = parseInt(yearSelect.value, 10);
+            var month = parseInt(monthSelect.value, 10);
+            var day = parseInt(daySelect.value, 10);
+            inputEl.value = year + '-' + pad2(month) + '-' + pad2(day);
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        [daySelect, monthSelect, yearSelect].forEach(function (select) {
+            select.addEventListener('change', function () {
+                if (select === yearSelect) {
+                    rebuildMonthOptions(parseInt(monthSelect.value, 10));
+                    if (monthSelect._uiSelect) monthSelect._uiSelect.refresh();
+                }
+                if (select !== daySelect) {
+                    rebuildDayOptions(parseInt(daySelect.value, 10));
+                    if (daySelect._uiSelect) daySelect._uiSelect.refresh();
+                }
+                commit();
+                renderCalendar();
+            });
+            window.enhanceSelect(select);
+            select.parentNode.classList.add('ui-select--sm');
+        });
+
+        function renderCalendar() {
+            var year = parseInt(yearSelect.value, 10) || nowYear;
+            var month = (parseInt(monthSelect.value, 10) || 1) - 1;
+            calPanel.innerHTML = '';
+            var header = document.createElement('div');
+            header.className = 'ui-calendar-header';
+            var prev = document.createElement('button');
+            prev.type = 'button'; prev.className = 'btn btn-sm'; prev.textContent = '‹';
+            prev.disabled = !!(opts.noPast && year === nowYear && (month + 1) === nowMonth);
+            var label = document.createElement('span');
+            label.textContent = MONTH_NAMES[month] + ' ' + year;
+            var next = document.createElement('button');
+            next.type = 'button'; next.className = 'btn btn-sm'; next.textContent = '›';
+            prev.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var d = new Date(year, month - 1, 1);
+                if (!yearSelect.querySelector('option[value="' + d.getFullYear() + '"]')) syncYearOption(d.getFullYear());
+                yearSelect.value = d.getFullYear();
+                rebuildMonthOptions(d.getMonth() + 1);
+                rebuildDayOptions(parseInt(daySelect.value, 10));
+                [monthSelect, yearSelect, daySelect].forEach(function (s) { if (s._uiSelect) s._uiSelect.refresh(); });
+                renderCalendar();
+            });
+            next.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var d = new Date(year, month + 1, 1);
+                if (!yearSelect.querySelector('option[value="' + d.getFullYear() + '"]')) syncYearOption(d.getFullYear());
+                yearSelect.value = d.getFullYear();
+                rebuildMonthOptions(d.getMonth() + 1);
+                rebuildDayOptions(parseInt(daySelect.value, 10));
+                [monthSelect, yearSelect, daySelect].forEach(function (s) { if (s._uiSelect) s._uiSelect.refresh(); });
+                renderCalendar();
+            });
+            header.appendChild(prev); header.appendChild(label); header.appendChild(next);
+            calPanel.appendChild(header);
+
+            var grid = document.createElement('div');
+            grid.className = 'ui-calendar-grid';
+            ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(function (d) {
+                var h = document.createElement('div');
+                h.className = 'ui-calendar-dow';
+                h.textContent = d;
+                grid.appendChild(h);
+            });
+
+            var startOffset = new Date(year, month, 1).getDay();
+            var max = daysInMonth(year, month + 1);
+            var selected = inputEl.value;
+            var todayStr = nowYear + '-' + pad2(today.getMonth() + 1) + '-' + pad2(today.getDate());
+
+            for (var i = 0; i < startOffset; i++) grid.appendChild(document.createElement('div'));
+            for (var day = 1; day <= max; day++) {
+                var cellDate = year + '-' + pad2(month + 1) + '-' + pad2(day);
+                var cell = document.createElement('div');
+                cell.className = 'ui-calendar-day';
+                if (cellDate === todayStr) cell.classList.add('is-today');
+                if (cellDate === selected) cell.classList.add('is-selected');
+                cell.textContent = day;
+                if (opts.noPast && cellDate < todayStr) {
+                    cell.classList.add('is-past');
+                } else {
+                    cell.addEventListener('click', function (d) {
+                        return function (e) {
+                            e.stopPropagation();
+                            daySelect.value = d;
+                            if (daySelect._uiSelect) daySelect._uiSelect.refresh();
+                            commit();
+                            renderCalendar();
+                            closeAllUiPopovers();
+                        };
+                    }(day));
+                }
+                grid.appendChild(cell);
+            }
+            calPanel.appendChild(grid);
+        }
+
+        function syncYearOption(year) {
+            var extra = document.createElement('option');
+            extra.value = year; extra.textContent = year;
+            yearSelect.insertBefore(extra, yearSelect.firstChild);
+        }
+
+        calBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = calPanel.open;
+            closeAllUiPopovers(calPanel);
+            if (isOpen) {
+                calPanel.close();
+            } else {
+                renderCalendar();
+                calPanel.showModal();
+                positionPopover(calPanel, calBtn, { alignRight: true });
+            }
+        });
+
+        inputEl._uiDate = { refresh: syncFromValue };
+        syncFromValue();
+    };
+
+    window.enhanceTimeInput = function (inputEl) {
+        if (!inputEl || inputEl._uiTime) return;
+
+        var wrap = document.createElement('span');
+        wrap.className = 'ui-time';
+        var fields = document.createElement('span');
+        fields.className = 'ui-time-fields';
+        var hourSelect = document.createElement('select');
+        var minuteSelect = document.createElement('select');
+        var ampmSelect = document.createElement('select');
+        ['AM', 'PM'].forEach(function (label) {
+            var opt = document.createElement('option');
+            opt.value = label; opt.textContent = label;
+            ampmSelect.appendChild(opt);
+        });
+        for (var m = 0; m < 60; m += 5) {
+            var mOpt = document.createElement('option');
+            mOpt.value = pad2(m); mOpt.textContent = pad2(m);
+            minuteSelect.appendChild(mOpt);
+        }
+        var toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'toggle-pill';
+        toggleBtn.setAttribute('aria-label', '12-hour format');
+        toggleBtn.innerHTML = '<span class="toggle-knob"></span>';
+        var toggleLabel = document.createElement('span');
+        toggleLabel.className = 'ui-time-toggle-label';
+
+        inputEl.classList.add('ui-select-native');
+        inputEl.parentNode.insertBefore(wrap, inputEl);
+        wrap.appendChild(inputEl);
+        fields.appendChild(hourSelect);
+        fields.appendChild(minuteSelect);
+        fields.appendChild(ampmSelect);
+        wrap.appendChild(fields);
+        wrap.appendChild(toggleBtn);
+        wrap.appendChild(toggleLabel);
+
+        var is12h = false;
+
+        function rebuildHourOptions() {
+            hourSelect.innerHTML = '';
+            var max = is12h ? 12 : 23;
+            var start = is12h ? 1 : 0;
+            for (var h = start; h <= max; h++) {
+                var opt = document.createElement('option');
+                opt.value = pad2(h); opt.textContent = pad2(h);
+                hourSelect.appendChild(opt);
+            }
+        }
+
+        function syncFromValue() {
+            var parts = (inputEl.value || '00:00').split(':');
+            var hour24 = parseInt(parts[0], 10) || 0;
+            var minute = parts[1] || '00';
+            rebuildHourOptions();
+            if (is12h) {
+                var isPM = hour24 >= 12;
+                var hour12 = hour24 % 12;
+                if (hour12 === 0) hour12 = 12;
+                hourSelect.value = pad2(hour12);
+                ampmSelect.value = isPM ? 'PM' : 'AM';
+            } else {
+                hourSelect.value = pad2(hour24);
+            }
+            minuteSelect.value = minute;
+            [hourSelect, minuteSelect, ampmSelect].forEach(function (s) { if (s._uiSelect) s._uiSelect.refresh(); });
+        }
+
+        function commit() {
+            var minute = minuteSelect.value;
+            var hour24;
+            if (is12h) {
+                var hour12 = parseInt(hourSelect.value, 10);
+                var isPM = ampmSelect.value === 'PM';
+                hour24 = isPM ? (hour12 === 12 ? 12 : hour12 + 12) : (hour12 === 12 ? 0 : hour12);
+            } else {
+                hour24 = parseInt(hourSelect.value, 10);
+            }
+            inputEl.value = pad2(hour24) + ':' + minute;
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        [hourSelect, minuteSelect, ampmSelect].forEach(function (select) {
+            select.addEventListener('change', commit);
+            window.enhanceSelect(select);
+            select.parentNode.classList.add('ui-select--sm');
+        });
+        ampmSelect.parentNode.classList.toggle('ui-hidden', !is12h);
+
+        toggleBtn.addEventListener('click', function () {
+            is12h = !is12h;
+            toggleBtn.classList.toggle('on', is12h);
+            toggleLabel.textContent = is12h ? '12h' : '24h';
+            ampmSelect.parentNode.classList.toggle('ui-hidden', !is12h);
+            syncFromValue();
+        });
+
+        inputEl._uiTime = { refresh: syncFromValue };
+        toggleLabel.textContent = '24h';
+        ampmSelect.parentNode.classList.add('ui-hidden');
+        syncFromValue();
+        if (!inputEl.value) commit();
+    };
+
+    // Single entry point for enhancing every select/date/time field under a
+    // given root — called for the whole document on page load, and again by
+    // AJAX-loaded modals (e.g. panel.js) on the subtree they just injected, so
+    // every dropdown in the app gets the same custom-styled treatment without
+    // each call site needing to know which fields exist. A date field opts
+    // into "no past dates" via `data-no-past` on the <input> rather than a JS
+    // option, since this helper has no per-field config of its own.
+    window.enhanceFormControls = function (root) {
+        (root || document).querySelectorAll('select').forEach(window.enhanceSelect);
+        (root || document).querySelectorAll('input[type="date"]').forEach(function (el) {
+            window.enhanceDateInput(el, { noPast: el.hasAttribute('data-no-past') });
+        });
+        (root || document).querySelectorAll('input[type="time"]').forEach(window.enhanceTimeInput);
+    };
+})();

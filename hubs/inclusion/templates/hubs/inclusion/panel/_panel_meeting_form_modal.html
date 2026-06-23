@@ -5,15 +5,18 @@
     <form method="post" action="{% url 'inclusion_panel_meeting_new' %}" class="field-group" data-panel-meeting-modal-form>
         {% csrf_token %}
         <label>Panel Group</label>
-        <select name="panel_group" id="new-panel-group" required data-current-staff-school="{{ current_staff.school_id|default:'' }}">
-            <option value="">Select a group…</option>
-            {% for group in panel_groups %}
-            <option value="{{ group.id }}" data-school="{{ group.school_id|default:'' }}" data-school-name="{{ group.school.name|default:'' }}">{{ group.name }}{% if not group.school_id %} (No school){% endif %}</option>
-            {% endfor %}
-        </select>
+        <span class="ui-select-row">
+            <select name="panel_group" id="new-panel-group" required data-current-staff-school="{{ current_staff.school_id|default:'' }}">
+                <option value="">Select a group…</option>
+                {% for group in panel_groups %}
+                <option value="{{ group.id }}" data-school="{{ group.school_id|default:'' }}" data-school-name="{{ group.school.name|default:'' }}">{{ group.name }}{% if not group.school_id %} (No school){% endif %}</option>
+                {% endfor %}
+            </select>
+            <button type="button" class="ui-add-group-btn btn btn-add btn-sm" data-create-group-trigger aria-label="Create new Panel Group">{% include 'icons/new_svg.html' %}</button>
+        </span>
 
         <label>Date</label>
-        <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required>
+        <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" data-no-past required>
 
         <label>Time</label>
         <input type="time" name="time" required>
