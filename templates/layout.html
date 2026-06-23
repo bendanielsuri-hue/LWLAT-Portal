@@ -20,41 +20,34 @@
             Django App
         {% endblock %}
     </title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=61">
-    <script src="{% static 'js/main.js' %}?v=32" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=69">
+    <script src="{% static 'js/main.js' %}?v=34" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     {{ search_items|json_script:"app-search-data" }}
     <div class="page-shell">
-        <div class="overlay-slot">
-        <nav class="side-nav global-nav overlay-nav" id="global-nav-overlay" data-hub="global">
-            <div class="nav-header">
-                <div class="nav-title">Change Hub</div>
-                <div class="nav-search">
+        <nav class="side-nav hub-rail" aria-label="Hubs">
+            <a href="{% url 'homepage' %}" class="hub-rail-item {% if request.path == '/' %}active{% endif %}" title="LWLAT Portal" aria-label="LWLAT Portal">{% include 'icons/house_svg.html' %}</a>
+            <a href="{% url 'staff_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/staff/' %}active{% endif %}" title="Staff" aria-label="Staff">{% include 'icons/staff_svg.html' %}</a>
+            <a href="{% url 'student_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/student/' %}active{% endif %}" title="Student" aria-label="Student">{% include 'icons/student_svg.html' %}</a>
+            <a href="{% url 'services' %}" class="hub-rail-item {% if request.path|starts_with:'/services/' %}active{% endif %}" title="Operations" aria-label="Operations">{% include 'icons/services_svg.html' %}</a>
+            <a href="{% url 'registers' %}" class="hub-rail-item {% if request.path|starts_with:'/registers/' %}active{% endif %}" title="Registers" aria-label="Registers">{% include 'icons/registers_svg.html' %}</a>
+            <a href="{% url 'resources_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/resources/' %}active{% endif %}" title="Resources" aria-label="Resources">{% include 'icons/resources_svg.html' %}</a>
+            <a href="{% url 'inclusion_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/inclusion/' %}active{% endif %}" title="SEND & Provision" aria-label="SEND & Provision">{% include 'icons/send_svg.html' %}</a>
+            <a href="{% url 'careers_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/careers/' %}active{% endif %}" title="Careers" aria-label="Careers">{% include 'icons/careers_svg.html' %}</a>
+            <div class="hub-rail-search">
+                <button type="button" class="hub-rail-item" id="rail-search-toggle" aria-label="Search for an app">{% include 'icons/search_svg.html' %}</button>
+                <div class="rail-search-popover hidden" id="rail-search-popover">
                     <div class="app-search">
-                        <input type="text" class="app-search-input" id="nav-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
-                        <div class="app-search-results hidden" id="nav-app-search-results" role="listbox"></div>
+                        <input type="text" class="app-search-input" id="rail-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
+                        <div class="app-search-results hidden" id="rail-app-search-results" role="listbox"></div>
                     </div>
                 </div>
             </div>
-            <div class="nav-scroll">
-                <ul>
-                    <li><a href="{% url 'homepage' %}" class="{% if request.path == '/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/house_svg.html' %}</span><span class="menu-label">LWLAT Portal</span></a></li>
-                    <li><a href="{% url 'staff_hub' %}" class="{% if request.path|starts_with:'/staff/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/staff_svg.html' %}</span><span class="menu-label">Staff</span></a></li>
-                    <li><a href="{% url 'student_hub' %}" class="{% if request.path|starts_with:'/student/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/student_svg.html' %}</span><span class="menu-label">Student</span></a></li>
-                    <li><a href="{% url 'services' %}" class="{% if request.path|starts_with:'/services/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/services_svg.html' %}</span><span class="menu-label">Operations</span></a></li>
-                    <li><a href="{% url 'registers' %}" class="{% if request.path|starts_with:'/registers/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/registers_svg.html' %}</span><span class="menu-label">Registers</span></a></li>
-                    <li><a href="{% url 'resources_hub' %}" class="{% if request.path|starts_with:'/resources/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/resources_svg.html' %}</span><span class="menu-label">Resources</span></a></li>
-                    <li><a href="{% url 'inclusion_hub' %}" class="{% if request.path|starts_with:'/inclusion/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/send_svg.html' %}</span><span class="menu-label">SEND & Provision</span></a></li>
-                    <li><a href="{% url 'careers_hub' %}" class="{% if request.path|starts_with:'/careers/' %}active{% endif %}"><span class="menu-icon">{% include 'icons/careers_svg.html' %}</span><span class="menu-label">Careers</span></a></li>
-                </ul>
-            </div>
-            <div class="nav-footer">
-                <button type="button" class="nav-close-btn" aria-label="Close hub switcher">✕ Close</button>
-            </div>
         </nav>
 
+        <div class="overlay-slot">
         {% if not home_inline_panels %}
         <nav class="side-nav school-nav overlay-nav" id="school-nav-overlay" data-hub="school">
             <div class="nav-header">
@@ -84,7 +77,6 @@
             </div>
         </nav>
         {% endif %}
-
         {% endif %}
 
         {% include '_settings_panel.html' %}

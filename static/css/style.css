@@ -281,16 +281,20 @@ html, body {
 
 /* The overlay slot is the single flex item that actually slides — it's the
    only thing that occupies real space in `.page-shell`'s flex flow, so it
-   pushes <main> over when open. The four overlay panels ("Change Hub",
-   "Change School", "Change User", "Settings") live inside it as absolutely-
-   positioned layers stacked exactly on top of each other (`inset: 0`); only
-   the one with `.open` is visible. Stacking them this way (rather than each
-   panel independently faking its own position via width/margin tricks)
-   guarantees the one you actually opened is the one you see — with separate
-   sibling flex items, every closed panel's negative margin cancels out
-   whatever space the open one contributes and they all land on the same
-   spot, so whichever is last in the DOM always paints on top regardless of
-   which is really open. */
+   pushes its neighbours over when open. It's ordered before the hub
+   sidebar/rail (order: 0) so all four panels ("Select Hub", "Change School",
+   "Change User", "Settings") open on the left, pushing the rail and main
+   content to the right — "Select Hub" is also omitted entirely on nested
+   "app" pages that set `back_to_hub_url` (e.g. the Inclusion Panel), which
+   show only their own app-scoped side nav. The panels live inside the slot
+   as absolutely-positioned layers stacked exactly on top of each other
+   (`inset: 0`); only the one with `.open` is visible. Stacking them this way
+   (rather than each panel independently faking its own position via
+   width/margin tricks) guarantees the one you actually opened is the one you
+   see — with separate sibling flex items, every closed panel's negative
+   margin cancels out whatever space the open one contributes and they all
+   land on the same spot, so whichever is last in the DOM always paints on
+   top regardless of which is really open. */
 .overlay-slot {
     width: 240px;
     min-width: 0;
@@ -298,7 +302,7 @@ html, body {
     margin-left: -240px;
     overflow: hidden;
     position: relative;
-    order: 2;
+    order: 1;
     z-index: 1;
     transition: margin-left var(--transition-slide);
 }
@@ -321,16 +325,72 @@ html, body {
     box-shadow: var(--shadow-drawer);
     border-right: 1px solid var(--border-color);
 }
-/* The primary sidebar/rail (hub sidebar, or the home page's single inline pane)
-   always renders before the overlay slot, and stays above it in the stacking
-   order while the slot is sliding out from underneath it. */
+/* The module sidebar (hub sidebar, or the home page's single inline pane)
+   renders after the overlay slot in flex order, and stays above it in the
+   stacking order while the slot is sliding out from underneath it. */
 .side-nav.hub-side,
 .side-nav.school-nav:not(.overlay-nav),
 .side-nav.settings-nav:not(.overlay-nav) {
-    order: 1;
+    order: 2;
     z-index: 2;
 }
 main { order: 3; position: relative; }
+
+/* The permanent hub rail: a thin, always-visible icon strip for switching
+   between hubs — unlike the overlay slot below it, it's a normal static flex
+   item (order: 0, leftmost), never toggles open/closed, and never dims
+   <main>. It scales to "lots of hubs" far better than a panel that has to be
+   explicitly opened every time, while the overlay slot (order: 1) still
+   handles the on-demand pickers (Change School/User, Settings) that aren't
+   places you navigate to and stay. */
+.hub-rail {
+    width: 64px;
+    flex-shrink: 0;
+    order: 0;
+    z-index: 2;
+    align-items: center;
+    padding: 16px 0;
+    gap: 4px;
+}
+.hub-rail-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.hub-rail-item:hover {
+    background: var(--primary-light);
+}
+.hub-rail-item.active {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+/* position: fixed (anchored to the viewport, not the rail) rather than
+   position: absolute relative to .hub-rail-search — an absolutely positioned
+   280px popover inside a centered flex item made some browsers fold that
+   overflow back into the item's own measured width once shown, shoving the
+   whole rail-search item (button included) off to the left. Fixed
+   positioning sidesteps that entirely; `top` is set inline by main.js's
+   setupRailSearchToggle from the search button's actual position (rather
+   than hardcoded here) so it stays correct regardless of how many hubs are
+   in the rail above it. */
+.rail-search-popover {
+    position: fixed;
+    left: 72px;
+    width: 280px;
+    z-index: 25;
+}
+.rail-search-popover.hidden {
+    display: none;
+}
 
 /* The dimming backdrop now covers <main> only (not the sidebar/rail or the open
    overlay column itself, which both stay fully interactive) — it signals that

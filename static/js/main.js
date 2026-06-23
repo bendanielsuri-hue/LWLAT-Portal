@@ -487,7 +487,39 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     setupAppSearch('app-search-input', 'app-search-results', 'app-search-data');
-    setupAppSearch('nav-app-search-input', 'nav-app-search-results', 'app-search-data');
+    setupAppSearch('rail-app-search-input', 'rail-app-search-results', 'app-search-data');
+
+    // The hub rail's search icon floats a small popover to its right (rather than
+    // an always-visible input crammed into the 64px rail) — toggled independently
+    // of setupAppSearch, which only owns the input/results filtering inside it.
+    (function setupRailSearchToggle() {
+        var toggle = document.getElementById('rail-search-toggle');
+        var popover = document.getElementById('rail-search-popover');
+        if (!toggle || !popover) return;
+
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            var opening = popover.classList.contains('hidden');
+            if (opening) {
+                popover.style.top = toggle.getBoundingClientRect().top + 'px';
+            }
+            popover.classList.toggle('hidden');
+            if (opening) {
+                var input = document.getElementById('rail-app-search-input');
+                if (input) input.focus();
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!popover.classList.contains('hidden') && !closest(e.target, '.hub-rail-search')) {
+                popover.classList.add('hidden');
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') popover.classList.add('hidden');
+        });
+    })();
 
     // List page shells (Students/Referrals/Actions): sized to exactly fill the
     // space between the sticky page header and the bottom of the viewport, so
