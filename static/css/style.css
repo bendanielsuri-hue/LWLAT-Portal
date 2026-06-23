@@ -198,7 +198,8 @@ html, body {
 .side-nav.collapsed .menu-label,
 .side-nav.collapsed .menu-label-stack,
 .side-nav.collapsed .nav-search,
-.side-nav.collapsed .nav-footer-divider {
+.side-nav.collapsed .nav-footer-divider,
+.side-nav.collapsed .nav-header-divider {
     display: none;
 }
 .side-nav.collapsed .nav-header,
@@ -218,6 +219,28 @@ html, body {
 }
 .side-nav.collapsed .collapse-toggle .menu-icon svg {
     transform: rotate(180deg);
+}
+
+/* Collapsed hub sidebar: hovering/focusing it genuinely widens it (a real
+   width change, like the rail) to reveal labels, rather than overlaying —
+   pushes <main> over instead of floating on top of it. */
+.side-nav.hub-side.collapsed:hover,
+.side-nav.hub-side.collapsed:focus-within {
+    width: 220px;
+}
+.side-nav.hub-side.collapsed:hover .menu-label,
+.side-nav.hub-side.collapsed:focus-within .menu-label {
+    display: inline;
+}
+.side-nav.hub-side.collapsed:hover .menu-icon,
+.side-nav.hub-side.collapsed:focus-within .menu-icon {
+    margin-right: 8px;
+}
+.side-nav.hub-side.collapsed:hover a,
+.side-nav.hub-side.collapsed:hover .nav-row-btn,
+.side-nav.hub-side.collapsed:focus-within a,
+.side-nav.hub-side.collapsed:focus-within .nav-row-btn {
+    justify-content: flex-start;
 }
 
 @media (max-width: 900px) {
@@ -246,6 +269,9 @@ html, body {
         margin-right: 0;
     }
     .collapse-toggle {
+        display: none;
+    }
+    .hub-rail {
         display: none;
     }
 }
@@ -279,35 +305,29 @@ html, body {
     padding: 16px 20px 24px;
 }
 
-/* The overlay slot is the single flex item that actually slides — it's the
-   only thing that occupies real space in `.page-shell`'s flex flow, so it
-   pushes its neighbours over when open. It's ordered before the hub
-   sidebar/rail (order: 0) so all four panels ("Select Hub", "Change School",
-   "Change User", "Settings") open on the left, pushing the rail and main
-   content to the right — "Select Hub" is also omitted entirely on nested
-   "app" pages that set `back_to_hub_url` (e.g. the Inclusion Panel), which
-   show only their own app-scoped side nav. The panels live inside the slot
-   as absolutely-positioned layers stacked exactly on top of each other
-   (`inset: 0`); only the one with `.open` is visible. Stacking them this way
-   (rather than each panel independently faking its own position via
-   width/margin tricks) guarantees the one you actually opened is the one you
-   see — with separate sibling flex items, every closed panel's negative
-   margin cancels out whatever space the open one contributes and they all
-   land on the same spot, so whichever is last in the DOM always paints on
-   top regardless of which is really open. */
-.overlay-slot {
-    width: 240px;
-    min-width: 0;
-    flex-shrink: 0;
-    margin-left: -240px;
-    overflow: hidden;
+/* .nav-stack groups the overlay panels with the hub sidebar (or the home
+   page's own inline pane) as a single flex item — its width comes entirely
+   from that in-flow content (240px expanded / 64px collapsed), since
+   `.overlay-slot` is absolutely positioned inside it and contributes no size
+   of its own. Opening a panel (Change School/User, Settings, Search) makes
+   it slide/fade in covering the hub sidebar in place — <main> never moves,
+   it only dims behind the backdrop. "Select Hub" is also omitted entirely on
+   nested "app" pages that set `back_to_hub_url` (e.g. the Inclusion Panel),
+   which show only their own app-scoped side nav. The panels are stacked
+   exactly on top of each other (`inset: 0`); only the one with `.open` is
+   visible — this (rather than each panel independently faking its own
+   position) guarantees the one you actually opened is the one you see. */
+.nav-stack {
     position: relative;
+    flex-shrink: 0;
     order: 1;
-    z-index: 1;
-    transition: margin-left var(--transition-slide);
 }
-.overlay-slot.open {
-    margin-left: 0;
+.overlay-slot {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    overflow: visible;
+    pointer-events: none;
 }
 .side-nav.overlay-nav {
     position: absolute;
@@ -325,15 +345,6 @@ html, body {
     box-shadow: var(--shadow-drawer);
     border-right: 1px solid var(--border-color);
 }
-/* The module sidebar (hub sidebar, or the home page's single inline pane)
-   renders after the overlay slot in flex order, and stays above it in the
-   stacking order while the slot is sliding out from underneath it. */
-.side-nav.hub-side,
-.side-nav.school-nav:not(.overlay-nav),
-.side-nav.settings-nav:not(.overlay-nav) {
-    order: 2;
-    z-index: 2;
-}
 main { order: 3; position: relative; }
 
 /* The permanent hub rail: a thin, always-visible icon strip for switching
@@ -341,23 +352,54 @@ main { order: 3; position: relative; }
    item (order: 0, leftmost), never toggles open/closed, and never dims
    <main>. It scales to "lots of hubs" far better than a panel that has to be
    explicitly opened every time, while the overlay slot (order: 1) still
-   handles the on-demand pickers (Change School/User, Settings) that aren't
-   places you navigate to and stay. */
+   handles the on-demand pickers (Change School/User, Settings, Search) that
+   aren't places you navigate to and stay.
+   It reserves 72px of real flex space normally, and genuinely widens to
+   200px on hover/focus — a real width change, not an overlay, so it pushes
+   <main>/the hub sidebar over rather than floating on top of (and clipping
+   against) whatever sits next to it. It hides entirely whenever the hub
+   sidebar drops to icon-only mode (see the ":has()" rule and the 900px media
+   query further down), since two parallel icon-only columns read as
+   redundant — the hub sidebar's own icons stay reachable; only the rail
+   disappears. */
 .hub-rail {
-    width: 64px;
+    width: 72px;
     flex-shrink: 0;
     order: 0;
-    z-index: 2;
-    align-items: center;
     padding: 16px 0;
     gap: 4px;
+    background-color: var(--bg-surface-alt);
+    border-right: 1px solid var(--border-color);
+    transition: width var(--transition-base);
+}
+.hub-rail:hover,
+.hub-rail:focus-within {
+    width: 200px;
+}
+/* Briefly suppress hover-expand right after a fresh page load (see main.js
+   suppressRailHoverOnLoad) — higher specificity than the plain hover rule
+   above (two classes + pseudo vs. one), so it wins without !important. */
+.hub-rail.suppress-hover:hover,
+.hub-rail.suppress-hover:focus-within {
+    width: 72px;
+}
+.hub-rail.suppress-hover:hover .hub-rail-label,
+.hub-rail.suppress-hover:focus-within .hub-rail-label {
+    opacity: 0;
+}
+.page-shell:has(.side-nav.hub-side.collapsed) .hub-rail {
+    display: none;
 }
 .hub-rail-item {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
+    justify-content: flex-start;
+    flex-shrink: 0;
+    width: calc(100% - 16px);
+    height: 52px;
+    margin: 0 8px;
+    padding-left: 15px;
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     background: transparent;
@@ -366,30 +408,45 @@ main { order: 3; position: relative; }
     text-decoration: none;
     transition: background-color var(--transition-fast), color var(--transition-fast);
 }
-.hub-rail-item:hover {
-    background: var(--primary-light);
+.hub-rail-item svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
 }
+/* Hover/active colour comes from the shared .side-nav a:not(.nav-row-btn)
+   accent-bar rule below — same visual language as every hub-sidebar menu
+   row, since rail and hub sidebar are the same nav ecosystem. The active
+   item's background additionally matches the hub sidebar's own surface
+   colour, so it reads as "the same surface" as the panel it leads to. */
 .hub-rail-item.active {
-    background: var(--primary-light);
-    color: var(--primary);
+    background: var(--bg-nav);
 }
-/* position: fixed (anchored to the viewport, not the rail) rather than
-   position: absolute relative to .hub-rail-search — an absolutely positioned
-   280px popover inside a centered flex item made some browsers fold that
-   overflow back into the item's own measured width once shown, shoving the
-   whole rail-search item (button included) off to the left. Fixed
-   positioning sidesteps that entirely; `top` is set inline by main.js's
-   setupRailSearchToggle from the search button's actual position (rather
-   than hardcoded here) so it stays correct regardless of how many hubs are
-   in the rail above it. */
-.rail-search-popover {
-    position: fixed;
-    left: 72px;
-    width: 280px;
-    z-index: 25;
+.hub-rail-label {
+    margin-left: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
 }
-.rail-search-popover.hidden {
-    display: none;
+.hub-rail:hover .hub-rail-label,
+.hub-rail:focus-within .hub-rail-label {
+    opacity: 1;
+}
+/* Search and Settings are global, cross-cutting actions rather than hubs to
+   navigate to and stay — pinned to the bottom of the rail, separated from
+   the hub list by a divider. */
+.hub-rail-global-action {
+    margin-top: auto;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+}
+/* Search/Settings additionally carry .nav-row-btn (for the shared background-
+   nudge hover treatment) — the generic ".side-nav .nav-row-btn" rule has
+   higher specificity (two classes) than ".hub-rail-item" (one), so it would
+   otherwise overwrite the rail's own width/padding. Re-assert those here with
+   matching specificity to keep the rail's layout intact. */
+.hub-rail .hub-rail-item.nav-row-btn {
+    width: calc(100% - 16px);
+    padding: 0 0 0 15px;
 }
 
 /* The dimming backdrop now covers <main> only (not the sidebar/rail or the open
@@ -631,9 +688,8 @@ section {
 
 .app-search-result {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    flex-direction: column;
+    gap: 2px;
     padding: 10px 14px;
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
@@ -642,9 +698,25 @@ section {
 
 .app-search-result:last-child { border-bottom: none; }
 
+.app-search-result-name {
+    color: var(--text-primary);
+}
+
+/* The hub label sits on its own line below the app name, less prominent and
+   with a small icon, rather than squeezed onto the same line where it was
+   clipping badly in the narrower overlay panel. */
 .app-search-result-hub {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     color: var(--text-muted);
     font-size: var(--font-xs);
+}
+
+.app-search-result-hub svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
 }
 
 .app-search-result:hover,
@@ -1563,6 +1635,17 @@ dialog.ui-popover::backdrop { background: transparent; }
 .nav-footer-divider {
     border-top: 1px solid var(--border-color);
     margin: 2px 4px;
+}
+
+/* Hub sidebar header: one divider between the action row (Collapse/back link)
+   and the hub title, another between the header and the app list below. */
+.nav-header-divider {
+    border-top: 1px solid var(--border-color);
+    width: 100%;
+    margin: 4px 0;
+}
+.nav-scroll-divider {
+    margin: 0;
 }
 
 /* "Current user" feature row: an avatar + name + job title, presented like

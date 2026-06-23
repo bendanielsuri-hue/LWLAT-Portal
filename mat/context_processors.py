@@ -1,6 +1,10 @@
 from core.identity import current_school_key, current_staff, staff_queryset_for_school_key
 
-from .views import build_school_nav, build_sections, build_search_items
+from .views import build_hub_nav, build_school_nav, build_sections, build_search_items
+
+
+def hub_nav(request):
+    return {'hub_nav_items': build_hub_nav(request.path)}
 
 
 def schools(request):

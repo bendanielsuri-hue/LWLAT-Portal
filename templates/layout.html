@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 {% load static %}
-{% load hub_extras %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -20,33 +19,24 @@
             Django App
         {% endblock %}
     </title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=69">
-    <script src="{% static 'js/main.js' %}?v=34" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=72">
+    <script src="{% static 'js/main.js' %}?v=37" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     {{ search_items|json_script:"app-search-data" }}
     <div class="page-shell">
+        {% if not home_inline_panels %}
         <nav class="side-nav hub-rail" aria-label="Hubs">
-            <a href="{% url 'homepage' %}" class="hub-rail-item {% if request.path == '/' %}active{% endif %}" title="LWLAT Portal" aria-label="LWLAT Portal">{% include 'icons/house_svg.html' %}</a>
-            <a href="{% url 'staff_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/staff/' %}active{% endif %}" title="Staff" aria-label="Staff">{% include 'icons/staff_svg.html' %}</a>
-            <a href="{% url 'student_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/student/' %}active{% endif %}" title="Student" aria-label="Student">{% include 'icons/student_svg.html' %}</a>
-            <a href="{% url 'services' %}" class="hub-rail-item {% if request.path|starts_with:'/services/' %}active{% endif %}" title="Operations" aria-label="Operations">{% include 'icons/services_svg.html' %}</a>
-            <a href="{% url 'registers' %}" class="hub-rail-item {% if request.path|starts_with:'/registers/' %}active{% endif %}" title="Registers" aria-label="Registers">{% include 'icons/registers_svg.html' %}</a>
-            <a href="{% url 'resources_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/resources/' %}active{% endif %}" title="Resources" aria-label="Resources">{% include 'icons/resources_svg.html' %}</a>
-            <a href="{% url 'inclusion_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/inclusion/' %}active{% endif %}" title="SEND & Provision" aria-label="SEND & Provision">{% include 'icons/send_svg.html' %}</a>
-            <a href="{% url 'careers_hub' %}" class="hub-rail-item {% if request.path|starts_with:'/careers/' %}active{% endif %}" title="Careers" aria-label="Careers">{% include 'icons/careers_svg.html' %}</a>
-            <div class="hub-rail-search">
-                <button type="button" class="hub-rail-item" id="rail-search-toggle" aria-label="Search for an app">{% include 'icons/search_svg.html' %}</button>
-                <div class="rail-search-popover hidden" id="rail-search-popover">
-                    <div class="app-search">
-                        <input type="text" class="app-search-input" id="rail-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
-                        <div class="app-search-results hidden" id="rail-app-search-results" role="listbox"></div>
-                    </div>
-                </div>
-            </div>
+            {% for item in hub_nav_items %}
+            <a href="{{ item.url }}" class="hub-rail-item {% if item.active %}active{% endif %}" title="{{ item.label }}" aria-label="{{ item.label }}">{% include item.icon %}<span class="hub-rail-label">{{ item.label }}</span></a>
+            {% endfor %}
+            <button type="button" class="hub-rail-item hub-rail-global-action nav-row-btn" data-overlay-target="#search-nav-overlay" aria-label="Search for an app">{% include 'icons/search_svg.html' %}<span class="hub-rail-label">Search</span></button>
+            <button type="button" class="hub-rail-item nav-row-btn" data-overlay-target="#settings-nav-overlay" aria-label="Settings">{% include 'icons/cog_svg.html' %}<span class="hub-rail-label">Settings</span></button>
         </nav>
+        {% endif %}
 
+        <div class="nav-stack">
         <div class="overlay-slot">
         {% if not home_inline_panels %}
         <nav class="side-nav school-nav overlay-nav" id="school-nav-overlay" data-hub="school">
@@ -79,10 +69,26 @@
         {% endif %}
         {% endif %}
 
+        <nav class="side-nav search-nav overlay-nav" id="search-nav-overlay" data-hub="search">
+            <div class="nav-header">
+                <div class="nav-title">Search</div>
+            </div>
+            <div class="nav-scroll">
+                <div class="app-search">
+                    <input type="text" class="app-search-input" id="rail-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
+                    <div class="app-search-results hidden" id="rail-app-search-results" role="listbox"></div>
+                </div>
+            </div>
+            <div class="nav-footer">
+                <button type="button" class="nav-close-btn" aria-label="Close search">✕ Close</button>
+            </div>
+        </nav>
+
         {% include '_settings_panel.html' %}
         </div>
 
         {% block hub_sidebar %}{% endblock %}
+        </div>
         <main>
             <div class="main-inner">
                 {% block breadcrumbs_wrapper %}

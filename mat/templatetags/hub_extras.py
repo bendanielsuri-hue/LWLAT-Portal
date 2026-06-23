@@ -3,11 +3,6 @@ from django import template
 register = template.Library()
 
 
-@register.filter
-def starts_with(value, prefix):
-    return str(value).startswith(prefix)
-
-
 @register.simple_tag
 def active_menu_item(path, item, menu):
     """Return 'active' for the menu item whose url is the longest matching

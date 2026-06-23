@@ -9,6 +9,33 @@ AGGREGATE_ENTRIES = [
     {'name': 'All Secondary', 'category': 'Secondary', 'aggregate': True, 'key': 'secondary'},
 ]
 
+# Single source of truth for the global hub-switcher rail and the "Switch Hub"
+# picker overlay shown when the hub sidebar is collapsed — both render this
+# same list so the hub order/icons never drift apart between the two.
+HUB_NAV_ITEMS = [
+    {'url_name': 'homepage', 'icon': 'icons/house_svg.html', 'label': 'LWLAT Portal', 'prefix': None},
+    {'url_name': 'staff_hub', 'icon': 'icons/staff_svg.html', 'label': 'Staff', 'prefix': '/staff/'},
+    {'url_name': 'student_hub', 'icon': 'icons/student_svg.html', 'label': 'Student', 'prefix': '/student/'},
+    {'url_name': 'inclusion_hub', 'icon': 'icons/send_svg.html', 'label': 'SEND & Provision', 'prefix': '/inclusion/'},
+    {'url_name': 'registers', 'icon': 'icons/registers_svg.html', 'label': 'Registers', 'prefix': '/registers/'},
+    {'url_name': 'careers_hub', 'icon': 'icons/careers_svg.html', 'label': 'Careers', 'prefix': '/careers/'},
+    {'url_name': 'services', 'icon': 'icons/services_svg.html', 'label': 'Operations', 'prefix': '/services/'},
+    {'url_name': 'resources_hub', 'icon': 'icons/resources_svg.html', 'label': 'Resources', 'prefix': '/resources/'},
+]
+
+
+def build_hub_nav(request_path):
+    items = []
+    for entry in HUB_NAV_ITEMS:
+        active = request_path == '/' if entry['prefix'] is None else request_path.startswith(entry['prefix'])
+        items.append({
+            'url': reverse(entry['url_name']),
+            'icon': entry['icon'],
+            'label': entry['label'],
+            'active': active,
+        })
+    return items
+
 
 def build_school_nav(selected_key='all'):
     schools = [dict(AGGREGATE_ENTRIES[0])]

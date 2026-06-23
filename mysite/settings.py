@@ -70,6 +70,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'mat.context_processors.hub_nav',
                 'mat.context_processors.schools',
                 'mat.context_processors.search_items',
                 'mat.context_processors.current_identity',

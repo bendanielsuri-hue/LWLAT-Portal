@@ -25,6 +25,24 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     })();
 
+    // The rail's hover-expand is real-width, so clicking a hub link and landing on
+    // the next page with the mouse still resting in the same spot (now back over
+    // the narrower rail) would immediately re-trigger :hover and flick the rail
+    // open again with no input from the user. Suppress hover-expand for a brief
+    // window on every fresh load — released as soon as the mouse genuinely leaves
+    // the rail, or after a short timeout if it never moves at all.
+    (function suppressRailHoverOnLoad() {
+        var rail = document.querySelector('.hub-rail');
+        if (!rail) return;
+        rail.classList.add('suppress-hover');
+        var release = function () {
+            rail.classList.remove('suppress-hover');
+            rail.removeEventListener('mouseleave', release);
+        };
+        rail.addEventListener('mouseleave', release);
+        setTimeout(release, 600);
+    })();
+
     // Generic overlay nav handling: "Change Hub", "Change School", "Change User" and
     // "Settings" are absolutely-positioned layers stacked inside one shared
     // `.overlay-slot`, which is the actual flex column that slides out beside the
@@ -40,6 +58,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var slot = closest(navEl, '.overlay-slot');
         if (slot) slot.classList.add('open');
         addBackdrop(function () { closeOverlay(navEl); });
+        var input = navEl.querySelector('.nav-header input, .nav-scroll input');
+        if (input) input.focus();
     }
     function closeOverlay(navEl) {
         if (!navEl) return;
@@ -391,6 +411,20 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     })();
 
+    // Small inline icons for the search results' hub label — kept here rather than
+    // round-tripped through the server, since the result rows are built in JS from
+    // the {{ search_items|json_script }} data, not server-rendered templates. Mirrors
+    // the corresponding templates/icons/*_svg.html partials, just at a smaller size.
+    var HUB_RESULT_ICONS = {
+        'Staff': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+        'Operations': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="currentColor"/><path d="M12 2.5v2.6M12 18.9v2.6M4.2 6.2l1.9 1.5M17.9 16.3l1.9 1.5M2.5 12h2.6M18.9 12h2.6M4.2 17.8l1.9-1.5M17.9 7.7l1.9-1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+        'Resources': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.5l7.5 4.2v8.6L12 20.5l-7.5-4.2V7.7L12 3.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M4.5 7.7L12 12l7.5-4.3M12 12v8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+        'Student': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 6.3c-1.9-1.4-4.4-1.9-6.8-1.4v12.8c2.4-.5 4.9 0 6.8 1.4 1.9-1.4 4.4-1.9 6.8-1.4V4.9c-2.4-.5-4.9 0-6.8 1.4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 6.3v12.8" stroke="currentColor" stroke-width="1.6"/></svg>',
+        'SEND & Provision': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.5s-8-4.6-8-10.8A4.7 4.7 0 0 1 12 6.6a4.7 4.7 0 0 1 8 3.1c0 6.2-8 10.8-8 10.8z" fill="currentColor"/></svg>',
+        'Registers': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="3.5" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="9" y="2" width="6" height="3" rx="1" fill="currentColor"/><path d="M8.5 11.2l1.6 1.6L13 9.5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 16.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+        'Careers': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2" fill="currentColor"/><path d="M9 8V6a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>'
+    };
+
     // App search: client-side typeahead over every hub/page link, built from the JSON
     // embedded sitewide via {{ search_items|json_script }} in layout.html. Used both by
     // the home screen's own search box and the one inside the "Change Hub" overlay.
@@ -423,12 +457,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     row.dataset.url = item.url;
 
                     var name = document.createElement('span');
+                    name.className = 'app-search-result-name';
                     name.textContent = item.name;
                     row.appendChild(name);
 
                     var hub = document.createElement('span');
                     hub.className = 'app-search-result-hub';
-                    hub.textContent = item.hub;
+                    hub.innerHTML = (HUB_RESULT_ICONS[item.hub] || '') + '<span></span>';
+                    hub.querySelector('span').textContent = item.hub;
                     row.appendChild(hub);
 
                     row.addEventListener('click', function () { window.location.href = item.url; });
@@ -488,38 +524,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     setupAppSearch('app-search-input', 'app-search-results', 'app-search-data');
     setupAppSearch('rail-app-search-input', 'rail-app-search-results', 'app-search-data');
-
-    // The hub rail's search icon floats a small popover to its right (rather than
-    // an always-visible input crammed into the 64px rail) — toggled independently
-    // of setupAppSearch, which only owns the input/results filtering inside it.
-    (function setupRailSearchToggle() {
-        var toggle = document.getElementById('rail-search-toggle');
-        var popover = document.getElementById('rail-search-popover');
-        if (!toggle || !popover) return;
-
-        toggle.addEventListener('click', function (e) {
-            e.preventDefault();
-            var opening = popover.classList.contains('hidden');
-            if (opening) {
-                popover.style.top = toggle.getBoundingClientRect().top + 'px';
-            }
-            popover.classList.toggle('hidden');
-            if (opening) {
-                var input = document.getElementById('rail-app-search-input');
-                if (input) input.focus();
-            }
-        });
-
-        document.addEventListener('click', function (e) {
-            if (!popover.classList.contains('hidden') && !closest(e.target, '.hub-rail-search')) {
-                popover.classList.add('hidden');
-            }
-        });
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') popover.classList.add('hidden');
-        });
-    })();
 
     // List page shells (Students/Referrals/Actions): sized to exactly fill the
     // space between the sticky page header and the bottom of the viewport, so
