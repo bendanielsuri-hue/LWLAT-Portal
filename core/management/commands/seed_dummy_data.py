@@ -23,6 +23,11 @@ STAFF = [
 # leaves their `school` FK as None instead of assigning them in the round-robin.
 MAT_STAFF_CODES = {'STF011', 'STF012'}
 
+# Deterministic SEND assignment for ~25% of students at K and ~10% at E,
+# spread evenly across the seeded population by index (not random, so
+# reseeding stays idempotent). Cycles through the 4 broad needs in order.
+SEND_NEEDS = ['cognition', 'semh', 'communication', 'sensory']
+
 YEAR_GROUPS = [7, 8, 9, 10, 11]
 FORM_LETTERS = ['A', 'B', 'C']
 FIRST_NAMES = [
@@ -68,6 +73,14 @@ class Command(BaseCommand):
             reg_form = f'{year_group}{FORM_LETTERS[i % len(FORM_LETTERS)]}'
             upn = f'X9000{i:04d}A123'
             dob_year = 2026 - year_group - 5
+            if i % 10 == 0:
+                sen_status = 'E'
+            elif i % 3 == 0:
+                sen_status = 'K'
+            else:
+                sen_status = ''
+            send_need = SEND_NEEDS[i % len(SEND_NEEDS)] if sen_status else ''
+            gender = 'M' if i % 2 == 0 else 'F'
             _, created_flag = Student.objects.get_or_create(
                 upn=upn,
                 defaults={
@@ -77,6 +90,9 @@ class Command(BaseCommand):
                     'reg_form': reg_form,
                     'form_tutor': staff_objs[i % len(staff_objs)],
                     'date_of_birth': datetime.date(dob_year, 1 + (i % 12), 1 + (i % 28)),
+                    'sen_status': sen_status,
+                    'send_need': send_need,
+                    'gender': gender,
                 },
             )
             if created_flag:

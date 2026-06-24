@@ -29,4 +29,5 @@ urlpatterns = [
     path('inclusion/', include('hubs.inclusion.urls')),
     path('careers/', include('hubs.careers.urls')),
     path('resources/', include('hubs.resources.urls')),
+    path('portal-admin/', include('hubs.portaladmin.urls')),
 ]

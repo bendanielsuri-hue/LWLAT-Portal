@@ -7,6 +7,25 @@ document.addEventListener('DOMContentLoaded', function () {
         return null;
     }
 
+    // Suppress an element's hover-expand until the cursor has genuinely left it
+    // at least once — used both for the rail right after a fresh page load and
+    // for the hub sidebar right after a manual collapse-click, since in both
+    // cases the cursor is typically still resting on the same spot that
+    // triggered the change, and plain :hover would otherwise immediately
+    // re-expand it with no further input from the user. Released only by a
+    // real mouseleave — no timeout fallback, since a blind timeout firing while
+    // the cursor is still resting there is exactly what causes the unwanted
+    // self-expand.
+    function suppressHoverUntilLeave(el) {
+        if (!el) return;
+        el.classList.add('suppress-hover');
+        var release = function () {
+            el.classList.remove('suppress-hover');
+            el.removeEventListener('mouseleave', release);
+        };
+        el.addEventListener('mouseleave', release);
+    }
+
     // Manual collapse/expand of the hub sidebar to an icon-only rail (auto-collapse
     // below the narrow-window breakpoint is handled purely in CSS via @media, so this
     // only needs to apply/persist the user's manual choice at wider widths).
@@ -15,35 +34,38 @@ document.addEventListener('DOMContentLoaded', function () {
         var nav = toggle && closest(toggle, '.side-nav');
         if (!toggle || !nav) return;
         var STORAGE_KEY = 'pref-sidebar-collapsed';
+
+        function updateToggleLabel() {
+            var collapsed = nav.classList.contains('collapsed');
+            var label = toggle.querySelector('.menu-label');
+            if (label) label.textContent = collapsed ? 'Expand' : 'Collapse';
+            toggle.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        }
+
         if (localStorage.getItem(STORAGE_KEY) === 'true') {
             nav.classList.add('collapsed');
         }
+        updateToggleLabel();
+
         toggle.addEventListener('click', function (e) {
             e.preventDefault();
             var collapsed = nav.classList.toggle('collapsed');
             try { localStorage.setItem(STORAGE_KEY, collapsed ? 'true' : 'false'); } catch (err) { }
+            updateToggleLabel();
+            // Clicking "Collapse" leaves the cursor resting on/near this same
+            // button, now inside the just-collapsed (narrower) sidebar — block
+            // its hover-expand until the cursor genuinely leaves.
+            if (collapsed) suppressHoverUntilLeave(nav);
         });
     })();
 
-    // The rail's hover-expand is real-width, so clicking a hub link and landing on
-    // the next page with the mouse still resting in the same spot (now back over
-    // the narrower rail) would immediately re-trigger :hover and flick the rail
-    // open again with no input from the user. Suppress hover-expand for a brief
-    // window on every fresh load — released as soon as the mouse genuinely leaves
-    // the rail, or after a short timeout if it never moves at all.
-    (function suppressRailHoverOnLoad() {
-        var rail = document.querySelector('.hub-rail');
-        if (!rail) return;
-        rail.classList.add('suppress-hover');
-        var release = function () {
-            rail.classList.remove('suppress-hover');
-            rail.removeEventListener('mouseleave', release);
-        };
-        rail.addEventListener('mouseleave', release);
-        setTimeout(release, 600);
-    })();
+    // See suppressHoverUntilLeave above — applied here on every fresh page load,
+    // since clicking a hub link and landing on the next page with the mouse
+    // still resting in the same spot (now back over the narrower rail) would
+    // otherwise immediately re-trigger :hover.
+    suppressHoverUntilLeave(document.querySelector('.hub-rail'));
 
-    // Generic overlay nav handling: "Change Hub", "Change School", "Change User" and
+    // Generic overlay nav handling: "Switch Hub", "Select School", "Select User" and
     // "Settings" are absolutely-positioned layers stacked inside one shared
     // `.overlay-slot`, which is the actual flex column that slides out beside the
     // primary sidebar/rail (CSS `order` places it after the rail, before <main>) —
@@ -336,7 +358,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     })();
 
-    // Shared by the "Change School" and "current user" switchers: both just
+    // "Show all modules" toggle: unlike the theme toggle (pure CSS, no reload),
+    // this needs a cookie write + reload since it changes server-rendered menus
+    // (read server-side in core.modules.view_full_system).
+    (function setupViewFullSystemToggle() {
+        var toggle = document.getElementById('pref-view-full-system');
+        if (!toggle) return;
+        toggle.addEventListener('click', function () {
+            var next = toggle.getAttribute('aria-checked') !== 'true';
+            document.cookie = 'view_full_system=' + (next ? '1' : '0') + '; path=/; max-age=31536000; SameSite=Lax';
+            location.reload();
+        });
+    })();
+
+    // Shared by the "Select School" and "current user" switchers: both just
     // persist a chosen value to a cookie (read server-side in core.identity)
     // and reload, so the server re-renders everything (label, filtered staff
     // list, default identity) consistently rather than patching the DOM.
@@ -363,7 +398,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     })();
 
-    // Current-user identity switcher: a full overlay nav (like "Change School"),
+    // Current-user identity switcher: a full overlay nav (like "Select School"),
     // opened via the sidebar's user row. No login system exists yet, so "who am I"
     // is just remembered per-browser via a cookie (server-side fallback/default
     // lives in core.identity).
@@ -427,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // App search: client-side typeahead over every hub/page link, built from the JSON
     // embedded sitewide via {{ search_items|json_script }} in layout.html. Used both by
-    // the home screen's own search box and the one inside the "Change Hub" overlay.
+    // the home screen's own search box and the one inside the "Switch Hub" overlay.
     function setupAppSearch(inputId, resultsId, dataId) {
         var input = document.getElementById(inputId);
         var results = document.getElementById(resultsId);

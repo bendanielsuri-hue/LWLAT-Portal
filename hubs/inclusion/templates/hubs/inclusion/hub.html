@@ -7,7 +7,121 @@
 {% block page_title %}{{ hub_title }}{% endblock %}
 
 {% block content %}
-<p>Welcome to the SEND & inclusion area. Each link is a local app page.</p>
+<div class="hub-home-header">
+    <p class="hub-home-lead">Welcome to the SEND & inclusion area.</p>
+    <button type="button" class="btn btn-primary" disabled title="Coming soon">+ New Referral</button>
+</div>
+
+<div class="stats-strip">
+    <div class="stat-card stat-card--accent-primary">
+        <div class="stat-card-icon">{% include 'icons/people_svg.html' %}</div>
+        <div class="stat-value">{{ total_students }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card stat-card--accent-warning">
+        <div class="stat-card-icon">{% include 'icons/send_svg.html' %}</div>
+        <div class="stat-value">{{ send_count }}</div>
+        <div class="stat-label">Students with SEND</div>
+    </div>
+    <div class="stat-card stat-card--accent-success">
+        <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
+        <div class="stat-value">{{ k_count }}</div>
+        <div class="stat-label">SEN Support (K)</div>
+    </div>
+    <div class="stat-card stat-card--accent-success">
+        <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
+        <div class="stat-value">{{ e_count }}</div>
+        <div class="stat-label">EHCP (E)</div>
+    </div>
+    <div class="stat-card stat-card--accent-primary">
+        <div class="stat-card-icon">{% include 'icons/reports_svg.html' %}</div>
+        <div class="stat-value">{{ referrals_this_year }}</div>
+        <div class="stat-label">Referrals this year</div>
+    </div>
+</div>
+
+<div class="breakdown-grid">
+    <div class="breakdown-card">
+        <h3>By SEND code</h3>
+        {% for row in code_breakdown %}
+        <div class="breakdown-row">
+            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }}</span></div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill" style="width: {% widthratio row.count total_students 100 %}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="breakdown-card">
+        <h3>By year group</h3>
+        {% if year_breakdown %}
+        {% for row in year_breakdown %}
+        <div class="breakdown-row">
+            <div class="breakdown-row-labels"><span>Year {{ row.year_group }}</span><span>K {{ row.k_count }} &middot; E {{ row.e_count }}</span></div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill" style="width: {% widthratio row.k_count send_count 100 %}%"></div>
+            </div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill breakdown-bar-fill--secondary" style="width: {% widthratio row.e_count send_count 100 %}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-note">No students with SEND recorded.</p>
+        {% endif %}
+    </div>
+
+    <div class="breakdown-card">
+        <h3>By area of need</h3>
+        {% if send_count %}
+        {% for row in need_breakdown %}
+        <div class="breakdown-row">
+            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }}</span></div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill" style="width: {% widthratio row.count send_count 100 %}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-note">No students with SEND recorded.</p>
+        {% endif %}
+    </div>
+
+    <div class="breakdown-card">
+        <h3>By gender (SEND students)</h3>
+        {% if gender_breakdown %}
+        {% for row in gender_breakdown %}
+        <div class="breakdown-row">
+            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }}</span></div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill" style="width: {% widthratio row.count send_count 100 %}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-note">No students with SEND recorded.</p>
+        {% endif %}
+    </div>
+
+    {% if show_school_breakdown %}
+    <div class="breakdown-card">
+        <h3>By school</h3>
+        {% if school_breakdown %}
+        {% for row in school_breakdown %}
+        <div class="breakdown-row">
+            <div class="breakdown-row-labels"><span>{{ row.school__name }}</span><span>{{ row.count }}</span></div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill" style="width: {% widthratio row.count send_count 100 %}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-note">No students with SEND recorded.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
 {% endblock %}
 {% block breadcrumbs %}
 	<a href="{% url 'inclusion_hub' %}">{{ hub_title }}</a>

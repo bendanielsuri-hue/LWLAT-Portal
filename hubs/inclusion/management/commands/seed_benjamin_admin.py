@@ -34,6 +34,10 @@ class Command(BaseCommand):
             benjamin.is_mat_staff = True
             benjamin.save(update_fields=['is_mat_staff'])
 
+        if not benjamin.is_developer:
+            benjamin.is_developer = True
+            benjamin.save(update_fields=['is_developer'])
+
         panel_group, _ = PanelGroup.objects.get_or_create(
             name='Babington Panel',
             defaults={'default_chair': benjamin, 'is_active': True, 'school': babington_academy},

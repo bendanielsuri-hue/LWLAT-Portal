@@ -1,10 +1,12 @@
 from core.identity import current_school_key, current_staff, staff_queryset_for_school_key
+from core.modules import view_full_system
+from core.portal_settings import resolve_portal_settings
 
 from .views import build_hub_nav, build_school_nav, build_sections, build_search_items
 
 
 def hub_nav(request):
-    return {'hub_nav_items': build_hub_nav(request.path)}
+    return {'hub_nav_items': build_hub_nav(request)}
 
 
 def schools(request):
@@ -15,7 +17,15 @@ def schools(request):
 
 
 def search_items(request):
-    return {'search_items': build_search_items(build_sections())}
+    return {'search_items': build_search_items(build_sections(request))}
+
+
+def module_settings(request):
+    return {'view_full_system': view_full_system(request)}
+
+
+def portal_settings(request):
+    return resolve_portal_settings(request)
 
 
 def current_identity(request):

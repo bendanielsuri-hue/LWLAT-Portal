@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 {% load static %}
-<html lang="en">
+<html lang="en" {% if accent_colour %}data-school-color="{{ accent_colour }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,24 +9,26 @@
             try {
                 var root = document.documentElement;
                 root.setAttribute('data-theme', localStorage.getItem('pref-theme') || 'light');
-                root.setAttribute('data-color', localStorage.getItem('pref-color') || 'purple');
+                // A school/category/MAT accent override (rendered server-side as
+                // data-school-color, see core.portal_settings) takes precedence
+                // over the viewer's personal colour preference.
+                root.setAttribute('data-color', root.getAttribute('data-school-color') || localStorage.getItem('pref-color') || 'purple');
                 root.setAttribute('data-text-size', localStorage.getItem('pref-text-size') || 'md');
             } catch (e) { }
         })();
     </script>
     <title>
         {% block title %}
-            Django App
+            {{ portal_title }}
         {% endblock %}
     </title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=72">
-    <script src="{% static 'js/main.js' %}?v=37" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=76">
+    <script src="{% static 'js/main.js' %}?v=38" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     {{ search_items|json_script:"app-search-data" }}
     <div class="page-shell">
-        {% if not home_inline_panels %}
         <nav class="side-nav hub-rail" aria-label="Hubs">
             {% for item in hub_nav_items %}
             <a href="{{ item.url }}" class="hub-rail-item {% if item.active %}active{% endif %}" title="{{ item.label }}" aria-label="{{ item.label }}">{% include item.icon %}<span class="hub-rail-label">{{ item.label }}</span></a>
@@ -34,14 +36,12 @@
             <button type="button" class="hub-rail-item hub-rail-global-action nav-row-btn" data-overlay-target="#search-nav-overlay" aria-label="Search for an app">{% include 'icons/search_svg.html' %}<span class="hub-rail-label">Search</span></button>
             <button type="button" class="hub-rail-item nav-row-btn" data-overlay-target="#settings-nav-overlay" aria-label="Settings">{% include 'icons/cog_svg.html' %}<span class="hub-rail-label">Settings</span></button>
         </nav>
-        {% endif %}
 
         <div class="nav-stack">
         <div class="overlay-slot">
-        {% if not home_inline_panels %}
         <nav class="side-nav school-nav overlay-nav" id="school-nav-overlay" data-hub="school">
             <div class="nav-header">
-                <div class="nav-title">Change School</div>
+                <div class="nav-title">Select School</div>
             </div>
             <div class="nav-scroll">
                 {% include '_school_list.html' %}
@@ -54,7 +54,7 @@
         {% if current_staff_list %}
         <nav class="side-nav staff-nav overlay-nav" id="staff-nav-overlay" data-hub="staff">
             <div class="nav-header">
-                <div class="nav-title">Change User</div>
+                <div class="nav-title">Select User</div>
                 <div class="nav-search">
                     <input type="text" class="app-search-input identity-search-input" placeholder="Search staff…" aria-label="Search staff">
                 </div>
@@ -66,7 +66,6 @@
                 <button type="button" class="nav-close-btn" aria-label="Close user switcher">✕ Close</button>
             </div>
         </nav>
-        {% endif %}
         {% endif %}
 
         <nav class="side-nav search-nav overlay-nav" id="search-nav-overlay" data-hub="search">
@@ -85,6 +84,29 @@
         </nav>
 
         {% include '_settings_panel.html' %}
+
+        {% comment %}
+        Stand-in for the global rail when it's hidden (the rail disappears
+        whenever the hub sidebar is collapsed, see .hub-side.collapsed in
+        style.css) — opened from the sidebar's "Hubs" button (only visible
+        in that collapsed state, see _hub_sidebar.html). Reuses the same
+        hub_nav_items the rail itself renders from.
+        {% endcomment %}
+        <nav class="side-nav hubs-nav overlay-nav" id="hubs-nav-overlay" data-hub="hubs">
+            <div class="nav-header">
+                <div class="nav-title">Switch Hub</div>
+            </div>
+            <div class="nav-scroll">
+                <ul class="nav-menu">
+                    {% for item in hub_nav_items %}
+                    <li><a href="{{ item.url }}" class="{% if item.active %}active{% endif %}"><span class="menu-icon">{% include item.icon %}</span><span class="menu-label">{{ item.label }}</span></a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="nav-footer">
+                <button type="button" class="nav-close-btn" aria-label="Close hub switcher">✕ Close</button>
+            </div>
+        </nav>
         </div>
 
         {% block hub_sidebar %}{% endblock %}
@@ -95,7 +117,7 @@
                 <div class="page-header">
                     <div class="page-header-main">
                         <nav class="breadcrumbs">
-                            <a href="{% url 'homepage' %}">LWLAT Portal</a>
+                            <a href="{% url 'homepage' %}">{{ portal_title }}</a>
                             <span class="sep">&gt;</span>
                             {% block breadcrumbs %}{% endblock %}
                         </nav>

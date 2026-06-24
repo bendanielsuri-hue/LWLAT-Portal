@@ -214,6 +214,18 @@ html, body {
 .side-nav.collapsed .staff-nav-option {
     justify-content: center;
 }
+/* "Hubs" only exists as a stand-in for the global rail, which hides itself
+   whenever this sidebar is collapsed — so it's only ever shown in that state,
+   never alongside the rail. Qualified with .side-nav.hub-side (three classes)
+   so this beats the generic ".side-nav .nav-row-btn { display: flex }" rule
+   further down (two classes) — a bare ".hubs-trigger" rule here would lose
+   that cascade and the button would stay visible even while expanded. */
+.side-nav.hub-side .hubs-trigger {
+    display: none;
+}
+.side-nav.hub-side.collapsed .hubs-trigger {
+    display: flex;
+}
 .side-nav.collapsed .menu-icon {
     margin-right: 0;
 }
@@ -227,6 +239,14 @@ html, body {
 .side-nav.hub-side.collapsed:hover,
 .side-nav.hub-side.collapsed:focus-within {
     width: 220px;
+}
+/* Mirrors .hub-rail.suppress-hover — right after clicking "Collapse" the
+   cursor is typically still resting on/near the toggle, now inside the
+   just-collapsed sidebar; block the hover-expand until the cursor has
+   genuinely left at least once (see main.js suppressHoverUntilLeave). */
+.side-nav.hub-side.collapsed.suppress-hover:hover,
+.side-nav.hub-side.collapsed.suppress-hover:focus-within {
+    width: 64px;
 }
 .side-nav.hub-side.collapsed:hover .menu-label,
 .side-nav.hub-side.collapsed:focus-within .menu-label {
@@ -366,18 +386,39 @@ main { order: 3; position: relative; }
     width: 72px;
     flex-shrink: 0;
     order: 0;
-    padding: 16px 0;
-    gap: 4px;
+    padding: 16px 8px;
+    gap: 0;
     background-color: var(--bg-surface-alt);
     border-right: 1px solid var(--border-color);
-    transition: width var(--transition-base);
+    /* Delay only applies to collapsing (this, the default rule) — expanding via
+       :hover/:focus-within/:has(overlay open) below resets it to 0s — so a
+       cursor flickering across the rail's edge doesn't visibly jitter the
+       width in and out; it only collapses once the mouse has genuinely left
+       for that brief window. */
+    transition: width var(--transition-base) 200ms;
 }
 .hub-rail:hover,
 .hub-rail:focus-within {
     width: 200px;
+    transition-delay: 0s;
+}
+/* Clicking a rail button (Settings/Search/Change School/Change User) opens an
+   overlay panel that lives in a sibling .overlay-slot, not inside .hub-rail —
+   so once the cursor leaves the rail to interact with that panel, plain
+   :hover would collapse the rail mid-interaction and shift the whole
+   page-shell. Key the expanded state off the overlay's own open state
+   instead (same :has() technique as the collapsed-sidebar rule below), so
+   the rail stays expanded for as long as any overlay is open, regardless of
+   cursor position. */
+.page-shell:has(.overlay-nav.open) .hub-rail {
+    width: 200px;
+    transition-delay: 0s;
+}
+.page-shell:has(.overlay-nav.open) .hub-rail-label {
+    opacity: 1;
 }
 /* Briefly suppress hover-expand right after a fresh page load (see main.js
-   suppressRailHoverOnLoad) — higher specificity than the plain hover rule
+   suppressHoverUntilLeave) — higher specificity than the plain hover rule
    above (two classes + pseudo vs. one), so it wins without !important. */
 .hub-rail.suppress-hover:hover,
 .hub-rail.suppress-hover:focus-within {
@@ -390,16 +431,26 @@ main { order: 3; position: relative; }
 .page-shell:has(.side-nav.hub-side.collapsed) .hub-rail {
     display: none;
 }
-.hub-rail-item {
+/* Qualified with the .hub-rail ancestor so this beats the generic
+   ".side-nav a { padding: 6px 8px }" rule's specificity (one class+type vs
+   one class alone would otherwise lose) — without this, the rail's padding
+   below silently falls back to 6px/8px and the bar-to-icon gap reads
+   tighter than the hub sidebar's local-menu items. No fixed height either,
+   so row height comes from this padding alone, matching
+   .side-nav .nav-menu a exactly (same vertical rhythm as the hub sidebar).
+   Always justify-content:flex-start (collapsed or expanded) — the label
+   collapses to zero width while hidden (see .hub-rail-label below), so the
+   icon's position never needs to shift between states; centering it only in
+   the collapsed state used to nudge it a few px relative to the fixed-
+   position accent bar every time the rail toggled. */
+.hub-rail .hub-rail-item {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     flex-shrink: 0;
-    width: calc(100% - 16px);
-    height: 52px;
-    margin: 0 8px;
-    padding-left: 15px;
+    width: 100%;
+    padding: 11px 14px;
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     background: transparent;
@@ -413,15 +464,22 @@ main { order: 3; position: relative; }
     height: 22px;
     flex-shrink: 0;
 }
-/* Hover/active colour comes from the shared .side-nav a:not(.nav-row-btn)
-   accent-bar rule below — same visual language as every hub-sidebar menu
-   row, since rail and hub sidebar are the same nav ecosystem. The active
-   item's background additionally matches the hub sidebar's own surface
-   colour, so it reads as "the same surface" as the panel it leads to. */
-.hub-rail-item.active {
-    background: var(--bg-nav);
-}
+/* Hover/active colour comes entirely from the shared .side-nav
+   a:not(.nav-row-btn) accent-bar rule below — same visual language as every
+   hub-sidebar menu row, since rail and hub sidebar are the same nav
+   ecosystem. No background fill here, so the active item stays flush
+   instead of reading as a filled tab. The padding above also now matches
+   .side-nav .nav-menu a exactly, so the accent-bar-to-icon spacing reads
+   identically in both. */
 .hub-rail-label {
+    /* flex:1/min-width:0/overflow:hidden (matching .side-nav .menu-label)
+       so the label collapses to ~0 width while invisible instead of keeping
+       its full text width — otherwise centering .hub-rail-item centers the
+       whole icon+label block instead of just the icon, pushing the icon out
+       of the collapsed rail's clipped bounds. */
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
     margin-left: 12px;
     white-space: nowrap;
     opacity: 0;
@@ -445,8 +503,8 @@ main { order: 3; position: relative; }
    otherwise overwrite the rail's own width/padding. Re-assert those here with
    matching specificity to keep the rail's layout intact. */
 .hub-rail .hub-rail-item.nav-row-btn {
-    width: calc(100% - 16px);
-    padding: 0 0 0 15px;
+    width: 100%;
+    padding: 11px 14px;
 }
 
 /* The dimming backdrop now covers <main> only (not the sidebar/rail or the open
@@ -1605,6 +1663,27 @@ dialog.ui-popover::backdrop { background: transparent; }
 .stat-card--accent-warning .stat-card-icon { color: var(--warning); }
 .stat-card--accent-success { border-left: 4px solid var(--success); }
 .stat-card--accent-success .stat-card-icon { color: var(--success); }
+
+/* Simple labelled breakdown bars (SEND & Provision hub home) */
+.breakdown-grid { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+.breakdown-card {
+    flex: 1 1 280px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+}
+.breakdown-card h3 { margin: 0 0 12px; font-size: var(--font-md); color: var(--text-primary); }
+.breakdown-row { margin-bottom: 10px; }
+.breakdown-row:last-child { margin-bottom: 0; }
+.breakdown-row-labels { display: flex; justify-content: space-between; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 4px; }
+.breakdown-bar-track { background: var(--bg-muted, var(--border-color)); border-radius: var(--radius-sm); height: 8px; overflow: hidden; margin-bottom: 4px; }
+.breakdown-bar-track:last-child { margin-bottom: 0; }
+.breakdown-bar-fill { background: var(--primary); height: 100%; border-radius: var(--radius-sm); }
+.breakdown-bar-fill--secondary { background: var(--success); }
+
+.hub-home-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.hub-home-lead { margin: 0; color: var(--text-secondary); }
 
 .field-group textarea {
     width: 100%;

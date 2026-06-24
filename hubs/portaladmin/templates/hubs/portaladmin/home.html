@@ -1,0 +1,168 @@
+{% extends 'layout.html' %}
+{% load static %}
+
+{% block title %}Portal Admin{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=13">
+{% endblock %}
+
+{% block hub_sidebar %}{% include 'hubs/_hub_sidebar.html' %}{% endblock %}
+
+{% block page_title %}Portal Admin{% endblock %}
+
+{% block breadcrumbs %}
+    <span>Portal Admin</span>
+{% endblock %}
+
+{% block content %}
+<p>Developer-only console for module rollout status and per-school portal settings. Not linked anywhere except for staff with the developer flag set.</p>
+
+<details class="settings-section" open>
+    <summary>Modules &amp; rollout status</summary>
+    <div class="settings-body">
+        {% for module in modules %}
+        <form method="post" class="settings-row" style="align-items:flex-start; flex-wrap:wrap; gap:10px;">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="update_module">
+            <input type="hidden" name="module_id" value="{{ module.id }}">
+            <span style="min-width:220px;">{% if module.parent %}&nbsp;&nbsp;↳ {% endif %}{{ module.name }} <small style="color:var(--text-secondary)">({{ module.key }})</small></span>
+            <input type="text" name="name" value="{{ module.name }}" style="max-width:180px;">
+            <select name="status">
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if module.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="pilot_schools" multiple size="3" style="min-width:160px;">
+                {% for school in schools %}
+                <option value="{{ school.id }}" {% if school in module.pilot_schools.all %}selected{% endif %}>{{ school.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-edit">Save</button>
+        </form>
+        {% endfor %}
+    </div>
+</details>
+
+<details class="settings-section">
+    <summary>MAT Defaults</summary>
+    <div class="settings-body">
+        <form method="post" class="field-group">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="update_mat_settings">
+            <label>Portal title</label>
+            <input type="text" name="portal_title" value="{{ mat_settings.portal_title }}" placeholder="LWLAT Portal">
+            <label>Student term</label>
+            <input type="text" name="student_term" value="{{ mat_settings.student_term }}" placeholder="Student">
+            <label>Staff term</label>
+            <input type="text" name="staff_term" value="{{ mat_settings.staff_term }}" placeholder="Staff">
+            <label>Accent colour</label>
+            <select name="accent_colour">
+                <option value="">(none)</option>
+                {% for value, label in accent_choices %}
+                <option value="{{ value }}" {% if mat_settings.accent_colour == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <label>Logo URL</label>
+            <input type="text" name="logo_url" value="{{ mat_settings.logo_url }}">
+            <label>Support email</label>
+            <input type="email" name="support_email" value="{{ mat_settings.support_email }}">
+            <label>Support phone</label>
+            <input type="text" name="support_phone" value="{{ mat_settings.support_phone }}">
+            <button type="submit" class="btn btn-sm btn-edit" style="margin-top:14px;">Save MAT Defaults</button>
+        </form>
+    </div>
+</details>
+
+<details class="settings-section">
+    <summary>Category Overrides</summary>
+    <div class="settings-body">
+        <p><strong>Primary</strong></p>
+        <form method="post" class="field-group">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="update_category_settings">
+            <input type="hidden" name="category" value="Primary">
+            <label>Portal title</label>
+            <input type="text" name="portal_title" value="{{ primary_settings.portal_title }}" placeholder="(inherit MAT default)">
+            <label>Student term</label>
+            <input type="text" name="student_term" value="{{ primary_settings.student_term }}" placeholder="(inherit MAT default)">
+            <label>Staff term</label>
+            <input type="text" name="staff_term" value="{{ primary_settings.staff_term }}" placeholder="(inherit MAT default)">
+            <label>Accent colour</label>
+            <select name="accent_colour">
+                <option value="">(inherit MAT default)</option>
+                {% for value, label in accent_choices %}
+                <option value="{{ value }}" {% if primary_settings.accent_colour == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <label>Logo URL</label>
+            <input type="text" name="logo_url" value="{{ primary_settings.logo_url }}">
+            <label>Support email</label>
+            <input type="email" name="support_email" value="{{ primary_settings.support_email }}">
+            <label>Support phone</label>
+            <input type="text" name="support_phone" value="{{ primary_settings.support_phone }}">
+            <button type="submit" class="btn btn-sm btn-edit" style="margin-top:14px;">Save Primary Override</button>
+        </form>
+        <p style="margin-top:20px;"><strong>Secondary</strong></p>
+        <form method="post" class="field-group">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="update_category_settings">
+            <input type="hidden" name="category" value="Secondary">
+            <label>Portal title</label>
+            <input type="text" name="portal_title" value="{{ secondary_settings.portal_title }}" placeholder="(inherit MAT default)">
+            <label>Student term</label>
+            <input type="text" name="student_term" value="{{ secondary_settings.student_term }}" placeholder="(inherit MAT default)">
+            <label>Staff term</label>
+            <input type="text" name="staff_term" value="{{ secondary_settings.staff_term }}" placeholder="(inherit MAT default)">
+            <label>Accent colour</label>
+            <select name="accent_colour">
+                <option value="">(inherit MAT default)</option>
+                {% for value, label in accent_choices %}
+                <option value="{{ value }}" {% if secondary_settings.accent_colour == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <label>Logo URL</label>
+            <input type="text" name="logo_url" value="{{ secondary_settings.logo_url }}">
+            <label>Support email</label>
+            <input type="email" name="support_email" value="{{ secondary_settings.support_email }}">
+            <label>Support phone</label>
+            <input type="text" name="support_phone" value="{{ secondary_settings.support_phone }}">
+            <button type="submit" class="btn btn-sm btn-edit" style="margin-top:14px;">Save Secondary Override</button>
+        </form>
+    </div>
+</details>
+
+<details class="settings-section">
+    <summary>School Overrides</summary>
+    <div class="settings-body">
+        {% for school in schools %}
+        <p style="margin-top:20px;"><strong>{{ school.name }}</strong> <small style="color:var(--text-secondary)">({{ school.category }})</small></p>
+        <form method="post" class="field-group">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="update_school_settings">
+            <input type="hidden" name="school_id" value="{{ school.id }}">
+            <label>Portal title</label>
+            <input type="text" name="portal_title" value="{{ school.portal_title }}" placeholder="(inherit category/MAT default)">
+            <label>Student term</label>
+            <input type="text" name="student_term" value="{{ school.student_term }}" placeholder="(inherit category/MAT default)">
+            <label>Staff term</label>
+            <input type="text" name="staff_term" value="{{ school.staff_term }}" placeholder="(inherit category/MAT default)">
+            <label>Accent colour</label>
+            <select name="accent_colour">
+                <option value="">(inherit category/MAT default)</option>
+                {% for value, label in accent_choices %}
+                <option value="{{ value }}" {% if school.accent_colour == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <label>Logo URL</label>
+            <input type="text" name="logo_url" value="{{ school.logo_url }}">
+            <label>Support email</label>
+            <input type="email" name="support_email" value="{{ school.support_email }}">
+            <label>Support phone</label>
+            <input type="text" name="support_phone" value="{{ school.support_phone }}">
+            <button type="submit" class="btn btn-sm btn-edit" style="margin-top:14px;">Save {{ school.name }} Override</button>
+        </form>
+        {% endfor %}
+    </div>
+</details>
+{% endblock %}

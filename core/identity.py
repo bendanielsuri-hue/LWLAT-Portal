@@ -1,6 +1,6 @@
 from django.db.models import Q
 
-from core.models import Staff
+from core.models import Staff, Student
 
 # No login system exists yet (see CLAUDE.md), so "current identity" is just a
 # client-side choice backed by a cookie, with Benjamin Suri as the fallback
@@ -50,6 +50,20 @@ def staff_queryset_for_school_key(key):
     if key == 'secondary':
         return qs.filter(Q(school__isnull=True) | Q(is_mat_staff=True) | Q(school__category='Secondary'))
     return qs.filter(Q(school__isnull=True) | Q(is_mat_staff=True) | Q(school_id=key))
+
+
+def student_queryset_for_school_key(key):
+    # Same scoping rules as staff_queryset_for_school_key, but students have
+    # no MAT-wide equivalent of is_mat_staff — only school__isnull matches
+    # every key.
+    qs = Student.objects.filter(is_active=True).select_related('school')
+    if key in (None, '', 'all'):
+        return qs
+    if key == 'primary':
+        return qs.filter(Q(school__isnull=True) | Q(school__category='Primary'))
+    if key == 'secondary':
+        return qs.filter(Q(school__isnull=True) | Q(school__category='Secondary'))
+    return qs.filter(Q(school__isnull=True) | Q(school_id=key))
 
 
 def default_staff_for_school_key(key):

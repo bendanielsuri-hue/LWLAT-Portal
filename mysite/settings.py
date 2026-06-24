@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'hubs.inclusion',
     'hubs.careers',
     'hubs.resources',
+    'hubs.portaladmin',
 ]
 
 MIDDLEWARE = [
@@ -74,6 +75,8 @@ TEMPLATES = [
                 'mat.context_processors.schools',
                 'mat.context_processors.search_items',
                 'mat.context_processors.current_identity',
+                'mat.context_processors.module_settings',
+                'mat.context_processors.portal_settings',
             ],
         },
     },

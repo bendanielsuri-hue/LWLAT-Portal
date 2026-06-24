@@ -1,14 +1,15 @@
 ﻿import json
 
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from core.identity import current_staff as _current_staff
+from core.identity import current_school_key, current_staff as _current_staff, student_queryset_for_school_key
 from core.models import School, Staff, Student
+from core.modules import filter_by_module, module_map
 
 from .models import (
     Action,
@@ -28,10 +29,14 @@ from .models import (
 )
 
 INCLUSION_MENU = [
-    {'name': 'Provision & Strategies', 'url': '/inclusion/provision-strategies/', 'icon': 'icons/registers_svg.html'},
-    {'name': 'Inclusion Panel', 'url': '/inclusion/panel/', 'icon': 'icons/people_svg.html'},
-    {'name': 'SEND Diagnosis Tracker', 'url': '/inclusion/diagnosis-tracker/', 'icon': 'icons/reports_svg.html'},
+    {'name': 'Provision & Strategies', 'url': '/inclusion/provision-strategies/', 'icon': 'icons/registers_svg.html', 'module_key': 'inclusion_provision_strategies'},
+    {'name': 'Inclusion Panel', 'url': '/inclusion/panel/', 'icon': 'icons/people_svg.html', 'module_key': 'inclusion_panel'},
+    {'name': 'SEND Diagnosis Tracker', 'url': '/inclusion/diagnosis-tracker/', 'icon': 'icons/reports_svg.html', 'module_key': 'inclusion_diagnosis_tracker'},
 ]
+
+
+def _local_menu(request):
+    return filter_by_module(INCLUSION_MENU, module_map(), request)
 
 PANEL_MENU = [
     {'name': 'Home', 'url': '/inclusion/panel/', 'icon': 'icons/house_svg.html'},
@@ -104,15 +109,81 @@ def _grouped_questions():
 
 
 def inclusion_hub(request):
-    return render(request, 'hubs/inclusion/hub.html', {'local_menu': INCLUSION_MENU, 'hub_title': 'SEND & Provision'})
+    school_key = current_school_key(request)
+    students = student_queryset_for_school_key(school_key)
+
+    total_students = students.count()
+    send_students = students.exclude(sen_status='')
+    send_count = send_students.count()
+    k_count = students.filter(sen_status='K').count()
+    e_count = students.filter(sen_status='E').count()
+
+    code_breakdown = [
+        {'label': 'SEN Support (K)', 'count': k_count},
+        {'label': 'EHCP (E)', 'count': e_count},
+        {'label': 'None', 'count': total_students - send_count},
+    ]
+
+    year_breakdown = list(
+        send_students.values('year_group').annotate(
+            k_count=Count('id', filter=Q(sen_status='K')),
+            e_count=Count('id', filter=Q(sen_status='E')),
+        ).order_by('year_group')
+    )
+
+    gender_counts = dict(
+        send_students.exclude(gender='').values('gender').annotate(count=Count('id'))
+        .values_list('gender', 'count')
+    )
+    gender_breakdown = [
+        {'label': label, 'count': gender_counts.get(key, 0)}
+        for key, label in Student.GENDER_CHOICES
+    ]
+
+    referrals_this_year = Referral.objects.filter(
+        student__in=students, created_at__year=timezone.localdate().year
+    ).count()
+
+    need_counts = dict(
+        send_students.exclude(send_need='').values('send_need').annotate(count=Count('id'))
+        .values_list('send_need', 'count')
+    )
+    need_breakdown = [
+        {'label': label, 'count': need_counts.get(key, 0)}
+        for key, label in Student.SEND_NEED_CHOICES
+    ]
+
+    show_school_breakdown = school_key in ('all', 'primary', 'secondary')
+    school_breakdown = []
+    if show_school_breakdown:
+        school_breakdown = list(
+            send_students.exclude(school__isnull=True).values('school__name')
+            .annotate(count=Count('id')).order_by('-count')
+        )
+
+    return render(request, 'hubs/inclusion/hub.html', {
+        'local_menu': _local_menu(request),
+        'hub_title': 'SEND & Provision',
+        'total_students': total_students,
+        'send_count': send_count,
+        'k_count': k_count,
+        'e_count': e_count,
+        'code_breakdown': code_breakdown,
+        'year_breakdown': year_breakdown,
+        'need_breakdown': need_breakdown,
+        'gender_breakdown': gender_breakdown,
+        'referrals_this_year': referrals_this_year,
+        'show_school_breakdown': show_school_breakdown,
+        'school_breakdown': school_breakdown,
+    })
 
 
 def inclusion_provision_strategies(request):
-    return render(request, 'hubs/inclusion/provision_strategies.html', {'local_menu': INCLUSION_MENU, 'hub_title': 'SEND & Provision'})
+    return render(request, 'hubs/inclusion/provision_strategies.html', {'local_menu': _local_menu(request), 'hub_title': 'SEND & Provision'})
 
 
 def inclusion_diagnosis_tracker(request):
-    return render(request, 'hubs/inclusion/diagnosis_tracker.html', {'local_menu': INCLUSION_MENU, 'hub_title': 'SEND & Provision'})
+    return render(request, 'hubs/inclusion/diagnosis_tracker.html', {'local_menu': _local_menu(request), 'hub_title': 'SEND & Provision'})
 
 
 def inclusion_panel_home(request):
