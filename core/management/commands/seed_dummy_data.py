@@ -17,11 +17,28 @@ STAFF = [
     ('STF010', 'Jasmine', 'Lee', 'Teaching Assistant', 'Science'),
     ('STF011', 'Patricia', 'Adeyemi', 'CEO', 'MAT Central'),
     ('STF012', 'Robert', 'Kingsley', 'MAT HR Director', 'MAT Central'),
+    ('STF013', 'Maya', 'Okafor', 'SENDCo', 'Inclusion'),
+    ('STF014', 'Daniel', 'Whitfield', 'SENDCo', 'Inclusion'),
+    ('STF015', 'Priya', 'Chandra', 'SENDCo', 'Inclusion'),
+    ('STF016', 'Connor', 'Boyle', 'SENDCo', 'Inclusion'),
+    ('STF017', 'Sofia', 'Marchetti', 'SENDCo', 'Inclusion'),
 ]
 
 # Staff who work across the whole Trust rather than at one school — seed_schools
 # leaves their `school` FK as None instead of assigning them in the round-robin.
 MAT_STAFF_CODES = {'STF011', 'STF012'}
+
+# Explicit per-school SENDCo assignment (overrides the generic round-robin in
+# seed_schools.py) so every school is guaranteed exactly one SENDCo, except
+# Babington Academy which gets two.
+SENCO_SCHOOL_ASSIGNMENTS = {
+    'STF006': 'Heatherbrook',
+    'STF013': 'Woodstock',
+    'STF014': 'Babington Academy',
+    'STF015': 'Babington Academy',
+    'STF016': 'Lancaster Academy',
+    'STF017': 'South Wigston Academy',
+}
 
 # Deterministic SEND assignment for ~25% of students at K and ~10% at E,
 # spread evenly across the seeded population by index (not random, so
@@ -81,7 +98,7 @@ class Command(BaseCommand):
                 sen_status = ''
             send_need = SEND_NEEDS[i % len(SEND_NEEDS)] if sen_status else ''
             gender = 'M' if i % 2 == 0 else 'F'
-            _, created_flag = Student.objects.get_or_create(
+            _, created_flag = Student.objects.update_or_create(
                 upn=upn,
                 defaults={
                     'first_name': first_name,

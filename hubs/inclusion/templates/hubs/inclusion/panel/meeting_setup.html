@@ -132,10 +132,19 @@
         var chairSelect = document.getElementById('panel-chair');
         if (!groupSelect) return;
 
+        function submitDetails() {
+            if (!detailsForm) return;
+            fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(detailsForm),
+            });
+        }
+
         if (detailsForm) {
-            if (dateInput) dateInput.addEventListener('change', function () { detailsForm.requestSubmit(); });
-            if (timeInput) timeInput.addEventListener('change', function () { detailsForm.requestSubmit(); });
-            if (chairSelect) chairSelect.addEventListener('change', function () { detailsForm.requestSubmit(); });
+            if (dateInput) dateInput.addEventListener('change', submitDetails);
+            if (timeInput) timeInput.addEventListener('change', submitDetails);
+            if (chairSelect) chairSelect.addEventListener('change', submitDetails);
         }
 
         var allGroupOptions = Array.prototype.slice.call(groupSelect.options).filter(function (opt) {
@@ -187,7 +196,7 @@
                 return;
             }
             applyChair();
-            if (detailsForm) detailsForm.requestSubmit();
+            submitDetails();
         });
 
         document.addEventListener('panel-group:created', function (e) {

@@ -122,6 +122,7 @@ class Staff(models.Model):
     is_active = models.BooleanField(default=True)
     is_mat_staff = models.BooleanField(default=False)
     is_developer = models.BooleanField(default=False)
+    photo = models.ImageField(upload_to='staff_photos/', blank=True, null=True)
 
     class Meta:
         ordering = ['last_name', 'first_name']

@@ -2,10 +2,18 @@
 {% load hub_extras %}
 <nav class="side-nav hub-side expanded" data-hub="{{ hub_title|lower }}">
     <div class="nav-header">
-        <button type="button" class="collapse-toggle nav-row-btn" id="sidebar-collapse-toggle" aria-label="Collapse sidebar">
-            <span class="menu-icon">{% include 'icons/panel_collapse_svg.html' %}</span>
-            <span class="menu-label">Collapse</span>
-        </button>
+        <div class="nav-header-top-row">
+            <button type="button" class="collapse-toggle" id="sidebar-collapse-toggle" aria-label="Collapse sidebar" title="Collapse sidebar">
+                {% include 'icons/panel_collapse_svg.html' %}
+            </button>
+        </div>
+        {% if back_to_hub_url %}
+        <a href="{{ back_to_hub_url }}" class="exit-hub nav-row-btn">
+            <span class="menu-icon">{% include 'icons/arrow_left_svg.html' %}</span>
+            <span class="menu-label">{{ back_to_hub_label }}</span>
+        </a>
+        {% endif %}
+        <div class="nav-title">{{ hub_title }}</div>
         {% comment %}
         The global hub-switcher rail hides itself whenever this sidebar is
         collapsed (two icon-only columns read as redundant) — this button is
@@ -17,14 +25,7 @@
             <span class="menu-icon">{% include 'icons/switch_apps_svg.html' %}</span>
             <span class="menu-label">Hubs</span>
         </button>
-        {% if back_to_hub_url %}
-        <a href="{{ back_to_hub_url }}" class="exit-hub nav-row-btn">
-            <span class="menu-icon">{% include 'icons/arrow_left_svg.html' %}</span>
-            <span class="menu-label">{{ back_to_hub_label }}</span>
-        </a>
-        {% endif %}
         <div class="nav-header-divider"></div>
-        <div class="nav-title">{{ hub_title }}</div>
     </div>
     <div class="nav-header-divider nav-scroll-divider"></div>
     <div class="nav-scroll">

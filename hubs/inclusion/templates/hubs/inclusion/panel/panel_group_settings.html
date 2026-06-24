@@ -22,6 +22,10 @@
 {% include 'hubs/inclusion/panel/_settings_tabs.html' %}
 <p>A Panel Group bundles a default chair and a default member roster, so setting up a recurring panel meeting doesn't require re-adding the same staff each time. Most trusts only need one group.</p>
 
+<div class="btn-row">
+    <button type="button" class="btn btn-add btn-sm" onclick="window.openPanelGroupModal && window.openPanelGroupModal()">{% include 'icons/new_svg.html' %} New Panel Group</button>
+</div>
+
 {% for group in groups %}
 <details class="settings-section" open>
     <summary>{{ group.name }}</summary>
@@ -43,7 +47,7 @@
         </form>
 
         <h3>Default Roster</h3>
-        {% for member in group.members.all %}
+        {% for member in group.sorted_members %}
         <div class="settings-row">
             <span>{{ member.staff|default:member.guest_name }}{% if member.expertise %} — {{ member.expertise.name }}{% endif %}</span>
             <form method="post" style="display:inline">
@@ -56,17 +60,24 @@
         {% empty %}
         <p class="empty-note">No members in this group yet.</p>
         {% endfor %}
-        <form method="post" class="field-group" style="margin-top:14px">
+        <form method="post" class="field-group" style="margin-top:14px" data-add-member-form>
             {% csrf_token %}
             <input type="hidden" name="form_action" value="add_group_member">
             <input type="hidden" name="group_id" value="{{ group.id }}">
-            <label>Staff</label>
-            <select name="staff" required>
+            <label>Member type</label>
+            <select data-member-type-toggle>
+                <option value="staff">Staff</option>
+                <option value="guest">Guest</option>
+            </select>
+            <label data-member-type-field="staff">Staff</label>
+            <select name="staff" data-member-type-field="staff" required>
                 <option value="">Select staff…</option>
                 {% for staff in staff_list %}
                 <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
                 {% endfor %}
             </select>
+            <label data-member-type-field="guest" hidden>Guest name</label>
+            <input type="text" name="guest_name" placeholder="e.g. Educational Psychologist" data-member-type-field="guest" hidden>
             <label>Expertise</label>
             <select name="expertise">
                 <option value="">No expertise tag</option>
@@ -88,24 +99,26 @@
 {% empty %}
 <p class="empty-note">No panel groups yet.</p>
 {% endfor %}
+{% endblock %}
 
-<details class="settings-section">
-    <summary>Add Panel Group</summary>
-    <div class="settings-body">
-        <form method="post" class="field-group">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="add_group">
-            <label>Name</label>
-            <input type="text" name="name" placeholder="e.g. SEND Panel" required>
-            <label>Default Chair</label>
-            <select name="default_chair">
-                <option value="">No chair set</option>
-                {% for staff in staff_list %}
-                <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add Group</button>
-        </form>
-    </div>
-</details>
+{% block extra_scripts %}
+{{ block.super }}
+<script>
+document.addEventListener('panel-group:created', function () {
+    window.location.reload();
+});
+document.querySelectorAll('[data-add-member-form]').forEach(function (form) {
+    var toggle = form.querySelector('[data-member-type-toggle]');
+    toggle.addEventListener('change', function () {
+        var mode = toggle.value;
+        form.querySelectorAll('[data-member-type-field="staff"]').forEach(function (el) {
+            el.hidden = mode !== 'staff';
+            if (el.tagName === 'SELECT') el.required = mode === 'staff';
+        });
+        form.querySelectorAll('[data-member-type-field="guest"]').forEach(function (el) {
+            el.hidden = mode !== 'guest';
+        });
+    });
+});
+</script>
 {% endblock %}

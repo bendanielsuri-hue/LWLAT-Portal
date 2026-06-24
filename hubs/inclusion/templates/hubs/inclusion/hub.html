@@ -9,35 +9,6 @@
 {% block content %}
 <div class="hub-home-header">
     <p class="hub-home-lead">Welcome to the SEND & inclusion area.</p>
-    <button type="button" class="btn btn-primary" disabled title="Coming soon">+ New Referral</button>
-</div>
-
-<div class="stats-strip">
-    <div class="stat-card stat-card--accent-primary">
-        <div class="stat-card-icon">{% include 'icons/people_svg.html' %}</div>
-        <div class="stat-value">{{ total_students }}</div>
-        <div class="stat-label">Students</div>
-    </div>
-    <div class="stat-card stat-card--accent-warning">
-        <div class="stat-card-icon">{% include 'icons/send_svg.html' %}</div>
-        <div class="stat-value">{{ send_count }}</div>
-        <div class="stat-label">Students with SEND</div>
-    </div>
-    <div class="stat-card stat-card--accent-success">
-        <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
-        <div class="stat-value">{{ k_count }}</div>
-        <div class="stat-label">SEN Support (K)</div>
-    </div>
-    <div class="stat-card stat-card--accent-success">
-        <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
-        <div class="stat-value">{{ e_count }}</div>
-        <div class="stat-label">EHCP (E)</div>
-    </div>
-    <div class="stat-card stat-card--accent-primary">
-        <div class="stat-card-icon">{% include 'icons/reports_svg.html' %}</div>
-        <div class="stat-value">{{ referrals_this_year }}</div>
-        <div class="stat-label">Referrals this year</div>
-    </div>
 </div>
 
 <div class="breakdown-grid">
@@ -45,9 +16,9 @@
         <h3>By SEND code</h3>
         {% for row in code_breakdown %}
         <div class="breakdown-row">
-            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }}</span></div>
+            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }} ({{ row.pct }}%)</span></div>
             <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill" style="width: {% widthratio row.count total_students 100 %}%"></div>
+                <div class="breakdown-bar-fill" style="width: {{ row.pct }}%"></div>
             </div>
         </div>
         {% endfor %}
@@ -58,17 +29,16 @@
         {% if year_breakdown %}
         {% for row in year_breakdown %}
         <div class="breakdown-row">
-            <div class="breakdown-row-labels"><span>Year {{ row.year_group }}</span><span>K {{ row.k_count }} &middot; E {{ row.e_count }}</span></div>
+            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>K {{ row.k_count }} ({{ row.k_pct }}%) &middot; E {{ row.e_count }} ({{ row.e_pct }}%) &middot; N {{ row.n_count }} ({{ row.n_pct }}%)</span></div>
             <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill" style="width: {% widthratio row.k_count send_count 100 %}%"></div>
-            </div>
-            <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill breakdown-bar-fill--secondary" style="width: {% widthratio row.e_count send_count 100 %}%"></div>
+                <div class="breakdown-bar-fill" style="width: {{ row.k_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--secondary" style="width: {{ row.e_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
             </div>
         </div>
         {% endfor %}
         {% else %}
-        <p class="empty-note">No students with SEND recorded.</p>
+        <p class="empty-note">No students recorded.</p>
         {% endif %}
     </div>
 
@@ -77,9 +47,9 @@
         {% if send_count %}
         {% for row in need_breakdown %}
         <div class="breakdown-row">
-            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }}</span></div>
+            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }} ({{ row.pct }}%)</span></div>
             <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill" style="width: {% widthratio row.count send_count 100 %}%"></div>
+                <div class="breakdown-bar-fill" style="width: {{ row.pct }}%"></div>
             </div>
         </div>
         {% endfor %}
@@ -89,18 +59,20 @@
     </div>
 
     <div class="breakdown-card">
-        <h3>By gender (SEND students)</h3>
+        <h3>By gender</h3>
         {% if gender_breakdown %}
         {% for row in gender_breakdown %}
         <div class="breakdown-row">
-            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }}</span></div>
+            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>K {{ row.k_count }} ({{ row.k_pct }}%) &middot; E {{ row.e_count }} ({{ row.e_pct }}%) &middot; N {{ row.n_count }} ({{ row.n_pct }}%)</span></div>
             <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill" style="width: {% widthratio row.count send_count 100 %}%"></div>
+                <div class="breakdown-bar-fill" style="width: {{ row.k_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--secondary" style="width: {{ row.e_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
             </div>
         </div>
         {% endfor %}
         {% else %}
-        <p class="empty-note">No students with SEND recorded.</p>
+        <p class="empty-note">No students recorded.</p>
         {% endif %}
     </div>
 
@@ -110,18 +82,65 @@
         {% if school_breakdown %}
         {% for row in school_breakdown %}
         <div class="breakdown-row">
-            <div class="breakdown-row-labels"><span>{{ row.school__name }}</span><span>{{ row.count }}</span></div>
+            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>K {{ row.k_count }} ({{ row.k_pct }}%) &middot; E {{ row.e_count }} ({{ row.e_pct }}%) &middot; N {{ row.n_count }} ({{ row.n_pct }}%)</span></div>
             <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill" style="width: {% widthratio row.count send_count 100 %}%"></div>
+                <div class="breakdown-bar-fill" style="width: {{ row.k_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--secondary" style="width: {{ row.e_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
             </div>
         </div>
         {% endfor %}
         {% else %}
-        <p class="empty-note">No students with SEND recorded.</p>
+        <p class="empty-note">No students recorded.</p>
         {% endif %}
     </div>
     {% endif %}
+
+    <div class="breakdown-card breakdown-card--compact">
+        <h3>Referrals <span class="breakdown-card-subtitle">{{ referrals_this_year }} this year</span></h3>
+        <div class="breakdown-row">
+            <div class="breakdown-row-labels">
+                <span>{% for row in referral_breakdown %}{% if not forloop.first %} &middot; {% endif %}{{ row.label }} {{ row.count }}{% endfor %}</span>
+            </div>
+        </div>
+        {% if overdue_referrals %}
+        <p class="breakdown-callout breakdown-callout--warning">{{ overdue_referrals }} open referral{{ overdue_referrals|pluralize }} over 14 days old</p>
+        {% endif %}
+        <a href="{% url 'inclusion_panel_referral_new' %}" class="btn btn-primary btn-sm">+ New Referral</a>
+    </div>
+
 </div>
+
+<h3 class="senco-section-title">SENCo contacts</h3>
+{% if sencos %}
+<div class="senco-carousel-wrap">
+    <button type="button" class="senco-carousel-arrow senco-carousel-arrow--prev" aria-label="Scroll left">&lsaquo;</button>
+    <div class="senco-carousel">
+        {% for senco in sencos %}
+        <div class="senco-card">
+            <span class="menu-icon senco-avatar-wrap">
+                {% if senco.photo %}
+                <img src="{{ senco.photo.url }}" alt="" class="senco-avatar">
+                {% else %}
+                {% include 'icons/avatar_placeholder_svg.html' %}
+                {% endif %}
+            </span>
+            <span class="senco-name">{{ senco.first_name }} {{ senco.last_name }}</span>
+            <span class="senco-meta">{{ senco.job_title }}</span>
+            {% if senco_multi_school %}
+            <span class="senco-school">
+                <span class="menu-icon senco-school-logo">{% include 'icons/school_logo_placeholder_svg.html' %}</span>
+                {{ senco.school.name }}
+            </span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <button type="button" class="senco-carousel-arrow senco-carousel-arrow--next" aria-label="Scroll right">&rsaquo;</button>
+</div>
+{% else %}
+<p class="empty-note">No SENCo recorded for this school.</p>
+{% endif %}
 {% endblock %}
 {% block breadcrumbs %}
 	<a href="{% url 'inclusion_hub' %}">{{ hub_title }}</a>

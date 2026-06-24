@@ -1,4 +1,5 @@
-﻿import json
+﻿import datetime
+import json
 
 from django.db.models import Count, Max, Q
 from django.http import JsonResponse
@@ -7,7 +8,12 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from core.identity import current_school_key, current_staff as _current_staff, student_queryset_for_school_key
+from core.identity import (
+    current_school_key,
+    current_staff as _current_staff,
+    staff_queryset_for_school_key,
+    student_queryset_for_school_key,
+)
 from core.models import School, Staff, Student
 from core.modules import filter_by_module, module_map
 
@@ -108,6 +114,32 @@ def _grouped_questions():
     return groups
 
 
+def _pct(numerator, denominator):
+    if not denominator:
+        return 0
+    return round(numerator * 100 / denominator)
+
+
+def _ken_breakdown(rows, label_key):
+    """Given annotated rows with k_count/e_count/total, add n_count + k/e/n percentages."""
+    breakdown = []
+    for row in rows:
+        k_count = row['k_count']
+        e_count = row['e_count']
+        total = row['total']
+        n_count = total - k_count - e_count
+        breakdown.append({
+            'label': row[label_key],
+            'k_count': k_count,
+            'e_count': e_count,
+            'n_count': n_count,
+            'k_pct': _pct(k_count, total),
+            'e_pct': _pct(e_count, total),
+            'n_pct': _pct(n_count, total),
+        })
+    return breakdown
+
+
 def inclusion_hub(request):
     school_key = current_school_key(request)
     students = student_queryset_for_school_key(school_key)
@@ -119,29 +151,49 @@ def inclusion_hub(request):
     e_count = students.filter(sen_status='E').count()
 
     code_breakdown = [
-        {'label': 'SEN Support (K)', 'count': k_count},
-        {'label': 'EHCP (E)', 'count': e_count},
-        {'label': 'None', 'count': total_students - send_count},
+        {'label': 'SEN Support (K)', 'count': k_count, 'pct': _pct(k_count, total_students)},
+        {'label': 'EHCP (E)', 'count': e_count, 'pct': _pct(e_count, total_students)},
+        {'label': 'None', 'count': total_students - send_count, 'pct': _pct(total_students - send_count, total_students)},
     ]
 
-    year_breakdown = list(
-        send_students.values('year_group').annotate(
+    year_rows = list(
+        students.values('year_group').annotate(
             k_count=Count('id', filter=Q(sen_status='K')),
             e_count=Count('id', filter=Q(sen_status='E')),
+            total=Count('id'),
         ).order_by('year_group')
     )
+    for row in year_rows:
+        row['year_group'] = f"Year {row['year_group']}"
+    year_breakdown = _ken_breakdown(year_rows, 'year_group')
 
-    gender_counts = dict(
-        send_students.exclude(gender='').values('gender').annotate(count=Count('id'))
-        .values_list('gender', 'count')
+    gender_rows = list(
+        students.exclude(gender='').values('gender').annotate(
+            k_count=Count('id', filter=Q(sen_status='K')),
+            e_count=Count('id', filter=Q(sen_status='E')),
+            total=Count('id'),
+        )
     )
-    gender_breakdown = [
-        {'label': label, 'count': gender_counts.get(key, 0)}
-        for key, label in Student.GENDER_CHOICES
-    ]
+    gender_labels = dict(Student.GENDER_CHOICES)
+    for row in gender_rows:
+        row['gender'] = gender_labels.get(row['gender'], row['gender'])
+    gender_breakdown = _ken_breakdown(gender_rows, 'gender')
 
     referrals_this_year = Referral.objects.filter(
         student__in=students, created_at__year=timezone.localdate().year
+    ).count()
+
+    referral_status_counts = dict(
+        Referral.objects.filter(student__in=students).values('status')
+        .annotate(count=Count('id')).values_list('status', 'count')
+    )
+    referral_breakdown = [
+        {'label': label, 'count': referral_status_counts.get(key, 0)}
+        for key, label in Referral.STATUS_CHOICES
+    ]
+    overdue_referrals = Referral.objects.filter(
+        student__in=students, status='open',
+        created_at__lt=timezone.now() - datetime.timedelta(days=14),
     ).count()
 
     need_counts = dict(
@@ -149,17 +201,28 @@ def inclusion_hub(request):
         .values_list('send_need', 'count')
     )
     need_breakdown = [
-        {'label': label, 'count': need_counts.get(key, 0)}
+        {'label': label, 'count': need_counts.get(key, 0), 'pct': _pct(need_counts.get(key, 0), send_count)}
         for key, label in Student.SEND_NEED_CHOICES
     ]
 
     show_school_breakdown = school_key in ('all', 'primary', 'secondary')
     school_breakdown = []
     if show_school_breakdown:
-        school_breakdown = list(
-            send_students.exclude(school__isnull=True).values('school__name')
-            .annotate(count=Count('id')).order_by('-count')
+        school_rows = list(
+            students.exclude(school__isnull=True).values('school__name').annotate(
+                k_count=Count('id', filter=Q(sen_status='K')),
+                e_count=Count('id', filter=Q(sen_status='E')),
+                total=Count('id'),
+            ).order_by('-total')
         )
+        school_breakdown = _ken_breakdown(school_rows, 'school__name')
+
+    sencos = (
+        staff_queryset_for_school_key(school_key)
+        .filter(job_title='SENDCo', is_active=True)
+        .order_by('school__name', 'last_name')
+    )
+    senco_multi_school = len({s.school_id for s in sencos}) > 1
 
     return render(request, 'hubs/inclusion/hub.html', {
         'local_menu': _local_menu(request),
@@ -173,8 +236,12 @@ def inclusion_hub(request):
         'need_breakdown': need_breakdown,
         'gender_breakdown': gender_breakdown,
         'referrals_this_year': referrals_this_year,
+        'referral_breakdown': referral_breakdown,
+        'overdue_referrals': overdue_referrals,
         'show_school_breakdown': show_school_breakdown,
         'school_breakdown': school_breakdown,
+        'sencos': sencos,
+        'senco_multi_school': senco_multi_school,
     })
 
 
@@ -540,12 +607,7 @@ def inclusion_panel_action_category_settings(request):
 def inclusion_panel_group_settings(request):
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action == 'add_group':
-            PanelGroup.objects.create(
-                name=request.POST.get('name', ''),
-                default_chair_id=request.POST.get('default_chair') or None,
-            )
-        elif action == 'update_group':
+        if action == 'update_group':
             group = get_object_or_404(PanelGroup, pk=request.POST.get('group_id'))
             group.name = request.POST.get('name', group.name)
             group.default_chair_id = request.POST.get('default_chair') or None
@@ -555,18 +617,34 @@ def inclusion_panel_group_settings(request):
         elif action == 'add_group_member':
             group_id = request.POST.get('group_id')
             staff_id = request.POST.get('staff')
+            guest_name = request.POST.get('guest_name', '').strip()
+            expertise_id = request.POST.get('expertise') or None
             if group_id and staff_id:
                 PanelGroupMember.objects.update_or_create(
                     panel_group_id=group_id, staff_id=staff_id,
-                    defaults={'expertise_id': request.POST.get('expertise') or None},
+                    defaults={'expertise_id': expertise_id},
+                )
+            elif group_id and guest_name:
+                PanelGroupMember.objects.create(
+                    panel_group_id=group_id, guest_name=guest_name, expertise_id=expertise_id,
                 )
         elif action == 'remove_group_member':
             PanelGroupMember.objects.filter(pk=request.POST.get('member_id')).delete()
         return redirect('inclusion_panel_group_settings')
 
+    groups = list(
+        PanelGroup.objects.filter(is_active=True).prefetch_related('members__staff', 'members__expertise')
+    )
+    for group in groups:
+        def member_sort_key(m):
+            return (m.staff.last_name, m.staff.first_name) if m.staff_id else (m.guest_name, '')
+        members = sorted(group.members.all(), key=member_sort_key)
+        members.sort(key=lambda m: m.staff_id != group.default_chair_id)
+        group.sorted_members = members
+
     return render(request, 'hubs/inclusion/panel/panel_group_settings.html', {
         **PANEL_BASE_CONTEXT,
-        'groups': PanelGroup.objects.filter(is_active=True).prefetch_related('members__staff'),
+        'groups': groups,
         'staff_list': Staff.objects.filter(is_active=True),
         'expertise_list': Expertise.objects.filter(is_active=True),
     })
@@ -584,25 +662,7 @@ def inclusion_panel_group_new(request):
             if is_ajax:
                 return JsonResponse({'success': False})
             return redirect('inclusion_panel_group_settings')
-        group = PanelGroup.objects.create(
-            name=name,
-            school_id=post_school_id,
-            default_chair_id=request.POST.get('default_chair') or None,
-        )
-        staff_ids = request.POST.getlist('member_staff')
-        guest_names = request.POST.getlist('member_guest_name')
-        expertise_ids = request.POST.getlist('member_expertise')
-        for staff_id, guest_name, expertise_id in zip(staff_ids, guest_names, expertise_ids):
-            guest_name = guest_name.strip()
-            if staff_id:
-                PanelGroupMember.objects.update_or_create(
-                    panel_group=group, staff_id=staff_id,
-                    defaults={'expertise_id': expertise_id or None},
-                )
-            elif guest_name:
-                PanelGroupMember.objects.create(
-                    panel_group=group, guest_name=guest_name, expertise_id=expertise_id or None,
-                )
+        group = PanelGroup.objects.create(name=name, school_id=post_school_id)
         if is_ajax:
             return JsonResponse({
                 'success': True,
@@ -610,23 +670,12 @@ def inclusion_panel_group_new(request):
             })
         return redirect('inclusion_panel_group_settings')
 
-    staff_options = [
-        {
-            'id': staff.id,
-            'name': f'{staff.first_name} {staff.last_name}',
-            'school_id': staff.school_id,
-            'is_mat_staff': staff.is_mat_staff,
-        }
-        for staff in Staff.objects.filter(is_active=True).order_by('last_name', 'first_name')
-    ]
     return render(request, 'hubs/inclusion/panel/_panel_group_form_modal.html', {
         **PANEL_BASE_CONTEXT,
         'schools': School.objects.filter(is_active=True),
-        'expertise_list': Expertise.objects.filter(is_active=True),
         'preselect_school_id': school_id,
         'preselect_school_name': preselect_school.name if preselect_school else '',
         'existing_groups': list(PanelGroup.objects.filter(is_active=True).values('name', 'school_id')),
-        'staff_options': staff_options,
     })
 
 
@@ -747,11 +796,14 @@ def inclusion_panel_meeting_setup(request, panel_id):
         action = request.POST.get('form_action')
         if action == 'update_details':
             panel.date = request.POST.get('date') or panel.date
+            panel.time = request.POST.get('time') or None
             panel.chair_id = request.POST.get('chair') or None
             panel.panel_group_id = request.POST.get('panel_group') or None
             if not panel.chair_id and panel.panel_group_id:
                 panel.chair_id = panel.panel_group.default_chair_id
             panel.save()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
         elif action == 'add_member':
             staff_id = request.POST.get('staff') or None
             guest_name = request.POST.get('guest_name', '').strip()

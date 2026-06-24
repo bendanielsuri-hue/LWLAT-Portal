@@ -7,23 +7,33 @@ document.addEventListener('DOMContentLoaded', function () {
         return null;
     }
 
-    // Suppress an element's hover-expand until the cursor has genuinely left it
-    // at least once — used both for the rail right after a fresh page load and
-    // for the hub sidebar right after a manual collapse-click, since in both
-    // cases the cursor is typically still resting on the same spot that
-    // triggered the change, and plain :hover would otherwise immediately
-    // re-expand it with no further input from the user. Released only by a
-    // real mouseleave — no timeout fallback, since a blind timeout firing while
-    // the cursor is still resting there is exactly what causes the unwanted
-    // self-expand.
-    function suppressHoverUntilLeave(el) {
+    // Suppress an element's hover-expand until the cursor has genuinely left
+    // the specific spot that triggered it — used both for the rail right
+    // after a fresh page load and for the hub sidebar right after a manual
+    // collapse-click, since in both cases the cursor is typically still
+    // resting on the same spot that triggered the change, and plain :hover
+    // would otherwise immediately re-expand it with no further input from
+    // the user. `getAnchor` (optional) returns that exact element (the just-
+    // clicked active hub icon, or the collapse-toggle button) — moving the
+    // cursor to anything *else* inside `el` releases suppression immediately,
+    // so hovering a different icon still expands right away; only a real
+    // mouseleave (or no anchor at all) releases it otherwise.
+    function suppressHoverUntilLeave(el, getAnchor) {
         if (!el) return;
         el.classList.add('suppress-hover');
         var release = function () {
             el.classList.remove('suppress-hover');
             el.removeEventListener('mouseleave', release);
+            el.removeEventListener('mouseover', onMouseOver);
         };
+        function onMouseOver(e) {
+            var anchor = getAnchor && getAnchor();
+            if (!anchor) return;
+            var hovered = closest(e.target, '.hub-rail-item, .nav-row-btn, a, button');
+            if (hovered && hovered !== anchor) release();
+        }
         el.addEventListener('mouseleave', release);
+        if (getAnchor) el.addEventListener('mouseover', onMouseOver);
     }
 
     // Manual collapse/expand of the hub sidebar to an icon-only rail (auto-collapse
@@ -37,9 +47,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function updateToggleLabel() {
             var collapsed = nav.classList.contains('collapsed');
-            var label = toggle.querySelector('.menu-label');
-            if (label) label.textContent = collapsed ? 'Expand' : 'Collapse';
-            toggle.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+            var label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+            toggle.setAttribute('aria-label', label);
+            toggle.setAttribute('title', label);
         }
 
         if (localStorage.getItem(STORAGE_KEY) === 'true') {
@@ -54,16 +64,21 @@ document.addEventListener('DOMContentLoaded', function () {
             updateToggleLabel();
             // Clicking "Collapse" leaves the cursor resting on/near this same
             // button, now inside the just-collapsed (narrower) sidebar — block
-            // its hover-expand until the cursor genuinely leaves.
-            if (collapsed) suppressHoverUntilLeave(nav);
+            // its hover-expand until the cursor genuinely leaves (or moves to
+            // a different row, which releases it immediately).
+            if (collapsed) suppressHoverUntilLeave(nav, function () { return toggle; });
         });
     })();
 
     // See suppressHoverUntilLeave above — applied here on every fresh page load,
     // since clicking a hub link and landing on the next page with the mouse
     // still resting in the same spot (now back over the narrower rail) would
-    // otherwise immediately re-trigger :hover.
-    suppressHoverUntilLeave(document.querySelector('.hub-rail'));
+    // otherwise immediately re-trigger :hover. Anchored to the active hub
+    // icon specifically, so hovering a *different* rail icon still expands
+    // it right away.
+    suppressHoverUntilLeave(document.querySelector('.hub-rail'), function () {
+        return document.querySelector('.hub-rail-item.active');
+    });
 
     // Generic overlay nav handling: "Switch Hub", "Select School", "Select User" and
     // "Settings" are absolutely-positioned layers stacked inside one shared
@@ -844,6 +859,31 @@ document.addEventListener('DOMContentLoaded', function () {
             if (resizeTimer) clearTimeout(resizeTimer);
             resizeTimer = setTimeout(renderDefault, 150);
         });
+    });
+
+    // SENCo contacts carousel (SEND & Provision hub home) — plain horizontal
+    // scroll-snap container, arrows just nudge scrollLeft by one card width.
+    document.querySelectorAll('.senco-carousel-wrap').forEach(function (wrap) {
+        var track = wrap.querySelector('.senco-carousel');
+        var prevBtn = wrap.querySelector('.senco-carousel-arrow--prev');
+        var nextBtn = wrap.querySelector('.senco-carousel-arrow--next');
+        if (!track || !prevBtn || !nextBtn) return;
+
+        function step() {
+            var card = track.querySelector('.senco-card');
+            return card ? card.offsetWidth + 12 : track.clientWidth;
+        }
+
+        prevBtn.addEventListener('click', function () { track.scrollBy({ left: -step(), behavior: 'smooth' }); });
+        nextBtn.addEventListener('click', function () { track.scrollBy({ left: step(), behavior: 'smooth' }); });
+
+        function updateArrows() {
+            var overflowing = track.scrollWidth > track.clientWidth + 1;
+            prevBtn.hidden = !overflowing;
+            nextBtn.hidden = !overflowing;
+        }
+        updateArrows();
+        window.addEventListener('resize', updateArrows);
     });
 
     // Auto-enhance every plain select/date/time field already in the page on

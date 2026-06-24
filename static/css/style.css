@@ -214,6 +214,14 @@ html, body {
 .side-nav.collapsed .staff-nav-option {
     justify-content: center;
 }
+/* The title is hidden outright when collapsed (see .side-nav.collapsed
+   .nav-title above), leaving the collapse-toggle as the row's only visible
+   child — recenter it rather than leaving it pinned to the row's start
+   (its position under justify-content:space-between with nothing else
+   visible in the row). */
+.side-nav.collapsed .nav-header-top-row {
+    justify-content: center;
+}
 /* "Hubs" only exists as a stand-in for the global rail, which hides itself
    whenever this sidebar is collapsed — so it's only ever shown in that state,
    never alongside the rail. Qualified with .side-nav.hub-side (three classes)
@@ -229,7 +237,7 @@ html, body {
 .side-nav.collapsed .menu-icon {
     margin-right: 0;
 }
-.side-nav.collapsed .collapse-toggle .menu-icon svg {
+.side-nav.collapsed .collapse-toggle svg {
     transform: rotate(180deg);
 }
 
@@ -303,6 +311,74 @@ html, body {
     flex-direction: column;
     gap: 12px;
 }
+/* Collapse/expand toggle's own row, pinned to the top-right corner — kept
+   separate from .nav-title (rather than sharing a row with it) since
+   pairing them left almost no width for the title at .nav-title's large
+   font size, truncating even short hub names ("SEND & Pr..."). The title
+   gets its own full-width line below instead, same as every other nav
+   panel's heading. */
+.nav-header-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+}
+/* Icon-only corner control: no text label (the icon's rotation plus the
+   aria-label/title attribute carry the meaning), so it's a small square
+   button rather than the full-width .nav-row-btn treatment every other
+   header row uses. */
+.collapse-toggle {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.collapse-toggle:hover,
+.collapse-toggle:focus-visible {
+    background: var(--bg-surface-alt);
+    color: var(--primary);
+}
+.collapse-toggle svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    transition: transform var(--transition-fast);
+}
+
+/* "Back to hub" row: just the arrow at rest, hub name revealed on hover —
+   the row itself stays full-width (unchanged), only the label's own
+   visibility/width animates, so nothing else shifts. The collapsed-sidebar
+   rule (.side-nav.collapsed .menu-label, higher specificity) still hides it
+   outright in icon-only mode regardless of hover. */
+.exit-hub .menu-label {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: opacity var(--transition-fast), max-width var(--transition-base);
+}
+.exit-hub:hover .menu-label,
+.exit-hub:focus-visible .menu-label {
+    opacity: 1;
+    max-width: 220px;
+}
+/* Overrides the generic .nav-row-btn:hover nudge (translateX + bold) for
+   this row specifically — that nudge combined with the label's own width
+   transition above was making the row visibly jump on hover; the label
+   reveal already telegraphs interactivity on its own. */
+.side-nav .exit-hub:hover {
+    transform: none;
+    font-weight: 400;
+}
 
 /* The home page's inline "Change School"/"Settings" panes sit next to each other
    (or next to main) without the box-shadow that makes the overlay drawers' border
@@ -374,10 +450,18 @@ main { order: 3; position: relative; }
    explicitly opened every time, while the overlay slot (order: 1) still
    handles the on-demand pickers (Change School/User, Settings, Search) that
    aren't places you navigate to and stay.
-   It reserves 72px of real flex space normally, and genuinely widens to
-   200px on hover/focus — a real width change, not an overlay, so it pushes
-   <main>/the hub sidebar over rather than floating on top of (and clipping
-   against) whatever sits next to it. It hides entirely whenever the hub
+   It reserves a constant 72px of flex space — that footprint never changes,
+   so hovering it can't reflow <main>/the hub sidebar's own internal layout.
+   The visible chrome lives in the absolutely-positioned .hub-rail-inner,
+   which genuinely widens to 240px on hover/focus (overflowing the outer
+   72px box, which stays overflow:visible) and floats over whatever sits next
+   to it (z-index above .nav-stack/<main>) rather than pushing them — same
+   "floats above, doesn't move anything" relationship as the overlay-nav
+   panels just below, minus their dimming backdrop (this is a transient hover
+   preview, not a panel someone opens and stays in). 240px matches the
+   standard side-nav/overlay-nav width, so the expanded rail fully covers
+   whatever's behind it (hub sidebar or an overlay panel) instead of leaving
+   a sliver peeking out past a narrower flyout. It hides entirely whenever the hub
    sidebar drops to icon-only mode (see the ":has()" rule and the 900px media
    query further down), since two parallel icon-only columns read as
    redundant — the hub sidebar's own icons stay reachable; only the rail
@@ -386,7 +470,19 @@ main { order: 3; position: relative; }
     width: 72px;
     flex-shrink: 0;
     order: 0;
+    position: relative;
+    overflow: visible;
+    z-index: 5;
+    background: transparent;
+    border-right: none;
+}
+.hub-rail-inner {
+    position: absolute;
+    inset: 0;
+    width: 72px;
     padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
     gap: 0;
     background-color: var(--bg-surface-alt);
     border-right: 1px solid var(--border-color);
@@ -395,37 +491,42 @@ main { order: 3; position: relative; }
        cursor flickering across the rail's edge doesn't visibly jitter the
        width in and out; it only collapses once the mouse has genuinely left
        for that brief window. */
-    transition: width var(--transition-base) 200ms;
+    transition: width var(--transition-base) 200ms, box-shadow var(--transition-base) 200ms;
 }
-.hub-rail:hover,
-.hub-rail:focus-within {
-    width: 200px;
+/* Hover/focus is keyed off .hub-rail-inner itself (not the outer .hub-rail)
+   so that once it has expanded, the cursor moving into the newly-revealed
+   72-200px region is still moving within the inner element's own (now
+   200px-wide) box — losing hover the instant the outer 72px box was exited
+   would make the panel flicker shut as soon as the cursor reached for a
+   label. suppress-hover lives on the outer .hub-rail (see main.js
+   suppressHoverUntilLeave) so it's checked via the ancestor. */
+.hub-rail:not(.suppress-hover) .hub-rail-inner:hover,
+.hub-rail:not(.suppress-hover) .hub-rail-inner:focus-within {
+    width: 240px;
     transition-delay: 0s;
+    box-shadow: var(--shadow-drawer);
 }
-/* Clicking a rail button (Settings/Search/Change School/Change User) opens an
-   overlay panel that lives in a sibling .overlay-slot, not inside .hub-rail —
-   so once the cursor leaves the rail to interact with that panel, plain
-   :hover would collapse the rail mid-interaction and shift the whole
-   page-shell. Key the expanded state off the overlay's own open state
-   instead (same :has() technique as the collapsed-sidebar rule below), so
-   the rail stays expanded for as long as any overlay is open, regardless of
-   cursor position. */
-.page-shell:has(.overlay-nav.open) .hub-rail {
-    width: 200px;
-    transition-delay: 0s;
-}
-.page-shell:has(.overlay-nav.open) .hub-rail-label {
+.hub-rail:not(.suppress-hover) .hub-rail-inner:hover .hub-rail-label,
+.hub-rail:not(.suppress-hover) .hub-rail-inner:focus-within .hub-rail-label {
     opacity: 1;
 }
-/* Briefly suppress hover-expand right after a fresh page load (see main.js
-   suppressHoverUntilLeave) — higher specificity than the plain hover rule
-   above (two classes + pseudo vs. one), so it wins without !important. */
-.hub-rail.suppress-hover:hover,
-.hub-rail.suppress-hover:focus-within {
+/* Clicking a rail button (Settings/Search/Change School/Change User) opens an
+   overlay panel that lives in a sibling .overlay-slot, at a higher z-index
+   than the rail — so the rail is deliberately collapsed back to icon-only
+   the moment an overlay opens, rather than trying to stay open underneath/
+   behind it. The overlay panel's own header already names what's open, so
+   the rail's labels aren't needed at the same time, and this avoids the
+   rail's opaque expanded background fighting the overlay panel for the same
+   screen space. Needs to win over the plain :hover rule above with higher
+   specificity (threaded through .hub-rail rather than just .hub-rail-inner)
+   since the cursor is typically still resting on the rail button that just
+   opened the overlay — without this override, that lingering :hover would
+   otherwise keep the rail expanded regardless of the overlay being open. */
+.page-shell:has(.overlay-nav.open) .hub-rail .hub-rail-inner {
     width: 72px;
+    box-shadow: none;
 }
-.hub-rail.suppress-hover:hover .hub-rail-label,
-.hub-rail.suppress-hover:focus-within .hub-rail-label {
+.page-shell:has(.overlay-nav.open) .hub-rail .hub-rail-label {
     opacity: 0;
 }
 .page-shell:has(.side-nav.hub-side.collapsed) .hub-rail {
@@ -484,10 +585,6 @@ main { order: 3; position: relative; }
     white-space: nowrap;
     opacity: 0;
     transition: opacity var(--transition-fast);
-}
-.hub-rail:hover .hub-rail-label,
-.hub-rail:focus-within .hub-rail-label {
-    opacity: 1;
 }
 /* Search and Settings are global, cross-cutting actions rather than hubs to
    navigate to and stay — pinned to the bottom of the rail, separated from
@@ -1677,10 +1774,61 @@ dialog.ui-popover::backdrop { background: transparent; }
 .breakdown-row { margin-bottom: 10px; }
 .breakdown-row:last-child { margin-bottom: 0; }
 .breakdown-row-labels { display: flex; justify-content: space-between; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 4px; }
-.breakdown-bar-track { background: var(--bg-muted, var(--border-color)); border-radius: var(--radius-sm); height: 8px; overflow: hidden; margin-bottom: 4px; }
+.breakdown-bar-track { display: flex; background: var(--bg-muted, var(--border-color)); border-radius: var(--radius-sm); height: 8px; overflow: hidden; margin-bottom: 4px; }
 .breakdown-bar-track:last-child { margin-bottom: 0; }
-.breakdown-bar-fill { background: var(--primary); height: 100%; border-radius: var(--radius-sm); }
+.breakdown-bar-fill { background: var(--primary); height: 100%; }
 .breakdown-bar-fill--secondary { background: var(--success); }
+.breakdown-bar-fill--n { background: var(--border-color); }
+
+.breakdown-callout { margin: 8px 0; padding: 6px 10px; border-radius: var(--radius-sm); font-size: var(--font-sm); }
+.breakdown-callout--warning { background: var(--warning-bg); color: var(--warning); }
+
+.breakdown-card--compact { flex: 1 1 280px; padding: 12px 16px; }
+.breakdown-card--compact h3 { margin-bottom: 8px; }
+.breakdown-card-subtitle { font-size: var(--font-sm); font-weight: 400; color: var(--text-secondary); margin-left: 8px; }
+
+.senco-section-title { margin: 0 0 12px; font-size: var(--font-md); color: var(--text-primary); }
+.senco-carousel-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
+.senco-carousel {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    padding-bottom: 4px;
+}
+.senco-card {
+    flex: 0 0 180px;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px 12px;
+}
+.senco-avatar-wrap { width: 40px; height: 40px; }
+.senco-name { font-weight: 600; }
+.senco-meta { font-size: var(--font-sm); color: var(--text-secondary); }
+.senco-school { display: flex; align-items: center; gap: 4px; font-size: var(--font-sm); color: var(--text-secondary); }
+.senco-school-logo { width: 14px; height: 14px; }
+.senco-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.senco-carousel-arrow {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.senco-carousel-arrow:hover { background: var(--bg-muted, var(--border-color)); }
 
 .hub-home-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .hub-home-lead { margin: 0; color: var(--text-secondary); }
@@ -1775,10 +1923,10 @@ dialog.ui-popover::backdrop { background: transparent; }
 .breadcrumbs .sep { margin-right: 8px; color: var(--text-faint); }
 .breadcrumbs > span:last-child:not(.sep) { font-weight: 600; color: var(--text-primary); text-shadow: 0 0 currentColor; }
 .breadcrumbs .crumb-toggle {
-    background: var(--primary-light);
+    background: transparent;
     border: none;
     cursor: pointer;
-    color: var(--primary);
+    color: var(--text-secondary);
     font-size: var(--font-base);
     font-weight: 700;
     width: 32px;
@@ -1792,8 +1940,8 @@ dialog.ui-popover::backdrop { background: transparent; }
     flex-shrink: 0;
 }
 .breadcrumbs .crumb-toggle:hover, .breadcrumbs .crumb-toggle:focus-visible {
-    background: var(--primary);
-    color: #fff;
+    background: var(--primary-light);
+    color: var(--primary);
 }
 
 .page-heading h1 { margin: 0; font-size: var(--font-5xl); }
