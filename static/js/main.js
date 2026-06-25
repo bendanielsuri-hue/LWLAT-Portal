@@ -7,34 +7,36 @@ document.addEventListener('DOMContentLoaded', function () {
         return null;
     }
 
-    // Suppress an element's hover-expand until the cursor has genuinely left
-    // the specific spot that triggered it — used both for the rail right
-    // after a fresh page load and for the hub sidebar right after a manual
-    // collapse-click, since in both cases the cursor is typically still
-    // resting on the same spot that triggered the change, and plain :hover
-    // would otherwise immediately re-expand it with no further input from
-    // the user. `getAnchor` (optional) returns that exact element (the just-
-    // clicked active hub icon, or the collapse-toggle button) — moving the
-    // cursor to anything *else* inside `el` releases suppression immediately,
-    // so hovering a different icon still expands right away; only a real
-    // mouseleave (or no anchor at all) releases it otherwise.
-    function suppressHoverUntilLeave(el, getAnchor) {
-        if (!el) return;
-        el.classList.add('suppress-hover');
-        var release = function () {
-            el.classList.remove('suppress-hover');
-            el.removeEventListener('mouseleave', release);
-            el.removeEventListener('mouseover', onMouseOver);
-        };
-        function onMouseOver(e) {
-            var anchor = getAnchor && getAnchor();
-            if (!anchor) return;
-            var hovered = closest(e.target, '.hub-rail-item, .nav-row-btn, a, button');
-            if (hovered && hovered !== anchor) release();
+    // Manual pin/expand of the global hub-switcher rail — replaces the old
+    // hover-to-expand behavior with a deliberate click, persisted like the
+    // hub sidebar's own collapse toggle below.
+    (function setupRailExpand() {
+        var toggle = document.getElementById('rail-expand-toggle');
+        var rail = toggle && closest(toggle, '.hub-rail');
+        if (!toggle || !rail) return;
+        var toggleLabelEl = document.getElementById('rail-expand-toggle-label');
+        var STORAGE_KEY = 'pref-rail-expanded';
+
+        function updateToggleLabel() {
+            var expanded = rail.classList.contains('expanded');
+            var label = expanded ? 'Collapse hub rail' : 'Expand hub rail';
+            toggle.setAttribute('aria-label', label);
+            toggle.setAttribute('title', label);
+            if (toggleLabelEl) toggleLabelEl.textContent = expanded ? 'Collapse' : 'Expand';
         }
-        el.addEventListener('mouseleave', release);
-        if (getAnchor) el.addEventListener('mouseover', onMouseOver);
-    }
+
+        if (localStorage.getItem(STORAGE_KEY) === 'true') {
+            rail.classList.add('expanded');
+        }
+        updateToggleLabel();
+
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            var expanded = rail.classList.toggle('expanded');
+            try { localStorage.setItem(STORAGE_KEY, expanded ? 'true' : 'false'); } catch (err) { }
+            updateToggleLabel();
+        });
+    })();
 
     // Manual collapse/expand of the hub sidebar to an icon-only rail (auto-collapse
     // below the narrow-window breakpoint is handled purely in CSS via @media, so this
@@ -52,6 +54,13 @@ document.addEventListener('DOMContentLoaded', function () {
             toggle.setAttribute('aria-label', label);
             toggle.setAttribute('title', label);
             if (toggleLabelEl) toggleLabelEl.textContent = collapsed ? 'Expand' : 'Collapse';
+            // Hub landing pages render their H1 as "Dashboard" with a hidden
+            // "<Hub Name> " prefix (see e.g. hubs/inclusion/templates/hubs/inclusion/hub.html)
+            // — once the sidebar collapses to an icon-only rail, the hub name
+            // disappears from the nav-title there too, so the H1 is the only
+            // place left to show it.
+            var hubTitlePrefix = document.getElementById('hub-title-prefix');
+            if (hubTitlePrefix) hubTitlePrefix.hidden = !collapsed;
         }
 
         if (localStorage.getItem(STORAGE_KEY) === 'true') {
@@ -64,35 +73,8 @@ document.addEventListener('DOMContentLoaded', function () {
             var collapsed = nav.classList.toggle('collapsed');
             try { localStorage.setItem(STORAGE_KEY, collapsed ? 'true' : 'false'); } catch (err) { }
             updateToggleLabel();
-            if (collapsed) {
-                // The toggle sits at the row's right edge (justify-content:
-                // flex-end) and recentres once collapsed — as the sidebar's
-                // width animates down, that shrink drags the button out from
-                // under the still-stationary cursor partway through, firing a
-                // genuine 'mouseleave' on nav that releases suppressHover
-                // below early. Without blurring, the button's lingering kept
-                // focus then keeps :focus-within (and therefore the
-                // hover-expand width) true regardless of where the cursor
-                // ends up — same end result as if the rail were still being
-                // hovered, until something else on the page steals focus.
-                toggle.blur();
-                // Still guards against the cursor genuinely remaining over
-                // the rail post-collapse (e.g. a tall toggle hit-area, or a
-                // pointer device where the click didn't relocate it).
-                suppressHoverUntilLeave(nav, function () { return toggle; });
-            }
         });
     })();
-
-    // See suppressHoverUntilLeave above — applied here on every fresh page load,
-    // since clicking a hub link and landing on the next page with the mouse
-    // still resting in the same spot (now back over the narrower rail) would
-    // otherwise immediately re-trigger :hover. Anchored to the active hub
-    // icon specifically, so hovering a *different* rail icon still expands
-    // it right away.
-    suppressHoverUntilLeave(document.querySelector('.hub-rail'), function () {
-        return document.querySelector('.hub-rail-item.active');
-    });
 
     // Generic overlay nav handling: "Switch Hub", "Select School", "Select User" and
     // "Settings" are absolutely-positioned layers stacked inside one shared
@@ -125,7 +107,11 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             var navEl = document.querySelector(btn.dataset.overlayTarget);
             if (!navEl) return;
-            if (navEl.classList.contains('open')) closeOverlay(navEl); else openOverlay(navEl);
+            if (navEl.classList.contains('open')) {
+                closeOverlay(navEl);
+            } else {
+                openOverlay(navEl);
+            }
         });
     });
 
@@ -324,18 +310,39 @@ document.addEventListener('DOMContentLoaded', function () {
     (function setupSettingsPanel() {
         var root = document.documentElement;
 
-        var colourNames = {
-            purple: 'Royal Purple',
-            indigo: 'Midnight Indigo',
-            blue: 'Ocean Blue',
-            teal: 'Deep Teal',
-            green: 'Forest Green',
-            yellow: 'Golden Yellow',
-            orange: 'Sunset Orange',
-            burnt: 'Burnt Red',
-            red: 'Cherry Red',
-            pink: 'Blossom Pink'
+        // Per-palette swatch colour + label overrides. "pastel" matches the
+        // hardcoded swatch --swatch/title/aria-label values already in the
+        // template, so it's omitted here and falls back to those.
+        var paletteSwatches = {
+            vibrant: {
+                purple: ['#9d00ff', 'Vivid Violet'],
+                blue: ['#0066ff', 'Vivid Blue'], teal: ['#00b8a9', 'Vivid Teal'],
+                green: ['#00c853', 'Vivid Green'], yellow: ['#ffd600', 'Vivid Yellow'],
+                orange: ['#ff6d00', 'Vivid Orange'],
+                red: ['#ff1744', 'Vivid Red'], pink: ['#ff2d92', 'Vivid Pink']
+            },
+            greytone: {
+                purple: ['#6b7280', 'Slate'],
+                blue: ['#64748b', 'Steel'], teal: ['#475569', 'Graphite'],
+                green: ['#71717a', 'Stone'], yellow: ['#78716c', 'Taupe'],
+                orange: ['#57534e', 'Umber'],
+                red: ['#3f3f46', 'Onyx'], pink: ['#525252', 'Ash']
+            },
+            colourblind: {
+                purple: ['#6f4e7c', 'Muted Plum'],
+                blue: ['#56b4e9', 'Sky Blue'], teal: ['#009e73', 'Bluish Green'],
+                green: ['#2e8b57', 'Sea Green'], yellow: ['#f0e442', 'Safe Yellow'],
+                orange: ['#e69f00', 'Safe Orange'],
+                red: ['#cc4444', 'Muted Red'], pink: ['#aa4499', 'Safe Magenta']
+            }
         };
+        var pastelSwatches = {};
+        document.querySelectorAll('#pref-color .colour-swatch').forEach(function (btn) {
+            pastelSwatches[btn.dataset.value] = [btn.style.getPropertyValue('--swatch'), btn.title];
+        });
+
+        var colourNames = {};
+        Object.keys(pastelSwatches).forEach(function (key) { colourNames[key] = pastelSwatches[key][1]; });
 
         // Shared wiring for the swatch/option button-groups (colour, text size)
         function setupButtonGroup(containerId, attr, storageKey, fallback, onSelect) {
@@ -363,10 +370,30 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
+        function applyPaletteSwatches(palette) {
+            var swatches = paletteSwatches[palette] || pastelSwatches;
+            document.querySelectorAll('#pref-color .colour-swatch').forEach(function (btn) {
+                var entry = swatches[btn.dataset.value] || pastelSwatches[btn.dataset.value];
+                if (!entry) return;
+                btn.style.setProperty('--swatch', entry[0]);
+                btn.title = entry[1];
+                btn.setAttribute('aria-label', entry[1]);
+                colourNames[btn.dataset.value] = entry[1];
+            });
+            var currentLabel = document.getElementById('pref-color-current');
+            var selectedColour = root.getAttribute('data-color') || 'purple';
+            if (currentLabel) currentLabel.textContent = colourNames[selectedColour] || selectedColour;
+        }
+
         setupButtonGroup('pref-color', 'data-color', 'pref-color', 'purple', function (value) {
             var label = document.getElementById('pref-color-current');
             if (label) label.textContent = colourNames[value] || value;
         });
+
+        setupButtonGroup('pref-palette', 'data-palette', 'pref-palette', 'pastel', function (value) {
+            applyPaletteSwatches(value);
+        });
+        applyPaletteSwatches(root.getAttribute('data-palette') || 'pastel');
 
         setupButtonGroup('pref-text-size', 'data-text-size', 'pref-text-size', 'md');
 

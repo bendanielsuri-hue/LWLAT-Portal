@@ -14,9 +14,9 @@ from django.db import models
 # the per-school accent override, matching the personal "Primary colour" picker's
 # palette in templates/_settings_content.html / [data-color="..."] CSS rules.
 ACCENT_COLOUR_CHOICES = [
-    ('purple', 'Royal Purple'), ('indigo', 'Midnight Indigo'), ('blue', 'Ocean Blue'),
+    ('purple', 'Royal Purple'), ('blue', 'Ocean Blue'),
     ('teal', 'Deep Teal'), ('green', 'Forest Green'), ('yellow', 'Golden Yellow'),
-    ('orange', 'Sunset Orange'), ('burnt', 'Burnt Red'), ('red', 'Cherry Red'), ('pink', 'Blossom Pink'),
+    ('orange', 'Sunset Orange'), ('red', 'Cherry Red'), ('pink', 'Blossom Pink'),
 ]
 
 

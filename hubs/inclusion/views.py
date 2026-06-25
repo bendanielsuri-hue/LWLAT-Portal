@@ -83,6 +83,25 @@ def _is_referral_unassigned(referral):
     return not any(pr.removed_at is None for pr in referral.panel_referrals.all())
 
 
+def _panels_for_school_key(panels_qs, key):
+    # Mirrors staff_queryset_for_school_key/student_queryset_for_school_key:
+    # an ungrouped panel, or a group with no school set, is MAT-wide and
+    # matches every selection.
+    if key in (None, '', 'all'):
+        return panels_qs
+    if key == 'primary':
+        return panels_qs.filter(
+            Q(panel_group__isnull=True) | Q(panel_group__school__isnull=True) | Q(panel_group__school__category='Primary')
+        )
+    if key == 'secondary':
+        return panels_qs.filter(
+            Q(panel_group__isnull=True) | Q(panel_group__school__isnull=True) | Q(panel_group__school__category='Secondary')
+        )
+    return panels_qs.filter(
+        Q(panel_group__isnull=True) | Q(panel_group__school__isnull=True) | Q(panel_group__school_id=key)
+    )
+
+
 def _due_followups(panel):
     # Scoped strictly to the panel's own group so a follow-up never surfaces
     # in a different group's meeting. Ungrouped panels see nothing due.
@@ -94,6 +113,20 @@ def _due_followups(panel):
         removed_at__isnull=True,
         panel__panel_group_id=panel.panel_group_id,
     ).select_related('referral__student', 'panel')
+
+
+def _primary_concern_category(referral):
+    # A referral has no category field of its own — categories live on the
+    # questions its responses answer. Treat the first one encountered, in
+    # category order, as the referral's "primary concern category".
+    responses = sorted(
+        referral.responses.all(),
+        key=lambda r: (r.question.category.order if r.question.category_id else 9999, r.question.order),
+    )
+    for response in responses:
+        if response.question.category_id:
+            return response.question.category.name
+    return None
 
 
 def _grouped_questions():
@@ -311,7 +344,7 @@ def inclusion_panel_home(request):
 def inclusion_panel_students(request):
     today = timezone.localdate()
     students = []
-    for student in Student.objects.filter(is_active=True):
+    for student in student_queryset_for_school_key(current_school_key(request)):
         students.append({
             'id': student.id,
             'name': f'{student.first_name} {student.last_name}',
@@ -342,7 +375,11 @@ def inclusion_panel_students(request):
 
 
 def inclusion_panel_referrals(request):
-    referrals = Referral.objects.select_related('student').prefetch_related('responses__question', 'panel_referrals')
+    school_key = current_school_key(request)
+    scoped_students = student_queryset_for_school_key(school_key)
+    referrals = Referral.objects.filter(student__in=scoped_students).select_related('student').prefetch_related(
+        'responses__question', 'panel_referrals',
+    )
     today = timezone.localdate()
     current_staff = _current_staff(request)
     for referral in referrals:
@@ -359,7 +396,7 @@ def inclusion_panel_referrals(request):
         **PANEL_BASE_CONTEXT,
         'referrals': referrals,
         'status_choices': Referral.STATUS_CHOICES,
-        'students_count': Student.objects.filter(is_active=True, referrals__isnull=False).distinct().count(),
+        'students_count': scoped_students.filter(referrals__isnull=False).distinct().count(),
         'actions_count': Action.objects.filter(referral__in=referrals).count(),
     })
 
@@ -382,7 +419,7 @@ def inclusion_panel_referral_new(request):
 
     context = {
         **PANEL_BASE_CONTEXT,
-        'students': Student.objects.filter(is_active=True),
+        'students': student_queryset_for_school_key(current_school_key(request)),
         'selected_student': selected_student,
         'question_groups': _grouped_questions(),
         'next': request.GET.get('next', ''),
@@ -463,13 +500,16 @@ def inclusion_panel_referral_escalate(request, referral_id):
     return render(request, 'hubs/inclusion/panel/escalate_form.html', {
         **PANEL_BASE_CONTEXT,
         'referral': referral,
-        'staff_list': Staff.objects.filter(is_active=True),
+        'staff_list': staff_queryset_for_school_key(current_school_key(request)),
         'next': request.GET.get('next', ''),
     })
 
 
 def inclusion_panel_escalations(request):
-    escalations = Escalation.objects.filter(status='open').select_related('referral__student')
+    scoped_students = student_queryset_for_school_key(current_school_key(request))
+    escalations = Escalation.objects.filter(
+        status='open', referral__student__in=scoped_students,
+    ).select_related('referral__student')
     return render(request, 'hubs/inclusion/panel/escalations.html', {
         **PANEL_BASE_CONTEXT,
         'escalations': escalations,
@@ -487,8 +527,11 @@ def inclusion_panel_escalation_resolve(request, escalation_id):
 
 
 def inclusion_panel_actions(request):
+    school_key = current_school_key(request)
     is_panel_staff = _is_panel_staff(_current_staff(request))
-    actions = Action.objects.select_related('referral__student', 'assigned_to', 'category')
+    actions = Action.objects.filter(referral__student__in=student_queryset_for_school_key(school_key)).select_related(
+        'referral__student', 'assigned_to', 'category',
+    )
     categories = ActionCategory.objects.filter(is_active=True)
     if not is_panel_staff:
         actions = actions.exclude(category__is_sensitive=True)
@@ -497,7 +540,7 @@ def inclusion_panel_actions(request):
         **PANEL_BASE_CONTEXT,
         'actions': actions,
         'categories': categories,
-        'staff_list': Staff.objects.filter(is_active=True),
+        'staff_list': staff_queryset_for_school_key(school_key),
         'status_choices': Action.STATUS_CHOICES,
         'today': timezone.localdate(),
         'actions_count': actions.count(),
@@ -533,7 +576,7 @@ def inclusion_panel_action_new(request, referral_id):
         **PANEL_BASE_CONTEXT,
         'referral': referral,
         'categories': categories,
-        'staff_list': Staff.objects.filter(is_active=True),
+        'staff_list': staff_queryset_for_school_key(current_school_key(request)),
         'auto_assign_json': json.dumps(auto_assign_by_category),
         'next': request.GET.get('next', ''),
     })
@@ -702,12 +745,17 @@ def inclusion_panel_expertise_settings(request):
 def inclusion_panel_meetings(request):
     today = timezone.localdate()
     current_staff = _current_staff(request)
+    school_key = current_school_key(request)
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
     upcoming_meetings = []
     past_meetings = []
     next_marked = False
     panels_this_year = 0
     panels_ive_been_on = 0
-    panels = Panel.objects.select_related('chair').prefetch_related('panel_referrals', 'members').order_by('date')
+    panels = _panels_for_school_key(
+        Panel.objects.select_related('chair', 'panel_group__school').prefetch_related('panel_referrals', 'members').order_by('date'),
+        school_key,
+    )
     for panel in panels:
         if panel.date.year == today.year:
             panels_this_year += 1
@@ -723,12 +771,17 @@ def inclusion_panel_meetings(request):
         discussed_count = sum(
             1 for pr in panel.panel_referrals.all() if pr.removed_at is None and pr.discussion_status == 'discussed'
         )
+        total_duration = sum(
+            (pr.duration for pr in panel.panel_referrals.all() if pr.removed_at is None and pr.duration),
+            datetime.timedelta(),
+        )
         entry = {
             'panel': panel,
             'is_next': is_next,
             'referral_count': referral_count,
             'discussed_count': discussed_count,
             'member_count': panel.members.count(),
+            'total_duration': total_duration,
         }
         if panel.date < today:
             past_meetings.append(entry)
@@ -744,6 +797,7 @@ def inclusion_panel_meetings(request):
         'panels_this_year': panels_this_year,
         'panels_ive_been_on': panels_ive_been_on,
         'today': today,
+        'is_aggregate_view': is_aggregate_view,
     })
 
 
@@ -815,19 +869,6 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 )
             elif guest_name:
                 PanelMember.objects.create(panel=panel, guest_name=guest_name, expertise_id=expertise_id)
-        elif action == 'apply_group_roster':
-            if panel.panel_group_id:
-                for group_member in panel.panel_group.members.all():
-                    if group_member.staff_id:
-                        PanelMember.objects.get_or_create(
-                            panel=panel, staff_id=group_member.staff_id,
-                            defaults={'expertise_id': group_member.expertise_id},
-                        )
-                    else:
-                        PanelMember.objects.create(
-                            panel=panel, guest_name=group_member.guest_name,
-                            expertise_id=group_member.expertise_id,
-                        )
         elif action == 'add_referral':
             referral_id = request.POST.get('referral_id')
             if referral_id:
@@ -836,11 +877,30 @@ def inclusion_panel_meeting_setup(request, panel_id):
                     pr.removed_at = None
                     pr.removed_by = None
                     pr.save()
+        elif action == 'remove_referral_from_agenda':
+            pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
+            pr.removed_at = timezone.now()
+            pr.removed_by_id = request.POST.get('removed_by') or None
+            pr.save()
+        elif action == 'update_priority':
+            pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
+            if request.POST.get('priority') in dict(PanelReferral.PRIORITY_CHOICES):
+                pr.priority = request.POST.get('priority')
+                pr.save()
         return redirect('inclusion_panel_meeting_setup', panel_id=panel.id)
 
     unassigned_referrals = Referral.objects.select_related('student').exclude(
         pk__in=PanelReferral.objects.filter(removed_at__isnull=True).values_list('referral_id', flat=True)
-    )
+    ).prefetch_related('responses__question__category')
+
+    agenda = panel.panel_referrals.filter(removed_at__isnull=True).select_related(
+        'referral__student'
+    ).prefetch_related('referral__responses__question__category')
+
+    for referral in unassigned_referrals:
+        referral.primary_concern_category = _primary_concern_category(referral)
+    for pr in agenda:
+        pr.primary_concern_category = _primary_concern_category(pr.referral)
 
     return render(request, 'hubs/inclusion/panel/meeting_setup.html', {
         **PANEL_BASE_CONTEXT,
@@ -851,7 +911,8 @@ def inclusion_panel_meeting_setup(request, panel_id):
         'expertise_list': Expertise.objects.filter(is_active=True),
         'members': panel.members.select_related('staff', 'expertise'),
         'unassigned_referrals': unassigned_referrals,
-        'agenda': panel.panel_referrals.select_related('referral__student'),
+        'agenda': agenda,
+        'priority_choices': PanelReferral.PRIORITY_CHOICES,
     })
 
 

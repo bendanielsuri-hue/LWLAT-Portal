@@ -5,11 +5,50 @@
     --primary-light: #f3e8ff;
     --active-text: var(--primary-dark);
 
-    --bg-page: #f7fafc;
-    --bg-nav: #eef1f6;
-    --bg-surface: #ffffff;
+    /* Background surfaces — split into a literal *-base hex plus a tint
+       formula so the Colour Palette setting can wash them with a colour
+       fixed per palette (--bg-tint-colour, set per [data-palette] further
+       down). Deliberately NOT --primary-light — backgrounds should react to
+       the chosen colour SPACE (palette), not the user's personal accent
+       colour. --bg-tint-* percentages default to 0% here, so with no
+       palette override these resolve to exactly the *-base values below.
+       --bg-surface-alt stays untinted — a near-white hairline surface where
+       tinting risks muddying its contrast against --bg-surface. */
+    --bg-page-base: #f7fafc;
+    --bg-nav-base: #eef1f6;
+    --bg-surface-base: #ffffff;
+    --bg-well-base: #f1f4f8;
+    /* Nested-card base intentionally isn't pure white like --bg-surface-base
+       — a hint of inherent depth (same neutral as the well) so the tier
+       still reads as "layered" even at low tint strength. */
+    --bg-nested-base: #f1f4f8;
+    /* Inherently darker than --bg-nav-base (not just via tint), so the
+       global nav rail stays visibly distinct from the side nav even under
+       Greytone/Colourblind-safe, which apply no colour tint at all. */
+    --bg-rail-base: #dde3ec;
+    --bg-tint-colour: #fff1de;
+    --bg-tint-page: 0%;
+    --bg-tint-nav: 0%;
+    --bg-tint-surface: 0%;
+    --bg-tint-well: 0%;
+    --bg-tint-nested: 0%;
+    --bg-tint-rail: 0%;
+    --bg-page: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-page, 0%), var(--bg-page-base));
+    --bg-nav: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-nav, 0%), var(--bg-nav-base));
+    --bg-surface: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-surface, 0%), var(--bg-surface-base));
     --bg-surface-alt: #fbfdff;
-    --bg-well: #f1f4f8;
+    --bg-well: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-well, 0%), var(--bg-well-base));
+    /* "Card on card" tier — items nested inside a --bg-surface card (e.g. a
+       Panel Setup pick-item, a meeting card). Shares --bg-tint-colour with
+       Nav so it reads as a lighter sibling of the nav fill, but has its own
+       intensity dial (--bg-tint-nested) so it can sit between Surface (none)
+       and Nav (richest). */
+    --bg-nested: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-nested, 0%), var(--bg-nested-base));
+    /* Global nav tier — the thin permanent icon rail (.hub-rail-inner),
+       distinct from the wider Side nav (.side-nav, --bg-nav). Same tint
+       colour, deeper than Nav, so the persistent rail reads as a darker
+       companion shade rather than a hue swap. */
+    --bg-rail: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-rail, 0%), var(--bg-rail-base));
     --text-primary: #0f1724;
     --text-secondary: #475569;
     --text-muted: #64748b;
@@ -17,6 +56,16 @@
     --border-color: #e6eef4;
     --border-strong: #cdd9e6;
     --badge-bg: #f1f7fb;
+
+    /* Colour roles, distinct from --primary (the user's personal accent
+       choice). Used where a fixed-but-themed colour is needed that must
+       never be confused with whatever the user picked as their accent — e.g.
+       the SEND Dashboard's K (primary) vs. E (secondary) badges. These vary
+       per [data-palette] below, but never per [data-color], since their job
+       is to stay a stable reference point regardless of accent colour. */
+    --color-secondary: #c4942c;
+    --color-tertiary: #8b6fae;
+    --color-subtle: #94a3b8;
 
     --success: #15803d;
     --success-bg: #dcfce7;
@@ -64,18 +113,168 @@
     --transition-base: 160ms ease;
     --transition-pop: 200ms cubic-bezier(.4, 0, .2, 1);
     --transition-slide: 360ms cubic-bezier(.2, .8, .2, 1);
+
+    /* Semantic action button colours (Add/Success, Edit, Delete) — these are
+       deliberately fixed/pastel by default regardless of the user's chosen
+       accent colour, but follow the Colour Palette setting via the
+       [data-palette] overrides below. */
+    --btn-add-bg: #8bc78f; --btn-add-border: #6fae74; --btn-add-text: #1f3a24;
+    --btn-add-hover-bg: #6fae74; --btn-add-hover-border: #5d9a62; --btn-add-hover-text: #16291a;
+    --btn-edit-bg: #e8c468; --btn-edit-border: #d8ad42; --btn-edit-text: #4a3a0a;
+    --btn-edit-hover-bg: #d8ad42; --btn-edit-hover-border: #c49b35; --btn-edit-hover-text: #3a2d06;
+    --btn-delete-bg: #e07a6f; --btn-delete-border: #d2655a; --btn-delete-text: #fff;
+    --btn-delete-hover-bg: #c75d51; --btn-delete-hover-border: #b54f44; --btn-delete-hover-text: #fff;
 }
 
 /* Primary colour choices (light theme) */
 [data-color="blue"] { --primary: #2563eb; --primary-dark: #1e3a8a; --primary-light: #dbeafe; }
-[data-color="indigo"] { --primary: #4338ca; --primary-dark: #312e81; --primary-light: #e0e7ff; }
 [data-color="teal"] { --primary: #0d9488; --primary-dark: #134e4a; --primary-light: #ccfbf1; }
 [data-color="green"] { --primary: #16a34a; --primary-dark: #14532d; --primary-light: #dcfce7; }
-[data-color="yellow"] { --primary: #ca8a04; --primary-dark: #854d0e; --primary-light: #fef9c3; }
+[data-color="yellow"] { --primary: #8a5d04; --primary-dark: #5c3d02; --primary-light: #f5ecc0; }
 [data-color="orange"] { --primary: #ea580c; --primary-dark: #7c2d12; --primary-light: #ffedd5; }
-[data-color="burnt"] { --primary: #b3502f; --primary-dark: #7a3220; --primary-light: #fbe4d8; }
 [data-color="red"] { --primary: #dc2626; --primary-dark: #7f1d1d; --primary-light: #fee2e2; }
 [data-color="pink"] { --primary: #db2777; --primary-dark: #9d174d; --primary-light: #fce7f3; }
+
+/* --color-secondary (used for the SEND Dashboard's "E" badge, see
+   --color-secondary below) is each accent colour's optical complement, so E
+   never collides with K (--primary) and isn't perpetually yellow/gold. Soft
+   palette default, light theme. */
+[data-color="purple"] { --color-secondary: #7a6a14; }
+[data-color="blue"] { --color-secondary: #b5530f; }
+[data-color="teal"] { --color-secondary: #b0392f; }
+[data-color="green"] { --color-secondary: #9c2f7a; }
+[data-color="yellow"] { --color-secondary: #4338ca; }
+[data-color="orange"] { --color-secondary: #1d4ed8; }
+[data-color="red"] { --color-secondary: #0f766e; }
+[data-color="pink"] { --color-secondary: #15803d; }
+
+/* Colour palette setting ("pastel" above is the default/no-attribute case) —
+   re-themes the same 10 named accent colours, light theme. Background
+   surfaces are also subtly tinted per palette via --bg-tint-* below. */
+[data-palette="vibrant"][data-color="purple"] { --primary: #9d00ff; --primary-dark: #7700cc; --primary-light: #f1d9ff; }
+[data-palette="vibrant"][data-color="blue"] { --primary: #0066ff; --primary-dark: #0047b3; --primary-light: #d6e8ff; }
+[data-palette="vibrant"][data-color="teal"] { --primary: #00b8a9; --primary-dark: #00897b; --primary-light: #ccfbf6; }
+[data-palette="vibrant"][data-color="green"] { --primary: #00c853; --primary-dark: #00963f; --primary-light: #c8f7d9; }
+[data-palette="vibrant"][data-color="yellow"] { --primary: #b8960a; --primary-dark: #8a6f06; --primary-light: #fff0b3; }
+[data-palette="vibrant"][data-color="orange"] { --primary: #ff6d00; --primary-dark: #c43e00; --primary-light: #ffe0c2; }
+[data-palette="vibrant"][data-color="red"] { --primary: #ff1744; --primary-dark: #c4001d; --primary-light: #ffd6dc; }
+[data-palette="vibrant"][data-color="pink"] { --primary: #ff2d92; --primary-dark: #c2185b; --primary-light: #ffd6ea; }
+
+/* --color-secondary complements, Vibrant palette, light theme — more
+   saturated versions of the same complementary hues used in Soft above. */
+[data-palette="vibrant"][data-color="purple"] { --color-secondary: #c9a300; }
+[data-palette="vibrant"][data-color="blue"] { --color-secondary: #ff7a00; }
+[data-palette="vibrant"][data-color="teal"] { --color-secondary: #ff2d2d; }
+[data-palette="vibrant"][data-color="green"] { --color-secondary: #e000a0; }
+[data-palette="vibrant"][data-color="yellow"] { --color-secondary: #5b21b6; }
+[data-palette="vibrant"][data-color="orange"] { --color-secondary: #0047ff; }
+[data-palette="vibrant"][data-color="red"] { --color-secondary: #00a89c; }
+[data-palette="vibrant"][data-color="pink"] { --color-secondary: #00c853; }
+
+[data-palette="greytone"][data-color="purple"] { --primary: #6b7280; --primary-dark: #374151; --primary-light: #e5e7eb; }
+[data-palette="greytone"][data-color="blue"] { --primary: #64748b; --primary-dark: #334155; --primary-light: #e2e8f0; }
+[data-palette="greytone"][data-color="teal"] { --primary: #475569; --primary-dark: #1e293b; --primary-light: #cbd5e1; }
+[data-palette="greytone"][data-color="green"] { --primary: #71717a; --primary-dark: #3f3f46; --primary-light: #e4e4e7; }
+[data-palette="greytone"][data-color="yellow"] { --primary: #5c5550; --primary-dark: #3a3530; --primary-light: #e7e5e4; }
+[data-palette="greytone"][data-color="orange"] { --primary: #57534e; --primary-dark: #292524; --primary-light: #e7e5e4; }
+[data-palette="greytone"][data-color="red"] { --primary: #3f3f46; --primary-dark: #18181b; --primary-light: #d4d4d8; }
+[data-palette="greytone"][data-color="pink"] { --primary: #525252; --primary-dark: #262626; --primary-light: #d4d4d4; }
+
+/* Colourblind-safe palette — distinct, high-contrast hues (loosely based on
+   the Okabe-Ito accessible colour set) rather than literal "red"/"green". */
+[data-palette="colourblind"][data-color="purple"] { --primary: #6f4e7c; --primary-dark: #4a3354; --primary-light: #e8e0ec; }
+[data-palette="colourblind"][data-color="blue"] { --primary: #56b4e9; --primary-dark: #2b85b3; --primary-light: #e3f3fb; }
+[data-palette="colourblind"][data-color="teal"] { --primary: #009e73; --primary-dark: #00715a; --primary-light: #ccf0e3; }
+[data-palette="colourblind"][data-color="green"] { --primary: #2e8b57; --primary-dark: #1f5c3a; --primary-light: #d7ecdf; }
+[data-palette="colourblind"][data-color="yellow"] { --primary: #9c8f1a; --primary-dark: #6b6212; --primary-light: #f5f0c2; }
+[data-palette="colourblind"][data-color="orange"] { --primary: #e69f00; --primary-dark: #a87300; --primary-light: #fbe7c2; }
+[data-palette="colourblind"][data-color="red"] { --primary: #cc4444; --primary-dark: #8f2e2e; --primary-light: #f3d6d6; }
+[data-palette="colourblind"][data-color="pink"] { --primary: #aa4499; --primary-dark: #7a3070; --primary-light: #ecd9e8; }
+
+/* Background tint strength + colour per palette — how much of
+   --bg-tint-colour (a fixed warm tone, NOT the accent colour) is mixed into
+   the *-base surface colours above. Soft = faint warm wash, Vibrant = a bit
+   stronger. Greytone/Colourblind-safe get no rule here, so they inherit the
+   0% :root default and stay fully neutral regardless of accent colour. */
+[data-palette="pastel"] { --bg-tint-colour: #fff1de; --bg-tint-page: 6%; --bg-tint-nav: 20%; --bg-tint-surface: 0%; --bg-tint-well: 10%; --bg-tint-nested: 22%; --bg-tint-rail: 32%; }
+
+/* Semantic action button colours (Add/Edit/Delete) and the --color-tertiary
+   role per palette ( --color-secondary is keyed per [data-color] above/below
+   instead, since it must complement whichever accent is chosen — these
+   single-value blocks are just a fallback for any unrecognised data-color).
+   Vibrant uses more saturated versions of the same green/yellow/red;
+   Greytone uses three distinct lightness steps of neutral grey instead of
+   hue; Colourblind-safe deliberately avoids red/green/yellow altogether
+   (safe blue/gold/near-black) so it never needs a conflict override below. */
+[data-palette="vibrant"] {
+    --bg-tint-colour: #ffe2b8; --bg-tint-page: 10%; --bg-tint-nav: 26%; --bg-tint-surface: 0%; --bg-tint-well: 16%; --bg-tint-nested: 28%; --bg-tint-rail: 38%;
+    --color-tertiary: #a855f7;
+    --btn-add-bg: #22c55e; --btn-add-border: #16a34a; --btn-add-text: #052e12;
+    --btn-add-hover-bg: #16a34a; --btn-add-hover-border: #15803d; --btn-add-hover-text: #03210d;
+    --btn-edit-bg: #facc15; --btn-edit-border: #eab308; --btn-edit-text: #3f2d00;
+    --btn-edit-hover-bg: #eab308; --btn-edit-hover-border: #ca8a04; --btn-edit-hover-text: #2e2100;
+    --btn-delete-bg: #ef4444; --btn-delete-border: #dc2626; --btn-delete-text: #fff;
+    --btn-delete-hover-bg: #dc2626; --btn-delete-hover-border: #b91c1c; --btn-delete-hover-text: #fff;
+}
+[data-palette="greytone"] {
+    /* Greytone has no hue to complement, so --color-secondary is just a
+       distinct, fixed warm-grey step away from any of the cool/warm greys
+       --primary can take — applies to every accent colour alike. */
+    --color-secondary: #8d7b5a; --color-tertiary: #6b5b73;
+    --btn-add-bg: #a3a3a3; --btn-add-border: #737373; --btn-add-text: #1f1f1f;
+    --btn-add-hover-bg: #8a8a8a; --btn-add-hover-border: #5c5c5c; --btn-add-hover-text: #141414;
+    --btn-edit-bg: #8a8a8a; --btn-edit-border: #6b6b6b; --btn-edit-text: #fff;
+    --btn-edit-hover-bg: #6b6b6b; --btn-edit-hover-border: #525252; --btn-edit-hover-text: #fff;
+    --btn-delete-bg: #525252; --btn-delete-border: #3f3f3f; --btn-delete-text: #fff;
+    --btn-delete-hover-bg: #3f3f3f; --btn-delete-hover-border: #292929; --btn-delete-hover-text: #fff;
+}
+[data-palette="colourblind"] {
+    /* Near-black rather than another safe hue, so --color-secondary can
+       never coincide with any of the 8 safe accent colours above. */
+    --color-secondary: #2b2b2b; --color-tertiary: #6a3d9a;
+    --btn-add-bg: #4477aa; --btn-add-border: #2c5580; --btn-add-text: #fff;
+    --btn-add-hover-bg: #2c5580; --btn-add-hover-border: #1c3a59; --btn-add-hover-text: #fff;
+    --btn-edit-bg: #ddaa33; --btn-edit-border: #ab7e22; --btn-edit-text: #2e2100;
+    --btn-edit-hover-bg: #ab7e22; --btn-edit-hover-border: #7a5a18; --btn-edit-hover-text: #fff;
+    --btn-delete-bg: #2b2b2b; --btn-delete-border: #000000; --btn-delete-text: #fff;
+    --btn-delete-hover-bg: #000000; --btn-delete-hover-border: #000000; --btn-delete-hover-text: #fff;
+}
+
+/* Accent-colour vs. semantic-button conflict overrides — only needed for
+   Pastel/Vibrant, where Add/Edit/Delete are still literally green/yellow/red.
+   Greytone has no hue to clash with; Colourblind-safe's semantic colours were
+   chosen above to never be red/green/yellow. Swaps to a distinct alternate
+   hue (not a grey fallback) so the semantic button stays visually distinct
+   from the user's chosen primary/accent colour. */
+[data-palette="pastel"][data-color="red"] {
+    --btn-delete-bg: #7c8a9e; --btn-delete-border: #62707f; --btn-delete-text: #fff;
+    --btn-delete-hover-bg: #62707f; --btn-delete-hover-border: #4e5965; --btn-delete-hover-text: #fff;
+}
+[data-palette="pastel"][data-color="green"] {
+    --btn-add-bg: #7aa7c7; --btn-add-border: #5f8aab; --btn-add-text: #0b2330;
+    --btn-add-hover-bg: #5f8aab; --btn-add-hover-border: #4c7090; --btn-add-hover-text: #081c27;
+}
+[data-palette="pastel"][data-color="yellow"] {
+    --btn-edit-bg: #9aa6c2; --btn-edit-border: #7c89a8; --btn-edit-text: #1c2333;
+    --btn-edit-hover-bg: #7c89a8; --btn-edit-hover-border: #636f8c; --btn-edit-hover-text: #141a26;
+}
+[data-palette="vibrant"][data-color="red"] {
+    --btn-delete-bg: #334155; --btn-delete-border: #1e293b; --btn-delete-text: #fff;
+    --btn-delete-hover-bg: #1e293b; --btn-delete-hover-border: #0f172a; --btn-delete-hover-text: #fff;
+}
+[data-palette="vibrant"][data-color="green"] {
+    --btn-add-bg: #2563eb; --btn-add-border: #1d4ed8; --btn-add-text: #fff;
+    --btn-add-hover-bg: #1d4ed8; --btn-add-hover-border: #1e40af; --btn-add-hover-text: #fff;
+}
+[data-palette="vibrant"][data-color="yellow"] {
+    --btn-edit-bg: #7c3aed; --btn-edit-border: #6d28d9; --btn-edit-text: #fff;
+    --btn-edit-hover-bg: #6d28d9; --btn-edit-hover-border: #5b21b6; --btn-edit-hover-text: #fff;
+}
+
+/* Soft palette gets warmer, softer borders in light mode — placed before the
+   [data-theme="dark"] block below so dark mode's own border values still win
+   there (same specificity, later source order). */
+[data-palette="pastel"] { --border-color: #f3ecdf; --border-strong: #e6d8bf; }
 
 /* Dark theme base (default primary colour: purple) */
 html { color-scheme: light; accent-color: var(--primary); }
@@ -87,11 +286,13 @@ html { color-scheme: light; accent-color: var(--primary); }
     --primary-light: #34206b;
     --active-text: var(--text-primary);
 
-    --bg-page: #0f1420;
-    --bg-nav: #0b0e16;
-    --bg-surface: #161b29;
+    --bg-page-base: #0f1420;
+    --bg-nav-base: #0b0e16;
+    --bg-surface-base: #161b29;
     --bg-surface-alt: #1b2233;
-    --bg-well: #1c2334;
+    --bg-well-base: #1c2334;
+    --bg-nested-base: #1c2334;
+    --bg-rail-base: #07090f;
     --text-primary: #e2e8f0;
     --text-secondary: #aab4c5;
     --text-muted: #8a93a6;
@@ -129,14 +330,63 @@ html { color-scheme: light; accent-color: var(--primary); }
 
 /* Primary colour choices (dark theme) */
 [data-theme="dark"][data-color="blue"] { --primary: #60a5fa; --primary-dark: #2563eb; --primary-light: #1e3a5f; }
-[data-theme="dark"][data-color="indigo"] { --primary: #818cf8; --primary-dark: #4338ca; --primary-light: #2a2a5c; }
 [data-theme="dark"][data-color="teal"] { --primary: #2dd4bf; --primary-dark: #0d9488; --primary-light: #103937; }
 [data-theme="dark"][data-color="green"] { --primary: #4ade80; --primary-dark: #16a34a; --primary-light: #143d24; }
 [data-theme="dark"][data-color="yellow"] { --primary: #facc15; --primary-dark: #ca8a04; --primary-light: #4a3b09; }
 [data-theme="dark"][data-color="orange"] { --primary: #fb923c; --primary-dark: #ea580c; --primary-light: #4a2a12; }
-[data-theme="dark"][data-color="burnt"] { --primary: #e2825b; --primary-dark: #b3502f; --primary-light: #3a2418; }
 [data-theme="dark"][data-color="red"] { --primary: #f87171; --primary-dark: #dc2626; --primary-light: #4a1d1d; }
 [data-theme="dark"][data-color="pink"] { --primary: #f472b6; --primary-dark: #db2777; --primary-light: #4a1942; }
+
+/* --color-secondary complements, Soft palette, dark theme — lighter variants
+   for legibility on dark surfaces. */
+[data-theme="dark"][data-color="purple"] { --color-secondary: #d4c460; }
+[data-theme="dark"][data-color="blue"] { --color-secondary: #ffb066; }
+[data-theme="dark"][data-color="teal"] { --color-secondary: #ff8a7a; }
+[data-theme="dark"][data-color="green"] { --color-secondary: #e07ac4; }
+[data-theme="dark"][data-color="yellow"] { --color-secondary: #9b8cf0; }
+[data-theme="dark"][data-color="orange"] { --color-secondary: #7aa6ff; }
+[data-theme="dark"][data-color="red"] { --color-secondary: #4fd1c5; }
+[data-theme="dark"][data-color="pink"] { --color-secondary: #6fe09a; }
+
+/* Colour palette setting, dark theme — same hues, lifted to a brighter shade
+   for --primary (legible on dark surfaces) with the light-theme primary
+   reused as --primary-dark, matching the existing dark-theme convention above. */
+[data-theme="dark"][data-palette="vibrant"][data-color="purple"] { --primary: #c084fc; --primary-dark: #9d00ff; --primary-light: #3a0a66; }
+[data-theme="dark"][data-palette="vibrant"][data-color="blue"] { --primary: #5b9dff; --primary-dark: #0066ff; --primary-light: #0a2a66; }
+[data-theme="dark"][data-palette="vibrant"][data-color="teal"] { --primary: #3de0cf; --primary-dark: #00b8a9; --primary-light: #0a3a35; }
+[data-theme="dark"][data-palette="vibrant"][data-color="green"] { --primary: #36e07a; --primary-dark: #00c853; --primary-light: #0a3a1d; }
+[data-theme="dark"][data-palette="vibrant"][data-color="yellow"] { --primary: #ffe666; --primary-dark: #ffd600; --primary-light: #4a3e08; }
+[data-theme="dark"][data-palette="vibrant"][data-color="orange"] { --primary: #ff9a4d; --primary-dark: #ff6d00; --primary-light: #4a2308; }
+[data-theme="dark"][data-palette="vibrant"][data-color="red"] { --primary: #ff6b85; --primary-dark: #ff1744; --primary-light: #4a0a14; }
+[data-theme="dark"][data-palette="vibrant"][data-color="pink"] { --primary: #ff7ab5; --primary-dark: #ff2d92; --primary-light: #4a0a2e; }
+
+/* --color-secondary complements, Vibrant palette, dark theme. */
+[data-theme="dark"][data-palette="vibrant"][data-color="purple"] { --color-secondary: #e8d34a; }
+[data-theme="dark"][data-palette="vibrant"][data-color="blue"] { --color-secondary: #ffa64d; }
+[data-theme="dark"][data-palette="vibrant"][data-color="teal"] { --color-secondary: #ff6b6b; }
+[data-theme="dark"][data-palette="vibrant"][data-color="green"] { --color-secondary: #f06bd6; }
+[data-theme="dark"][data-palette="vibrant"][data-color="yellow"] { --color-secondary: #b39ddb; }
+[data-theme="dark"][data-palette="vibrant"][data-color="orange"] { --color-secondary: #6ea8ff; }
+[data-theme="dark"][data-palette="vibrant"][data-color="red"] { --color-secondary: #3ddbcc; }
+[data-theme="dark"][data-palette="vibrant"][data-color="pink"] { --color-secondary: #4ee08a; }
+
+[data-theme="dark"][data-palette="greytone"][data-color="purple"] { --primary: #9ca3af; --primary-dark: #6b7280; --primary-light: #1f2937; }
+[data-theme="dark"][data-palette="greytone"][data-color="blue"] { --primary: #94a3b8; --primary-dark: #64748b; --primary-light: #1e293b; }
+[data-theme="dark"][data-palette="greytone"][data-color="teal"] { --primary: #7d8aa3; --primary-dark: #475569; --primary-light: #0f172a; }
+[data-theme="dark"][data-palette="greytone"][data-color="green"] { --primary: #a3a3ad; --primary-dark: #71717a; --primary-light: #27272a; }
+[data-theme="dark"][data-palette="greytone"][data-color="yellow"] { --primary: #a8a29e; --primary-dark: #78716c; --primary-light: #292524; }
+[data-theme="dark"][data-palette="greytone"][data-color="orange"] { --primary: #857d77; --primary-dark: #57534e; --primary-light: #1c1917; }
+[data-theme="dark"][data-palette="greytone"][data-color="red"] { --primary: #71717a; --primary-dark: #3f3f46; --primary-light: #0e0e10; }
+[data-theme="dark"][data-palette="greytone"][data-color="pink"] { --primary: #818181; --primary-dark: #525252; --primary-light: #161616; }
+
+[data-theme="dark"][data-palette="colourblind"][data-color="purple"] { --primary: #a98cb5; --primary-dark: #6f4e7c; --primary-light: #251a2a; }
+[data-theme="dark"][data-palette="colourblind"][data-color="blue"] { --primary: #8ccdf0; --primary-dark: #56b4e9; --primary-light: #14333f; }
+[data-theme="dark"][data-palette="colourblind"][data-color="teal"] { --primary: #3fc99b; --primary-dark: #009e73; --primary-light: #0a2e22; }
+[data-theme="dark"][data-palette="colourblind"][data-color="green"] { --primary: #5cab7c; --primary-dark: #2e8b57; --primary-light: #112c1c; }
+[data-theme="dark"][data-palette="colourblind"][data-color="yellow"] { --primary: #f5ec7d; --primary-dark: #f0e442; --primary-light: #3a3713; }
+[data-theme="dark"][data-palette="colourblind"][data-color="orange"] { --primary: #f0b94d; --primary-dark: #e69f00; --primary-light: #3f2c08; }
+[data-theme="dark"][data-palette="colourblind"][data-color="red"] { --primary: #d97a7a; --primary-dark: #cc4444; --primary-light: #341515; }
+[data-theme="dark"][data-palette="colourblind"][data-color="pink"] { --primary: #c47ab8; --primary-dark: #aa4499; --primary-light: #341029; }
 
 /* Text size choices — scale the whole app via the rem-based font sizes below */
 [data-text-size="sm"] { font-size: 87.5%; }
@@ -234,62 +484,72 @@ html, body {
 .side-nav.collapsed .staff-nav-option {
     justify-content: flex-start;
 }
-/* In rail mode the collapse-toggle and "Hubs" button share one row — Hubs at
-   the start, toggle pinned to the end (mirrors its expanded-mode corner
-   position via the base .nav-header-top-row rule below, which still applies
-   when Hubs is hidden/expanded). */
-.side-nav.collapsed .nav-header-top-row {
-    justify-content: space-between;
+/* Rows centre their icon in the 64px rail by giving it equal breathing room
+   on both sides: 12px container padding (above) + 6px row padding leaves
+   exactly the 28px icon box's width with nothing left over, so the icon's
+   left/right gaps to the rail's edges come out equal. The expanded-mode
+   paddings these override (14px on .nav-menu a, 8px on the rest) are sized
+   for the full 240px pill instead and push the icon noticeably off-centre
+   here. Specificity (.collapsed.hub-side .nav-menu a, 3 classes) beats the
+   plain `.side-nav .nav-menu a` rule regardless of source order. */
+.side-nav.collapsed.hub-side .nav-menu a,
+.side-nav.collapsed .nav-row-btn,
+.side-nav.collapsed .exit-hub,
+.side-nav.collapsed .school-nav-option,
+.side-nav.collapsed .staff-nav-option {
+    padding-left: 6px;
+    padding-right: 6px;
 }
 /* "Hubs" only exists as a stand-in for the global rail, which hides itself
    whenever this sidebar is collapsed — so it's only ever shown in that state,
    never alongside the rail. Qualified with .side-nav.hub-side (three classes)
    so this beats the generic ".side-nav .nav-row-btn { display: flex }" rule
    further down (two classes) — a bare ".hubs-trigger" rule here would lose
-   that cascade and the button would stay visible even while expanded. */
+   that cascade and the button would stay visible even while expanded. Its own
+   full-width row below the collapse toggle, so it behaves like any other
+   .nav-row-btn (icon + fading label) rather than needing special sizing. */
 .side-nav.hub-side .hubs-trigger {
     display: none;
 }
 .side-nav.hub-side.collapsed .hubs-trigger {
     display: flex;
 }
-/* Sharing the cramped top row with the collapse-toggle leaves no room for a
-   sliding label (unlike the full-width rows below it) — stays icon-only
-   regardless of hover, sized to match the toggle button next to it. */
-.nav-header-top-row .hubs-trigger {
-    width: auto;
-    flex: 0 0 auto;
-    height: 28px;
-    padding: 0 4px;
-}
-.nav-header-top-row .hubs-trigger .menu-label {
-    display: none;
-}
 .side-nav.collapsed .collapse-toggle svg {
     transform: rotate(180deg);
 }
+/* Collapsed mode: the toggle reads as a normal full-width row (fixed-left
+   icon, label permanently hidden — see .side-nav.collapsed .menu-label-style
+   opacity:0 rules) instead of the expanded-mode corner button, which instead
+   anchors flex-end and reveals its label as a hover tooltip (below). No fill
+   on hover here either, unlike the expanded-mode corner button — clicking
+   straight to "Expand sidebar" is the only affordance this row needs. */
+.side-nav.collapsed .nav-header-top-row {
+    justify-content: flex-start;
+}
+.side-nav.collapsed .collapse-toggle {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+.side-nav.collapsed .collapse-toggle svg {
+    margin-right: 8px;
+}
+.side-nav.collapsed .collapse-toggle:hover,
+.side-nav.collapsed .collapse-toggle:focus-visible {
+    background: transparent;
+}
+/* Reuses the sidebar-hover opacity reveal every other row's label gets
+   (below) instead of the expanded-mode button-hover max-width animation —
+   max-width:none lets opacity alone govern visibility here. */
+.side-nav.collapsed .collapse-toggle-label {
+    max-width: none;
+}
 
-/* Collapsed hub sidebar: hovering/focusing it genuinely widens it (a real
-   width change, like the rail) to reveal labels, rather than overlaying —
-   pushes <main> over instead of floating on top of it. */
-.side-nav.hub-side.collapsed:hover,
-.side-nav.hub-side.collapsed:focus-within {
-    width: 220px;
-}
-/* Mirrors .hub-rail.suppress-hover — right after clicking "Collapse" the
-   cursor is typically still resting on/near the toggle, now inside the
-   just-collapsed sidebar; block the hover-expand until the cursor has
-   genuinely left at least once (see main.js suppressHoverUntilLeave). */
-.side-nav.hub-side.collapsed.suppress-hover:hover,
-.side-nav.hub-side.collapsed.suppress-hover:focus-within {
-    width: 64px;
-}
-.side-nav.hub-side.collapsed:hover:not(.suppress-hover) .menu-label,
-.side-nav.hub-side.collapsed:hover:not(.suppress-hover) .menu-label-stack,
-.side-nav.hub-side.collapsed:focus-within:not(.suppress-hover) .menu-label,
-.side-nav.hub-side.collapsed:focus-within:not(.suppress-hover) .menu-label-stack {
-    opacity: 1;
-}
+/* Collapsed hub sidebar used to hover-peek its labels back in; that's gone
+   now in favour of the deliberate #sidebar-collapse-toggle button (main.js
+   setupSidebarCollapse) — clicking it fully expands/collapses instead of a
+   transient hover preview. */
 
 @media (max-width: 900px) {
     .side-nav.hub-side,
@@ -342,6 +602,11 @@ html, body {
     align-items: center;
     justify-content: flex-end;
     width: 100%;
+    /* .nav-header's 32px top padding plus this row's own button height
+       lands the toggle a few px below the rail's top icon and the
+       breadcrumb row above main (both tuned to roughly the same baseline) —
+       pull it back up to line the three up. */
+    margin-top: -8px;
 }
 /* Corner control, anchored to the row's right edge (.nav-header-top-row is
    justify-content: flex-end) — icon-only at rest, with a "Collapse"/"Expand"
@@ -364,8 +629,7 @@ html, body {
 }
 .collapse-toggle:hover,
 .collapse-toggle:focus-visible {
-    background: var(--bg-surface-alt);
-    color: var(--primary);
+    background: transparent;
 }
 .collapse-toggle svg {
     width: 20px;
@@ -389,11 +653,14 @@ html, body {
     margin-left: 6px;
 }
 
-/* "Back to hub" row: just the arrow at rest, hub name faded in on hover —
-   the label keeps its natural width at all times (no max-width animation),
-   so only its opacity changes and nothing in the row resizes/shifts. The
-   collapsed-sidebar rule (.side-nav.collapsed .menu-label, higher
-   specificity) still hides it outright in icon-only mode regardless of hover. */
+/* "Back to hub" link: two different presentations depending on sidebar state.
+   Collapsed (icon-only rail) keeps just the arrow — the per-button hover
+   reveal below is overridden back to hidden by the higher-specificity
+   .side-nav.collapsed .menu-label rule, so the label only ever shows once
+   the sidebar is actually expanded (click the toggle). Expanded mode instead
+   reads as a small secondary title centered above .nav-title (see
+   :not(.collapsed) overrides below) — no arrow, label always visible,
+   colour-shifts on hover. */
 .exit-hub {
     padding: 11px 14px;
 }
@@ -407,13 +674,43 @@ html, body {
 .exit-hub:focus-visible .menu-label {
     opacity: 1;
 }
-/* Overrides the generic .nav-row-btn:hover nudge (translateX + bold) for
-   this row specifically — that nudge combined with the label's own width
-   transition above was making the row visibly jump on hover; the label
-   reveal already telegraphs interactivity on its own. */
-.side-nav .exit-hub:hover {
+/* Collapsed/icon mode: now that .exit-hub's padding matches every other row
+   (see the .side-nav.collapsed .exit-hub padding override above), it gets
+   the same translateX+bold hover nudge as Hubs/Settings/Search instead of a
+   special-cased no-op — nothing left to fight the label reveal above. */
+/* Expanded mode: no icon, label always shown, centered like a smaller
+   secondary heading sitting above .nav-title — only a colour shift on hover
+   signals it's clickable (mirrors .collapse-toggle's colour-only hover). */
+.side-nav:not(.collapsed) .exit-hub {
+    display: block;
+    text-align: center;
+    padding: 0;
+}
+.side-nav:not(.collapsed) .exit-hub .menu-icon {
+    display: none;
+}
+.side-nav:not(.collapsed) .exit-hub .menu-label {
+    opacity: 1;
+    font-size: var(--font-md);
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: color var(--transition-fast);
+}
+.side-nav:not(.collapsed) .exit-hub:hover,
+.side-nav:not(.collapsed) .exit-hub:focus-visible {
+    background: transparent;
     transform: none;
-    font-weight: 400;
+}
+.side-nav:not(.collapsed) .exit-hub:hover .menu-label,
+.side-nav:not(.collapsed) .exit-hub:focus-visible .menu-label {
+    color: var(--primary);
+}
+/* Pulls .nav-title closer to the exit-hub label above it so the two read as
+   one stacked title pair rather than two evenly-spaced rows — the
+   .nav-header flex gap (12px) is the right amount of breathing room
+   everywhere else, just too loose for this specific pair. */
+.side-nav:not(.collapsed) .exit-hub + .nav-title {
+    margin-top: -6px;
 }
 
 /* The home page's inline "Change School"/"Settings" panes sit next to each other
@@ -449,15 +746,27 @@ html, body {
    exactly on top of each other (`inset: 0`); only the one with `.open` is
    visible — this (rather than each panel independently faking its own
    position) guarantees the one you actually opened is the one you see. */
+/* .nav-stack itself stays overflow:visible and never changes width on hover
+   — it's the in-flow sibling of .hub-rail inside .global-nav (below).
+   overflow:visible stays needed regardless of the rail's own state: when the
+   hub sidebar itself is collapsed to 64px, .overlay-nav panels below still
+   absolutely position themselves at a fixed 240px width, deliberately
+   overflowing .nav-stack's narrower resting box — clipping that would cut
+   the open panel off mid-width. */
 .nav-stack {
     position: relative;
     flex-shrink: 0;
-    order: 1;
+    overflow: visible;
 }
 .overlay-slot {
     position: absolute;
     inset: 0;
-    z-index: 10;
+    /* Must beat .page-header's z-index:10 (style.css, main content) — neither
+       <main> nor .nav-stack isolates its own stacking context, so the two
+       10s would otherwise tie and DOM order (main comes after nav-stack)
+       lets the sticky header win, rendering on top of an open overlay panel
+       instead of being covered by it. */
+    z-index: 15;
     overflow: visible;
     pointer-events: none;
 }
@@ -466,7 +775,7 @@ html, body {
     inset: 0;
     width: 240px;
     border-right: none;
-    background-color: var(--bg-surface-alt);
+    background-color: var(--bg-nav);
     opacity: 0;
     pointer-events: none;
     transition: opacity var(--transition-base), box-shadow var(--transition-slide), border-color var(--transition-base);
@@ -474,98 +783,125 @@ html, body {
 .side-nav.overlay-nav.open {
     opacity: 1;
     pointer-events: auto;
-    box-shadow: var(--shadow-drawer);
+    /* No box-shadow of its own — the Global Nav rail (.hub-rail-inner) is the
+       single, consistent source of the "layering" elevation effect for
+       whatever sits beside it (Hub menu, Settings, Search, School, Staff
+       alike). An omnidirectional shadow here used to bleed leftward onto the
+       rail; the dimmed .global-backdrop + this border-right already separate
+       the open panel from main content without it. */
     border-right: 1px solid var(--border-color);
 }
-main { order: 3; position: relative; }
+main { position: relative; }
 
 /* The permanent hub rail: a thin, always-visible icon strip for switching
    between hubs — unlike the overlay slot below it, it's a normal static flex
-   item (order: 0, leftmost), never toggles open/closed, and never dims
-   <main>. It scales to "lots of hubs" far better than a panel that has to be
-   explicitly opened every time, while the overlay slot (order: 1) still
-   handles the on-demand pickers (Change School/User, Settings, Search) that
-   aren't places you navigate to and stay.
-   It reserves a constant 72px of flex space — that footprint never changes,
-   so hovering it can't reflow <main>/the hub sidebar's own internal layout.
-   The visible chrome lives in the absolutely-positioned .hub-rail-inner,
-   which genuinely widens to 240px on hover/focus (overflowing the outer
-   72px box, which stays overflow:visible) and floats over whatever sits next
-   to it (z-index above .nav-stack/<main>) rather than pushing them — same
-   "floats above, doesn't move anything" relationship as the overlay-nav
-   panels just below, minus their dimming backdrop (this is a transient hover
-   preview, not a panel someone opens and stays in). 240px matches the
-   standard side-nav/overlay-nav width, so the expanded rail fully covers
-   whatever's behind it (hub sidebar or an overlay panel) instead of leaving
-   a sliver peeking out past a narrower flyout. It hides entirely whenever the hub
-   sidebar drops to icon-only mode (see the ":has()" rule and the 900px media
-   query further down), since two parallel icon-only columns read as
-   redundant — the hub sidebar's own icons stay reachable; only the rail
+   item (order: 0, leftmost), never dims <main>. It scales to "lots of hubs"
+   far better than a panel that has to be explicitly opened every time, while
+   the overlay slot (order: 1) still handles the on-demand pickers (Change
+   School/User, Settings, Search) that aren't places you navigate to and stay.
+   Its width genuinely resizes between 72px (icon-only) and 240px (pinned
+   open via #rail-expand-toggle, see .hub-rail.expanded below and main.js
+   setupRailExpand) — a real flex-item width change, animated, that reflows
+   <main>/the hub sidebar over to make room. That's fine because expanding is
+   now a deliberate, persistent click rather than a transient hover preview;
+   there's no need to fake the widening with an absolute overlay anymore.
+   240px matches the standard side-nav/overlay-nav width, so it reads as the
+   same family of panel widths throughout the app. It hides entirely whenever
+   the hub sidebar drops to icon-only mode (see the ":has()" rule and the
+   900px media query further down), since two parallel icon-only columns read
+   as redundant — the hub sidebar's own icons stay reachable; only the rail
    disappears. */
-.hub-rail {
-    width: 72px;
+.global-nav {
+    display: flex;
     flex-shrink: 0;
     order: 0;
     position: relative;
-    overflow: visible;
-    z-index: 5;
+    z-index: 20;
+    height: 100%;
+}
+.hub-rail {
+    width: 72px;
+    flex-shrink: 0;
     background: transparent;
     border-right: none;
+    transition: width var(--transition-base);
+}
+.hub-rail.expanded {
+    width: 240px;
 }
 .hub-rail-inner {
-    position: absolute;
-    inset: 0;
-    width: 72px;
+    width: 100%;
+    height: 100%;
     padding: 16px 8px;
     display: flex;
     flex-direction: column;
     gap: 0;
-    background-color: var(--bg-surface-alt);
+    background-color: var(--bg-rail);
     border-right: 1px solid var(--border-color);
-    /* Delay only applies to collapsing (this, the default rule) — expanding via
-       :hover/:focus-within/:has(overlay open) below resets it to 0s — so a
-       cursor flickering across the rail's edge doesn't visibly jitter the
-       width in and out; it only collapses once the mouse has genuinely left
-       for that brief window. */
-    transition: width var(--transition-base) 200ms, box-shadow var(--transition-base) 200ms;
+    /* Permanent soft shadow along the rail's right edge — distinguishes it
+       from whatever sits beside it (side nav / main content) at all times. */
+    box-shadow: 3px 0 8px rgba(2, 6, 23, 0.07);
 }
-/* Hover/focus is keyed off .hub-rail-inner itself (not the outer .hub-rail)
-   so that once it has expanded, the cursor moving into the newly-revealed
-   72-200px region is still moving within the inner element's own (now
-   200px-wide) box — losing hover the instant the outer 72px box was exited
-   would make the panel flicker shut as soon as the cursor reached for a
-   label. suppress-hover lives on the outer .hub-rail (see main.js
-   suppressHoverUntilLeave) so it's checked via the ancestor. */
-.hub-rail:not(.suppress-hover) .hub-rail-inner:hover,
-.hub-rail:not(.suppress-hover) .hub-rail-inner:focus-within {
-    width: 240px;
-    transition-delay: 0s;
-    box-shadow: var(--shadow-drawer);
+.hub-rail.expanded .hub-rail-inner {
+    box-shadow: var(--shadow-drawer), 3px 0 8px rgba(2, 6, 23, 0.07);
 }
-.hub-rail:not(.suppress-hover) .hub-rail-inner:hover .hub-rail-label,
-.hub-rail:not(.suppress-hover) .hub-rail-inner:focus-within .hub-rail-label {
+.hub-rail.expanded .hub-rail-label {
     opacity: 1;
 }
-/* Clicking a rail button (Settings/Search/Change School/Change User) opens an
-   overlay panel that lives in a sibling .overlay-slot, at a higher z-index
-   than the rail — so the rail is deliberately collapsed back to icon-only
-   the moment an overlay opens, rather than trying to stay open underneath/
-   behind it. The overlay panel's own header already names what's open, so
-   the rail's labels aren't needed at the same time, and this avoids the
-   rail's opaque expanded background fighting the overlay panel for the same
-   screen space. Needs to win over the plain :hover rule above with higher
-   specificity (threaded through .hub-rail rather than just .hub-rail-inner)
-   since the cursor is typically still resting on the rail button that just
-   opened the overlay — without this override, that lingering :hover would
-   otherwise keep the rail expanded regardless of the overlay being open. */
-.page-shell:has(.overlay-nav.open) .hub-rail .hub-rail-inner {
-    width: 72px;
-    box-shadow: none;
+/* Its own row, right-anchored, mirroring the hub sidebar's .nav-header-top-row
+   exactly so the two toggles read as the same control at the same altitude. */
+.hub-rail-top-row {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    margin-bottom: 8px;
 }
-.page-shell:has(.overlay-nav.open) .hub-rail .hub-rail-label {
+/* Corner control, icon-only at rest — same look/behaviour as the hub
+   sidebar's own .collapse-toggle (icon, "Collapse"/"Expand" label grows in
+   from the icon on hover rather than taking up permanent row space). */
+.hub-rail-collapse-toggle {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0 4px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.hub-rail-collapse-toggle svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    flex-shrink: 0;
+    /* Base icon points left (collapse direction) — rotate it to point right
+       (expand direction) in the rail's default/resting state, then flip back
+       once expanded so it always points the direction the click will go. */
+    transform: rotate(180deg);
+    transition: transform var(--transition-fast);
+}
+.hub-rail.expanded .hub-rail-collapse-toggle svg {
+    transform: rotate(0deg);
+}
+.hub-rail-collapse-toggle-label {
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 0;
     opacity: 0;
+    font-size: var(--font-md);
+    transition: opacity var(--transition-fast), max-width var(--transition-base), margin-left var(--transition-base);
 }
-.page-shell:has(.side-nav.hub-side.collapsed) .hub-rail {
+.hub-rail-collapse-toggle:hover .hub-rail-collapse-toggle-label,
+.hub-rail-collapse-toggle:focus-visible .hub-rail-collapse-toggle-label {
+    opacity: 1;
+    max-width: 100px;
+    margin-left: 6px;
+}
+.global-nav:has(.side-nav.hub-side.collapsed) .hub-rail {
     display: none;
 }
 /* Qualified with the .hub-rail ancestor so this beats the generic
@@ -586,7 +922,6 @@ main { order: 3; position: relative; }
     align-items: center;
     justify-content: flex-start;
     flex-shrink: 0;
-    width: 100%;
     padding: 11px 14px;
     border-radius: var(--radius-sm);
     color: var(--text-primary);
@@ -595,6 +930,17 @@ main { order: 3; position: relative; }
     cursor: pointer;
     text-decoration: none;
     transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+/* The hub list itself stays full-width (a real list of navigable rows), but
+   buttons (search/settings; the collapse toggle lives in its own corner row
+   above and isn't a .hub-rail-item at all) hug their own icon+label content
+   — their hover/click target no longer needs to span the rail's full width
+   now that nothing here is hover-expand-driven (previously a short label
+   here would leave a "dead zone" past its text that fell out of any row's
+   hover box, prematurely closing the rail's hover-expand — now moot since
+   expansion is a deliberate click). */
+.hub-rail .hub-rail-item:not(.nav-row-btn) {
+    width: 100%;
 }
 .hub-rail-item svg {
     width: 22px;
@@ -623,12 +969,39 @@ main { order: 3; position: relative; }
     transition: opacity var(--transition-fast);
 }
 /* "LWLAT Portal" (always hub_nav_items' first entry, the homepage link) reads
-   as the rail's own heading rather than just another hub — bigger/bolder
-   label, same row otherwise (still a real link, still gets the shared
-   hover/active accent-bar treatment below) so it stays clickable. */
-.hub-rail-portal .hub-rail-label {
+   as the rail's own heading rather than just another hub. Collapsed (resting)
+   state: just the icon, like every other rail row. Expanded state: matches
+   the hub sidebar's own .nav-title exactly — icon hidden, centered/bold full-
+   width text at the same size — so the two headings read as the same kind of
+   label at the same place in each panel. Still a real link throughout. */
+.hub-rail.expanded .hub-rail-portal {
+    flex-direction: column;
+    justify-content: center;
+    padding: 8px 14px 16px;
+}
+.hub-rail.expanded .hub-rail-portal svg {
+    display: none;
+}
+.hub-rail.expanded .hub-rail-portal .hub-rail-label {
+    flex: none;
+    width: 100%;
+    margin-left: 0;
+    overflow: visible;
+    white-space: normal;
+    text-align: center;
+    font-size: var(--font-4xl);
     font-weight: 700;
-    font-size: var(--font-md);
+}
+/* .nav-title itself isn't a link/hoverable, so neutralise the generic
+   selectable-row hover nudge + left accent bar here (otherwise an off-centre
+   bar and a sideways shift would clash with the centred heading look). */
+.hub-rail.expanded .hub-rail-portal:hover,
+.hub-rail.expanded .hub-rail-portal:focus-visible {
+    transform: none;
+    background: transparent;
+}
+.hub-rail.expanded .hub-rail-portal::before {
+    display: none;
 }
 /* Separates "LWLAT Portal" from the hub list below it, matching the
    stronger border used by the hub sidebar's own header divider. */
@@ -645,19 +1018,30 @@ main { order: 3; position: relative; }
     border-top: 1px solid var(--border-color);
     padding-top: 16px;
 }
-/* Search/Settings additionally carry .nav-row-btn (for the shared background-
-   nudge hover treatment) — the generic ".side-nav .nav-row-btn" rule has
-   higher specificity (two classes) than ".hub-rail-item" (one), so it would
-   otherwise overwrite the rail's own width/padding. Re-assert those here with
-   matching specificity to keep the rail's layout intact. */
+/* Search/Settings/the expand toggle additionally carry .nav-row-btn (for the
+   shared background-nudge hover treatment) — the generic ".side-nav
+   .nav-row-btn" rule has higher specificity (two classes) than
+   ".hub-rail-item" (one), so it would otherwise overwrite the rail's own
+   padding. Re-assert that here with matching specificity to keep the rail's
+   layout intact; width is intentionally left at its fit-content default
+   (see .hub-rail .hub-rail-item:not(.nav-row-btn) above). */
 .hub-rail .hub-rail-item.nav-row-btn {
-    width: 100%;
     padding: 11px 14px;
 }
 
 /* The dimming backdrop now covers <main> only (not the sidebar/rail or the open
    overlay column itself, which both stay fully interactive) — it signals that
-   main content isn't the current focus while a side panel is open. */
+   main content isn't the current focus while a side panel is open. Sized to
+   <main>'s own box, but an open overlay panel is a fixed 240px wide while a
+   collapsed sidebar is only 64px, so the panel's right portion visually
+   bleeds into <main>'s territory. z-index must stay below .overlay-slot's
+   (15, see above) — both sit in the same stacking context (neither <main>
+   nor .nav-stack isolates one of its own) — or the backdrop paints over that
+   bled-over slice of the panel instead of just dimming the main content
+   behind it. It must also stay ABOVE .page-header's sticky z-index:10 (same
+   stacking-context tie-break problem as .overlay-slot above) — otherwise the
+   sticky header escapes dimming and visibly floats above the backdrop while
+   a side panel is open. */
 .global-backdrop { opacity: 0; transition: opacity var(--transition-slide); pointer-events: none; }
 .global-backdrop.active { opacity: 1; position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: rgba(3,6,23,0.45); z-index: 11; pointer-events: auto; }
 /* The dark-theme page background is itself a dark navy, so the light-mode
@@ -692,7 +1076,6 @@ main { order: 3; position: relative; }
     position: relative;
     display: flex;
     align-items: center;
-    width: 100%;
     color: var(--text-primary);
     background: transparent;
     border: none;
@@ -705,20 +1088,37 @@ main { order: 3; position: relative; }
     cursor: pointer;
     transition: background-color var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
 }
+/* Selectable list rows (menu links, school/staff picker options) stay
+   full-width — they're "is this the current page/choice" rows where the
+   whole row reading as one clickable strip matters. Action buttons
+   (Hubs/Settings/Search/Switch School/Switch User/collapse toggle etc.) hug
+   their own icon+label instead: their hover/click target no longer needs to
+   span the full sidebar width now that nothing here is hover-expand-driven
+   (collapsing/expanding is a deliberate button click, see main.js). */
+.side-nav a:not(.nav-row-btn),
+.side-nav .school-nav-option,
+.side-nav .staff-nav-option {
+    width: 100%;
+}
 
-/* Action-trigger rows (Change Hub/School/Settings/User) have no selected
-   state of their own, so hover is a quiet background nudge instead of the
-   left-bar treatment below. */
-.side-nav .nav-row-btn:hover {
-    background: var(--bg-surface-alt);
+/* Every side-nav row shares the same quiet hover nudge — translateX(3px) +
+   bold, no background fill (that combined with the move read as too much) —
+   regardless of whether it's an action-trigger (Change Hub/School/Settings/
+   User, .nav-row-btn) or a selectable row (menu links, school/staff options,
+   below). Selectable rows layer their own left-edge accent bar on top of
+   this (state indicator) rather than relying on the nudge alone. */
+.side-nav .nav-row-btn:hover,
+.side-nav a:not(.nav-row-btn):hover,
+.side-nav .school-nav-option:hover,
+.side-nav .staff-nav-option:hover {
     transform: translateX(3px);
     font-weight: 600;
 }
 
-/* Every selectable row (menu links, school/staff options) shares one
-   left-edge accent bar to show hover/selected state instead of a
-   background fill — grey for hover, purple for the active/selected item
-   (hovering the selected item stays purple, it doesn't turn grey). */
+/* Every selectable row (menu links, school/staff options) additionally gets
+   one left-edge accent bar to show hover/selected state — grey for hover,
+   purple for the active/selected item (hovering the selected item stays
+   purple, it doesn't turn grey). */
 .side-nav a:not(.nav-row-btn)::before,
 .side-nav .school-nav-option::before,
 .side-nav .staff-nav-option::before {
@@ -736,16 +1136,15 @@ main { order: 3; position: relative; }
     transition: opacity var(--transition-base), background-color var(--transition-base), transform var(--transition-pop);
 }
 
-.side-nav a:not(.nav-row-btn):hover,
-.side-nav .school-nav-option:hover,
-.side-nav .staff-nav-option:hover {
-    font-weight: 600;
-}
+/* The row's own translateX(3px) nudge above also shifts this pseudo-element
+   along with it (it's part of the row's rendered box) — translateX(-3px)
+   here cancels that out so the bar stays put at left:3px instead of drifting
+   out of alignment with the (non-moving) selected-row bar. */
 .side-nav a:not(.nav-row-btn):hover::before,
 .side-nav .school-nav-option:hover::before,
 .side-nav .staff-nav-option:hover::before {
     opacity: 1;
-    transform: scaleY(1);
+    transform: translateX(-3px) scaleY(1);
 }
 
 .side-nav a:not(.nav-row-btn).active,
@@ -780,6 +1179,16 @@ main { order: 3; position: relative; }
 
 .school-nav-logo {
     color: var(--text-faint);
+}
+
+/* "All Schools" / "All Primary" / "All Secondary" have no logo icon, so
+   indent the label to line up with where the icon graphic itself sits in
+   the rows below (8px button padding + 4px to center the 20px svg inside
+   the 28px icon box, see .side-nav .menu-icon) and bump the size slightly
+   so they read as a category tier above the plain school list. */
+.school-nav-option.school-nav-aggregate {
+    padding-left: 12px;
+    font-size: 15px;
 }
 
 .school-nav-divider,
@@ -901,6 +1310,7 @@ section {
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     font-size: var(--font-sm);
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
 }
 
 .app-search-result:last-child { border-bottom: none; }
@@ -926,9 +1336,11 @@ section {
     flex-shrink: 0;
 }
 
-.app-search-result:hover,
 .app-search-result.active {
     background: var(--primary-light);
+}
+.app-search-result:hover {
+    transform: translateX(3px);
 }
 
 .app-search-empty {
@@ -1118,9 +1530,7 @@ a { color: inherit; }
 }
 .nav-close-btn:hover,
 .nav-close-btn:focus-visible {
-    background: var(--bg-surface-alt);
     color: var(--primary);
-    transform: translateX(-3px);
 }
 
 
@@ -1151,23 +1561,20 @@ a { color: inherit; }
 .btn:hover, .btn:focus-visible { border-color: var(--primary); color: var(--primary); }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
-/* Creation actions (e.g. "New Referral") get a fixed green regardless of the
-   user's chosen accent colour — "create a new record" is a semantic action,
-   not a brand-colour one. */
-.btn-success { background: #8bc78f; border-color: #6fae74; color: #1f3a24; }
-.btn-success:hover { background: #6fae74; border-color: #5d9a62; color: #16291a; }
-/* Standard action button trio (Add / Edit / Delete) — fixed colours regardless
-   of the user's chosen accent colour, since these are semantic actions.
-   Softened/muted tones (vs. saturated brand reds/yellows) so the row of
-   action buttons doesn't visually shout on every list item. */
-.btn-add { background: #8bc78f; border-color: #6fae74; color: #1f3a24; }
-.btn-add:hover { background: #6fae74; border-color: #5d9a62; color: #16291a; }
-.btn-edit { background: #e8c468; border-color: #d8ad42; color: #4a3a0a; }
-.btn-edit:hover { background: #d8ad42; border-color: #c49b35; color: #3a2d06; }
-.btn-delete { background: #e07a6f; border-color: #d2655a; color: #fff; }
-.btn-delete:hover { background: #c75d51; border-color: #b54f44; color: #fff; }
-.btn-start { background: #9575cd; border-color: #7e57c2; color: #fff; }
-.btn-start:hover { background: #7e57c2; border-color: #673ab7; color: #fff; }
+/* Standard action button trio (Add / Edit / Delete, plus Success which mirrors
+   Add) — colours come from --btn-*-* variables (defaulted just below to the
+   original fixed pastel tones) so the Colour Palette setting can re-theme
+   them; see the [data-palette]/[data-color] overrides further down. */
+.btn-success { background: var(--btn-add-bg); border-color: var(--btn-add-border); color: var(--btn-add-text); }
+.btn-success:hover { background: var(--btn-add-hover-bg); border-color: var(--btn-add-hover-border); color: var(--btn-add-hover-text); }
+.btn-add { background: var(--btn-add-bg); border-color: var(--btn-add-border); color: var(--btn-add-text); }
+.btn-add:hover { background: var(--btn-add-hover-bg); border-color: var(--btn-add-hover-border); color: var(--btn-add-hover-text); }
+.btn-edit { background: var(--btn-edit-bg); border-color: var(--btn-edit-border); color: var(--btn-edit-text); }
+.btn-edit:hover { background: var(--btn-edit-hover-bg); border-color: var(--btn-edit-hover-border); color: var(--btn-edit-hover-text); }
+.btn-delete { background: var(--btn-delete-bg); border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
+.btn-delete:hover { background: var(--btn-delete-hover-bg); border-color: var(--btn-delete-hover-border); color: var(--btn-delete-hover-text); }
+.btn-start { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-start:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
 .btn-sm { padding: 6px 10px; font-size: var(--font-sm); }
 
 /* Icon shown by default on Edit/Delete (and similar) buttons; add the
@@ -1826,11 +2233,19 @@ dialog.ui-popover::backdrop { background: transparent; }
 .breakdown-row { margin-bottom: 10px; }
 .breakdown-row:last-child { margin-bottom: 0; }
 .breakdown-row-labels { display: flex; justify-content: space-between; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 4px; }
+.breakdown-row-label { font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 2px; }
+.breakdown-row-stats { display: flex; gap: 12px; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 4px; }
+.stat-label { font-weight: 600; }
+.stat-label--k { color: var(--primary); }
+.stat-label--e { color: var(--color-secondary); }
+.stat-label--n { color: var(--color-subtle); }
+[data-theme="dark"] .stat-label--n { color: #64748b; }
 .breakdown-bar-track { display: flex; background: var(--bg-muted, var(--border-color)); border-radius: var(--radius-sm); height: 8px; overflow: hidden; margin-bottom: 4px; }
 .breakdown-bar-track:last-child { margin-bottom: 0; }
 .breakdown-bar-fill { background: var(--primary); height: 100%; }
-.breakdown-bar-fill--secondary { background: var(--success); }
-.breakdown-bar-fill--n { background: var(--border-color); }
+.breakdown-bar-fill--secondary { background: var(--color-secondary); }
+.breakdown-bar-fill--n { background: var(--color-subtle); }
+[data-theme="dark"] .breakdown-bar-fill--n { background: #64748b; }
 
 .breakdown-callout { margin: 8px 0; padding: 6px 10px; border-radius: var(--radius-sm); font-size: var(--font-sm); }
 .breakdown-callout--warning { background: var(--warning-bg); color: var(--warning); }
@@ -2147,7 +2562,11 @@ dialog.ui-popover::backdrop { background: transparent; }
 }
 .text-size-option:hover {
     border-color: var(--primary);
+    background: rgba(0, 0, 0, 0.06);
     transform: translateY(-2px);
+}
+[data-theme="dark"] .text-size-option:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 .text-size-option .size-preview {
     line-height: 1;

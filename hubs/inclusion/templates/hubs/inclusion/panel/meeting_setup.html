@@ -4,7 +4,7 @@
 {% block title %}Panel Setup{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=14">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=16">
 {% endblock %}
 
 
@@ -45,6 +45,7 @@
                 {% endfor %}
                 <option value="__create_new__">+ Create new panel group</option>
             </select>
+            {% if members %}
             <label for="panel-chair">Chair</label>
             <select id="panel-chair" name="chair">
                 <option value="">No chair set</option>
@@ -52,14 +53,8 @@
                 <option value="{{ staff.id }}" {% if panel.chair_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
                 {% endfor %}
             </select>
+            {% endif %}
         </form>
-        {% if panel.panel_group_id %}
-        <form method="post" style="margin-top:8px">
-    {% csrf_token %}
-            <input type="hidden" name="form_action" value="apply_group_roster">
-            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Apply Default Roster</button>
-        </form>
-        {% endif %}
 
         <h2>Panel Members</h2>
         <ul>
@@ -312,36 +307,63 @@
 
     <div class="setup-col">
         <h2>Referral Selection</h2>
-        {% for referral in unassigned_referrals %}
-        <div class="referral-pick-item">
-            <h4>{{ referral.student }}</h4>
-            <div class="meta">Created: {{ referral.created_at|date:"d/m/Y" }}</div>
-            <div class="btn-row">
-                <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-primary btn-sm">Referral Details</a>
-                <form method="post" style="display:inline">
+        <div class="entity-list">
+            {% for referral in unassigned_referrals %}
+            <div class="entity-row">
+                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                <div class="entity-body">
+                    <div class="entity-title">{{ referral.student }}</div>
+                    <div class="entity-meta">Created {{ referral.created_at|date:"d/m/Y" }}{% if referral.primary_concern_category %} &middot; Primary Concern Category: {{ referral.primary_concern_category }}{% endif %}</div>
+                </div>
+                <div class="btn-row">
+                    <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-primary btn-sm">Referral Details</a>
+                    <form method="post" style="display:inline">
     {% csrf_token %}
-                    <input type="hidden" name="form_action" value="add_referral">
-                    <input type="hidden" name="referral_id" value="{{ referral.id }}">
-                    <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add</button>
-                </form>
+                        <input type="hidden" name="form_action" value="add_referral">
+                        <input type="hidden" name="referral_id" value="{{ referral.id }}">
+                        <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add</button>
+                    </form>
+                </div>
             </div>
+            {% empty %}
+            <p class="empty-note">No unassigned referrals.</p>
+            {% endfor %}
         </div>
-        {% empty %}
-        <p class="empty-note">No unassigned referrals.</p>
-        {% endfor %}
     </div>
 
     <div class="setup-col">
         <h2>Panel Agenda</h2>
-        {% for pr in agenda %}
-        <div class="referral-pick-item">
-            <h4>{{ pr.referral.student }}</h4>
-            <div class="meta">{{ pr.get_discussion_status_display }}</div>
+        <div class="entity-list">
+            {% for pr in agenda %}
+            <div class="entity-row">
+                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                <div class="entity-body">
+                    <div class="entity-title">{{ pr.referral.student }}</div>
+                    <div class="entity-meta">{{ pr.get_discussion_status_display }}{% if pr.primary_concern_category %} &middot; Primary Concern Category: {{ pr.primary_concern_category }}{% endif %}</div>
+                    <form method="post" class="priority-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="update_priority">
+                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <select name="priority" class="priority-select" onchange="this.form.submit()">
+                            {% for value, label in priority_choices %}
+                            <option value="{{ value }}" {% if pr.priority == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+                <div class="btn-row">
+                    <form method="post" onsubmit="return confirm('Remove this student from the agenda?');" style="display:inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="remove_referral_from_agenda">
+                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <button type="submit" class="btn btn-sm">Remove</button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <p class="empty-note">No Referrals Selected</p>
+            {% endfor %}
         </div>
-        {% empty %}
-        <p class="empty-note">No Referrals Selected</p>
-        {% endfor %}
-        <a href="{% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-primary">Go to Agenda</a>
     </div>
 </div>
 {% endblock %}

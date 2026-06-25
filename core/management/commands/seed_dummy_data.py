@@ -40,12 +40,41 @@ SENCO_SCHOOL_ASSIGNMENTS = {
     'STF017': 'South Wigston Academy',
 }
 
-# Deterministic SEND assignment for ~25% of students at K and ~10% at E,
-# spread evenly across the seeded population by index (not random, so
-# reseeding stays idempotent). Cycles through the 4 broad needs in order.
+# Single source of truth for both this command and seed_schools.py: how many
+# students each school gets (30 per primary, 60 per secondary) and in what
+# order, so the flat student list generated here can be sliced into
+# per-school blocks there.
+SCHOOL_STUDENT_COUNTS = [
+    ('Heatherbrook', 'Primary', 30),
+    ('Woodstock', 'Primary', 30),
+    ('Babington Academy', 'Secondary', 60),
+    ('Lancaster Academy', 'Secondary', 60),
+    ('South Wigston Academy', 'Secondary', 60),
+]
+TOTAL_STUDENTS = sum(count for _, _, count in SCHOOL_STUDENT_COUNTS)
+CATEGORY_BY_INDEX = [
+    category
+    for _, category, count in SCHOOL_STUDENT_COUNTS
+    for _ in range(count)
+]
+
+# Deterministic SEND assignment matching national SEND statistics (SEN
+# Support ~14.2% of pupils, EHCP ~5.3% of pupils), using modulo checks
+# (1/19 = 5.3%, 1/7 = 14.3%) so the ratio holds regardless of population
+# size and reseeding stays idempotent (not random).
+def _sen_status(i):
+    if i % 19 == 0:
+        return 'E'
+    if i % 7 == 0:
+        return 'K'
+    return ''
+
+
+# Cycles through the 4 broad needs in order.
 SEND_NEEDS = ['cognition', 'semh', 'communication', 'sensory']
 
-YEAR_GROUPS = [7, 8, 9, 10, 11]
+PRIMARY_YEAR_GROUPS = [1, 2, 3, 4, 5, 6]
+SECONDARY_YEAR_GROUPS = [7, 8, 9, 10, 11]
 FORM_LETTERS = ['A', 'B', 'C']
 FIRST_NAMES = [
     'Olivia', 'Liam', 'Emma', 'Noah', 'Ava', 'Oliver', 'Sophia', 'Elijah',
@@ -57,7 +86,7 @@ LAST_NAMES = [
     'Smith', 'Jones', 'Taylor', 'Brown', 'Williams', 'Wilson', 'Johnson',
     'Davies', 'Robinson', 'Wright', 'Thompson', 'Evans', 'Walker', 'White',
     'Roberts', 'Green', 'Hall', 'Wood', 'Jackson', 'Clarke', 'Turner',
-    'Hill', 'Ward', 'Cooper', 'Hughes', 'Edwards', 'Green', 'Morris',
+    'Hill', 'Ward', 'Cooper', 'Hughes', 'Edwards', 'Baker', 'Morris',
     'Cox', 'King',
 ]
 
@@ -83,19 +112,23 @@ class Command(BaseCommand):
         self.stdout.write(f'Staff in DB: {Staff.objects.count()}')
 
         created = 0
-        for i in range(30):
+        for i in range(TOTAL_STUDENTS):
+            # Pair first/last names by treating i as a base-len(FIRST_NAMES)
+            # number: the first-name index cycles every row but the
+            # last-name index only advances once every len(FIRST_NAMES) rows,
+            # so every (first, last) combination up to
+            # len(FIRST_NAMES) * len(LAST_NAMES) students is unique instead
+            # of both cycling in lockstep and repeating together.
             first_name = FIRST_NAMES[i % len(FIRST_NAMES)]
-            last_name = LAST_NAMES[i % len(LAST_NAMES)]
-            year_group = YEAR_GROUPS[i % len(YEAR_GROUPS)]
+            last_name = LAST_NAMES[(i // len(FIRST_NAMES)) % len(LAST_NAMES)]
+            year_groups = (
+                PRIMARY_YEAR_GROUPS if CATEGORY_BY_INDEX[i] == 'Primary' else SECONDARY_YEAR_GROUPS
+            )
+            year_group = year_groups[i % len(year_groups)]
             reg_form = f'{year_group}{FORM_LETTERS[i % len(FORM_LETTERS)]}'
             upn = f'X9000{i:04d}A123'
             dob_year = 2026 - year_group - 5
-            if i % 10 == 0:
-                sen_status = 'E'
-            elif i % 3 == 0:
-                sen_status = 'K'
-            else:
-                sen_status = ''
+            sen_status = _sen_status(i)
             send_need = SEND_NEEDS[i % len(SEND_NEEDS)] if sen_status else ''
             gender = 'M' if i % 2 == 0 else 'F'
             _, created_flag = Student.objects.update_or_create(
@@ -110,6 +143,10 @@ class Command(BaseCommand):
                     'sen_status': sen_status,
                     'send_need': send_need,
                     'gender': gender,
+                    'is_pp': i % 4 == 0,
+                    'is_eal': i % 6 == 0,
+                    'is_lac': i % 23 == 0,
+                    'is_young_carer': i % 17 == 0,
                 },
             )
             if created_flag:

@@ -1,15 +1,13 @@
 from django.core.management.base import BaseCommand
 
-from core.management.commands.seed_dummy_data import MAT_STAFF_CODES, SENCO_SCHOOL_ASSIGNMENTS
+from core.management.commands.seed_dummy_data import (
+    MAT_STAFF_CODES,
+    SCHOOL_STUDENT_COUNTS,
+    SENCO_SCHOOL_ASSIGNMENTS,
+)
 from core.models import School, Staff, Student
 
-SCHOOLS = [
-    ('Heatherbrook', 'Primary'),
-    ('Woodstock', 'Primary'),
-    ('Babington Academy', 'Secondary'),
-    ('Lancaster Academy', 'Secondary'),
-    ('South Wigston Academy', 'Secondary'),
-]
+SCHOOLS = [(name, category) for name, category, _ in SCHOOL_STUDENT_COUNTS]
 
 
 class Command(BaseCommand):
@@ -53,10 +51,13 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'SENDCo staff assigned to their school: {senco_updated} updated.'))
 
         student_updated = 0
-        for i, student in enumerate(Student.objects.order_by('id')):
-            school = schools[i % len(schools)]
-            if student.school_id != school.id:
-                student.school = school
-                student.save(update_fields=['school'])
-                student_updated += 1
+        students = list(Student.objects.order_by('id'))
+        offset = 0
+        for school, (_, _, count) in zip(schools, SCHOOL_STUDENT_COUNTS):
+            for student in students[offset:offset + count]:
+                if student.school_id != school.id:
+                    student.school = school
+                    student.save(update_fields=['school'])
+                    student_updated += 1
+            offset += count
         self.stdout.write(self.style.SUCCESS(f'Students assigned to a school: {student_updated} updated.'))

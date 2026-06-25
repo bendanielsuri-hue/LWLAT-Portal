@@ -13,6 +13,7 @@
                 // data-school-color, see core.portal_settings) takes precedence
                 // over the viewer's personal colour preference.
                 root.setAttribute('data-color', root.getAttribute('data-school-color') || localStorage.getItem('pref-color') || 'purple');
+                root.setAttribute('data-palette', localStorage.getItem('pref-palette') || 'pastel');
                 root.setAttribute('data-text-size', localStorage.getItem('pref-text-size') || 'md');
             } catch (e) { }
         })();
@@ -22,15 +23,19 @@
             {{ portal_title }}
         {% endblock %}
     </title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=79">
-    <script src="{% static 'js/main.js' %}?v=40" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=100">
+    <script src="{% static 'js/main.js' %}?v=45" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     {{ search_items|json_script:"app-search-data" }}
     <div class="page-shell">
+        <div class="global-nav">
         <nav class="side-nav hub-rail" aria-label="Hubs">
             <div class="hub-rail-inner">
+            <div class="hub-rail-top-row">
+                <button type="button" class="hub-rail-collapse-toggle" id="rail-expand-toggle" aria-label="Expand hub rail" title="Expand hub rail">{% include 'icons/panel_collapse_svg.html' %}<span class="hub-rail-collapse-toggle-label" id="rail-expand-toggle-label">Expand</span></button>
+            </div>
             {% for item in hub_nav_items %}
             <a href="{{ item.url }}" class="hub-rail-item {% if forloop.first %}hub-rail-portal{% endif %} {% if item.active %}active{% endif %}" title="{{ item.label }}" aria-label="{{ item.label }}">{% include item.icon %}<span class="hub-rail-label">{{ item.label }}</span></a>
             {% if forloop.first %}<div class="hub-rail-divider"></div>{% endif %}
@@ -114,16 +119,19 @@
 
         {% block hub_sidebar %}{% endblock %}
         </div>
+        </div>
         <main>
             <div class="main-inner">
                 {% block breadcrumbs_wrapper %}
                 <div class="page-header">
                     <div class="page-header-main">
+                        {% block breadcrumb_trail %}
                         <nav class="breadcrumbs">
                             <a href="{% url 'homepage' %}">{{ portal_title }}</a>
                             <span class="sep">&gt;</span>
                             {% block breadcrumbs %}{% endblock %}
                         </nav>
+                        {% endblock %}
                         <div class="page-heading-wrap">
                             {% block page_back %}{% endblock %}
                             <div class="page-heading">
