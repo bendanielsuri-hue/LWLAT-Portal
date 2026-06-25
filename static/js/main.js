@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var toggle = document.getElementById('sidebar-collapse-toggle');
         var nav = toggle && closest(toggle, '.side-nav');
         if (!toggle || !nav) return;
+        var toggleLabelEl = document.getElementById('sidebar-collapse-toggle-label');
         var STORAGE_KEY = 'pref-sidebar-collapsed';
 
         function updateToggleLabel() {
@@ -50,6 +51,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
             toggle.setAttribute('aria-label', label);
             toggle.setAttribute('title', label);
+            if (toggleLabelEl) toggleLabelEl.textContent = collapsed ? 'Expand' : 'Collapse';
         }
 
         if (localStorage.getItem(STORAGE_KEY) === 'true') {
@@ -62,11 +64,23 @@ document.addEventListener('DOMContentLoaded', function () {
             var collapsed = nav.classList.toggle('collapsed');
             try { localStorage.setItem(STORAGE_KEY, collapsed ? 'true' : 'false'); } catch (err) { }
             updateToggleLabel();
-            // Clicking "Collapse" leaves the cursor resting on/near this same
-            // button, now inside the just-collapsed (narrower) sidebar — block
-            // its hover-expand until the cursor genuinely leaves (or moves to
-            // a different row, which releases it immediately).
-            if (collapsed) suppressHoverUntilLeave(nav, function () { return toggle; });
+            if (collapsed) {
+                // The toggle sits at the row's right edge (justify-content:
+                // flex-end) and recentres once collapsed — as the sidebar's
+                // width animates down, that shrink drags the button out from
+                // under the still-stationary cursor partway through, firing a
+                // genuine 'mouseleave' on nav that releases suppressHover
+                // below early. Without blurring, the button's lingering kept
+                // focus then keeps :focus-within (and therefore the
+                // hover-expand width) true regardless of where the cursor
+                // ends up — same end result as if the rail were still being
+                // hovered, until something else on the page steals focus.
+                toggle.blur();
+                // Still guards against the cursor genuinely remaining over
+                // the rail post-collapse (e.g. a tall toggle hit-area, or a
+                // pointer device where the click didn't relocate it).
+                suppressHoverUntilLeave(nav, function () { return toggle; });
+            }
         });
     })();
 

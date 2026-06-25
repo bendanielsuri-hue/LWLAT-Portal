@@ -195,12 +195,32 @@ html, body {
     width: 64px;
 }
 .side-nav.collapsed .nav-title,
-.side-nav.collapsed .menu-label,
-.side-nav.collapsed .menu-label-stack,
 .side-nav.collapsed .nav-search,
-.side-nav.collapsed .nav-footer-divider,
-.side-nav.collapsed .nav-header-divider {
+.side-nav.collapsed .nav-footer-divider {
     display: none;
+}
+/* Labels fade via opacity rather than being display:none'd, and rows stay
+   justify-content:flex-start at all times (see below) — same approach as
+   .hub-rail-item/.hub-rail-label use already. Nothing about the icon's own
+   box ever changes between rest/hover, so it never visibly shifts or
+   resizes; only the (already-reserved, just invisible) label space fades in
+   beside it. Forced single-line (the expanded sidebar lets long labels wrap
+   to a second line, e.g. "Provision & Strategies") — a wrapped label grows
+   the row taller than its icon, which pushes every row below it down,
+   reading as the icons themselves "shifting" on hover. */
+.side-nav.collapsed .menu-label,
+.side-nav.collapsed .menu-label-stack {
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.side-nav.collapsed .menu-label-stack .user-name,
+.side-nav.collapsed .menu-label-stack .user-school,
+.side-nav.collapsed .menu-label-stack .user-role {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .side-nav.collapsed .nav-header,
 .side-nav.collapsed .nav-scroll,
@@ -212,15 +232,14 @@ html, body {
 .side-nav.collapsed .nav-row-btn,
 .side-nav.collapsed .school-nav-option,
 .side-nav.collapsed .staff-nav-option {
-    justify-content: center;
+    justify-content: flex-start;
 }
-/* The title is hidden outright when collapsed (see .side-nav.collapsed
-   .nav-title above), leaving the collapse-toggle as the row's only visible
-   child — recenter it rather than leaving it pinned to the row's start
-   (its position under justify-content:space-between with nothing else
-   visible in the row). */
+/* In rail mode the collapse-toggle and "Hubs" button share one row — Hubs at
+   the start, toggle pinned to the end (mirrors its expanded-mode corner
+   position via the base .nav-header-top-row rule below, which still applies
+   when Hubs is hidden/expanded). */
 .side-nav.collapsed .nav-header-top-row {
-    justify-content: center;
+    justify-content: space-between;
 }
 /* "Hubs" only exists as a stand-in for the global rail, which hides itself
    whenever this sidebar is collapsed — so it's only ever shown in that state,
@@ -234,8 +253,17 @@ html, body {
 .side-nav.hub-side.collapsed .hubs-trigger {
     display: flex;
 }
-.side-nav.collapsed .menu-icon {
-    margin-right: 0;
+/* Sharing the cramped top row with the collapse-toggle leaves no room for a
+   sliding label (unlike the full-width rows below it) — stays icon-only
+   regardless of hover, sized to match the toggle button next to it. */
+.nav-header-top-row .hubs-trigger {
+    width: auto;
+    flex: 0 0 auto;
+    height: 28px;
+    padding: 0 4px;
+}
+.nav-header-top-row .hubs-trigger .menu-label {
+    display: none;
 }
 .side-nav.collapsed .collapse-toggle svg {
     transform: rotate(180deg);
@@ -256,19 +284,11 @@ html, body {
 .side-nav.hub-side.collapsed.suppress-hover:focus-within {
     width: 64px;
 }
-.side-nav.hub-side.collapsed:hover .menu-label,
-.side-nav.hub-side.collapsed:focus-within .menu-label {
-    display: inline;
-}
-.side-nav.hub-side.collapsed:hover .menu-icon,
-.side-nav.hub-side.collapsed:focus-within .menu-icon {
-    margin-right: 8px;
-}
-.side-nav.hub-side.collapsed:hover a,
-.side-nav.hub-side.collapsed:hover .nav-row-btn,
-.side-nav.hub-side.collapsed:focus-within a,
-.side-nav.hub-side.collapsed:focus-within .nav-row-btn {
-    justify-content: flex-start;
+.side-nav.hub-side.collapsed:hover:not(.suppress-hover) .menu-label,
+.side-nav.hub-side.collapsed:hover:not(.suppress-hover) .menu-label-stack,
+.side-nav.hub-side.collapsed:focus-within:not(.suppress-hover) .menu-label,
+.side-nav.hub-side.collapsed:focus-within:not(.suppress-hover) .menu-label-stack {
+    opacity: 1;
 }
 
 @media (max-width: 900px) {
@@ -323,18 +343,18 @@ html, body {
     justify-content: flex-end;
     width: 100%;
 }
-/* Icon-only corner control: no text label (the icon's rotation plus the
-   aria-label/title attribute carry the meaning), so it's a small square
-   button rather than the full-width .nav-row-btn treatment every other
-   header row uses. */
+/* Corner control, anchored to the row's right edge (.nav-header-top-row is
+   justify-content: flex-end) — icon-only at rest, with a "Collapse"/"Expand"
+   label that grows in from the icon on hover (mirrors .exit-hub's reveal),
+   so the button widens leftward toward the corner it's already pinned to
+   rather than the row reflowing anything else. */
 .collapse-toggle {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
     height: 28px;
-    padding: 0;
+    padding: 0 4px;
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;
@@ -351,25 +371,41 @@ html, body {
     width: 20px;
     height: 20px;
     display: block;
+    flex-shrink: 0;
     transition: transform var(--transition-fast);
 }
-
-/* "Back to hub" row: just the arrow at rest, hub name revealed on hover —
-   the row itself stays full-width (unchanged), only the label's own
-   visibility/width animates, so nothing else shifts. The collapsed-sidebar
-   rule (.side-nav.collapsed .menu-label, higher specificity) still hides it
-   outright in icon-only mode regardless of hover. */
-.exit-hub .menu-label {
-    opacity: 0;
-    max-width: 0;
+.collapse-toggle-label {
     overflow: hidden;
     white-space: nowrap;
-    transition: opacity var(--transition-fast), max-width var(--transition-base);
+    max-width: 0;
+    opacity: 0;
+    font-size: var(--font-md);
+    transition: opacity var(--transition-fast), max-width var(--transition-base), margin-left var(--transition-base);
+}
+.side-nav:not(.collapsed) .collapse-toggle:hover .collapse-toggle-label,
+.side-nav:not(.collapsed) .collapse-toggle:focus-visible .collapse-toggle-label {
+    opacity: 1;
+    max-width: 100px;
+    margin-left: 6px;
+}
+
+/* "Back to hub" row: just the arrow at rest, hub name faded in on hover —
+   the label keeps its natural width at all times (no max-width animation),
+   so only its opacity changes and nothing in the row resizes/shifts. The
+   collapsed-sidebar rule (.side-nav.collapsed .menu-label, higher
+   specificity) still hides it outright in icon-only mode regardless of hover. */
+.exit-hub {
+    padding: 11px 14px;
+}
+.exit-hub .menu-label {
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: opacity var(--transition-fast);
 }
 .exit-hub:hover .menu-label,
 .exit-hub:focus-visible .menu-label {
     opacity: 1;
-    max-width: 220px;
 }
 /* Overrides the generic .nav-row-btn:hover nudge (translateX + bold) for
    this row specifically — that nudge combined with the label's own width
@@ -586,6 +622,21 @@ main { order: 3; position: relative; }
     opacity: 0;
     transition: opacity var(--transition-fast);
 }
+/* "LWLAT Portal" (always hub_nav_items' first entry, the homepage link) reads
+   as the rail's own heading rather than just another hub — bigger/bolder
+   label, same row otherwise (still a real link, still gets the shared
+   hover/active accent-bar treatment below) so it stays clickable. */
+.hub-rail-portal .hub-rail-label {
+    font-weight: 700;
+    font-size: var(--font-md);
+}
+/* Separates "LWLAT Portal" from the hub list below it, matching the
+   stronger border used by the hub sidebar's own header divider. */
+.hub-rail-divider {
+    border-top: 1px solid var(--border-strong);
+    margin: 8px 0;
+}
+
 /* Search and Settings are global, cross-cutting actions rather than hubs to
    navigate to and stay — pinned to the bottom of the rail, separated from
    the hub list by a divider. */
@@ -745,6 +796,7 @@ main {
     flex: 1;
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 /* Padding lives on an inner wrapper, not on the scrolling element itself — position:sticky
    children measure their stuck offset against the scroll container's padding box, and
@@ -1864,10 +1916,12 @@ dialog.ui-popover::backdrop { background: transparent; }
     margin: 2px 4px;
 }
 
-/* Hub sidebar header: one divider between the action row (Collapse/back link)
-   and the hub title, another between the header and the app list below. */
+/* Hub sidebar header: a single divider between the header (title/back link/
+   Hubs button) and the app list below it — stronger than the default
+   border-color since it sits on the nav's own background rather than at a
+   panel edge, where the subtler colour reads too close to the background. */
 .nav-header-divider {
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-strong);
     width: 100%;
     margin: 4px 0;
 }
