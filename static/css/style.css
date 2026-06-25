@@ -108,6 +108,14 @@
     --shadow-drawer: 0 18px 50px rgba(2, 6, 23, 0.12);
     --shadow-inset: inset 0 1px 4px rgba(15, 23, 36, 0.14);
 
+    /* Fixed (theme-invariant) tooltip surface — deliberately NOT derived from
+       --bg-surface/--bg-rail or any [data-palette]/[data-theme] override.
+       Icon-rail tooltips read as a system-level annotation layer, not part of
+       the app's themed surface stack, so they stay an inverted dark bubble in
+       both light and dark mode (matches VS Code/GitHub/Linear convention). */
+    --tooltip-bg: #1c2333;
+    --tooltip-text: #f1f5f9;
+
     /* Transition timing scale — reused duration+easing pairs. */
     --transition-fast: 140ms ease;
     --transition-base: 160ms ease;
@@ -449,10 +457,24 @@ html, body {
 .side-nav.collapsed .nav-footer-divider {
     display: none;
 }
+/* Lets the new hover tooltips (.icon-tooltip-host::after) escape past the
+   sidebar's own right edge instead of being clipped by the shared .side-nav
+   overflow:hidden rule above (and .nav-scroll's own overflow-y:auto) — only
+   safe once the sidebar is at rest in its fixed 64px collapsed width;
+   .hub-side specifically (not every .side-nav.collapsed variant) so the
+   width-animated expand/collapse transition elsewhere isn't affected. Trade-
+   off: a hub menu long enough to need .nav-scroll's vertical scrollbar would
+   lose it while collapsed (content spills past the bottom instead) — none of
+   today's hub menus are long enough for that to matter in practice. */
+.side-nav.hub-side.collapsed {
+    overflow: visible;
+}
+.side-nav.hub-side.collapsed .nav-scroll {
+    overflow: visible;
+}
 /* Labels fade via opacity rather than being display:none'd, and rows stay
-   justify-content:flex-start at all times (see below) — same approach as
-   .hub-rail-item/.hub-rail-label use already. Nothing about the icon's own
-   box ever changes between rest/hover, so it never visibly shifts or
+   justify-content:flex-start at all times (see below). Nothing about the
+   icon's own box ever changes between rest/hover, so it never visibly shifts or
    resizes; only the (already-reserved, just invisible) label space fades in
    beside it. Forced single-line (the expanded sidebar lets long labels wrap
    to a second line, e.g. "Provision & Strategies") — a wrapped label grows
@@ -526,57 +548,40 @@ html, body {
 .side-nav.collapsed .nav-header-top-row {
     justify-content: flex-start;
 }
-.side-nav.collapsed .collapse-toggle {
+.side-nav.collapsed .nav-row-btn {
     width: 100%;
+}
+.side-nav.collapsed .collapse-toggle {
     justify-content: flex-start;
     padding-left: 6px;
     padding-right: 6px;
 }
-.side-nav.collapsed .collapse-toggle svg {
-    margin-right: 8px;
-}
 .side-nav.collapsed .collapse-toggle:hover,
 .side-nav.collapsed .collapse-toggle:focus-visible {
     background: transparent;
+    transform: translateX(3px);
 }
-/* Reuses the sidebar-hover opacity reveal every other row's label gets
-   (below) instead of the expanded-mode button-hover max-width animation —
-   max-width:none lets opacity alone govern visibility here. */
-.side-nav.collapsed .collapse-toggle-label {
-    max-width: none;
-}
-
 /* Collapsed hub sidebar used to hover-peek its labels back in; that's gone
    now in favour of the deliberate #sidebar-collapse-toggle button (main.js
    setupSidebarCollapse) — clicking it fully expands/collapses instead of a
    transient hover preview. */
 
 @media (max-width: 900px) {
-    .side-nav.hub-side,
+    /* .hub-side is deliberately excluded here — it has its own manual
+       collapse/expand toggle (#sidebar-collapse-toggle, main.js
+       setupSidebarCollapse), so on a touch device (no :hover) it stays
+       reachable via tap instead of being force-locked into an icon-only mode
+       with no escape. setupSidebarCollapse defaults it to collapsed below
+       this same breakpoint when there's no stored preference yet, so it
+       still starts icon-only for space — just not permanently stuck there.
+       .school-nav/.settings-nav (the home page's inline panes) have no such
+       toggle, so they keep the forced-narrow treatment. */
     .side-nav.school-nav:not(.overlay-nav),
     .side-nav.settings-nav:not(.overlay-nav) {
         width: 64px;
     }
-    .side-nav.hub-side .nav-title,
-    .side-nav.hub-side .menu-label,
     .side-nav.school-nav:not(.overlay-nav) .nav-title,
     .side-nav.settings-nav:not(.overlay-nav) .nav-title {
-        display: none;
-    }
-    .side-nav.hub-side .nav-header,
-    .side-nav.hub-side .nav-scroll,
-    .side-nav.hub-side .nav-footer {
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-    .side-nav.hub-side a,
-    .side-nav.hub-side .nav-row-btn {
-        justify-content: center;
-    }
-    .side-nav.hub-side .menu-icon {
-        margin-right: 0;
-    }
-    .collapse-toggle {
         display: none;
     }
     .hub-rail {
@@ -670,8 +675,8 @@ html, body {
     white-space: nowrap;
     transition: opacity var(--transition-fast);
 }
-.exit-hub:hover .menu-label,
-.exit-hub:focus-visible .menu-label {
+.side-nav:not(.collapsed) .exit-hub:hover .menu-label,
+.side-nav:not(.collapsed) .exit-hub:focus-visible .menu-label {
     opacity: 1;
 }
 /* Collapsed/icon mode: now that .exit-hub's padding matches every other row
@@ -683,6 +688,7 @@ html, body {
    signals it's clickable (mirrors .collapse-toggle's colour-only hover). */
 .side-nav:not(.collapsed) .exit-hub {
     display: block;
+    align-self: stretch;
     text-align: center;
     padding: 0;
 }
@@ -724,6 +730,7 @@ html, body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -799,14 +806,11 @@ main { position: relative; }
    far better than a panel that has to be explicitly opened every time, while
    the overlay slot (order: 1) still handles the on-demand pickers (Change
    School/User, Settings, Search) that aren't places you navigate to and stay.
-   Its width genuinely resizes between 72px (icon-only) and 240px (pinned
-   open via #rail-expand-toggle, see .hub-rail.expanded below and main.js
-   setupRailExpand) — a real flex-item width change, animated, that reflows
-   <main>/the hub sidebar over to make room. That's fine because expanding is
-   now a deliberate, persistent click rather than a transient hover preview;
-   there's no need to fake the widening with an absolute overlay anymore.
-   240px matches the standard side-nav/overlay-nav width, so it reads as the
-   same family of panel widths throughout the app. It hides entirely whenever
+   It stays fixed at 72px/icon-only always now — no expand-to-240px state —
+   so each icon's meaning is surfaced via a custom hover/focus tooltip
+   (.icon-tooltip-host, see .hub-rail .hub-rail-item below) instead of a
+   text label, plus a permanent "Hubs" entry that opens #hubs-nav-overlay
+   for the full name+icon reference list on demand. It hides entirely whenever
    the hub sidebar drops to icon-only mode (see the ":has()" rule and the
    900px media query further down), since two parallel icon-only columns read
    as redundant — the hub sidebar's own icons stay reachable; only the rail
@@ -824,10 +828,11 @@ main { position: relative; }
     flex-shrink: 0;
     background: transparent;
     border-right: none;
-    transition: width var(--transition-base);
-}
-.hub-rail.expanded {
-    width: 240px;
+    /* Overrides the shared .side-nav overflow:hidden rule — the rail's hover
+       tooltips (.icon-tooltip-host::after) deliberately escape past the
+       rail's own right edge to sit on top of <main>, and would get clipped
+       at that edge otherwise. */
+    overflow: visible;
 }
 .hub-rail-inner {
     width: 100%;
@@ -842,65 +847,6 @@ main { position: relative; }
        from whatever sits beside it (side nav / main content) at all times. */
     box-shadow: 3px 0 8px rgba(2, 6, 23, 0.07);
 }
-.hub-rail.expanded .hub-rail-inner {
-    box-shadow: var(--shadow-drawer), 3px 0 8px rgba(2, 6, 23, 0.07);
-}
-.hub-rail.expanded .hub-rail-label {
-    opacity: 1;
-}
-/* Its own row, right-anchored, mirroring the hub sidebar's .nav-header-top-row
-   exactly so the two toggles read as the same control at the same altitude. */
-.hub-rail-top-row {
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
-    margin-bottom: 8px;
-}
-/* Corner control, icon-only at rest — same look/behaviour as the hub
-   sidebar's own .collapse-toggle (icon, "Collapse"/"Expand" label grows in
-   from the icon on hover rather than taking up permanent row space). */
-.hub-rail-collapse-toggle {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 28px;
-    padding: 0 4px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-.hub-rail-collapse-toggle svg {
-    width: 20px;
-    height: 20px;
-    display: block;
-    flex-shrink: 0;
-    /* Base icon points left (collapse direction) — rotate it to point right
-       (expand direction) in the rail's default/resting state, then flip back
-       once expanded so it always points the direction the click will go. */
-    transform: rotate(180deg);
-    transition: transform var(--transition-fast);
-}
-.hub-rail.expanded .hub-rail-collapse-toggle svg {
-    transform: rotate(0deg);
-}
-.hub-rail-collapse-toggle-label {
-    overflow: hidden;
-    white-space: nowrap;
-    max-width: 0;
-    opacity: 0;
-    font-size: var(--font-md);
-    transition: opacity var(--transition-fast), max-width var(--transition-base), margin-left var(--transition-base);
-}
-.hub-rail-collapse-toggle:hover .hub-rail-collapse-toggle-label,
-.hub-rail-collapse-toggle:focus-visible .hub-rail-collapse-toggle-label {
-    opacity: 1;
-    max-width: 100px;
-    margin-left: 6px;
-}
 .global-nav:has(.side-nav.hub-side.collapsed) .hub-rail {
     display: none;
 }
@@ -910,12 +856,7 @@ main { position: relative; }
    below silently falls back to 6px/8px and the bar-to-icon gap reads
    tighter than the hub sidebar's local-menu items. No fixed height either,
    so row height comes from this padding alone, matching
-   .side-nav .nav-menu a exactly (same vertical rhythm as the hub sidebar).
-   Always justify-content:flex-start (collapsed or expanded) — the label
-   collapses to zero width while hidden (see .hub-rail-label below), so the
-   icon's position never needs to shift between states; centering it only in
-   the collapsed state used to nudge it a few px relative to the fixed-
-   position accent bar every time the rail toggled. */
+   .side-nav .nav-menu a exactly (same vertical rhythm as the hub sidebar). */
 .hub-rail .hub-rail-item {
     position: relative;
     display: flex;
@@ -932,13 +873,8 @@ main { position: relative; }
     transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 /* The hub list itself stays full-width (a real list of navigable rows), but
-   buttons (search/settings; the collapse toggle lives in its own corner row
-   above and isn't a .hub-rail-item at all) hug their own icon+label content
-   — their hover/click target no longer needs to span the rail's full width
-   now that nothing here is hover-expand-driven (previously a short label
-   here would leave a "dead zone" past its text that fell out of any row's
-   hover box, prematurely closing the rail's hover-expand — now moot since
-   expansion is a deliberate click). */
+   buttons (search/settings/all-hubs) hug their own icon content — their
+   hover/click target doesn't need to span the rail's full width. */
 .hub-rail .hub-rail-item:not(.nav-row-btn) {
     width: 100%;
 }
@@ -946,65 +882,67 @@ main { position: relative; }
     width: 22px;
     height: 22px;
     flex-shrink: 0;
+    transition: transform var(--transition-fast);
 }
 /* Hover/active colour comes entirely from the shared .side-nav
    a:not(.nav-row-btn) accent-bar rule below — same visual language as every
    hub-sidebar menu row, since rail and hub sidebar are the same nav
    ecosystem. No background fill here, so the active item stays flush
-   instead of reading as a filled tab. The padding above also now matches
-   .side-nav .nav-menu a exactly, so the accent-bar-to-icon spacing reads
-   identically in both. */
-.hub-rail-label {
-    /* flex:1/min-width:0/overflow:hidden (matching .side-nav .menu-label)
-       so the label collapses to ~0 width while invisible instead of keeping
-       its full text width — otherwise centering .hub-rail-item centers the
-       whole icon+label block instead of just the icon, pushing the icon out
-       of the collapsed rail's clipped bounds. */
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    margin-left: 12px;
+   instead of reading as a filled tab. */
+/* CSS-only hover/focus tooltip, shared by the global rail (always icon-only)
+   and the local hub sidebar's own collapsed/icon-only mode — reads its text
+   straight off data-tooltip via attr(), no JS, no duplicated DOM text node.
+   z-index 30 beats .global-nav's 20 and the overlay slot's 15 so the bubble
+   always renders on top regardless of what else is open. The reveal itself
+   (below) is scoped per context: always-on for .hub-rail, collapsed-only for
+   the local sidebar, since its expanded state already shows the label text
+   inline and a tooltip there would just be a redundant duplicate. */
+.icon-tooltip-host {
+    position: relative;
+}
+/* The caret is carved out of this same box via clip-path (an extra 8px of
+   left padding reserved for it) rather than a separate ::before pseudo —
+   ::before on these elements is already claimed by the hover/active
+   left-edge accent bar (see ".side-nav a:not(.nav-row-btn)::before" further
+   down); a second ::before rule here would fight that one for the same box. */
+.icon-tooltip-host::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-6px) scale(0.95);
+    padding: 6px 12px 6px 20px;
+    border-radius: var(--radius-xs);
+    background-color: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-base);
+    font-weight: 600;
     white-space: nowrap;
     opacity: 0;
-    transition: opacity var(--transition-fast);
+    pointer-events: none;
+    z-index: 30;
+    clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 8px 62%, 0 50%, 8px 38%);
+    transition: opacity var(--transition-pop), transform var(--transition-pop);
 }
-/* "LWLAT Portal" (always hub_nav_items' first entry, the homepage link) reads
-   as the rail's own heading rather than just another hub. Collapsed (resting)
-   state: just the icon, like every other rail row. Expanded state: matches
-   the hub sidebar's own .nav-title exactly — icon hidden, centered/bold full-
-   width text at the same size — so the two headings read as the same kind of
-   label at the same place in each panel. Still a real link throughout. */
-.hub-rail.expanded .hub-rail-portal {
-    flex-direction: column;
-    justify-content: center;
-    padding: 8px 14px 16px;
+.hub-rail .icon-tooltip-host:hover::after,
+.hub-rail .icon-tooltip-host:focus-visible::after,
+.side-nav.collapsed .icon-tooltip-host:hover::after,
+.side-nav.collapsed .icon-tooltip-host:focus-visible::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
 }
-.hub-rail.expanded .hub-rail-portal svg {
-    display: none;
+/* The collapse-toggle's tooltip host lives on the inner icon span (not the
+   full-width button — see _hub_sidebar.html) so its "100%" anchor matches
+   the icon's own box instead of the whole collapsed-sidebar row. The hover
+   trigger still needs to fire from the full button, since that's the actual
+   hit target. */
+.side-nav.collapsed .collapse-toggle:hover .icon-tooltip-host::after,
+.side-nav.collapsed .collapse-toggle:focus-visible .icon-tooltip-host::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
 }
-.hub-rail.expanded .hub-rail-portal .hub-rail-label {
-    flex: none;
-    width: 100%;
-    margin-left: 0;
-    overflow: visible;
-    white-space: normal;
-    text-align: center;
-    font-size: var(--font-4xl);
-    font-weight: 700;
-}
-/* .nav-title itself isn't a link/hoverable, so neutralise the generic
-   selectable-row hover nudge + left accent bar here (otherwise an off-centre
-   bar and a sideways shift would clash with the centred heading look). */
-.hub-rail.expanded .hub-rail-portal:hover,
-.hub-rail.expanded .hub-rail-portal:focus-visible {
-    transform: none;
-    background: transparent;
-}
-.hub-rail.expanded .hub-rail-portal::before {
-    display: none;
-}
-/* Separates "LWLAT Portal" from the hub list below it, matching the
-   stronger border used by the hub sidebar's own header divider. */
+/* Separates the "Hubs" entry from the hub list below it. */
 .hub-rail-divider {
     border-top: 1px solid var(--border-strong);
     margin: 8px 0;
@@ -1018,7 +956,7 @@ main { position: relative; }
     border-top: 1px solid var(--border-color);
     padding-top: 16px;
 }
-/* Search/Settings/the expand toggle additionally carry .nav-row-btn (for the
+/* Search/Settings/All-hubs additionally carry .nav-row-btn (for the
    shared background-nudge hover treatment) — the generic ".side-nav
    .nav-row-btn" rule has higher specificity (two classes) than
    ".hub-rail-item" (one), so it would otherwise overwrite the rail's own
@@ -1055,6 +993,20 @@ main { position: relative; }
     font-size: var(--font-4xl);
     color: var(--text-primary);
     font-weight: 700;
+}
+/* The "Switch Hub" overlay's title doubles as a homepage link now that the
+   rail no longer carries its own dedicated "LWLAT Portal" icon — .nav-title
+   has no display set (fine for the plain div elsewhere), so the <a> variant
+   needs its own block display to honour the shared rule's centering/stretch. */
+.nav-title-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: color var(--transition-fast);
+}
+.nav-title-link:hover,
+.nav-title-link:focus-visible {
+    color: var(--primary);
 }
 
 .side-nav ul {
@@ -1113,6 +1065,44 @@ main { position: relative; }
 .side-nav .staff-nav-option:hover {
     transform: translateX(3px);
     font-weight: 600;
+}
+/* The 3px hover nudge above is meant for full-width sidebar rows; on a narrow
+   icon-only tooltip host (rail icon, or local sidebar in collapsed mode)
+   moving the whole box shifts its hit-test region out from under a cursor
+   resting near its edge, causing a mouseleave/mouseenter flicker loop — and
+   since the tooltip's opacity is gated on that same :hover, the tooltip
+   visibly flashes in sync with the loop. So icon-only hosts cancel the
+   row-level nudge entirely and animate just the icon glyph instead (below) —
+   a non-hit-tested child, so nudging it can never change the row's hoverable
+   geometry. Qualified with the element type (a/button) to match the generic
+   rule's own specificity exactly — a bare ".icon-tooltip-host:hover" (2
+   classes) is weaker than ".side-nav a:not(.nav-row-btn):hover" (1 class + 1
+   type + 2 effective classes) and would lose regardless of source order. The
+   collapse-toggle is excluded since it deliberately keeps its own row-level
+   nudge (see .side-nav.collapsed .collapse-toggle:hover above) — its width is
+   forced to 100% by a dedicated rule rather than stretching to fill a flex
+   parent, which in practice hasn't shown the same edge-flicker. */
+.hub-rail a.icon-tooltip-host:hover,
+.hub-rail a.icon-tooltip-host:focus-visible,
+.hub-rail button.icon-tooltip-host:hover,
+.hub-rail button.icon-tooltip-host:focus-visible,
+.side-nav.collapsed a.icon-tooltip-host:hover,
+.side-nav.collapsed a.icon-tooltip-host:focus-visible,
+.side-nav.collapsed button.icon-tooltip-host:not(.collapse-toggle):hover,
+.side-nav.collapsed button.icon-tooltip-host:not(.collapse-toggle):focus-visible {
+    transform: none;
+}
+/* Icon-level stand-in for the cancelled row-level nudge above: same 3px
+   shift, but applied to the icon glyph only (the local sidebar's .menu-icon
+   wrapper, or the rail's bare <svg> — .hub-rail-item has no wrapper span) so
+   the row's own box never moves and the tooltip can't flicker. */
+.hub-rail .icon-tooltip-host:hover .menu-icon,
+.hub-rail .icon-tooltip-host:hover > svg,
+.hub-rail .icon-tooltip-host:focus-visible .menu-icon,
+.hub-rail .icon-tooltip-host:focus-visible > svg,
+.side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):hover .menu-icon,
+.side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):focus-visible .menu-icon {
+    transform: translateX(3px);
 }
 
 /* Every selectable row (menu links, school/staff options) additionally gets
@@ -1504,6 +1494,7 @@ a { color: inherit; }
     width: 28px;
     height: 22px;
     margin-right: 8px;
+    transition: transform var(--transition-fast);
 }
 .side-nav .menu-icon svg { width: 20px; height: 20px; display: block; }
 .side-nav .menu-icon img { width: 20px; height: 20px; display: block; }

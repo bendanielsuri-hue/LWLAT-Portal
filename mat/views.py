@@ -12,14 +12,12 @@ AGGREGATE_ENTRIES = [
     {'name': 'All Secondary', 'category': 'Secondary', 'aggregate': True, 'key': 'secondary'},
 ]
 
-# Single source of truth for the global hub-switcher rail and the "Switch Hub"
+# Single source of truth for the global hub-switcher rail and the "All hubs"
 # picker overlay shown when the hub sidebar is collapsed — both render this
 # same list so the hub order/icons never drift apart between the two.
 # module_key tags each entry for core.modules.filter_by_module/module_label;
-# the homepage entry has no module_key (always visible, never renamed) and the
-# Portal Admin entry is appended separately (developer-only, not module-gated).
+# the Portal Admin entry is appended separately (developer-only, not module-gated).
 HUB_NAV_ITEMS = [
-    {'url_name': 'homepage', 'icon': 'icons/switch_apps_svg.html', 'label': 'LWLAT Portal', 'prefix': None, 'module_key': None},
     {'url_name': 'staff_hub', 'icon': 'icons/staff_svg.html', 'label': 'Staff', 'prefix': '/staff/', 'module_key': 'staff_hub'},
     {'url_name': 'student_hub', 'icon': 'icons/student_svg.html', 'label': 'Student', 'prefix': '/student/', 'module_key': 'student_hub'},
     {'url_name': 'inclusion_hub', 'icon': 'icons/send_svg.html', 'label': 'SEND & Provision', 'prefix': '/inclusion/', 'module_key': 'inclusion_hub'},
@@ -44,7 +42,7 @@ def build_hub_nav(request):
     entries = filter_by_module(HUB_NAV_ITEMS, modules, request) + _developer_nav_extras(request)
     items = []
     for entry in entries:
-        active = request.path == '/' if entry['prefix'] is None else request.path.startswith(entry['prefix'])
+        active = request.path.startswith(entry['prefix'])
         items.append({
             'url': reverse(entry['url_name']),
             'icon': entry['icon'],

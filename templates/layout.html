@@ -33,15 +33,13 @@
         <div class="global-nav">
         <nav class="side-nav hub-rail" aria-label="Hubs">
             <div class="hub-rail-inner">
-            <div class="hub-rail-top-row">
-                <button type="button" class="hub-rail-collapse-toggle" id="rail-expand-toggle" aria-label="Expand hub rail" title="Expand hub rail">{% include 'icons/panel_collapse_svg.html' %}<span class="hub-rail-collapse-toggle-label" id="rail-expand-toggle-label">Expand</span></button>
-            </div>
+            <button type="button" class="hub-rail-item icon-tooltip-host nav-row-btn" data-overlay-target="#hubs-nav-overlay" data-tooltip="Hubs" aria-label="All hubs">{% include 'icons/switch_apps_svg.html' %}</button>
+            <div class="hub-rail-divider"></div>
             {% for item in hub_nav_items %}
-            <a href="{{ item.url }}" class="hub-rail-item {% if forloop.first %}hub-rail-portal{% endif %} {% if item.active %}active{% endif %}" title="{{ item.label }}" aria-label="{{ item.label }}">{% include item.icon %}<span class="hub-rail-label">{{ item.label }}</span></a>
-            {% if forloop.first %}<div class="hub-rail-divider"></div>{% endif %}
+            <a href="{{ item.url }}" class="hub-rail-item icon-tooltip-host {% if item.active %}active{% endif %}" data-tooltip="{{ item.label }}" aria-label="{{ item.label }}">{% include item.icon %}</a>
             {% endfor %}
-            <button type="button" class="hub-rail-item hub-rail-global-action nav-row-btn" data-overlay-target="#search-nav-overlay" aria-label="Search for an app">{% include 'icons/search_svg.html' %}<span class="hub-rail-label">Search</span></button>
-            <button type="button" class="hub-rail-item nav-row-btn" data-overlay-target="#settings-nav-overlay" aria-label="Settings">{% include 'icons/cog_svg.html' %}<span class="hub-rail-label">Settings</span></button>
+            <button type="button" class="hub-rail-item icon-tooltip-host hub-rail-global-action nav-row-btn" data-overlay-target="#search-nav-overlay" data-tooltip="Search" aria-label="Search for an app">{% include 'icons/search_svg.html' %}</button>
+            <button type="button" class="hub-rail-item icon-tooltip-host nav-row-btn" data-overlay-target="#settings-nav-overlay" data-tooltip="Settings" aria-label="Settings">{% include 'icons/cog_svg.html' %}</button>
             </div>
         </nav>
 
@@ -98,11 +96,13 @@
         whenever the hub sidebar is collapsed, see .hub-side.collapsed in
         style.css) — opened from the sidebar's "Hubs" button (only visible
         in that collapsed state, see _hub_sidebar.html). Reuses the same
-        hub_nav_items the rail itself renders from.
+        hub_nav_items the rail itself renders from. The header doubles as
+        the homepage link now that the rail no longer carries a separate
+        "LWLAT Portal" icon.
         {% endcomment %}
         <nav class="side-nav hubs-nav overlay-nav" id="hubs-nav-overlay" data-hub="hubs">
             <div class="nav-header">
-                <div class="nav-title">Switch Hub</div>
+                <a href="{% url 'homepage' %}" class="nav-title nav-title-link">LWLAT Portal</a>
             </div>
             <div class="nav-scroll">
                 <ul class="nav-menu">

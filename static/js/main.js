@@ -7,52 +7,26 @@ document.addEventListener('DOMContentLoaded', function () {
         return null;
     }
 
-    // Manual pin/expand of the global hub-switcher rail — replaces the old
-    // hover-to-expand behavior with a deliberate click, persisted like the
-    // hub sidebar's own collapse toggle below.
-    (function setupRailExpand() {
-        var toggle = document.getElementById('rail-expand-toggle');
-        var rail = toggle && closest(toggle, '.hub-rail');
-        if (!toggle || !rail) return;
-        var toggleLabelEl = document.getElementById('rail-expand-toggle-label');
-        var STORAGE_KEY = 'pref-rail-expanded';
-
-        function updateToggleLabel() {
-            var expanded = rail.classList.contains('expanded');
-            var label = expanded ? 'Collapse hub rail' : 'Expand hub rail';
-            toggle.setAttribute('aria-label', label);
-            toggle.setAttribute('title', label);
-            if (toggleLabelEl) toggleLabelEl.textContent = expanded ? 'Collapse' : 'Expand';
-        }
-
-        if (localStorage.getItem(STORAGE_KEY) === 'true') {
-            rail.classList.add('expanded');
-        }
-        updateToggleLabel();
-
-        toggle.addEventListener('click', function (e) {
-            e.preventDefault();
-            var expanded = rail.classList.toggle('expanded');
-            try { localStorage.setItem(STORAGE_KEY, expanded ? 'true' : 'false'); } catch (err) { }
-            updateToggleLabel();
-        });
-    })();
-
-    // Manual collapse/expand of the hub sidebar to an icon-only rail (auto-collapse
-    // below the narrow-window breakpoint is handled purely in CSS via @media, so this
-    // only needs to apply/persist the user's manual choice at wider widths).
+    // Manual collapse/expand of the hub sidebar to an icon-only rail. Below the
+    // narrow-window breakpoint there's no stored preference yet, default to
+    // collapsed for space — but (unlike the old forced-icon-only @media rule)
+    // the toggle itself stays visible there, so a tap can still expand it.
+    // Touch devices have no :hover, so this toggle is the only way to ever
+    // reach the full labels on a narrow/mobile viewport.
     (function setupSidebarCollapse() {
         var toggle = document.getElementById('sidebar-collapse-toggle');
         var nav = toggle && closest(toggle, '.side-nav');
         if (!toggle || !nav) return;
+        var toggleIconEl = toggle.querySelector('.icon-tooltip-host');
         var toggleLabelEl = document.getElementById('sidebar-collapse-toggle-label');
         var STORAGE_KEY = 'pref-sidebar-collapsed';
+        var NARROW_QUERY = '(max-width: 900px)';
 
         function updateToggleLabel() {
             var collapsed = nav.classList.contains('collapsed');
             var label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
             toggle.setAttribute('aria-label', label);
-            toggle.setAttribute('title', label);
+            if (toggleIconEl) toggleIconEl.setAttribute('data-tooltip', label);
             if (toggleLabelEl) toggleLabelEl.textContent = collapsed ? 'Expand' : 'Collapse';
             // Hub landing pages render their H1 as "Dashboard" with a hidden
             // "<Hub Name> " prefix (see e.g. hubs/inclusion/templates/hubs/inclusion/hub.html)
@@ -63,7 +37,11 @@ document.addEventListener('DOMContentLoaded', function () {
             if (hubTitlePrefix) hubTitlePrefix.hidden = !collapsed;
         }
 
-        if (localStorage.getItem(STORAGE_KEY) === 'true') {
+        var storedPref = localStorage.getItem(STORAGE_KEY);
+        var shouldCollapse = storedPref === null
+            ? window.matchMedia(NARROW_QUERY).matches
+            : storedPref === 'true';
+        if (shouldCollapse) {
             nav.classList.add('collapsed');
         }
         updateToggleLabel();
