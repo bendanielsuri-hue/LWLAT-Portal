@@ -1,6 +1,14 @@
 /* Reset and base */
 :root {
-    --primary: #7c3aed;
+    /* --primary-pinned mirrors --primary's LIGHT-theme value per accent
+       colour/palette, and is deliberately never redeclared inside any
+       [data-theme="dark"] block — so var(--primary-pinned) always resolves
+       to the light-mode hue even when the page is in dark mode. Use this
+       (not --primary/--primary-light/--primary-dark, which intentionally
+       swap meaning between themes — see the dark theme block further down)
+       wherever a colour should look IDENTICAL in both themes, e.g. the
+       Start/CTA button below. */
+    --primary: #7c3aed; --primary-pinned: #7c3aed;
     --primary-dark: #5b21b6;
     --primary-light: #f3e8ff;
     --active-text: var(--primary-dark);
@@ -49,6 +57,11 @@
        colour, deeper than Nav, so the persistent rail reads as a darker
        companion shade rather than a hue swap. */
     --bg-rail: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-rail, 0%), var(--bg-rail-base));
+    /* Meeting-card hover fill — defaults to the shared neutral --row-hover-bg
+       (see its own comment further down) so Default/Greytone/Colourblind
+       keep the plain grey hover. Soft overrides this below to react to its
+       warm tint instead. */
+    --meeting-card-hover-bg: var(--row-hover-bg);
     --text-primary: #0f1724;
     --text-secondary: #475569;
     --text-muted: #64748b;
@@ -67,10 +80,19 @@
     --color-tertiary: #8b6fae;
     --color-subtle: #94a3b8;
 
+    /* Hover/selected accent border for cards & rows (meeting cards, list
+       rows, agenda rows — see the .selectable/.chosen convention further
+       down). Defaults to the full --primary, which suits Vibrant/Greytone/
+       Colourblind's bolder identity; Soft softens this via a [data-palette]
+       override below so selection feedback stays calm/low-contrast there. */
+    --accent-border: var(--primary);
+
     --success: #15803d;
     --success-bg: #dcfce7;
     --warning: #b45309;
     --warning-bg: #fef3c7;
+    --danger: #b91c1c;
+    --danger-bg: #fee2e2;
 
     /* Standard radius scale — every border-radius in the app should reference
        one of these rather than a hardcoded px value. */
@@ -108,11 +130,12 @@
     --shadow-drawer: 0 18px 50px rgba(2, 6, 23, 0.12);
     --shadow-inset: inset 0 1px 4px rgba(15, 23, 36, 0.14);
 
-    /* Fixed (theme-invariant) tooltip surface — deliberately NOT derived from
-       --bg-surface/--bg-rail or any [data-palette]/[data-theme] override.
-       Icon-rail tooltips read as a system-level annotation layer, not part of
-       the app's themed surface stack, so they stay an inverted dark bubble in
-       both light and dark mode (matches VS Code/GitHub/Linear convention). */
+    /* Tooltip surface — deliberately NOT derived from --bg-surface/--bg-rail,
+       so it reads as a system-level annotation layer rather than part of the
+       app's themed surface stack. Light mode: dark inverted bubble (matches
+       VS Code/GitHub/Linear convention). Dark mode inverts this further (see
+       the [data-theme="dark"] override below) to a light bubble, so the
+       tooltip keeps standing out from its surroundings in both themes. */
     --tooltip-bg: #1c2333;
     --tooltip-text: #f1f5f9;
 
@@ -130,18 +153,44 @@
     --btn-add-hover-bg: #6fae74; --btn-add-hover-border: #5d9a62; --btn-add-hover-text: #16291a;
     --btn-edit-bg: #e8c468; --btn-edit-border: #d8ad42; --btn-edit-text: #4a3a0a;
     --btn-edit-hover-bg: #d8ad42; --btn-edit-hover-border: #c49b35; --btn-edit-hover-text: #3a2d06;
-    --btn-delete-bg: #e07a6f; --btn-delete-border: #d2655a; --btn-delete-text: #fff;
-    --btn-delete-hover-bg: #c75d51; --btn-delete-hover-border: #b54f44; --btn-delete-hover-text: #fff;
+    --btn-delete-bg: #f0a99e; --btn-delete-border: #e0857a; --btn-delete-text: #4a120d;
+    --btn-delete-hover-bg: #e07a6f; --btn-delete-hover-border: #d2655a; --btn-delete-hover-text: #350c08;
+
+    /* Panel Agenda priority dropdown — High/Medium/Low traffic-light colours
+       (red/orange/yellow). Palette-aware like Add/Edit/Delete (see the
+       [data-palette] overrides below), but deliberately has NO accent-colour
+       conflict overrides: unlike a button's incidental colour, red/orange/
+       yellow here carries severity meaning that shouldn't shift just because
+       it happens to match the user's chosen accent colour. */
+    --priority-high-bg: #f0a99e; --priority-high-border: #e0857a; --priority-high-text: #6e120a;
+    --priority-medium-bg: #f3c08a; --priority-medium-border: #e2a05c; --priority-medium-text: #7a3c00;
+    --priority-low-bg: #e8c468; --priority-low-border: #d8ad42; --priority-low-text: #5c4a00;
+
+    /* Start/CTA button — unlike Add/Edit/Delete above, this deliberately
+       tracks the user's chosen accent colour rather than a fixed hue, so it
+       reads as "the" call-to-action. Deliberately the SAME look in both
+       themes (matching Add/Edit/Delete, which are theme-invariant fixed
+       colours) — built from --primary-pinned (always the light-mode hue,
+       see definition above) blended against literal white, rather than
+       --primary/--bg-surface, both of which vary between themes and
+       previously made this look like a different, muddier button in dark
+       mode. */
+    --btn-start-bg: color-mix(in srgb, var(--primary-pinned) 18%, #fff);
+    --btn-start-border: color-mix(in srgb, var(--primary-pinned) 55%, #fff);
+    --btn-start-text: var(--primary-pinned);
+    --btn-start-hover-bg: color-mix(in srgb, var(--primary-pinned) 36%, #fff);
+    --btn-start-hover-border: var(--primary-pinned);
+    --btn-start-hover-text: var(--primary-pinned);
 }
 
 /* Primary colour choices (light theme) */
-[data-color="blue"] { --primary: #2563eb; --primary-dark: #1e3a8a; --primary-light: #dbeafe; }
-[data-color="teal"] { --primary: #0d9488; --primary-dark: #134e4a; --primary-light: #ccfbf1; }
-[data-color="green"] { --primary: #16a34a; --primary-dark: #14532d; --primary-light: #dcfce7; }
-[data-color="yellow"] { --primary: #8a5d04; --primary-dark: #5c3d02; --primary-light: #f5ecc0; }
-[data-color="orange"] { --primary: #ea580c; --primary-dark: #7c2d12; --primary-light: #ffedd5; }
-[data-color="red"] { --primary: #dc2626; --primary-dark: #7f1d1d; --primary-light: #fee2e2; }
-[data-color="pink"] { --primary: #db2777; --primary-dark: #9d174d; --primary-light: #fce7f3; }
+[data-color="blue"] { --primary: #2563eb; --primary-pinned: #2563eb; --primary-dark: #1e3a8a; --primary-light: #dbeafe; }
+[data-color="teal"] { --primary: #0d9488; --primary-pinned: #0d9488; --primary-dark: #134e4a; --primary-light: #ccfbf1; }
+[data-color="green"] { --primary: #16a34a; --primary-pinned: #16a34a; --primary-dark: #14532d; --primary-light: #dcfce7; }
+[data-color="yellow"] { --primary: #8a5d04; --primary-pinned: #8a5d04; --primary-dark: #5c3d02; --primary-light: #f5ecc0; }
+[data-color="orange"] { --primary: #ea580c; --primary-pinned: #ea580c; --primary-dark: #7c2d12; --primary-light: #ffedd5; }
+[data-color="red"] { --primary: #dc2626; --primary-pinned: #dc2626; --primary-dark: #7f1d1d; --primary-light: #fee2e2; }
+[data-color="pink"] { --primary: #db2777; --primary-pinned: #db2777; --primary-dark: #9d174d; --primary-light: #fce7f3; }
 
 /* --color-secondary (used for the SEND Dashboard's "E" badge, see
    --color-secondary below) is each accent colour's optical complement, so E
@@ -159,14 +208,14 @@
 /* Colour palette setting ("pastel" above is the default/no-attribute case) —
    re-themes the same 10 named accent colours, light theme. Background
    surfaces are also subtly tinted per palette via --bg-tint-* below. */
-[data-palette="vibrant"][data-color="purple"] { --primary: #9d00ff; --primary-dark: #7700cc; --primary-light: #f1d9ff; }
-[data-palette="vibrant"][data-color="blue"] { --primary: #0066ff; --primary-dark: #0047b3; --primary-light: #d6e8ff; }
-[data-palette="vibrant"][data-color="teal"] { --primary: #00b8a9; --primary-dark: #00897b; --primary-light: #ccfbf6; }
-[data-palette="vibrant"][data-color="green"] { --primary: #00c853; --primary-dark: #00963f; --primary-light: #c8f7d9; }
-[data-palette="vibrant"][data-color="yellow"] { --primary: #b8960a; --primary-dark: #8a6f06; --primary-light: #fff0b3; }
-[data-palette="vibrant"][data-color="orange"] { --primary: #ff6d00; --primary-dark: #c43e00; --primary-light: #ffe0c2; }
-[data-palette="vibrant"][data-color="red"] { --primary: #ff1744; --primary-dark: #c4001d; --primary-light: #ffd6dc; }
-[data-palette="vibrant"][data-color="pink"] { --primary: #ff2d92; --primary-dark: #c2185b; --primary-light: #ffd6ea; }
+[data-palette="vibrant"][data-color="purple"] { --primary: #9d00ff; --primary-pinned: #9d00ff; --primary-dark: #7700cc; --primary-light: #f1d9ff; }
+[data-palette="vibrant"][data-color="blue"] { --primary: #0066ff; --primary-pinned: #0066ff; --primary-dark: #0047b3; --primary-light: #d6e8ff; }
+[data-palette="vibrant"][data-color="teal"] { --primary: #00b8a9; --primary-pinned: #00b8a9; --primary-dark: #00897b; --primary-light: #ccfbf6; }
+[data-palette="vibrant"][data-color="green"] { --primary: #00c853; --primary-pinned: #00c853; --primary-dark: #00963f; --primary-light: #c8f7d9; }
+[data-palette="vibrant"][data-color="yellow"] { --primary: #b8960a; --primary-pinned: #b8960a; --primary-dark: #8a6f06; --primary-light: #fff0b3; }
+[data-palette="vibrant"][data-color="orange"] { --primary: #ff6d00; --primary-pinned: #ff6d00; --primary-dark: #c43e00; --primary-light: #ffe0c2; }
+[data-palette="vibrant"][data-color="red"] { --primary: #ff1744; --primary-pinned: #ff1744; --primary-dark: #c4001d; --primary-light: #ffd6dc; }
+[data-palette="vibrant"][data-color="pink"] { --primary: #ff2d92; --primary-pinned: #ff2d92; --primary-dark: #c2185b; --primary-light: #ffd6ea; }
 
 /* --color-secondary complements, Vibrant palette, light theme — more
    saturated versions of the same complementary hues used in Soft above. */
@@ -179,32 +228,69 @@
 [data-palette="vibrant"][data-color="red"] { --color-secondary: #00a89c; }
 [data-palette="vibrant"][data-color="pink"] { --color-secondary: #00c853; }
 
-[data-palette="greytone"][data-color="purple"] { --primary: #6b7280; --primary-dark: #374151; --primary-light: #e5e7eb; }
-[data-palette="greytone"][data-color="blue"] { --primary: #64748b; --primary-dark: #334155; --primary-light: #e2e8f0; }
-[data-palette="greytone"][data-color="teal"] { --primary: #475569; --primary-dark: #1e293b; --primary-light: #cbd5e1; }
-[data-palette="greytone"][data-color="green"] { --primary: #71717a; --primary-dark: #3f3f46; --primary-light: #e4e4e7; }
-[data-palette="greytone"][data-color="yellow"] { --primary: #5c5550; --primary-dark: #3a3530; --primary-light: #e7e5e4; }
-[data-palette="greytone"][data-color="orange"] { --primary: #57534e; --primary-dark: #292524; --primary-light: #e7e5e4; }
-[data-palette="greytone"][data-color="red"] { --primary: #3f3f46; --primary-dark: #18181b; --primary-light: #d4d4d8; }
-[data-palette="greytone"][data-color="pink"] { --primary: #525252; --primary-dark: #262626; --primary-light: #d4d4d4; }
+[data-palette="greytone"][data-color="purple"] { --primary: #6b7280; --primary-pinned: #6b7280; --primary-dark: #374151; --primary-light: #e5e7eb; }
+[data-palette="greytone"][data-color="blue"] { --primary: #64748b; --primary-pinned: #64748b; --primary-dark: #334155; --primary-light: #e2e8f0; }
+[data-palette="greytone"][data-color="teal"] { --primary: #475569; --primary-pinned: #475569; --primary-dark: #1e293b; --primary-light: #cbd5e1; }
+[data-palette="greytone"][data-color="green"] { --primary: #71717a; --primary-pinned: #71717a; --primary-dark: #3f3f46; --primary-light: #e4e4e7; }
+[data-palette="greytone"][data-color="yellow"] { --primary: #5c5550; --primary-pinned: #5c5550; --primary-dark: #3a3530; --primary-light: #e7e5e4; }
+[data-palette="greytone"][data-color="orange"] { --primary: #57534e; --primary-pinned: #57534e; --primary-dark: #292524; --primary-light: #e7e5e4; }
+[data-palette="greytone"][data-color="red"] { --primary: #3f3f46; --primary-pinned: #3f3f46; --primary-dark: #18181b; --primary-light: #d4d4d8; }
+[data-palette="greytone"][data-color="pink"] { --primary: #525252; --primary-pinned: #525252; --primary-dark: #262626; --primary-light: #d4d4d4; }
 
 /* Colourblind-safe palette — distinct, high-contrast hues (loosely based on
    the Okabe-Ito accessible colour set) rather than literal "red"/"green". */
-[data-palette="colourblind"][data-color="purple"] { --primary: #6f4e7c; --primary-dark: #4a3354; --primary-light: #e8e0ec; }
-[data-palette="colourblind"][data-color="blue"] { --primary: #56b4e9; --primary-dark: #2b85b3; --primary-light: #e3f3fb; }
-[data-palette="colourblind"][data-color="teal"] { --primary: #009e73; --primary-dark: #00715a; --primary-light: #ccf0e3; }
-[data-palette="colourblind"][data-color="green"] { --primary: #2e8b57; --primary-dark: #1f5c3a; --primary-light: #d7ecdf; }
-[data-palette="colourblind"][data-color="yellow"] { --primary: #9c8f1a; --primary-dark: #6b6212; --primary-light: #f5f0c2; }
-[data-palette="colourblind"][data-color="orange"] { --primary: #e69f00; --primary-dark: #a87300; --primary-light: #fbe7c2; }
-[data-palette="colourblind"][data-color="red"] { --primary: #cc4444; --primary-dark: #8f2e2e; --primary-light: #f3d6d6; }
-[data-palette="colourblind"][data-color="pink"] { --primary: #aa4499; --primary-dark: #7a3070; --primary-light: #ecd9e8; }
+[data-palette="colourblind"][data-color="purple"] { --primary: #6f4e7c; --primary-pinned: #6f4e7c; --primary-dark: #4a3354; --primary-light: #e8e0ec; }
+[data-palette="colourblind"][data-color="blue"] { --primary: #56b4e9; --primary-pinned: #56b4e9; --primary-dark: #2b85b3; --primary-light: #e3f3fb; }
+[data-palette="colourblind"][data-color="teal"] { --primary: #009e73; --primary-pinned: #009e73; --primary-dark: #00715a; --primary-light: #ccf0e3; }
+[data-palette="colourblind"][data-color="green"] { --primary: #2e8b57; --primary-pinned: #2e8b57; --primary-dark: #1f5c3a; --primary-light: #d7ecdf; }
+[data-palette="colourblind"][data-color="yellow"] { --primary: #9c8f1a; --primary-pinned: #9c8f1a; --primary-dark: #6b6212; --primary-light: #f5f0c2; }
+[data-palette="colourblind"][data-color="orange"] { --primary: #e69f00; --primary-pinned: #e69f00; --primary-dark: #a87300; --primary-light: #fbe7c2; }
+[data-palette="colourblind"][data-color="red"] { --primary: #cc4444; --primary-pinned: #cc4444; --primary-dark: #8f2e2e; --primary-light: #f3d6d6; }
+[data-palette="colourblind"][data-color="pink"] { --primary: #aa4499; --primary-pinned: #aa4499; --primary-dark: #7a3070; --primary-light: #ecd9e8; }
 
 /* Background tint strength + colour per palette — how much of
    --bg-tint-colour (a fixed warm tone, NOT the accent colour) is mixed into
    the *-base surface colours above. Soft = faint warm wash, Vibrant = a bit
    stronger. Greytone/Colourblind-safe get no rule here, so they inherit the
    0% :root default and stay fully neutral regardless of accent colour. */
-[data-palette="pastel"] { --bg-tint-colour: #fff1de; --bg-tint-page: 6%; --bg-tint-nav: 20%; --bg-tint-surface: 0%; --bg-tint-well: 10%; --bg-tint-nested: 22%; --bg-tint-rail: 32%; }
+[data-palette="pastel"] { --bg-tint-colour: #ffe9cf; --bg-tint-page: 6%; --bg-tint-nav: 18%; --bg-tint-surface: 0%; --bg-tint-well: 7%; --bg-tint-nested: 4%; --bg-tint-rail: 26%; }
+
+/* Soft's meeting-card hover — a stronger dose of the same warm nested tint,
+   rather than the shared neutral --row-hover-bg, so hover reads as "more
+   of the same colour" instead of an unrelated grey. */
+[data-palette="pastel"] { --meeting-card-hover-bg: color-mix(in srgb, var(--bg-tint-colour) calc(var(--bg-tint-nested) + 12%), var(--bg-nested-base)); }
+
+/* Soft's Start/CTA button — Vibrant/Greytone/Colourblind keep the bolder
+   :root border ratio; Soft softens the border (and slightly deepens the
+   resting fill) so it reads closer to Add/Edit/Delete's gentler pastel look.
+   Same --primary-pinned/white blend technique as :root (see the comment
+   there — keeps this identical in both themes), just different ratios. */
+[data-palette="pastel"] {
+    --btn-start-bg: color-mix(in srgb, var(--primary-pinned) 22%, #fff);
+    --btn-start-border: color-mix(in srgb, var(--primary-pinned) 42%, #fff);
+    --btn-start-hover-bg: color-mix(in srgb, var(--primary-pinned) 32%, #fff);
+    --btn-start-hover-border: color-mix(in srgb, var(--primary-pinned) 60%, #fff);
+}
+
+/* Soft's hover/selected accent border (see --accent-border above) — same
+   softened blend as the Start button border, so card/row selection feedback
+   doesn't clash with the rest of the palette's gentle fills. Uses
+   --primary-pinned/white (not --primary/--bg-surface) so the border looks
+   identical in both themes, same reasoning as the Start button above. */
+[data-palette="pastel"] { --accent-border: color-mix(in srgb, var(--primary-pinned) 42%, #fff); }
+
+/* The shared *-base surface variables (style.css :root) carry an inherent
+   cool/blue-grey cast. Soft's warm tint (--bg-tint-* above) is too thin an
+   overlay to fully cancel that, so give Soft its own warm-neutral bases
+   instead — --bg-surface-base is intentionally left alone (stays neutral
+   white per the :root comment). --bg-nested-base is deliberately lighter
+   than --bg-page-base (unlike --bg-well-base) so a nested card like a
+   meeting card lands between the page and the white surface card it sits
+   on, rather than reading as a darker tan blob. */
+[data-palette="pastel"] {
+    --bg-page-base: #f8f7f5; --bg-nav-base: #efebe4; --bg-surface-alt: #fbf9f6;
+    --bg-well-base: #f1ede6; --bg-nested-base: #fbf9f6; --bg-rail-base: #e3ddd2;
+}
 
 /* Semantic action button colours (Add/Edit/Delete) and the --color-tertiary
    role per palette ( --color-secondary is keyed per [data-color] above/below
@@ -223,6 +309,9 @@
     --btn-edit-hover-bg: #eab308; --btn-edit-hover-border: #ca8a04; --btn-edit-hover-text: #2e2100;
     --btn-delete-bg: #ef4444; --btn-delete-border: #dc2626; --btn-delete-text: #fff;
     --btn-delete-hover-bg: #dc2626; --btn-delete-hover-border: #b91c1c; --btn-delete-hover-text: #fff;
+    --priority-high-bg: #ef4444; --priority-high-border: #dc2626; --priority-high-text: #fff;
+    --priority-medium-bg: #fb923c; --priority-medium-border: #f97316; --priority-medium-text: #4a2400;
+    --priority-low-bg: #facc15; --priority-low-border: #eab308; --priority-low-text: #3f2d00;
 }
 [data-palette="greytone"] {
     /* Greytone has no hue to complement, so --color-secondary is just a
@@ -235,6 +324,9 @@
     --btn-edit-hover-bg: #6b6b6b; --btn-edit-hover-border: #525252; --btn-edit-hover-text: #fff;
     --btn-delete-bg: #525252; --btn-delete-border: #3f3f3f; --btn-delete-text: #fff;
     --btn-delete-hover-bg: #3f3f3f; --btn-delete-hover-border: #292929; --btn-delete-hover-text: #fff;
+    --priority-high-bg: #525252; --priority-high-border: #3f3f3f; --priority-high-text: #fff;
+    --priority-medium-bg: #8a8a8a; --priority-medium-border: #6b6b6b; --priority-medium-text: #fff;
+    --priority-low-bg: #a3a3a3; --priority-low-border: #737373; --priority-low-text: #1f1f1f;
 }
 [data-palette="colourblind"] {
     /* Near-black rather than another safe hue, so --color-secondary can
@@ -246,6 +338,9 @@
     --btn-edit-hover-bg: #ab7e22; --btn-edit-hover-border: #7a5a18; --btn-edit-hover-text: #fff;
     --btn-delete-bg: #2b2b2b; --btn-delete-border: #000000; --btn-delete-text: #fff;
     --btn-delete-hover-bg: #000000; --btn-delete-hover-border: #000000; --btn-delete-hover-text: #fff;
+    --priority-high-bg: #2b2b2b; --priority-high-border: #000000; --priority-high-text: #fff;
+    --priority-medium-bg: #ddaa33; --priority-medium-border: #ab7e22; --priority-medium-text: #2e2100;
+    --priority-low-bg: #4477aa; --priority-low-border: #2c5580; --priority-low-text: #fff;
 }
 
 /* Accent-colour vs. semantic-button conflict overrides — only needed for
@@ -282,7 +377,7 @@
 /* Soft palette gets warmer, softer borders in light mode — placed before the
    [data-theme="dark"] block below so dark mode's own border values still win
    there (same specificity, later source order). */
-[data-palette="pastel"] { --border-color: #f3ecdf; --border-strong: #e6d8bf; }
+[data-palette="pastel"] { --border-color: #f5efe2; --border-strong: #ece0cc; }
 
 /* Dark theme base (default primary colour: purple) */
 html { color-scheme: light; accent-color: var(--primary); }
@@ -309,10 +404,15 @@ html { color-scheme: light; accent-color: var(--primary); }
     --border-strong: #424c66;
     --badge-bg: #232b3d;
 
+    --tooltip-bg: #f1f5f9;
+    --tooltip-text: #1c2333;
+
     --success: #4ade80;
     --success-bg: #143d24;
     --warning: #fbbf24;
     --warning-bg: #4a3b09;
+    --danger: #f87171;
+    --danger-bg: #4a1d1d;
 
     /* The browser's default scrollbar stays light-colored regardless of
        page theme unless overridden — style it to match dark mode instead. */
@@ -334,6 +434,32 @@ html { color-scheme: light; accent-color: var(--primary); }
 }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
     background: var(--text-faint);
+}
+
+/* Soft palette dark-mode adjustments — deliberately NOT touching Add/Edit/
+   Delete/Start's colours (see --btn-* defaults in :root); they keep the same
+   light-fill/dark-text recipe as light mode in both themes. Only surface
+   tint/base tuning lives here. */
+[data-theme="dark"][data-palette="pastel"] {
+    /* Add/Edit/Delete/Start deliberately stay the SAME light-fill/dark-text
+       recipe as light mode here (no bg/text overrides) — they read as
+       recognisable CTA pills against the dark card rather than needing a
+       second parallel colour system to maintain. */
+
+    /* Card-on-card tiers (Well/Nested/Nav/Rail) inherit the same light-mode
+       tint percentages by default, which read as too saturated/harsh against
+       the very dark page+surface base — soften them specifically for dark
+       mode so nested cards (e.g. meeting cards) sit calmly on their parent
+       surface instead of jumping out. */
+    --bg-tint-page: 3%; --bg-tint-nav: 10%; --bg-tint-well: 3%; --bg-tint-nested: 5%; --bg-tint-rail: 14%;
+
+    /* Same blue-cast problem as light mode (see the light [data-palette="pastel"]
+       block) — the shared dark bases are distinctly navy. Swap for
+       near-neutral charcoal with only a faint warm cast (not literal brown),
+       so the warm tint overlay above reads as a hint of warmth rather than
+       muddying the surface. */
+    --bg-page-base: #161513; --bg-nav-base: #111010; --bg-surface-base: #1c1b19; --bg-surface-alt: #201f1c;
+    --bg-well-base: #1e1d1a; --bg-nested-base: #1e1d1a; --bg-rail-base: #0d0c0c;
 }
 
 /* Primary colour choices (dark theme) */
@@ -908,7 +1034,6 @@ main { position: relative; }
 .icon-tooltip-host::after {
     content: attr(data-tooltip);
     position: absolute;
-    left: calc(100% + 10px);
     top: 50%;
     transform: translateY(-50%) translateX(-6px) scale(0.95);
     padding: 6px 12px 6px 20px;
@@ -924,6 +1049,19 @@ main { position: relative; }
     z-index: 30;
     clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 8px 62%, 0 50%, 8px 38%);
     transition: opacity var(--transition-pop), transform var(--transition-pop);
+}
+/* The rail (8px inner padding) and the collapsed sidebar (12px container
+   padding) inset the icon row's own box by different amounts before this
+   tooltip's "100%" anchor. The tooltip's own visible rectangle starts 8px
+   into its box (the clip-path notch reserved for the caret, above) — each
+   offset below is chosen so that rectangle, not the caret tip, lands flush
+   with its own container's outer edge; the caret pokes out past the edge
+   into the gap toward the icon. */
+.hub-rail .icon-tooltip-host::after {
+    left: 100%;
+}
+.side-nav.collapsed .icon-tooltip-host::after {
+    left: calc(100% + 4px);
 }
 .hub-rail .icon-tooltip-host:hover::after,
 .hub-rail .icon-tooltip-host:focus-visible::after,
@@ -1277,6 +1415,54 @@ section {
     font-size: var(--font-base);
 }
 
+/* Inside the side-nav overlays (Search, staff switcher), match the
+   transparent-by-default / filled-on-interaction / icon-led pill shape of
+   the current-user nav-row button instead of the boxed input look above —
+   a leading icon (.app-search-icon, see layout.html) takes the place of the
+   button's left-aligned icon span, and the pill radius + reduced left
+   padding pick up where it leaves off. The homepage's own search bar
+   (.home-search-row, outside .side-nav) keeps the boxed style untouched. */
+.side-nav .app-search-input {
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: var(--radius-pill);
+    padding-left: 34px;
+    appearance: none;
+    -webkit-appearance: none;
+    box-shadow: none;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.side-nav .app-search-input:hover {
+    background: var(--bg-surface-alt);
+}
+.side-nav .app-search-input:focus-visible {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+/* .app-search-field wraps just the icon+input, separately from the results
+   list below (.app-search-results) — the icon anchors to this inner
+   wrapper's own height rather than the outer .app-search's, since the
+   outer one grows taller once results render and a 50%-of-.app-search
+   offset would otherwise drag the icon down into the results list. */
+.side-nav .app-search-field {
+    position: relative;
+}
+.side-nav .app-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+.side-nav .app-search-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
 .app-search-results {
     position: absolute;
     top: calc(100% + 6px);
@@ -1288,6 +1474,30 @@ section {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
+}
+
+/* Inside the side-nav Search overlay, the results shouldn't float as a
+   separate card over the panel (that reads as a floating dropdown widget) —
+   they should sit inline underneath the search field as a normal part of
+   the panel's own list, the same way the staff/school switcher lists do
+   (.staff-nav-option/.school-nav-option below). The homepage's hero search
+   (.home-search-row, outside .side-nav) keeps the floating-card look since
+   there it really is overlaying page content. */
+.side-nav .app-search-results {
+    position: static;
+    margin-top: 6px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+}
+.side-nav .app-search-result {
+    border-bottom: none;
+    border-radius: var(--radius-sm);
+}
+.side-nav .app-search-result:hover {
+    background: var(--bg-surface-alt);
 }
 
 .app-search-results.hidden { display: none; }
@@ -1564,9 +1774,45 @@ a { color: inherit; }
 .btn-edit:hover { background: var(--btn-edit-hover-bg); border-color: var(--btn-edit-hover-border); color: var(--btn-edit-hover-text); }
 .btn-delete { background: var(--btn-delete-bg); border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
 .btn-delete:hover { background: var(--btn-delete-hover-bg); border-color: var(--btn-delete-hover-border); color: var(--btn-delete-hover-text); }
-.btn-start { background: var(--primary); border-color: var(--primary); color: #fff; }
-.btn-start:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
+.btn-start { background: var(--btn-start-bg); border-color: var(--btn-start-border); color: var(--btn-start-text); }
+.btn-start:hover { background: var(--btn-start-hover-bg); border-color: var(--btn-start-hover-border); color: var(--btn-start-hover-text); }
 .btn-sm { padding: 6px 10px; font-size: var(--font-sm); }
+
+/* Secondary (less-prominent) variant of the Add/Edit/Delete/Start trio — for
+   actions that are valid but used far less often than the page's main flow
+   (e.g. "Remove" on an existing member, bulk Add All/Remove All). Drops the
+   solid fill for a quieter outline look, but still tints both text AND
+   border by function so it reads as add/remove/etc.
+   The resting colour is NOT --btn-*-text — that variable is calibrated for
+   white-on-saturated-fill (true for Vibrant/Greytone/Colourblind, and some
+   Pastel accent-conflict swaps), so reusing it here would put white text/
+   border on this button's near-white/near-page background. Instead it's
+   derived from each function's own --btn-*-bg blended toward --text-primary,
+   which is already guaranteed readable against --bg-surface in every theme
+   — so the result stays legible in light/dark and across every palette
+   without needing a whole parallel set of hand-picked colours. */
+.btn-secondary.btn-add,
+.btn-secondary.btn-edit,
+.btn-secondary.btn-delete,
+.btn-secondary.btn-start {
+    background: var(--bg-surface);
+}
+.btn-secondary.btn-add { --secondary-tone: color-mix(in srgb, var(--btn-add-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
+.btn-secondary.btn-edit { --secondary-tone: color-mix(in srgb, var(--btn-edit-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
+.btn-secondary.btn-delete { --secondary-tone: color-mix(in srgb, var(--btn-delete-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
+.btn-secondary.btn-start {
+    /* Start/CTA already uses a theme-invariant primary-pinned/white blend
+       (see --btn-start-bg above) rather than --bg-surface, so the secondary
+       look follows the same recipe at a lighter ratio instead of flipping
+       dark in dark mode like --bg-surface would. */
+    background: color-mix(in srgb, var(--primary-pinned) 8%, var(--bg-surface));
+    color: var(--primary-pinned);
+    border-color: var(--primary-pinned);
+}
+.btn-secondary.btn-add:hover { background: var(--btn-add-hover-bg); border-color: var(--btn-add-border); color: var(--btn-add-text); }
+.btn-secondary.btn-edit:hover { background: var(--btn-edit-hover-bg); border-color: var(--btn-edit-border); color: var(--btn-edit-text); }
+.btn-secondary.btn-delete:hover { background: var(--btn-delete-hover-bg); border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
+.btn-secondary.btn-start:hover { background: var(--btn-start-hover-bg); border-color: var(--btn-start-border); color: var(--btn-start-text); }
 
 /* Icon shown by default on Edit/Delete (and similar) buttons; add the
    `btn-no-icon` class to a button instance to suppress it. */
@@ -1575,7 +1821,8 @@ a { color: inherit; }
 .btn-no-icon .btn-icon { display: none; }
 .btn-disabled, .btn-disabled:hover,
 .btn:disabled, .btn:disabled:hover { opacity: 0.45; cursor: not-allowed; pointer-events: none; border-color: var(--border-color); color: var(--text-secondary); }
-.btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+.btn-row .btn { flex-shrink: 0; }
 .btn-row[hidden] { display: none; }
 
 /* Low-emphasis text-link action (e.g. "Escalate to MAT") — for actions that
@@ -1639,6 +1886,13 @@ a { color: inherit; }
     overflow-y: auto;
     border: none;
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.setup-col .entity-list {
+    background: none;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
 }
 
 .list-page-shell .stats-strip {
@@ -1810,6 +2064,19 @@ a { color: inherit; }
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
 
+/* Disabled selects (e.g. view-only referral modal): drop the chevron since
+   there's nothing to open, and borrow .field-readonly's dashed-border
+   "locked" language instead of looking like a normal editable dropdown. */
+.field-group select:disabled, .filter-field select:disabled {
+    background-image: none;
+    padding-right: 10px;
+    background-color: var(--bg-surface-alt);
+    color: var(--text-secondary);
+    border-style: dashed;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
 .field-group input:focus, .field-group select:focus,
 .filter-field input:focus, .filter-field select:focus {
     outline: 1px solid var(--border-strong);
@@ -1861,7 +2128,7 @@ select.ui-select-native, input.ui-select-native {
 }
 .ui-select-trigger {
     width: 100%;
-    text-align: left;
+    text-align: center;
     padding: 10px 34px 10px 12px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
@@ -1878,8 +2145,32 @@ select.ui-select-native, input.ui-select-native {
 [data-theme="dark"] .ui-select-trigger {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
+/* Chevron points up while the popover is open (static/js/main.js toggles this
+   class alongside showModal()/the dialog's `close` event) — same two SVGs as
+   above with the path flipped, since transforming the whole button would
+   also flip its text. */
+.ui-select-trigger.open {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] .ui-select-trigger.open {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
+}
 .ui-select-trigger:focus {
     border-color: var(--border-strong);
+}
+/* Disabled ui-select (e.g. view-only referral modal): the real <select> is
+   hidden off-screen by .ui-select-native, so disabled state has to be styled
+   on this trigger button instead — same dashed "locked" look as the plain
+   <select>:disabled rule above, with the chevron dropped since there's
+   nothing to open. */
+.ui-select-trigger:disabled {
+    background-image: none;
+    padding-right: 12px;
+    background-color: var(--bg-surface-alt);
+    color: var(--text-secondary);
+    border-style: dashed;
+    cursor: not-allowed;
+    opacity: 0.85;
 }
 
 /* Each popover is a <dialog> shown via showModal() (static/js/main.js), not a
@@ -1903,33 +2194,35 @@ dialog.ui-popover::backdrop { background: transparent; }
     box-shadow: var(--shadow-lg);
     max-height: 260px;
     overflow-y: auto;
-    padding: 6px;
+    overflow-x: hidden;
+    padding: 0;
 }
+.ui-popover .ui-option:first-child { border-top-left-radius: var(--radius-md); border-top-right-radius: var(--radius-md); }
+.ui-popover .ui-option:last-child { border-bottom-left-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md); }
 
+/* Flat rows separated by a divider line rather than each row having its own
+   rounded corners — the panel itself is the rounded container, so individual
+   options stay edge-to-edge full-width. */
 .ui-option {
     position: relative;
-    padding: 8px 28px 8px 10px;
-    border-radius: var(--radius-xs);
+    padding: 8px 12px;
+    text-align: center;
     font-size: var(--font-base);
     color: var(--text-primary);
     cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
 }
+.ui-option:last-child { border-bottom: none; }
 .ui-option:hover, .ui-option.highlighted { background: var(--row-hover-bg); }
-/* Selected is marked by a checkmark, not a background fill — so a hover
-   fill (on this row or an adjacent one) never has another fill to visually
-   touch, regardless of which rows happen to be next to each other. */
+/* Selected is marked by bold text only (no checkmark) — so a hover fill (on
+   this row or an adjacent one) never has anything to visually touch,
+   regardless of which rows happen to be next to each other. */
 .ui-option.selected {
     font-weight: 600;
     color: var(--text-primary);
 }
-.ui-option.selected::after {
-    content: '✓';
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--primary);
-}
+.ui-option.muted { color: var(--text-secondary); background: var(--bg-surface-alt); }
+.ui-option.muted:hover, .ui-option.muted.highlighted { background: var(--row-hover-bg); }
 
 .ui-calendar-header {
     display: flex;
@@ -2006,9 +2299,8 @@ dialog.ui-popover::backdrop { background: transparent; }
 }
 
 /* Time control: Hour/Minute mini-dropdowns mirroring Date's Day/Month/Year
-   pattern, plus a 24h/12h toggle-pill (same markup as the toggles already
-   used elsewhere, e.g. hubs/inclusion/templates/.../actions.html) and an
-   AM/PM mini-dropdown shown only in 12h mode. */
+   pattern, plus an AM/PM mini-dropdown shown only when the global "Time
+   format" Settings preference (data-time-format on <html>) is 12h. */
 .ui-time {
     display: flex;
     align-items: center;
@@ -2017,11 +2309,6 @@ dialog.ui-popover::backdrop { background: transparent; }
 }
 .ui-time-fields { display: flex; gap: 6px; flex: 1; }
 .ui-time-fields .ui-select--sm.ui-hidden { display: none; }
-.ui-time-toggle-label {
-    font-size: var(--font-2xs);
-    color: var(--text-secondary);
-    flex-shrink: 0;
-}
 
 /* Wraps a toggle-pill inside a .filter-field so its label lines up with
    sibling text-input/select labels, despite the pill being shorter than
@@ -2081,9 +2368,11 @@ dialog.ui-popover::backdrop { background: transparent; }
     overflow: hidden;
 }
 .entity-thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
+.entity-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .entity-body { flex: 1; min-width: 0; }
 .entity-title { font-weight: 600; font-size: var(--font-md); }
-.entity-meta { font-size: var(--font-sm); color: var(--text-secondary); }
+.entity-title-meta { font-weight: 400; font-size: var(--font-sm); color: var(--text-secondary); }
+.entity-meta { font-size: var(--font-sm); color: var(--text-secondary); margin-top: 4px; }
 
 /* Selectable cards/rows (Panel Meetings, Students, Panel Home, etc.)
    Ecosystem row standard — apply this everywhere a list/table row or card
@@ -2103,7 +2392,7 @@ dialog.ui-popover::backdrop { background: transparent; }
 .selectable:hover { background: var(--row-hover-bg); }
 .selectable:hover .entity-title { font-weight: 700; }
 .selectable:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.entity-row.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--primary); }
+.entity-row.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
 .entity-row.chosen .entity-title { font-weight: 700; }
 .entity-row.chosen:hover { background: var(--primary-light); }
 

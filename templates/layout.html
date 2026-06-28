@@ -15,6 +15,7 @@
                 root.setAttribute('data-color', root.getAttribute('data-school-color') || localStorage.getItem('pref-color') || 'purple');
                 root.setAttribute('data-palette', localStorage.getItem('pref-palette') || 'pastel');
                 root.setAttribute('data-text-size', localStorage.getItem('pref-text-size') || 'md');
+                root.setAttribute('data-time-format', localStorage.getItem('pref-time-format') || '24');
             } catch (e) { }
         })();
     </script>
@@ -23,8 +24,8 @@
             {{ portal_title }}
         {% endblock %}
     </title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=100">
-    <script src="{% static 'js/main.js' %}?v=45" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=106">
+    <script src="{% static 'js/main.js' %}?v=46" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -33,7 +34,7 @@
         <div class="global-nav">
         <nav class="side-nav hub-rail" aria-label="Hubs">
             <div class="hub-rail-inner">
-            <button type="button" class="hub-rail-item icon-tooltip-host nav-row-btn" data-overlay-target="#hubs-nav-overlay" data-tooltip="Hubs" aria-label="All hubs">{% include 'icons/switch_apps_svg.html' %}</button>
+            <a href="{% url 'homepage' %}" class="hub-rail-item icon-tooltip-host nav-row-btn" data-tooltip="LWLAT Portal" aria-label="LWLAT Portal">{% include 'icons/house_svg.html' %}</a>
             <div class="hub-rail-divider"></div>
             {% for item in hub_nav_items %}
             <a href="{{ item.url }}" class="hub-rail-item icon-tooltip-host {% if item.active %}active{% endif %}" data-tooltip="{{ item.label }}" aria-label="{{ item.label }}">{% include item.icon %}</a>
@@ -61,8 +62,11 @@
         <nav class="side-nav staff-nav overlay-nav" id="staff-nav-overlay" data-hub="staff">
             <div class="nav-header">
                 <div class="nav-title">Select User</div>
-                <div class="nav-search">
-                    <input type="text" class="app-search-input identity-search-input" placeholder="Search staff…" aria-label="Search staff">
+                <div class="nav-search app-search">
+                    <div class="app-search-field">
+                        <span class="app-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
+                        <input type="text" class="app-search-input identity-search-input" placeholder="Search staff…" aria-label="Search staff">
+                    </div>
                 </div>
             </div>
             <div class="nav-scroll">
@@ -80,7 +84,10 @@
             </div>
             <div class="nav-scroll">
                 <div class="app-search">
-                    <input type="text" class="app-search-input" id="rail-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
+                    <div class="app-search-field">
+                        <span class="app-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
+                        <input type="text" class="app-search-input" id="rail-app-search-input" placeholder="Search for an app…" autocomplete="off" aria-label="Search for an app">
+                    </div>
                     <div class="app-search-results hidden" id="rail-app-search-results" role="listbox"></div>
                 </div>
             </div>

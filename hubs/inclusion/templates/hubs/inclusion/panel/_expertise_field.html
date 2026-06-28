@@ -1,0 +1,23 @@
+{% comment %}
+Expertise <select> plus an inline "+" to add a new tag (AJAX, no navigation).
+Params: field_id (or field_id_suffix, appended to "member-expertise-" for
+uniqueness when several of these render on one page), expertise_list
+(school-filtered), selected_id, school_id (sent with the quick-add POST so
+the new tag is scoped to the right school).
+{% endcomment %}
+<div class="expertise-field-row">
+    <label for="{{ field_id|default:'member-expertise-' }}{{ field_id_suffix }}">Expertise</label>
+    <div class="expertise-field-inline">
+        <select id="{{ field_id|default:'member-expertise-' }}{{ field_id_suffix }}" name="expertise" data-expertise-select data-expertise-school-id="{{ school_id|default:'' }}">
+            <option value="">No expertise tag</option>
+            {% for e in expertise_list %}
+            <option value="{{ e.id }}" {% if e.id == selected_id %}selected{% endif %}>{{ e.name }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" class="btn btn-add btn-icon-only" data-expertise-add-toggle aria-label="Add expertise tag">+</button>
+    </div>
+    <div class="expertise-field-add" data-expertise-add-panel hidden>
+        <input type="text" data-expertise-add-input placeholder="New tag name">
+        <button type="button" class="btn btn-add btn-sm" data-expertise-add-save>Add</button>
+    </div>
+</div>

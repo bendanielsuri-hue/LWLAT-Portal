@@ -22,11 +22,13 @@ from .models import (
     ActionCategory,
     Escalation,
     Expertise,
+    ExternalContact,
     Panel,
     PanelGroup,
     PanelGroupMember,
     PanelMember,
     PanelReferral,
+    PanelReferralNote,
     Referral,
     ReferralCategory,
     ReferralQuestion,
@@ -116,16 +118,9 @@ def _due_followups(panel):
 
 
 def _primary_concern_category(referral):
-    # A referral has no category field of its own — categories live on the
-    # questions its responses answer. Treat the first one encountered, in
-    # category order, as the referral's "primary concern category".
-    responses = sorted(
-        referral.responses.all(),
-        key=lambda r: (r.question.category.order if r.question.category_id else 9999, r.question.order),
-    )
-    for response in responses:
-        if response.question.category_id:
-            return response.question.category.name
+    for response in referral.responses.all():
+        if response.question.label == 'Main Concern Category' and response.answer:
+            return response.answer
     return None
 
 
@@ -293,7 +288,7 @@ def inclusion_panel_home(request):
     my_referrals = list(
         Referral.objects.filter(status='open', raised_by=current_staff)
         .select_related('student')
-        .prefetch_related('panel_referrals', 'actions')
+        .prefetch_related('panel_referrals', 'actions', 'responses__question')
     ) if current_staff is not None else []
     for referral in my_referrals:
         referral.discussed_pr = next(
@@ -302,6 +297,7 @@ def inclusion_panel_home(request):
         referral.actions_count = len(referral.actions.all())
         referral.is_unassigned = _is_referral_unassigned(referral)
         referral.can_delete = referral.is_unassigned
+        referral.concern_category = _primary_concern_category(referral)
     referrals_discussed_count = sum(1 for r in my_referrals if r.discussed_pr)
     referrals_awaiting_count = len(my_referrals) - referrals_discussed_count
 
@@ -392,6 +388,7 @@ def inclusion_panel_referrals(request):
         referral.can_delete = (
             referral.is_unassigned and current_staff is not None and referral.raised_by_id == current_staff.id
         )
+        referral.concern_category = _primary_concern_category(referral)
     return render(request, 'hubs/inclusion/panel/referrals.html', {
         **PANEL_BASE_CONTEXT,
         'referrals': referrals,
@@ -429,10 +426,16 @@ def inclusion_panel_referral_new(request):
 
 def inclusion_panel_referral_edit(request, referral_id):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-    referral = get_object_or_404(Referral.objects.select_related('student'), pk=referral_id)
+    referral = get_object_or_404(Referral.objects.select_related('student', 'raised_by'), pk=referral_id)
+    current_staff = _current_staff(request)
+    is_view_only = current_staff is None or referral.raised_by_id != current_staff.id
     question_groups = _grouped_questions()
 
     if request.method == 'POST':
+        if is_view_only:
+            if is_ajax:
+                return JsonResponse({'success': False}, status=403)
+            return redirect(_safe_next(request, '/inclusion/panel/'))
         for group in question_groups:
             for question in group['questions']:
                 answer = request.POST.get(f'question_{question.id}', '')
@@ -451,6 +454,7 @@ def inclusion_panel_referral_edit(request, referral_id):
     return render(request, 'hubs/inclusion/panel/_referral_form_modal.html', {
         **PANEL_BASE_CONTEXT,
         'is_edit': True,
+        'is_view_only': is_view_only,
         'referral': referral,
         'selected_student': referral.student,
         'question_groups': question_groups,
@@ -659,36 +663,43 @@ def inclusion_panel_group_settings(request):
             PanelGroup.objects.filter(pk=request.POST.get('group_id')).update(is_active=False)
         elif action == 'add_group_member':
             group_id = request.POST.get('group_id')
-            staff_id = request.POST.get('staff')
-            guest_name = request.POST.get('guest_name', '').strip()
+            staff_id = request.POST.get('staff') or None
+            external_contact_id = request.POST.get('external_contact') or None
             expertise_id = request.POST.get('expertise') or None
             if group_id and staff_id:
                 PanelGroupMember.objects.update_or_create(
                     panel_group_id=group_id, staff_id=staff_id,
-                    defaults={'expertise_id': expertise_id},
+                    defaults={'expertise_id': expertise_id, 'external_contact_id': None},
                 )
-            elif group_id and guest_name:
-                PanelGroupMember.objects.create(
-                    panel_group_id=group_id, guest_name=guest_name, expertise_id=expertise_id,
+            elif group_id and external_contact_id:
+                PanelGroupMember.objects.update_or_create(
+                    panel_group_id=group_id, external_contact_id=external_contact_id,
+                    defaults={'expertise_id': expertise_id},
                 )
         elif action == 'remove_group_member':
             PanelGroupMember.objects.filter(pk=request.POST.get('member_id')).delete()
         return redirect('inclusion_panel_group_settings')
 
     groups = list(
-        PanelGroup.objects.filter(is_active=True).prefetch_related('members__staff', 'members__expertise')
+        PanelGroup.objects.filter(is_active=True).select_related('school').prefetch_related(
+            'members__staff', 'members__external_contact', 'members__expertise'
+        )
     )
     for group in groups:
         def member_sort_key(m):
-            return (m.staff.last_name, m.staff.first_name) if m.staff_id else (m.guest_name, '')
+            return (m.staff.last_name, m.staff.first_name) if m.staff_id else (str(m.external_contact or ''), '')
         members = sorted(group.members.all(), key=member_sort_key)
         members.sort(key=lambda m: m.staff_id != group.default_chair_id)
         group.sorted_members = members
+        group.available_expertise = Expertise.objects.visible_for_school(group.school_id)
+        group.existing_staff_ids = {m.staff_id for m in members if m.staff_id}
+        group.existing_external_ids = {m.external_contact_id for m in members if m.external_contact_id}
 
     return render(request, 'hubs/inclusion/panel/panel_group_settings.html', {
         **PANEL_BASE_CONTEXT,
         'groups': groups,
-        'staff_list': Staff.objects.filter(is_active=True),
+        'staff_list': Staff.objects.filter(is_active=True).select_related('school'),
+        'external_contacts': ExternalContact.objects.filter(is_active=True),
         'expertise_list': Expertise.objects.filter(is_active=True),
     })
 
@@ -738,7 +749,33 @@ def inclusion_panel_expertise_settings(request):
 
     return render(request, 'hubs/inclusion/panel/expertise_settings.html', {
         **PANEL_BASE_CONTEXT,
-        'expertise_list': Expertise.objects.filter(is_active=True),
+        'expertise_list': Expertise.objects.filter(is_active=True).select_related('school'),
+    })
+
+
+def inclusion_panel_expertise_quick_add(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False}, status=405)
+    name = request.POST.get('name', '').strip()
+    school_id = request.POST.get('school_id') or None
+    if not name:
+        return JsonResponse({'success': False})
+    next_order = (Expertise.objects.aggregate(Max('order'))['order__max'] or 0) + 1
+    expertise = Expertise.objects.create(name=name, order=next_order, school_id=school_id)
+    return JsonResponse({'success': True, 'expertise': {'id': expertise.id, 'name': expertise.name}})
+
+
+def inclusion_panel_external_contact_quick_add(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False}, status=405)
+    name = request.POST.get('name', '').strip()
+    job_title = request.POST.get('job_title', '').strip()
+    if not name:
+        return JsonResponse({'success': False})
+    contact = ExternalContact.objects.create(name=name, job_title=job_title)
+    return JsonResponse({
+        'success': True,
+        'contact': {'id': contact.id, 'name': contact.name, 'job_title': contact.job_title},
     })
 
 
@@ -805,8 +842,12 @@ def inclusion_panel_meeting_new(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if request.method == 'POST':
+        date = request.POST.get('date')
+        parsed_date = datetime.date.fromisoformat(date) if date else timezone.localdate()
+        if parsed_date < timezone.localdate():
+            parsed_date = timezone.localdate()
         panel = Panel.objects.create(
-            date=request.POST.get('date') or timezone.localdate(),
+            date=parsed_date,
             time=request.POST.get('time') or None,
             panel_group_id=request.POST.get('panel_group') or None,
         )
@@ -846,10 +887,22 @@ def inclusion_panel_meeting_delete(request, panel_id):
 def inclusion_panel_meeting_setup(request, panel_id):
     panel = get_object_or_404(Panel, pk=panel_id)
 
+    unassigned_referrals = Referral.objects.select_related('student', 'raised_by').exclude(
+        pk__in=PanelReferral.objects.filter(removed_at__isnull=True).values_list('referral_id', flat=True)
+    ).prefetch_related('responses__question__category')
+
+    agenda = panel.panel_referrals.filter(removed_at__isnull=True).select_related(
+        'referral__student', 'referral__raised_by'
+    ).prefetch_related('referral__responses__question__category')
+
     if request.method == 'POST':
         action = request.POST.get('form_action')
         if action == 'update_details':
-            panel.date = request.POST.get('date') or panel.date
+            new_date = request.POST.get('date')
+            if new_date:
+                parsed_date = datetime.date.fromisoformat(new_date)
+                if parsed_date >= timezone.localdate():
+                    panel.date = parsed_date
             panel.time = request.POST.get('time') or None
             panel.chair_id = request.POST.get('chair') or None
             panel.panel_group_id = request.POST.get('panel_group') or None
@@ -860,15 +913,29 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 return JsonResponse({'success': True})
         elif action == 'add_member':
             staff_id = request.POST.get('staff') or None
-            guest_name = request.POST.get('guest_name', '').strip()
+            external_contact_id = request.POST.get('external_contact') or None
             expertise_id = request.POST.get('expertise') or None
             if staff_id:
                 PanelMember.objects.update_or_create(
                     panel=panel, staff_id=staff_id,
+                    defaults={'expertise_id': expertise_id, 'external_contact_id': None},
+                )
+            elif external_contact_id:
+                PanelMember.objects.update_or_create(
+                    panel=panel, external_contact_id=external_contact_id,
                     defaults={'expertise_id': expertise_id},
                 )
-            elif guest_name:
-                PanelMember.objects.create(panel=panel, guest_name=guest_name, expertise_id=expertise_id)
+        elif action == 'toggle_member_active':
+            pm = get_object_or_404(PanelMember, pk=request.POST.get('member_id'), panel=panel)
+            pm.is_active = not pm.is_active
+            pm.save()
+            if not pm.is_active and pm.staff_id and panel.chair_id == pm.staff_id:
+                panel.chair = None
+                panel.save()
+        elif action == 'update_member_expertise':
+            pm = get_object_or_404(PanelMember, pk=request.POST.get('member_id'), panel=panel)
+            pm.expertise_id = request.POST.get('expertise') or None
+            pm.save()
         elif action == 'add_referral':
             referral_id = request.POST.get('referral_id')
             if referral_id:
@@ -882,6 +949,15 @@ def inclusion_panel_meeting_setup(request, panel_id):
             pr.removed_at = timezone.now()
             pr.removed_by_id = request.POST.get('removed_by') or None
             pr.save()
+        elif action == 'add_all_referrals':
+            for referral_id in unassigned_referrals.values_list('id', flat=True):
+                pr, created = PanelReferral.objects.get_or_create(panel=panel, referral_id=referral_id)
+                if not created and pr.removed_at is not None:
+                    pr.removed_at = None
+                    pr.removed_by = None
+                    pr.save()
+        elif action == 'remove_all_referrals':
+            agenda.update(removed_at=timezone.now(), removed_by_id=request.POST.get('removed_by') or None)
         elif action == 'update_priority':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             if request.POST.get('priority') in dict(PanelReferral.PRIORITY_CHOICES):
@@ -889,27 +965,45 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 pr.save()
         return redirect('inclusion_panel_meeting_setup', panel_id=panel.id)
 
-    unassigned_referrals = Referral.objects.select_related('student').exclude(
-        pk__in=PanelReferral.objects.filter(removed_at__isnull=True).values_list('referral_id', flat=True)
-    ).prefetch_related('responses__question__category')
-
-    agenda = panel.panel_referrals.filter(removed_at__isnull=True).select_related(
-        'referral__student'
-    ).prefetch_related('referral__responses__question__category')
-
     for referral in unassigned_referrals:
         referral.primary_concern_category = _primary_concern_category(referral)
     for pr in agenda:
         pr.primary_concern_category = _primary_concern_category(pr.referral)
 
+    group_joined_at_by_staff = {}
+    if panel.panel_group_id:
+        group_joined_at_by_staff = {
+            gm.staff_id: gm.joined_at
+            for gm in PanelGroupMember.objects.filter(panel_group_id=panel.panel_group_id, staff_id__isnull=False)
+        }
+
+    members = list(
+        panel.members.select_related('staff__school', 'external_contact', 'expertise')
+        .order_by('staff__last_name', 'external_contact__name')
+    )
+    for member in members:
+        if member.staff_id:
+            member.member_type = 'MAT' if member.staff.is_mat_staff else 'School'
+            member.joined_at = group_joined_at_by_staff.get(member.staff_id)
+        else:
+            member.member_type = 'External'
+            member.joined_at = None
+    active_members = [m for m in members if m.is_active]
+    inactive_members = [m for m in members if not m.is_active]
+
     return render(request, 'hubs/inclusion/panel/meeting_setup.html', {
         **PANEL_BASE_CONTEXT,
         'panel': panel,
         'staff_list': Staff.objects.filter(is_active=True).select_related('school'),
-        'schools': School.objects.filter(is_active=True),
         'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school'),
-        'expertise_list': Expertise.objects.filter(is_active=True),
-        'members': panel.members.select_related('staff', 'expertise'),
+        'expertise_list': Expertise.objects.visible_for_school(
+            panel.panel_group.school_id if panel.panel_group_id else None
+        ),
+        'external_contacts': ExternalContact.objects.filter(is_active=True),
+        'existing_staff_ids': {m.staff_id for m in active_members if m.staff_id},
+        'existing_external_ids': {m.external_contact_id for m in active_members if m.external_contact_id},
+        'active_members': active_members,
+        'inactive_members': inactive_members,
         'unassigned_referrals': unassigned_referrals,
         'agenda': agenda,
         'priority_choices': PanelReferral.PRIORITY_CHOICES,
@@ -922,10 +1016,23 @@ def inclusion_panel_meeting_agenda(request, panel_id):
 
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action == 'update_attendance':
-            for member in panel.members.all():
-                member.attended = f'attended_{member.id}' in request.POST
-                member.save()
+        if action == 'start_meeting':
+            if panel.started_at is None:
+                now = timezone.now()
+                panel.started_at = now
+                panel.date = timezone.localdate(now)
+                panel.time = timezone.localtime(now).time()
+                panel.save()
+        elif action == 'check_in':
+            member = get_object_or_404(PanelMember, pk=request.POST.get('member_id'), panel=panel)
+            member.checked_in_at = timezone.now()
+            member.left_at = None
+            member.attended = True
+            member.save()
+        elif action == 'mark_left':
+            member = get_object_or_404(PanelMember, pk=request.POST.get('member_id'), panel=panel)
+            member.left_at = timezone.now()
+            member.save()
         elif action == 'unassign_referral':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             pr.removed_at = timezone.now()
@@ -966,10 +1073,23 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         key=lambda pr: priority_order.get(pr.priority, 1),
     )
     discussed = [pr for pr in panel_referrals if pr.discussion_status == 'discussed']
+    for pr in discussed:
+        if pr.duration:
+            total_seconds = int(pr.duration.total_seconds())
+            h, rem = divmod(total_seconds, 3600)
+            m, s = divmod(rem, 60)
+            pr.duration_display = f'{h}:{m:02d}:{s:02d}'
+        else:
+            pr.duration_display = '—'
     total = len(pending) + len(discussed)
     progress_pct = round(len(discussed) / total * 100) if total else 0
 
     followups_due = _due_followups(panel).exclude(referral__student_id__in=student_ids)
+
+    scheduled_at = timezone.make_aware(
+        datetime.datetime.combine(panel.date, panel.time or datetime.time.min)
+    )
+    show_schedule_warning = panel.started_at is None and timezone.now() < scheduled_at
 
     return render(request, 'hubs/inclusion/panel/meeting_agenda.html', {
         **PANEL_BASE_CONTEXT,
@@ -981,14 +1101,16 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'staff_list': Staff.objects.filter(is_active=True),
         'followups_due': followups_due,
         'just_started': request.GET.get('just_started') == '1',
-        'not_today': request.GET.get('not_today') == '1',
+        'scheduled_at': scheduled_at,
+        'show_schedule_warning': show_schedule_warning,
         'today': today,
     })
 
 
 def inclusion_panel_discussion(request, panel_referral_id):
     panel_referral = get_object_or_404(
-        PanelReferral.objects.select_related('referral__student', 'panel'), pk=panel_referral_id
+        PanelReferral.objects.select_related('referral__student', 'referral__raised_by', 'panel'),
+        pk=panel_referral_id,
     )
     referral = panel_referral.referral
 
@@ -1001,10 +1123,18 @@ def inclusion_panel_discussion(request, panel_referral_id):
             if panel_referral.discussion_started_at:
                 panel_referral.duration = timezone.now() - panel_referral.discussion_started_at
             panel_referral.discussion_status = 'discussed'
-            panel_referral.notes = request.POST.get('notes', panel_referral.notes)
             panel_referral.follow_up_date = request.POST.get('follow_up_date') or None
             panel_referral.follow_up_status = request.POST.get('follow_up_status', '')
             panel_referral.save()
+            return redirect('inclusion_panel_meeting_agenda', panel_id=panel_referral.panel_id)
+        elif action == 'add_panel_note':
+            body = request.POST.get('body', '').strip()
+            if body:
+                PanelReferralNote.objects.create(
+                    panel_referral=panel_referral,
+                    author_id=request.POST.get('author') or None,
+                    body=body,
+                )
         elif action == 'add_note' and is_panel_staff:
             body = request.POST.get('body', '').strip()
             if body:
@@ -1044,10 +1174,11 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'previous_referrals': previous_referrals,
         'actions': actions,
         'is_panel_staff': is_panel_staff,
+        'panel_notes': panel_referral.notes.select_related('author'),
+        'staff_list': Staff.objects.filter(is_active=True),
     }
     if is_panel_staff:
         context['notes'] = referral.student.notes.select_related('author')
-        context['staff_list'] = Staff.objects.filter(is_active=True)
 
     return render(request, 'hubs/inclusion/panel/discussion.html', context)
 
@@ -1093,16 +1224,24 @@ def inclusion_panel_action_edit(request, action_id):
 def _response_groups(referral):
     # Built from the referral's actual saved responses (not the live active-question
     # list), so historic answers still display correctly even if a question was later
-    # deactivated.
-    groups = {}
-    order = []
-    for response in referral.responses.select_related('question__category').order_by(
-        'question__category__order', 'question__order'
-    ):
+    # deactivated. Categories are walked in the same order as _grouped_questions()
+    # (the New Referral modal) — categorised groups first, the flat/no-category
+    # group last — so this screen's field order always matches the modal's, rather
+    # than the SQL default of NULL-category sorting first.
+    responses_by_category = {}
+    flat_rows = []
+    for response in referral.responses.select_related('question__category').order_by('question__order'):
         category = response.question.category
-        key = category.id if category else None
-        if key not in groups:
-            groups[key] = {'category': category, 'rows': []}
-            order.append(key)
-        groups[key]['rows'].append({'question': response.question, 'answer': response.answer})
-    return [groups[cid] for cid in order]
+        row = {'question': response.question, 'answer': response.answer}
+        if category is None:
+            flat_rows.append(row)
+        else:
+            responses_by_category.setdefault(category.id, {'category': category, 'rows': []})['rows'].append(row)
+
+    groups = []
+    for category in ReferralCategory.objects.filter(is_active=True):
+        if category.id in responses_by_category:
+            groups.append(responses_by_category[category.id])
+    if flat_rows:
+        groups.append({'category': None, 'rows': flat_rows})
+    return groups

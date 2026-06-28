@@ -4,7 +4,7 @@
 {% block title %}Panel Groups{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=13">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=28">
 {% endblock %}
 
 
@@ -49,7 +49,7 @@
         <h3>Default Roster</h3>
         {% for member in group.sorted_members %}
         <div class="settings-row">
-            <span>{{ member.staff|default:member.guest_name }}{% if member.expertise %} — {{ member.expertise.name }}{% endif %}</span>
+            <span>{{ member.staff|default:member.external_contact }}{% if member.expertise %} — {{ member.expertise.name }}{% endif %}</span>
             <form method="post" style="display:inline">
                 {% csrf_token %}
                 <input type="hidden" name="form_action" value="remove_group_member">
@@ -64,28 +64,14 @@
             {% csrf_token %}
             <input type="hidden" name="form_action" value="add_group_member">
             <input type="hidden" name="group_id" value="{{ group.id }}">
-            <label>Member type</label>
-            <select data-member-type-toggle>
-                <option value="staff">Staff</option>
-                <option value="guest">Guest</option>
-            </select>
-            <label data-member-type-field="staff">Staff</label>
-            <select name="staff" data-member-type-field="staff" required>
-                <option value="">Select staff…</option>
-                {% for staff in staff_list %}
-                <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-                {% endfor %}
-            </select>
-            <label data-member-type-field="guest" hidden>Guest name</label>
-            <input type="text" name="guest_name" placeholder="e.g. Educational Psychologist" data-member-type-field="guest" hidden>
-            <label>Expertise</label>
-            <select name="expertise">
-                <option value="">No expertise tag</option>
-                {% for e in expertise_list %}
-                <option value="{{ e.id }}">{{ e.name }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add to Roster</button>
+
+            {% include 'hubs/inclusion/panel/_member_picker.html' with school=group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=group.existing_staff_ids existing_external_ids=group.existing_external_ids already_member_label='Already in Roster' %}
+
+            <div data-expertise-wrapper hidden>
+                {% include 'hubs/inclusion/panel/_expertise_field.html' with field_id_suffix=group.id expertise_list=group.available_expertise school_id=group.school_id %}
+            </div>
+
+            <button type="submit" class="btn btn-add btn-sm" data-add-member-save disabled>{% include 'icons/new_svg.html' %} Add to Roster</button>
         </form>
 
         <form method="post" style="margin-top:10px">
@@ -108,16 +94,13 @@ document.addEventListener('panel-group:created', function () {
     window.location.reload();
 });
 document.querySelectorAll('[data-add-member-form]').forEach(function (form) {
-    var toggle = form.querySelector('[data-member-type-toggle]');
-    toggle.addEventListener('change', function () {
-        var mode = toggle.value;
-        form.querySelectorAll('[data-member-type-field="staff"]').forEach(function (el) {
-            el.hidden = mode !== 'staff';
-            if (el.tagName === 'SELECT') el.required = mode === 'staff';
-        });
-        form.querySelectorAll('[data-member-type-field="guest"]').forEach(function (el) {
-            el.hidden = mode !== 'guest';
-        });
+    var pickerRoot = form.querySelector('[data-member-picker-root]');
+    var saveBtn = form.querySelector('[data-add-member-save]');
+    var expertiseWrapper = form.querySelector('[data-expertise-wrapper]');
+    if (!pickerRoot || !saveBtn) return;
+    pickerRoot.addEventListener('member-picker:change', function (e) {
+        saveBtn.disabled = !e.detail.id;
+        if (expertiseWrapper) expertiseWrapper.hidden = !e.detail.id;
     });
 });
 </script>

@@ -118,7 +118,7 @@
    both spanning the full card width via the negative margin above. */
 .panel-list li:hover { background: var(--row-hover-bg); }
 .panel-list li:hover .panel-item-title { font-weight: 700; }
-.panel-list li.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--primary); }
+.panel-list li.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
 .panel-list li.chosen .panel-item-title { font-weight: 700; }
 .panel-list li.chosen:hover { background: var(--primary-light); }
 .panel-list li.empty-note:hover { background: transparent; }
@@ -192,6 +192,7 @@
     width: 100%;
 }
 
+.status-pill.danger { background: var(--danger-bg); color: var(--danger); }
 .status-pill.open { background: var(--warning-bg); color: var(--warning); }
 .status-pill.upcoming { background: var(--warning-bg); color: var(--warning); }
 .status-pill.in_panel { background: var(--primary-light); color: var(--primary); }
@@ -215,10 +216,10 @@
 }
 .meeting-card h3 { font-size: var(--font-lg); margin-bottom: 4px; }
 .meeting-card h3 .school-nav-logo { vertical-align: -3px; margin-right: 2px; }
-.meeting-card:hover { border-color: var(--primary); }
+.meeting-card:hover { border-color: var(--accent-border); background: var(--meeting-card-hover-bg); }
 .meeting-card:hover h3 { font-weight: 700; }
 .meeting-card .chair { font-size: var(--font-sm); color: var(--text-secondary); }
-.meeting-card.chosen { border-color: var(--primary); box-shadow: var(--shadow-sm), 0 0 0 2px var(--primary-light); }
+.meeting-card.chosen { border-color: var(--accent-border); box-shadow: var(--shadow-sm), 0 0 0 2px var(--primary-light); }
 
 /* Panel Meetings' own action card: at-a-glance stats + "Create New Panel",
    sitting as its own bordered card above the tab-row/meeting-list card
@@ -292,6 +293,42 @@
 }
 .setup-col h2, .discussion-col h2 { font-size: var(--font-xl); margin-bottom: 16px; }
 .setup-col h2 { text-align: center; }
+
+/* Heading sits in the true centre column regardless of the button's width
+   (a flex justify-content: space-between/center would instead drift the
+   heading toward whichever side is empty when there's only one button). */
+.setup-col-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.setup-divider { border: none; border-top: 1px solid var(--border-color); margin: 16px 0; }
+.setup-col-header h2 { margin-bottom: 0; text-align: center; grid-column: 2; }
+.setup-col-header h3 { margin-bottom: 0; text-align: left; grid-column: 1; justify-self: start; font-size: var(--font-lg); font-weight: 600; }
+.setup-col-header > .btn,
+.setup-col-header > form { grid-column: 3; justify-self: end; }
+
+/* Column heading stays visible while that column's own list scrolls past
+   beneath it — top offset is set inline by setupStickyColumnHeaders() in
+   static/js/main.js (same technique as .page-header's own sticky offset),
+   so it sticks just under the global page header rather than at the very
+   top of the page's scroll area. */
+.setup-col-header[data-sticky-under-header] {
+    position: sticky;
+    z-index: 1;
+    background: var(--bg-surface);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+
+.panel-details-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.panel-details-row > div { flex: 1; min-width: 0; }
+/* Date and Time each stack on their own line rather than sharing a row -
+   simplest layout, no special-casing of the shared date/time dropdown
+   widget's default look. */
+.panel-details-datetime { flex-direction: column; }
 
 /* Referral Selection tabs + picker */
 .tab-row { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); margin-bottom: 14px; margin-left: -16px; }
@@ -379,14 +416,6 @@
 
 /* Panel Agenda page */
 .agenda-section { margin-bottom: 28px; }
-.agenda-section-header {
-    font-weight: 600;
-    font-size: var(--font-md);
-    background: var(--bg-surface-alt);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
-    padding: 10px 16px;
-}
 .agenda-table {
     width: 100%;
     border-collapse: collapse;
@@ -412,7 +441,7 @@
    covers both the plain-text rows here and the .student-cell rows alike. */
 .agenda-table tbody tr { transition: background var(--transition-fast), box-shadow var(--transition-fast); }
 .agenda-table tbody tr:hover { background: var(--row-hover-bg); }
-.agenda-table tbody tr.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--primary); }
+.agenda-table tbody tr.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
 .agenda-table tbody tr.chosen td:first-child { font-weight: 700; }
 .agenda-table tbody tr.chosen:hover { background: var(--primary-light); }
 .agenda-table .empty-row:hover { background: transparent; }
@@ -420,6 +449,7 @@
 .agenda-table .empty-row td { color: var(--text-muted); text-align: center; padding: 20px; }
 
 .status-pill { font-size: var(--font-xs); font-weight: 600; padding: 4px 10px; border-radius: var(--radius-pill); background: var(--badge-bg); color: var(--text-secondary); display: inline-block; }
+.status-pill[hidden] { display: none; }
 
 .escalation-resolve-form { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
 .escalation-resolve-form textarea { flex: 1; min-height: 38px; }
@@ -430,6 +460,7 @@
 .status-pill.complete { background: var(--success-bg); color: var(--success); }
 .status-pill.incomplete { background: var(--warning-bg); color: var(--warning); }
 .status-pill.not_needed { background: var(--badge-bg); color: var(--text-secondary); }
+.status-pill.concern { background: var(--badge-bg); color: var(--text-secondary); }
 
 /* Read-only vs editable fields (Discussion page) */
 .field-readonly {
@@ -463,9 +494,7 @@
     margin-left: 8px;
 }
 
-.agenda-footer {
-    position: sticky;
-    bottom: 16px;
+.panel-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -473,28 +502,69 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: 14px 20px;
-    margin-top: 20px;
+    margin-bottom: 20px;
     gap: 16px;
     flex-wrap: wrap;
     box-shadow: var(--shadow-lg);
 }
-.agenda-stats { display: flex; gap: 24px; font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; }
+.panel-toolbar-stats { display: flex; gap: 24px; font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; align-items: center; }
 
 /* Panel Discussion page */
-.discussion-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 16px; }
-.discussion-header-main { display: flex; align-items: flex-start; gap: 16px; }
-.discussion-timer { font-size: var(--font-base); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.discussion-timer { font-size: var(--font-2xl); font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
-/* Panel Agenda: two-column pending/discussed layout, attendance, priority */
-.agenda-columns { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
-.agenda-columns .agenda-section { flex: 1 1 420px; min-width: 320px; margin-bottom: 0; }
-.agenda-banner { padding: 12px 16px; border-radius: var(--radius-md); background: var(--warning-bg); color: var(--warning); font-size: var(--font-base); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.attendance-card, .followups-card { border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 20px; background: var(--bg-surface); }
-.attendance-card h2, .followups-card h2 { font-size: var(--font-md); margin-bottom: 12px; }
-.attendance-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-.attendance-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.priority-select { font-size: var(--font-sm); padding: 4px 8px; border-radius: var(--radius-xs); border: 1px solid var(--border-color); background: var(--bg-surface); }
+.discussion-profile-header { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+.discussion-profile-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.detail-grid-span { grid-column: 1 / -1; }
+.detail-stat-card { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 10px; background: var(--bg-surface-alt); }
+.detail-stat-card summary { font-weight: 600; cursor: pointer; }
+.detail-stat-card .field-readonly { margin-top: 8px; }
+.detail-stat-card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.panel-notes-details { margin-top: 8px; }
+.panel-notes-details summary { margin-bottom: 8px; }
+
+/* Panel Agenda: members register + pending/discussed, all equal-width columns */
+.agenda-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; align-items: start; }
+.agenda-layout .agenda-section { min-width: 0; margin-bottom: 0; }
+.agenda-layout .members-register-col { min-width: 0; }
+.entity-body > .btn-row { margin-top: 8px; }
+.member-attendance-form { margin-top: 6px; display: flex; align-items: center; gap: 8px; }
+.toggle-label { font-size: var(--font-xs); color: var(--text-secondary); font-weight: 600; }
+.followups-card { border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 20px; background: var(--bg-surface); }
+.followups-card h2 { font-size: var(--font-md); margin-bottom: 12px; }
+.priority-form { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.priority-label { font-size: var(--font-xs); color: var(--text-secondary); font-weight: 600; }
+.priority-chips { display: flex; gap: 4px; }
+.priority-chip { font-size: var(--font-xs); font-weight: 600; padding: 4px 10px; border-radius: var(--radius-pill, 999px); border: 1px solid var(--border-color); background-color: var(--bg-surface); color: var(--text-secondary); cursor: pointer; transition: transform 0.1s ease; }
+.priority-chip:hover { transform: translateY(-1px); }
+.priority-chip.priority-high { border-color: var(--priority-high-border); color: var(--priority-high-text); }
+.priority-chip.priority-medium { border-color: var(--priority-medium-border); color: var(--priority-medium-text); }
+.priority-chip.priority-low { border-color: var(--priority-low-border); color: var(--priority-low-text); }
+.priority-chip.priority-high.active { background-color: var(--priority-high-bg); border-color: var(--priority-high-border); color: var(--priority-high-text); box-shadow: inset 0 0 0 1px var(--priority-high-border); }
+.priority-chip.priority-medium.active { background-color: var(--priority-medium-bg); border-color: var(--priority-medium-border); color: var(--priority-medium-text); box-shadow: inset 0 0 0 1px var(--priority-medium-border); }
+.priority-chip.priority-low.active { background-color: var(--priority-low-bg); border-color: var(--priority-low-border); color: var(--priority-low-text); box-shadow: inset 0 0 0 1px var(--priority-low-border); }
+/* Panel Members/Agenda rows keep dropdowns and Priority chips in the body
+   (with the rest of the row's details) and only action buttons (Details,
+   Add/Remove, Deactivate/Reactivate) in .btn-row, so the button area stays
+   narrow and isn't stretched to match a dropdown/chip-row's width. */
+.setup-col .entity-row { flex-wrap: wrap; align-items: flex-start; padding-left: 0; padding-right: 0; }
+.setup-col .entity-body { min-width: 140px; }
+.setup-col .btn-row { margin-left: auto; }
+.setup-col .priority-form { width: max-content; }
+.btn-row-stacked { flex-direction: column; align-items: stretch; gap: 8px; }
+.btn-row-stacked form { width: 100%; }
+.btn-row-stacked .btn { width: 100%; justify-content: center; }
 .priority-badge { font-size: var(--font-2xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; padding: 3px 8px; border-radius: var(--radius-xs); }
+
+.status-pill.type-chair { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+.status-pill.type-mat { background: var(--primary-light); color: var(--primary); }
+.status-pill.type-school { background: var(--badge-bg); color: var(--text-secondary); }
+.status-pill.type-external { background: var(--warning-bg); color: var(--warning); }
+.member-list-divider { font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: 12px 0 8px; }
+.entity-meta.member-expertise-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.member-expertise-form { display: inline-flex; }
+.member-expertise-form select { font-size: var(--font-sm); padding: 4px 8px; border-radius: var(--radius-xs); }
+.setup-col .entity-list:has(+ .member-list-divider) { margin-bottom: 0; }
 .priority-badge.high { background: var(--danger-bg, var(--warning-bg)); color: var(--danger, var(--warning)); }
 .priority-badge.medium { background: var(--badge-bg); color: var(--text-secondary); }
 .priority-badge.low { background: var(--bg-surface-alt); color: var(--text-faint); }
@@ -532,8 +602,8 @@
 .quick-add-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 
 .discussion-thumb {
-    width: 42px;
-    height: 56px;
+    width: 56px;
+    height: 72px;
     border-radius: var(--radius-sm);
     background: var(--bg-surface-alt);
     border: 1px solid var(--border-color);
@@ -542,6 +612,7 @@
     align-items: flex-end;
     justify-content: center;
     overflow: hidden;
+    margin-bottom: 12px;
 }
 .discussion-thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
 
@@ -551,7 +622,7 @@
 .action-item .field-group label { margin-bottom: 0; }
 .action-item .field-group select { width: auto; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: var(--font-sm); font-family: inherit; }
 
-.set-action-card { border: 2px solid var(--primary); border-radius: var(--radius-lg); padding: 16px; background: var(--bg-surface); box-shadow: var(--shadow-emphasis); }
+.set-action-card { border: 2px solid var(--accent-border); border-radius: var(--radius-lg); padding: 16px; background: var(--bg-surface); box-shadow: var(--shadow-emphasis); }
 .set-action-card h3 { font-size: var(--font-md); margin-bottom: 12px; }
 
 /* New Referral modal */
@@ -615,15 +686,29 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: 16px; }
 .panel-group-member-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .panel-group-member-row select { flex: 1; min-width: 0; }
 
-.member-staff-list {
-    max-height: min(50vh, 320px);
+.member-picker-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+/* select elements are replaced by enhanceSelect() (static/js/main.js) with a
+   .ui-select wrapper + .ui-select-trigger button — the real <select> is
+   hidden, so width rules must target those, not "select" directly (the
+   default .ui-select{width:100%}/.ui-select-trigger{width:100%} rules in
+   style.css would otherwise stretch it to fill the row). */
+.member-picker-row .ui-select { flex: 0 0 auto; width: auto; }
+.member-picker-row .ui-select-trigger { width: auto; text-align: left; }
+.member-picker-row input[type="text"] { flex: 1 1 auto; min-width: 0; width: auto; }
+
+#panel-member-dialog { max-height: 92vh; }
+
+.member-result-list {
+    max-height: min(65vh, 480px);
     overflow-y: auto;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     margin-bottom: 10px;
 }
-.member-staff-option {
-    display: block;
+.member-result-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
     text-align: left;
     padding: 8px 12px;
@@ -633,11 +718,57 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: 16px; }
     color: var(--text-primary);
     cursor: pointer;
 }
-.member-staff-option:last-child { border-bottom: none; }
-.member-staff-option:hover { background: var(--row-hover-bg); }
-.member-staff-option.selected { background: var(--primary-light); color: var(--primary); }
-.member-staff-option[hidden] { display: none; }
-.member-staff-option .meta { color: var(--text-faint); font-size: var(--font-sm); }
+.member-result-option:last-child { border-bottom: none; }
+.member-result-option:hover { background: var(--row-hover-bg); }
+.member-result-option.selected { background: var(--primary-light); color: var(--primary); }
+.member-result-option[hidden] { display: none; }
+.member-result-option[data-already-member="1"] { opacity: 0.55; cursor: not-allowed; }
+.member-result-option[data-already-member="1"]:hover { background: var(--bg-surface); }
+.status-pill.type-already { background: var(--badge-bg); color: var(--text-faint); }
+.member-result-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--bg-surface-alt);
+}
+.member-result-icon img { width: 100%; height: 100%; object-fit: cover; }
+.member-result-icon svg { width: 20px; height: 20px; }
+.member-result-label-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.member-result-label-stack .result-name { font-size: var(--font-md); color: var(--text-primary); }
+.member-result-label-stack .result-role,
+.member-result-label-stack .result-school { font-size: var(--font-xs); color: var(--text-faint); }
+.member-result-add { padding: 8px 4px; }
+.member-result-add-fields { display: flex; gap: 8px; flex-wrap: wrap; }
+.member-result-add-fields input { flex: 1 1 140px; }
+
+.member-staff-selected[hidden] { display: none; }
+.member-staff-selected-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface-alt);
+}
+
+.expertise-field-inline { display: flex; gap: 8px; align-items: center; }
+.expertise-field-inline .ui-select { flex: 1; min-width: 0; width: auto; }
+/* Match the "+" button's height to the select trigger's (10px vertical
+   padding + line-height + border) so they sit flush on the same row instead
+   of the shorter btn-sm padding leaving it visibly squat. */
+.expertise-field-inline .ui-select-trigger,
+.expertise-field-inline .btn-icon-only { height: 41px; box-sizing: border-box; }
+.btn-icon-only { flex: 0 0 auto; padding: 0 14px; line-height: 1; }
+.expertise-field-add { display: flex; gap: 8px; margin-top: 8px; }
+.expertise-field-add[hidden] { display: none; }
+.expertise-field-add input { flex: 1; }
 
 .referral-student-picker input[data-referral-student-search] {
     border-color: var(--border-color);

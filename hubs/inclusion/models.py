@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 
 class ReferralCategory(models.Model):
@@ -78,13 +79,36 @@ class StudentNote(models.Model):
         return f'Note on {self.student} ({self.created_at:%Y-%m-%d})'
 
 
+class ExpertiseQuerySet(models.QuerySet):
+    def visible_for_school(self, school_id):
+        return self.filter(is_active=True).filter(Q(school__isnull=True) | Q(school_id=school_id))
+
+
 class Expertise(models.Model):
     name = models.CharField(max_length=100)
     order = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # Null = shared across every school. Set = a custom tag only that school can use/see.
+    school = models.ForeignKey(
+        'core.School', null=True, blank=True, on_delete=models.CASCADE, related_name='expertise_tags'
+    )
+
+    objects = ExpertiseQuerySet.as_manager()
 
     class Meta:
         ordering = ['order', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+class ExternalContact(models.Model):
+    name = models.CharField(max_length=150)
+    job_title = models.CharField(max_length=150, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -104,17 +128,20 @@ class PanelGroup(models.Model):
 
 class PanelGroupMember(models.Model):
     panel_group = models.ForeignKey(PanelGroup, on_delete=models.CASCADE, related_name='members')
-    # Null when this is an external (non-Staff) member — see guest_name. Mirrors
-    # the same staff/guest_name split already used on PanelMember.
+    # Null when this is an external (non-Staff) member — see external_contact. Mirrors
+    # the same staff/external_contact split already used on PanelMember.
     staff = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.CASCADE)
-    guest_name = models.CharField(max_length=150, blank=True)
+    external_contact = models.ForeignKey(
+        ExternalContact, null=True, blank=True, on_delete=models.CASCADE, related_name='+'
+    )
     expertise = models.ForeignKey(Expertise, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [('panel_group', 'staff')]
+        unique_together = [('panel_group', 'staff'), ('panel_group', 'external_contact')]
 
     def __str__(self):
-        return f'{self.staff if self.staff_id else (self.guest_name or "Guest")} in {self.panel_group}'
+        return f'{self.staff if self.staff_id else (self.external_contact or "Guest")} in {self.panel_group}'
 
 
 class Panel(models.Model):
@@ -137,15 +164,20 @@ class Panel(models.Model):
 class PanelMember(models.Model):
     panel = models.ForeignKey(Panel, on_delete=models.CASCADE, related_name='members')
     staff = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.CASCADE)
-    guest_name = models.CharField(max_length=150, blank=True)
+    external_contact = models.ForeignKey(
+        ExternalContact, null=True, blank=True, on_delete=models.CASCADE, related_name='+'
+    )
     expertise = models.ForeignKey(Expertise, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     attended = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    checked_in_at = models.DateTimeField(null=True, blank=True)
+    left_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        unique_together = [('panel', 'staff')]
+        unique_together = [('panel', 'staff'), ('panel', 'external_contact')]
 
     def __str__(self):
-        return str(self.staff) if self.staff_id else (self.guest_name or 'Guest')
+        return str(self.staff) if self.staff_id else str(self.external_contact or 'Guest')
 
 
 class PanelReferral(models.Model):
@@ -157,7 +189,6 @@ class PanelReferral(models.Model):
     referral = models.ForeignKey(Referral, on_delete=models.CASCADE, related_name='panel_referrals')
     discussion_status = models.CharField(max_length=20, choices=DISCUSSION_CHOICES, default='pending')
     duration = models.DurationField(null=True, blank=True)
-    notes = models.TextField(blank=True)
     follow_up_date = models.DateField(null=True, blank=True)
     follow_up_status = models.CharField(max_length=20, choices=FOLLOW_UP_CHOICES, blank=True)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
@@ -172,6 +203,22 @@ class PanelReferral(models.Model):
 
     def __str__(self):
         return f'{self.referral} on {self.panel}'
+
+
+class PanelReferralNote(models.Model):
+    # Add-only thread (no edit) so concurrent panel members adding notes to the
+    # same discussion can never silently overwrite each other's text — unlike
+    # the single TextField this replaces, each entry is its own row.
+    panel_referral = models.ForeignKey(PanelReferral, on_delete=models.CASCADE, related_name='notes')
+    author = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Note on {self.panel_referral} ({self.created_at:%Y-%m-%d})'
 
 
 class ActionCategory(models.Model):

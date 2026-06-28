@@ -5,7 +5,6 @@ from hubs.inclusion.models import ReferralCategory, ReferralQuestion
 # Only one category is expected going forward — "Concern" — everything else is
 # a flat (category=None) question with no heading on the referral form.
 CONCERN_CATEGORY = ('Concern', 0, [
-    ('Concern', 0),
     ('Concern Details', 1),
 ])
 

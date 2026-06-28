@@ -4,7 +4,7 @@
 {% block title %}Panel Setup{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=16">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=28">
 {% endblock %}
 
 
@@ -30,41 +30,72 @@
 
 <div class="setup-columns">
     <div class="setup-col">
-        <h2>Panel Details</h2>
+        <div class="setup-col-header" data-sticky-under-header>
+            <h2>Panel Details</h2>
+        </div>
         <form method="post" class="field-group" id="panel-details-form">
     {% csrf_token %}
             <input type="hidden" name="form_action" value="update_details">
-            <label for="panel-date">Date</label>
-            <input type="date" id="panel-date" name="date" value="{{ panel.date|date:'Y-m-d' }}">
-            <label for="panel-time">Time</label>
-            <input type="time" id="panel-time" name="time" value="{{ panel.time|time:'H:i' }}">
-            <label for="panel-group">Panel Group</label>
-            <select id="panel-group" name="panel_group" required data-current-staff-school="{{ current_staff.school_id|default:'' }}">
-                {% for group in panel_groups %}
-                <option value="{{ group.id }}" data-school="{{ group.school_id|default:'' }}" data-school-name="{{ group.school.name|default:'' }}" data-default-chair="{{ group.default_chair_id|default:'' }}" {% if panel.panel_group_id == group.id %}selected{% endif %}>{{ group.name }}{% if not group.school_id %} (No school){% endif %}</option>
-                {% endfor %}
-                <option value="__create_new__">+ Create new panel group</option>
-            </select>
-            {% if members %}
-            <label for="panel-chair">Chair</label>
-            <select id="panel-chair" name="chair">
-                <option value="">No chair set</option>
-                {% for staff in staff_list %}
-                <option value="{{ staff.id }}" {% if panel.chair_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
-                {% endfor %}
-            </select>
-            {% endif %}
+            <div class="panel-details-row panel-details-datetime">
+                <div>
+                    <label for="panel-date">Date</label>
+                    <input type="date" id="panel-date" name="date" value="{{ panel.date|date:'Y-m-d' }}" data-no-past>
+                </div>
+                <div>
+                    <label for="panel-time">Time</label>
+                    <input type="time" id="panel-time" name="time" value="{{ panel.time|time:'H:i' }}">
+                </div>
+            </div>
+            <div class="panel-details-row">
+                <div>
+                    <label for="panel-group">Panel Group</label>
+                    <select id="panel-group" name="panel_group" required data-current-staff-school="{{ current_staff.school_id|default:'' }}">
+                        {% for group in panel_groups %}
+                        <option value="{{ group.id }}" data-school="{{ group.school_id|default:'' }}" data-school-name="{{ group.school.name|default:'' }}" data-default-chair="{{ group.default_chair_id|default:'' }}" {% if panel.panel_group_id == group.id %}selected{% endif %}>{{ group.name }}{% if not group.school_id %} (No school){% endif %}</option>
+                        {% endfor %}
+                        <option value="__create_new__">+ Create new panel group</option>
+                    </select>
+                </div>
+            </div>
         </form>
 
-        <h2>Panel Members</h2>
-        <ul>
-            {% for member in members %}
-            <li>{% if member.staff %}{{ member.staff }}{% else %}{{ member.guest_name }}{% endif %}{% if member.expertise %} — {{ member.expertise.name }}{% endif %}</li>
+        <hr class="setup-divider">
+
+        <div class="setup-col-header" data-sticky-under-header>
+            <h3>Panel Members</h3>
+            <button type="button" class="btn btn-add btn-sm" data-open-member-dialog>{% include 'icons/new_svg.html' %} Add Member</button>
+        </div>
+        {% if active_members %}
+        <div class="field-group">
+            <label for="panel-chair">Chair</label>
+            <select id="panel-chair" name="chair" form="panel-details-form">
+                <option value="">No chair set</option>
+                {% for member in active_members %}
+                {% if member.staff_id %}
+                <option value="{{ member.staff_id }}" {% if panel.chair_id == member.staff_id %}selected{% endif %}>{{ member.staff.first_name }} {{ member.staff.last_name }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="entity-list">
+            {% for member in active_members %}
+            {% include 'hubs/inclusion/panel/_panel_member_row.html' with member=member expertise_list=expertise_list %}
             {% empty %}
-            <li class="empty-note">No members added yet.</li>
+            <p class="empty-note">No members added yet.</p>
             {% endfor %}
-        </ul>
-        <button type="button" class="btn btn-add btn-sm" data-open-member-dialog>{% include 'icons/new_svg.html' %} Add Member</button>
+        </div>
+        {% if inactive_members %}
+        <button type="button" class="btn btn-subtle btn-sm" id="toggle-inactive-members">Show Inactive Members ({{ inactive_members|length }})</button>
+        <div id="inactive-members-section" hidden>
+            <h3 class="member-list-divider">Inactive</h3>
+            <div class="entity-list">
+                {% for member in inactive_members %}
+                {% include 'hubs/inclusion/panel/_panel_member_row.html' with member=member expertise_list=expertise_list %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <dialog id="panel-member-dialog" class="modal-dialog">
@@ -75,40 +106,12 @@
             <form method="post" class="field-group" data-member-modal-form>
     {% csrf_token %}
                 <input type="hidden" name="form_action" value="add_member">
-                <input type="hidden" name="staff" data-member-staff-input value="">
 
-                <label for="member-school">School</label>
-                <select id="member-school" data-member-school-select data-current-staff-school-name="{{ current_staff.school.name|default:'' }}">
-                    <option value="">All schools</option>
-                    {% for school in schools %}
-                    <option value="{{ school.name }}">{{ school.name }}</option>
-                    {% endfor %}
-                </select>
+                {% include 'hubs/inclusion/panel/_member_picker.html' with school=panel.panel_group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Active Member' %}
 
-                <div data-member-picker>
-                    <label for="member-search">Staff</label>
-                    <input type="text" id="member-search" data-member-search placeholder="Search staff…" autocomplete="off">
-                    <div class="member-staff-list" data-member-staff-list>
-                        {% for staff in staff_list %}
-                        <button type="button" class="member-staff-option" data-name="{{ staff.first_name }} {{ staff.last_name }}" data-school-name="{{ staff.school.name|default:'' }}" data-id="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}{% if staff.school %} <span class="meta">({{ staff.school.name }})</span>{% endif %}</button>
-                        {% endfor %}
-                    </div>
-                    <button type="button" class="btn btn-sm" data-toggle-guest>+ Add someone not listed</button>
+                <div data-expertise-wrapper hidden>
+                    {% include 'hubs/inclusion/panel/_expertise_field.html' with field_id='member-expertise' expertise_list=expertise_list school_id=panel.panel_group.school_id %}
                 </div>
-
-                <div data-member-guest hidden>
-                    <label for="member-guest-name">Name</label>
-                    <input type="text" id="member-guest-name" name="guest_name" data-member-guest-name placeholder="e.g. Jane Doe (Social Worker)">
-                    <button type="button" class="btn btn-sm" data-toggle-guest>Choose from staff instead</button>
-                </div>
-
-                <label for="member-expertise">Expertise</label>
-                <select id="member-expertise" name="expertise">
-                    <option value="">No expertise tag</option>
-                    {% for e in expertise_list %}
-                    <option value="{{ e.id }}">{{ e.name }}</option>
-                    {% endfor %}
-                </select>
 
                 <div class="btn-row">
                     <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
@@ -136,10 +139,23 @@
             });
         }
 
+        function updateChairPills() {
+            if (!chairSelect) return;
+            var chairId = chairSelect.value;
+            document.querySelectorAll('[data-chair-pill]').forEach(function (pill) {
+                var row = pill.closest('.entity-row');
+                var isMatch = !!(row && chairId && row.dataset.active === '1' && row.dataset.staffId === chairId);
+                pill.hidden = !isMatch;
+            });
+        }
+
         if (detailsForm) {
             if (dateInput) dateInput.addEventListener('change', submitDetails);
             if (timeInput) timeInput.addEventListener('change', submitDetails);
-            if (chairSelect) chairSelect.addEventListener('change', submitDetails);
+            if (chairSelect) chairSelect.addEventListener('change', function () {
+                updateChairPills();
+                submitDetails();
+            });
         }
 
         var allGroupOptions = Array.prototype.slice.call(groupSelect.options).filter(function (opt) {
@@ -152,6 +168,7 @@
             var opt = groupSelect.options[groupSelect.selectedIndex];
             var defaultChair = opt ? opt.dataset.defaultChair : '';
             if (defaultChair) chairSelect.value = defaultChair;
+            updateChairPills();
         }
 
         function resolveSchoolId() {
@@ -211,14 +228,8 @@
         if (memberDialog) {
             var memberForm = memberDialog.querySelector('[data-member-modal-form]');
             var saveBtn = memberDialog.querySelector('[data-member-save]');
-            var staffInput = memberDialog.querySelector('[data-member-staff-input]');
-            var schoolSelect = memberDialog.querySelector('[data-member-school-select]');
-            var searchInput = memberDialog.querySelector('[data-member-search]');
-            var staffOptions = Array.prototype.slice.call(memberDialog.querySelectorAll('.member-staff-option'));
-            var pickerSection = memberDialog.querySelector('[data-member-picker]');
-            var guestSection = memberDialog.querySelector('[data-member-guest]');
-            var guestNameInput = memberDialog.querySelector('[data-member-guest-name]');
-            var isGuestMode = false;
+            var pickerRoot = memberDialog.querySelector('[data-member-picker-root]');
+            var expertiseWrapper = memberDialog.querySelector('[data-expertise-wrapper]');
 
             function getModalDuration() {
                 return parseFloat(getComputedStyle(memberDialog).getPropertyValue('--modal-duration')) || 250;
@@ -229,46 +240,17 @@
                 setTimeout(function () { memberDialog.close(); }, getModalDuration());
             }
 
-            function updateSaveState() {
-                var valid = isGuestMode ? !!guestNameInput.value.trim() : !!staffInput.value;
-                saveBtn.disabled = !valid;
-            }
-
-            function filterStaffBySchool() {
-                var schoolName = schoolSelect.value;
-                staffOptions.forEach(function (btn) {
-                    btn.hidden = schoolName && btn.dataset.schoolName !== schoolName;
-                });
-            }
-
-            function setGuestMode(guest) {
-                isGuestMode = guest;
-                pickerSection.hidden = guest;
-                guestSection.hidden = !guest;
-                if (guest) {
-                    staffInput.value = '';
-                    staffOptions.forEach(function (btn) { btn.classList.remove('selected'); });
-                } else {
-                    guestNameInput.value = '';
-                }
-                updateSaveState();
-            }
+            pickerRoot.addEventListener('member-picker:change', function (e) {
+                saveBtn.disabled = !e.detail.id;
+                if (expertiseWrapper) expertiseWrapper.hidden = !e.detail.id;
+            });
 
             document.addEventListener('click', function (e) {
                 if (e.target.closest('[data-open-member-dialog]')) {
-                    var defaultSchool = '';
-                    try {
-                        var prefSchool = localStorage.getItem('pref-school');
-                        if (prefSchool && prefSchool.indexOf('All ') !== 0) defaultSchool = prefSchool;
-                    } catch (err) { }
-                    if (!defaultSchool) defaultSchool = schoolSelect.dataset.currentStaffSchoolName || '';
-                    schoolSelect.value = defaultSchool;
-                    filterStaffBySchool();
-                    setGuestMode(false);
                     memberForm.reset();
-                    staffInput.value = '';
-                    schoolSelect.value = defaultSchool;
-                    updateSaveState();
+                    if (window.resetMemberPicker) window.resetMemberPicker(pickerRoot);
+                    saveBtn.disabled = true;
+                    if (expertiseWrapper) expertiseWrapper.hidden = true;
                     memberDialog.showModal();
                     requestAnimationFrame(function () { memberDialog.classList.add('is-open'); });
                     return;
@@ -276,48 +258,52 @@
                 if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-member-dialog')) {
                     closeMemberDialog();
                 }
-                if (e.target.closest('[data-toggle-guest]')) {
-                    setGuestMode(!isGuestMode);
-                }
-                var staffBtn = e.target.closest('.member-staff-option');
-                if (staffBtn) {
-                    staffInput.value = staffBtn.dataset.id;
-                    staffOptions.forEach(function (btn) { btn.classList.toggle('selected', btn === staffBtn); });
-                    updateSaveState();
-                }
             });
 
             memberDialog.addEventListener('click', function (e) {
                 if (e.target === memberDialog) closeMemberDialog();
             });
-
-            schoolSelect.addEventListener('change', filterStaffBySchool);
-            searchInput.addEventListener('input', function () {
-                var term = searchInput.value.trim().toLowerCase();
-                staffOptions.forEach(function (btn) {
-                    var matchesSearch = !term || btn.dataset.name.toLowerCase().indexOf(term) !== -1;
-                    var matchesSchool = !schoolSelect.value || btn.dataset.schoolName === schoolSelect.value;
-                    btn.hidden = !matchesSearch || !matchesSchool;
-                });
-            });
-            guestNameInput.addEventListener('input', updateSaveState);
         }
     });
     </script>
 
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var toggleBtn = document.getElementById('toggle-inactive-members');
+        var section = document.getElementById('inactive-members-section');
+        if (!toggleBtn || !section) return;
+        var showLabel = toggleBtn.textContent;
+        var hideLabel = showLabel.replace('Show', 'Hide');
+        toggleBtn.addEventListener('click', function () {
+            section.hidden = !section.hidden;
+            toggleBtn.textContent = section.hidden ? showLabel : hideLabel;
+        });
+    });
+    </script>
+
     <div class="setup-col">
-        <h2>Referral Selection</h2>
+        <div class="setup-col-header" data-sticky-under-header>
+            <h2>Referral Selection</h2>
+            {% if unassigned_referrals %}
+            <form method="post">
+    {% csrf_token %}
+                <input type="hidden" name="form_action" value="add_all_referrals">
+                <button type="submit" class="btn btn-add btn-secondary btn-sm">Add All</button>
+            </form>
+            {% endif %}
+        </div>
         <div class="entity-list">
             {% for referral in unassigned_referrals %}
             <div class="entity-row">
                 <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                 <div class="entity-body">
-                    <div class="entity-title">{{ referral.student }}</div>
-                    <div class="entity-meta">Created {{ referral.created_at|date:"d/m/Y" }}{% if referral.primary_concern_category %} &middot; Primary Concern Category: {{ referral.primary_concern_category }}{% endif %}</div>
+                    <div class="entity-title">{{ referral.student }} <span class="entity-title-meta">(Year {{ referral.student.year_group }}{% if referral.student.reg_form %} &middot; {{ referral.student.reg_form }}{% endif %})</span></div>
+                    <div class="entity-meta">Referred {{ referral.created_at|date:"d/m/Y" }}{% if referral.raised_by %} by {{ referral.raised_by }}{% endif %}</div>
+                    {% if referral.primary_concern_category %}<div class="entity-meta">Main Concern: {{ referral.primary_concern_category }}</div>{% endif %}
                 </div>
-                <div class="btn-row">
-                    <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-primary btn-sm">Referral Details</a>
-                    <form method="post" style="display:inline">
+                <div class="btn-row btn-row-stacked">
+                    <button type="button" class="btn btn-helper btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{{ request.path }}">Referral Details</button>
+                    <form method="post">
     {% csrf_token %}
                         <input type="hidden" name="form_action" value="add_referral">
                         <input type="hidden" name="referral_id" value="{{ referral.id }}">
@@ -332,31 +318,43 @@
     </div>
 
     <div class="setup-col">
-        <h2>Panel Agenda</h2>
+        <div class="setup-col-header" data-sticky-under-header>
+            <h2>Panel Agenda</h2>
+            {% if agenda %}
+            <form method="post">
+    {% csrf_token %}
+                <input type="hidden" name="form_action" value="remove_all_referrals">
+                <button type="submit" class="btn btn-delete btn-secondary btn-sm">Remove All</button>
+            </form>
+            {% endif %}
+        </div>
         <div class="entity-list">
             {% for pr in agenda %}
             <div class="entity-row">
                 <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                 <div class="entity-body">
-                    <div class="entity-title">{{ pr.referral.student }}</div>
-                    <div class="entity-meta">{{ pr.get_discussion_status_display }}{% if pr.primary_concern_category %} &middot; Primary Concern Category: {{ pr.primary_concern_category }}{% endif %}</div>
+                    <div class="entity-title">{{ pr.referral.student }} <span class="entity-title-meta">(Year {{ pr.referral.student.year_group }}{% if pr.referral.student.reg_form %} &middot; {{ pr.referral.student.reg_form }}{% endif %})</span></div>
+                    <div class="entity-meta">Referred {{ pr.referral.created_at|date:"d/m/Y" }}{% if pr.referral.raised_by %} by {{ pr.referral.raised_by }}{% endif %}</div>
+                    {% if pr.primary_concern_category %}<div class="entity-meta">Main Concern: {{ pr.primary_concern_category }}</div>{% endif %}
                     <form method="post" class="priority-form">
                         {% csrf_token %}
                         <input type="hidden" name="form_action" value="update_priority">
                         <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                        <select name="priority" class="priority-select" onchange="this.form.submit()">
+                        <span class="priority-label">Priority</span>
+                        <div class="priority-chips">
                             {% for value, label in priority_choices %}
-                            <option value="{{ value }}" {% if pr.priority == value %}selected{% endif %}>{{ label }}</option>
+                            <button type="submit" name="priority" value="{{ value }}" class="priority-chip priority-{{ value }}{% if pr.priority == value %} active{% endif %}" aria-pressed="{% if pr.priority == value %}true{% else %}false{% endif %}">{{ label }}</button>
                             {% endfor %}
-                        </select>
+                        </div>
                     </form>
                 </div>
-                <div class="btn-row">
-                    <form method="post" onsubmit="return confirm('Remove this student from the agenda?');" style="display:inline">
+                <div class="btn-row btn-row-stacked">
+                    <button type="button" class="btn btn-helper btn-sm" data-edit-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
+                    <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="form_action" value="remove_referral_from_agenda">
                         <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                        <button type="submit" class="btn btn-sm">Remove</button>
+                        <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/remove_svg.html' %}</span> Remove</button>
                     </form>
                 </div>
             </div>

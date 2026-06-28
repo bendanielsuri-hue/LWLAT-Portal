@@ -367,3 +367,212 @@ window.resolvePanelSchoolFilter = function (groupOptions, currentStaffSchoolId) 
             });
     });
 })();
+
+// Shared "staff source + search" member picker, used by the meeting "Add
+// Member" dialog and the Panel Group "Add Member" form. Several instances
+// can exist on one page (one per panel group), so everything is scoped via
+// closest()/querySelector() on the picker's own root rather than global ids.
+function initMemberPicker(rootEl) {
+    var sourceSelect = rootEl.querySelector('[data-member-source-select]');
+    var searchInput = rootEl.querySelector('[data-member-search]');
+    var staffInput = rootEl.querySelector('[data-member-staff-input]');
+    var externalInput = rootEl.querySelector('[data-member-external-input]');
+    var resultList = rootEl.querySelector('[data-member-result-list]');
+    var options = Array.prototype.slice.call(rootEl.querySelectorAll('.member-result-option'));
+    var searchPanel = rootEl.querySelector('[data-member-search-panel]');
+    var selectedSection = rootEl.querySelector('[data-member-selected]');
+    var selectedName = rootEl.querySelector('[data-member-selected-name]');
+    var changeBtn = rootEl.querySelector('[data-member-change]');
+    var addExternalRow = rootEl.querySelector('[data-member-add-external]');
+    var addExternalToggle = rootEl.querySelector('[data-member-add-external-toggle]');
+    var addExternalFields = rootEl.querySelector('[data-member-add-external-fields]');
+    var addExternalNameInput = rootEl.querySelector('[data-member-add-external-name]');
+    var addExternalTitleInput = rootEl.querySelector('[data-member-add-external-title]');
+    var schoolId = rootEl.dataset.schoolId || '';
+    if (!sourceSelect || !searchInput) return;
+
+    function csrfToken() {
+        var form = rootEl.closest('form');
+        var input = form ? form.querySelector('input[name="csrfmiddlewaretoken"]') : null;
+        return input ? input.value : '';
+    }
+
+    function dispatchChange(type, id, name) {
+        rootEl.dispatchEvent(new CustomEvent('member-picker:change', { bubbles: true, detail: { type: type, id: id, name: name } }));
+    }
+
+    function applySearch() {
+        var term = searchInput.value.trim().toLowerCase();
+        var mode = sourceSelect.value;
+        options.forEach(function (btn) {
+            var source = btn.dataset.source;
+            var matchesSearch = !term || btn.dataset.name.toLowerCase().indexOf(term) !== -1;
+            var matchesMode;
+            if (mode === 'external') {
+                matchesMode = source === 'external';
+            } else if (mode === 'school') {
+                matchesMode = source === 'staff' && btn.dataset.schoolId === schoolId;
+            } else {
+                // "All MAT Staff" — every staff record, regardless of school or is_mat_staff.
+                matchesMode = source === 'staff';
+            }
+            btn.hidden = !(matchesSearch && matchesMode);
+        });
+        // Adding a new External contact is always on offer once External mode
+        // is selected (not just as a "no match" fallback).
+        if (addExternalRow) addExternalRow.hidden = mode !== 'external';
+    }
+
+    function showPicker() {
+        staffInput.value = '';
+        externalInput.value = '';
+        dispatchChange('', '', '');
+        searchPanel.hidden = false;
+        selectedSection.hidden = true;
+        searchInput.value = '';
+        applySearch();
+    }
+
+    function showSelected(name) {
+        selectedName.textContent = name;
+        searchPanel.hidden = true;
+        selectedSection.hidden = false;
+    }
+
+    function setMode(mode) {
+        sourceSelect.value = mode;
+        showPicker();
+    }
+
+    function reset() {
+        var hasSchoolOption = !!rootEl.querySelector('[data-member-source-select] option[value="school"]');
+        setMode(hasSchoolOption ? 'school' : 'mat');
+    }
+
+    sourceSelect.addEventListener('change', function () { setMode(sourceSelect.value); });
+    searchInput.addEventListener('input', applySearch);
+    if (changeBtn) changeBtn.addEventListener('click', showPicker);
+
+    rootEl.addEventListener('click', function (e) {
+        if (addExternalToggle && e.target.closest('[data-member-add-external-toggle]')) {
+            addExternalFields.hidden = !addExternalFields.hidden;
+            if (!addExternalFields.hidden) {
+                if (!addExternalNameInput.value) addExternalNameInput.value = searchInput.value.trim();
+                addExternalNameInput.focus();
+            }
+            return;
+        }
+        var optBtn = e.target.closest('.member-result-option');
+        if (optBtn) {
+            if (optBtn.dataset.alreadyMember === '1') return;
+            if (optBtn.dataset.source === 'staff') {
+                staffInput.value = optBtn.dataset.id;
+                externalInput.value = '';
+                dispatchChange('staff', optBtn.dataset.id, optBtn.dataset.name);
+            } else {
+                externalInput.value = optBtn.dataset.id;
+                staffInput.value = '';
+                dispatchChange('external', optBtn.dataset.id, optBtn.dataset.name);
+            }
+            showSelected(optBtn.dataset.name);
+            return;
+        }
+        if (e.target.closest('[data-member-add-external-save]')) {
+            var name = (addExternalNameInput.value || '').trim();
+            if (!name) return;
+            var jobTitle = addExternalTitleInput ? addExternalTitleInput.value.trim() : '';
+            var fd = new FormData();
+            fd.append('name', name);
+            fd.append('job_title', jobTitle);
+            fd.append('csrfmiddlewaretoken', csrfToken());
+            fetch('/inclusion/panel/external-contacts/quick-add/', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            }).then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (!data.success) return;
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'member-result-option';
+                    btn.dataset.source = 'external';
+                    btn.dataset.id = data.contact.id;
+                    btn.dataset.name = data.contact.name;
+                    var stack = document.createElement('span');
+                    stack.className = 'member-result-label-stack';
+                    var nameSpan = document.createElement('span');
+                    nameSpan.className = 'result-name';
+                    nameSpan.textContent = data.contact.name;
+                    stack.appendChild(nameSpan);
+                    if (data.contact.job_title) {
+                        var roleSpan = document.createElement('span');
+                        roleSpan.className = 'result-role';
+                        roleSpan.textContent = data.contact.job_title;
+                        stack.appendChild(roleSpan);
+                    }
+                    btn.appendChild(stack);
+                    resultList.appendChild(btn);
+                    options.push(btn);
+                    addExternalFields.hidden = true;
+                    addExternalNameInput.value = '';
+                    addExternalTitleInput.value = '';
+                    externalInput.value = data.contact.id;
+                    staffInput.value = '';
+                    dispatchChange('external', data.contact.id, data.contact.name);
+                    showSelected(data.contact.name);
+                });
+        }
+    });
+
+    applySearch();
+    rootEl._memberPicker = { reset: reset };
+}
+
+window.resetMemberPicker = function (rootEl) {
+    if (rootEl && rootEl._memberPicker) rootEl._memberPicker.reset();
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-member-picker-root]').forEach(initMemberPicker);
+
+    document.querySelectorAll('[data-expertise-add-toggle]').forEach(function (toggleBtn) {
+        var row = toggleBtn.closest('.expertise-field-row');
+        if (!row) return;
+        var addPanel = row.querySelector('[data-expertise-add-panel]');
+        var select = row.querySelector('[data-expertise-select]');
+        var input = row.querySelector('[data-expertise-add-input]');
+        var saveBtn = row.querySelector('[data-expertise-add-save]');
+        if (!addPanel || !select || !input || !saveBtn) return;
+
+        toggleBtn.addEventListener('click', function () {
+            addPanel.hidden = !addPanel.hidden;
+            if (!addPanel.hidden) input.focus();
+        });
+
+        saveBtn.addEventListener('click', function () {
+            var name = input.value.trim();
+            if (!name) return;
+            var form = row.closest('form');
+            var csrfInput = form ? form.querySelector('input[name="csrfmiddlewaretoken"]') : null;
+            var fd = new FormData();
+            fd.append('name', name);
+            fd.append('school_id', select.dataset.expertiseSchoolId || '');
+            fd.append('csrfmiddlewaretoken', csrfInput ? csrfInput.value : '');
+            fetch('/inclusion/panel/settings/expertise/quick-add/', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            }).then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (!data.success) return;
+                    var opt = document.createElement('option');
+                    opt.value = data.expertise.id;
+                    opt.textContent = data.expertise.name;
+                    select.appendChild(opt);
+                    select.value = data.expertise.id;
+                    input.value = '';
+                    addPanel.hidden = true;
+                });
+        });
+    });
+});

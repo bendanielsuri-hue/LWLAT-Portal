@@ -1,0 +1,67 @@
+{% comment %}
+Staff-source + search picker, shared by the meeting "Add Member" dialog and
+the Panel Group "Add Member" form. Params: school (optional, for the
+"<School> Staff" source option + scoping), staff_list, external_contacts,
+existing_staff_ids/existing_external_ids (ids already on the roster — shown
+disabled with a pill), already_member_label (pill text, e.g. "Active Member"
+or "Already in Roster"). The including page owns the Save/submit button and
+listens for the bubbling "member-picker:change" event to know when a
+selection is made.
+{% endcomment %}
+<div class="member-picker" data-member-picker-root data-school-id="{{ school.id|default:'' }}">
+    <input type="hidden" name="staff" data-member-staff-input value="">
+    <input type="hidden" name="external_contact" data-member-external-input value="">
+
+    <div class="member-picker-row">
+        <select data-member-source-select>
+            {% if school %}
+            <option value="school">{{ school.name }} Staff</option>
+            {% endif %}
+            <option value="mat">All MAT Staff</option>
+            <option value="external">External</option>
+        </select>
+        <input type="text" data-member-search placeholder="Search…" autocomplete="off">
+    </div>
+
+    <div data-member-search-panel>
+        <div class="member-result-list" data-member-result-list>
+            {% for staff in staff_list %}
+            <button type="button" class="member-result-option" data-source="staff" data-id="{{ staff.id }}" data-name="{{ staff.first_name }} {{ staff.last_name }}" data-school-id="{{ staff.school_id|default:'' }}" data-is-mat="{{ staff.is_mat_staff|yesno:'1,' }}" {% if staff.id in existing_staff_ids %}data-already-member="1"{% endif %}>
+                <span class="member-result-icon">
+                    {% if staff.photo %}<img src="{{ staff.photo.url }}" alt="">{% else %}{% include 'icons/avatar_placeholder_svg.html' %}{% endif %}
+                </span>
+                <span class="member-result-label-stack">
+                    <span class="result-name">{{ staff.first_name }} {{ staff.last_name }}</span>
+                    {% if staff.job_title %}<span class="result-role">{{ staff.job_title }}</span>{% endif %}
+                    {% if staff.is_mat_staff and staff.school %}<span class="result-school">{{ staff.school.name }}</span>{% endif %}
+                    {% if staff.id in existing_staff_ids %}<span class="status-pill type-already">{{ already_member_label|default:'Already a Member' }}</span>{% endif %}
+                </span>
+            </button>
+            {% endfor %}
+            {% for contact in external_contacts %}
+            <button type="button" class="member-result-option" data-source="external" data-id="{{ contact.id }}" data-name="{{ contact.name }}" {% if contact.id in existing_external_ids %}data-already-member="1"{% endif %}>
+                <span class="member-result-label-stack">
+                    <span class="result-name">{{ contact.name }}</span>
+                    {% if contact.job_title %}<span class="result-role">{{ contact.job_title }}</span>{% endif %}
+                    {% if contact.id in existing_external_ids %}<span class="status-pill type-already">{{ already_member_label|default:'Already a Member' }}</span>{% endif %}
+                </span>
+            </button>
+            {% endfor %}
+        </div>
+        <div class="member-result-add" data-member-add-external hidden>
+            <button type="button" class="btn btn-add btn-sm" data-member-add-external-toggle>{% include 'icons/new_svg.html' %} Add New External Contact</button>
+            <div class="member-result-add-fields" data-member-add-external-fields hidden>
+                <input type="text" data-member-add-external-name placeholder="Name">
+                <input type="text" data-member-add-external-title placeholder="Job title">
+                <button type="button" class="btn btn-add btn-sm" data-member-add-external-save>Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="member-staff-selected" data-member-selected hidden>
+        <div class="member-staff-selected-row">
+            <span data-member-selected-name></span>
+            <button type="button" class="btn btn-sm" data-member-change>Change</button>
+        </div>
+    </div>
+</div>

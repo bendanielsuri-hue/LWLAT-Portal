@@ -28,7 +28,7 @@ HUB_NAV_ITEMS = [
 ]
 
 PORTAL_ADMIN_NAV_ITEM = {
-    'url_name': 'portaladmin_home', 'icon': 'icons/cog_svg.html', 'label': 'Portal Admin', 'prefix': '/portal-admin/',
+    'url_name': 'portaladmin_home', 'icon': 'icons/shield_check_svg.html', 'label': 'Portal Admin', 'prefix': '/portal-admin/',
 }
 
 
@@ -189,7 +189,7 @@ def build_sections(request):
             'url': reverse('portaladmin_home'),
             'description': 'Manage module rollout status and per-school portal settings.',
             'items': [],
-            'icon_template': 'icons/cog_svg.html',
+            'icon_template': 'icons/shield_check_svg.html',
         })
     return sections
 

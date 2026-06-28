@@ -368,12 +368,22 @@ document.addEventListener('DOMContentLoaded', function () {
             if (label) label.textContent = colourNames[value] || value;
         });
 
+        var paletteDescriptions = {
+            pastel: 'Calm, low-contrast pastel tones with subtle borders.',
+            vibrant: 'Bold, saturated colours with richer surface tint.',
+            greytone: 'Neutral greys only — no colour tinting.',
+            colourblind: 'High-contrast, colourblind-friendly hues.'
+        };
+
         setupButtonGroup('pref-palette', 'data-palette', 'pref-palette', 'pastel', function (value) {
             applyPaletteSwatches(value);
+            var paletteLabel = document.getElementById('pref-palette-current');
+            if (paletteLabel) paletteLabel.textContent = paletteDescriptions[value] || '';
         });
         applyPaletteSwatches(root.getAttribute('data-palette') || 'pastel');
 
         setupButtonGroup('pref-text-size', 'data-text-size', 'pref-text-size', 'md');
+        setupButtonGroup('pref-time-format', 'data-time-format', 'pref-time-format', '24');
 
         // Theme toggle: a single switch showing sun (light) / moon (dark)
         var themeToggle = document.getElementById('pref-theme');
@@ -612,6 +622,43 @@ document.addEventListener('DOMContentLoaded', function () {
         window.addEventListener('resize', applyHeight);
         if (typeof ResizeObserver !== 'undefined') {
             new ResizeObserver(applyHeight).observe(header);
+        }
+    })();
+
+    // Sticky column headings (Panel Setup): any [data-sticky-under-header]
+    // element sticks just below the global sticky .page-header instead of
+    // at the very top of main's scroll area, so it doesn't overlap it as
+    // the page scrolls. Same measurement/resize technique as the list page
+    // shell height above.
+    (function setupStickyColumnHeaders() {
+        var header = document.querySelector('.page-header');
+        var elements = Array.prototype.slice.call(document.querySelectorAll('[data-sticky-under-header]'));
+        if (!header || !elements.length) return;
+
+        function applyOffset() {
+            var headerBottom = header.getBoundingClientRect().bottom;
+            // Stack same-column sticky headers one below another (cumulative
+            // offset) instead of pinning them all to the same top, which
+            // would make a later one overlap an earlier one once both are
+            // pinned at once (e.g. Panel Details above Panel Members).
+            var columns = [];
+            var stacks = [];
+            elements.forEach(function (el) {
+                var col = el.closest('.setup-col') || el.parentElement;
+                var idx = columns.indexOf(col);
+                if (idx === -1) {
+                    idx = columns.push(col) - 1;
+                    stacks.push(0);
+                }
+                el.style.top = (headerBottom + stacks[idx]) + 'px';
+                stacks[idx] += el.getBoundingClientRect().height;
+            });
+        }
+
+        applyOffset();
+        window.addEventListener('resize', applyOffset);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(applyOffset).observe(header);
         }
     })();
 
@@ -950,11 +997,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // empty modal padding just closes the popover, without also forwarding
     // into (and accidentally triggering) the outer dialog's own
     // backdrop-click-to-close handler.
-    function forwardClickThrough(x, y) {
+    function forwardClickThrough(x, y, ownTrigger) {
         requestAnimationFrame(function () {
             var el = document.elementFromPoint(x, y);
             var target = el && el.closest('.ui-select-trigger, .ui-date-calendar-btn, .ui-add-group-btn');
-            if (target) target.click();
+            // Don't re-click the trigger that just closed this very popover —
+            // otherwise clicking anywhere over the trigger a second time
+            // (which lands on the modal dialog's own transparent backdrop,
+            // since the trigger is inert while its popover is open) would
+            // immediately reopen what the user just closed.
+            if (target && target !== ownTrigger) target.click();
         });
     }
 
@@ -991,6 +1043,31 @@ document.addEventListener('DOMContentLoaded', function () {
         panel.style.left = left + 'px';
     }
 
+    // How much wider than the widest option's own text the trigger should
+    // be (room for its left/right padding + chevron) and the hard cap beyond
+    // which a long option label just gets clipped instead of stretching the
+    // control further.
+    var SELECT_TRIGGER_PADDING = 48;
+    var SELECT_TRIGGER_MAX_WIDTH = 240;
+    var selectWidthGhost = null;
+    function maxOptionTextWidth(selectEl, font) {
+        if (!selectWidthGhost) {
+            selectWidthGhost = document.createElement('span');
+            selectWidthGhost.style.position = 'absolute';
+            selectWidthGhost.style.visibility = 'hidden';
+            selectWidthGhost.style.left = '-9999px';
+            selectWidthGhost.style.whiteSpace = 'nowrap';
+            document.body.appendChild(selectWidthGhost);
+        }
+        selectWidthGhost.style.font = font;
+        var max = 0;
+        Array.prototype.forEach.call(selectEl.options, function (opt) {
+            selectWidthGhost.textContent = opt.textContent;
+            max = Math.max(max, selectWidthGhost.offsetWidth);
+        });
+        return max;
+    }
+
     window.enhanceSelect = function (selectEl) {
         if (!selectEl || selectEl._uiSelect) return;
 
@@ -999,6 +1076,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var trigger = document.createElement('button');
         trigger.type = 'button';
         trigger.className = 'ui-select-trigger';
+        trigger.disabled = selectEl.disabled;
         // A <dialog> shown via showModal(), not a plain div with the
         // popover attribute: the popover API's coexistence with an
         // already-open modal <dialog> turned out to make this element inert
@@ -1018,7 +1096,15 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.target !== panel) return;
             var x = e.clientX, y = e.clientY;
             panel.close();
-            forwardClickThrough(x, y);
+            forwardClickThrough(x, y, trigger);
+        });
+        // Flips the trigger's chevron to point up while its popover is open,
+        // regardless of which of the several ways (re-click, outside click,
+        // Escape, picking an option) closed it — a single `close` listener on
+        // the <dialog> covers all of them instead of repeating this at every
+        // call site that can close the panel.
+        panel.addEventListener('close', function () {
+            trigger.classList.remove('open');
         });
 
         function currentLabel() {
@@ -1028,10 +1114,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function render() {
             trigger.textContent = currentLabel();
+            // Mirror the wrapped select's own classes (e.g. a value-driven
+            // colour class set server-side) onto the visible trigger button,
+            // since the native select itself is hidden.
+            var isPriority = selectEl.classList.contains('priority-select');
+            trigger.className = 'ui-select-trigger ' + Array.prototype.filter.call(
+                selectEl.classList, function (c) { return c !== 'ui-select-native'; }
+            ).join(' ') + (isPriority ? ' priority-' + selectEl.value : '');
+            // Size the closed control to the widest option rather than
+            // whichever one happens to be selected, so picking a short
+            // option doesn't narrow the control (and its popover list,
+            // which mirrors this width) down enough to clip longer options
+            // next time it's opened.
+            var widest = maxOptionTextWidth(selectEl, window.getComputedStyle(trigger).font);
+            trigger.style.minWidth = Math.min(widest + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH) + 'px';
             panel.innerHTML = '';
             Array.prototype.forEach.call(selectEl.options, function (opt) {
                 var row = document.createElement('div');
-                row.className = 'ui-option' + (opt.selected ? ' selected' : '');
+                row.className = 'ui-option' + (opt.selected ? ' selected' : '') + (opt.dataset.muted === '1' ? ' muted' : '') + (isPriority ? ' priority-' + opt.value : '');
                 row.textContent = opt.textContent;
                 row.dataset.value = opt.value;
                 row.addEventListener('click', function () {
@@ -1052,6 +1152,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 panel.close();
             } else {
                 panel.showModal();
+                trigger.classList.add('open');
                 positionPopover(panel, trigger, { matchWidth: true });
             }
         });
@@ -1090,6 +1191,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 closeAllUiPopovers(panel);
                 panel.showModal();
+                trigger.classList.add('open');
                 positionPopover(panel, trigger, { matchWidth: true });
                 return;
             }
@@ -1152,7 +1254,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.target !== calPanel) return;
             var x = e.clientX, y = e.clientY;
             calPanel.close();
-            forwardClickThrough(x, y);
+            forwardClickThrough(x, y, calBtn);
         });
 
         var today = new Date();
@@ -1360,14 +1462,6 @@ document.addEventListener('DOMContentLoaded', function () {
             mOpt.value = pad2(m); mOpt.textContent = pad2(m);
             minuteSelect.appendChild(mOpt);
         }
-        var toggleBtn = document.createElement('button');
-        toggleBtn.type = 'button';
-        toggleBtn.className = 'toggle-pill';
-        toggleBtn.setAttribute('aria-label', '12-hour format');
-        toggleBtn.innerHTML = '<span class="toggle-knob"></span>';
-        var toggleLabel = document.createElement('span');
-        toggleLabel.className = 'ui-time-toggle-label';
-
         inputEl.classList.add('ui-select-native');
         inputEl.parentNode.insertBefore(wrap, inputEl);
         wrap.appendChild(inputEl);
@@ -1375,11 +1469,17 @@ document.addEventListener('DOMContentLoaded', function () {
         fields.appendChild(minuteSelect);
         fields.appendChild(ampmSelect);
         wrap.appendChild(fields);
-        wrap.appendChild(toggleBtn);
-        wrap.appendChild(toggleLabel);
 
-        var is12h = false;
+        // Time format (12h/24h) is a global Settings preference (data-time-format
+        // on <html>, see templates/layout.html), not a per-field choice.
+        var is12h = document.documentElement.getAttribute('data-time-format') === '12';
 
+        // Hours outside the typical 08:00-17:00 school day are visually
+        // muted in the dropdown (see applyHourMuting) since they're rarely
+        // the right choice for a panel meeting. A 12h hour maps to two
+        // different 24h hours depending on AM/PM, so both are stashed on
+        // the option for applyHourMuting to resolve against the current
+        // ampmSelect value.
         function rebuildHourOptions() {
             hourSelect.innerHTML = '';
             var max = is12h ? 12 : 23;
@@ -1387,8 +1487,28 @@ document.addEventListener('DOMContentLoaded', function () {
             for (var h = start; h <= max; h++) {
                 var opt = document.createElement('option');
                 opt.value = pad2(h); opt.textContent = pad2(h);
+                if (is12h) {
+                    opt.dataset.hour24Am = h === 12 ? 0 : h;
+                    opt.dataset.hour24Pm = h === 12 ? 12 : h + 12;
+                } else {
+                    opt.dataset.hour24 = h;
+                }
                 hourSelect.appendChild(opt);
             }
+            applyHourMuting();
+        }
+
+        function applyHourMuting() {
+            Array.prototype.forEach.call(hourSelect.options, function (opt) {
+                var hour24 = is12h
+                    ? parseInt(ampmSelect.value === 'PM' ? opt.dataset.hour24Pm : opt.dataset.hour24Am, 10)
+                    : parseInt(opt.dataset.hour24, 10);
+                if (hour24 < 8 || hour24 > 17) {
+                    opt.dataset.muted = '1';
+                } else {
+                    delete opt.dataset.muted;
+                }
+            });
         }
 
         function syncFromValue() {
@@ -1428,19 +1548,16 @@ document.addEventListener('DOMContentLoaded', function () {
             window.enhanceSelect(select);
             select.parentNode.classList.add('ui-select--sm');
         });
+        // AM/PM alone (without a 12h/24h toggle) changes which 24h hour each
+        // option represents, so re-resolve muting and refresh the hour
+        // dropdown's rendered rows whenever it changes.
+        ampmSelect.addEventListener('change', function () {
+            applyHourMuting();
+            if (hourSelect._uiSelect) hourSelect._uiSelect.refresh();
+        });
         ampmSelect.parentNode.classList.toggle('ui-hidden', !is12h);
 
-        toggleBtn.addEventListener('click', function () {
-            is12h = !is12h;
-            toggleBtn.classList.toggle('on', is12h);
-            toggleLabel.textContent = is12h ? '12h' : '24h';
-            ampmSelect.parentNode.classList.toggle('ui-hidden', !is12h);
-            syncFromValue();
-        });
-
         inputEl._uiTime = { refresh: syncFromValue };
-        toggleLabel.textContent = '24h';
-        ampmSelect.parentNode.classList.add('ui-hidden');
         syncFromValue();
         if (!inputEl.value) commit();
     };

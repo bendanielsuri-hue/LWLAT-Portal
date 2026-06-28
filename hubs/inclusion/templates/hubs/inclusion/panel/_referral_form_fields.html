@@ -16,7 +16,7 @@
         <label>Student</label>
         <div class="referral-student-selected-row">
             <span data-referral-student-selected-name>{% if selected_student %}{{ selected_student.first_name }} {{ selected_student.last_name }} — Year {{ selected_student.year_group }}{% if selected_student.reg_form %} ({{ selected_student.reg_form }}){% endif %}{% endif %}</span>
-            {% if not is_edit %}<button type="button" class="btn btn-sm" data-referral-student-change>Change</button>{% endif %}
+            {% if not is_edit and not is_view_only %}<button type="button" class="btn btn-sm" data-referral-student-change>Change</button>{% endif %}
         </div>
     </div>
 </div>
@@ -27,14 +27,14 @@
 <div class="field-group">
     <label for="question_{{ question.id }}">{{ question.label }}</label>
     {% if question.question_type == 'select' %}
-    <select id="question_{{ question.id }}" name="question_{{ question.id }}" required>
+    <select id="question_{{ question.id }}" name="question_{{ question.id }}" required {% if is_view_only %}disabled{% endif %}>
         <option value="">Select…</option>
         {% for option in question.choice_list %}
         <option value="{{ option }}" {% if question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
         {% endfor %}
     </select>
     {% else %}
-    <textarea id="question_{{ question.id }}" name="question_{{ question.id }}">{{ question.existing_answer }}</textarea>
+    <textarea id="question_{{ question.id }}" name="question_{{ question.id }}" {% if is_view_only %}disabled{% endif %}>{{ question.existing_answer }}</textarea>
     {% endif %}
 </div>
 {% endfor %}

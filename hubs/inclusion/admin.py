@@ -9,6 +9,7 @@ from .models import (
     PanelGroupMember,
     PanelMember,
     PanelReferral,
+    PanelReferralNote,
     Referral,
     ReferralCategory,
     ReferralQuestion,
@@ -23,6 +24,7 @@ admin.site.register(ReferralResponse)
 admin.site.register(Panel)
 admin.site.register(PanelMember)
 admin.site.register(PanelReferral)
+admin.site.register(PanelReferralNote)
 admin.site.register(ActionCategory)
 admin.site.register(Action)
 admin.site.register(Escalation)

@@ -1,5 +1,5 @@
 ﻿<div class="modal-header">
-    <h2>{% if is_edit %}Edit Referral{% else %}New Referral{% endif %}</h2>
+    <h2>{% if is_view_only %}Referral Details{% elif is_edit %}Edit Referral{% else %}New Referral{% endif %}</h2>
 </div>
 <div class="modal-body">
     <form method="post" action="{% if is_edit %}{% url 'inclusion_panel_referral_edit' referral.id %}{% else %}{% url 'inclusion_panel_referral_new' %}{% endif %}" class="{% if not selected_student %}is-picking-student{% endif %}" data-referral-modal-form>
@@ -9,8 +9,10 @@
         {% include 'hubs/inclusion/panel/_referral_form_fields.html' %}
 
         <div class="btn-row">
-            <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+            <button type="button" class="btn btn-sm" data-modal-close>{% if is_view_only %}Close{% else %}Cancel{% endif %}</button>
+            {% if not is_view_only %}
             <button type="submit" class="btn btn-add btn-sm" data-referral-save>{% if is_edit %}Save Changes{% else %}Save Referral{% endif %}</button>
+            {% endif %}
         </div>
     </form>
 </div>

@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=13">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=29">
 {% endblock %}
 
 
@@ -20,79 +20,134 @@
 	<span>{{ student.first_name }} {{ student.last_name }}</span>
 {% endblock %}
 
+{% block page_back %}
+<a href="{% url 'inclusion_panel_meeting_agenda' panel_referral.panel.id %}" class="page-back-btn" aria-label="Back to Panel Agenda">{% include 'icons/arrow_left_svg.html' %} Back</a>
+{% endblock %}
+
 {% block page_title %}Panel Discussion{% endblock %}
 
+{% block page_subtitle %}<p class="page-subtitle">{{ student.first_name }} {{ student.last_name }} — referred {{ referral.created_at|date:"d/m/Y" }}</p>{% endblock %}
+
 {% block content %}
-<div class="discussion-header">
-    <div class="discussion-header-main">
-        <div class="discussion-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-        <div>
-            <a href="{% url 'inclusion_panel_meeting_agenda' panel_referral.panel.id %}" class="back-link">‹ Back</a>
-            <p>{{ student.first_name }} {{ student.last_name }}</p>
-            {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
-            <span class="discussion-timer" id="discussion-timer">00:00:00</span>
-            {% endif %}
-        </div>
+
+<div class="panel-toolbar">
+    <div class="panel-toolbar-stats">
+        {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
+        <span>Discussing for: <span class="discussion-timer" id="discussion-timer">00:00:00</span></span>
+        {% endif %}
     </div>
     <div class="btn-row">
-        <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-primary">Escalate to MAT</a>
+        <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-start btn-secondary">Escalate to MAT</a>
+        <button type="button" class="btn btn-start" data-open-end-discussion>End Discussion</button>
     </div>
 </div>
+
+<dialog id="end-discussion-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2>End Discussion</h2>
+    </div>
+    <div class="modal-body">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="mark_discussed">
+            <div class="field-group">
+                <label for="follow-up-date">Follow Up Date</label>
+                <input type="date" id="follow-up-date" name="follow_up_date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
+            </div>
+            <div class="field-group">
+                <label for="follow-up-status">Follow Up Status</label>
+                <select id="follow-up-status" name="follow_up_status">
+                    <option value="">—</option>
+                    <option value="incomplete" {% if panel_referral.follow_up_status == 'incomplete' %}selected{% endif %}>Incomplete</option>
+                    <option value="complete" {% if panel_referral.follow_up_status == 'complete' %}selected{% endif %}>Complete</option>
+                </select>
+            </div>
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Confirm End Discussion</button>
+            </div>
+        </form>
+    </div>
+</dialog>
 
 <div class="discussion-columns">
     <div class="discussion-col">
         <h2>Student Details</h2>
-        <div class="field-group">
-            <span class="field-source">Student record</span>
-            <label>Name</label>
-            <div class="field-readonly">{{ student.first_name }} {{ student.last_name }}</div>
-        </div>
-        <div class="field-group">
-            <label>Reg</label>
-            <div class="field-readonly">{{ student.reg_form }}</div>
-        </div>
-        <div class="field-group">
-            <label>Year</label>
-            <div class="field-readonly">{{ student.year_group }}</div>
-        </div>
-        <div class="field-group">
-            <label>Flags</label>
-            <div class="field-readonly">
-                {% if student.is_pp %}<span class="status-pill">PP</span>{% endif %}
-                {% if student.is_eal %}<span class="status-pill">EAL</span>{% endif %}
-                {% if student.is_lac %}<span class="status-pill">LAC</span>{% endif %}
-                {% if student.is_young_carer %}<span class="status-pill">Young Carer</span>{% endif %}
-                {% if not student.is_pp and not student.is_eal and not student.is_lac and not student.is_young_carer %}—{% endif %}
+        <div class="discussion-profile-header">
+            <div class="discussion-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+            <div class="discussion-profile-stack">
+                <div class="field-group">
+                    <label>Name</label>
+                    <div class="field-readonly">{{ student.first_name }} {{ student.last_name }}</div>
+                </div>
+                <div class="field-group">
+                    <label>Reg</label>
+                    <div class="field-readonly">{{ student.reg_form|default:"—" }}</div>
+                </div>
+                <div class="field-group">
+                    <label>Year</label>
+                    <div class="field-readonly">{{ student.year_group }}</div>
+                </div>
             </div>
         </div>
-        <div class="field-group">
-            <label>SEN Status</label>
-            <div class="field-readonly">{{ student.sen_status|default:"—" }}</div>
+        <div class="detail-grid">
+            <div class="field-group">
+                <label>SEN Status</label>
+                <div class="field-readonly">{{ student.sen_status|default:"—" }}</div>
+            </div>
+            <div class="field-group">
+                <label>Date of Arrival</label>
+                <div class="field-readonly">{{ student.date_of_arrival|default:"—" }}</div>
+            </div>
+            <div class="field-group">
+                <label>Year Arrived</label>
+                <div class="field-readonly">{{ student.year_arrived|default:"—" }}</div>
+            </div>
+            <div class="field-group detail-grid-span">
+                <label>Flags</label>
+                <div class="field-readonly">
+                    {% if student.is_pp %}<span class="status-pill">PP</span>{% endif %}
+                    {% if student.is_eal %}<span class="status-pill">EAL</span>{% endif %}
+                    {% if student.is_lac %}<span class="status-pill">LAC</span>{% endif %}
+                    {% if student.is_young_carer %}<span class="status-pill">Young Carer</span>{% endif %}
+                    {% if not student.is_pp and not student.is_eal and not student.is_lac and not student.is_young_carer %}—{% endif %}
+                </div>
+            </div>
         </div>
-        <div class="field-group">
-            <label>Attendance %</label>
-            <div class="field-readonly">{{ student.attendance_pct|default:"—" }}</div>
+
+        <div class="detail-stat-card">
+            <div class="detail-stat-card-header">
+                <strong>Attendance: {{ student.attendance_pct|default:"—" }}{% if student.attendance_pct %}%{% endif %}</strong>
+                <button type="button" class="btn btn-helper btn-sm">More Details</button>
+            </div>
         </div>
-        <div class="field-group">
-            <label>Behaviour Summary</label>
-            <div class="field-readonly">{{ student.behaviour_summary|default:"—" }}</div>
+        <div class="detail-stat-card">
+            <div class="detail-stat-card-header">
+                <strong>Behaviour Summary: {{ student.behaviour_summary|default:"—" }}</strong>
+                <button type="button" class="btn btn-helper btn-sm">More Details</button>
+            </div>
         </div>
-        <div class="field-group">
-            <label>Exclusions</label>
-            <div class="field-readonly">{{ student.exclusions_count }}</div>
-        </div>
-        <div class="field-group">
-            <label>Date of Arrival</label>
-            <div class="field-readonly">{{ student.date_of_arrival|default:"—" }}</div>
-        </div>
-        <div class="field-group">
-            <label>Year Arrived</label>
-            <div class="field-readonly">{{ student.year_arrived|default:"—" }}</div>
+        <div class="detail-stat-card">
+            <div class="detail-stat-card-header">
+                <strong>Exclusions: {{ student.exclusions_count }}</strong>
+                <button type="button" class="btn btn-helper btn-sm">More Details</button>
+            </div>
         </div>
     </div>
 
     <div class="discussion-col">
         <h2>Referral Details</h2>
+        <div class="panel-details-row">
+            <div class="field-group">
+                <label>Referred By</label>
+                <div class="field-readonly">{{ referral.raised_by|default:"—" }}</div>
+            </div>
+            <div class="field-group">
+                <label>Referral Date</label>
+                <div class="field-readonly">{{ referral.created_at|date:"d/m/Y" }}</div>
+            </div>
+        </div>
+
         {% for group in response_groups %}
         {% if group.category %}<h3>{{ group.category.name }}</h3>{% endif %}
         {% for row in group.rows %}
@@ -120,28 +175,6 @@
         </details>
         {% endfor %}
         {% endif %}
-
-        <form method="post">
-    {% csrf_token %}
-            <input type="hidden" name="form_action" value="mark_discussed">
-            <div class="field-group">
-                <label for="panel-notes">Notes</label>
-                <textarea id="panel-notes" name="notes" placeholder="Add panel notes...">{{ panel_referral.notes }}</textarea>
-            </div>
-            <div class="field-group">
-                <label for="follow-up-date">Follow Up Date</label>
-                <input type="date" id="follow-up-date" name="follow_up_date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
-            </div>
-            <div class="field-group">
-                <label for="follow-up-status">Follow Up Status</label>
-                <select id="follow-up-status" name="follow_up_status">
-                    <option value="">—</option>
-                    <option value="incomplete" {% if panel_referral.follow_up_status == 'incomplete' %}selected{% endif %}>Incomplete</option>
-                    <option value="complete" {% if panel_referral.follow_up_status == 'complete' %}selected{% endif %}>Complete</option>
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary">Mark Discussed</button>
-        </form>
     </div>
 
     <div class="discussion-col">
@@ -153,6 +186,10 @@
                 <label>Assigned To</label>
                 <div class="field-readonly">{{ action.assigned_to|default:"Unassigned" }}</div>
                 <span class="status-pill{% if action.status == 'complete' %} complete{% else %} incomplete{% endif %}">{{ action.get_status_display }}</span>
+            </div>
+            <div class="field-group">
+                <label>Due Date</label>
+                <div class="field-readonly">{{ action.due_date|date:"d/m/Y"|default:"—" }}</div>
             </div>
             <a href="{% url 'inclusion_panel_action_edit' action.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</a>
         </div>
@@ -201,6 +238,33 @@
     {% endif %}
 </div>
 
+<details class="detail-stat-card panel-notes-details">
+    <summary>Panel Notes ({{ panel_notes|length }})</summary>
+    {% for note in panel_notes %}
+    <div class="field-group">
+        <span class="field-source">{{ note.author|default:"Unknown" }} &middot; {{ note.created_at|date:"d/m/Y H:i" }}</span>
+        <div class="field-readonly note-display">{{ note.body|linebreaksbr }}</div>
+    </div>
+    {% empty %}
+    <p class="empty-note">No panel notes yet.</p>
+    {% endfor %}
+
+    <form method="post" class="field-group">
+        {% csrf_token %}
+        <input type="hidden" name="form_action" value="add_panel_note">
+        <label for="panel-note-author">Author</label>
+        <select id="panel-note-author" name="author">
+            <option value="">Select yourself…</option>
+            {% for staff in staff_list %}
+            <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
+            {% endfor %}
+        </select>
+        <label for="panel-note-body">New Note</label>
+        <textarea id="panel-note-body" name="body" placeholder="Add a panel note..."></textarea>
+        <button type="submit" class="btn btn-add btn-sm">Add Note</button>
+    </form>
+</details>
+
 {% if is_panel_staff %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -240,4 +304,33 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var endDialog = document.getElementById('end-discussion-dialog');
+    if (!endDialog) return;
+
+    function getModalDuration() {
+        return parseFloat(getComputedStyle(endDialog).getPropertyValue('--modal-duration')) || 250;
+    }
+    function closeEndDialog() {
+        endDialog.classList.remove('is-open');
+        setTimeout(function () { endDialog.close(); }, getModalDuration());
+    }
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-open-end-discussion]')) {
+            endDialog.showModal();
+            requestAnimationFrame(function () { endDialog.classList.add('is-open'); });
+            return;
+        }
+        if (e.target.closest('[data-modal-close]') && e.target.closest('#end-discussion-dialog')) {
+            closeEndDialog();
+        }
+    });
+    endDialog.addEventListener('click', function (e) {
+        if (e.target === endDialog) closeEndDialog();
+    });
+});
+</script>
 {% endblock %}

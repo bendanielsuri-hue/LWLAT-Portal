@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=13">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=29">
 {% endblock %}
 
 
@@ -18,61 +18,43 @@
 	<span>Panel Agenda</span>
 {% endblock %}
 
-{% block page_extras %}
-<a href="{% url 'inclusion_panel_meetings' %}" class="btn btn-sm">Panel Meetings</a>
+{% block page_back %}
+<a href="{% url 'inclusion_panel_meetings' %}" class="page-back-btn" aria-label="Back to Panel Meetings">{% include 'icons/arrow_left_svg.html' %} Back</a>
 {% endblock %}
 
 {% block page_title %}Panel Agenda{% endblock %}
 
+{% block page_subtitle %}<p class="page-subtitle">{{ panel.panel_group.name|default:"No group" }} — {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}</p>{% endblock %}
+
 {% block content %}
-<p>Panel: {{ panel.date }}</p>
 
-{% if not_today %}
-<div class="agenda-banner">
-    <span>This panel isn't scheduled for today — you're viewing/editing the agenda without starting the timer.</span>
-    <a href="{% url 'inclusion_panel_meeting_setup' panel.id %}" class="btn btn-sm">Edit Date</a>
-</div>
-{% endif %}
+<dialog id="schedule-warning-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2>Panel not yet due</h2>
+    </div>
+    <div class="modal-body">
+        <p>This panel is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Would you like to start the meeting now?</p>
+        <div class="btn-row">
+            <button type="button" class="btn btn-sm" data-modal-close>View Agenda Only</button>
+            <form method="post" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="start_meeting">
+                <button type="submit" class="btn btn-start btn-sm">Start Meeting</button>
+            </form>
+        </div>
+    </div>
+</dialog>
 
-<div class="stats-strip">
-    <div class="stat-card">
-        <div class="stat-value">{{ pending|length }}</div>
-        <div class="stat-label">Students pending</div>
+<div class="panel-toolbar">
+    <div class="panel-toolbar-stats">
+        <span>Students pending discussion: {{ pending|length }}</span>
+        <span>Students discussed: {{ discussed|length }}</span>
+        <span>Progress: {{ progress_pct }}%</span>
+        <span>Elapsed: <span id="panel-timer">{% if panel.started_at %}00:00:00{% else %}—{% endif %}</span></span>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ discussed|length }}</div>
-        <div class="stat-label">Students discussed</div>
+    <div class="btn-row">
+        <a href="{% url 'inclusion_panel_meetings' %}" class="btn btn-start">End Panel Meeting</a>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ progress_pct }}%</div>
-        <div class="stat-label">Progress</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value" id="panel-timer">{% if panel.started_at %}00:00:00{% else %}—{% endif %}</div>
-        <div class="stat-label">Elapsed</div>
-    </div>
-</div>
-
-<div class="attendance-card">
-    <details {% if just_started %}open{% endif %}>
-        <summary><h2 style="display:inline">Attendance</h2></summary>
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="update_attendance">
-            <ul class="attendance-list">
-                {% for member in members %}
-                <li>
-                    <label><input type="checkbox" name="attended_{{ member.id }}" {% if member.attended %}checked{% endif %}> {% if member.staff %}{{ member.staff }}{% else %}{{ member.guest_name }}{% endif %}{% if member.expertise %} — {{ member.expertise.name }}{% endif %}</label>
-                </li>
-                {% empty %}
-                <li class="empty-note">No members on this panel's roster yet — add some from Panel Setup.</li>
-                {% endfor %}
-            </ul>
-            {% if members %}
-            <button type="submit" class="btn btn-primary btn-sm">Save Attendance</button>
-            {% endif %}
-        </form>
-    </details>
 </div>
 
 {% if followups_due %}
@@ -100,9 +82,51 @@
 </div>
 {% endif %}
 
-<div class="agenda-columns">
-    <div class="agenda-section">
-        <div class="agenda-section-header">Students Pending ({{ pending|length }})</div>
+<div class="agenda-layout">
+    <div class="members-register-col setup-col">
+        <div class="setup-col-header"><h2>Panel Members Register</h2></div>
+        <div class="entity-list">
+            {% for member in members %}
+            <div class="entity-row">
+                <div class="entity-thumb">
+                    {% if member.staff and member.staff.photo %}
+                    <img src="{{ member.staff.photo.url }}" alt="">
+                    {% else %}
+                    {% include 'icons/avatar_placeholder_svg.html' %}
+                    {% endif %}
+                </div>
+                <div class="entity-body">
+                    <div class="entity-title">{% if member.staff %}{{ member.staff }}{% else %}{{ member.external_contact }}{% endif %}</div>
+                    <div class="entity-meta">
+                        {% if member.expertise %}<span class="status-pill">{{ member.expertise.name }}</span>{% endif %}
+                        {% if member.left_at %}<span class="status-pill type-external">Left</span>
+                        {% elif member.checked_in_at %}<span class="status-pill type-chair">Present</span>{% endif %}
+                    </div>
+                    {% if member.checked_in_at %}
+                    <div class="entity-meta">Joined {{ member.checked_in_at|time:"H:i" }}{% if member.left_at %} · Left {{ member.left_at|time:"H:i" }}{% endif %}</div>
+                    {% endif %}
+                    <form method="post" class="member-attendance-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="member_id" value="{{ member.id }}">
+                        <span class="toggle-label">Attendance</span>
+                        {% if member.checked_in_at and not member.left_at %}
+                        <input type="hidden" name="form_action" value="mark_left">
+                        <button type="submit" class="toggle-pill on" aria-pressed="true" aria-label="In attendance — click to mark left"><span class="toggle-knob"></span></button>
+                        {% else %}
+                        <input type="hidden" name="form_action" value="check_in">
+                        <button type="submit" class="toggle-pill" aria-pressed="false" aria-label="Not in attendance — click to mark in attendance"><span class="toggle-knob"></span></button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <p class="empty-note">No members on this panel's roster yet — add some from Panel Setup.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="agenda-section setup-col">
+        <div class="setup-col-header"><h2>Students Pending ({{ pending|length }})</h2></div>
         <div class="entity-list">
             {% for pr in pending %}
             <div class="entity-row">
@@ -114,21 +138,25 @@
                         {% csrf_token %}
                         <input type="hidden" name="form_action" value="update_priority">
                         <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                        <select name="priority" class="priority-select" onchange="this.form.submit()">
-                            <option value="low" {% if pr.priority == 'low' %}selected{% endif %}>Low</option>
-                            <option value="medium" {% if pr.priority == 'medium' %}selected{% endif %}>Medium</option>
-                            <option value="high" {% if pr.priority == 'high' %}selected{% endif %}>High</option>
-                        </select>
+                        <div class="priority-chips">
+                            <button type="submit" name="priority" value="low" class="priority-chip priority-low{% if pr.priority == 'low' %} active{% endif %}" aria-pressed="{% if pr.priority == 'low' %}true{% else %}false{% endif %}">Low</button>
+                            <button type="submit" name="priority" value="medium" class="priority-chip priority-medium{% if pr.priority == 'medium' %} active{% endif %}" aria-pressed="{% if pr.priority == 'medium' %}true{% else %}false{% endif %}">Medium</button>
+                            <button type="submit" name="priority" value="high" class="priority-chip priority-high{% if pr.priority == 'high' %} active{% endif %}" aria-pressed="{% if pr.priority == 'high' %}true{% else %}false{% endif %}">High</button>
+                        </div>
                     </form>
-                </div>
-                <div class="btn-row">
-                    <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-primary btn-sm">Discuss</a>
-                    <form method="post" onsubmit="return confirm('Remove this student from the agenda?');" style="display:inline">
-                        {% csrf_token %}
-                        <input type="hidden" name="form_action" value="unassign_referral">
-                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                        <button type="submit" class="btn btn-sm">Remove</button>
-                    </form>
+                    <div class="btn-row btn-row-stacked">
+                        {% if panel.started_at %}
+                        <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</a>
+                        {% else %}
+                        <span class="btn btn-add btn-sm btn-disabled" aria-disabled="true" title="Start the meeting to begin discussing referrals"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</span>
+                        {% endif %}
+                        <form method="post" onsubmit="return confirm('Remove this student from the agenda?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="form_action" value="unassign_referral">
+                            <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                            <button type="submit" class="btn btn-sm">Remove</button>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% empty %}
@@ -137,38 +165,27 @@
         </div>
     </div>
 
-    <div class="agenda-section">
-        <div class="agenda-section-header">Students Discussed ({{ discussed|length }})</div>
+    <div class="agenda-section setup-col">
+        <div class="setup-col-header"><h2>Students Discussed ({{ discussed|length }})</h2></div>
         <div class="entity-list">
             {% for pr in discussed %}
             <div class="entity-row">
                 <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                 <div class="entity-body">
                     <div class="entity-title">{{ pr.referral.student }}</div>
-                    <div class="entity-meta"><span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span> &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %} &middot; Time discussed: {{ pr.duration|default:"—" }}</div>
+                    <div class="entity-meta"><span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span> &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %}</div>
+                    <div class="entity-meta">Time discussed: {{ pr.duration_display }}</div>
                     <div class="entity-meta">Follow up: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
-                </div>
-                <div class="btn-row">
-                    <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-sm">Continue Discussion</a>
-                    <a href="{% url 'inclusion_panel_referral_escalate' pr.referral.id %}?next={% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-sm">Escalate to MAT</a>
+                    <div class="btn-row btn-row-stacked">
+                        <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Continue Discussion</a>
+                        <a href="{% url 'inclusion_panel_referral_escalate' pr.referral.id %}?next={% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-start btn-sm"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
+                    </div>
                 </div>
             </div>
             {% empty %}
             <p class="empty-note">No students discussed yet.</p>
             {% endfor %}
         </div>
-    </div>
-</div>
-
-<div class="agenda-footer">
-    <div class="agenda-stats">
-        <span>Students pending discussion: {{ pending|length }}</span>
-        <span>Students discussed: {{ discussed|length }}</span>
-        <span>Progress: {{ progress_pct }}%</span>
-    </div>
-    <div class="btn-row">
-        <a href="{% url 'inclusion_panel_meeting_setup' panel.id %}" class="btn btn-add">{% include 'icons/new_svg.html' %} Add Referral</a>
-        <a href="{% url 'inclusion_panel_meetings' %}" class="btn btn-primary">End Panel Meeting</a>
     </div>
 </div>
 
@@ -190,4 +207,29 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var warningDialog = document.getElementById('schedule-warning-dialog');
+    if (!warningDialog) return;
+
+    function getModalDuration() {
+        return parseFloat(getComputedStyle(warningDialog).getPropertyValue('--modal-duration')) || 250;
+    }
+    function closeWarningDialog() {
+        warningDialog.classList.remove('is-open');
+        setTimeout(function () { warningDialog.close(); }, getModalDuration());
+    }
+
+    if ({{ show_schedule_warning|yesno:"true,false" }}) {
+        warningDialog.showModal();
+        requestAnimationFrame(function () { warningDialog.classList.add('is-open'); });
+    }
+    warningDialog.addEventListener('click', function (e) {
+        if (e.target.closest('[data-modal-close]') || e.target === warningDialog) {
+            closeWarningDialog();
+        }
+    });
+});
+</script>
 {% endblock %}
