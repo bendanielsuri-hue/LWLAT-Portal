@@ -1,9 +1,20 @@
 from django.core.management.base import BaseCommand
 
 from core.models import Student
-from hubs.inclusion.models import PanelReferral, Referral
+from hubs.inclusion.models import PanelReferral, Referral, ReferralQuestion, ReferralResponse
 
 TARGET_UNASSIGNED_COUNT = 5
+
+# Deterministic placeholder answers, keyed by question label, so every demo
+# referral has something to show in the Referral Details panel instead of a
+# blank screen. Falls back to a generic line for any question not listed here.
+DEFAULT_ANSWERS = {
+    'Concern Details': 'Ongoing low-level disruption in lessons and difficulty settling at the start of the day.',
+    'Parent Voice': 'Parents are aware and supportive of any extra support the school can put in place.',
+    'Student Voice': 'Student says they sometimes find it hard to concentrate and would like some extra help.',
+    'What has been put in place so far?': 'Seating plan adjustments and a check-in with form tutor each morning.',
+}
+FALLBACK_ANSWER = 'No further detail recorded.'
 
 
 class Command(BaseCommand):
@@ -19,18 +30,35 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(
                 f'Already have {unassigned_count} unassigned referrals — nothing to do.'
             ))
-            return
+        else:
+            students_with_referrals = Referral.objects.values_list('student_id', flat=True)
+            candidates = Student.objects.filter(is_active=True).exclude(
+                pk__in=students_with_referrals
+            ).order_by('id')[:to_create]
 
-        students_with_referrals = Referral.objects.values_list('student_id', flat=True)
-        candidates = Student.objects.filter(is_active=True).exclude(
-            pk__in=students_with_referrals
-        ).order_by('id')[:to_create]
+            created = 0
+            for student in candidates:
+                Referral.objects.create(student=student)
+                created += 1
 
-        created = 0
-        for student in candidates:
-            Referral.objects.create(student=student)
-            created += 1
+            self.stdout.write(self.style.SUCCESS(
+                f'Created {created} unassigned referral(s). Total unassigned: {unassigned_count + created}.'
+            ))
+
+        questions = list(ReferralQuestion.objects.filter(is_active=True))
+        responses_created = 0
+        for referral in Referral.objects.all():
+            answered_question_ids = set(referral.responses.values_list('question_id', flat=True))
+            for question in questions:
+                if question.id in answered_question_ids:
+                    continue
+                ReferralResponse.objects.get_or_create(
+                    referral=referral,
+                    question=question,
+                    defaults={'answer': DEFAULT_ANSWERS.get(question.label, FALLBACK_ANSWER)},
+                )
+                responses_created += 1
 
         self.stdout.write(self.style.SUCCESS(
-            f'Created {created} unassigned referral(s). Total unassigned: {unassigned_count + created}.'
+            f'Backfilled {responses_created} referral response(s) for existing referrals.'
         ))

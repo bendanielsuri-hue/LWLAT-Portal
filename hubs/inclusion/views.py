@@ -104,14 +104,56 @@ def _panels_for_school_key(panels_qs, key):
     )
 
 
-def _due_followups(panel):
+def _stop_discussion_timer(panel_referral):
+    # Stops a running timer without marking the referral as discussed — used
+    # when another referral's discussion starts (only one runs at a time) and
+    # when a panel meeting ends, so no timer is left silently accruing.
+    if panel_referral.discussion_started_at:
+        elapsed = timezone.now() - panel_referral.discussion_started_at
+        panel_referral.duration = (panel_referral.duration or datetime.timedelta()) + elapsed
+        panel_referral.discussion_started_at = None
+        panel_referral.save()
+
+
+def _panel_referral_stage(pr):
+    # This PanelReferral's progress through its own panel — distinct from
+    # Referral.status, which aggregates across every panel a referral has
+    # ever been attached to (see _sync_referral_status below).
+    if pr.discussion_status == 'pending':
+        if pr.discussion_started_at:
+            return 'discussing', 'Discussing'
+        return 'assigned', 'Assigned to Panel'
+    if pr.follow_up_status == 'incomplete':
+        return 'requires_follow_up', 'Requires Follow-up'
+    return 'complete', 'Complete'
+
+
+def _sync_referral_status(referral):
+    # Referral.status reflects the aggregate state across every panel this
+    # referral is currently attached to, since the same referral can be
+    # picked up by more than one panel over time (e.g. a follow-up panel).
+    active_prs = list(referral.panel_referrals.filter(removed_at__isnull=True))
+    if not active_prs:
+        new_status = 'open'
+    elif all(_panel_referral_stage(pr)[0] == 'complete' for pr in active_prs):
+        new_status = 'closed'
+    else:
+        new_status = 'in_panel'
+    if referral.status != new_status:
+        referral.status = new_status
+        referral.save(update_fields=['status'])
+
+
+def _due_followups(panel, as_of=None):
     # Scoped strictly to the panel's own group so a follow-up never surfaces
     # in a different group's meeting. Ungrouped panels see nothing due.
+    # as_of defaults to today (live Agenda page); Panel Setup passes a
+    # forward-looking date since setup happens ahead of the meeting.
     if panel.panel_group_id is None:
         return PanelReferral.objects.none()
     return PanelReferral.objects.filter(
         follow_up_status='incomplete',
-        follow_up_date__lte=timezone.localdate(),
+        follow_up_date__lte=as_of or timezone.localdate(),
         removed_at__isnull=True,
         panel__panel_group_id=panel.panel_group_id,
     ).select_related('referral__student', 'panel')
@@ -895,6 +937,11 @@ def inclusion_panel_meeting_setup(request, panel_id):
         'referral__student', 'referral__raised_by'
     ).prefetch_related('referral__responses__question__category')
 
+    agenda_student_ids = [a.referral.student_id for a in agenda]
+    followups_due = _due_followups(
+        panel, as_of=panel.date + datetime.timedelta(days=7),
+    ).exclude(referral__student_id__in=agenda_student_ids)
+
     if request.method == 'POST':
         action = request.POST.get('form_action')
         if action == 'update_details':
@@ -944,11 +991,13 @@ def inclusion_panel_meeting_setup(request, panel_id):
                     pr.removed_at = None
                     pr.removed_by = None
                     pr.save()
+                _sync_referral_status(pr.referral)
         elif action == 'remove_referral_from_agenda':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             pr.removed_at = timezone.now()
             pr.removed_by_id = request.POST.get('removed_by') or None
             pr.save()
+            _sync_referral_status(pr.referral)
         elif action == 'add_all_referrals':
             for referral_id in unassigned_referrals.values_list('id', flat=True):
                 pr, created = PanelReferral.objects.get_or_create(panel=panel, referral_id=referral_id)
@@ -956,13 +1005,30 @@ def inclusion_panel_meeting_setup(request, panel_id):
                     pr.removed_at = None
                     pr.removed_by = None
                     pr.save()
+                _sync_referral_status(pr.referral)
         elif action == 'remove_all_referrals':
+            referral_ids = list(agenda.values_list('referral_id', flat=True))
             agenda.update(removed_at=timezone.now(), removed_by_id=request.POST.get('removed_by') or None)
+            for referral in Referral.objects.filter(pk__in=referral_ids):
+                _sync_referral_status(referral)
         elif action == 'update_priority':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             if request.POST.get('priority') in dict(PanelReferral.PRIORITY_CHOICES):
                 pr.priority = request.POST.get('priority')
                 pr.save()
+        elif action == 'add_followup_to_agenda':
+            referral_id = request.POST.get('referral_id')
+            if referral_id:
+                pr, created = PanelReferral.objects.get_or_create(panel=panel, referral_id=referral_id)
+                if not created and pr.removed_at is not None:
+                    pr.removed_at = None
+                    pr.removed_by = None
+                    pr.save()
+                _sync_referral_status(pr.referral)
+        elif action == 'pull_in_followups':
+            for due in _due_followups(panel, as_of=panel.date + datetime.timedelta(days=7)):
+                pr, _created = PanelReferral.objects.get_or_create(panel=panel, referral_id=due.referral_id)
+                _sync_referral_status(pr.referral)
         return redirect('inclusion_panel_meeting_setup', panel_id=panel.id)
 
     for referral in unassigned_referrals:
@@ -1006,6 +1072,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
         'inactive_members': inactive_members,
         'unassigned_referrals': unassigned_referrals,
         'agenda': agenda,
+        'followups_due': followups_due,
         'priority_choices': PanelReferral.PRIORITY_CHOICES,
     })
 
@@ -1038,6 +1105,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             pr.removed_at = timezone.now()
             pr.removed_by_id = request.POST.get('removed_by') or None
             pr.save()
+            _sync_referral_status(pr.referral)
         elif action == 'update_priority':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             if request.POST.get('priority') in dict(PanelReferral.PRIORITY_CHOICES):
@@ -1051,9 +1119,31 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                     pr.removed_at = None
                     pr.removed_by = None
                     pr.save()
+                _sync_referral_status(pr.referral)
         elif action == 'pull_in_followups':
             for due in _due_followups(panel):
-                PanelReferral.objects.get_or_create(panel=panel, referral_id=due.referral_id)
+                pr, _created = PanelReferral.objects.get_or_create(panel=panel, referral_id=due.referral_id)
+                _sync_referral_status(pr.referral)
+        elif action == 'add_member':
+            staff_id = request.POST.get('staff') or None
+            external_contact_id = request.POST.get('external_contact') or None
+            expertise_id = request.POST.get('expertise') or None
+            if staff_id:
+                PanelMember.objects.update_or_create(
+                    panel=panel, staff_id=staff_id,
+                    defaults={'expertise_id': expertise_id, 'external_contact_id': None},
+                )
+            elif external_contact_id:
+                PanelMember.objects.update_or_create(
+                    panel=panel, external_contact_id=external_contact_id,
+                    defaults={'expertise_id': expertise_id},
+                )
+        elif action == 'end_panel_meeting':
+            panel.status = 'complete'
+            panel.save()
+            for pr in panel.panel_referrals.filter(discussion_status='pending', discussion_started_at__isnull=False):
+                _stop_discussion_timer(pr)
+            return redirect('inclusion_panel_meetings')
         return redirect('inclusion_panel_meeting_agenda', panel_id=panel.id)
 
     panel_referrals = list(
@@ -1066,6 +1156,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     )
     for pr in panel_referrals:
         pr.is_followup = referral_counts.get(pr.referral.student_id, 0) > 1
+        pr.stage, pr.stage_label = _panel_referral_stage(pr)
 
     priority_order = {'high': 0, 'medium': 1, 'low': 2}
     pending = sorted(
@@ -1091,14 +1182,24 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     )
     show_schedule_warning = panel.started_at is None and timezone.now() < scheduled_at
 
+    members = panel.members.select_related('staff', 'expertise')
+    existing_staff_ids = {m.staff_id for m in members if m.is_active and m.staff_id}
+    existing_external_ids = {m.external_contact_id for m in members if m.is_active and m.external_contact_id}
+
     return render(request, 'hubs/inclusion/panel/meeting_agenda.html', {
         **PANEL_BASE_CONTEXT,
         'panel': panel,
         'pending': pending,
         'discussed': discussed,
         'progress_pct': progress_pct,
-        'members': panel.members.select_related('staff', 'expertise'),
-        'staff_list': Staff.objects.filter(is_active=True),
+        'members': members,
+        'staff_list': Staff.objects.filter(is_active=True).select_related('school'),
+        'external_contacts': ExternalContact.objects.filter(is_active=True),
+        'expertise_list': Expertise.objects.visible_for_school(
+            panel.panel_group.school_id if panel.panel_group_id else None
+        ),
+        'existing_staff_ids': existing_staff_ids,
+        'existing_external_ids': existing_external_ids,
         'followups_due': followups_due,
         'just_started': request.GET.get('just_started') == '1',
         'scheduled_at': scheduled_at,
@@ -1121,11 +1222,18 @@ def inclusion_panel_discussion(request, panel_referral_id):
         action = request.POST.get('form_action')
         if action == 'mark_discussed':
             if panel_referral.discussion_started_at:
-                panel_referral.duration = timezone.now() - panel_referral.discussion_started_at
+                elapsed = timezone.now() - panel_referral.discussion_started_at
+                panel_referral.duration = (panel_referral.duration or datetime.timedelta()) + elapsed
+                panel_referral.discussion_started_at = None
             panel_referral.discussion_status = 'discussed'
-            panel_referral.follow_up_date = request.POST.get('follow_up_date') or None
-            panel_referral.follow_up_status = request.POST.get('follow_up_status', '')
+            if request.POST.get('requires_followup') == 'yes':
+                panel_referral.follow_up_date = request.POST.get('follow_up_date') or None
+                panel_referral.follow_up_status = 'incomplete'
+            else:
+                panel_referral.follow_up_date = None
+                panel_referral.follow_up_status = ''
             panel_referral.save()
+            _sync_referral_status(referral)
             return redirect('inclusion_panel_meeting_agenda', panel_id=panel_referral.panel_id)
         elif action == 'add_panel_note':
             body = request.POST.get('body', '').strip()
@@ -1149,9 +1257,19 @@ def inclusion_panel_discussion(request, panel_referral_id):
             note.save()
         return redirect('inclusion_panel_discussion', panel_referral_id=panel_referral.id)
 
-    if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at is None:
+    if panel_referral.discussion_status == 'discussed' or panel_referral.discussion_started_at is None:
+        # Only one referral can be actively timed per panel at once — pause
+        # any other discussion still running before starting/resuming this one.
+        other_running = panel_referral.panel.panel_referrals.filter(
+            discussion_status='pending', discussion_started_at__isnull=False,
+        ).exclude(pk=panel_referral.pk)
+        for other in other_running:
+            _stop_discussion_timer(other)
+
+        panel_referral.discussion_status = 'pending'
         panel_referral.discussion_started_at = timezone.now()
         panel_referral.save()
+        _sync_referral_status(referral)
 
     previous_referrals = list(
         Referral.objects.filter(student=referral.student)

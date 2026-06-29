@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=29">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
 {% endblock %}
 
 
@@ -50,10 +50,14 @@
         <span>Students pending discussion: {{ pending|length }}</span>
         <span>Students discussed: {{ discussed|length }}</span>
         <span>Progress: {{ progress_pct }}%</span>
-        <span>Elapsed: <span id="panel-timer">{% if panel.started_at %}00:00:00{% else %}—{% endif %}</span></span>
+        <span>Elapsed: <span class="discussion-timer" id="panel-timer">{% if panel.started_at %}00:00:00{% else %}—{% endif %}</span></span>
     </div>
     <div class="btn-row">
-        <a href="{% url 'inclusion_panel_meetings' %}" class="btn btn-start">End Panel Meeting</a>
+        <form method="post" onsubmit="return confirm('End this panel meeting? Any active discussion timers will stop.');">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="end_panel_meeting">
+            <button type="submit" class="btn btn-start">End Panel Meeting</button>
+        </form>
     </div>
 </div>
 
@@ -85,6 +89,7 @@
 <div class="agenda-layout">
     <div class="members-register-col setup-col">
         <div class="setup-col-header"><h2>Panel Members Register</h2></div>
+        <button type="button" class="btn btn-add btn-sm members-register-add-btn" data-open-member-dialog>{% include 'icons/new_svg.html' %} Add Member</button>
         <div class="entity-list">
             {% for member in members %}
             <div class="entity-row">
@@ -133,30 +138,38 @@
                 <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                 <div class="entity-body">
                     <div class="entity-title">{{ pr.referral.student }}</div>
-                    <div class="entity-meta"><span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span> &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %}</div>
+                    <div class="entity-meta">
+                        <span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span>
+                        <span class="status-pill {{ pr.stage }}">{{ pr.stage_label }}</span>
+                        {% if pr.discussion_started_at %}
+                        <span class="agenda-row-timer">Discussing for: <span class="discussion-timer discussion-timer-sm" data-started-at="{{ pr.discussion_started_at|date:'c' }}">00:00:00</span></span>
+                        {% endif %}
+                        &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %}
+                    </div>
                     <form method="post" class="priority-form">
                         {% csrf_token %}
                         <input type="hidden" name="form_action" value="update_priority">
                         <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <span class="toggle-label priority-form-label">Priority</span>
                         <div class="priority-chips">
                             <button type="submit" name="priority" value="low" class="priority-chip priority-low{% if pr.priority == 'low' %} active{% endif %}" aria-pressed="{% if pr.priority == 'low' %}true{% else %}false{% endif %}">Low</button>
                             <button type="submit" name="priority" value="medium" class="priority-chip priority-medium{% if pr.priority == 'medium' %} active{% endif %}" aria-pressed="{% if pr.priority == 'medium' %}true{% else %}false{% endif %}">Medium</button>
                             <button type="submit" name="priority" value="high" class="priority-chip priority-high{% if pr.priority == 'high' %} active{% endif %}" aria-pressed="{% if pr.priority == 'high' %}true{% else %}false{% endif %}">High</button>
                         </div>
                     </form>
-                    <div class="btn-row btn-row-stacked">
-                        {% if panel.started_at %}
-                        <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</a>
-                        {% else %}
-                        <span class="btn btn-add btn-sm btn-disabled" aria-disabled="true" title="Start the meeting to begin discussing referrals"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</span>
-                        {% endif %}
-                        <form method="post" onsubmit="return confirm('Remove this student from the agenda?');">
-                            {% csrf_token %}
-                            <input type="hidden" name="form_action" value="unassign_referral">
-                            <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                            <button type="submit" class="btn btn-sm">Remove</button>
-                        </form>
-                    </div>
+                </div>
+                <div class="btn-row btn-row-stacked">
+                    {% if panel.started_at %}
+                    <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</a>
+                    {% else %}
+                    <span class="btn btn-add btn-sm btn-disabled" aria-disabled="true" title="Start the meeting to begin discussing referrals"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</span>
+                    {% endif %}
+                    <form method="post" onsubmit="return confirm('Remove this student from the agenda?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="unassign_referral">
+                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <button type="submit" class="btn btn-sm">Remove</button>
+                    </form>
                 </div>
             </div>
             {% empty %}
@@ -173,13 +186,17 @@
                 <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                 <div class="entity-body">
                     <div class="entity-title">{{ pr.referral.student }}</div>
-                    <div class="entity-meta"><span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span> &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %}</div>
+                    <div class="entity-meta">
+                        <span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span>
+                        <span class="status-pill {{ pr.stage }}">{{ pr.stage_label }}</span>
+                        &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %}
+                    </div>
                     <div class="entity-meta">Time discussed: {{ pr.duration_display }}</div>
                     <div class="entity-meta">Follow up: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
-                    <div class="btn-row btn-row-stacked">
-                        <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Continue Discussion</a>
-                        <a href="{% url 'inclusion_panel_referral_escalate' pr.referral.id %}?next={% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-start btn-sm"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
-                    </div>
+                </div>
+                <div class="btn-row btn-row-stacked">
+                    <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Continue Discussion</a>
+                    <a href="{% url 'inclusion_panel_referral_escalate' pr.referral.id %}?next={% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-start btn-sm"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
                 </div>
             </div>
             {% empty %}
@@ -188,6 +205,73 @@
         </div>
     </div>
 </div>
+
+<dialog id="panel-member-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2>Add Member</h2>
+    </div>
+    <div class="modal-body">
+        <form method="post" class="field-group" data-member-modal-form>
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_member">
+
+            {% include 'hubs/inclusion/panel/_member_picker.html' with school=panel.panel_group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Active Member' %}
+
+            <div data-expertise-wrapper hidden>
+                {% include 'hubs/inclusion/panel/_expertise_field.html' with field_id='member-expertise' expertise_list=expertise_list school_id=panel.panel_group.school_id %}
+            </div>
+
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-add btn-sm" data-member-save disabled>{% include 'icons/new_svg.html' %} Add Member</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var memberDialog = document.getElementById('panel-member-dialog');
+    if (!memberDialog) return;
+
+    var memberForm = memberDialog.querySelector('[data-member-modal-form]');
+    var saveBtn = memberDialog.querySelector('[data-member-save]');
+    var pickerRoot = memberDialog.querySelector('[data-member-picker-root]');
+    var expertiseWrapper = memberDialog.querySelector('[data-expertise-wrapper]');
+
+    function getModalDuration() {
+        return parseFloat(getComputedStyle(memberDialog).getPropertyValue('--modal-duration')) || 250;
+    }
+    function closeMemberDialog() {
+        memberDialog.classList.remove('is-open');
+        setTimeout(function () { memberDialog.close(); }, getModalDuration());
+    }
+
+    pickerRoot.addEventListener('member-picker:change', function (e) {
+        saveBtn.disabled = !e.detail.id;
+        if (expertiseWrapper) expertiseWrapper.hidden = !e.detail.id;
+    });
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-open-member-dialog]')) {
+            memberForm.reset();
+            if (window.resetMemberPicker) window.resetMemberPicker(pickerRoot);
+            saveBtn.disabled = true;
+            if (expertiseWrapper) expertiseWrapper.hidden = true;
+            memberDialog.showModal();
+            requestAnimationFrame(function () { memberDialog.classList.add('is-open'); });
+            return;
+        }
+        if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-member-dialog')) {
+            closeMemberDialog();
+        }
+    });
+
+    memberDialog.addEventListener('click', function (e) {
+        if (e.target === memberDialog) closeMemberDialog();
+    });
+});
+</script>
 
 {% if panel.started_at %}
 <script>
@@ -207,6 +291,24 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.discussion-timer[data-started-at]').forEach(function (timerEl) {
+        var startedAt = new Date(timerEl.dataset.startedAt).getTime();
+        function pad(n) { return String(n).padStart(2, '0'); }
+        function tick() {
+            var elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+            var h = Math.floor(elapsed / 3600);
+            var m = Math.floor((elapsed % 3600) / 60);
+            var s = elapsed % 60;
+            timerEl.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+        }
+        tick();
+        setInterval(tick, 1000);
+    });
+});
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

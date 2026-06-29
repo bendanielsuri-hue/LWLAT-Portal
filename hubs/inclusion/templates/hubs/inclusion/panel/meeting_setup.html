@@ -4,7 +4,7 @@
 {% block title %}Panel Setup{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=28">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
 {% endblock %}
 
 
@@ -283,7 +283,11 @@
 
     <div class="setup-col">
         <div class="setup-col-header" data-sticky-under-header>
-            <h2>Referral Selection</h2>
+            <h2>Panel Selection</h2>
+        </div>
+
+        <div class="setup-col-header">
+            <h3>New Referrals</h3>
             {% if unassigned_referrals %}
             <form method="post">
     {% csrf_token %}
@@ -312,7 +316,39 @@
                 </div>
             </div>
             {% empty %}
-            <p class="empty-note">No unassigned referrals.</p>
+            <p class="empty-note">No new referrals.</p>
+            {% endfor %}
+        </div>
+
+        <div class="setup-col-header">
+            <h3>Due Follow-up</h3>
+            {% if followups_due %}
+            <form method="post">
+    {% csrf_token %}
+                <input type="hidden" name="form_action" value="pull_in_followups">
+                <button type="submit" class="btn btn-add btn-secondary btn-sm">Pull In All</button>
+            </form>
+            {% endif %}
+        </div>
+        <div class="entity-list">
+            {% for fpr in followups_due %}
+            <div class="entity-row">
+                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                <div class="entity-body">
+                    <div class="entity-title">{{ fpr.referral.student }}</div>
+                    <div class="entity-meta">Follow up due {{ fpr.follow_up_date }} — from Panel {{ fpr.panel.date }}</div>
+                </div>
+                <div class="btn-row btn-row-stacked">
+                    <form method="post">
+    {% csrf_token %}
+                        <input type="hidden" name="form_action" value="add_followup_to_agenda">
+                        <input type="hidden" name="referral_id" value="{{ fpr.referral.id }}">
+                        <button type="submit" class="btn btn-add btn-sm">{% include 'icons/new_svg.html' %} Add</button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <p class="empty-note">No follow-ups due.</p>
             {% endfor %}
         </div>
     </div>

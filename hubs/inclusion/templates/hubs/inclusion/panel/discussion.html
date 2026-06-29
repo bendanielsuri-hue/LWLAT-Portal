@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=29">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
 {% endblock %}
 
 
@@ -30,16 +30,37 @@
 
 {% block content %}
 
-<div class="panel-toolbar">
-    <div class="panel-toolbar-stats">
-        {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
-        <span>Discussing for: <span class="discussion-timer" id="discussion-timer">00:00:00</span></span>
-        {% endif %}
+<div class="panel-toolbar panel-toolbar-stacked">
+    <div class="panel-toolbar-top">
+        <form method="post" class="panel-toolbar-notes-form">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_panel_note">
+            <input type="hidden" name="author" value="{{ current_staff_id }}">
+            <textarea name="body" placeholder="Add a panel note..." rows="1"></textarea>
+            <button type="submit" class="btn btn-add">Add Note</button>
+        </form>
+        <div class="panel-toolbar-divider"></div>
+        <div class="panel-toolbar-actions">
+            {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
+            <span class="panel-toolbar-timer">Discussing for: <span class="discussion-timer" id="discussion-timer">00:00:00</span></span>
+            {% endif %}
+            <button type="button" class="btn btn-start" data-open-end-discussion>End Discussion</button>
+        </div>
     </div>
-    <div class="btn-row">
-        <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-start btn-secondary">Escalate to MAT</a>
-        <button type="button" class="btn btn-start" data-open-end-discussion>End Discussion</button>
-    </div>
+
+    {% if panel_notes %}
+    <details class="panel-notes-history">
+        <summary>All Meeting Notes ({{ panel_notes|length }})</summary>
+        <div class="panel-notes-history-list">
+            {% for note in panel_notes %}
+            <div class="field-group">
+                <span class="field-source">{{ note.author|default:"Unknown" }} &middot; {{ note.created_at|date:"d/m/Y H:i" }}</span>
+                <div class="field-readonly note-display">{{ note.body|linebreaksbr }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
 </div>
 
 <dialog id="end-discussion-dialog" class="modal-dialog">
@@ -47,26 +68,50 @@
         <h2>End Discussion</h2>
     </div>
     <div class="modal-body">
-        <form method="post">
+        <form method="post" id="end-discussion-form">
             {% csrf_token %}
             <input type="hidden" name="form_action" value="mark_discussed">
             <div class="field-group">
-                <label for="follow-up-date">Follow Up Date</label>
-                <input type="date" id="follow-up-date" name="follow_up_date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
+                <label>Does this referral require a follow-up discussion?</label>
+                <div class="btn-row" id="requires-followup-row">
+                    <button type="button" class="btn btn-sm followup-toggle-btn{% if panel_referral.follow_up_date %} btn-start{% endif %}" data-value="yes">Yes</button>
+                    <button type="button" class="btn btn-sm followup-toggle-btn" data-value="no">No</button>
+                </div>
+                <input type="hidden" name="requires_followup" id="requires-followup-input" value="{% if panel_referral.follow_up_date %}yes{% endif %}">
             </div>
-            <div class="field-group">
-                <label for="follow-up-status">Follow Up Status</label>
-                <select id="follow-up-status" name="follow_up_status">
-                    <option value="">—</option>
-                    <option value="incomplete" {% if panel_referral.follow_up_status == 'incomplete' %}selected{% endif %}>Incomplete</option>
-                    <option value="complete" {% if panel_referral.follow_up_status == 'complete' %}selected{% endif %}>Complete</option>
+            <div class="field-group" id="follow-up-date-group" hidden>
+                <label for="follow-up-interval">Follow up in...</label>
+                <select id="follow-up-interval">
+                    <option value="">Select…</option>
+                    <option value="7">1 Week</option>
+                    <option value="14">2 Weeks</option>
+                    <option value="30">1 Month</option>
+                    <option value="42">6 Weeks</option>
+                    <option value="other">Other</option>
                 </select>
             </div>
+            <div class="field-group" id="follow-up-date-custom-group" hidden>
+                <label for="follow-up-date-custom">Follow Up Date</label>
+                <input type="date" id="follow-up-date-custom">
+            </div>
+            <input type="hidden" name="follow_up_date" id="follow-up-date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
             <div class="btn-row">
                 <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-                <button type="submit" class="btn btn-primary btn-sm">Confirm End Discussion</button>
+                <button type="submit" class="btn btn-start btn-sm" id="confirm-end-discussion-btn" disabled>Confirm End Discussion</button>
             </div>
         </form>
+    </div>
+</dialog>
+
+<dialog id="leave-confirm-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2>Have you finished discussing this referral?</h2>
+    </div>
+    <div class="modal-body">
+        <div class="btn-row">
+            <button type="button" class="btn btn-sm" id="leave-confirm-no">No</button>
+            <button type="button" class="btn btn-start btn-sm" id="leave-confirm-yes">Yes</button>
+        </div>
     </div>
 </dialog>
 
@@ -175,6 +220,8 @@
         </details>
         {% endfor %}
         {% endif %}
+
+        <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-start btn-secondary">Escalate to MAT</a>
     </div>
 
     <div class="discussion-col">
@@ -238,33 +285,6 @@
     {% endif %}
 </div>
 
-<details class="detail-stat-card panel-notes-details">
-    <summary>Panel Notes ({{ panel_notes|length }})</summary>
-    {% for note in panel_notes %}
-    <div class="field-group">
-        <span class="field-source">{{ note.author|default:"Unknown" }} &middot; {{ note.created_at|date:"d/m/Y H:i" }}</span>
-        <div class="field-readonly note-display">{{ note.body|linebreaksbr }}</div>
-    </div>
-    {% empty %}
-    <p class="empty-note">No panel notes yet.</p>
-    {% endfor %}
-
-    <form method="post" class="field-group">
-        {% csrf_token %}
-        <input type="hidden" name="form_action" value="add_panel_note">
-        <label for="panel-note-author">Author</label>
-        <select id="panel-note-author" name="author">
-            <option value="">Select yourself…</option>
-            {% for staff in staff_list %}
-            <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-            {% endfor %}
-        </select>
-        <label for="panel-note-body">New Note</label>
-        <textarea id="panel-note-body" name="body" placeholder="Add a panel note..."></textarea>
-        <button type="submit" class="btn btn-add btn-sm">Add Note</button>
-    </form>
-</details>
-
 {% if is_panel_staff %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -310,27 +330,126 @@ document.addEventListener('DOMContentLoaded', function () {
     var endDialog = document.getElementById('end-discussion-dialog');
     if (!endDialog) return;
 
-    function getModalDuration() {
-        return parseFloat(getComputedStyle(endDialog).getPropertyValue('--modal-duration')) || 250;
+    var endForm = document.getElementById('end-discussion-form');
+    var toggleBtns = endDialog.querySelectorAll('.followup-toggle-btn');
+    var followupInput = document.getElementById('requires-followup-input');
+    var dateGroup = document.getElementById('follow-up-date-group');
+    var intervalSelect = document.getElementById('follow-up-interval');
+    var customDateGroup = document.getElementById('follow-up-date-custom-group');
+    var customDateInput = document.getElementById('follow-up-date-custom');
+    var dateInput = document.getElementById('follow-up-date');
+    var confirmBtn = document.getElementById('confirm-end-discussion-btn');
+    var isSubmitting = false;
+    var isNavigating = false;
+
+    function todayPlusDays(days) {
+        var d = new Date();
+        d.setDate(d.getDate() + days);
+        return d.toISOString().slice(0, 10);
     }
-    function closeEndDialog() {
-        endDialog.classList.remove('is-open');
-        setTimeout(function () { endDialog.close(); }, getModalDuration());
+
+    function getModalDuration(dialog) {
+        return parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 250;
     }
+    function closeDialog(dialog) {
+        dialog.classList.remove('is-open');
+        setTimeout(function () { dialog.close(); }, getModalDuration(dialog));
+    }
+    function openDialog(dialog) {
+        dialog.showModal();
+        requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+    }
+    function openEndDialog() {
+        openDialog(endDialog);
+        updateConfirmState();
+    }
+    function updateConfirmState() {
+        var requiresFollowup = followupInput.value === 'yes';
+        var hasChoice = followupInput.value === 'yes' || followupInput.value === 'no';
+        dateGroup.hidden = !requiresFollowup;
+        if (!hasChoice) {
+            confirmBtn.disabled = true;
+        } else if (requiresFollowup) {
+            confirmBtn.disabled = !dateInput.value;
+        } else {
+            confirmBtn.disabled = false;
+        }
+    }
+
+    toggleBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            toggleBtns.forEach(function (b) { b.classList.remove('btn-start'); });
+            btn.classList.add('btn-start');
+            followupInput.value = btn.dataset.value;
+            updateConfirmState();
+        });
+    });
+    intervalSelect.addEventListener('change', function () {
+        var isOther = intervalSelect.value === 'other';
+        customDateGroup.hidden = !isOther;
+        if (isOther) {
+            dateInput.value = customDateInput.value;
+        } else if (intervalSelect.value) {
+            dateInput.value = todayPlusDays(parseInt(intervalSelect.value, 10));
+        } else {
+            dateInput.value = '';
+        }
+        updateConfirmState();
+    });
+    ['input', 'change'].forEach(function (evt) {
+        customDateInput.addEventListener(evt, function () {
+            dateInput.value = customDateInput.value;
+            updateConfirmState();
+        });
+    });
+    document.addEventListener('submit', function () { isSubmitting = true; }, true);
 
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-open-end-discussion]')) {
-            endDialog.showModal();
-            requestAnimationFrame(function () { endDialog.classList.add('is-open'); });
+            openEndDialog();
             return;
         }
         if (e.target.closest('[data-modal-close]') && e.target.closest('#end-discussion-dialog')) {
-            closeEndDialog();
+            closeDialog(endDialog);
         }
     });
     endDialog.addEventListener('click', function (e) {
-        if (e.target === endDialog) closeEndDialog();
+        if (e.target === endDialog) closeDialog(endDialog);
     });
+
+    {% if panel_referral.discussion_status == 'pending' %}
+    // Discussion hasn't been ended yet — confirm before any in-app link navigates away.
+    var leaveDialog = document.getElementById('leave-confirm-dialog');
+    var pendingHref = null;
+
+    document.addEventListener('click', function (e) {
+        if (isSubmitting) return;
+        var link = e.target.closest('a[href]');
+        if (!link || endDialog.contains(link) || leaveDialog.contains(link)) return;
+        e.preventDefault();
+        pendingHref = link.href;
+        openDialog(leaveDialog);
+    }, true);
+
+    document.getElementById('leave-confirm-yes').addEventListener('click', function () {
+        closeDialog(leaveDialog);
+        openEndDialog();
+    });
+    document.getElementById('leave-confirm-no').addEventListener('click', function () {
+        closeDialog(leaveDialog);
+        isNavigating = true;
+        if (pendingHref) window.location.href = pendingHref;
+    });
+    leaveDialog.addEventListener('click', function (e) {
+        if (e.target === leaveDialog) closeDialog(leaveDialog);
+    });
+
+    window.addEventListener('beforeunload', function (e) {
+        if (isSubmitting || isNavigating) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+    {% endif %}
 });
 </script>
 {% endblock %}

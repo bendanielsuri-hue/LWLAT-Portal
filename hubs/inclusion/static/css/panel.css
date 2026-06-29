@@ -199,6 +199,19 @@
 .status-pill.closed { background: var(--success-bg); color: var(--success); }
 .status-pill.discussed { background: var(--success-bg); color: var(--success); }
 
+/* Per-panel referral "stage" pills (Panel Agenda) — distinct from the
+   Referral.status pill above, which aggregates across every panel a
+   referral has ever been attached to. .complete reuses the existing
+   .status-pill.complete rule further down (same success treatment). */
+.status-pill.assigned { background: var(--primary-light); color: var(--primary); }
+.status-pill.discussing { background: var(--warning-bg); color: var(--warning); animation: discussing-pulse 2s ease-in-out infinite; }
+.status-pill.requires_follow_up { background: var(--warning-bg); color: var(--warning); }
+
+@keyframes discussing-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
 /* Panel Meetings list — gap (not each card's own margin-bottom) spaces the
    cards, so there's no extra trailing space after the last one. */
 .meeting-list { display: flex; flex-direction: column; gap: 12px; }
@@ -290,8 +303,20 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius-xl);
     padding: 20px;
+    box-shadow: var(--card-shadow);
+}
+
+/* Panel Discussion's cards (Student Details, Referral Details, etc.) scroll
+   internally past viewport height instead of growing the whole page. */
+.discussion-col {
+    max-height: calc(100vh - 260px);
+    overflow-y: auto;
 }
 .setup-col h2, .discussion-col h2 { font-size: var(--font-xl); margin-bottom: 16px; }
+
+/* Panel Discussion cards (Student Details, Referral Details, Actions, DSL
+   Notes) read as profile-style summaries rather than left-aligned forms. */
+.discussion-col { text-align: center; }
 .setup-col h2 { text-align: center; }
 
 /* Heading sits in the true centre column regardless of the button's width
@@ -505,28 +530,58 @@
     margin-bottom: 20px;
     gap: 16px;
     flex-wrap: wrap;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--card-shadow);
 }
 .panel-toolbar-stats { display: flex; gap: 24px; font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; align-items: center; }
+
+/* Panel Discussion toolbar: a quick Add Note form takes the available width
+   on the left, a divider, then the timer + End Discussion stacked together
+   and right-aligned as one unit. The full notes history sits collapsed
+   beneath via a plain native <details>. */
+.panel-toolbar-stacked { flex-direction: column; align-items: stretch; }
+.panel-toolbar-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.panel-toolbar-divider { width: 1px; align-self: stretch; background: var(--border-color); }
+.panel-toolbar-notes-form { display: flex; gap: 8px; align-items: stretch; flex: 1 1 200px; min-width: 0; }
+.panel-toolbar-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.panel-toolbar-timer { font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; }
+.panel-toolbar-notes-form textarea {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+    resize: vertical;
+}
 
 /* Panel Discussion page */
 .discussion-timer { font-size: var(--font-2xl); font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
-.discussion-profile-header { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+/* Panel Agenda's inline per-row timer (Students Pending) — same base timer
+   styling, shrunk to fit a compact entity-meta row instead of the toolbar. */
+.agenda-row-timer { font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; }
+.discussion-timer-sm { font-size: var(--font-sm); font-weight: 700; }
+
+.discussion-profile-header { display: flex; justify-content: center; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
 .discussion-profile-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 .detail-grid-span { grid-column: 1 / -1; }
 .detail-stat-card { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 10px; background: var(--bg-surface-alt); }
 .detail-stat-card summary { font-weight: 600; cursor: pointer; }
 .detail-stat-card .field-readonly { margin-top: 8px; }
-.detail-stat-card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.panel-notes-details { margin-top: 8px; }
-.panel-notes-details summary { margin-bottom: 8px; }
+.detail-stat-card-header { display: flex; justify-content: center; align-items: center; gap: 12px; }
+.panel-notes-history { margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 12px; }
+.panel-notes-history summary { font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+.panel-notes-history-list { max-height: 240px; overflow-y: auto; }
 
 /* Panel Agenda: members register + pending/discussed, all equal-width columns */
 .agenda-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; align-items: start; }
 .agenda-layout .agenda-section { min-width: 0; margin-bottom: 0; }
 .agenda-layout .members-register-col { min-width: 0; }
+.members-register-add-btn { margin-bottom: 12px; }
 .entity-body > .btn-row { margin-top: 8px; }
 .member-attendance-form { margin-top: 6px; display: flex; align-items: center; gap: 8px; }
 .toggle-label { font-size: var(--font-xs); color: var(--text-secondary); font-weight: 600; }
@@ -534,6 +589,7 @@
 .followups-card h2 { font-size: var(--font-md); margin-bottom: 12px; }
 .priority-form { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .priority-label { font-size: var(--font-xs); color: var(--text-secondary); font-weight: 600; }
+.priority-form-label { display: block; margin-bottom: 4px; }
 .priority-chips { display: flex; gap: 4px; }
 .priority-chip { font-size: var(--font-xs); font-weight: 600; padding: 4px 10px; border-radius: var(--radius-pill, 999px); border: 1px solid var(--border-color); background-color: var(--bg-surface); color: var(--text-secondary); cursor: pointer; transition: transform 0.1s ease; }
 .priority-chip:hover { transform: translateY(-1px); }
@@ -618,7 +674,7 @@
 
 .action-item { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; margin-bottom: 12px; background: var(--bg-surface-alt); }
 .action-item .desc { font-size: var(--font-base); margin-bottom: 8px; }
-.action-item .field-group { display: flex; align-items: center; gap: 10px; margin-bottom: 0; }
+.action-item .field-group { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 0; }
 .action-item .field-group label { margin-bottom: 0; }
 .action-item .field-group select { width: auto; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: var(--font-sm); font-family: inherit; }
 
@@ -682,6 +738,7 @@ dialog.modal-dialog .modal-close {
 }
 dialog.modal-dialog .modal-close:hover { color: var(--text-primary); }
 dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: 16px; }
+#requires-followup-row { justify-content: flex-start; margin-top: 0; }
 
 .panel-group-member-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .panel-group-member-row select { flex: 1; min-width: 0; }
