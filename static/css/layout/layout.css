@@ -1,0 +1,955 @@
+/* Global reset and base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    line-height: 1.4;
+    transition: background-color var(--transition-base), color var(--transition-base);
+}
+
+html, body {
+    height: 100%;
+}
+
+/* The shell is a fixed-height viewport split into nav + main, so scrolling page
+   content never drags the sidebars or header along with it — only main scrolls. */
+.page-shell {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* The nav itself never scrolls — it's a fixed-height column split into a
+   static header, a static footer, and a `.nav-scroll` middle region that
+   scrolls on its own. That keeps the title and the close/footer buttons
+   pinned in view even when the menu/list between them is taller than the
+   viewport. */
+.side-nav {
+    width: 240px;
+    flex-shrink: 0;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-nav);
+    border-right: 1px solid var(--border-color);
+}
+.side-nav { transition: width var(--transition-slide), transform var(--transition-slide), box-shadow var(--transition-slide), background-color var(--transition-base), border-color var(--transition-base); }
+
+/* Icon-only rail: the hub sidebar (and the home page's single inline pane) can
+   collapse down to just its icons, either automatically below the narrow-window
+   breakpoint or via the manual toggle button — see main.js setupSidebarCollapse. */
+.side-nav.collapsed {
+    width: 64px;
+}
+.side-nav.collapsed .nav-title,
+.side-nav.collapsed .nav-search,
+.side-nav.collapsed .nav-footer-divider {
+    display: none;
+}
+/* Lets the new hover tooltips (.icon-tooltip-host::after) escape past the
+   sidebar's own right edge instead of being clipped by the shared .side-nav
+   overflow:hidden rule above (and .nav-scroll's own overflow-y:auto) — only
+   safe once the sidebar is at rest in its fixed 64px collapsed width;
+   .hub-side specifically (not every .side-nav.collapsed variant) so the
+   width-animated expand/collapse transition elsewhere isn't affected. */
+.side-nav.hub-side.collapsed {
+    overflow: visible;
+}
+.side-nav.hub-side.collapsed .nav-scroll {
+    overflow: visible;
+}
+/* Labels fade via opacity rather than being display:none'd, and rows stay
+   justify-content:flex-start at all times. Forced single-line so a wrapped
+   label doesn't grow the row taller than its icon, pushing every row below. */
+.side-nav.collapsed .menu-label,
+.side-nav.collapsed .menu-label-stack {
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.side-nav.collapsed .menu-label-stack .user-name,
+.side-nav.collapsed .menu-label-stack .user-school,
+.side-nav.collapsed .menu-label-stack .user-role {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.side-nav.collapsed .nav-header,
+.side-nav.collapsed .nav-scroll,
+.side-nav.collapsed .nav-footer {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.side-nav.collapsed a,
+.side-nav.collapsed .nav-row-btn,
+.side-nav.collapsed .school-nav-option,
+.side-nav.collapsed .staff-nav-option {
+    justify-content: flex-start;
+}
+/* Rows centre their icon in the 64px rail by giving it equal breathing room
+   on both sides: 12px container padding + 6px row padding leaves exactly the
+   28px icon box's width. */
+.side-nav.collapsed.hub-side .nav-menu a,
+.side-nav.collapsed .nav-row-btn,
+.side-nav.collapsed .exit-hub,
+.side-nav.collapsed .school-nav-option,
+.side-nav.collapsed .staff-nav-option {
+    padding-left: 6px;
+    padding-right: 6px;
+}
+/* "Hubs" only exists as a stand-in for the global rail, which hides itself
+   whenever this sidebar is collapsed — so it's only ever shown in that state.
+   Qualified with .side-nav.hub-side (three classes) so this beats the generic
+   ".side-nav .nav-row-btn { display: flex }" rule. */
+.side-nav.hub-side .hubs-trigger {
+    display: none;
+}
+.side-nav.hub-side.collapsed .hubs-trigger {
+    display: flex;
+}
+.side-nav.collapsed .collapse-toggle svg {
+    transform: rotate(180deg);
+}
+/* Collapsed mode: the toggle reads as a normal full-width row */
+.side-nav.collapsed .nav-header-top-row {
+    justify-content: flex-start;
+}
+.side-nav.collapsed .nav-row-btn {
+    width: 100%;
+}
+.side-nav.collapsed .collapse-toggle {
+    justify-content: flex-start;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+.side-nav.collapsed .collapse-toggle:hover,
+.side-nav.collapsed .collapse-toggle:focus-visible {
+    background: transparent;
+    transform: translateX(3px);
+}
+
+.side-nav .nav-header {
+    flex-shrink: 0;
+    padding: 32px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+/* Collapse/expand toggle's own row, pinned to the top-right corner */
+.nav-header-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    margin-top: -8px;
+}
+/* Corner control: icon-only at rest, label grows in from the icon on hover */
+.collapse-toggle {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0 4px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.collapse-toggle:hover,
+.collapse-toggle:focus-visible {
+    background: transparent;
+}
+.collapse-toggle svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    flex-shrink: 0;
+    transition: transform var(--transition-fast);
+}
+.collapse-toggle-label {
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 0;
+    opacity: 0;
+    font-size: var(--font-md);
+    transition: opacity var(--transition-fast), max-width var(--transition-base), margin-left var(--transition-base);
+}
+.side-nav:not(.collapsed) .collapse-toggle:hover .collapse-toggle-label,
+.side-nav:not(.collapsed) .collapse-toggle:focus-visible .collapse-toggle-label {
+    opacity: 1;
+    max-width: 100px;
+    margin-left: 6px;
+}
+
+/* "Back to hub" link: collapsed mode shows only the arrow; expanded mode reads
+   as a small secondary title centered above .nav-title. */
+.exit-hub {
+    padding: 11px 14px;
+}
+.exit-hub .menu-label {
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: opacity var(--transition-fast);
+}
+.side-nav:not(.collapsed) .exit-hub:hover .menu-label,
+.side-nav:not(.collapsed) .exit-hub:focus-visible .menu-label {
+    opacity: 1;
+}
+.side-nav:not(.collapsed) .exit-hub {
+    display: block;
+    align-self: stretch;
+    text-align: center;
+    padding: 0;
+}
+.side-nav:not(.collapsed) .exit-hub .menu-icon {
+    display: none;
+}
+.side-nav:not(.collapsed) .exit-hub .menu-label {
+    opacity: 1;
+    font-size: var(--font-md);
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: color var(--transition-fast);
+}
+.side-nav:not(.collapsed) .exit-hub:hover,
+.side-nav:not(.collapsed) .exit-hub:focus-visible {
+    background: transparent;
+    transform: none;
+}
+.side-nav:not(.collapsed) .exit-hub:hover .menu-label,
+.side-nav:not(.collapsed) .exit-hub:focus-visible .menu-label {
+    color: var(--primary);
+}
+/* Pulls .nav-title closer to the exit-hub label so the two read as one stacked
+   title pair */
+.side-nav:not(.collapsed) .exit-hub + .nav-title {
+    margin-top: -6px;
+}
+
+/* The home page's inline "Change School"/"Settings" panes get a stronger border
+   colour since they lack the box-shadow that makes overlay drawer borders clear */
+.side-nav.school-nav:not(.overlay-nav),
+.side-nav.settings-nav:not(.overlay-nav) {
+    border-right-color: var(--border-strong);
+}
+.side-nav .nav-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px 20px;
+}
+.side-nav .nav-footer {
+    flex-shrink: 0;
+    padding: 16px 20px 24px;
+}
+
+/* .nav-stack groups the overlay panels with the hub sidebar as a single flex
+   item — overlay panels absolutely position inside it and don't contribute to
+   its width. overflow:visible is needed so open overlay panels (fixed 240px)
+   can expand past the narrower .nav-stack box when the sidebar is collapsed. */
+.nav-stack {
+    position: relative;
+    flex-shrink: 0;
+    overflow: visible;
+}
+.overlay-slot {
+    position: absolute;
+    inset: 0;
+    /* Must beat .page-header's z-index so the sticky header doesn't render
+       on top of an open overlay panel */
+    z-index: var(--z-overlay);
+    overflow: visible;
+    pointer-events: none;
+}
+.side-nav.overlay-nav {
+    position: absolute;
+    inset: 0;
+    width: 240px;
+    border-right: none;
+    background-color: var(--bg-nav);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base), box-shadow var(--transition-slide), border-color var(--transition-base);
+}
+.side-nav.overlay-nav.open {
+    opacity: 1;
+    pointer-events: auto;
+    border-right: 1px solid var(--border-color);
+}
+main { position: relative; }
+
+/* The permanent hub rail: a thin, always-visible icon strip for switching hubs */
+.global-nav {
+    display: flex;
+    flex-shrink: 0;
+    order: 0;
+    position: relative;
+    z-index: var(--z-global-nav);
+    height: 100%;
+}
+.hub-rail {
+    width: 72px;
+    flex-shrink: 0;
+    background: transparent;
+    border-right: none;
+    /* Tooltips escape past the rail's right edge — would be clipped otherwise */
+    overflow: visible;
+}
+.hub-rail-inner {
+    width: 100%;
+    height: 100%;
+    padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background-color: var(--bg-rail);
+    border-right: 1px solid var(--border-color);
+    box-shadow: 3px 0 8px rgba(2, 6, 23, 0.07);
+}
+.global-nav:has(.side-nav.hub-side.collapsed) .hub-rail {
+    display: none;
+}
+.hub-rail .hub-rail-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-shrink: 0;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.hub-rail .hub-rail-item:not(.nav-row-btn) {
+    width: 100%;
+}
+.hub-rail-item svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    transition: transform var(--transition-fast);
+}
+/* CSS-only hover/focus tooltip — reads off data-tooltip, z-index 30 beats the
+   overlay slot (15) and global-nav (20) so it's always on top. The caret is
+   carved via clip-path since ::before is claimed by the accent-bar on selectable
+   rows. */
+.icon-tooltip-host {
+    position: relative;
+}
+.icon-tooltip-host::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%) translateX(-6px) scale(0.95);
+    padding: 6px 12px 6px 20px;
+    border-radius: var(--radius-xs);
+    background-color: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-base);
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    z-index: var(--z-tooltip);
+    clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 8px 62%, 0 50%, 8px 38%);
+    transition: opacity var(--transition-pop), transform var(--transition-pop);
+}
+.hub-rail .icon-tooltip-host::after {
+    left: 100%;
+}
+.side-nav.collapsed .icon-tooltip-host::after {
+    left: calc(100% + 4px);
+}
+.hub-rail .icon-tooltip-host:hover::after,
+.hub-rail .icon-tooltip-host:focus-visible::after,
+.side-nav.collapsed .icon-tooltip-host:hover::after,
+.side-nav.collapsed .icon-tooltip-host:focus-visible::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+}
+.side-nav.collapsed .collapse-toggle:hover .icon-tooltip-host::after,
+.side-nav.collapsed .collapse-toggle:focus-visible .icon-tooltip-host::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+}
+.hub-rail-divider {
+    border-top: 1px solid var(--border-strong);
+    margin: 8px 0;
+}
+.hub-rail-global-action {
+    margin-top: auto;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+}
+/* Re-assert rail padding so the generic .side-nav .nav-row-btn rule (higher
+   specificity) doesn't overwrite it. */
+.hub-rail .hub-rail-item.nav-row-btn {
+    padding: 11px 14px;
+}
+
+/* The dimming backdrop covers <main> only — signals that main content isn't
+   the current focus while a side panel is open.
+   z-index must be above .page-header (var(--z-page-header) = 10) to prevent
+   the sticky header escaping the dim, but below .overlay-slot (var(--z-overlay) = 15). */
+.global-backdrop { opacity: 0; transition: opacity var(--transition-slide); pointer-events: none; }
+.global-backdrop.active { opacity: 1; position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: rgba(3,6,23,0.45); z-index: var(--z-backdrop); pointer-events: auto; }
+/* Dark theme: use solid black so the overlay reads clearly on the dark page */
+[data-theme="dark"] .global-backdrop.active { background: rgba(0,0,0,0.65); }
+
+.side-nav .nav-title {
+    align-self: stretch;
+    text-align: center;
+    font-size: var(--font-4xl);
+    color: var(--text-primary);
+    font-weight: 700;
+}
+.nav-title-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: color var(--transition-fast);
+}
+.nav-title-link:hover,
+.nav-title-link:focus-visible {
+    color: var(--primary);
+}
+
+.side-nav ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.side-nav .nav-menu {
+    flex: 1;
+    gap: 0;
+}
+
+.side-nav a,
+.side-nav .school-nav-option,
+.side-nav .staff-nav-option,
+.side-nav .nav-row-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    text-align: left;
+    font-size: var(--font-md);
+    font-family: inherit;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
+}
+/* Selectable rows stay full-width; action buttons hug their own icon+label */
+.side-nav a:not(.nav-row-btn),
+.side-nav .school-nav-option,
+.side-nav .staff-nav-option {
+    width: 100%;
+}
+
+/* Every side-nav row shares the same quiet hover nudge — translateX(3px) +
+   bold — regardless of whether it's an action or a selectable row. */
+.side-nav .nav-row-btn:hover,
+.side-nav a:not(.nav-row-btn):hover,
+.side-nav .school-nav-option:hover,
+.side-nav .staff-nav-option:hover {
+    transform: translateX(3px);
+    font-weight: 600;
+}
+/* Icon-only tooltip hosts cancel the row-level nudge (it shifts the hit-test
+   region and causes hover-flicker on the tooltip). Icon glyph nudges instead. */
+.hub-rail a.icon-tooltip-host:hover,
+.hub-rail a.icon-tooltip-host:focus-visible,
+.hub-rail button.icon-tooltip-host:hover,
+.hub-rail button.icon-tooltip-host:focus-visible,
+.side-nav.collapsed a.icon-tooltip-host:hover,
+.side-nav.collapsed a.icon-tooltip-host:focus-visible,
+.side-nav.collapsed button.icon-tooltip-host:not(.collapse-toggle):hover,
+.side-nav.collapsed button.icon-tooltip-host:not(.collapse-toggle):focus-visible {
+    transform: none;
+}
+/* Icon-level nudge stand-in for the cancelled row-level nudge above */
+.hub-rail .icon-tooltip-host:hover .menu-icon,
+.hub-rail .icon-tooltip-host:hover > svg,
+.hub-rail .icon-tooltip-host:focus-visible .menu-icon,
+.hub-rail .icon-tooltip-host:focus-visible > svg,
+.side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):hover .menu-icon,
+.side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):focus-visible .menu-icon {
+    transform: translateX(3px);
+}
+
+/* Left-edge accent bar for hover/selected state on every selectable row */
+.side-nav a:not(.nav-row-btn)::before,
+.side-nav .school-nav-option::before,
+.side-nav .staff-nav-option::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 20%;
+    bottom: 20%;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--text-faint);
+    opacity: 0;
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: opacity var(--transition-base), background-color var(--transition-base), transform var(--transition-pop);
+}
+/* translateX(-3px) cancels the row's own nudge so the bar stays at left:3px */
+.side-nav a:not(.nav-row-btn):hover::before,
+.side-nav .school-nav-option:hover::before,
+.side-nav .staff-nav-option:hover::before {
+    opacity: 1;
+    transform: translateX(-3px) scaleY(1);
+}
+
+.side-nav a:not(.nav-row-btn).active,
+.side-nav .school-nav-option.selected,
+.side-nav .staff-nav-option.selected {
+    color: var(--primary);
+    font-weight: 600;
+}
+.side-nav a:not(.nav-row-btn).active::before,
+.side-nav .school-nav-option.selected::before,
+.side-nav .staff-nav-option.selected::before {
+    opacity: 1;
+    transform: scaleY(1);
+    background: var(--primary);
+}
+.side-nav .staff-nav-option.selected .user-name {
+    color: var(--primary);
+}
+
+.side-nav .nav-menu a {
+    padding: 11px 14px;
+}
+
+.nav-footer {
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.school-nav-logo {
+    color: var(--text-faint);
+}
+
+.school-nav-option.school-nav-aggregate {
+    padding-left: 12px;
+    font-size: 15px;
+}
+
+.school-nav-divider,
+.staff-nav-divider {
+    border-top: 1px solid var(--border-color);
+    margin: 2px 4px;
+}
+
+.nav-search {
+    margin-bottom: 16px;
+}
+
+main {
+    flex: 1;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+/* Padding on an inner wrapper, not the scrolling element — position:sticky
+   children measure their stuck offset against the scroll container's padding
+   box, and padding on the container lets scrolled content creep over sticky
+   headers. */
+.main-inner {
+    min-width: 0;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 32px;
+}
+
+/* Sticky page header (breadcrumbs/actions) and home screen title+search row */
+.page-header,
+.home-header-sticky {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-page-header);
+    background: var(--bg-page);
+    margin: -32px -32px 0;
+    padding: 24px 32px 16px;
+}
+
+main h1 {
+    margin-bottom: 12px;
+}
+
+section {
+    display: flex;
+    flex-flow: column;
+    gap: 12px;
+}
+
+.hub-cards h1 {
+    font-size: var(--font-5xl);
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.home-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto 8px;
+}
+
+.home-toolbar h1 {
+    margin: 0;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.home-search-row {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto 20px;
+}
+
+.hub-cards p {
+    font-size: var(--font-base);
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+}
+
+.cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    align-content: flex-start;
+}
+
+small { color: var(--text-muted); }
+a { color: inherit; }
+.form-with-validation { max-width: 600px; font-size: var(--font-base); }
+.errorlist { color: #b91c1c; margin-left: 0.5rem; }
+.logout-button { background: transparent; border: none; cursor: pointer; }
+
+.side-nav .menu-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    margin-right: 8px;
+    transition: transform var(--transition-fast);
+}
+.side-nav .menu-icon svg { width: 20px; height: 20px; display: block; }
+.side-nav .menu-icon img { width: 20px; height: 20px; display: block; }
+.side-nav .menu-label { flex: 1; min-width: 0; display: block; white-space: normal; line-height: 22px; }
+.nav-header { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; }
+.side-nav.hidden { display: none; }
+/* Overlay header: a full-width "Close" row sits above the title */
+.nav-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-size: var(--font-md);
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+.nav-close-btn:hover,
+.nav-close-btn:focus-visible {
+    color: var(--primary);
+}
+
+.side-nav { position: relative; }
+
+/* List page shell (Students/Referrals/Actions/Panel Home): fills the space
+   between the sticky page header and the bottom of the viewport. */
+.list-page-shell {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* List card: wraps the filter bar and the entity-list so they read as one card.
+   The card itself never scrolls — only .entity-list scrolls internally. */
+.list-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    margin-bottom: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+.list-card .filter-bar {
+    position: static;
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: none;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.list-card .entity-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.setup-col .entity-list {
+    background: none;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+}
+
+.list-page-shell .stats-strip {
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+
+/* Page header: left (breadcrumbs + page title) and right (key actions) */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.page-header-main { min-width: 0; }
+.page-header-extras { display: flex; align-items: center; flex-shrink: 0; }
+.key-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.side-nav .nav-row-btn:focus-visible {
+    background: var(--bg-surface-alt);
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+.nav-footer-divider {
+    border-top: 1px solid var(--border-color);
+    margin: 2px 4px;
+}
+
+/* Hub sidebar header divider — stronger than default so it reads on the nav bg */
+.nav-header-divider {
+    border-top: 1px solid var(--border-strong);
+    width: 100%;
+    margin: 4px 0;
+}
+.nav-scroll-divider {
+    margin: 0;
+}
+
+/* "Current user" feature row: avatar + name + job title, opens staff overlay */
+.side-nav .menu-label-stack {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+.side-nav .menu-label-stack .user-name {
+    font-size: var(--font-md);
+    color: var(--text-primary);
+}
+.side-nav .menu-label-stack .user-school,
+.side-nav .menu-label-stack .user-role {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.side-nav .nav-row-dropdown-list li.hidden {
+    display: none;
+}
+
+.hub-home-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.hub-home-lead { margin: 0; color: var(--text-secondary); }
+
+/* Settings panel overlay content */
+.settings-nav .settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+.settings-nav .settings-group .settings-label {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Primary colour swatches */
+.colour-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.colour-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-surface);
+    background: var(--swatch);
+    padding: 0;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px var(--border-color);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.colour-swatch:hover {
+    transform: scale(1.12);
+}
+.colour-swatch:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
+}
+.colour-swatch.selected {
+    box-shadow: 0 0 0 2px var(--swatch), 0 0 0 4px var(--bg-surface), 0 0 0 5px var(--swatch);
+}
+.settings-current {
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+}
+
+/* Theme toggle (sun / moon) */
+.theme-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 64px;
+    height: 32px;
+    padding: 0 7px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+.theme-toggle:hover {
+    border-color: var(--primary);
+    transform: scale(1.04);
+}
+.theme-toggle-icon {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    transition: color var(--transition-base);
+}
+.theme-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    transition: transform 200ms ease;
+}
+.theme-toggle[aria-checked="true"] .theme-toggle-thumb {
+    transform: translateX(32px);
+}
+.theme-toggle[aria-checked="false"] .theme-toggle-sun {
+    color: var(--bg-surface);
+}
+.theme-toggle[aria-checked="true"] .theme-toggle-moon {
+    color: var(--bg-surface);
+}
+
+/* Text size picker — each option previews its own size at fixed px */
+.text-size-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.text-size-option {
+    flex: 1 1 30%;
+    min-width: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 2px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+.text-size-option:hover {
+    border-color: var(--primary);
+    background: rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+[data-theme="dark"] .text-size-option:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.text-size-option .size-preview {
+    line-height: 1;
+    font-weight: 600;
+}
+.text-size-option .size-name {
+    font-size: var(--font-2xs);
+    color: var(--text-muted);
+}
+.text-size-option.selected {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+.text-size-option.selected .size-name {
+    color: var(--primary);
+}

@@ -205,7 +205,7 @@ def build_search_items(sections):
 
 def mat_home(request):
     sections = build_sections(request)
-    return render(request, 'mat/home.html', {
+    return render(request, 'portal/home.html', {
         'sections': sections,
         'hub_title': 'Home',
         'local_menu': [],

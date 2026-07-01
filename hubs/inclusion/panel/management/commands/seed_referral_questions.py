@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from hubs.inclusion.models import ReferralCategory, ReferralQuestion
+from hubs.inclusion.panel.models import ReferralCategory, ReferralQuestion
 
 # Only one category is expected going forward — "Concern" — everything else is
 # a flat (category=None) question with no heading on the referral form.
@@ -13,6 +13,12 @@ FLAT_QUESTIONS = [
     ('Student Voice', 1),
     ('What has been put in place so far?', 2),
 ]
+
+MAIN_CONCERN_CHOICES = (
+    'Attendance,Truancy,Behaviour,Access to Learning,Wellbeing,SEND,'
+    'Educational Provision,Medical Needs,Peer Issues,Compliance,'
+    'Safeguarding,Home Life,School Transport,Agency Support,Careers,Funding,Other'
+)
 
 
 class Command(BaseCommand):
@@ -30,6 +36,15 @@ class Command(BaseCommand):
             ReferralQuestion.objects.get_or_create(
                 category=None, label=label, defaults={'order': q_order},
             )
+
+        mcq, _ = ReferralQuestion.objects.get_or_create(
+            category=None, label='Main Concern Category',
+            defaults={'order': 10, 'question_type': 'select', 'choices': MAIN_CONCERN_CHOICES},
+        )
+        if mcq.choices != MAIN_CONCERN_CHOICES or mcq.question_type != 'select':
+            mcq.question_type = 'select'
+            mcq.choices = MAIN_CONCERN_CHOICES
+            mcq.save()
 
         self.stdout.write(self.style.SUCCESS(
             f'Seed complete. Categories: {ReferralCategory.objects.count()}, '

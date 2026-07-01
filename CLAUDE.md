@@ -54,30 +54,23 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix:
   ```
   .venv\Scripts\python.exe manage.py migrate
   ```
-- Dummy/demo data (staff, students, referral categories, demo referrals) is **not** seeded by migrations — migrations only create empty tables. It comes from management commands, which are deterministic (fixed lists, `get_or_create` keyed on stable fields like `staff_code`/`upn` — no `random`), so running them on any machine produces the same dataset and reruns are idempotent:
+- Dummy/demo data is **not** seeded by migrations — migrations only create empty tables. It comes from management commands, which are deterministic (fixed lists, `get_or_create` keyed on stable fields like `staff_code`/`upn` — no `random`), so running them on any machine produces the same dataset and reruns are idempotent:
   ```
   .venv\Scripts\python.exe manage.py seed_dummy_data
   .venv\Scripts\python.exe manage.py seed_schools
-  .venv\Scripts\python.exe manage.py seed_referral_questions
-  .venv\Scripts\python.exe manage.py seed_demo_referrals
-  .venv\Scripts\python.exe manage.py seed_panel_groups
   .venv\Scripts\python.exe manage.py seed_benjamin_admin
   .venv\Scripts\python.exe manage.py seed_modules
   ```
+  Inclusion Panel has its own additional seed commands — see `hubs/inclusion/CLAUDE.md`.
   - `seed_dummy_data` (in `core/management/commands/`) — 10 Staff + 30 Student rows.
   - `seed_schools` (in `core/management/commands/`) — must run after `seed_dummy_data`. Creates the 5 real `School` rows (Heatherbrook/Woodstock = Primary, Babington/Lancaster/South Wigston Academy = Secondary) and backfills existing Staff/Student to a school round-robin.
-  - `seed_referral_questions` (in `hubs/inclusion/management/commands/`) — default ReferralCategory/ReferralQuestion rows.
-  - `seed_demo_referrals` (in `hubs/inclusion/management/commands/`) — tops up to 5 unassigned demo Referrals.
-  - `seed_panel_groups` (in `hubs/inclusion/management/commands/`) — must run after `seed_schools`. Seeds `Expertise` tags (SEND, Pastoral, SENCO, Safeguarding, Attendance, Mental Health) and ensures every active `School` has a `PanelGroup` with a few `PanelGroupMember`s tagged by expertise.
-  - `seed_benjamin_admin` (in `hubs/inclusion/management/commands/`) — must run after `seed_dummy_data` and `seed_schools` (requires Staff "Benjamin Suri" and School "Babington Academy" to already exist). Makes him chair of a "Babington Panel" `PanelGroup` (linked to School "Babington Academy"), gives him 3 demo Referrals/Actions, and sets `is_developer=True` so he's the one seeded user who can see the Portal Admin hub. Converges with `seed_panel_groups` on the same "Babington Panel" row regardless of run order.
+  - `seed_benjamin_admin` (in `hubs/inclusion/management/commands/`) — must run after `seed_dummy_data`. Sets `is_mat_staff=True` and `is_developer=True` on Benjamin Suri and clears his school FK (MAT-wide, not tied to a school). `is_developer` is what makes him the one seeded user who can see the Portal Admin hub.
   - `seed_modules` (in `core/management/commands/`) — no dependency on the other seed commands, can run any time/order. Seeds the `Module` rollout-status table (one row per hub + per leaf page, see "Module rollout status" below). Reruns are idempotent on `key` and resync `name`/`parent` but never touch `status`/`pilot_schools` — those are an admin's deliberate decision, not seed data.
 
 ### Sidebar "current user" identity
 
 - No login system exists. Every hub's sidebar (`templates/hubs/_hub_sidebar.html`) shows a "current user" dropdown (avatar + name + job title), backed by a `current_staff_id` cookie (see `CURRENT_STAFF_COOKIE` in `core/identity.py`) and mirrored to `localStorage`. Switching identity reloads the page.
-- `core.identity.current_staff(request)` / `default_staff()` fall back to **Benjamin Suri** when no cookie is set — he's the default test identity for the whole app. `mat.context_processors.current_identity` surfaces this to every template (`current_staff`, `current_staff_id`, `current_staff_list`). `hubs.inclusion.views` imports `current_staff`/`default_staff` from `core.identity` (aliased `_current_staff`/`_default_staff`) for its permission checks below.
-- `_is_panel_staff(staff)` is the only "permission" check in the app: membership in any `PanelGroupMember` makes a Staff see sensitive `ActionCategory` items and add/edit `StudentNote`s. Benjamin is seeded as chair of "Babington Panel" so he passes this check — there is no separate admin/role field on `Staff`.
-- `PanelGroup` has a nullable `school` FK to `core.models.School`; a School may have more than one `PanelGroup` (no uniqueness constraint). `PanelGroupMember` has a nullable `expertise` FK to `hubs.inclusion.models.Expertise` (a small lookup list managed at `/inclusion/panel/settings/expertise/`, not Django admin) describing the member's specialty (SEND, Pastoral, SENCO, etc.) — there is no "role" field on `PanelGroupMember`; chair status is tracked separately via `PanelGroup.default_chair`/`Panel.chair`. `PanelMember` (the per-meeting roster, distinct from `PanelGroupMember`) keeps its own unrelated `role` field (chair/member/note_taker/other). Due/incomplete follow-ups (`hubs.inclusion.views._due_followups`) are scoped strictly to the current `Panel`'s own `panel_group` so a follow-up raised in one group's panel can never surface in a different group's meeting — panels with no `panel_group` set see no due follow-ups. Pulling due follow-ups onto the agenda is an explicit action (`pull_in_followups` / "Pull In All Due Follow-ups" button on the agenda page), not an automatic side effect of saving panel details.
+- `core.identity.current_staff(request)` / `default_staff()` fall back to **Benjamin Suri** when no cookie is set — he's the default test identity for the whole app. `mat.context_processors.current_identity` surfaces this to every template (`current_staff`, `current_staff_id`, `current_staff_list`).
 - If a hub page throws `OperationalError: no such table: ...`, it means migrations haven't been run locally yet — run `migrate` (and reseed if the table is one of the demo-data ones above).
 - New models/migrations: if you add fields/models to `core` or `hubs.inclusion`, run `manage.py makemigrations` and commit the generated migration file(s) — migrations are tracked in git even though the database itself isn't.
 
@@ -105,3 +98,7 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix:
 - `.venv` ships with only `pip` preinstalled — run `.venv\Scripts\python.exe -m pip install django` before first `runserver`.
 - `posts` was removed from `INSTALLED_APPS` (mysite/settings.py): it had no app on disk and crashed `manage.py runserver` outright. If reintroducing it, create the app first.
 - Root URL `/` is wired directly to `mat.views.mat_home` in `mysite/urls.py` (not via `mysite/views.py`, which is otherwise unused).
+
+## Design Language
+
+See [DesignLanguage.md](DesignLanguage.md) for the portal-wide design language — extracted from the Inclusion Panel (the most complete, stable UI in the codebase). Covers design philosophy, information hierarchy, layout/spacing/typography patterns, card, navigation, table/list, interaction, button, pill/badge patterns, naming conventions, and anti-patterns. All future hub pages should follow these rules.

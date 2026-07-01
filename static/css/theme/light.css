@@ -1,0 +1,102 @@
+/* Light theme — the default colour system. These :root vars establish the
+   baseline that dark.css and palettes.css selectively override. */
+
+html { color-scheme: light; accent-color: var(--primary); }
+
+:root {
+    /* --primary-pinned mirrors --primary's LIGHT-theme value per accent
+       colour/palette, and is deliberately never redeclared inside any
+       [data-theme="dark"] block — so var(--primary-pinned) always resolves
+       to the light-mode hue even when the page is in dark mode. Use this
+       (not --primary/--primary-light/--primary-dark, which intentionally
+       swap meaning between themes) wherever a colour should look IDENTICAL
+       in both themes, e.g. the Start/CTA button. */
+    --primary: #7c3aed; --primary-pinned: #7c3aed;
+    --primary-dark: #5b21b6;
+    --primary-light: #f3e8ff;
+    --active-text: var(--primary-dark);
+
+    /* Background surfaces — split into a literal *-base hex plus a tint
+       formula so the Colour Palette setting can wash them with a colour
+       fixed per palette (--bg-tint-colour, set per [data-palette]). */
+    --bg-page-base: #f7fafc;
+    --bg-nav-base: #eef1f6;
+    --bg-surface-base: #ffffff;
+    --bg-well-base: #f1f4f8;
+    --bg-nested-base: #f1f4f8;
+    --bg-rail-base: #dde3ec;
+    --bg-tint-colour: #fff1de;
+    --bg-tint-page: 0%;
+    --bg-tint-nav: 0%;
+    --bg-tint-surface: 0%;
+    --bg-tint-well: 0%;
+    --bg-tint-nested: 0%;
+    --bg-tint-rail: 0%;
+    --bg-page: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-page, 0%), var(--bg-page-base));
+    --bg-nav: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-nav, 0%), var(--bg-nav-base));
+    --bg-surface: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-surface, 0%), var(--bg-surface-base));
+    --bg-surface-alt: #fbfdff;
+    --bg-well: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-well, 0%), var(--bg-well-base));
+    --bg-nested: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-nested, 0%), var(--bg-nested-base));
+    --bg-rail: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-rail, 0%), var(--bg-rail-base));
+    /* Meeting-card hover fill — defaults to the shared neutral --row-hover-bg
+       (defined in tokens/colours.css). Pastel overrides this in palettes.css. */
+    --meeting-card-hover-bg: var(--row-hover-bg);
+    --text-primary: #0f1724;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-faint: #94a3b8;
+    --border-color: #e6eef4;
+    --border-strong: #cdd9e6;
+    --badge-bg: #f1f7fb;
+
+    /* Colour roles, distinct from --primary. Used where a fixed-but-themed
+       colour is needed that must never be confused with the user's accent
+       choice (e.g. SEND Dashboard K vs E badges). Vary per [data-palette]
+       in palettes.css, but never per [data-color]. */
+    --color-secondary: #c4942c;
+    --color-tertiary: #8b6fae;
+    --color-subtle: #94a3b8;
+
+    /* Hover/selected accent border. Defaults to full --primary; Pastel
+       softens this in palettes.css so selection feedback stays calm. */
+    --accent-border: var(--primary);
+
+    --success: #15803d;
+    --success-bg: #dcfce7;
+    --warning: #b45309;
+    --warning-bg: #fef3c7;
+    --danger: #b91c1c;
+    --danger-bg: #fee2e2;
+
+    /* Tooltip surface — deliberately NOT derived from --bg-surface/--bg-rail,
+       so it reads as a system-level annotation layer. Light mode: dark inverted
+       bubble. Dark mode inverts this further in dark.css. */
+    --tooltip-bg: #1c2333;
+    --tooltip-text: #f1f5f9;
+
+    /* Semantic action button colours (Add/Success, Edit, Delete) — fixed/pastel
+       by default, palette-aware via [data-palette] overrides in palettes.css. */
+    --btn-add-bg: #8bc78f; --btn-add-border: #6fae74; --btn-add-text: #1f3a24;
+    --btn-add-hover-bg: #6fae74; --btn-add-hover-border: #5d9a62; --btn-add-hover-text: #16291a;
+    --btn-edit-bg: #e8c468; --btn-edit-border: #d8ad42; --btn-edit-text: #4a3a0a;
+    --btn-edit-hover-bg: #d8ad42; --btn-edit-hover-border: #c49b35; --btn-edit-hover-text: #3a2d06;
+    --btn-delete-bg: #f0a99e; --btn-delete-border: #e0857a; --btn-delete-text: #4a120d;
+    --btn-delete-hover-bg: #e07a6f; --btn-delete-hover-border: #d2655a; --btn-delete-hover-text: #350c08;
+
+    /* Priority colours (High/Medium/Low traffic-light). Palette-aware but
+       no accent-colour conflict overrides — severity meaning must not shift. */
+    --priority-high-bg: #f0a99e; --priority-high-border: #e0857a; --priority-high-text: #6e120a;
+    --priority-medium-bg: #f3c08a; --priority-medium-border: #e2a05c; --priority-medium-text: #7a3c00;
+    --priority-low-bg: #e8c468; --priority-low-border: #d8ad42; --priority-low-text: #5c4a00;
+
+    /* Start/CTA button — tracks the user's accent colour (unlike Add/Edit/Delete).
+       Built from --primary-pinned/white blends so it looks identical in both
+       themes (see --primary-pinned comment above). */
+    --btn-start-bg: color-mix(in srgb, var(--primary-pinned) 18%, #fff);
+    --btn-start-border: color-mix(in srgb, var(--primary-pinned) 55%, #fff);
+    --btn-start-text: var(--primary-pinned);
+    --btn-start-hover-bg: color-mix(in srgb, var(--primary-pinned) 36%, #fff);
+    --btn-start-hover-border: var(--primary-pinned);
+    --btn-start-hover-text: var(--primary-pinned);
+}

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from core.models import Student
-from hubs.inclusion.models import PanelReferral, Referral, ReferralQuestion, ReferralResponse
+from hubs.inclusion.panel.models import PanelReferral, Referral, ReferralQuestion, ReferralResponse
 
 TARGET_UNASSIGNED_COUNT = 5
 

@@ -1,0 +1,284 @@
+/* App-level search (homepage hero bar and side-nav overlay) */
+.app-search { position: relative; width: 100%; }
+
+.app-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+}
+
+/* Inside the side-nav overlays, match the transparent/pill-shaped nav-row
+   look instead of the boxed input look above. The homepage's own search bar
+   (.home-search-row, outside .side-nav) keeps the boxed style untouched. */
+.side-nav .app-search-input {
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: var(--radius-pill);
+    padding-left: 34px;
+    appearance: none;
+    -webkit-appearance: none;
+    box-shadow: none;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.side-nav .app-search-input:hover {
+    background: var(--bg-surface-alt);
+}
+.side-nav .app-search-input:focus-visible {
+    background: var(--bg-surface-alt);
+    border-color: var(--border-color);
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+/* .app-search-field wraps just the icon+input, separately from the results
+   list below (.app-search-results) — the icon anchors to this inner
+   wrapper's own height rather than the outer .app-search's, since the
+   outer one grows taller once results render. */
+.side-nav .app-search-field {
+    position: relative;
+}
+.side-nav .app-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+.side-nav .app-search-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.app-search-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+
+/* Inside the side-nav Search overlay, the results sit inline underneath
+   the search field as a normal part of the panel's own list (the homepage's
+   hero search keeps the floating-card look). */
+.side-nav .app-search-results {
+    position: static;
+    margin-top: 6px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+}
+.side-nav .app-search-result {
+    border-bottom: none;
+    border-radius: var(--radius-sm);
+}
+.side-nav .app-search-result:hover {
+    background: var(--bg-surface-alt);
+}
+
+.app-search-results.hidden { display: none; }
+
+.app-search-result {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    font-size: var(--font-sm);
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.app-search-result:last-child { border-bottom: none; }
+
+.app-search-result-name {
+    color: var(--text-primary);
+}
+
+.app-search-result-hub {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-muted);
+    font-size: var(--font-xs);
+}
+
+.app-search-result-hub svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+}
+
+.app-search-result.active {
+    background: var(--primary-light);
+}
+.app-search-result:hover {
+    transform: translateX(3px);
+}
+
+.app-search-empty {
+    padding: 10px 14px;
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+}
+
+/* Generic overflow "More" dropdown — populated by setupOverflowTabs() in
+   main.js for any opted-in tab row. Shared sitewide so any page's tab row
+   can opt in without redefining this. */
+.tab-row-more { position: relative; flex-shrink: 0; }
+.tab-row-more.hidden { display: none; }
+.tab-row-more-btn {
+    position: relative;
+    background: transparent;
+    border: none;
+    padding: 8px 16px;
+    font-size: var(--font-base);
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color var(--transition-fast);
+}
+.tab-row-more-btn:hover { color: var(--text-primary); }
+.tab-row-more-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 6px;
+}
+.tab-row-more-menu.hidden { display: none; }
+.tab-row-more-menu button {
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-xs);
+    padding: 8px 10px;
+    font-size: var(--font-base);
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.tab-row-more-menu button:hover { background: var(--bg-surface-alt); color: var(--text-primary); }
+.tab-row-more-menu button.active { color: var(--primary); }
+/* page_extras buttons/links moved into this menu by setupPageExtrasOverflow()
+   in main.js are real <a>/<button> nodes, not clones, so they keep whatever
+   .btn styling they already had — this just matches the menu-item look. */
+.tab-row-more-menu a {
+    display: block;
+    text-decoration: none;
+}
+
+/* Generic card switcher: pairs a .card-switcher (row of .card-tab buttons)
+   with a .switch-card-group of full-size cards sharing class .switch-card.
+   Hidden by default — only relevant on pages whose card group can't fit
+   side-by-side below the breakpoint (see layout/responsive.css). */
+.card-switcher { display: none; gap: 4px; margin-bottom: -1px; position: relative; z-index: 1; flex-shrink: 0; }
+.card-tab {
+    background: var(--bg-page);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    padding: 10px 18px;
+    font-size: var(--font-base);
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.card-tab:hover { color: var(--text-primary); }
+/* The active tab recolors its bottom edge to match the card's own background,
+   erasing the seam where tab meets card. */
+.card-tab.active {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border-bottom-color: var(--bg-surface);
+    z-index: 1;
+}
+
+/* Breadcrumbs: single line by default (overflow clipped). Pages nested more
+   than 3 crumbs deep default to a collapsed "… › <recent crumbs>" view
+   (hiding the root + hub behind the toggle even when the full trail would
+   fit) — see the breadcrumb IIFE in main.js. */
+.breadcrumbs { display: flex; align-items: center; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 8px; margin-left: -8px; white-space: nowrap; overflow: hidden; }
+.breadcrumbs.breadcrumbs-expanded { white-space: normal; flex-wrap: wrap; overflow: visible; }
+.breadcrumbs > a, .breadcrumbs > span { flex-shrink: 0; }
+.breadcrumbs a { color: var(--primary); text-decoration: none; padding: 3px 8px; margin-right: 2px; border-radius: var(--radius-pill); transition: background-color 0.15s, color 0.15s; }
+.breadcrumbs a:hover, .breadcrumbs a:focus-visible { background: var(--primary-light); color: var(--primary); text-shadow: 0 0 currentColor; }
+.breadcrumbs .sep { margin-right: 8px; color: var(--text-faint); }
+.breadcrumbs > span:last-child:not(.sep) { font-weight: 600; color: var(--text-primary); text-shadow: 0 0 currentColor; }
+.breadcrumbs .crumb-toggle {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: var(--font-base);
+    font-weight: 700;
+    width: 32px;
+    height: 24px;
+    line-height: 24px;
+    padding: 0;
+    text-align: center;
+    margin-right: 2px;
+    border-radius: var(--radius-pill);
+    transition: background-color 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+.breadcrumbs .crumb-toggle:hover, .breadcrumbs .crumb-toggle:focus-visible {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.page-heading h1 { margin: 0; font-size: var(--font-5xl); }
+.page-subtitle { margin: 6px 0 0; font-size: var(--font-md); font-weight: 400; line-height: 1.4; color: var(--text-secondary); }
+
+/* Optional back button, opted into per-page via {% block page_back %} */
+.page-heading-wrap { display: flex; align-items: stretch; gap: 12px; }
+.page-heading-wrap:has(.page-back-btn) .page-heading {
+    padding-left: 12px;
+    border-left: 1px solid var(--border-color);
+}
+.page-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    flex-shrink: 0;
+    transition: background-color 0.15s, color 0.15s;
+}
+.page-back-btn svg { width: 16px; height: 16px; }
+.page-back-btn:hover, .page-back-btn:focus-visible { color: var(--primary); background: var(--primary-light); }
+
+.back-link { font-size: var(--font-base); color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; }

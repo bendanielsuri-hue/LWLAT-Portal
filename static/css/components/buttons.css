@@ -1,0 +1,102 @@
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-base);
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.btn:hover, .btn:focus-visible { border-color: var(--primary); color: var(--primary); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
+
+/* Standard action button trio (Add / Edit / Delete, plus Success which mirrors
+   Add) — colours come from --btn-*-* vars defined in theme/light.css and
+   overridden per [data-palette] in theme/palettes.css. */
+.btn-success { background: var(--btn-add-bg); border-color: var(--btn-add-border); color: var(--btn-add-text); }
+.btn-success:hover { background: var(--btn-add-hover-bg); border-color: var(--btn-add-hover-border); color: var(--btn-add-hover-text); }
+.btn-add { background: var(--btn-add-bg); border-color: var(--btn-add-border); color: var(--btn-add-text); }
+.btn-add:hover { background: var(--btn-add-hover-bg); border-color: var(--btn-add-hover-border); color: var(--btn-add-hover-text); }
+.btn-edit { background: var(--btn-edit-bg); border-color: var(--btn-edit-border); color: var(--btn-edit-text); }
+.btn-edit:hover { background: var(--btn-edit-hover-bg); border-color: var(--btn-edit-hover-border); color: var(--btn-edit-hover-text); }
+.btn-delete { background: var(--btn-delete-bg); border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
+.btn-delete:hover { background: var(--btn-delete-hover-bg); border-color: var(--btn-delete-hover-border); color: var(--btn-delete-hover-text); }
+.btn-start { background: var(--btn-start-bg); border-color: var(--btn-start-border); color: var(--btn-start-text); }
+.btn-start:hover { background: var(--btn-start-hover-bg); border-color: var(--btn-start-hover-border); color: var(--btn-start-hover-text); }
+.btn-sm { padding: 6px 10px; font-size: var(--font-sm); }
+
+/* Secondary (less-prominent) variant of the Add/Edit/Delete/Start trio — for
+   actions that are valid but used far less often than the page's main flow
+   (e.g. "Remove" on an existing member, bulk Add All/Remove All). Drops the
+   solid fill for a quieter outline look, but still tints both text AND
+   border by function so it reads as add/remove/etc.
+   The resting colour is NOT --btn-*-text — that variable is calibrated for
+   white-on-saturated-fill (true for Vibrant/Greytone/Colourblind, and some
+   Pastel accent-conflict swaps), so reusing it here would put white text/
+   border on this button's near-white/near-page background. Instead it's
+   derived from each function's own --btn-*-bg blended toward --text-primary,
+   which is already guaranteed readable against --bg-surface in every theme
+   — so the result stays legible in light/dark and across every palette
+   without needing a whole parallel set of hand-picked colours. */
+.btn-secondary.btn-add,
+.btn-secondary.btn-edit,
+.btn-secondary.btn-delete,
+.btn-secondary.btn-start {
+    background: var(--bg-surface);
+}
+.btn-secondary.btn-add { --secondary-tone: color-mix(in srgb, var(--btn-add-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
+.btn-secondary.btn-edit { --secondary-tone: color-mix(in srgb, var(--btn-edit-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
+.btn-secondary.btn-delete { --secondary-tone: color-mix(in srgb, var(--btn-delete-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
+.btn-secondary.btn-start {
+    /* Start/CTA already uses a theme-invariant primary-pinned/white blend
+       (see --btn-start-bg in theme/light.css) rather than --bg-surface, so
+       the secondary look follows the same recipe at a lighter ratio instead
+       of flipping dark in dark mode like --bg-surface would. */
+    background: color-mix(in srgb, var(--primary-pinned) 8%, var(--bg-surface));
+    color: var(--primary-pinned);
+    border-color: var(--primary-pinned);
+}
+.btn-secondary.btn-add:hover { background: var(--btn-add-hover-bg); border-color: var(--btn-add-border); color: var(--btn-add-text); }
+.btn-secondary.btn-edit:hover { background: var(--btn-edit-hover-bg); border-color: var(--btn-edit-border); color: var(--btn-edit-text); }
+.btn-secondary.btn-delete:hover { background: var(--btn-delete-hover-bg); border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
+.btn-secondary.btn-start:hover { background: var(--btn-start-hover-bg); border-color: var(--btn-start-border); color: var(--btn-start-text); }
+
+/* Icon shown by default on Edit/Delete (and similar) buttons; add the
+   `btn-no-icon` class to a button instance to suppress it. */
+.btn-icon { display: inline-flex; align-items: center; }
+.btn-icon svg { width: 14px; height: 14px; }
+.btn-no-icon .btn-icon { display: none; }
+.btn-disabled, .btn-disabled:hover,
+.btn:disabled, .btn:disabled:hover { opacity: 0.45; cursor: not-allowed; pointer-events: none; border-color: var(--border-color); color: var(--text-secondary); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+.btn-row .btn { flex-shrink: 0; }
+.btn-row[hidden] { display: none; }
+
+/* Low-emphasis text-link action (e.g. "Escalate to MAT") — for actions that
+   exist but shouldn't visually compete with the page's primary action button. */
+.btn-subtle {
+    background: none;
+    border: none;
+    padding: 6px 4px;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.btn-subtle:hover { color: var(--text-primary); }
+
+/* Low-emphasis bordered action (e.g. the global header "+ Referral" helper)
+   — keeps a visible outline like other buttons, but muted text/border so it
+   doesn't compete with whatever the current page's real primary action is. */
+.btn-helper { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-secondary); }
+.btn-helper:hover { border-color: var(--primary); color: var(--primary); }

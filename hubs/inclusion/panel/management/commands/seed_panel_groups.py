@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from core.models import School, Staff
-from hubs.inclusion.models import Expertise, PanelGroup, PanelGroupMember
+from hubs.inclusion.panel.models import Expertise, PanelGroup, PanelGroupMember
 
 EXPERTISE_NAMES = ['SEND', 'EAL', 'Pastoral', 'Safeguarding', 'Attendance', 'Mental Health']
 

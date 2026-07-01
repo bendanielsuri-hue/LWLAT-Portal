@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from core.models import School, Student
-from hubs.inclusion.models import Panel, PanelGroup, PanelReferral, Referral
+from hubs.inclusion.panel.models import Panel, PanelGroup, PanelReferral, Referral
 
 # (days offset from today, target referral count). Negative offset = past.
 PAST_SPECS_BABINGTON = [(-60, 4), (-30, 3)]

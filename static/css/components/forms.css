@@ -1,0 +1,361 @@
+.filter-bar {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    align-items: flex-end;
+    position: sticky;
+    top: 0;
+    z-index: var(--z-filter-bar);
+    box-shadow: var(--shadow-sm);
+}
+
+.filter-bar-clear {
+    align-self: flex-end;
+}
+.filter-field { display: flex; flex-direction: column; gap: 6px; font-size: var(--font-sm); color: var(--text-secondary); }
+.filter-field input, .filter-field select {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+}
+
+/* Custom select chevron — the fill colour can't reference a CSS var from
+   inside a data-URI so it's hardcoded to match --text-secondary in each
+   theme (#475569 light, #aab4c5 dark). The dark override block below must
+   stay adjacent to the light definition for discoverability — intentional
+   cross-theme pairing in this file (not in theme/dark.css). */
+.field-group select, .filter-field select {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    padding-right: 34px;
+    background-color: var(--bg-surface-alt);
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] .field-group select, [data-theme="dark"] .filter-field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+/* Disabled selects: drop the chevron since there's nothing to open, and
+   borrow .field-readonly's dashed-border "locked" language. */
+.field-group select:disabled, .filter-field select:disabled {
+    background-image: none;
+    padding-right: 10px;
+    background-color: var(--bg-surface-alt);
+    color: var(--text-secondary);
+    border-style: dashed;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
+.field-group input:focus, .field-group select:focus,
+.filter-field input:focus, .filter-field select:focus {
+    outline: 1px solid var(--border-strong);
+    outline-offset: 1px;
+    border-color: var(--border-strong);
+}
+
+.field-group select option, .filter-field select option {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+.field-group input[type=date], .field-group input[type=time],
+.filter-field input[type=date], .filter-field input[type=time] {
+    padding-right: 10px;
+}
+.field-group input[type=date]::-webkit-calendar-picker-indicator,
+.field-group input[type=time]::-webkit-calendar-picker-indicator,
+.filter-field input[type=date]::-webkit-calendar-picker-indicator,
+.filter-field input[type=time]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    border-radius: var(--radius-xs);
+    padding: 4px;
+}
+.field-group input[type=date]::-webkit-calendar-picker-indicator:hover,
+.field-group input[type=time]::-webkit-calendar-picker-indicator:hover,
+.filter-field input[type=date]::-webkit-calendar-picker-indicator:hover,
+.filter-field input[type=time]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    background: var(--row-hover-bg, var(--bg-well));
+}
+
+/* Custom select / date / time controls — fully app-styled replacements for the
+   native popups, built by enhanceSelect()/enhanceDateInput()/enhanceTimeInput()
+   in static/js/main.js. The native element is kept in the DOM (just visually
+   hidden via .ui-select-native) as the real form field. */
+.ui-select, .ui-date, .ui-time {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+select.ui-select-native, input.ui-select-native {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 1px;
+    height: 1px;
+}
+.ui-select-trigger {
+    width: 100%;
+    text-align: center;
+    padding: 10px 34px 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-surface-alt);
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+    cursor: pointer;
+}
+[data-theme="dark"] .ui-select-trigger {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+/* Chevron points up while the popover is open (main.js toggles .open
+   alongside showModal()/the dialog's close event). */
+.ui-select-trigger.open {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] .ui-select-trigger.open {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
+}
+.ui-select-trigger:focus {
+    border-color: var(--border-strong);
+}
+/* Disabled ui-select: the real <select> is hidden off-screen by .ui-select-native,
+   so disabled state has to be styled on this trigger button instead. */
+.ui-select-trigger:disabled {
+    background-image: none;
+    padding-right: 12px;
+    background-color: var(--bg-surface-alt);
+    color: var(--text-secondary);
+    border-style: dashed;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
+/* Each popover is a <dialog> shown via showModal() (static/js/main.js), not a
+   plain positioned div — nested modal dialogs reliably stack above, and stay
+   fully interactive alongside, an already-open <dialog>. top/left/width are
+   still set per-instance by positionPopover(), anchored to the trigger's
+   getBoundingClientRect(); margin/border/backdrop here neutralize the
+   browser's default <dialog> chrome. */
+dialog.ui-popover { margin: 0; }
+dialog.ui-popover::backdrop { background: transparent; }
+.ui-popover {
+    position: fixed;
+    z-index: var(--z-popover);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    max-height: 260px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+}
+.ui-popover .ui-option:first-child { border-top-left-radius: var(--radius-md); border-top-right-radius: var(--radius-md); }
+.ui-popover .ui-option:last-child { border-bottom-left-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md); }
+
+.ui-option {
+    position: relative;
+    padding: 8px 12px;
+    text-align: center;
+    font-size: var(--font-base);
+    color: var(--text-primary);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+}
+.ui-option:last-child { border-bottom: none; }
+.ui-option:hover, .ui-option.highlighted { background: var(--row-hover-bg); }
+/* Selected is marked by bold text only (no checkmark) — so a hover fill (on
+   this row or an adjacent one) never has anything to visually touch,
+   regardless of which rows happen to be next to each other. */
+.ui-option.selected {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.ui-option.muted { color: var(--text-secondary); background: var(--bg-surface-alt); }
+.ui-option.muted:hover, .ui-option.muted.highlighted { background: var(--row-hover-bg); }
+
+.ui-calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 4px 8px;
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.ui-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+.ui-calendar-dow {
+    text-align: center;
+    font-size: var(--font-2xs);
+    color: var(--text-faint);
+    padding: 4px 0;
+}
+.ui-calendar-day {
+    text-align: center;
+    padding: 6px 0;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.ui-calendar-day:hover { background: var(--row-hover-bg); }
+.ui-calendar-day.is-today { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.ui-calendar-day.is-selected { background: var(--primary); color: #fff; font-weight: 600; }
+.ui-calendar-day.is-past { color: var(--text-faint); cursor: default; }
+
+/* Date control: three mini Day/Month/Year dropdowns (reusing .ui-select via
+   the --sm modifier) plus a calendar-icon button that opens a fixed-width
+   popover — deliberately NOT width:100% like .ui-popover's default, since a
+   7-column day grid stretched across a full-width modal field renders each
+   day as an oversized cell. */
+.ui-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+.ui-date-fields { display: flex; gap: 6px; flex: 1; }
+.ui-select--sm { flex: 1; min-width: 0; }
+.ui-select--sm .ui-select-trigger {
+    padding: 8px 26px 8px 10px;
+    font-size: var(--font-sm);
+    background-size: 12px;
+    background-position: right 8px center;
+}
+.ui-date-calendar-btn, .ui-add-group-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    color: var(--text-secondary);
+}
+
+/* Panel Group field: select + a small "+" icon button beside it (same icon-
+   button sizing as the Date field's calendar button). */
+.ui-select-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+.ui-select-row > .ui-select { flex: 1; }
+.ui-calendar-popover {
+    width: 280px;
+}
+
+/* Time control: Hour/Minute mini-dropdowns mirroring Date's Day/Month/Year
+   pattern, plus an AM/PM mini-dropdown shown only when the global "Time
+   format" Settings preference (data-time-format on <html>) is 12h. */
+.ui-time {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+.ui-time-fields { display: flex; gap: 6px; flex: 1; }
+.ui-time-fields .ui-select--sm.ui-hidden { display: none; }
+
+.field-group { margin-bottom: 16px; }
+.field-group label { display: block; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.field-group label:not(:first-child) { margin-top: 14px; }
+.field-group input, .field-group select, .field-group .field-box {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+}
+.field-group .field-box { min-height: 44px; }
+
+.field-section-label { display: block; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: 14px 0 6px; }
+
+.field-group textarea {
+    width: 100%;
+    min-height: 60px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+    resize: vertical;
+}
+
+.panel-group-member-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.panel-group-member-row > select { width: auto; flex: 1 1 140px; }
+.panel-group-member-row .member-staff-field { position: relative; flex: 2 1 200px; }
+.panel-group-member-row .member-staff-field input,
+.panel-group-member-row input[name="member_guest_name"] { width: 100%; }
+.panel-group-member-row input[name="member_guest_name"] { flex: 2 1 200px; }
+.panel-group-member-row .member-expertise-field { display: flex; gap: 6px; flex: 1 1 160px; align-items: center; }
+.panel-group-member-row .member-expertise-field select { width: auto; flex: 1 1 auto; }
+
+.member-staff-results {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+}
+.member-staff-results[hidden] { display: none; }
+.staff-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: var(--font-sm);
+    cursor: pointer;
+}
+.staff-option:last-child { border-bottom: none; }
+.staff-option:hover:not(:disabled) { background: var(--primary-light); }
+.staff-option:disabled { color: var(--text-muted); cursor: not-allowed; }
+
+.member-row-chair-btn { white-space: nowrap; }
+.member-row-chair-btn.is-chair { background: var(--primary-light); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+.member-row-chair-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.member-expertise-add-input { display: flex; gap: 6px; flex: 1 1 auto; align-items: center; }
+.member-expertise-add-input input { width: auto; flex: 1 1 auto; padding: 6px 10px; }
