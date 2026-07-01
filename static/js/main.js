@@ -288,30 +288,27 @@ document.addEventListener('DOMContentLoaded', function () {
     (function setupSettingsPanel() {
         var root = document.documentElement;
 
-        // Per-palette swatch colour + label overrides. "pastel" matches the
-        // hardcoded swatch --swatch/title/aria-label values already in the
-        // template, so it's omitted here and falls back to those.
-        var paletteSwatches = {
+        // Per-palette swatch labels only — the hex itself is read from the
+        // actual CSS via swatchProbe below rather than duplicated here, so
+        // this can't drift out of sync with theme/palettes.css the way a
+        // hardcoded hex table did. "pastel" matches the hardcoded swatch
+        // title/aria-label values already in the template, so it's omitted
+        // here and falls back to those.
+        var paletteSwatchLabels = {
             vibrant: {
-                purple: ['#9d00ff', 'Vivid Violet'],
-                blue: ['#0066ff', 'Vivid Blue'], teal: ['#00b8a9', 'Vivid Teal'],
-                green: ['#00c853', 'Vivid Green'], yellow: ['#ffd600', 'Vivid Yellow'],
-                orange: ['#ff6d00', 'Vivid Orange'],
-                red: ['#ff1744', 'Vivid Red'], pink: ['#ff2d92', 'Vivid Pink']
+                purple: 'Vivid Violet', blue: 'Vivid Blue', teal: 'Vivid Teal',
+                green: 'Vivid Green', yellow: 'Vivid Yellow', orange: 'Vivid Orange',
+                red: 'Vivid Red', pink: 'Vivid Pink'
             },
             greytone: {
-                purple: ['#6b7280', 'Slate'],
-                blue: ['#64748b', 'Steel'], teal: ['#475569', 'Graphite'],
-                green: ['#71717a', 'Stone'], yellow: ['#78716c', 'Taupe'],
-                orange: ['#57534e', 'Umber'],
-                red: ['#3f3f46', 'Onyx'], pink: ['#525252', 'Ash']
+                purple: 'Slate', blue: 'Steel', teal: 'Graphite',
+                green: 'Stone', yellow: 'Taupe', orange: 'Umber',
+                red: 'Onyx', pink: 'Ash'
             },
             colourblind: {
-                purple: ['#6f4e7c', 'Muted Plum'],
-                blue: ['#56b4e9', 'Sky Blue'], teal: ['#009e73', 'Bluish Green'],
-                green: ['#2e8b57', 'Sea Green'], yellow: ['#f0e442', 'Safe Yellow'],
-                orange: ['#e69f00', 'Safe Orange'],
-                red: ['#cc4444', 'Muted Red'], pink: ['#aa4499', 'Safe Magenta']
+                purple: 'Muted Plum', blue: 'Sky Blue', teal: 'Bluish Green',
+                green: 'Sea Green', yellow: 'Safe Yellow', orange: 'Safe Orange',
+                red: 'Muted Red', pink: 'Safe Magenta'
             }
         };
         var pastelSwatches = {};
@@ -321,6 +318,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var colourNames = {};
         Object.keys(pastelSwatches).forEach(function (key) { colourNames[key] = pastelSwatches[key][1]; });
+
+        // Off-screen probe element: reading --primary-base off it with the
+        // target [data-palette]/[data-color] attributes gets the real,
+        // currently-live swatch colour straight from the CSS cascade instead
+        // of a second hand-maintained hex table.
+        var swatchProbe = document.createElement('div');
+        swatchProbe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
+        document.body.appendChild(swatchProbe);
+
+        function getPaletteAccentHex(palette, colour) {
+            swatchProbe.setAttribute('data-palette', palette);
+            swatchProbe.setAttribute('data-color', colour);
+            return getComputedStyle(swatchProbe).getPropertyValue('--primary-base').trim() || null;
+        }
 
         // Shared wiring for the swatch/option button-groups (colour, text size)
         function setupButtonGroup(containerId, attr, storageKey, fallback, onSelect) {
@@ -349,14 +360,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function applyPaletteSwatches(palette) {
-            var swatches = paletteSwatches[palette] || pastelSwatches;
+            var labels = paletteSwatchLabels[palette];
             document.querySelectorAll('#pref-color .colour-swatch').forEach(function (btn) {
-                var entry = swatches[btn.dataset.value] || pastelSwatches[btn.dataset.value];
-                if (!entry) return;
-                btn.style.setProperty('--swatch', entry[0]);
-                btn.title = entry[1];
-                btn.setAttribute('aria-label', entry[1]);
-                colourNames[btn.dataset.value] = entry[1];
+                var colour = btn.dataset.value;
+                var pastelEntry = pastelSwatches[colour];
+                var hex = labels ? getPaletteAccentHex(palette, colour) : null;
+                var label = (labels && labels[colour]) || (pastelEntry && pastelEntry[1]);
+                if (!hex && !pastelEntry) return;
+                btn.style.setProperty('--swatch', hex || pastelEntry[0]);
+                if (label) {
+                    btn.title = label;
+                    btn.setAttribute('aria-label', label);
+                    colourNames[colour] = label;
+                }
             });
             var currentLabel = document.getElementById('pref-color-current');
             var selectedColour = root.getAttribute('data-color') || 'purple';

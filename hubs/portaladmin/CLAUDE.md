@@ -16,9 +16,13 @@ Uses `core.portal_settings.FIELDS` to dynamically iterate and set attributes via
 
 All from `core.models`: `Module`, `School`, `MatSettings`, `CategorySettings`. Django admin (`/admin/`) also has all of these registered as a fallback.
 
-## No menu
+## Menu
 
-Portal Admin has no local sidebar menu — it's a single-page console.
+`PORTALADMIN_MENU` (in `views.py`) — two entries, Dashboard and Themes. Plain hardcoded list, not run through `filter_by_module`/`module_map()` (Portal Admin isn't gated by the Module system at all, per the top of this file).
+
+## Themes page
+
+`portaladmin_themes` (`/portal-admin/themes/`) — a static component gallery (every `.btn-*` variant, `.priority-chip`/`.status-pill` state, card/badge accent, and a swatch per surface/text/role colour token) for visually checking the theming system across Theme/Palette/Accent combinations. No DB reads; the three token lists (`surface_tokens`/`text_tokens`/`role_tokens`) are passed straight from the view. Same `is_developer` gate as `portaladmin_home`. Links `hubs/inclusion/panel/static/css/panel.css` (served at `css/panel.css`) for `.status-pill`/`.priority-chip`, which have no shared base outside that app yet — same reuse `portaladmin_home` already does for `.btn-edit`.
 
 ## Developer identity
 

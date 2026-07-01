@@ -219,6 +219,8 @@ All buttons use the shared `btn` class from `style.css`. Variants are single mod
 | Class | Meaning |
 |---|---|
 | `btn-primary` | Primary / submit action (filled, accent) |
+| `btn-secondary` | Secondary-tier action, one step down from Primary (accent-tinted; tracks the user's chosen `--primary`, not a fixed semantic colour) — **also** doubles as a modifier on `btn-add`/`btn-edit`/`btn-delete`/below, meaning "muted variant of that trio", when combined rather than used bare |
+| `btn-tertiary` | Tertiary-tier action — outline variant of Secondary |
 | `btn-add` | Create / add action (uses `--btn-add-*` semantic tokens) |
 | `btn-edit` | Edit action (uses `--btn-edit-*`) |
 | `btn-delete` | Destructive action (uses `--btn-delete-*`) |
@@ -226,7 +228,9 @@ All buttons use the shared `btn` class from `style.css`. Variants are single mod
 | `btn-sm` | Compact size — used in list rows, modals, filter bars |
 | `btn-icon-only` | Square icon button, `padding: 0 14px; height: 41px` |
 
-**Icon inside a button**: `<span class="btn-icon">{% include 'icons/X_svg.html' %}</span>` before the label text.
+**Default icons**: `btn-add`/`btn-edit`/`btn-delete` now render a default icon automatically (plus/pencil/trash, via a masked `::before` in `buttons.css` so it recolours with the button's own text colour). Add `btn-no-icon` to an instance to suppress it — use this where the label doesn't match the class's literal meaning (e.g. a "Save" button styled `btn-edit`).
+
+**Custom icon inside a button**: `<span class="btn-icon">{% include 'icons/X_svg.html' %}</span>` before the label text — only needed when overriding with an icon *other than* the class's default (e.g. the checkmark on `btn-success`, or `play_svg` on a `btn-add` "Discuss" button). A manual `.btn-icon` automatically suppresses the class default, so nothing doubles up.
 
 **Button group** (`.btn-row`): `display: flex; gap: 8px`. Use `flex-wrap: wrap` when overflow is possible. Stacked variant (`.btn-row-stacked`): `flex-direction: column; align-items: stretch` — each button and its wrapping `<form>` is `width: 100%`.
 

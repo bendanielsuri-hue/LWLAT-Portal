@@ -4,16 +4,23 @@
 html { color-scheme: light; accent-color: var(--primary); }
 
 :root {
-    /* --primary-pinned mirrors --primary's LIGHT-theme value per accent
-       colour/palette, and is deliberately never redeclared inside any
-       [data-theme="dark"] block — so var(--primary-pinned) always resolves
-       to the light-mode hue even when the page is in dark mode. Use this
-       (not --primary/--primary-light/--primary-dark, which intentionally
-       swap meaning between themes) wherever a colour should look IDENTICAL
-       in both themes, e.g. the Start/CTA button. */
-    --primary: #7c3aed; --primary-pinned: #7c3aed;
-    --primary-dark: #5b21b6;
-    --primary-light: #f3e8ff;
+    /* --primary-base holds the canonical light-mode hex for the current
+       accent/palette (set here for the default Purple/Pastel combo, and
+       per [data-color]/[data-palette] in theme/palettes.css). --primary-dark-base/
+       --primary-light-base are derived from it by formula rather than a
+       second hand-tuned table per accent/palette — checked the existing
+       hand-picked values first (blue/green/yellow sampled) and found no
+       single consistent darken/lighten ratio behind them in either sRGB or
+       HSL terms, so this is an accepted approximation, not a like-for-like
+       match. --primary/-dark/-light are always computed from these — never
+       set directly elsewhere — so theme/dark.css can derive its own lift
+       from one formula too instead of a hand-tuned table per accent. */
+    --primary-base: #7c3aed;
+    --primary-dark-base: color-mix(in srgb, var(--primary-base) 65%, black);
+    --primary-light-base: color-mix(in srgb, var(--primary-base) 15%, white);
+    --primary: var(--primary-base);
+    --primary-dark: var(--primary-dark-base);
+    --primary-light: var(--primary-light-base);
     --active-text: var(--primary-dark);
 
     /* Background surfaces — split into a literal *-base hex plus a tint
@@ -50,24 +57,37 @@ html { color-scheme: light; accent-color: var(--primary); }
     --border-strong: #cdd9e6;
     --badge-bg: #f1f7fb;
 
-    /* Colour roles, distinct from --primary. Used where a fixed-but-themed
-       colour is needed that must never be confused with the user's accent
-       choice (e.g. SEND Dashboard K vs E badges). Vary per [data-palette]
-       in palettes.css, but never per [data-color]. */
-    --color-secondary: #c4942c;
-    --color-tertiary: #8b6fae;
-    --color-subtle: #94a3b8;
+    /* Colour role distinct from --primary, used where a fixed colour is
+       needed that must never be confused with the user's accent choice
+       (e.g. SEND Dashboard K vs E badges). Deliberately a flat constant —
+       it only needs to read as "different from primary", not to
+       complement whichever accent/palette the user picked. */
+    --color-secondary: #b45309;
+    --color-neutral: #94a3b8;
 
     /* Hover/selected accent border. Defaults to full --primary; Pastel
        softens this in palettes.css so selection feedback stays calm. */
     --accent-border: var(--primary);
 
-    --success: #15803d;
-    --success-bg: #dcfce7;
-    --warning: #b45309;
-    --warning-bg: #fef3c7;
-    --danger: #b91c1c;
-    --danger-bg: #fee2e2;
+    /* Semantic signal scale — status pills, priority chips, and Add/Edit/
+       Delete buttons all read their colour from these.
+       Exceeding: above target (vibrant positive).
+       Positive:  on-target, achieved, complete.
+       Caution:   watch this — approaching a threshold.
+       Warning:   requires attention.
+       Negative:  overdue, failed, critical.
+       (No-signal/classification-only case uses --color-neutral above directly
+       — it never needed its own alias here.) */
+    --color-exceeding: #15803d;
+    --color-exceeding-bg: #bbf7d0;
+    --color-positive: #16a34a;
+    --color-positive-bg: #dcfce7;
+    --color-caution: #92400e;
+    --color-caution-bg: #fde68a;
+    --color-warning: #b45309;
+    --color-warning-bg: #fef3c7;
+    --color-negative: #b91c1c;
+    --color-negative-bg: #fee2e2;
 
     /* Tooltip surface — deliberately NOT derived from --bg-surface/--bg-rail,
        so it reads as a system-level annotation layer. Light mode: dark inverted
@@ -75,28 +95,38 @@ html { color-scheme: light; accent-color: var(--primary); }
     --tooltip-bg: #1c2333;
     --tooltip-text: #f1f5f9;
 
-    /* Semantic action button colours (Add/Success, Edit, Delete) — fixed/pastel
-       by default, palette-aware via [data-palette] overrides in palettes.css. */
-    --btn-add-bg: #8bc78f; --btn-add-border: #6fae74; --btn-add-text: #1f3a24;
+    /* Semantic action button colours (Add/Success, Edit, Delete). Borders
+       track the shared --color-positive/-caution/-negative role anchors (same
+       colour a status pill would use for that meaning) rather than an
+       independently-authored hex — one fewer colour system to keep in sync,
+       at the cost of Pastel's buttons reading a little more saturated than
+       their old muted tone. Fill/text/hover stay independently authored:
+       deriving them by formula too would wash out Vibrant's saturation. */
+    --btn-add-bg: #8bc78f; --btn-add-border: var(--color-positive); --btn-add-text: #1f3a24;
     --btn-add-hover-bg: #6fae74; --btn-add-hover-border: #5d9a62; --btn-add-hover-text: #16291a;
-    --btn-edit-bg: #e8c468; --btn-edit-border: #d8ad42; --btn-edit-text: #4a3a0a;
+    --btn-edit-bg: #e8c468; --btn-edit-border: var(--color-caution); --btn-edit-text: #4a3a0a;
     --btn-edit-hover-bg: #d8ad42; --btn-edit-hover-border: #c49b35; --btn-edit-hover-text: #3a2d06;
-    --btn-delete-bg: #f0a99e; --btn-delete-border: #e0857a; --btn-delete-text: #4a120d;
+    --btn-delete-bg: #f0a99e; --btn-delete-border: var(--color-negative); --btn-delete-text: #4a120d;
     --btn-delete-hover-bg: #e07a6f; --btn-delete-hover-border: #d2655a; --btn-delete-hover-text: #350c08;
 
-    /* Priority colours (High/Medium/Low traffic-light). Palette-aware but
-       no accent-colour conflict overrides — severity meaning must not shift. */
-    --priority-high-bg: #f0a99e; --priority-high-border: #e0857a; --priority-high-text: #6e120a;
+    /* Priority colours (High/Medium/Low traffic-light). High/Low deliberately
+       alias the Delete/Edit button roles (same severity family, one fewer
+       colour system to keep in sync) rather than re-declaring the same hex;
+       Medium has no equivalent button role, so it stays independently
+       authored, same as before. */
+    --priority-high-bg: var(--btn-delete-bg); --priority-high-border: var(--btn-delete-border); --priority-high-text: var(--btn-delete-text);
     --priority-medium-bg: #f3c08a; --priority-medium-border: #e2a05c; --priority-medium-text: #7a3c00;
-    --priority-low-bg: #e8c468; --priority-low-border: #d8ad42; --priority-low-text: #5c4a00;
+    --priority-low-bg: var(--btn-edit-bg); --priority-low-border: var(--btn-edit-border); --priority-low-text: var(--btn-edit-text);
 
-    /* Start/CTA button — tracks the user's accent colour (unlike Add/Edit/Delete).
-       Built from --primary-pinned/white blends so it looks identical in both
-       themes (see --primary-pinned comment above). */
-    --btn-start-bg: color-mix(in srgb, var(--primary-pinned) 18%, #fff);
-    --btn-start-border: color-mix(in srgb, var(--primary-pinned) 55%, #fff);
-    --btn-start-text: var(--primary-pinned);
-    --btn-start-hover-bg: color-mix(in srgb, var(--primary-pinned) 36%, #fff);
-    --btn-start-hover-border: var(--primary-pinned);
-    --btn-start-hover-text: var(--primary-pinned);
+    /* Secondary button — the generic accent-derived emphasis button (not a
+       semantic role: it tracks the user's chosen --primary, not a fixed
+       success/caution/danger meaning; kept distinct from .btn-primary, which
+       is the solid-fill var(--primary) button used elsewhere). Uses --primary
+       directly so it adapts correctly in both light and dark themes. */
+    --btn-secondary-bg: color-mix(in srgb, var(--primary) 18%, #fff);
+    --btn-secondary-border: color-mix(in srgb, var(--primary) 55%, #fff);
+    --btn-secondary-text: var(--primary);
+    --btn-secondary-hover-bg: color-mix(in srgb, var(--primary) 36%, #fff);
+    --btn-secondary-hover-border: var(--primary);
+    --btn-secondary-hover-text: var(--primary);
 }

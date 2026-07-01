@@ -2,8 +2,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 8px 14px;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-md);
     border-radius: var(--radius-sm);
     font-size: var(--font-base);
     font-weight: 600;
@@ -31,63 +31,98 @@
 .btn-edit:hover { background: var(--btn-edit-hover-bg); border-color: var(--btn-edit-hover-border); color: var(--btn-edit-hover-text); }
 .btn-delete { background: var(--btn-delete-bg); border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
 .btn-delete:hover { background: var(--btn-delete-hover-bg); border-color: var(--btn-delete-hover-border); color: var(--btn-delete-hover-text); }
-.btn-start { background: var(--btn-start-bg); border-color: var(--btn-start-border); color: var(--btn-start-text); }
-.btn-start:hover { background: var(--btn-start-hover-bg); border-color: var(--btn-start-hover-border); color: var(--btn-start-hover-text); }
-.btn-sm { padding: 6px 10px; font-size: var(--font-sm); }
+/* Secondary-tier action button (accent-tinted, one step down from Primary).
+   Bare .btn-secondary is this standalone button; combined with
+   .btn-add/.btn-edit/.btn-delete below it instead means "muted variant of
+   that trio" — the combo selectors are more specific so they always win on
+   those elements, no leakage between the two meanings. */
+.btn-secondary { background: var(--btn-secondary-bg); border-color: var(--btn-secondary-border); color: var(--btn-secondary-text); }
+.btn-secondary:hover { background: var(--btn-secondary-hover-bg); border-color: var(--btn-secondary-hover-border); color: var(--btn-secondary-hover-text); }
+.btn-sm { padding: var(--space-xs) var(--space-sm); font-size: var(--font-sm); }
 
-/* Secondary (less-prominent) variant of the Add/Edit/Delete/Start trio — for
+/* Tertiary-tier action button — outline variant of Secondary. */
+.btn-tertiary {
+    background: color-mix(in srgb, var(--primary) 8%, var(--bg-surface));
+    color: var(--primary);
+    border-color: var(--primary);
+}
+.btn-tertiary:hover { background: var(--btn-secondary-hover-bg); border-color: var(--btn-secondary-border); color: var(--btn-secondary-text); }
+
+/* Secondary (less-prominent) variant of the Add/Edit/Delete trio — for
    actions that are valid but used far less often than the page's main flow
    (e.g. "Remove" on an existing member, bulk Add All/Remove All). Drops the
    solid fill for a quieter outline look, but still tints both text AND
-   border by function so it reads as add/remove/etc.
-   The resting colour is NOT --btn-*-text — that variable is calibrated for
-   white-on-saturated-fill (true for Vibrant/Greytone/Colourblind, and some
-   Pastel accent-conflict swaps), so reusing it here would put white text/
-   border on this button's near-white/near-page background. Instead it's
-   derived from each function's own --btn-*-bg blended toward --text-primary,
-   which is already guaranteed readable against --bg-surface in every theme
-   — so the result stays legible in light/dark and across every palette
-   without needing a whole parallel set of hand-picked colours. */
+   border by function so it reads as add/remove/etc. */
 .btn-secondary.btn-add,
 .btn-secondary.btn-edit,
-.btn-secondary.btn-delete,
-.btn-secondary.btn-start {
+.btn-secondary.btn-delete {
     background: var(--bg-surface);
 }
 .btn-secondary.btn-add { --secondary-tone: color-mix(in srgb, var(--btn-add-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
 .btn-secondary.btn-edit { --secondary-tone: color-mix(in srgb, var(--btn-edit-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
 .btn-secondary.btn-delete { --secondary-tone: color-mix(in srgb, var(--btn-delete-bg) 55%, var(--text-primary)); color: var(--secondary-tone); border-color: var(--secondary-tone); }
-.btn-secondary.btn-start {
-    /* Start/CTA already uses a theme-invariant primary-pinned/white blend
-       (see --btn-start-bg in theme/light.css) rather than --bg-surface, so
-       the secondary look follows the same recipe at a lighter ratio instead
-       of flipping dark in dark mode like --bg-surface would. */
-    background: color-mix(in srgb, var(--primary-pinned) 8%, var(--bg-surface));
-    color: var(--primary-pinned);
-    border-color: var(--primary-pinned);
-}
 .btn-secondary.btn-add:hover { background: var(--btn-add-hover-bg); border-color: var(--btn-add-border); color: var(--btn-add-text); }
 .btn-secondary.btn-edit:hover { background: var(--btn-edit-hover-bg); border-color: var(--btn-edit-border); color: var(--btn-edit-text); }
 .btn-secondary.btn-delete:hover { background: var(--btn-delete-hover-bg); border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
-.btn-secondary.btn-start:hover { background: var(--btn-start-hover-bg); border-color: var(--btn-start-border); color: var(--btn-start-text); }
 
 /* Icon shown by default on Edit/Delete (and similar) buttons; add the
    `btn-no-icon` class to a button instance to suppress it. */
 .btn-icon { display: inline-flex; align-items: center; }
 .btn-icon svg { width: 14px; height: 14px; }
-.btn-no-icon .btn-icon { display: none; }
+
+/* Default icon baked into Add/Edit/Delete via a masked ::before (recolours
+   with currentColor same as a manual .btn-icon svg would). Suppressed
+   automatically when a manual .btn-icon span is present (custom icon
+   override, e.g. the checkmark on .btn-success) or when .btn-no-icon is set
+   (icon doesn't fit the label, e.g. a "Save" button styled .btn-edit). */
+.btn-add::before, .btn-edit::before, .btn-delete::before {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background-color: currentColor;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+.btn-add::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M12 5v14M5 12h14' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M12 5v14M5 12h14' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.btn-edit::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M4 17.25V20h2.75L14.81 11.94l-2.75-2.75L4 17.25z' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M16.81 5.94a1.94 1.94 0 0 1 2.75 2.75l-1.69 1.69-2.75-2.75 1.69-1.69z' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M4 17.25V20h2.75L14.81 11.94l-2.75-2.75L4 17.25z' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M16.81 5.94a1.94 1.94 0 0 1 2.75 2.75l-1.69 1.69-2.75-2.75 1.69-1.69z' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.btn-delete::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M5 7h14' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M9.5 7V5.25c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25V7' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 7l.75 12.25A1.5 1.5 0 0 0 9.25 20.6h5.5a1.5 1.5 0 0 0 1.5-1.35L17 7' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M10.25 11v6M13.75 11v6' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M5 7h14' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M9.5 7V5.25c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25V7' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 7l.75 12.25A1.5 1.5 0 0 0 9.25 20.6h5.5a1.5 1.5 0 0 0 1.5-1.35L17 7' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M10.25 11v6M13.75 11v6' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.btn-sm::before { width: 12px; height: 12px; }
+.btn-add:has(.btn-icon)::before,
+.btn-edit:has(.btn-icon)::before,
+.btn-delete:has(.btn-icon)::before { display: none; }
+.btn-no-icon::before, .btn-no-icon .btn-icon { display: none; }
 .btn-disabled, .btn-disabled:hover,
 .btn:disabled, .btn:disabled:hover { opacity: 0.45; cursor: not-allowed; pointer-events: none; border-color: var(--border-color); color: var(--text-secondary); }
-.btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+/* .btn-primary is a solid fill with white text — the rule above only swaps
+   border/text colour, so its background stays solid and the white-to-grey
+   text swap reads as low-contrast once faded. Borrow Secondary's light tint
+   so disabled Primary reads the same as the other disabled variants. */
+.btn-primary:disabled, .btn-primary:disabled:hover,
+.btn-primary.btn-disabled, .btn-primary.btn-disabled:hover { background: var(--btn-secondary-bg); }
+.btn-row { display: flex; gap: var(--space-xs); flex-wrap: wrap; align-items: center; flex-shrink: 0; }
 .btn-row .btn { flex-shrink: 0; }
 .btn-row[hidden] { display: none; }
 
-/* Low-emphasis text-link action (e.g. "Escalate to MAT") — for actions that
-   exist but shouldn't visually compete with the page's primary action button. */
+/* Low-emphasis text-link action (e.g. "Escalate to MAT") */
 .btn-subtle {
     background: none;
     border: none;
-    padding: 6px 4px;
+    padding: var(--space-xs) var(--space-xxs);
     font-size: var(--font-sm);
     color: var(--text-secondary);
     text-decoration: underline;
@@ -95,8 +130,6 @@
 }
 .btn-subtle:hover { color: var(--text-primary); }
 
-/* Low-emphasis bordered action (e.g. the global header "+ Referral" helper)
-   — keeps a visible outline like other buttons, but muted text/border so it
-   doesn't compete with whatever the current page's real primary action is. */
+/* Low-emphasis bordered action (e.g. the global header "+ Referral" helper) */
 .btn-helper { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-secondary); }
 .btn-helper:hover { border-color: var(--primary); color: var(--primary); }

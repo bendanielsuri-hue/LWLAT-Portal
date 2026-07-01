@@ -4,7 +4,12 @@ from core.identity import current_staff
 from core.models import CategorySettings, MatSettings, Module, School
 from core.portal_settings import FIELDS
 
-PORTALADMIN_BASE_CONTEXT = {'local_menu': [], 'hub_title': 'Portal Admin'}
+PORTALADMIN_MENU = [
+    {'name': 'Dashboard', 'url': '/portal-admin/', 'icon': 'icons/dashboard_svg.html'},
+    {'name': 'Themes', 'url': '/portal-admin/themes/', 'icon': 'icons/cog_svg.html'},
+]
+
+PORTALADMIN_BASE_CONTEXT = {'local_menu': PORTALADMIN_MENU, 'hub_title': 'Portal Admin'}
 
 
 def _apply_fields(instance, post):
@@ -55,4 +60,27 @@ def portaladmin_home(request):
         'secondary_settings': category_settings.get('Secondary'),
         'status_choices': Module.STATUS_CHOICES,
         'accent_choices': School._meta.get_field('accent_colour').choices,
+    })
+
+
+def portaladmin_themes(request):
+    # Same lightweight, non-secure role check as portaladmin_home.
+    staff = current_staff(request)
+    if not (staff and staff.is_developer):
+        return redirect('homepage')
+
+    return render(request, 'hubs/portaladmin/themes.html', {
+        **PORTALADMIN_BASE_CONTEXT,
+        'surface_tokens': [
+            '--bg-page', '--bg-nav', '--bg-surface', '--bg-surface-alt',
+            '--bg-well', '--bg-nested', '--bg-rail',
+        ],
+        'text_tokens': [
+            '--text-primary', '--text-secondary', '--text-muted', '--text-faint',
+            '--primary', '--primary-dark', '--color-secondary', '--color-neutral',
+        ],
+        'role_tokens': [
+            '--color-exceeding', '--color-positive', '--color-caution',
+            '--color-warning', '--color-negative',
+        ],
     })

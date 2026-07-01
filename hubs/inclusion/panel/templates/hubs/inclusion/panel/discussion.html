@@ -44,7 +44,7 @@
             {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
             <span class="panel-toolbar-timer">Discussing for: <span class="discussion-timer" id="discussion-timer">00:00:00</span></span>
             {% endif %}
-            <button type="button" class="btn btn-start" data-open-end-discussion>End Discussion</button>
+            <button type="button" class="btn btn-secondary" data-open-end-discussion>End Discussion</button>
         </div>
     </div>
 
@@ -74,7 +74,7 @@
             <div class="field-group">
                 <label>Does this referral require a follow-up discussion?</label>
                 <div class="btn-row" id="requires-followup-row">
-                    <button type="button" class="btn btn-sm followup-toggle-btn{% if panel_referral.follow_up_date %} btn-start{% endif %}" data-value="yes">Yes</button>
+                    <button type="button" class="btn btn-sm followup-toggle-btn{% if panel_referral.follow_up_date %} btn-secondary{% endif %}" data-value="yes">Yes</button>
                     <button type="button" class="btn btn-sm followup-toggle-btn" data-value="no">No</button>
                 </div>
                 <input type="hidden" name="requires_followup" id="requires-followup-input" value="{% if panel_referral.follow_up_date %}yes{% endif %}">
@@ -97,7 +97,7 @@
             <input type="hidden" name="follow_up_date" id="follow-up-date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
             <div class="btn-row">
                 <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-                <button type="submit" class="btn btn-start btn-sm" id="confirm-end-discussion-btn" disabled>Confirm End Discussion</button>
+                <button type="submit" class="btn btn-secondary btn-sm" id="confirm-end-discussion-btn" disabled>Confirm End Discussion</button>
             </div>
         </form>
     </div>
@@ -110,7 +110,7 @@
     <div class="modal-body">
         <div class="btn-row">
             <button type="button" class="btn btn-sm" id="leave-confirm-no">No</button>
-            <button type="button" class="btn btn-start btn-sm" id="leave-confirm-yes">Yes</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="leave-confirm-yes">Yes</button>
         </div>
     </div>
 </dialog>
@@ -221,7 +221,7 @@
         {% endfor %}
         {% endif %}
 
-        <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-start btn-secondary">Escalate to MAT</a>
+        <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-tertiary">Escalate to MAT</a>
     </div>
 
     <div class="discussion-col">
@@ -244,7 +244,7 @@
         <p class="empty-note">No actions yet.</p>
         {% endfor %}
 
-        <a href="{% url 'inclusion_panel_action_new' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-add">{% include 'icons/new_svg.html' %} Add Action</a>
+        <a href="{% url 'inclusion_panel_action_new' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-add"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Action</a>
     </div>
 
     {% if is_panel_staff %}
@@ -378,8 +378,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     toggleBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
-            toggleBtns.forEach(function (b) { b.classList.remove('btn-start'); });
-            btn.classList.add('btn-start');
+            toggleBtns.forEach(function (b) { b.classList.remove('btn-secondary'); });
+            btn.classList.add('btn-secondary');
             followupInput.value = btn.dataset.value;
             updateConfirmState();
         });
