@@ -2,6 +2,10 @@
 
 A Django multi-hub portal for a Multi-Academy Trust (MAT). One project, several "hubs," each hub itself a Django app.
 
+## Scalability
+
+Scalability is a top priority for this project going forward. When adding or changing models/schema, favor designs that extend cleanly to new types/hubs over designs that are merely convenient for the feature in front of you — e.g. shared base tables with type-specific detail tables rather than ever-growing single tables, generic/reusable fields over one-off ones. This does not mean over-engineering or building unused abstraction now — it means choosing the option that will not need a rewrite when the third or fourth use case shows up (see the `Referral` model in `core/models.py` for a concrete example: one shared base table now, empty room for per-type detail tables added only when a type actually needs one).
+
 ## Layout
 
 ```

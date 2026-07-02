@@ -13,6 +13,55 @@ window.resolvePanelSchoolFilter = function (groupOptions, currentStaffSchoolId) 
     return match ? match.dataset.school : (currentStaffSchoolId || '');
 };
 
+// Client-side filter bars (Students/Referrals/Actions) don't submit/reload —
+// they filter .entity-rows in place — but should still get the same
+// .filter-bar-label/.filter-bar-count active-count badge and
+// .filter-field--active highlight as the server-side dashboard flavour (see
+// DesignLanguage.md "Filter bar"). Rather than duplicate that bookkeeping in
+// each page's own inline <script>, wire it once here: pass the .filter-bar
+// element, get back a refresh() to call from the page's own
+// applyFilters()/clearFilters() whenever a control changes.
+//
+// A field counts as "active" when its control differs from its default
+// (non-empty select, non-empty text input, or an "on" toggle-pill) — unless
+// the field is marked [data-not-a-filter], for fields that merely feed
+// another filter rather than constrain the list themselves (e.g. Actions'
+// "Staff Assigned" identity picker, which only matters once "Assigned to Me"
+// is toggled on).
+window.wireFilterBarActiveState = function (filterBar) {
+    if (!filterBar) return function () { };
+    var badge = filterBar.querySelector('.filter-bar-count');
+    var fields = Array.prototype.slice.call(filterBar.querySelectorAll('.filter-field')).filter(function (field) {
+        return !field.hasAttribute('data-not-a-filter') && !field.querySelector('.filter-bar-clear');
+    });
+
+    function isActive(field) {
+        var select = field.querySelector('select');
+        if (select) return select.value !== '';
+        var input = field.querySelector('input[type=text], input[type=search]');
+        if (input) return input.value.trim() !== '';
+        var toggle = field.querySelector('.toggle-pill');
+        if (toggle) return toggle.classList.contains('on');
+        return false;
+    }
+
+    function refresh() {
+        var count = 0;
+        fields.forEach(function (field) {
+            var active = isActive(field);
+            field.classList.toggle('filter-field--active', active);
+            if (active) count++;
+        });
+        if (badge) {
+            badge.textContent = count;
+            badge.classList.toggle('filter-bar-count--empty', count === 0);
+        }
+    }
+
+    refresh();
+    return refresh;
+};
+
 (function () {
     var dialog = document.getElementById('new-referral-dialog');
     if (!dialog) return;

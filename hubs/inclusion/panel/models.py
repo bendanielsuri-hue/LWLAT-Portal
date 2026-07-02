@@ -42,9 +42,13 @@ class ReferralQuestion(models.Model):
         return self.label
 
 
-class Referral(models.Model):
+class InclusionReferral(models.Model):
     STATUS_CHOICES = [('open', 'Open'), ('in_panel', 'In Panel'), ('closed', 'Closed')]
 
+    # Links this Inclusion-specific detail row to the shared cross-type base record.
+    referral = models.OneToOneField(
+        'core.Referral', on_delete=models.CASCADE, related_name='inclusion_detail',
+    )
     student = models.ForeignKey('core.Student', on_delete=models.CASCADE, related_name='referrals')
     raised_by = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
@@ -59,7 +63,7 @@ class Referral(models.Model):
 
 
 class ReferralResponse(models.Model):
-    referral = models.ForeignKey(Referral, on_delete=models.CASCADE, related_name='responses')
+    referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='responses')
     question = models.ForeignKey(ReferralQuestion, on_delete=models.PROTECT)
     answer = models.TextField(blank=True)
 
@@ -165,6 +169,7 @@ class Panel(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='upcoming')
     panel_group = models.ForeignKey(PanelGroup, null=True, blank=True, on_delete=models.SET_NULL, related_name='panels')
     started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['date']
@@ -200,7 +205,11 @@ class PanelReferral(models.Model):
     PRIORITY_CHOICES = [('low', 'Low'), ('medium', 'Medium'), ('high', 'High')]
 
     panel = models.ForeignKey(Panel, on_delete=models.CASCADE, related_name='panel_referrals')
-    referral = models.ForeignKey(Referral, on_delete=models.CASCADE, related_name='panel_referrals')
+    referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='panel_referrals')
+    # Nullable rather than a strict auto_now_add default so existing rows (created before
+    # this field existed) don't need a fabricated backfill value — they simply won't
+    # surface in the "assigned to panel" activity feed, see _recent_activity() in views.py.
+    created_at = models.DateTimeField(null=True, blank=True, auto_now_add=True)
     discussion_status = models.CharField(max_length=20, choices=DISCUSSION_CHOICES, default='pending')
     duration = models.DurationField(null=True, blank=True)
     follow_up_date = models.DateField(null=True, blank=True)
@@ -268,11 +277,12 @@ class Action(models.Model):
         ('not_needed', 'Inactive'),
     ]
 
-    referral = models.ForeignKey(Referral, on_delete=models.CASCADE, related_name='actions')
+    referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='actions')
     category = models.ForeignKey(ActionCategory, null=True, blank=True, on_delete=models.SET_NULL)
     assigned_to = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='incomplete')
+    completed_at = models.DateTimeField(null=True, blank=True)
     note = models.TextField(blank=True)
 
     class Meta:
@@ -286,7 +296,7 @@ class Action(models.Model):
 class Escalation(models.Model):
     STATUS_CHOICES = [('open', 'Open'), ('resolved', 'Resolved')]
 
-    referral = models.ForeignKey(Referral, on_delete=models.CASCADE, related_name='escalations')
+    referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='escalations')
     escalated_by = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     escalated_at = models.DateTimeField(auto_now_add=True)
     reason = models.TextField()

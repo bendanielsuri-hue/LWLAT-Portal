@@ -73,6 +73,13 @@ def _sen_status(i):
 # Cycles through the 4 broad needs in order.
 SEND_NEEDS = ['cognition', 'semh', 'communication', 'sensory']
 
+# Cycles through every ethnicity category in order (deterministic spread
+# across the dummy population, not proportioned to any real census data).
+ETHNICITIES = [code for code, _ in Student.ETHNICITY_CHOICES]
+
+# Cycles through the 3 prior-attainment bands in order.
+PRIOR_ATTAINMENT_BANDS = ['low', 'middle', 'high']
+
 PRIMARY_YEAR_GROUPS = [1, 2, 3, 4, 5, 6]
 SECONDARY_YEAR_GROUPS = [7, 8, 9, 10, 11]
 FORM_LETTERS = ['A', 'B', 'C']
@@ -147,6 +154,9 @@ class Command(BaseCommand):
                     'is_eal': i % 6 == 0,
                     'is_lac': i % 23 == 0,
                     'is_young_carer': i % 17 == 0,
+                    'is_more_able': i % 8 == 0,
+                    'ethnicity': ETHNICITIES[i % len(ETHNICITIES)],
+                    'prior_attainment_band': PRIOR_ATTAINMENT_BANDS[i % len(PRIOR_ATTAINMENT_BANDS)],
                 },
             )
             if created_flag:

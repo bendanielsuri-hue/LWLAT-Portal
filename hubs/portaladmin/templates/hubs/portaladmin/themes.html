@@ -58,16 +58,16 @@
     background: var(--border-color);
     flex-shrink: 0;
 }
-/* Palette chips in bar: compact, fixed-width, no size preview */
-.themes-palette-grid {
+/* Theme chips in bar: compact, fixed-width, no size preview */
+.themes-theme-grid {
     gap: 4px;
     flex-wrap: nowrap;
 }
-.themes-palette-grid .text-size-option {
+.themes-theme-grid .text-size-option {
     flex: 0 0 auto;
     padding: 4px 10px;
 }
-.themes-palette-grid .text-size-option .size-name {
+.themes-theme-grid .text-size-option .size-name {
     font-size: var(--font-xs);
 }
 
@@ -98,8 +98,8 @@
     {{ block.super }}
     <div class="themes-ctrl-bar">
         <div class="themes-ctrl-group">
-            <span class="themes-ctrl-label">Theme</span>
-            <button type="button" class="theme-toggle" id="themes-pref-theme" role="switch" aria-checked="false" aria-label="Dark mode">
+            <span class="themes-ctrl-label">Theme mode</span>
+            <button type="button" class="theme-toggle" id="themes-pref-theme-mode" role="switch" aria-checked="false" aria-label="Dark mode">
                 <span class="theme-toggle-icon theme-toggle-sun">{% include 'icons/sun_svg.html' %}</span>
                 <span class="theme-toggle-thumb"></span>
                 <span class="theme-toggle-icon theme-toggle-moon">{% include 'icons/moon_svg.html' %}</span>
@@ -107,8 +107,8 @@
         </div>
         <div class="themes-ctrl-sep"></div>
         <div class="themes-ctrl-group">
-            <span class="themes-ctrl-label">Palette</span>
-            <div class="text-size-grid themes-palette-grid" id="themes-pref-palette" role="radiogroup" aria-label="Colour palette">
+            <span class="themes-ctrl-label">Theme</span>
+            <div class="text-size-grid themes-theme-grid" id="themes-pref-theme" role="radiogroup" aria-label="Theme">
                 <button type="button" class="text-size-option" data-value="pastel" title="Calm, low-contrast tones with warm borders and subtle depth."><span class="size-name">Soft</span></button>
 <button type="button" class="text-size-option" data-value="vibrant" title="Bold, high-visibility colours designed for dashboards and data."><span class="size-name">Vibrant</span></button>
                 <button type="button" class="text-size-option" data-value="cool" title="Crisp blue-grey tones for a focused, professional look."><span class="size-name">Cool</span></button>
@@ -134,7 +134,7 @@
         <div class="themes-ctrl-sep"></div>
         <div class="themes-ctrl-group">
             <span class="themes-ctrl-label">Size</span>
-            <div class="text-size-grid themes-palette-grid" id="themes-pref-text-size" role="radiogroup" aria-label="Text size">
+            <div class="text-size-grid themes-theme-grid" id="themes-pref-text-size" role="radiogroup" aria-label="Text size">
                 <button type="button" class="text-size-option" data-value="sm"><span class="size-name">S</span></button>
                 <button type="button" class="text-size-option" data-value="md"><span class="size-name">M</span></button>
                 <button type="button" class="text-size-option" data-value="lg"><span class="size-name">L</span></button>
@@ -202,8 +202,6 @@
         <span class="status-pill pill-caution">caution</span>
         <span class="status-pill pill-warning">warning</span>
         <span class="status-pill pill-negative">negative</span>
-        <span class="status-pill pill-purple">purple</span>
-        <span class="status-pill pill-blue">blue</span>
         <span class="status-pill">no modifier</span>
     </div>
 </details>
@@ -309,21 +307,21 @@
     }
 
     function syncBar() {
-        syncSelected('themes-pref-palette', root.getAttribute('data-palette') || 'pastel');
+        syncSelected('themes-pref-theme', root.getAttribute('data-theme') || 'pastel');
         syncSelected('themes-pref-color', root.getAttribute('data-color') || 'purple');
         syncSelected('themes-pref-text-size', root.getAttribute('data-text-size') || 'md');
-        var t = document.getElementById('themes-pref-theme');
-        if (t) t.setAttribute('aria-checked', (root.getAttribute('data-theme') || 'light') === 'dark' ? 'true' : 'false');
+        var t = document.getElementById('themes-pref-theme-mode');
+        if (t) t.setAttribute('aria-checked', (root.getAttribute('data-theme-mode') || 'light') === 'dark' ? 'true' : 'false');
     }
     syncBar();
 
     // Delegate all three controls to their sidebar counterparts so main.js's
-    // full handler chain fires — applyPaletteSwatches, colour name labels, etc.
-    var paletteBar = document.getElementById('themes-pref-palette');
-    if (paletteBar) {
-        paletteBar.querySelectorAll('[data-value]').forEach(function (btn) {
+    // full handler chain fires — applyThemeSwatches, colour name labels, etc.
+    var themeBar = document.getElementById('themes-pref-theme');
+    if (themeBar) {
+        themeBar.querySelectorAll('[data-value]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var sb = document.querySelector('#pref-palette [data-value="' + btn.dataset.value + '"]');
+                var sb = document.querySelector('#pref-theme [data-value="' + btn.dataset.value + '"]');
                 if (sb) sb.click();
             });
         });
@@ -349,10 +347,10 @@
         });
     }
 
-    var themeBtn = document.getElementById('themes-pref-theme');
-    if (themeBtn) {
-        themeBtn.addEventListener('click', function () {
-            var sb = document.getElementById('pref-theme');
+    var themeModeBtn = document.getElementById('themes-pref-theme-mode');
+    if (themeModeBtn) {
+        themeModeBtn.addEventListener('click', function () {
+            var sb = document.getElementById('pref-theme-mode');
             if (sb) sb.click();
         });
     }
@@ -360,15 +358,15 @@
     // Keep bar in sync when the sidebar settings panel changes the same root attributes
     new MutationObserver(function (mutations) {
         mutations.forEach(function (m) {
-            if (m.attributeName === 'data-palette') syncSelected('themes-pref-palette', root.getAttribute('data-palette') || 'pastel');
+            if (m.attributeName === 'data-theme') syncSelected('themes-pref-theme', root.getAttribute('data-theme') || 'pastel');
             if (m.attributeName === 'data-color') syncSelected('themes-pref-color', root.getAttribute('data-color') || 'purple');
             if (m.attributeName === 'data-text-size') syncSelected('themes-pref-text-size', root.getAttribute('data-text-size') || 'md');
-            if (m.attributeName === 'data-theme') {
-                var t = document.getElementById('themes-pref-theme');
-                if (t) t.setAttribute('aria-checked', (root.getAttribute('data-theme') || 'light') === 'dark' ? 'true' : 'false');
+            if (m.attributeName === 'data-theme-mode') {
+                var t = document.getElementById('themes-pref-theme-mode');
+                if (t) t.setAttribute('aria-checked', (root.getAttribute('data-theme-mode') || 'light') === 'dark' ? 'true' : 'false');
             }
         });
-    }).observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-color', 'data-palette', 'data-text-size'] });
+    }).observe(root, { attributes: true, attributeFilter: ['data-theme-mode', 'data-color', 'data-theme', 'data-text-size'] });
 })();
 </script>
 {% endblock %}

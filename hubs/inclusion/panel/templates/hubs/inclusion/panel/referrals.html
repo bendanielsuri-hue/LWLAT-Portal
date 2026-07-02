@@ -23,6 +23,7 @@
 <div class="list-page-shell">
 <div class="list-card">
 <div class="filter-bar">
+    <span class="filter-bar-label">Filters <span class="filter-bar-count filter-bar-count--empty">0</span></span>
     <div class="filter-field">
         <label for="name-search">Name Search</label>
         <input type="text" id="name-search" placeholder="Find items">
@@ -108,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var studentsTotal = document.getElementById('students-total');
     var actionsTotal = document.getElementById('actions-total');
     var clearFiltersBtn = document.getElementById('clear-filters');
+    var refreshFilterBarState = window.wireFilterBarActiveState(document.querySelector('.filter-bar'));
 
     function applyFilters() {
         var term = search ? search.value.trim().toLowerCase() : '';
@@ -131,6 +133,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (visibleCount) visibleCount.textContent = shown;
         if (studentsTotal) studentsTotal.textContent = students.size;
         if (actionsTotal) actionsTotal.textContent = actionsShown;
+        refreshFilterBarState();
     }
 
     function clearFilters() {

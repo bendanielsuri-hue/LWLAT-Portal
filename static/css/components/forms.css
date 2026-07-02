@@ -3,7 +3,7 @@
     gap: var(--space-xl);
     flex-wrap: wrap;
     padding: var(--space-md) var(--space-lg);
-    background: var(--bg-surface);
+    background: var(--bg-surface-alt);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-md);
@@ -12,12 +12,81 @@
     top: 0;
     z-index: var(--z-filter-bar);
     box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--transition-fast), border-color var(--transition-fast), padding var(--transition-fast), border-radius var(--transition-fast);
+}
+
+/* Stronger boundary once the bar is actually pinned to the top of the
+   viewport — see .sticky-zone-sentinel in layout.css for how .is-stuck
+   gets toggled. */
+.filter-bar.is-stuck {
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+/* AJAX-enhanced filter bars (main.js's setupAjaxFilterBars()) dim their
+   data-ajax-target while a fetch is in flight, instead of the full-page
+   loading indicator a real navigation would show. */
+.is-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity var(--transition-fast);
 }
 
 .filter-bar-clear {
     align-self: flex-end;
 }
-.filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); }
+
+.filter-bar-label {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--font-base);
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.filter-bar-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--radius-pill);
+    background: var(--primary);
+    color: #fff;
+    font-size: var(--font-2xs);
+}
+
+/* Always occupies its layout space (see hub.html, which now always renders
+   this span) so the "Filters" label doesn't change width — and shove every
+   field after it sideways — as the active count goes from/to zero. */
+.filter-bar-count--empty {
+    visibility: hidden;
+}
+
+/* Fields with a non-default value read as a filled "chip" so it's obvious
+   which filters are actually narrowing the data; fields left on "All" stay
+   plain. Padding lives on the base .filter-field rule below (not here) so
+   toggling --active only recolours the chip instead of resizing it. */
+.filter-field--active {
+    background: var(--primary-light);
+    border-radius: var(--radius-sm);
+}
+.filter-field--active label {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); padding: var(--space-xxs) var(--space-xs); }
+.filter-field label { text-align: center; }
 .filter-field input, .filter-field select {
     padding: var(--space-xs) var(--space-sm);
     border-radius: var(--radius-sm);
@@ -44,7 +113,7 @@
     background-size: 14px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
-[data-theme="dark"] .field-group select, [data-theme="dark"] .filter-field select {
+[data-theme-mode="dark"] .field-group select, [data-theme-mode="dark"] .filter-field select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
 
@@ -125,7 +194,7 @@ select.ui-select-native, input.ui-select-native {
     font-family: inherit;
     cursor: pointer;
 }
-[data-theme="dark"] .ui-select-trigger {
+[data-theme-mode="dark"] .ui-select-trigger {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
 /* Chevron points up while the popover is open (main.js toggles .open
@@ -133,8 +202,11 @@ select.ui-select-native, input.ui-select-native {
 .ui-select-trigger.open {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
 }
-[data-theme="dark"] .ui-select-trigger.open {
+[data-theme-mode="dark"] .ui-select-trigger.open {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
+}
+.ui-select-trigger:hover, .ui-select-trigger.open {
+    color: var(--primary);
 }
 .ui-select-trigger:focus {
     border-color: var(--border-strong);
@@ -184,16 +256,17 @@ dialog.ui-popover::backdrop { background: transparent; }
     border-bottom: 1px solid var(--border-color);
 }
 .ui-option:last-child { border-bottom: none; }
-.ui-option:hover, .ui-option.highlighted { background: var(--row-hover-bg); }
-/* Selected is marked by bold text only (no checkmark) — so a hover fill (on
-   this row or an adjacent one) never has anything to visually touch,
-   regardless of which rows happen to be next to each other. */
+.ui-option:hover, .ui-option.highlighted { background: var(--row-hover-bg); color: var(--primary); }
+/* Selected is marked by bold, accent-coloured text plus a left accent bar —
+   a hover fill (on this row or an adjacent one) never has anything to
+   visually clash with, regardless of which rows happen to be next to each other. */
 .ui-option.selected {
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--primary);
+    box-shadow: inset 3px 0 0 var(--primary);
 }
 .ui-option.muted { color: var(--text-secondary); background: var(--bg-surface-alt); }
-.ui-option.muted:hover, .ui-option.muted.highlighted { background: var(--row-hover-bg); }
+.ui-option.muted:hover, .ui-option.muted.highlighted { background: var(--row-hover-bg); color: var(--primary); }
 
 .ui-calendar-header {
     display: flex;

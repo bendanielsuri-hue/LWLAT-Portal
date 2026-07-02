@@ -8,12 +8,12 @@
         (function () {
             try {
                 var root = document.documentElement;
-                root.setAttribute('data-theme', localStorage.getItem('pref-theme') || 'light');
+                root.setAttribute('data-theme-mode', localStorage.getItem('pref-theme-mode') || 'light');
                 // A school/category/MAT accent override (rendered server-side as
                 // data-school-color, see core.portal_settings) takes precedence
                 // over the viewer's personal colour preference.
                 root.setAttribute('data-color', root.getAttribute('data-school-color') || localStorage.getItem('pref-color') || 'purple');
-                root.setAttribute('data-palette', localStorage.getItem('pref-palette') || 'pastel');
+                root.setAttribute('data-theme', localStorage.getItem('pref-theme') || 'pastel');
                 root.setAttribute('data-text-size', localStorage.getItem('pref-text-size') || 'md');
                 root.setAttribute('data-time-format', localStorage.getItem('pref-time-format') || '24');
             } catch (e) { }
@@ -24,8 +24,8 @@
             {{ portal_title }}
         {% endblock %}
     </title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=106">
-    <script src="{% static 'js/main.js' %}?v=46" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=108">
+    <script src="{% static 'js/main.js' %}?v=50" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -130,26 +130,29 @@
         <main>
             <div class="main-inner">
                 {% block breadcrumbs_wrapper %}
-                <div class="page-header">
-                    <div class="page-header-main">
-                        {% block breadcrumb_trail %}
-                        <nav class="breadcrumbs">
-                            <a href="{% url 'homepage' %}">{{ portal_title }}</a>
-                            <span class="sep">&gt;</span>
-                            {% block breadcrumbs %}{% endblock %}
-                        </nav>
-                        {% endblock %}
-                        <div class="page-heading-wrap">
-                            {% block page_back %}{% endblock %}
-                            <div class="page-heading">
-                                <h1>{% block page_title %}{% endblock %}</h1>
-                                {% block page_subtitle %}{% endblock %}
+                <div class="sticky-header-zone">
+                    <div class="page-header">
+                        <div class="page-header-main">
+                            {% block breadcrumb_trail %}
+                            <nav class="breadcrumbs">
+                                <a href="{% url 'homepage' %}">{{ portal_title }}</a>
+                                <span class="sep">&gt;</span>
+                                {% block breadcrumbs %}{% endblock %}
+                            </nav>
+                            {% endblock %}
+                            <div class="page-heading-wrap">
+                                {% block page_back %}{% endblock %}
+                                <div class="page-heading">
+                                    <h1>{% block page_title %}{% endblock %}</h1>
+                                    {% block page_subtitle %}{% endblock %}
+                                </div>
                             </div>
                         </div>
+                        <div class="page-header-extras">
+                            {% block page_extras %}{% endblock %}
+                        </div>
                     </div>
-                    <div class="page-header-extras">
-                        {% block page_extras %}{% endblock %}
-                    </div>
+                    {% block page_filters %}{% endblock %}
                 </div>
                 {% endblock %}
                 {% block content %}

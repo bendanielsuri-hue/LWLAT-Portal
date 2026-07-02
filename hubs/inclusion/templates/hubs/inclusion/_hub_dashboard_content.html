@@ -1,0 +1,170 @@
+{% comment %}
+Filter-dependent portion of the SEND & Provision dashboard: KPI cards +
+breakdown grids. Included from hub.html's {% block content %} for a normal
+page load, and rendered standalone (fragment only, no layout) as the AJAX
+response body for filter changes — see hubs/inclusion/views.py::inclusion_hub
+and static/js/main.js's setupAjaxFilterBars(). Deliberately excludes the
+"New Referral" dialog and SENCo contacts section — see hub.html for why those
+must stay outside the AJAX-swapped region.
+{% endcomment %}
+<div class="stats-strip stats-strip--compact">
+    {% for card in kpi_cards %}
+    <div class="stat-card stat-card--accent-{{ card.accent }}">
+        <div class="stat-value">{{ card.value }}</div>
+        <div class="stat-label">{{ card.label }}</div>
+        {% if card.sublabel %}<div class="stat-card-sublabel">{{ card.sublabel }}</div>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<div class="breakdown-grid">
+    <div class="breakdown-card breakdown-card--donut">
+        <h3>By SEND code</h3>
+        <div class="donut-chart-wrap">
+            <div class="donut-chart" style="--k-pct: {{ code_pcts.k }}; --e-pct: {{ code_pcts.e }};">
+                <div class="donut-chart-hole">
+                    <span class="donut-chart-value">{{ send_count }}</span>
+                    <span class="donut-chart-label">SEND</span>
+                    <span class="donut-chart-sublabel">{{ send_pct }}% of cohort</span>
+                </div>
+            </div>
+            <div class="donut-chart-legend">
+                {% for row in code_breakdown %}
+                <div class="donut-chart-legend-row">
+                    <span class="stat-label stat-label--{{ row.code }}">{{ row.label }}</span>
+                    <span>{{ row.count }} ({{ row.pct }}%)</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="breakdown-card breakdown-card--lg">
+        <h3>Referrals per Month
+            {% if overdue_referrals %}
+            <span class="status-pill pill-warning">{{ overdue_referrals }} overdue</span>
+            {% endif %}
+        </h3>
+        {% if referral_trend %}
+        <div class="trend-chart" role="img" aria-label="Referrals per month, this academic year">
+            {% for point in referral_trend %}
+            <div class="trend-chart-col">
+                <div class="trend-chart-bar-track">
+                    <div class="trend-chart-bar" style="height: {{ point.pct }}%"></div>
+                </div>
+                <div class="trend-chart-value">{{ point.count }}</div>
+                <div class="trend-chart-label">{{ point.label }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-note">No referrals recorded.</p>
+        {% endif %}
+        <button type="button" class="btn btn-primary btn-sm" data-new-referral-trigger data-next="{% url 'inclusion_hub' %}">+ New Referral</button>
+    </div>
+
+    <div class="breakdown-card breakdown-card--sm">
+        <h3>By gender</h3>
+        {% if gender_breakdown %}
+        <div class="breakdown-legend">
+            <span class="stat-label stat-label--e">EHCP (E)</span>
+            <span class="stat-label stat-label--k">SEN Support (K)</span>
+            <span class="stat-label stat-label--n">None (N)</span>
+        </div>
+        {% for row in gender_breakdown %}
+        <div class="breakdown-row">
+            <div class="breakdown-row-label">{{ row.label }} <span class="breakdown-row-label-meta">&middot; {{ row.total }} pupils &middot; {{ row.send_pct }}% SEND</span></div>
+            <div class="breakdown-row-stats">
+                {% if row.e_count %}<span class="stat-label stat-label--e">{{ row.e_count }} ({{ row.e_pct }}%)</span>{% endif %}
+                <span class="stat-label stat-label--k">{{ row.k_count }} ({{ row.k_pct }}%)</span>
+                <span class="stat-label stat-label--n">{{ row.n_count }} ({{ row.n_pct }}%)</span>
+            </div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill breakdown-bar-fill--e" style="width: {{ row.e_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--k" style="width: {{ row.k_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-note">No students recorded.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="breakdown-grid">
+    <div class="breakdown-card">
+        <h3>By year group</h3>
+        {% if year_breakdown %}
+        <div class="breakdown-legend">
+            <span class="stat-label stat-label--e">EHCP (E)</span>
+            <span class="stat-label stat-label--k">SEN Support (K)</span>
+            <span class="stat-label stat-label--n">None (N)</span>
+        </div>
+        {% for row in year_breakdown %}
+        <div class="breakdown-row">
+            <div class="breakdown-row-label">{{ row.label }} <span class="breakdown-row-label-meta">&middot; {{ row.total }} pupils &middot; {{ row.send_pct }}% SEND</span></div>
+            <div class="breakdown-row-stats">
+                {% if row.e_count %}<span class="stat-label stat-label--e">{{ row.e_count }} ({{ row.e_pct }}%)</span>{% endif %}
+                <span class="stat-label stat-label--k">{{ row.k_count }} ({{ row.k_pct }}%)</span>
+                <span class="stat-label stat-label--n">{{ row.n_count }} ({{ row.n_pct }}%)</span>
+            </div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill breakdown-bar-fill--e" style="width: {{ row.e_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--k" style="width: {{ row.k_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-note">No students recorded.</p>
+        {% endif %}
+    </div>
+
+    {% if show_school_breakdown %}
+    <div class="breakdown-card">
+        <h3>By school</h3>
+        {% if school_breakdown %}
+        <div class="breakdown-legend">
+            <span class="stat-label stat-label--e">EHCP (E)</span>
+            <span class="stat-label stat-label--k">SEN Support (K)</span>
+            <span class="stat-label stat-label--n">None (N)</span>
+        </div>
+        {% for row in school_breakdown %}
+        <div class="breakdown-row">
+            <div class="breakdown-row-label">{{ row.label }} <span class="breakdown-row-label-meta">&middot; {{ row.total }} pupils &middot; {{ row.send_pct }}% SEND</span></div>
+            <div class="breakdown-row-stats">
+                {% if row.e_count %}<span class="stat-label stat-label--e">{{ row.e_count }} ({{ row.e_pct }}%)</span>{% endif %}
+                <span class="stat-label stat-label--k">{{ row.k_count }} ({{ row.k_pct }}%)</span>
+                <span class="stat-label stat-label--n">{{ row.n_count }} ({{ row.n_pct }}%)</span>
+            </div>
+            <div class="breakdown-bar-track">
+                <div class="breakdown-bar-fill breakdown-bar-fill--e" style="width: {{ row.e_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--k" style="width: {{ row.k_pct }}%"></div>
+                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-note">No students recorded.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="breakdown-card breakdown-card--lg">
+        <h3>By area of need</h3>
+        {% if send_count %}
+        {% for row in need_breakdown %}
+        <div class="breakdown-row breakdown-row--need">
+            <span class="breakdown-row-need-label">{{ row.label }}</span>
+            <div class="breakdown-bar-track breakdown-bar-track--need">
+                <div class="breakdown-bar-fill" style="width: {{ row.pct }}%"></div>
+            </div>
+            <span class="breakdown-row-need-value">{{ row.count }} ({{ row.pct }}%)</span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-note">No students with SEND recorded.</p>
+        {% endif %}
+    </div>
+</div>

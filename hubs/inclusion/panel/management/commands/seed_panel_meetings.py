@@ -3,8 +3,8 @@ import datetime
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import School, Student
-from hubs.inclusion.panel.models import Panel, PanelGroup, PanelReferral, Referral
+from core.models import Referral as CoreReferral, School, Student
+from hubs.inclusion.panel.models import InclusionReferral, Panel, PanelGroup, PanelReferral
 
 # (days offset from today, target referral count). Negative offset = past.
 PAST_SPECS_BABINGTON = [(-60, 4), (-30, 3)]
@@ -30,7 +30,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         today = timezone.localdate()
-        students_used = set(Referral.objects.values_list('student_id', flat=True))
+        students_used = set(InclusionReferral.objects.values_list('student_id', flat=True))
 
         stale = Panel.objects.filter(date__lt=today, status='upcoming')
         stale_count = stale.update(status='complete')
@@ -66,7 +66,12 @@ class Command(BaseCommand):
                 ).order_by('id')[:to_create]
 
                 for idx, student in enumerate(candidates):
-                    referral = Referral.objects.create(student=student, status='in_panel')
+                    base = CoreReferral.objects.create(
+                        referral_type=CoreReferral.TYPE_INCLUSION,
+                        student=student,
+                        date_referred=timezone.localdate(),
+                    )
+                    referral = InclusionReferral.objects.create(referral=base, student=student, status='in_panel')
                     students_used.add(student.id)
                     minutes = DISCUSSION_MINUTES[idx % len(DISCUSSION_MINUTES)]
                     discussed_at = timezone.make_aware(

@@ -23,6 +23,7 @@
 <div class="list-page-shell">
 <div class="list-card">
 <div class="filter-bar">
+    <span class="filter-bar-label">Filters <span class="filter-bar-count filter-bar-count--empty">0</span></span>
     <div class="filter-field">
         <label for="name-search">Name Search</label>
         <input type="text" id="name-search" placeholder="Find items">
@@ -127,6 +128,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     var allForms = Array.prototype.slice.call(regFilter.options).slice(1).map(function (o) { return o.value; });
     var formsByYear = JSON.parse('{{ forms_by_year_json|escapejs }}');
+    var refreshFilterBarState = window.wireFilterBarActiveState(document.querySelector('.filter-bar'));
 
     function refreshRegOptions() {
         var year = yearFilter.value;
@@ -140,6 +142,12 @@ document.addEventListener('DOMContentLoaded', function () {
             regFilter.appendChild(opt);
         });
         regFilter.value = forms.indexOf(previous) !== -1 ? previous : '';
+        // Reg is enhanced into a custom popover control by
+        // enhanceFormControls() on page load — mutating the underlying
+        // native <select>'s options above doesn't by itself refresh that
+        // popover's cached option list; _uiSelect.refresh() (static/js/main.js)
+        // is the same hook the date/time custom controls use for this.
+        if (regFilter._uiSelect) regFilter._uiSelect.refresh();
     }
 
     function applyFilters() {
@@ -167,6 +175,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (visibleCount) visibleCount.textContent = shown;
         if (referralsTotal) referralsTotal.textContent = referralsShown;
         if (actionsTotal) actionsTotal.textContent = actionsShown;
+        refreshFilterBarState();
     }
 
     function clearFilters() {

@@ -6,13 +6,13 @@ from .models import (
     Escalation,
     Expertise,
     ExternalContact,
+    InclusionReferral,
     Panel,
     PanelGroup,
     PanelGroupMember,
     PanelMember,
     PanelReferral,
     PanelReferralNote,
-    Referral,
     ReferralCategory,
     ReferralQuestion,
     ReferralResponse,
@@ -21,7 +21,7 @@ from .models import (
 
 admin.site.register(ReferralCategory)
 admin.site.register(ReferralQuestion)
-admin.site.register(Referral)
+admin.site.register(InclusionReferral)
 admin.site.register(ReferralResponse)
 admin.site.register(Panel)
 admin.site.register(PanelMember)

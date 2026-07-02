@@ -12,7 +12,7 @@ from django.db import models
 
 # Reused by School/MatSettings/CategorySettings as the only colours available for
 # the per-school accent override, matching the personal "Primary colour" picker's
-# palette in templates/_settings_content.html / [data-color="..."] CSS rules.
+# choices in templates/_settings_content.html / [data-color="..."] CSS rules.
 ACCENT_COLOUR_CHOICES = [
     ('purple', 'Royal Purple'), ('blue', 'Ocean Blue'),
     ('teal', 'Deep Teal'), ('green', 'Forest Green'), ('yellow', 'Golden Yellow'),
@@ -158,6 +158,22 @@ class Student(models.Model):
     SEN_STATUS_CHOICES = [('K', 'SEN Support (K)'), ('E', 'EHCP (E)')]
     sen_status = models.CharField(max_length=1, choices=SEN_STATUS_CHOICES, blank=True)
 
+    is_more_able = models.BooleanField('More Able', default=False)
+
+    ETHNICITY_CHOICES = [
+        ('white_british', 'White British'),
+        ('white_other', 'White Other'),
+        ('mixed', 'Mixed / Multiple Ethnic Groups'),
+        ('asian', 'Asian or Asian British'),
+        ('black', 'Black or Black British'),
+        ('chinese', 'Chinese'),
+        ('other', 'Any Other Ethnic Group'),
+    ]
+    ethnicity = models.CharField(max_length=20, choices=ETHNICITY_CHOICES, blank=True)
+
+    PRIOR_ATTAINMENT_CHOICES = [('low', 'Low'), ('middle', 'Middle'), ('high', 'High')]
+    prior_attainment_band = models.CharField(max_length=10, choices=PRIOR_ATTAINMENT_CHOICES, blank=True)
+
     # Broad area of need from the SEND Code of Practice — only meaningful
     # when sen_status is set (K or E).
     SEND_NEED_CHOICES = [
@@ -178,3 +194,40 @@ class Student(models.Model):
 
     def __str__(self):
         return f'{self.last_name}, {self.first_name}'
+
+
+class Referral(models.Model):
+    # Extensible by adding new choices later — no separate lookup table, following
+    # the same convention as Student.sen_status / School.category / Module.status.
+    TYPE_SEND = 'send'
+    TYPE_BEHAVIOUR = 'behaviour'
+    TYPE_ATTENDANCE = 'attendance'
+    TYPE_INCLUSION = 'inclusion'
+    TYPE_CHOICES = [
+        (TYPE_SEND, 'SEND'),
+        (TYPE_BEHAVIOUR, 'Behaviour'),
+        (TYPE_ATTENDANCE, 'Attendance'),
+        (TYPE_INCLUSION, 'Inclusion'),
+    ]
+
+    # Minimal cross-type status for reporting/search only — NOT a state machine.
+    # Type-specific detail tables (e.g. InclusionReferral) own their own richer
+    # status where needed and are responsible for keeping this field in sync
+    # (see hubs/inclusion/panel/models.py::InclusionReferral and the existing
+    # _sync_referral_status() convention in hubs/inclusion/panel/views.py).
+    STATUS_OPEN = 'open'
+    STATUS_CLOSED = 'closed'
+    STATUS_CHOICES = [(STATUS_OPEN, 'Open'), (STATUS_CLOSED, 'Closed')]
+
+    referral_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='referrals_v2')
+    raised_by = models.ForeignKey(Staff, null=True, blank=True, on_delete=models.SET_NULL)
+    date_referred = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.get_referral_type_display()} referral #{self.pk} - {self.student}'

@@ -1,16 +1,16 @@
-/* Dark theme overrides — all [data-theme="dark"] blocks.
-   Must load after theme/light.css and theme/palettes.css so it can override them.
+/* Dark mode overrides — all [data-theme-mode="dark"] blocks.
+   Must load after theme/light.css and theme/themes.css so it can override them.
    Within this file, later source order handles ties between rules at the same
-   specificity (e.g. triple-attribute palette+dark combos come after their
+   specificity (e.g. triple-attribute theme+dark combos come after their
    two-attribute counterparts). */
 
-[data-theme="dark"] { color-scheme: dark; }
+[data-theme-mode="dark"] { color-scheme: dark; }
 
-[data-theme="dark"] {
+[data-theme-mode="dark"] {
     /* Accent lift, derived from --primary-*-base (set per [data-color]/
-       [data-palette] in theme/palettes.css) instead of a hand-tuned
-       "brighter for dark mode" hex per accent per palette (32 rules, one
-       per accent × palette, previously lived here). --primary-dark is an
+       [data-theme] in theme/themes.css) instead of a hand-tuned
+       "brighter for dark mode" hex per accent per theme (32 rules, one
+       per accent × theme, previously lived here). --primary-dark is an
        exact match for the light-mode base in every existing hand-tuned
        value checked, so that one carries over unchanged, not approximated;
        --primary/--primary-light use a single fixed mix ratio, which will
@@ -37,9 +37,6 @@
     --badge-bg: #232b3d;
 
     --color-neutral: #64748b;
-    /* SEN classification dark values (pastel; other palettes override below) */
-    --color-purple: #a78bfa; --color-purple-bg: #1e1533;
-    --color-blue:   #60a5fa; --color-blue-bg:   #1e3a5f;
 
     --tooltip-bg: #f1f5f9;
     --tooltip-text: #1c2333;
@@ -55,27 +52,50 @@
     scrollbar-width: thin;
 }
 
-[data-theme="dark"] ::-webkit-scrollbar {
+[data-theme-mode="dark"] ::-webkit-scrollbar {
     width: 12px;
     height: 12px;
 }
-[data-theme="dark"] ::-webkit-scrollbar-track {
+[data-theme-mode="dark"] ::-webkit-scrollbar-track {
     background: var(--bg-surface-alt);
 }
-[data-theme="dark"] ::-webkit-scrollbar-thumb {
+[data-theme-mode="dark"] ::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: var(--radius-sm);
     border: 3px solid var(--bg-surface-alt);
 }
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+[data-theme-mode="dark"] ::-webkit-scrollbar-thumb:hover {
     background: var(--text-faint);
 }
 
+/* SEND K/E/N triadic secondary/tertiary — dark base/fallback (default, pastel,
+   cool; themes with their own light-mode anchors below get matching dark
+   overrides too). See themes.css vibrant block for the family-grouping
+   rationale; K itself needs no override here since --primary already resolves
+   correctly in dark mode. */
+[data-theme-mode="dark"][data-color="red"],
+[data-theme-mode="dark"][data-color="orange"],
+[data-theme-mode="dark"][data-color="yellow"],
+[data-theme-mode="dark"][data-color="pink"] {
+    --send-secondary: #2dd4bf; --send-secondary-bg: #042f2e;
+    --send-tertiary:  #a78bfa; --send-tertiary-bg:  #1e1533;
+}
+[data-theme-mode="dark"][data-color="green"],
+[data-theme-mode="dark"][data-color="teal"] {
+    --send-secondary: #a78bfa; --send-secondary-bg: #1e1533;
+    --send-tertiary:  #fb923c; --send-tertiary-bg:  #431407;
+}
+[data-theme-mode="dark"][data-color="blue"],
+[data-theme-mode="dark"][data-color="purple"] {
+    --send-secondary: #fb923c; --send-secondary-bg: #431407;
+    --send-tertiary:  #2dd4bf; --send-tertiary-bg:  #042f2e;
+}
+
 /* Pastel dark — surface tint/base only; Add/Edit/Delete/CTA keep their
-   light-fill recipe in both themes (no override needed here). Pastel's --color-*
-   signal and SEN hue tokens are overridden by [data-theme="dark"] above, which
-   has higher source-order precedence over the single-attribute palette selector. */
-[data-theme="dark"][data-palette="pastel"] {
+   light-fill recipe in both theme modes (no override needed here). Pastel's --color-*
+   signal and SEN hue tokens are overridden by [data-theme-mode="dark"] above, which
+   has higher source-order precedence over the single-attribute theme selector. */
+[data-theme-mode="dark"][data-theme="pastel"] {
     --bg-tint-page: 3%; --bg-tint-nav: 10%; --bg-tint-well: 3%; --bg-tint-nested: 5%; --bg-tint-rail: 14%;
     --bg-page-base: #161513; --bg-nav-base: #111010; --bg-surface-base: #1c1b19; --bg-surface-alt: #201f1c;
     --bg-well-base: #1e1d1a; --bg-nested-base: #1e1d1a; --bg-rail-base: #0d0c0c;
@@ -83,43 +103,75 @@
 }
 
 /* Vibrant/Greytone/Colourblind each set --color-positive/-caution/-negative/-warning
-   unconditionally in palettes.css (not scoped to a theme), and that file loads
-   after this one — so without an explicit dark+palette override here, dark
-   mode would silently keep each palette's light-tuned role colour (e.g.
+   unconditionally in themes.css (not scoped to a theme), and that file loads
+   after this one — so without an explicit dark+theme override here, dark
+   mode would silently keep each theme's light-tuned role colour (e.g.
    Colourblind's near-black --color-negative), which reads poorly against a dark
-   background. These restate a dark-appropriate value per palette; Vibrant's
-   just re-asserts the same dark-lifted tones the default palette already
+   background. These restate a dark-appropriate value per theme; Vibrant's
+   just re-asserts the same dark-lifted tones the default theme already
    uses above (its light-mode hues are already the same green/gold/red family). */
-[data-theme="dark"][data-palette="vibrant"] {
+[data-theme-mode="dark"][data-theme="vibrant"] {
     --color-exceeding: #c4b5fd; --color-exceeding-bg: #2e1065;
     --color-positive:  #4ade80; --color-positive-bg:  #143d24;
     --color-caution:   #fcd34d; --color-caution-bg:   #3b2d09;
     --color-warning:   #fbbf24; --color-warning-bg:   #4a3b09;
     --color-negative:  #f87171; --color-negative-bg:  #4a1d1d;
-    --color-purple: #c4b5fd; --color-purple-bg: #2e1065;
-    --color-blue:   #93c5fd; --color-blue-bg:   #1e3a8a;
 }
-[data-theme="dark"][data-palette="colourblind"] {
+/* SEND K/E/N triadic secondary/tertiary — dark, per theme. See themes.css
+   vibrant block for the family-grouping rationale. */
+[data-theme-mode="dark"][data-theme="vibrant"][data-color="red"],
+[data-theme-mode="dark"][data-theme="vibrant"][data-color="orange"],
+[data-theme-mode="dark"][data-theme="vibrant"][data-color="yellow"],
+[data-theme-mode="dark"][data-theme="vibrant"][data-color="pink"] {
+    --send-secondary: #5eead4; --send-secondary-bg: #0f3d38;
+    --send-tertiary:  #c4b5fd; --send-tertiary-bg:  #2e1065;
+}
+[data-theme-mode="dark"][data-theme="vibrant"][data-color="green"],
+[data-theme-mode="dark"][data-theme="vibrant"][data-color="teal"] {
+    --send-secondary: #c4b5fd; --send-secondary-bg: #2e1065;
+    --send-tertiary:  #fdba74; --send-tertiary-bg:  #431407;
+}
+[data-theme-mode="dark"][data-theme="vibrant"][data-color="blue"],
+[data-theme-mode="dark"][data-theme="vibrant"][data-color="purple"] {
+    --send-secondary: #fdba74; --send-secondary-bg: #431407;
+    --send-tertiary:  #5eead4; --send-tertiary-bg:  #0f3d38;
+}
+[data-theme-mode="dark"][data-theme="colourblind"] {
     --color-exceeding: #8ccdf0; --color-exceeding-bg: #1e3a5f;
     --color-positive:  #8ccdf0; --color-positive-bg:  #1e3a5f;
     --color-caution:   #ddaa33; --color-caution-bg:   #3b2d09;
     --color-warning:   var(--color-caution); --color-warning-bg: var(--color-caution-bg);
     --color-negative:  #cbd5e1; --color-negative-bg:  #1c1c1e;
-    --color-purple: #c084fc; --color-purple-bg: #1e1533;
-    --color-blue:   #93c5fd; --color-blue-bg:   #1e3a5f;
+}
+[data-theme-mode="dark"][data-theme="colourblind"][data-color="red"],
+[data-theme-mode="dark"][data-theme="colourblind"][data-color="orange"],
+[data-theme-mode="dark"][data-theme="colourblind"][data-color="yellow"],
+[data-theme-mode="dark"][data-theme="colourblind"][data-color="pink"] {
+    --send-secondary: #34d1a0; --send-secondary-bg: #0d3d30;
+    --send-tertiary:  #c084fc; --send-tertiary-bg:  #1e1533;
+}
+[data-theme-mode="dark"][data-theme="colourblind"][data-color="green"],
+[data-theme-mode="dark"][data-theme="colourblind"][data-color="teal"] {
+    --send-secondary: #c084fc; --send-secondary-bg: #1e1533;
+    --send-tertiary:  #f0a030; --send-tertiary-bg:  #3d2a08;
+}
+[data-theme-mode="dark"][data-theme="colourblind"][data-color="blue"],
+[data-theme-mode="dark"][data-theme="colourblind"][data-color="purple"] {
+    --send-secondary: #f0a030; --send-secondary-bg: #3d2a08;
+    --send-tertiary:  #34d1a0; --send-tertiary-bg:  #0d3d30;
 }
 
 /* Warm/Cool/Neon dark — surface bases and tinting only (semantics already
-   handled by [data-theme="dark"] above, which loads later at the same
+   handled by [data-theme-mode="dark"] above, which loads later at the same
    specificity). Warm and Cool use slightly character-matched darks rather
    than the neutral blue-grey defaults; Neon additionally re-lifts its
    electric semantic colours for legibility on the deep-dark surfaces. */
-[data-theme="dark"][data-palette="cool"] {
+[data-theme-mode="dark"][data-theme="cool"] {
     --bg-page-base: #0f1520; --bg-nav-base: #0b1019; --bg-surface-base: #141c2e; --bg-surface-alt: #192333;
     --bg-well-base: #1a2235; --bg-nested-base: #1a2235; --bg-rail-base: #080d15;
     --border-color: #1c2a40; --border-strong: #2a3d58;
 }
-[data-theme="dark"][data-palette="neon"] {
+[data-theme-mode="dark"][data-theme="neon"] {
     --bg-page-base: #0d0b17; --bg-nav-base: #09070f; --bg-surface-base: #130f1e; --bg-surface-alt: #180f25;
     --bg-well-base: #161020; --bg-nested-base: #161020; --bg-rail-base: #060410;
     /* Dark Neon: borders glow with the lifted primary colour */
@@ -136,8 +188,6 @@
     --color-caution:   #ffe57a; --color-caution-bg:   #2e2200;
     --color-warning:   #ff9f3d; --color-warning-bg:   #2e1600;
     --color-negative:  #ff4d70; --color-negative-bg:  #33040f;
-    --color-purple: #d580ff; --color-purple-bg: #2a0a4d;
-    --color-blue:   #6aa7ff; --color-blue-bg:   #0a1f4d;
     /* Dark shadow scale: vivid primary glow against deep surfaces */
     --shadow-sm: 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent),
                  0 0 12px color-mix(in srgb, var(--primary) 22%, transparent),
@@ -149,11 +199,30 @@
                  0 0 32px color-mix(in srgb, var(--primary) 40%, transparent),
                  0 14px 48px rgba(0, 0, 0, 0.72);
 }
+/* SEND K/E/N triadic secondary/tertiary — dark Neon. See themes.css
+   vibrant block for the family-grouping rationale. */
+[data-theme-mode="dark"][data-theme="neon"][data-color="red"],
+[data-theme-mode="dark"][data-theme="neon"][data-color="orange"],
+[data-theme-mode="dark"][data-theme="neon"][data-color="yellow"],
+[data-theme-mode="dark"][data-theme="neon"][data-color="pink"] {
+    --send-secondary: #5ff0ff; --send-secondary-bg: #032a30;
+    --send-tertiary:  #d580ff; --send-tertiary-bg:  #2a0a4d;
+}
+[data-theme-mode="dark"][data-theme="neon"][data-color="green"],
+[data-theme-mode="dark"][data-theme="neon"][data-color="teal"] {
+    --send-secondary: #d580ff; --send-secondary-bg: #2a0a4d;
+    --send-tertiary:  #ffab4d; --send-tertiary-bg:  #331a00;
+}
+[data-theme-mode="dark"][data-theme="neon"][data-color="blue"],
+[data-theme-mode="dark"][data-theme="neon"][data-color="purple"] {
+    --send-secondary: #ffab4d; --send-secondary-bg: #331a00;
+    --send-tertiary:  #5ff0ff; --send-tertiary-bg:  #032a30;
+}
 
 /* Dark Neon element-level overrides — body gradient + sidebar gradient + rail
    (buttons, pills, nav bar, inputs, entity-row all inherit the dark --shadow-*
    overrides above without needing separate dark-mode element repeats). */
-[data-theme="dark"][data-palette="neon"] body {
+[data-theme-mode="dark"][data-theme="neon"] body {
     background:
         radial-gradient(ellipse 80% 55% at 0% 0%,
             color-mix(in srgb, var(--primary) 14%, transparent) 0%, transparent 58%),
@@ -161,18 +230,18 @@
             color-mix(in srgb, var(--primary) 10%, transparent) 0%, transparent 52%),
         var(--bg-page);
 }
-[data-theme="dark"][data-palette="neon"] .side-nav {
+[data-theme-mode="dark"][data-theme="neon"] .side-nav {
     background: linear-gradient(170deg,
         color-mix(in srgb, var(--primary) 16%, var(--bg-nav)) 0%,
         var(--bg-nav) 55%) !important;
 }
-[data-theme="dark"][data-palette="neon"] .hub-rail-inner {
+[data-theme-mode="dark"][data-theme="neon"] .hub-rail-inner {
     box-shadow: 3px 0 24px color-mix(in srgb, var(--primary) 28%, rgba(0, 0, 0, 0.4));
 }
 
 /* Minimal dark — neutral near-black surfaces (no blue cast), barely-there
    borders, desaturated semantics, dark-tinted ghost action buttons. */
-[data-theme="dark"][data-palette="minimal"] {
+[data-theme-mode="dark"][data-theme="minimal"] {
     --bg-page-base: #111113; --bg-nav-base: #0c0c0e; --bg-surface-base: #171719;
     --bg-surface-alt: #1c1c1e; --bg-well-base: #1a1a1c; --bg-nested-base: #1a1a1c; --bg-rail-base: #080809;
     --border-color: #222224; --border-strong: #2e2e30;
@@ -182,8 +251,6 @@
     --color-caution:   #b89640; --color-caution-bg:   #1e1a0e;
     --color-warning:   #a87040; --color-warning-bg:   #1e1610;
     --color-negative:  #a05050; --color-negative-bg:  #1e1414;
-    --color-purple: #8068b8; --color-purple-bg: #181430;
-    --color-blue:   #5a78b8; --color-blue-bg:   #141828;
     /* Action buttons — dark ghost: subtle tinted fill, muted semantic border, muted semantic text */
     --btn-add-bg: #171f1a; --btn-add-border: #3a6a50; --btn-add-text: #80b898;
     --btn-add-hover-bg: #1c2620; --btn-add-hover-border: #4a7a60; --btn-add-hover-text: #90c8a8;
@@ -195,28 +262,47 @@
     --priority-medium-bg: #1e1a12; --priority-medium-border: #6a5030; --priority-medium-text: #b89060;
     --priority-low-bg: var(--btn-edit-bg); --priority-low-border: var(--btn-edit-border); --priority-low-text: var(--btn-edit-text);
 }
+/* SEND K/E/N triadic secondary/tertiary — dark Minimal. See themes.css
+   vibrant block for the family-grouping rationale. */
+[data-theme-mode="dark"][data-theme="minimal"][data-color="red"],
+[data-theme-mode="dark"][data-theme="minimal"][data-color="orange"],
+[data-theme-mode="dark"][data-theme="minimal"][data-color="yellow"],
+[data-theme-mode="dark"][data-theme="minimal"][data-color="pink"] {
+    --send-secondary: #5a9a92; --send-secondary-bg: #0f2420;
+    --send-tertiary:  #8068b8; --send-tertiary-bg:  #181430;
+}
+[data-theme-mode="dark"][data-theme="minimal"][data-color="green"],
+[data-theme-mode="dark"][data-theme="minimal"][data-color="teal"] {
+    --send-secondary: #8068b8; --send-secondary-bg: #181430;
+    --send-tertiary:  #b87850; --send-tertiary-bg:  #1e1610;
+}
+[data-theme-mode="dark"][data-theme="minimal"][data-color="blue"],
+[data-theme-mode="dark"][data-theme="minimal"][data-color="purple"] {
+    --send-secondary: #b87850; --send-secondary-bg: #1e1610;
+    --send-tertiary:  #5a9a92; --send-tertiary-bg:  #0f2420;
+}
 
-/* Disabled buttons: opacity:0.45 on the whole element composites light-themed
+/* Disabled buttons: opacity:0.45 on the whole element composites light-mode
    coloured fills with the dark surface, collapsing text/bg contrast to near
    zero (muddy mid-tones where text and background are indistinguishable).
    Reset to opacity:1 and use pre-composited dark tints instead. */
-[data-theme="dark"] .btn:disabled,
-[data-theme="dark"] .btn.btn-disabled {
+[data-theme-mode="dark"] .btn:disabled,
+[data-theme-mode="dark"] .btn.btn-disabled {
     opacity: 1;
     color: var(--text-faint);
     border-color: var(--border-color);
     background: var(--bg-surface-alt);
 }
-[data-theme="dark"] .btn-add:disabled, [data-theme="dark"] .btn-add.btn-disabled,
-[data-theme="dark"] .btn-success:disabled, [data-theme="dark"] .btn-success.btn-disabled {
+[data-theme-mode="dark"] .btn-add:disabled, [data-theme-mode="dark"] .btn-add.btn-disabled,
+[data-theme-mode="dark"] .btn-success:disabled, [data-theme-mode="dark"] .btn-success.btn-disabled {
     background: color-mix(in srgb, var(--btn-add-bg) 12%, var(--bg-surface-alt));
 }
-[data-theme="dark"] .btn-edit:disabled, [data-theme="dark"] .btn-edit.btn-disabled {
+[data-theme-mode="dark"] .btn-edit:disabled, [data-theme-mode="dark"] .btn-edit.btn-disabled {
     background: color-mix(in srgb, var(--btn-edit-bg) 12%, var(--bg-surface-alt));
 }
-[data-theme="dark"] .btn-delete:disabled, [data-theme="dark"] .btn-delete.btn-disabled {
+[data-theme-mode="dark"] .btn-delete:disabled, [data-theme-mode="dark"] .btn-delete.btn-disabled {
     background: color-mix(in srgb, var(--btn-delete-bg) 12%, var(--bg-surface-alt));
 }
-[data-theme="dark"] .btn-primary:disabled, [data-theme="dark"] .btn-primary.btn-disabled {
+[data-theme-mode="dark"] .btn-primary:disabled, [data-theme-mode="dark"] .btn-primary.btn-disabled {
     background: color-mix(in srgb, var(--primary) 12%, var(--bg-surface-alt));
 }

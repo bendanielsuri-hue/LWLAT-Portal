@@ -1,13 +1,13 @@
-/* Accent colours × palette overrides — light theme.
+/* Accent colours × theme overrides — light mode.
    Load order within this file matters: later rules win ties at the same
-   specificity (e.g. dark-palette combos must stay after their light-palette
-   counterparts, which are in dark.css). Each palette's rules are grouped
+   specificity (e.g. dark-mode theme combos must stay after their light-mode
+   counterparts, which are in dark.css). Each theme's rules are grouped
    into one contiguous section below so "everything Vibrant touches" (etc.)
    can be seen at a glance. */
 
 /* ==================== Base per-accent-colour tokens ====================
-   Primary colour choices (light theme, no palette override). These set
-   --primary-base — the canonical light-mode hex for each accent/palette
+   Primary colour choices (light mode, no theme override). These set
+   --primary-base — the canonical light-mode hex for each accent/theme
    combo. --primary-dark-base/-light-base are derived from it by formula in
    light.css (not hand-tuned per accent here); --primary/-dark/-light
    themselves are computed once, in light.css/dark.css, so dark mode can
@@ -21,30 +21,49 @@
 [data-color="red"] { --primary-base: #dc2626; }
 [data-color="pink"] { --primary-base: #db2777; }
 
-/* ==================== Vibrant palette ====================
-   Accent colour overrides, light theme (hand-curated: a colour-mix toward
-   white/black can't boost saturation the way Vibrant needs). This palette
+/* ==================== Vibrant theme ====================
+   Accent colour overrides, light mode (hand-curated: a colour-mix toward
+   white/black can't boost saturation the way Vibrant needs). This theme
    also owns the meaning of "positive/caution/warning/negative" — status
    pills and buttons both derive from it. */
-[data-palette="vibrant"][data-color="purple"] { --primary-base: #9d00ff; }
-[data-palette="vibrant"][data-color="blue"] { --primary-base: #0066ff; }
-[data-palette="vibrant"][data-color="teal"] { --primary-base: #00b8a9; }
-[data-palette="vibrant"][data-color="green"] { --primary-base: #00c853; }
-[data-palette="vibrant"][data-color="yellow"] { --primary-base: #b8960a; }
-[data-palette="vibrant"][data-color="orange"] { --primary-base: #ff6d00; }
-[data-palette="vibrant"][data-color="red"] { --primary-base: #ff1744; }
-[data-palette="vibrant"][data-color="pink"] { --primary-base: #ff2d92; }
-[data-palette="vibrant"] {
+[data-theme="vibrant"][data-color="purple"] { --primary-base: #9d00ff; }
+[data-theme="vibrant"][data-color="blue"] { --primary-base: #0066ff; }
+[data-theme="vibrant"][data-color="teal"] { --primary-base: #00b8a9; }
+[data-theme="vibrant"][data-color="green"] { --primary-base: #00c853; }
+[data-theme="vibrant"][data-color="yellow"] { --primary-base: #b8960a; }
+[data-theme="vibrant"][data-color="orange"] { --primary-base: #ff6d00; }
+[data-theme="vibrant"][data-color="red"] { --primary-base: #ff1744; }
+[data-theme="vibrant"][data-color="pink"] { --primary-base: #ff2d92; }
+[data-theme="vibrant"] {
     --color-exceeding: #9d00ff; --color-exceeding-bg: #f3e8ff;
     --color-positive:  #16a34a; --color-positive-bg:  #bbf7d0;
     --color-caution:   #eab308; --color-caution-bg:   #fef08a;
     --color-warning:   #f97316; --color-warning-bg:   #fed7aa;
     --color-negative:  #dc2626; --color-negative-bg:  #fecaca;
-    /* SEN classification — mirrors [data-palette="vibrant"][data-color="purple"/"blue"] --primary-base */
-    --color-purple: #9d00ff; --color-purple-bg: #f3e8ff;
-    --color-blue:   #0066ff; --color-blue-bg:   #dbeafe;
 }
-[data-palette="vibrant"] {
+/* SEND K/E/N triadic secondary/tertiary — 3 hue families ~120deg apart (warm /
+   green-teal / blue-purple), each theme anchors one hex per family (reusing
+   its own orange/teal/purple accent bases), and each accent's family gets the
+   OTHER two families' anchors in a fixed cyclic order so K (--primary) and E
+   (--send-secondary) can never land in the same family. */
+[data-theme="vibrant"][data-color="red"],
+[data-theme="vibrant"][data-color="orange"],
+[data-theme="vibrant"][data-color="yellow"],
+[data-theme="vibrant"][data-color="pink"] {
+    --send-secondary: #00b8a9; --send-secondary-bg: #ccfbf1;
+    --send-tertiary:  #9d00ff; --send-tertiary-bg:  #f3e8ff;
+}
+[data-theme="vibrant"][data-color="green"],
+[data-theme="vibrant"][data-color="teal"] {
+    --send-secondary: #9d00ff; --send-secondary-bg: #f3e8ff;
+    --send-tertiary:  #ff6d00; --send-tertiary-bg:  #fed7aa;
+}
+[data-theme="vibrant"][data-color="blue"],
+[data-theme="vibrant"][data-color="purple"] {
+    --send-secondary: #ff6d00; --send-secondary-bg: #fed7aa;
+    --send-tertiary:  #00b8a9; --send-tertiary-bg:  #ccfbf1;
+}
+[data-theme="vibrant"] {
     --bg-page-base: #f8fafc; --bg-nav-base: #e8eef9; --bg-surface-base: #ffffff;
     --bg-surface-alt: #f0f5ff; --bg-well-base: #edf4ff; --bg-nested-base: #edf4ff; --bg-rail-base: #dce8ff;
     --bg-tint-colour: #dbeafe; --bg-tint-page: 0%; --bg-tint-nav: 0%; --bg-tint-surface: 0%;
@@ -61,20 +80,20 @@
     --priority-low-bg: var(--btn-edit-bg); --priority-low-border: var(--btn-edit-border); --priority-low-text: var(--btn-edit-text);
 }
 
-/* ==================== Colourblind-safe palette ====================
+/* ==================== Colourblind-safe theme ====================
    Okabe-Ito based — hand-curated for accessibility, not derivable from the
-   other palettes. Deliberately avoids green/red. This owns its own
+   other themes. Deliberately avoids green/red. This owns its own
    "positive/caution/warning/negative", which also makes status pills
-   colourblind-safe (they used to stay green/red regardless of palette). */
-[data-palette="colourblind"][data-color="purple"] { --primary-base: #6f4e7c; }
-[data-palette="colourblind"][data-color="blue"] { --primary-base: #56b4e9; }
-[data-palette="colourblind"][data-color="teal"] { --primary-base: #009e73; }
-[data-palette="colourblind"][data-color="green"] { --primary-base: #2e8b57; }
-[data-palette="colourblind"][data-color="yellow"] { --primary-base: #9c8f1a; }
-[data-palette="colourblind"][data-color="orange"] { --primary-base: #e69f00; }
-[data-palette="colourblind"][data-color="red"] { --primary-base: #cc4444; }
-[data-palette="colourblind"][data-color="pink"] { --primary-base: #aa4499; }
-[data-palette="colourblind"] {
+   colourblind-safe (they used to stay green/red regardless of theme). */
+[data-theme="colourblind"][data-color="purple"] { --primary-base: #6f4e7c; }
+[data-theme="colourblind"][data-color="blue"] { --primary-base: #56b4e9; }
+[data-theme="colourblind"][data-color="teal"] { --primary-base: #009e73; }
+[data-theme="colourblind"][data-color="green"] { --primary-base: #2e8b57; }
+[data-theme="colourblind"][data-color="yellow"] { --primary-base: #9c8f1a; }
+[data-theme="colourblind"][data-color="orange"] { --primary-base: #e69f00; }
+[data-theme="colourblind"][data-color="red"] { --primary-base: #cc4444; }
+[data-theme="colourblind"][data-color="pink"] { --primary-base: #aa4499; }
+[data-theme="colourblind"] {
     --bg-page-base: #f7f6f3; --bg-nav-base: #ece8e0; --bg-surface-base: #ffffff;
     --bg-surface-alt: #faf9f7; --bg-well-base: #f3f0ea; --bg-nested-base: #f3f0ea; --bg-rail-base: #e4ddd0;
     --border-color: #dcd6ca; --border-strong: #cac2b5;
@@ -83,11 +102,28 @@
     --color-caution:   #ab7e22; --color-caution-bg:   #fef3c7;
     --color-warning:   var(--color-caution); --color-warning-bg: var(--color-caution-bg);
     --color-negative:  #000000; --color-negative-bg:  #e2e8f0;
-    /* SEN classification — mirrors [data-palette="colourblind"][data-color="purple"/"blue"] --primary-base */
-    --color-purple: #6f4e7c; --color-purple-bg: #ece3f0;
-    --color-blue:   #4477aa; --color-blue-bg:   #d6e4f3;
 }
-[data-palette="colourblind"] {
+/* SEND K/E/N triadic secondary/tertiary — see vibrant block above for the
+   family-grouping rationale. Colourblind anchors reuse its own Okabe-Ito-safe
+   orange/teal/purple accent bases. */
+[data-theme="colourblind"][data-color="red"],
+[data-theme="colourblind"][data-color="orange"],
+[data-theme="colourblind"][data-color="yellow"],
+[data-theme="colourblind"][data-color="pink"] {
+    --send-secondary: #009e73; --send-secondary-bg: #cceee2;
+    --send-tertiary:  #6f4e7c; --send-tertiary-bg:  #ece3f0;
+}
+[data-theme="colourblind"][data-color="green"],
+[data-theme="colourblind"][data-color="teal"] {
+    --send-secondary: #6f4e7c; --send-secondary-bg: #ece3f0;
+    --send-tertiary:  #e69f00; --send-tertiary-bg:  #f8e8c8;
+}
+[data-theme="colourblind"][data-color="blue"],
+[data-theme="colourblind"][data-color="purple"] {
+    --send-secondary: #e69f00; --send-secondary-bg: #f8e8c8;
+    --send-tertiary:  #009e73; --send-tertiary-bg:  #cceee2;
+}
+[data-theme="colourblind"] {
     --btn-add-bg: #4477aa; --btn-add-border: var(--color-positive); --btn-add-text: #fff;
     --btn-add-hover-bg: #2c5580; --btn-add-hover-border: #1c3a59; --btn-add-hover-text: #fff;
     --btn-edit-bg: #ddaa33; --btn-edit-border: var(--color-caution); --btn-edit-text: #2e2100;
@@ -99,9 +135,9 @@
     --priority-low-bg: var(--btn-add-bg); --priority-low-border: var(--btn-add-border); --priority-low-text: var(--btn-add-text);
 }
 
-/* ==================== Pastel palette ====================
+/* ==================== Pastel theme ====================
    Explicit attribute activates tinting and Pastel-specific vars. */
-[data-palette="pastel"] {
+[data-theme="pastel"] {
     /* Base colours: warm-neutral instead of cool/blue-grey */
     --bg-page-base: #f8f7f5; --bg-nav-base: #efebe4; --bg-surface-alt: #fbf9f6;
     --bg-well-base: #f1ede6; --bg-nested-base: #fbf9f6; --bg-rail-base: #e3ddd2;
@@ -119,37 +155,66 @@
     --border-color: #f5efe2; --border-strong: #ece0cc;
     /* Borders do the framing — no drop-shadows on cards */
     --card-shadow: none;
-    /* Semantic signal scale — defined here (not light.css) so palettes.css is the
-       single source of truth for all palette-derived colour tokens. */
+    /* Semantic signal scale — defined here (not light.css) so themes.css is the
+       single source of truth for all theme-derived colour tokens. */
     --color-exceeding: #7c3aed; --color-exceeding-bg: #ede9fe;
     --color-positive:  #16a34a; --color-positive-bg:  #dcfce7;
     --color-caution:   #92400e; --color-caution-bg:   #fde68a;
     --color-warning:   #b45309; --color-warning-bg:   #fef3c7;
     --color-negative:  #b91c1c; --color-negative-bg:  #fee2e2;
-    /* SEN classification — mirrors [data-color="purple"/"blue"] --primary-base for pastel */
-    --color-purple: #7c3aed; --color-purple-bg: #ede9fe;
-    --color-blue:   #2563eb; --color-blue-bg:   #dbeafe;
+}
+/* Stat card borders: the shared saturated --color-* tokens (same value as
+   every other theme) read jarring against Pastel's warm, muted surfaces,
+   so soften them the same way --accent-border already softens primary. */
+[data-theme="pastel"] .stat-card { border-color: var(--accent-border); }
+[data-theme="pastel"] .stat-card--accent-primary   { border-color: var(--accent-border); }
+[data-theme="pastel"] .stat-card--accent-exceeding { border-color: color-mix(in srgb, var(--color-exceeding) 42%, #fff); }
+[data-theme="pastel"] .stat-card--accent-positive  { border-color: color-mix(in srgb, var(--color-positive) 42%, #fff); }
+[data-theme="pastel"] .stat-card--accent-caution   { border-color: color-mix(in srgb, var(--color-caution) 42%, #fff); }
+[data-theme="pastel"] .stat-card--accent-warning   { border-color: color-mix(in srgb, var(--color-warning) 42%, #fff); }
+[data-theme="pastel"] .stat-card--accent-negative  { border-color: color-mix(in srgb, var(--color-negative) 42%, #fff); }
+
+/* SEND K/E/N triadic secondary/tertiary — see vibrant block above for the
+   family-grouping rationale. Pastel anchors reuse the base (unoverridden)
+   orange/teal/purple accent hexes since Pastel doesn't override --primary-base
+   per accent. */
+[data-theme="pastel"][data-color="red"],
+[data-theme="pastel"][data-color="orange"],
+[data-theme="pastel"][data-color="yellow"],
+[data-theme="pastel"][data-color="pink"] {
+    --send-secondary: #0d9488; --send-secondary-bg: #ccfbf1;
+    --send-tertiary:  #7c3aed; --send-tertiary-bg:  #ede9fe;
+}
+[data-theme="pastel"][data-color="green"],
+[data-theme="pastel"][data-color="teal"] {
+    --send-secondary: #7c3aed; --send-secondary-bg: #ede9fe;
+    --send-tertiary:  #ea580c; --send-tertiary-bg:  #ffedd5;
+}
+[data-theme="pastel"][data-color="blue"],
+[data-theme="pastel"][data-color="purple"] {
+    --send-secondary: #ea580c; --send-secondary-bg: #ffedd5;
+    --send-tertiary:  #0d9488; --send-tertiary-bg:  #ccfbf1;
 }
 
 /* Pastel: secondary-tier Add/Edit/Delete hover uses a lighter mid-fill rather than
    the solid dark hover shared with the main trio (can't differentiate via shared
    token without changing the solid button too). */
-[data-palette="pastel"] .btn-secondary.btn-add:hover    { background: color-mix(in srgb, var(--btn-add-bg) 20%, var(--bg-surface));    border-color: var(--btn-add-border);    color: var(--secondary-tone); }
-[data-palette="pastel"] .btn-secondary.btn-edit:hover   { background: color-mix(in srgb, var(--btn-edit-bg) 20%, var(--bg-surface));   border-color: var(--btn-edit-border);   color: var(--secondary-tone); }
-[data-palette="pastel"] .btn-secondary.btn-delete:hover { background: color-mix(in srgb, var(--btn-delete-bg) 20%, var(--bg-surface)); border-color: var(--btn-delete-border); color: var(--secondary-tone); }
+[data-theme="pastel"] .btn-secondary.btn-add:hover    { background: color-mix(in srgb, var(--btn-add-bg) 20%, var(--bg-surface));    border-color: var(--btn-add-border);    color: var(--secondary-tone); }
+[data-theme="pastel"] .btn-secondary.btn-edit:hover   { background: color-mix(in srgb, var(--btn-edit-bg) 20%, var(--bg-surface));   border-color: var(--btn-edit-border);   color: var(--secondary-tone); }
+[data-theme="pastel"] .btn-secondary.btn-delete:hover { background: color-mix(in srgb, var(--btn-delete-bg) 20%, var(--bg-surface)); border-color: var(--btn-delete-border); color: var(--secondary-tone); }
 
-/* ==================== Cool palette ====================
+/* ==================== Cool theme ====================
    Crisp blue-grey surfaces for a professional, focused look. Each accent
    colour is blue-shifted/desaturated toward an arctic/nordic feel. */
-[data-palette="cool"][data-color="purple"] { --primary-base: #6d28d9; } /* Twilight */
-[data-palette="cool"][data-color="blue"]   { --primary-base: #1d4ed8; } /* Arctic */
-[data-palette="cool"][data-color="teal"]   { --primary-base: #0284c7; } /* Glacial */
-[data-palette="cool"][data-color="green"]  { --primary-base: #047857; } /* Alpine */
-[data-palette="cool"][data-color="yellow"] { --primary-base: #a16207; } /* Polar */
-[data-palette="cool"][data-color="orange"] { --primary-base: #b45309; } /* Dusk */
-[data-palette="cool"][data-color="red"]    { --primary-base: #be123c; } /* Aurora */
-[data-palette="cool"][data-color="pink"]   { --primary-base: #9d174d; } /* Blush */
-[data-palette="cool"] {
+[data-theme="cool"][data-color="purple"] { --primary-base: #6d28d9; } /* Twilight */
+[data-theme="cool"][data-color="blue"]   { --primary-base: #1d4ed8; } /* Arctic */
+[data-theme="cool"][data-color="teal"]   { --primary-base: #0284c7; } /* Glacial */
+[data-theme="cool"][data-color="green"]  { --primary-base: #047857; } /* Alpine */
+[data-theme="cool"][data-color="yellow"] { --primary-base: #a16207; } /* Polar */
+[data-theme="cool"][data-color="orange"] { --primary-base: #b45309; } /* Dusk */
+[data-theme="cool"][data-color="red"]    { --primary-base: #be123c; } /* Aurora */
+[data-theme="cool"][data-color="pink"]   { --primary-base: #9d174d; } /* Blush */
+[data-theme="cool"] {
     --bg-page-base: #f4f7fa; --bg-nav-base: #e8eef4; --bg-surface-base: #ffffff;
     --bg-surface-alt: #f0f5f9; --bg-well-base: #eef3f7; --bg-nested-base: #eef3f7; --bg-rail-base: #dce6f0;
     --bg-tint-colour: #bfdbfe; --bg-tint-page: 0%; --bg-tint-nav: 0%; --bg-tint-surface: 0%;
@@ -160,25 +225,43 @@
     --color-caution:   #92400e; --color-caution-bg:   #fde68a;
     --color-warning:   #b45309; --color-warning-bg:   #fef3c7;
     --color-negative:  #b91c1c; --color-negative-bg:  #fee2e2;
-    --color-purple: #7c3aed; --color-purple-bg: #ede9fe;
-    --color-blue:   #2563eb; --color-blue-bg:   #dbeafe;
+}
+/* SEND K/E/N triadic secondary/tertiary — see vibrant block above for the
+   family-grouping rationale. Cool anchors reuse its own arctic/nordic-shifted
+   orange/teal/purple accent bases. */
+[data-theme="cool"][data-color="red"],
+[data-theme="cool"][data-color="orange"],
+[data-theme="cool"][data-color="yellow"],
+[data-theme="cool"][data-color="pink"] {
+    --send-secondary: #0284c7; --send-secondary-bg: #cfeaf8;
+    --send-tertiary:  #6d28d9; --send-tertiary-bg:  #ede9fe;
+}
+[data-theme="cool"][data-color="green"],
+[data-theme="cool"][data-color="teal"] {
+    --send-secondary: #6d28d9; --send-secondary-bg: #ede9fe;
+    --send-tertiary:  #b45309; --send-tertiary-bg:  #fef3c7;
+}
+[data-theme="cool"][data-color="blue"],
+[data-theme="cool"][data-color="purple"] {
+    --send-secondary: #b45309; --send-secondary-bg: #fef3c7;
+    --send-tertiary:  #0284c7; --send-tertiary-bg:  #cfeaf8;
 }
 
-/* ==================== Minimal palette ====================
+/* ==================== Minimal theme ====================
    Near-white, zero-tint surfaces — accent colour is the only statement.
    All surface levels converge toward white; borders are barely-there;
    elevation is conveyed by typography and spacing alone (no card shadow).
    Semantic colours and action buttons are desaturated: fills are near-white
    tints, borders carry the muted colour signal, text stays dark neutral. */
-[data-palette="minimal"][data-color="purple"] { --primary-base: #6b52a8; }
-[data-palette="minimal"][data-color="blue"]   { --primary-base: #4268a8; }
-[data-palette="minimal"][data-color="teal"]   { --primary-base: #3d8880; }
-[data-palette="minimal"][data-color="green"]  { --primary-base: #3d7a50; }
-[data-palette="minimal"][data-color="yellow"] { --primary-base: #806020; }
-[data-palette="minimal"][data-color="orange"] { --primary-base: #9a5030; }
-[data-palette="minimal"][data-color="red"]    { --primary-base: #883838; }
-[data-palette="minimal"][data-color="pink"]   { --primary-base: #8a3870; }
-[data-palette="minimal"] {
+[data-theme="minimal"][data-color="purple"] { --primary-base: #6b52a8; }
+[data-theme="minimal"][data-color="blue"]   { --primary-base: #4268a8; }
+[data-theme="minimal"][data-color="teal"]   { --primary-base: #3d8880; }
+[data-theme="minimal"][data-color="green"]  { --primary-base: #3d7a50; }
+[data-theme="minimal"][data-color="yellow"] { --primary-base: #806020; }
+[data-theme="minimal"][data-color="orange"] { --primary-base: #9a5030; }
+[data-theme="minimal"][data-color="red"]    { --primary-base: #883838; }
+[data-theme="minimal"][data-color="pink"]   { --primary-base: #8a3870; }
+[data-theme="minimal"] {
     --bg-page-base: #fafafa; --bg-nav-base: #f6f6f7; --bg-surface-base: #fafafa;
     --bg-surface-alt: #fafafa; --bg-well-base: #fafafa; --bg-nested-base: #fafafa; --bg-rail-base: #f0f0f2;
     --bg-tint-colour: #ffffff; --bg-tint-page: 0%; --bg-tint-nav: 0%; --bg-tint-surface: 0%;
@@ -191,8 +274,28 @@
     --color-caution:   #7a5c1e; --color-caution-bg:   #f7f2e4;
     --color-warning:   #8a5020; --color-warning-bg:   #f7f1e8;
     --color-negative:  #9a3030; --color-negative-bg:  #f7edec;
-    --color-purple: #6b4fa0; --color-purple-bg: #f3f0f8;
-    --color-blue:   #3a5fa0; --color-blue-bg:   #eef2f8;
+}
+/* SEND K/E/N triadic secondary/tertiary — see vibrant block above for the
+   family-grouping rationale. Minimal anchors reuse its own desaturated
+   orange/teal/purple accent bases. */
+[data-theme="minimal"][data-color="red"],
+[data-theme="minimal"][data-color="orange"],
+[data-theme="minimal"][data-color="yellow"],
+[data-theme="minimal"][data-color="pink"] {
+    --send-secondary: #3d8880; --send-secondary-bg: #eef5f4;
+    --send-tertiary:  #6b52a8; --send-tertiary-bg:  #f3f0f8;
+}
+[data-theme="minimal"][data-color="green"],
+[data-theme="minimal"][data-color="teal"] {
+    --send-secondary: #6b52a8; --send-secondary-bg: #f3f0f8;
+    --send-tertiary:  #9a5030; --send-tertiary-bg:  #f7ede8;
+}
+[data-theme="minimal"][data-color="blue"],
+[data-theme="minimal"][data-color="purple"] {
+    --send-secondary: #9a5030; --send-secondary-bg: #f7ede8;
+    --send-tertiary:  #3d8880; --send-tertiary-bg:  #eef5f4;
+}
+[data-theme="minimal"] {
     /* Action buttons — ghost style: very light tinted fill, muted semantic border, dark text */
     --btn-add-bg: #f5faf5; --btn-add-border: #b8d4b8; --btn-add-text: #1f2937;
     --btn-add-hover-bg: #eaf4ea; --btn-add-hover-border: #8ab88a; --btn-add-hover-text: #111827;
@@ -208,25 +311,25 @@
 /* Minimal: cards merge with the page — no border, no shadow, same fill as --bg-page.
    Hub card hover drops the lift too; entity-list keeps internal row dividers (functional)
    but loses its outer frame. */
-[data-palette="minimal"] .hub-card,
-[data-palette="minimal"] .stat-card,
-[data-palette="minimal"] .breakdown-card,
-[data-palette="minimal"] .senco-card,
-[data-palette="minimal"] .entity-list { border: none; box-shadow: none; }
-[data-palette="minimal"] .hub-card:hover { transform: none; box-shadow: none; }
+[data-theme="minimal"] .hub-card,
+[data-theme="minimal"] .stat-card,
+[data-theme="minimal"] .breakdown-card,
+[data-theme="minimal"] .senco-card,
+[data-theme="minimal"] .entity-list { border: none; box-shadow: none; }
+[data-theme="minimal"] .hub-card:hover { transform: none; box-shadow: none; }
 
-/* ==================== Neon palette ====================
+/* ==================== Neon theme ====================
    Electric purple/blue surfaces with vivid accent boosts. Semantic and
    button fills use the same bold-saturation approach as Vibrant. */
-[data-palette="neon"][data-color="purple"] { --primary-base: #cc00ff; } /* Plasma */
-[data-palette="neon"][data-color="blue"]   { --primary-base: #0055ff; } /* Electric */
-[data-palette="neon"][data-color="teal"]   { --primary-base: #00e5ff; } /* Cyber */
-[data-palette="neon"][data-color="green"]  { --primary-base: #00ff66; } /* Toxic */
-[data-palette="neon"][data-color="yellow"] { --primary-base: #ffe600; } /* Solar */
-[data-palette="neon"][data-color="orange"] { --primary-base: #ff6600; } /* Inferno */
-[data-palette="neon"][data-color="red"]    { --primary-base: #ff0033; } /* Laser */
-[data-palette="neon"][data-color="pink"]   { --primary-base: #ff00bb; } /* Magenta */
-[data-palette="neon"] {
+[data-theme="neon"][data-color="purple"] { --primary-base: #cc00ff; } /* Plasma */
+[data-theme="neon"][data-color="blue"]   { --primary-base: #0055ff; } /* Electric */
+[data-theme="neon"][data-color="teal"]   { --primary-base: #00e5ff; } /* Cyber */
+[data-theme="neon"][data-color="green"]  { --primary-base: #00ff66; } /* Toxic */
+[data-theme="neon"][data-color="yellow"] { --primary-base: #ffe600; } /* Solar */
+[data-theme="neon"][data-color="orange"] { --primary-base: #ff6600; } /* Inferno */
+[data-theme="neon"][data-color="red"]    { --primary-base: #ff0033; } /* Laser */
+[data-theme="neon"][data-color="pink"]   { --primary-base: #ff00bb; } /* Magenta */
+[data-theme="neon"] {
     --bg-page-base: #f7f7ff; --bg-nav-base: #eef0ff; --bg-surface-base: #ffffff;
     --bg-surface-alt: #f3f1ff; --bg-well-base: #f3f1ff; --bg-nested-base: #f3f1ff; --bg-rail-base: #e7e2ff;
     /* Tint colour: 30% primary in white — more saturated than --primary-light
@@ -263,10 +366,28 @@
     --color-caution:   #ffd600; --color-caution-bg:   #fff9c4;
     --color-warning:   #ff6d00; --color-warning-bg:   #ffe0b2;
     --color-negative:  #ff1744; --color-negative-bg:  #ffd8df;
-    --color-purple: #a100ff; --color-purple-bg: #f5e6ff;
-    --color-blue:   #0066ff; --color-blue-bg:   #dbeafe;
 }
-[data-palette="neon"] {
+/* SEND K/E/N triadic secondary/tertiary — see vibrant block above for the
+   family-grouping rationale. Neon anchors reuse its own electric
+   orange/teal/purple accent bases. */
+[data-theme="neon"][data-color="red"],
+[data-theme="neon"][data-color="orange"],
+[data-theme="neon"][data-color="yellow"],
+[data-theme="neon"][data-color="pink"] {
+    --send-secondary: #00e5ff; --send-secondary-bg: #c8faff;
+    --send-tertiary:  #cc00ff; --send-tertiary-bg:  #f5e6ff;
+}
+[data-theme="neon"][data-color="green"],
+[data-theme="neon"][data-color="teal"] {
+    --send-secondary: #cc00ff; --send-secondary-bg: #f5e6ff;
+    --send-tertiary:  #ff6600; --send-tertiary-bg:  #ffe0b2;
+}
+[data-theme="neon"][data-color="blue"],
+[data-theme="neon"][data-color="purple"] {
+    --send-secondary: #ff6600; --send-secondary-bg: #ffe0b2;
+    --send-tertiary:  #00e5ff; --send-tertiary-bg:  #c8faff;
+}
+[data-theme="neon"] {
     --btn-add-bg: #00e676; --btn-add-border: var(--color-positive); --btn-add-text: #002513;
     --btn-add-hover-bg: #00c853; --btn-add-hover-border: #009e42; --btn-add-hover-text: #001a0d;
     --btn-edit-bg: #ffd600; --btn-edit-border: var(--color-caution); --btn-edit-text: #2e2100;
@@ -283,7 +404,7 @@
    gradient rules that can't be expressed as design tokens. */
 
 /* Body: two soft radial blooms from opposite corners */
-[data-palette="neon"] body {
+[data-theme="neon"] body {
     background:
         radial-gradient(ellipse 80% 55% at 0% 0%,
             color-mix(in srgb, var(--primary) 9%, transparent) 0%, transparent 60%),
@@ -293,18 +414,18 @@
 }
 
 /* Sidebar: accent-concentrated at top, fades to neutral */
-[data-palette="neon"] .side-nav {
+[data-theme="neon"] .side-nav {
     background: linear-gradient(170deg,
         color-mix(in srgb, var(--primary) 20%, var(--bg-nav)) 0%,
         var(--bg-nav) 55%) !important;
 }
 /* hub-side is the text nav that sits to the right of the icon rail — Cylon only here */
-[data-palette="neon"] .side-nav.hub-side {
+[data-theme="neon"] .side-nav.hub-side {
     position: relative;
 }
 
 /* Ambient glow — very dim, permanent, full-height: faint light leaking from the rail edge */
-[data-palette="neon"] .side-nav.hub-side::before {
+[data-theme="neon"] .side-nav.hub-side::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -318,90 +439,104 @@
 
 
 /* Icon rail inner strip */
-[data-palette="neon"] .hub-rail-inner {
+[data-theme="neon"] .hub-rail-inner {
     box-shadow: 3px 0 16px color-mix(in srgb, var(--primary) 18%, rgba(2, 6, 23, 0.08));
 }
 
 /* Primary CTA button: always-on subtle glow, brighter on hover */
-[data-palette="neon"] .btn-primary {
+[data-theme="neon"] .btn-primary {
     box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 40%, transparent),
                 0 0 4px  color-mix(in srgb, var(--primary) 65%, transparent);
 }
-[data-palette="neon"] .btn-primary:hover {
+[data-theme="neon"] .btn-primary:hover {
     box-shadow: 0 0 20px color-mix(in srgb, var(--primary) 60%, transparent),
                 0 0 8px  color-mix(in srgb, var(--primary) 85%, transparent);
 }
 
 /* Action buttons: each glows in its semantic colour */
-[data-palette="neon"] .btn-add,
-[data-palette="neon"] .btn-success {
+[data-theme="neon"] .btn-add,
+[data-theme="neon"] .btn-success {
     box-shadow: 0 0 10px color-mix(in srgb, var(--color-positive) 38%, transparent);
 }
-[data-palette="neon"] .btn-add:hover,
-[data-palette="neon"] .btn-success:hover {
+[data-theme="neon"] .btn-add:hover,
+[data-theme="neon"] .btn-success:hover {
     box-shadow: 0 0 20px color-mix(in srgb, var(--color-positive) 58%, transparent);
 }
-[data-palette="neon"] .btn-edit {
+[data-theme="neon"] .btn-edit {
     box-shadow: 0 0 10px color-mix(in srgb, var(--color-caution) 38%, transparent);
 }
-[data-palette="neon"] .btn-edit:hover {
+[data-theme="neon"] .btn-edit:hover {
     box-shadow: 0 0 20px color-mix(in srgb, var(--color-caution) 58%, transparent);
 }
-[data-palette="neon"] .btn-delete {
+[data-theme="neon"] .btn-delete {
     box-shadow: 0 0 10px color-mix(in srgb, var(--color-negative) 38%, transparent);
 }
-[data-palette="neon"] .btn-delete:hover {
+[data-theme="neon"] .btn-delete:hover {
     box-shadow: 0 0 20px color-mix(in srgb, var(--color-negative) 58%, transparent);
 }
 
 /* Active nav link: text glows in primary */
-[data-palette="neon"] .side-nav a:not(.nav-row-btn).active {
+[data-theme="neon"] .side-nav a:not(.nav-row-btn).active {
     text-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%, transparent);
 }
 /* Active nav accent bar: glows outward from the 2px strip */
-[data-palette="neon"] .side-nav a:not(.nav-row-btn).active::before,
-[data-palette="neon"] .side-nav .school-nav-option.selected::before,
-[data-palette="neon"] .side-nav .staff-nav-option.selected::before {
+[data-theme="neon"] .side-nav a:not(.nav-row-btn).active::before,
+[data-theme="neon"] .side-nav .school-nav-option.selected::before,
+[data-theme="neon"] .side-nav .staff-nav-option.selected::before {
     box-shadow: 0 0 8px var(--primary),
                 0 0 16px color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
 /* Input focus: neon glow ring replaces the default neutral outline */
-[data-palette="neon"] .field-group input:focus,
-[data-palette="neon"] .field-group select:focus,
-[data-palette="neon"] .filter-field input:focus,
-[data-palette="neon"] .filter-field select:focus {
+[data-theme="neon"] .field-group input:focus,
+[data-theme="neon"] .field-group select:focus,
+[data-theme="neon"] .filter-field input:focus,
+[data-theme="neon"] .filter-field select:focus {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
     box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 28%, transparent),
                 0 0 4px  color-mix(in srgb, var(--primary) 50%, transparent);
 }
-[data-palette="neon"] .ui-select-trigger:focus {
+[data-theme="neon"] .ui-select-trigger:focus {
     border-color: var(--primary);
     box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 28%, transparent),
                 0 0 4px  color-mix(in srgb, var(--primary) 50%, transparent);
 }
 
 /* Toggle pill on: glows in primary */
-[data-palette="neon"] .toggle-pill.on {
+[data-theme="neon"] .toggle-pill.on {
     box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 50%, transparent),
                 0 0 3px color-mix(in srgb, var(--primary) 80%, transparent);
 }
 
 /* Status pills: each glows in its semantic colour */
-[data-palette="neon"] .pill-positive  { box-shadow: 0 0 6px color-mix(in srgb, var(--color-positive)  40%, transparent); }
-[data-palette="neon"] .pill-negative  { box-shadow: 0 0 6px color-mix(in srgb, var(--color-negative)  40%, transparent); }
-[data-palette="neon"] .pill-caution   { box-shadow: 0 0 6px color-mix(in srgb, var(--color-caution)   40%, transparent); }
-[data-palette="neon"] .pill-warning   { box-shadow: 0 0 6px color-mix(in srgb, var(--color-warning)   40%, transparent); }
-[data-palette="neon"] .pill-exceeding { box-shadow: 0 0 6px color-mix(in srgb, var(--color-exceeding) 40%, transparent); }
+[data-theme="neon"] .pill-positive  { box-shadow: 0 0 6px color-mix(in srgb, var(--color-positive)  40%, transparent); }
+[data-theme="neon"] .pill-negative  { box-shadow: 0 0 6px color-mix(in srgb, var(--color-negative)  40%, transparent); }
+[data-theme="neon"] .pill-caution   { box-shadow: 0 0 6px color-mix(in srgb, var(--color-caution)   40%, transparent); }
+[data-theme="neon"] .pill-warning   { box-shadow: 0 0 6px color-mix(in srgb, var(--color-warning)   40%, transparent); }
+[data-theme="neon"] .pill-exceeding { box-shadow: 0 0 6px color-mix(in srgb, var(--color-exceeding) 40%, transparent); }
+
+/* Stat cards: default 8% accent tint reads too faint against Neon's already-
+   saturated surfaces, so boost the fill and add a glow to match the rest of
+   the theme's bold treatment. */
+[data-theme="neon"] .stat-card {
+    background: color-mix(in srgb, var(--primary) 16%, var(--bg-surface-alt));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+[data-theme="neon"] .stat-card--accent-primary   { background: color-mix(in srgb, var(--primary) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-exceeding { background: color-mix(in srgb, var(--color-exceeding) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-exceeding) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-positive  { background: color-mix(in srgb, var(--color-positive) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-positive) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-caution   { background: color-mix(in srgb, var(--color-caution) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-caution) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-warning   { background: color-mix(in srgb, var(--color-warning) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-negative  { background: color-mix(in srgb, var(--color-negative) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-negative) 30%, transparent); }
 
 /* Selected entity row: inset primary bar + inner bloom */
-[data-palette="neon"] .entity-row.chosen {
+[data-theme="neon"] .entity-row.chosen {
     box-shadow: inset 4px 0 0 var(--primary),
                 inset 0 0 28px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 /* Calendar selected day: glows */
-[data-palette="neon"] .ui-calendar-day.is-selected {
+[data-theme="neon"] .ui-calendar-day.is-selected {
     box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 45%, transparent);
 }

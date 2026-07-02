@@ -15,8 +15,9 @@ Extracted from the Inclusion Panel and SEND & Provision hub — the most complet
   - `--bg-well` → deep trough within a nested section: a scrollable list well, a grouped field area; rarely needed
 
   **Alt vs nested** — the test: would a user describe this content as being *inside* or *under* something? Use `--bg-nested`. Or is it a visual stripe to break up peer items at the same level? Use `--bg-surface-alt`.
-- **Meaning through colour, not decoration**: accent colour (`--primary`, `--success`, `--warning`, `--danger`) signals state; neutral tones (`--badge-bg`, `--text-secondary`) mean "no special significance". Never use a semantic colour purely for visual interest.
+- **Meaning through colour, not decoration**: accent colour (`--primary`) and semantic signal colours (`--color-positive`, `--color-caution`, `--color-warning`, `--color-negative`, `--color-exceeding`) signal state; neutral tones (`--badge-bg`, `--text-secondary`) mean "no special significance". Never use a semantic colour purely for visual interest.
 - **Interaction is consistent sitewide**: hover, selected, and focus-visible states use the same three tokens everywhere — `--row-hover-bg`, `--primary-light` + inset shadow, `outline: 2px solid var(--primary)`.
+- **Personal theme layer**: on top of Theme Mode (`data-theme-mode`, light/dark) and the user's chosen accent colour (`data-color`, one of 8 hues), a `data-theme` attribute (`pastel` default, `vibrant`, `cool`, `minimal`, `neon`, `colourblind`) re-derives every colour token — including `--primary-base` per accent and the `--color-*` semantic set — and may also carry its own spacing/layout rules, not just colour. Never assume a fixed hex or spacing value for any token; everything must keep working across all Theme × accent × Theme Mode combinations. `/portal-admin/themes/` previews all of these live.
 
 ---
 
@@ -51,7 +52,26 @@ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:
 Equal-width columns, auto-fills the row. Used when there are 3+ equal-weight sections.
 
 **Filter bar** (`.filter-bar` + `.filter-field`)
-A row of labelled controls above a list. Always precedes `.entity-list` or `.list-card`. Each `filter-field` contains a `<label>` + one `<input>` or `<select>`. A `filter-bar-clear` button is the last item.
+A row of labelled controls. Each `.filter-field` contains a `<label>` (centred over its control via `.filter-field label { text-align: center }`) + one `<input>` or `<select>`. Two flavours, chosen by whether the underlying data needs a server round-trip:
+
+- **Client-side row filter** (Students/Referrals/Actions list pages) — plain `<div class="filter-bar">` (no `<form>`), fields have no `name`; JS filters/hides `.entity-row`s in place via `data-*` attributes on each row. No page reload. Always precedes `.entity-list` or `.list-card`. A `filter-bar-clear` button is the last item.
+- **Server-side dashboard filter** (default for any dashboard whose stats/charts/KPIs are computed server-side, e.g. `hubs/inclusion/templates/hubs/inclusion/hub.html`) — `<form method="get" class="filter-bar">` in `{% block page_filters %}` (see the sticky page-filter pattern below), and the view recomputes everything from `request.GET`. Use this — not the client-side flavour — whenever the numbers on the page (not just which rows are visible) must reflect the filter. This is progressive enhancement over two layers:
+  - **Baseline**: no `onchange` on the `<select>`s at all — a plain GET form, submitted (however the browser would trigger it) reaches the fully server-rendered page with the correct filtered state, `active_filter_count`, and `filter-field--active` highlighting. This is also the fetch-failure fallback for the layer below, so it must keep working standalone.
+  - **AJAX enhancement (default for new dashboards of this kind)**: add `data-ajax-target="<selector>"` to the `<form>`, pointing at a wrapper around just the filter-dependent markup (e.g. `#dashboard-filtered-content`). `static/js/main.js`'s `setupAjaxFilterBars()` then owns `change`/`.filter-bar-clear` clicks entirely — `fetch()`s the same URL with `X-Requested-With: XMLHttpRequest` (the existing AJAX convention from `hubs/inclusion/panel/views.py`'s modal endpoints), swaps the target's `innerHTML`, and `history.replaceState`s the querystring — no full navigation, no scroll jump. **Never include the `<form>` itself, any `<dialog>`, or anything with its own one-time JS wiring (carousels, etc.) inside the swapped target** — see `hub.html`'s comment above `#dashboard-filtered-content` for the two concrete bugs this avoids (a JS-captured element reference going stale, and losing a carousel's event listeners). Since the target swap never touches the filter bar, anything that filter bar itself needs to reflect (the count badge, active highlighting, cascading option lists) has to be re-derived client-side — see below — not re-rendered by the server response.
+
+**Sticky page-filter bar**: `templates/layout.html` wraps `.page-header` in a `.sticky-header-zone` div with `{% block page_filters %}` immediately after it, inside the same sticky container — override that block (not `{% block content %}`) so the filter bar scrolls together with the page header instead of two independent `position: sticky; top: 0` siblings overlapping. Precede the `<form>` with `<div class="sticky-zone-sentinel"></div>` so `main.js`'s `setupStickyZoneSentinels()` can toggle `.is-stuck` (stronger shadow/border, tighter padding) once the bar is actually pinned.
+
+**Active-filter count badge** (`.filter-bar-label` + `.filter-bar-count`): every filter bar, both flavours, starts with `<span class="filter-bar-label">Filters <span class="filter-bar-count filter-bar-count--empty">0</span></span>` as its first child — always render the count span itself — and toggle the `filter-bar-count--empty` class (`visibility: hidden`) when the count is 0. Conditionally *including* the element changes `.filter-bar-label`'s width and shoves every field after it sideways each time the count changes. The server's `active_filter_count` only ever backs the *first paint* now (baseline/no-JS/fetch-failure page load) — once JS is driving (either flavour, AJAX-enhanced or fully client-side), `wireFilterBarActiveState()` below is what keeps it in sync, since an AJAX dashboard's swapped target deliberately excludes the filter bar itself (see above), so the server never gets a chance to re-render this badge again after the first load.
+
+**Active field highlight** (`.filter-field--active`): the highlight/background padding lives on the base `.filter-field` rule unconditionally, not on the `--active` modifier — the modifier only toggles `background`/`border-radius`/label colour. Putting padding only on `--active` grows the field's box when it activates, shifting neighbouring fields sideways.
+
+**Wiring the count badge + active highlight client-side**: call `hubs/inclusion/panel/static/js/panel.js`'s `window.wireFilterBarActiveState(filterBarEl)` once (it returns a `refresh()` function) and invoke that `refresh()` on every relevant `change` — for the fully client-side flavour, at the end of the page's own `applyFilters()` (see `students.html`/`referrals.html`/`actions.html`); for an AJAX-enhanced server-side dashboard, on the filter bar's own `change` event directly (see `hub.html`'s inline script — it's independent of, and unrelated to, whether the AJAX content fetch itself succeeds). It treats any `.filter-field` as active when its control differs from default (non-empty select/text input, or an "on" `.toggle-pill`); mark a field `data-not-a-filter` to exclude it from both the highlight and the count when it merely feeds another filter rather than constraining the list itself (e.g. Actions' "Staff Assigned" identity picker, which only matters once "Assigned to Me" is toggled on).
+
+**Cascading/dependent filter options**: when one filter option list is inherently scoped by another (e.g. Reg Group belongs to exactly one Year Group), compute the dependent choices from the base queryset filtered by the already-selected value (not the unfiltered set), and drop the dependent filter's own selected value if it no longer appears in the narrowed choices. Two layers, same as the filter bar itself: the view always narrows server-side for the baseline/first-paint page (`reg_group_choices`/`selected_reg_group` in `hubs/inclusion/views.py::inclusion_hub`); an AJAX-enhanced dashboard additionally needs the *same* narrowing done client-side, since its filter bar is never re-rendered after the first load — pass a `{parent_value: [child_options]}` map as JSON (`reg_groups_by_year_json`, same shape as `forms_by_year_json` in `hubs/inclusion/panel/views.py::inclusion_panel_students`) and rebuild the dependent `<select>`'s options on the parent's `change` (see `hub.html`'s `refreshRegOptions()`). If the dependent `<select>` has already been enhanced into a custom popover control by `enhanceFormControls()`, call `selectEl._uiSelect.refresh()` after mutating its options — the popover caches its option list at enhance time and won't otherwise notice an external change (same hook the date/time custom controls use for this). Independent filters (the common case) should keep computing their option lists from the unfiltered base set so their dropdowns don't shrink as other filters are used.
+
+**Default student-dashboard filter set**: any dashboard showing student-scoped data (attendance, behaviour, achievement, SEND, etc.) should offer these 8 contextual filters as a baseline rather than inventing an ad hoc subset — Year Group, Reg Group, Pupil Premium, Ethnicity, More Able, Gender, SEN Code, Prior Attainment Band — backed by `core.models.Student` fields `year_group`, `reg_form`, `is_pp`, `ethnicity`, `is_more_able`, `gender`, `sen_status`, `prior_attainment_band`.
+
+**Scroll-position preservation on the fallback path**: an AJAX-enhanced dashboard filter never navigates on success, so there's no scroll jump to fix in the first place. `main.js`'s `setupFilterBarScrollRestore()` still matters as the safety net for the baseline/fetch-failure path — it saves `window.scrollY` to `sessionStorage` (capture-phase `change` listener on `form.filter-bar`, not a `submit` listener — `this.form.submit()`/a manual `window.location.href` assignment doesn't fire a `submit` event) and restores it once that real navigation's reload settles. Generic to any `form.filter-bar`, AJAX-enhanced or not — no extra wiring needed.
 
 **Stats strip** (`.stats-strip`)
 `display: flex; gap: 16px; flex-wrap: wrap` of `.stat-card`s. Sits either at the bottom of a `.list-page-shell` (pinned footer) or below a content section (not pinned). Never at the top of a page.
@@ -127,7 +147,7 @@ Same border/radius/surface as above but `display: flex; flex-direction: column` 
 Uses `--bg-nested` (one level deeper than surface), `border-radius: var(--radius-lg)` (one step smaller than container), `box-shadow: var(--shadow-sm)`. Hover: `border-color: var(--accent-border)`.
 
 **Stat card** (`.stat-card`)
-`flex: 1 1 200px`, standard surface/border/radius-lg, `padding: 16px 20px`. Accent variant adds `border-left: 4px solid var(--primary/warning/success)` and a positioned icon at top-right (`position: absolute; top: 16px; right: 16px; width: 20px`).
+`flex: 1 1 200px`, standard surface/border/radius-lg, `padding: 16px 20px`. Accent variant adds `border-left: 4px solid var(--primary/--color-warning/--color-positive)` and a positioned icon at top-right (`position: absolute; top: 16px; right: 16px; width: 20px`).
 
 **Mini stat card** (`.mini-stat-card`)
 Pill-shaped (`border-radius: var(--radius-pill)`), `padding: 6px 14px`, surface-alt background. Used inline beside buttons, not in a stats strip.
@@ -248,24 +268,36 @@ Never place a "Create new X" option inside a `<select>` or custom dropdown list.
 ## Pill / badge patterns
 
 **Status pill** (`.status-pill`)
-`font-size: var(--font-xs); font-weight: 600; padding: 4px 10px; border-radius: var(--radius-pill); display: inline-block`.
+`font-size: var(--font-xs); font-weight: 600; padding: var(--space-xxs) 10px; border-radius: var(--radius-pill); display: inline-block`. Base rule lives in the shared `pills.css`; page/hub-specific modifier classes (`.open`, `.complete`, etc.) live in that hub's own CSS (e.g. `panel.css`) but must still reference the shared `--color-*` tokens below — never a hardcoded hex or a one-off var.
+
+**Shared semantic pill classes** (`pills.css` — theme-aware, prefer these over inventing a hub-specific modifier when the meaning is generic):
+
+| Class | Semantic | Colours |
+|---|---|---|
+| `.pill-positive` | Done / good | `--color-positive-bg` / `--color-positive` |
+| `.pill-caution` | Mild attention | `--color-caution-bg` / `--color-caution` |
+| `.pill-warning` | Needs attention | `--color-warning-bg` / `--color-warning` |
+| `.pill-negative` | Critical / bad | `--color-negative-bg` / `--color-negative` |
+| `.pill-exceeding` | Above target / standout positive | `--color-exceeding-bg` / `--color-exceeding` |
+| `.pill-purple`, `.pill-blue` | Named-hue classification (not a signal level) | `--color-{hue}-bg` / `--color-{hue}` |
+
+**Panel-specific status pill modifiers** (`panel.css`, same underlying tokens):
 
 | Modifier class | Semantic | Colours |
 |---|---|---|
 | *(none)* | Neutral / pending | `--badge-bg` / `--text-secondary` |
-| `.open`, `.upcoming`, `.incomplete`, `.requires_follow_up` | Needs attention | `--warning-bg` / `--warning` |
-| `.closed`, `.discussed`, `.complete` | Done / positive | `--success-bg` / `--success` |
+| `.open`, `.upcoming`, `.incomplete`, `.requires_follow_up`, `.type-external` | Needs attention | `--color-warning-bg` / `--color-warning` |
+| `.closed`, `.discussed`, `.complete` | Done / positive | `--color-positive-bg` / `--color-positive` |
 | `.in_panel`, `.assigned`, `.type-chair`, `.type-mat` | Active / institutional | `--primary-light` / `--primary` |
-| `.danger` | Critical | `--danger-bg` / `--danger` |
-| `.discussing` | Currently active + pulse | `--warning-bg` / `--warning` + animation |
-| `.type-external` | External / guest | `--warning-bg` / `--warning` |
+| `.danger` | Critical | `--color-negative-bg` / `--color-negative` |
+| `.discussing` | Currently active + pulse | `--color-warning-bg` / `--color-warning` + animation |
 | `.concern`, `.not_needed`, `.type-school` | Neutral classification | `--badge-bg` / `--text-secondary` |
 
 **Next-panel badge** (`.next-badge`): `--font-2xs`, uppercase, `letter-spacing: 0.03em`, `--primary` on `--primary-light`, `padding: 3px 8px; border-radius: var(--radius-xs)`. Used inline after a meeting card heading.
 
-**Priority chip** (`.priority-chip`): `--font-xs`, weight 600, `padding: 4px 10px; border-radius: var(--radius-pill)`. Default (inactive): border-only, `--bg-surface`, `--text-secondary`. Active: filled with `--priority-{level}-bg`, coloured border and text. Tokens come from `theme/light.css` and `theme/palettes.css` (`--priority-high/medium/low-bg/border/text`).
+**Priority chip** (`.priority-chip`): `--font-xs`, weight 600, `padding: 4px 10px; border-radius: var(--radius-pill)`. Default (inactive): border-only, `--bg-surface`, `--text-secondary`. Active: filled with `--priority-{level}-bg`, coloured border and text. Tokens come from `theme/light.css` and `theme/themes.css` (`--priority-high/medium/low-bg/border/text`).
 
-**Priority badge** (`.priority-badge`): `--font-2xs`, uppercase, `letter-spacing: 0.02em`, `padding: 3px 8px; border-radius: var(--radius-xs)`. Read-only display of priority. High = `--danger-bg/--danger`; Medium = `--badge-bg/--text-secondary`; Low = `--bg-surface-alt/--text-faint`.
+**Priority badge** (`.priority-badge`): `--font-2xs`, uppercase, `letter-spacing: 0.02em`, `padding: 3px 8px; border-radius: var(--radius-xs)`. Read-only display of priority. High = `--color-negative-bg/--color-negative`; Medium = `--badge-bg/--text-secondary`; Low = `--bg-surface-alt/--text-faint`.
 
 ---
 
@@ -295,13 +327,13 @@ Each entry states what to avoid and why it breaks something.
 
 ### CSS / styling
 
-1. **Don't hardcode colours** (`color: #6d28d9`, `background: #f0fdf4`). Use `var(--primary)`, `var(--success-bg)`, etc. Hardcoded values break dark mode, theme-switching, and school accent overrides.
+1. **Don't hardcode colours** (`color: #6d28d9`, `background: #f0fdf4`). Use `var(--primary)`, `var(--color-positive-bg)`, etc. Hardcoded values break theme mode switching, theme switching, and school accent overrides.
 
 2. **Don't hardcode border-radius values** (`border-radius: 8px`). Use the token scale (`var(--radius-md)`). Hardcoded radii drift silently when the scale is adjusted.
 
 3. **Don't invent a new selected-state colour**. Chosen state is always `background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border)`. A different fill or a non-left inset shadow breaks visual consistency with every other selectable row/card in the app.
 
-4. **Don't use a semantic colour for decoration**. Don't colour an icon or label `--warning` unless the user must act on a real warning. Overuse destroys the signal value — users stop noticing warnings.
+4. **Don't use a semantic colour for decoration**. Don't colour an icon or label `--color-warning` unless the user must act on a real warning. Overuse destroys the signal value — users stop noticing warnings.
 
 5. **Don't apply `transform: translateY` or `scale` hover effects to buttons or cards**. Lift/scale transforms are reserved for chips, swatches, and text-size options. Adding them to buttons or cards makes the UI feel unstable.
 

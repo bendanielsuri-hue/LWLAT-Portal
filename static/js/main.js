@@ -283,18 +283,18 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.hub-card').forEach(function (card) { ro.observe(card); });
     }
 
-    // Settings panel: primary colour, light/dark theme, text size — applied app-wide via
+    // Settings panel: primary colour, theme, theme mode (light/dark), text size — applied app-wide via
     // attributes on <html> (set early by the inline boot script in layout.html) and persisted.
     (function setupSettingsPanel() {
         var root = document.documentElement;
 
-        // Per-palette swatch labels only — the hex itself is read from the
+        // Per-theme swatch labels only — the hex itself is read from the
         // actual CSS via swatchProbe below rather than duplicated here, so
-        // this can't drift out of sync with theme/palettes.css the way a
+        // this can't drift out of sync with theme/themes.css the way a
         // hardcoded hex table did. "pastel" matches the hardcoded swatch
         // title/aria-label values already in the template, so it's omitted
         // here and falls back to those.
-        var paletteSwatchLabels = {
+        var themeSwatchLabels = {
             vibrant: {
                 purple: 'Vivid Violet', blue: 'Vivid Blue', teal: 'Vivid Teal',
                 green: 'Vivid Green', yellow: 'Vivid Yellow', orange: 'Vivid Orange',
@@ -335,15 +335,15 @@ document.addEventListener('DOMContentLoaded', function () {
         Object.keys(pastelSwatches).forEach(function (key) { colourNames[key] = pastelSwatches[key][1]; });
 
         // Off-screen probe element: reading --primary-base off it with the
-        // target [data-palette]/[data-color] attributes gets the real,
+        // target [data-theme]/[data-color] attributes gets the real,
         // currently-live swatch colour straight from the CSS cascade instead
         // of a second hand-maintained hex table.
         var swatchProbe = document.createElement('div');
         swatchProbe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
         document.body.appendChild(swatchProbe);
 
-        function getPaletteAccentHex(palette, colour) {
-            swatchProbe.setAttribute('data-palette', palette);
+        function getThemeAccentHex(theme, colour) {
+            swatchProbe.setAttribute('data-theme', theme);
             swatchProbe.setAttribute('data-color', colour);
             return getComputedStyle(swatchProbe).getPropertyValue('--primary-base').trim() || null;
         }
@@ -374,12 +374,12 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        function applyPaletteSwatches(palette) {
-            var labels = paletteSwatchLabels[palette];
+        function applyThemeSwatches(theme) {
+            var labels = themeSwatchLabels[theme];
             document.querySelectorAll('#pref-color .colour-swatch, #themes-pref-color .colour-swatch').forEach(function (btn) {
                 var colour = btn.dataset.value;
                 var pastelEntry = pastelSwatches[colour];
-                var hex = labels ? getPaletteAccentHex(palette, colour) : null;
+                var hex = labels ? getThemeAccentHex(theme, colour) : null;
                 var label = (labels && labels[colour]) || (pastelEntry && pastelEntry[1]);
                 if (!hex && !pastelEntry) return;
                 btn.style.setProperty('--swatch', hex || pastelEntry[0]);
@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (label) label.textContent = colourNames[value] || value;
         });
 
-        var paletteDescriptions = {
+        var themeDescriptions = {
             pastel: 'Calm, low-contrast tones with warm borders and subtle depth.',
 vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             cool: 'Crisp blue-grey tones for a focused, professional look.',
@@ -408,34 +408,34 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             colourblind: 'Accessible Okabe-Ito colours, clearly distinguishable across colour vision types.'
         };
 
-        setupButtonGroup('pref-palette', 'data-palette', 'pref-palette', 'pastel', function (value) {
-            applyPaletteSwatches(value);
-            var paletteLabel = document.getElementById('pref-palette-current');
-            if (paletteLabel) paletteLabel.textContent = paletteDescriptions[value] || '';
+        setupButtonGroup('pref-theme', 'data-theme', 'pref-theme', 'pastel', function (value) {
+            applyThemeSwatches(value);
+            var themeLabel = document.getElementById('pref-theme-current');
+            if (themeLabel) themeLabel.textContent = themeDescriptions[value] || '';
         });
-        applyPaletteSwatches(root.getAttribute('data-palette') || 'pastel');
+        applyThemeSwatches(root.getAttribute('data-theme') || 'pastel');
 
         setupButtonGroup('pref-text-size', 'data-text-size', 'pref-text-size', 'md');
         setupButtonGroup('pref-time-format', 'data-time-format', 'pref-time-format', '24');
 
-        // Theme toggle: a single switch showing sun (light) / moon (dark)
-        var themeToggle = document.getElementById('pref-theme');
-        if (themeToggle) {
-            function applyTheme(value) {
-                themeToggle.setAttribute('aria-checked', value === 'dark' ? 'true' : 'false');
+        // Theme mode toggle: a single switch showing sun (light) / moon (dark)
+        var themeModeToggle = document.getElementById('pref-theme-mode');
+        if (themeModeToggle) {
+            function applyThemeMode(value) {
+                themeModeToggle.setAttribute('aria-checked', value === 'dark' ? 'true' : 'false');
             }
-            applyTheme(root.getAttribute('data-theme') || 'light');
-            themeToggle.addEventListener('click', function () {
-                var next = (root.getAttribute('data-theme') || 'light') === 'dark' ? 'light' : 'dark';
-                root.setAttribute('data-theme', next);
-                try { localStorage.setItem('pref-theme', next); } catch (e) { }
-                applyTheme(next);
+            applyThemeMode(root.getAttribute('data-theme-mode') || 'light');
+            themeModeToggle.addEventListener('click', function () {
+                var next = (root.getAttribute('data-theme-mode') || 'light') === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-theme-mode', next);
+                try { localStorage.setItem('pref-theme-mode', next); } catch (e) { }
+                applyThemeMode(next);
                 layoutAllHubCardBadges();
             });
         }
     })();
 
-    // "Show all modules" toggle: unlike the theme toggle (pure CSS, no reload),
+    // "Show all modules" toggle: unlike the theme mode toggle (pure CSS, no reload),
     // this needs a cookie write + reload since it changes server-rendered menus
     // (read server-side in core.modules.view_full_system).
     (function setupViewFullSystemToggle() {
@@ -640,14 +640,21 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // List page shells (Students/Referrals/Actions): sized to exactly fill the
     // space between the sticky page header and the bottom of the viewport, so
     // the shell/page never scrolls — only the entity-list inside the list-card
-    // does. 32 is .main-inner's bottom padding.
+    // does. Measured off .sticky-header-zone rather than .page-header itself —
+    // the zone's own bottom padding sits below the header and before the shell,
+    // so measuring just the header undercounts that gap and leaves the shell a
+    // few pixels too tall (a permanent, near-invisible overflow scrollbar on
+    // main even though nothing looks cut off). The trailing 16 leaves the shell
+    // sitting in half of .main-inner's 32px bottom page padding, so the gap
+    // below the shell's own footer (e.g. the stats strip) matches the ~16px
+    // gap above it instead of doubling it.
     (function setupListPageShellHeight() {
-        var header = document.querySelector('.page-header');
+        var header = document.querySelector('.sticky-header-zone') || document.querySelector('.page-header');
         var shells = document.querySelectorAll('.list-page-shell');
         if (!header || !shells.length) return;
 
         function applyHeight() {
-            var height = window.innerHeight - header.getBoundingClientRect().bottom - 32;
+            var height = window.innerHeight - header.getBoundingClientRect().bottom - 16;
             shells.forEach(function (shell) { shell.style.height = height + 'px'; });
         }
 
@@ -984,6 +991,113 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         updateArrows();
         window.addEventListener('resize', updateArrows);
     });
+
+    // Toggle .is-stuck on whatever sits right after a .sticky-zone-sentinel
+    // once that (zero-height) marker scrolls out of the viewport — CSS has no
+    // way to detect "currently pinned" for a position:sticky element on its
+    // own, so pages that want a stronger stuck-state style (e.g. the SEND &
+    // Provision dashboard's filter bar) add the marker as the sticky
+    // element's immediately preceding sibling.
+    (function setupStickyZoneSentinels() {
+        var sentinels = document.querySelectorAll('.sticky-zone-sentinel');
+        if (!sentinels.length || !window.IntersectionObserver) return;
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                var stuckEl = entry.target.nextElementSibling;
+                if (stuckEl) stuckEl.classList.toggle('is-stuck', !entry.isIntersecting);
+            });
+        }, { threshold: 0 });
+        sentinels.forEach(function (sentinel) { observer.observe(sentinel); });
+    })();
+
+    // Filter bars (e.g. the SEND & Provision dashboard) submit a plain GET
+    // form on every change, since their stats are computed server-side —
+    // that's a full navigation, so the browser resets scroll to the top even
+    // though the user is just re-filtering in place. Stash the scroll offset
+    // in sessionStorage right before the change-triggered unload, then
+    // restore (and clear) it once the new page has settled. Keyed by
+    // pathname + sessionStorage (not localStorage) since this is a
+    // same-tab, single-navigation concern, not a durable preference.
+    //
+    // Listens for 'change' (capture phase, so it runs before the field's own
+    // onchange="this.form.submit()") rather than the form's 'submit' event:
+    // HTMLFormElement.submit() deliberately does NOT fire a submit event
+    // (only requestSubmit()/a real button click does), so a submit listener
+    // here would never run.
+    (function setupFilterBarScrollRestore() {
+        var SCROLL_KEY = 'filter-scroll:' + location.pathname;
+        document.addEventListener('change', function (e) {
+            if (!closest(e.target, 'form.filter-bar')) return;
+            try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch (err) { }
+        }, true);
+        var stored = null;
+        try { stored = sessionStorage.getItem(SCROLL_KEY); } catch (e) { }
+        if (stored === null) return;
+        try { sessionStorage.removeItem(SCROLL_KEY); } catch (e) { }
+        window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () { window.scrollTo(0, parseInt(stored, 10) || 0); });
+        });
+    })();
+
+    // Server-side dashboard filter bars (e.g. SEND & Provision) can opt into
+    // AJAX partial-reload instead of a full navigation via
+    // data-ajax-target="<selector>" on the <form class="filter-bar">. On
+    // change (or a click on .filter-bar-clear inside it), fetches the same
+    // URL+querystring with X-Requested-With: XMLHttpRequest — the existing
+    // AJAX convention this codebase already uses for modal content (see
+    // hubs/inclusion/panel/static/js/panel.js's loadModal(), and the
+    // is_ajax checks in hubs/inclusion/panel/views.py) — and the view (see
+    // hubs/inclusion/views.py::inclusion_hub) returns just the target's
+    // inner HTML fragment instead of the full page. The <form> itself is
+    // never touched, only the target, so no re-enhancement of its own
+    // selects/dialogs is needed and nothing about it can be left detached.
+    // Falls back to a real navigation if the fetch fails — the scroll-restore
+    // listener above already covers that path's scroll jump, same as before
+    // this existed.
+    (function setupAjaxFilterBars() {
+        document.querySelectorAll('form.filter-bar[data-ajax-target]').forEach(function (form) {
+            var target = document.querySelector(form.dataset.ajaxTarget);
+            if (!target) return;
+            var pendingController = null;
+
+            function load(url) {
+                if (pendingController) pendingController.abort();
+                var controller = new AbortController();
+                pendingController = controller;
+                target.classList.add('is-loading');
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: controller.signal })
+                    .then(function (res) {
+                        if (!res.ok) throw new Error('Request failed: ' + res.status);
+                        return res.text();
+                    })
+                    .then(function (html) {
+                        target.innerHTML = html;
+                        window.enhanceFormControls(target);
+                        target.classList.remove('is-loading');
+                        history.replaceState(null, '', url);
+                    })
+                    .catch(function (err) {
+                        if (err.name === 'AbortError') return;
+                        window.location.href = url;
+                    });
+            }
+
+            form.addEventListener('change', function () {
+                // form.action (no action="" attribute set) resolves to the
+                // *current* document URL, query string included — strip it
+                // before appending the freshly-built one, or every change
+                // after the first would double up the querystring.
+                var baseUrl = form.action.split('?')[0];
+                load(baseUrl + '?' + new URLSearchParams(new FormData(form)).toString());
+            });
+            form.addEventListener('click', function (e) {
+                var clear = closest(e.target, '.filter-bar-clear');
+                if (!clear) return;
+                e.preventDefault();
+                load(clear.href);
+            });
+        });
+    })();
 
     // Auto-enhance every plain select/date/time field already in the page on
     // load (server-rendered pages). AJAX-injected modal content (e.g.

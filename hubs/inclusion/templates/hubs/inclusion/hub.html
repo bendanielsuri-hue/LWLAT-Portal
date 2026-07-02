@@ -9,129 +9,137 @@
 
 {% block hub_sidebar %}{% include 'hubs/_hub_sidebar.html' %}{% endblock %}
 
-{% block page_title %}<span class="hub-title-prefix" id="hub-title-prefix" hidden>{{ hub_title }} </span>Dashboard{% endblock %}
+{% block breadcrumbs_wrapper %}
+{% block page_filters %}
+<div class="sticky-zone-sentinel"></div>
+<form method="get" class="filter-bar" data-ajax-target="#dashboard-filtered-content">
+    <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+    <div class="filter-field{% if selected_year_group %} filter-field--active{% endif %}">
+        <label for="year-filter">Year Group</label>
+        <select name="year_group" id="year-filter">
+            <option value="">All Years</option>
+            {% for yg in year_group_choices %}
+            <option value="{{ yg }}" {% if selected_year_group == yg|stringformat:"s" %}selected{% endif %}>Year {{ yg }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if selected_reg_group %} filter-field--active{% endif %}">
+        <label for="reg-group-filter">Reg Group</label>
+        <select name="reg_group" id="reg-group-filter">
+            <option value="">All</option>
+            {% for rg in reg_group_choices %}
+            <option value="{{ rg }}" {% if selected_reg_group == rg %}selected{% endif %}>{{ rg }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if selected_gender %} filter-field--active{% endif %}">
+        <label for="gender-filter">Gender</label>
+        <select name="gender" id="gender-filter">
+            <option value="">All</option>
+            <option value="M" {% if selected_gender == 'M' %}selected{% endif %}>Male</option>
+            <option value="F" {% if selected_gender == 'F' %}selected{% endif %}>Female</option>
+        </select>
+    </div>
+    <div class="filter-field{% if selected_send_code %} filter-field--active{% endif %}">
+        <label for="code-filter">SEN Code</label>
+        <select name="send_code" id="code-filter">
+            <option value="">All</option>
+            <option value="K" {% if selected_send_code == 'K' %}selected{% endif %}>K</option>
+            <option value="E" {% if selected_send_code == 'E' %}selected{% endif %}>E</option>
+            <option value="N" {% if selected_send_code == 'N' %}selected{% endif %}>N</option>
+        </select>
+    </div>
+    <div class="filter-field{% if selected_pp %} filter-field--active{% endif %}">
+        <label for="pp-filter">Pupil Premium</label>
+        <select name="pp" id="pp-filter">
+            <option value="">All</option>
+            <option value="1" {% if selected_pp == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if selected_pp == '0' %}selected{% endif %}>N</option>
+        </select>
+    </div>
+    <div class="filter-field{% if selected_more_able %} filter-field--active{% endif %}">
+        <label for="more-able-filter">More Able</label>
+        <select name="more_able" id="more-able-filter">
+            <option value="">All</option>
+            <option value="1" {% if selected_more_able == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if selected_more_able == '0' %}selected{% endif %}>N</option>
+        </select>
+    </div>
+    <div class="filter-field{% if selected_ethnicity %} filter-field--active{% endif %}">
+        <label for="ethnicity-filter">Ethnicity</label>
+        <select name="ethnicity" id="ethnicity-filter">
+            <option value="">All</option>
+            {% for value, label in ethnicity_choices %}
+            <option value="{{ value }}" {% if selected_ethnicity == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if selected_prior_attainment %} filter-field--active{% endif %}">
+        <label for="prior-attainment-filter">Prior Attainment</label>
+        <select name="prior_attainment" id="prior-attainment-filter">
+            <option value="">All</option>
+            {% for value, label in prior_attainment_choices %}
+            <option value="{{ value }}" {% if selected_prior_attainment == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <a href="{% url 'inclusion_hub' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
+</form>
+{% endblock %}
+{% endblock %}
 
 {% block content %}
-<div class="hub-home-header">
-    <p class="hub-home-lead">Welcome to the SEND & inclusion area.</p>
+<dialog id="new-referral-dialog" class="modal-dialog"></dialog>
+<div id="dashboard-filtered-content">
+{% include 'hubs/inclusion/_hub_dashboard_content.html' %}
 </div>
 
-<div class="breakdown-grid">
-    <div class="breakdown-card">
-        <h3>By SEND code</h3>
-        {% for row in code_breakdown %}
-        <div class="breakdown-row">
-            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }} ({{ row.pct }}%)</span></div>
-            <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill breakdown-bar-fill--k" style="width: {{ row.pct }}%"></div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var filterBar = document.querySelector('.filter-bar[data-ajax-target]');
+    var yearFilter = document.getElementById('year-filter');
+    var regFilter = document.getElementById('reg-group-filter');
+    if (!filterBar || !yearFilter || !regFilter) return;
 
-    <div class="breakdown-card">
-        <h3>By area of need</h3>
-        {% if send_count %}
-        {% for row in need_breakdown %}
-        <div class="breakdown-row">
-            <div class="breakdown-row-labels"><span>{{ row.label }}</span><span>{{ row.count }}</span></div>
-            <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill" style="width: {{ row.pct }}%"></div>
-            </div>
-        </div>
-        {% endfor %}
-        {% else %}
-        <p class="empty-note">No students with SEND recorded.</p>
-        {% endif %}
-    </div>
+    // Reg Group belongs to exactly one Year Group — since the filter bar
+    // itself is never touched by the AJAX content swap (see hub.html's
+    // comment above dashboard-filtered-content), this mirrors the same
+    // narrowing the view already does server-side (reg_groups_by_year in
+    // hubs/inclusion/views.py::inclusion_hub) so it also happens instantly,
+    // client-side, the moment Year Group changes — same pattern as
+    // refreshRegOptions() in students.html.
+    var regGroupsByYear = JSON.parse('{{ reg_groups_by_year_json|escapejs }}');
 
-    <div class="breakdown-card breakdown-card--compact">
-        <h3>Referrals <span class="breakdown-card-subtitle">{{ referrals_this_year }} this year</span></h3>
-        <div class="breakdown-row">
-            <div class="breakdown-row-labels">
-                <span>{% for row in referral_breakdown %}{% if not forloop.first %} &middot; {% endif %}{{ row.label }} {{ row.count }}{% endfor %}</span>
-            </div>
-        </div>
-        {% if overdue_referrals %}
-        <span class="status-pill pill-warning">{{ overdue_referrals }} open referral{{ overdue_referrals|pluralize }} over 14 days old</span>
-        {% endif %}
-        <button type="button" class="btn btn-primary btn-sm" data-new-referral-trigger data-next="{% url 'inclusion_hub' %}">+ New Referral</button>
-    </div>
+    function refreshRegOptions() {
+        var year = yearFilter.value;
+        var groups = year ? (regGroupsByYear[year] || []) : Object.keys(regGroupsByYear).reduce(function (acc, y) {
+            return acc.concat(regGroupsByYear[y]);
+        }, []);
+        var previous = regFilter.value;
+        regFilter.innerHTML = '<option value="">All</option>';
+        groups.forEach(function (group) {
+            var opt = document.createElement('option');
+            opt.value = group;
+            opt.textContent = group;
+            regFilter.appendChild(opt);
+        });
+        regFilter.value = groups.indexOf(previous) !== -1 ? previous : '';
+        // Reg Group is enhanced into a custom popover control by
+        // enhanceFormControls() on page load (static/js/main.js); mutating
+        // the underlying native <select>'s options above doesn't by itself
+        // refresh that popover's cached option list — _uiSelect.refresh()
+        // is the same hook the date/time custom controls use for exactly
+        // this "options changed after a sibling field changed" case.
+        if (regFilter._uiSelect) regFilter._uiSelect.refresh();
+    }
 
-</div>
-
-<div class="breakdown-grid">
-    <div class="breakdown-card">
-        <h3>By year group</h3>
-        {% if year_breakdown %}
-        {% for row in year_breakdown %}
-        <div class="breakdown-row">
-            <div class="breakdown-row-label">{{ row.label }}</div>
-            <div class="breakdown-row-stats">
-                <span><span class="stat-label stat-label--k">K:</span> {{ row.k_count }} ({{ row.k_pct }}%)</span>
-                {% if row.e_count %}<span><span class="stat-label stat-label--e">E:</span> {{ row.e_count }} ({{ row.e_pct }}%)</span>{% endif %}
-                <span><span class="stat-label stat-label--n">N:</span> {{ row.n_count }} ({{ row.n_pct }}%)</span>
-            </div>
-            <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill breakdown-bar-fill--k" style="width: {{ row.k_pct }}%"></div>
-                <div class="breakdown-bar-fill breakdown-bar-fill--e" style="width: {{ row.e_pct }}%"></div>
-                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
-            </div>
-        </div>
-        {% endfor %}
-        {% else %}
-        <p class="empty-note">No students recorded.</p>
-        {% endif %}
-    </div>
-
-    <div class="breakdown-card">
-        <h3>By gender</h3>
-        {% if gender_breakdown %}
-        {% for row in gender_breakdown %}
-        <div class="breakdown-row">
-            <div class="breakdown-row-label">{{ row.label }}</div>
-            <div class="breakdown-row-stats">
-                <span><span class="stat-label stat-label--k">K:</span> {{ row.k_count }} ({{ row.k_pct }}%)</span>
-                {% if row.e_count %}<span><span class="stat-label stat-label--e">E:</span> {{ row.e_count }} ({{ row.e_pct }}%)</span>{% endif %}
-                <span><span class="stat-label stat-label--n">N:</span> {{ row.n_count }} ({{ row.n_pct }}%)</span>
-            </div>
-            <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill breakdown-bar-fill--k" style="width: {{ row.k_pct }}%"></div>
-                <div class="breakdown-bar-fill breakdown-bar-fill--e" style="width: {{ row.e_pct }}%"></div>
-                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
-            </div>
-        </div>
-        {% endfor %}
-        {% else %}
-        <p class="empty-note">No students recorded.</p>
-        {% endif %}
-    </div>
-
-    {% if show_school_breakdown %}
-    <div class="breakdown-card">
-        <h3>By school</h3>
-        {% if school_breakdown %}
-        {% for row in school_breakdown %}
-        <div class="breakdown-row">
-            <div class="breakdown-row-label">{{ row.label }}</div>
-            <div class="breakdown-row-stats">
-                <span><span class="stat-label stat-label--k">K:</span> {{ row.k_count }} ({{ row.k_pct }}%)</span>
-                {% if row.e_count %}<span><span class="stat-label stat-label--e">E:</span> {{ row.e_count }} ({{ row.e_pct }}%)</span>{% endif %}
-                <span><span class="stat-label stat-label--n">N:</span> {{ row.n_count }} ({{ row.n_pct }}%)</span>
-            </div>
-            <div class="breakdown-bar-track">
-                <div class="breakdown-bar-fill breakdown-bar-fill--k" style="width: {{ row.k_pct }}%"></div>
-                <div class="breakdown-bar-fill breakdown-bar-fill--e" style="width: {{ row.e_pct }}%"></div>
-                <div class="breakdown-bar-fill breakdown-bar-fill--n" style="width: {{ row.n_pct }}%"></div>
-            </div>
-        </div>
-        {% endfor %}
-        {% else %}
-        <p class="empty-note">No students recorded.</p>
-        {% endif %}
-    </div>
-    {% endif %}
-</div>
+    var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+    yearFilter.addEventListener('change', refreshRegOptions);
+    filterBar.addEventListener('change', refreshFilterBarState);
+});
+</script>
 
 <h3 class="senco-section-title">SENCo contacts</h3>
 {% if sencos %}
@@ -164,12 +172,7 @@
 <p class="empty-note">No SENCo recorded for this school.</p>
 {% endif %}
 {% endblock %}
-{% block breadcrumb_trail %}{% endblock %}
-
-{% block page_extras %}
-<dialog id="new-referral-dialog" class="modal-dialog"></dialog>
-{% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'js/panel.js' %}?v=9"></script>
+<script src="{% static 'js/panel.js' %}?v=10"></script>
 {% endblock %}

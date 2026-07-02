@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CategorySettings, MatSettings, Module, School, Staff, Student
+from .models import CategorySettings, MatSettings, Module, Referral, School, Staff, Student
 
 
 @admin.register(Staff)
@@ -45,3 +45,9 @@ class StudentAdmin(admin.ModelAdmin):
     )
     list_filter = ('year_group', 'reg_form', 'is_pp', 'is_eal', 'is_lac', 'is_young_carer')
     search_fields = ('upn', 'last_name', 'first_name')
+
+
+@admin.register(Referral)
+class ReferralAdmin(admin.ModelAdmin):
+    list_display = ('referral_type', 'student', 'status', 'date_referred', 'raised_by')
+    list_filter = ('referral_type', 'status')

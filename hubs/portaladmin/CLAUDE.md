@@ -22,7 +22,7 @@ All from `core.models`: `Module`, `School`, `MatSettings`, `CategorySettings`. D
 
 ## Themes page
 
-`portaladmin_themes` (`/portal-admin/themes/`) — a static component gallery (every `.btn-*` variant, `.priority-chip`/`.status-pill` state, card/badge accent, and a swatch per surface/text/role colour token) for visually checking the theming system across Theme/Palette/Accent combinations. No DB reads; the three token lists (`surface_tokens`/`text_tokens`/`role_tokens`) are passed straight from the view. Same `is_developer` gate as `portaladmin_home`. Links `hubs/inclusion/panel/static/css/panel.css` (served at `css/panel.css`) for `.status-pill`/`.priority-chip`, which have no shared base outside that app yet — same reuse `portaladmin_home` already does for `.btn-edit`.
+`portaladmin_themes` (`/portal-admin/themes/`) — a static component gallery (every `.btn-*` variant, `.priority-chip`/`.status-pill` state, card/badge accent, and a swatch per surface/text/role colour token) for visually checking the theming system across Theme Mode/Theme/Accent combinations. No DB reads; the three token lists (`surface_tokens`/`text_tokens`/`role_tokens`) are passed straight from the view. Same `is_developer` gate as `portaladmin_home`. Links `hubs/inclusion/panel/static/css/panel.css` (served at `css/panel.css`) for `.status-pill`/`.priority-chip`, which have no shared base outside that app yet — same reuse `portaladmin_home` already does for `.btn-edit`.
 
 ## Developer identity
 

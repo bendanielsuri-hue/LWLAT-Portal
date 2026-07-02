@@ -4,7 +4,7 @@
 {% block title %}Inclusion Panel{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=37">
 {% endblock %}
 
 
@@ -134,18 +134,53 @@
 <div class="stats-strip">
     <div class="stat-card stat-card--accent-primary">
         <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
-        <div class="stat-value">{{ referrals_awaiting }}</div>
-        <div class="stat-label">Referrals awaiting panel</div>
+        <div class="stat-value">{{ active_referrals_count }}</div>
+        <div class="stat-label">Active referrals</div>
+    </div>
+    <div class="stat-card stat-card--accent-positive">
+        <div class="stat-card-icon">{% include 'icons/checkmark_svg.html' %}</div>
+        <div class="stat-value">{{ actions_complete_total }}</div>
+        <div class="stat-label">Actions completed</div>
     </div>
     <div class="stat-card stat-card--accent-warning">
         <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
-        <div class="stat-value{% if overdue_actions %} warning{% endif %}">{{ overdue_actions }}</div>
-        <div class="stat-label">Actions overdue</div>
+        <div class="stat-value">{{ actions_incomplete_total }}</div>
+        <div class="stat-label">Actions incomplete</div>
     </div>
-    <div class="stat-card stat-card--accent-positive">
-        <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
-        <div class="stat-value">{{ next_panel_date|default:"—" }}</div>
-        <div class="stat-label">Next panel meeting</div>
+</div>
+
+<div class="panel-columns">
+    <div class="panel-card">
+        <div class="panel-card-header">
+            <h2>Next Panel Meeting</h2>
+        </div>
+        {% if next_panel_preview %}
+        <div class="panel-preview">
+            <div class="panel-preview-title">{{ next_panel_preview.school_name }} Panel</div>
+            <div class="panel-preview-date">{{ next_panel_preview.panel.date|date:"j F Y" }}</div>
+            <div class="panel-preview-stats">
+                <span>{{ next_panel_preview.referrals_assigned }} referral{{ next_panel_preview.referrals_assigned|pluralize }} assigned</span>
+                <span>{{ next_panel_preview.members_confirmed }}/{{ next_panel_preview.members_total }} members confirmed</span>
+            </div>
+        </div>
+        {% else %}
+        <p class="empty-note">No upcoming panel meeting.</p>
+        {% endif %}
+    </div>
+    <div class="panel-card">
+        <div class="panel-card-header">
+            <h2>Recent Activity</h2>
+        </div>
+        <ul class="activity-list">
+            {% for event in recent_activity %}
+            <li>
+                <span class="activity-time">{{ event.display_time }}</span>
+                <span class="activity-text">{{ event.text }}</span>
+            </li>
+            {% empty %}
+            <li class="empty-note">No recent activity.</li>
+            {% endfor %}
+        </ul>
     </div>
 </div>
 </div>

@@ -23,6 +23,7 @@
 <div class="list-page-shell">
 <div class="list-card">
 <div class="filter-bar">
+    <span class="filter-bar-label">Filters <span class="filter-bar-count filter-bar-count--empty">0</span></span>
     <div class="filter-field">
         <label for="name-search">Name Search</label>
         <input type="text" id="name-search" placeholder="Find items">
@@ -55,7 +56,7 @@
             {% endfor %}
         </select>
     </div>
-    <div class="filter-field">
+    <div class="filter-field" data-not-a-filter>
         <label for="me-select">Staff Assigned</label>
         <select id="me-select">
             <option value="">Select yourself…</option>
@@ -134,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var studentsTotal = document.getElementById('students-total');
     var referralsTotal = document.getElementById('referrals-total');
     var rows = document.querySelectorAll('.action-row');
+    var refreshFilterBarState = window.wireFilterBarActiveState(document.querySelector('.filter-bar'));
 
     // No login system exists yet, so "who am I" is just remembered per-browser —
     // same pattern as the theme/colour prefs in main.js.
@@ -172,6 +174,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (visibleCount) visibleCount.textContent = shown;
         if (studentsTotal) studentsTotal.textContent = students.size;
         if (referralsTotal) referralsTotal.textContent = referrals.size;
+        refreshFilterBarState();
     }
 
     function clearFilters() {

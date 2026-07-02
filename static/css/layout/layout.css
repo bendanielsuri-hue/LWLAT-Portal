@@ -419,7 +419,7 @@ main { position: relative; }
 .global-backdrop { opacity: 0; transition: opacity var(--transition-slide); pointer-events: none; }
 .global-backdrop.active { opacity: 1; position: fixed; inset: 0; background: rgba(3,6,23,0.45); z-index: var(--z-backdrop); pointer-events: auto; }
 /* Dark theme: use solid black so the overlay reads clearly on the dark page */
-[data-theme="dark"] .global-backdrop.active { background: rgba(0,0,0,0.65); }
+[data-theme-mode="dark"] .global-backdrop.active { background: rgba(0,0,0,0.65); }
 
 .side-nav .nav-title {
     align-self: stretch;
@@ -597,8 +597,8 @@ main {
     padding: var(--space-2xl);
 }
 
-/* Sticky page header (breadcrumbs/actions) and home screen title+search row */
-.page-header,
+/* Sticky page header (breadcrumbs/actions) and home screen title+search row. */
+.sticky-header-zone,
 .home-header-sticky {
     position: sticky;
     top: 0;
@@ -607,6 +607,12 @@ main {
     margin: -32px -32px 0;
     padding: var(--space-xl) var(--space-2xl) var(--space-md);
 }
+
+/* Zero-height marker placed immediately before a position:sticky element.
+   static/js/main.js observes it via IntersectionObserver and toggles
+   .is-stuck on the sticky sibling once the marker scrolls out of view —
+   CSS alone has no way to detect "currently stuck". */
+.sticky-zone-sentinel { height: 0; }
 
 main h1 {
     margin-bottom: var(--space-sm);
@@ -938,7 +944,7 @@ a { color: inherit; }
     background: rgba(0, 0, 0, 0.06);
     transform: translateY(-2px);
 }
-[data-theme="dark"] .text-size-option:hover {
+[data-theme-mode="dark"] .text-size-option:hover {
     background: rgba(255, 255, 255, 0.08);
 }
 .text-size-option .size-preview {
