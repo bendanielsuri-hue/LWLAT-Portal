@@ -412,9 +412,12 @@ main { position: relative; }
 /* The dimming backdrop covers <main> only — signals that main content isn't
    the current focus while a side panel is open.
    z-index must be above .page-header (var(--z-page-header) = 10) to prevent
-   the sticky header escaping the dim, but below .overlay-slot (var(--z-overlay) = 15). */
+   the sticky header escaping the dim, but below .global-nav (var(--z-global-nav) = 20)
+   so the overlay panel itself stays on top. position:fixed (not absolute) so it
+   covers the viewport even when <main> is scrolled — absolute would scroll away
+   with main's content. */
 .global-backdrop { opacity: 0; transition: opacity var(--transition-slide); pointer-events: none; }
-.global-backdrop.active { opacity: 1; position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: rgba(3,6,23,0.45); z-index: var(--z-backdrop); pointer-events: auto; }
+.global-backdrop.active { opacity: 1; position: fixed; inset: 0; background: rgba(3,6,23,0.45); z-index: var(--z-backdrop); pointer-events: auto; }
 /* Dark theme: use solid black so the overlay reads clearly on the dark page */
 [data-theme="dark"] .global-backdrop.active { background: rgba(0,0,0,0.65); }
 
@@ -666,7 +669,7 @@ section {
     align-content: flex-start;
 }
 
-small { color: var(--text-muted); }
+small { color: var(--text-tertiary); }
 a { color: inherit; }
 .form-with-validation { max-width: 600px; font-size: var(--font-base); }
 .errorlist { color: var(--color-negative); margin-left: 0.5rem; }
@@ -856,7 +859,7 @@ a { color: inherit; }
 }
 .settings-current {
     font-size: var(--font-sm);
-    color: var(--text-muted);
+    color: var(--text-tertiary);
 }
 
 /* Theme toggle (sun / moon) */
@@ -886,7 +889,7 @@ a { color: inherit; }
     justify-content: center;
     width: 18px;
     height: 18px;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     transition: color var(--transition-base);
 }
 .theme-toggle-thumb {
@@ -944,7 +947,7 @@ a { color: inherit; }
 }
 .text-size-option .size-name {
     font-size: var(--font-2xs);
-    color: var(--text-muted);
+    color: var(--text-tertiary);
 }
 .text-size-option.selected {
     border-color: var(--primary);

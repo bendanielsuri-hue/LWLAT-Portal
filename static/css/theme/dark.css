@@ -30,27 +30,25 @@
     --bg-rail-base: #07090f;
     --text-primary: #e2e8f0;
     --text-secondary: #aab4c5;
-    --text-muted: #8a93a6;
+    --text-tertiary: #8a93a6;
     --text-faint: #6b7385;
-    --border-color: #2a3142;
-    --border-strong: #424c66;
+    --border-color: #1f2638;
+    --border-strong: #2e3a54;
     --badge-bg: #232b3d;
 
-    --color-secondary: #fbbf24;
+    --color-neutral: #64748b;
+    /* SEN classification dark values (pastel; other palettes override below) */
+    --color-purple: #a78bfa; --color-purple-bg: #1e1533;
+    --color-blue:   #60a5fa; --color-blue-bg:   #1e3a5f;
 
     --tooltip-bg: #f1f5f9;
     --tooltip-text: #1c2333;
 
-    --color-exceeding: #4ade80;
-    --color-exceeding-bg: #14532d;
-    --color-positive: #4ade80;
-    --color-positive-bg: #143d24;
-    --color-caution: #fcd34d;
-    --color-caution-bg: #3b2d09;
-    --color-warning: #fbbf24;
-    --color-warning-bg: #4a3b09;
-    --color-negative: #f87171;
-    --color-negative-bg: #4a1d1d;
+    --color-exceeding: #a78bfa; --color-exceeding-bg: #1e1533;
+    --color-positive:  #4ade80; --color-positive-bg:  #143d24;
+    --color-caution:   #fcd34d; --color-caution-bg:   #3b2d09;
+    --color-warning:   #fbbf24; --color-warning-bg:   #4a3b09;
+    --color-negative:  #f87171; --color-negative-bg:  #4a1d1d;
 
     /* Style the browser's scrollbar to match dark mode */
     scrollbar-color: var(--border-color) var(--bg-surface-alt);
@@ -74,12 +72,14 @@
 }
 
 /* Pastel dark — surface tint/base only; Add/Edit/Delete/CTA keep their
-   light-fill recipe in both themes (no override needed here). Pastel doesn't
-   set --color-* itself, so it isn't affected by the note below. */
+   light-fill recipe in both themes (no override needed here). Pastel's --color-*
+   signal and SEN hue tokens are overridden by [data-theme="dark"] above, which
+   has higher source-order precedence over the single-attribute palette selector. */
 [data-theme="dark"][data-palette="pastel"] {
     --bg-tint-page: 3%; --bg-tint-nav: 10%; --bg-tint-well: 3%; --bg-tint-nested: 5%; --bg-tint-rail: 14%;
     --bg-page-base: #161513; --bg-nav-base: #111010; --bg-surface-base: #1c1b19; --bg-surface-alt: #201f1c;
     --bg-well-base: #1e1d1a; --bg-nested-base: #1e1d1a; --bg-rail-base: #0d0c0c;
+    --border-color: #2e2b27; --border-strong: #3d3935;
 }
 
 /* Vibrant/Greytone/Colourblind each set --color-positive/-caution/-negative/-warning
@@ -91,11 +91,132 @@
    just re-asserts the same dark-lifted tones the default palette already
    uses above (its light-mode hues are already the same green/gold/red family). */
 [data-theme="dark"][data-palette="vibrant"] {
-    --color-positive: #4ade80; --color-caution: #fcd34d; --color-negative: #f87171; --color-warning: #fbbf24;
-}
-[data-theme="dark"][data-palette="greytone"] {
-    --color-positive: #8a8a8a; --color-caution: #a3a3a3; --color-negative: #d4d4d4; --color-warning: var(--color-caution);
+    --color-exceeding: #c4b5fd; --color-exceeding-bg: #2e1065;
+    --color-positive:  #4ade80; --color-positive-bg:  #143d24;
+    --color-caution:   #fcd34d; --color-caution-bg:   #3b2d09;
+    --color-warning:   #fbbf24; --color-warning-bg:   #4a3b09;
+    --color-negative:  #f87171; --color-negative-bg:  #4a1d1d;
+    --color-purple: #c4b5fd; --color-purple-bg: #2e1065;
+    --color-blue:   #93c5fd; --color-blue-bg:   #1e3a8a;
 }
 [data-theme="dark"][data-palette="colourblind"] {
-    --color-positive: #8ccdf0; --color-caution: #ddaa33; --color-negative: #cbd5e1; --color-warning: var(--color-caution);
+    --color-exceeding: #8ccdf0; --color-exceeding-bg: #1e3a5f;
+    --color-positive:  #8ccdf0; --color-positive-bg:  #1e3a5f;
+    --color-caution:   #ddaa33; --color-caution-bg:   #3b2d09;
+    --color-warning:   var(--color-caution); --color-warning-bg: var(--color-caution-bg);
+    --color-negative:  #cbd5e1; --color-negative-bg:  #1c1c1e;
+    --color-purple: #c084fc; --color-purple-bg: #1e1533;
+    --color-blue:   #93c5fd; --color-blue-bg:   #1e3a5f;
+}
+
+/* Warm/Cool/Neon dark — surface bases and tinting only (semantics already
+   handled by [data-theme="dark"] above, which loads later at the same
+   specificity). Warm and Cool use slightly character-matched darks rather
+   than the neutral blue-grey defaults; Neon additionally re-lifts its
+   electric semantic colours for legibility on the deep-dark surfaces. */
+[data-theme="dark"][data-palette="cool"] {
+    --bg-page-base: #0f1520; --bg-nav-base: #0b1019; --bg-surface-base: #141c2e; --bg-surface-alt: #192333;
+    --bg-well-base: #1a2235; --bg-nested-base: #1a2235; --bg-rail-base: #080d15;
+    --border-color: #1c2a40; --border-strong: #2a3d58;
+}
+[data-theme="dark"][data-palette="neon"] {
+    --bg-page-base: #0d0b17; --bg-nav-base: #09070f; --bg-surface-base: #130f1e; --bg-surface-alt: #180f25;
+    --bg-well-base: #161020; --bg-nested-base: #161020; --bg-rail-base: #060410;
+    /* Dark Neon: borders glow with the lifted primary colour */
+    --border-color: color-mix(in srgb, var(--primary) 42%, #1c1433);
+    --border-strong: color-mix(in srgb, var(--primary) 68%, #2a1e4d);
+    /* Dark card shadow: vivid ring → mid haze → wide electric bloom */
+    --card-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 50%, transparent),
+                   0 0 16px color-mix(in srgb, var(--primary) 32%, transparent),
+                   0 12px 48px color-mix(in srgb, var(--primary) 18%, rgba(0, 0, 0, 0.70));
+    /* Row hover: glowing primary wash against the deep surface */
+    --row-hover-bg: color-mix(in srgb, var(--primary) 18%, var(--bg-surface));
+    --color-exceeding: #d580ff; --color-exceeding-bg: #2a0a4d;
+    --color-positive:  #69ff96; --color-positive-bg:  #003318;
+    --color-caution:   #ffe57a; --color-caution-bg:   #2e2200;
+    --color-warning:   #ff9f3d; --color-warning-bg:   #2e1600;
+    --color-negative:  #ff4d70; --color-negative-bg:  #33040f;
+    --color-purple: #d580ff; --color-purple-bg: #2a0a4d;
+    --color-blue:   #6aa7ff; --color-blue-bg:   #0a1f4d;
+    /* Dark shadow scale: vivid primary glow against deep surfaces */
+    --shadow-sm: 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent),
+                 0 0 12px color-mix(in srgb, var(--primary) 22%, transparent),
+                 0 4px 10px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent),
+                 0 0 20px color-mix(in srgb, var(--primary) 32%, transparent),
+                 0 8px 24px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 0 0 1px color-mix(in srgb, var(--primary) 60%, transparent),
+                 0 0 32px color-mix(in srgb, var(--primary) 40%, transparent),
+                 0 14px 48px rgba(0, 0, 0, 0.72);
+}
+
+/* Dark Neon element-level overrides — body gradient + sidebar gradient + rail
+   (buttons, pills, nav bar, inputs, entity-row all inherit the dark --shadow-*
+   overrides above without needing separate dark-mode element repeats). */
+[data-theme="dark"][data-palette="neon"] body {
+    background:
+        radial-gradient(ellipse 80% 55% at 0% 0%,
+            color-mix(in srgb, var(--primary) 14%, transparent) 0%, transparent 58%),
+        radial-gradient(ellipse 55% 40% at 100% 100%,
+            color-mix(in srgb, var(--primary) 10%, transparent) 0%, transparent 52%),
+        var(--bg-page);
+}
+[data-theme="dark"][data-palette="neon"] .side-nav {
+    background: linear-gradient(170deg,
+        color-mix(in srgb, var(--primary) 16%, var(--bg-nav)) 0%,
+        var(--bg-nav) 55%) !important;
+}
+[data-theme="dark"][data-palette="neon"] .hub-rail-inner {
+    box-shadow: 3px 0 24px color-mix(in srgb, var(--primary) 28%, rgba(0, 0, 0, 0.4));
+}
+
+/* Minimal dark — neutral near-black surfaces (no blue cast), barely-there
+   borders, desaturated semantics, dark-tinted ghost action buttons. */
+[data-theme="dark"][data-palette="minimal"] {
+    --bg-page-base: #111113; --bg-nav-base: #0c0c0e; --bg-surface-base: #171719;
+    --bg-surface-alt: #1c1c1e; --bg-well-base: #1a1a1c; --bg-nested-base: #1a1a1c; --bg-rail-base: #080809;
+    --border-color: #222224; --border-strong: #2e2e30;
+    /* Semantic colours — muted, legible against near-black surfaces */
+    --color-exceeding: #8068b8; --color-exceeding-bg: #181430;
+    --color-positive:  #5a9a72; --color-positive-bg:  #141e18;
+    --color-caution:   #b89640; --color-caution-bg:   #1e1a0e;
+    --color-warning:   #a87040; --color-warning-bg:   #1e1610;
+    --color-negative:  #a05050; --color-negative-bg:  #1e1414;
+    --color-purple: #8068b8; --color-purple-bg: #181430;
+    --color-blue:   #5a78b8; --color-blue-bg:   #141828;
+    /* Action buttons — dark ghost: subtle tinted fill, muted semantic border, muted semantic text */
+    --btn-add-bg: #171f1a; --btn-add-border: #3a6a50; --btn-add-text: #80b898;
+    --btn-add-hover-bg: #1c2620; --btn-add-hover-border: #4a7a60; --btn-add-hover-text: #90c8a8;
+    --btn-edit-bg: #1e1c12; --btn-edit-border: #6a5820; --btn-edit-text: #b8a060;
+    --btn-edit-hover-bg: #252216; --btn-edit-hover-border: #7a6828; --btn-edit-hover-text: #c8b070;
+    --btn-delete-bg: #1e1616; --btn-delete-border: #6a3838; --btn-delete-text: #b87878;
+    --btn-delete-hover-bg: #251a1a; --btn-delete-hover-border: #7a4848; --btn-delete-hover-text: #c88888;
+    --priority-high-bg: var(--btn-delete-bg); --priority-high-border: var(--btn-delete-border); --priority-high-text: var(--btn-delete-text);
+    --priority-medium-bg: #1e1a12; --priority-medium-border: #6a5030; --priority-medium-text: #b89060;
+    --priority-low-bg: var(--btn-edit-bg); --priority-low-border: var(--btn-edit-border); --priority-low-text: var(--btn-edit-text);
+}
+
+/* Disabled buttons: opacity:0.45 on the whole element composites light-themed
+   coloured fills with the dark surface, collapsing text/bg contrast to near
+   zero (muddy mid-tones where text and background are indistinguishable).
+   Reset to opacity:1 and use pre-composited dark tints instead. */
+[data-theme="dark"] .btn:disabled,
+[data-theme="dark"] .btn.btn-disabled {
+    opacity: 1;
+    color: var(--text-faint);
+    border-color: var(--border-color);
+    background: var(--bg-surface-alt);
+}
+[data-theme="dark"] .btn-add:disabled, [data-theme="dark"] .btn-add.btn-disabled,
+[data-theme="dark"] .btn-success:disabled, [data-theme="dark"] .btn-success.btn-disabled {
+    background: color-mix(in srgb, var(--btn-add-bg) 12%, var(--bg-surface-alt));
+}
+[data-theme="dark"] .btn-edit:disabled, [data-theme="dark"] .btn-edit.btn-disabled {
+    background: color-mix(in srgb, var(--btn-edit-bg) 12%, var(--bg-surface-alt));
+}
+[data-theme="dark"] .btn-delete:disabled, [data-theme="dark"] .btn-delete.btn-disabled {
+    background: color-mix(in srgb, var(--btn-delete-bg) 12%, var(--bg-surface-alt));
+}
+[data-theme="dark"] .btn-primary:disabled, [data-theme="dark"] .btn-primary.btn-disabled {
+    background: color-mix(in srgb, var(--primary) 12%, var(--bg-surface-alt));
 }

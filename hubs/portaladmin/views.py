@@ -71,16 +71,4 @@ def portaladmin_themes(request):
 
     return render(request, 'hubs/portaladmin/themes.html', {
         **PORTALADMIN_BASE_CONTEXT,
-        'surface_tokens': [
-            '--bg-page', '--bg-nav', '--bg-surface', '--bg-surface-alt',
-            '--bg-well', '--bg-nested', '--bg-rail',
-        ],
-        'text_tokens': [
-            '--text-primary', '--text-secondary', '--text-muted', '--text-faint',
-            '--primary', '--primary-dark', '--color-secondary', '--color-neutral',
-        ],
-        'role_tokens': [
-            '--color-exceeding', '--color-positive', '--color-caution',
-            '--color-warning', '--color-negative',
-        ],
     })

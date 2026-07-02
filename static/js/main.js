@@ -309,6 +309,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 purple: 'Muted Plum', blue: 'Sky Blue', teal: 'Bluish Green',
                 green: 'Sea Green', yellow: 'Safe Yellow', orange: 'Safe Orange',
                 red: 'Muted Red', pink: 'Safe Magenta'
+            },
+            minimal: {
+                purple: 'Iris', blue: 'Denim', teal: 'Sage',
+                green: 'Moss', yellow: 'Sand', orange: 'Rust',
+                red: 'Clay', pink: 'Mauve'
+            },
+            neon: {
+                purple: 'Plasma', blue: 'Electric', teal: 'Cyber',
+                green: 'Toxic', yellow: 'Solar', orange: 'Inferno',
+                red: 'Laser', pink: 'Magenta'
+            },
+            cool: {
+                purple: 'Twilight', blue: 'Arctic', teal: 'Glacial',
+                green: 'Alpine', yellow: 'Polar', orange: 'Dusk',
+                red: 'Aurora', pink: 'Blush'
             }
         };
         var pastelSwatches = {};
@@ -361,7 +376,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function applyPaletteSwatches(palette) {
             var labels = paletteSwatchLabels[palette];
-            document.querySelectorAll('#pref-color .colour-swatch').forEach(function (btn) {
+            document.querySelectorAll('#pref-color .colour-swatch, #themes-pref-color .colour-swatch').forEach(function (btn) {
                 var colour = btn.dataset.value;
                 var pastelEntry = pastelSwatches[colour];
                 var hex = labels ? getPaletteAccentHex(palette, colour) : null;
@@ -385,10 +400,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         var paletteDescriptions = {
-            pastel: 'Calm, low-contrast pastel tones with subtle borders.',
-            vibrant: 'Bold, saturated colours with richer surface tint.',
-            greytone: 'Neutral greys only — no colour tinting.',
-            colourblind: 'High-contrast, colourblind-friendly hues.'
+            pastel: 'Calm, low-contrast tones with warm borders and subtle depth.',
+vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
+            cool: 'Crisp blue-grey tones for a focused, professional look.',
+            minimal: 'Clean, understated styling that keeps attention on content.',
+            neon: 'Vivid, energetic colours with striking electric accents.',
+            colourblind: 'Accessible Okabe-Ito colours, clearly distinguishable across colour vision types.'
         };
 
         setupButtonGroup('pref-palette', 'data-palette', 'pref-palette', 'pastel', function (value) {

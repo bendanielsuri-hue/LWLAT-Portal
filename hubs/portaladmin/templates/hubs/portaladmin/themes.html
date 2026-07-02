@@ -11,10 +11,79 @@
 .theme-btn-groups { display: flex; flex-direction: column; gap: 18px; }
 .theme-btn-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .theme-btn-group-label { width: 100px; flex-shrink: 0; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); }
-.theme-btn-group .btn { width: 150px; }
 .theme-btn-group.priority-chips { gap: 10px; }
-.theme-btn-group.priority-chips .priority-chip { width: 130px; text-align: center; white-space: nowrap; }
-.themes-intro { margin: 0 0 var(--space-lg); }
+
+/* Sticky wrapper: encloses both the page-header and the control bar so they
+   scroll as a single unit and stick together at the top of the viewport. */
+.themes-sticky-wrap {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-page-header);
+    margin: -32px -32px 0;
+    background: var(--bg-page);
+}
+.themes-sticky-wrap .page-header {
+    position: static;
+    margin: 0;
+    background: transparent;
+}
+
+/* Inline theme controls bar — card style, sits inside the sticky wrapper */
+.themes-ctrl-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    margin: var(--space-sm) var(--space-2xl) var(--space-md);
+}
+.themes-ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+.themes-ctrl-label {
+    font-size: var(--font-xs);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+.themes-ctrl-sep {
+    width: 1px;
+    height: 24px;
+    background: var(--border-color);
+    flex-shrink: 0;
+}
+/* Palette chips in bar: compact, fixed-width, no size preview */
+.themes-palette-grid {
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+.themes-palette-grid .text-size-option {
+    flex: 0 0 auto;
+    padding: 4px 10px;
+}
+.themes-palette-grid .text-size-option .size-name {
+    font-size: var(--font-xs);
+}
+
+/* Two explicit columns so cards stack without cross-column row alignment gaps */
+.themes-grid {
+    display: flex;
+    gap: var(--space-lg);
+    align-items: flex-start;
+    margin-top: var(--space-lg);
+}
+.themes-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
 </style>
 {% endblock %}
 
@@ -24,9 +93,63 @@
 
 {% block breadcrumb_trail %}{% endblock %}
 
-{% block content %}
-<p class="themes-intro">Static gallery of every themed component — switch Theme/Palette/Accent colour via the Settings panel and check nothing renders broken here. Not linked anywhere except for staff with the developer flag set.</p>
+{% block breadcrumbs_wrapper %}
+<div class="themes-sticky-wrap">
+    {{ block.super }}
+    <div class="themes-ctrl-bar">
+        <div class="themes-ctrl-group">
+            <span class="themes-ctrl-label">Theme</span>
+            <button type="button" class="theme-toggle" id="themes-pref-theme" role="switch" aria-checked="false" aria-label="Dark mode">
+                <span class="theme-toggle-icon theme-toggle-sun">{% include 'icons/sun_svg.html' %}</span>
+                <span class="theme-toggle-thumb"></span>
+                <span class="theme-toggle-icon theme-toggle-moon">{% include 'icons/moon_svg.html' %}</span>
+            </button>
+        </div>
+        <div class="themes-ctrl-sep"></div>
+        <div class="themes-ctrl-group">
+            <span class="themes-ctrl-label">Palette</span>
+            <div class="text-size-grid themes-palette-grid" id="themes-pref-palette" role="radiogroup" aria-label="Colour palette">
+                <button type="button" class="text-size-option" data-value="pastel" title="Calm, low-contrast tones with warm borders and subtle depth."><span class="size-name">Soft</span></button>
+<button type="button" class="text-size-option" data-value="vibrant" title="Bold, high-visibility colours designed for dashboards and data."><span class="size-name">Vibrant</span></button>
+                <button type="button" class="text-size-option" data-value="cool" title="Crisp blue-grey tones for a focused, professional look."><span class="size-name">Cool</span></button>
+                <button type="button" class="text-size-option" data-value="minimal" title="Clean, understated styling that keeps attention on content."><span class="size-name">Minimal</span></button>
+                <button type="button" class="text-size-option" data-value="neon" title="Vivid, energetic colours with striking electric accents."><span class="size-name">Neon</span></button>
+                <button type="button" class="text-size-option" data-value="colourblind" title="Accessible Okabe-Ito colours, clearly distinguishable across colour vision types."><span class="size-name">Colourblind-safe</span></button>
+            </div>
+        </div>
+        <div class="themes-ctrl-sep"></div>
+        <div class="themes-ctrl-group">
+            <span class="themes-ctrl-label">Colour</span>
+            <div class="colour-grid" id="themes-pref-color" role="radiogroup" aria-label="Primary colour">
+                <button type="button" class="colour-swatch" data-value="purple" style="--swatch:#7c3aed;" title="Royal Purple" aria-label="Royal Purple"></button>
+                <button type="button" class="colour-swatch" data-value="blue" style="--swatch:#2563eb;" title="Ocean Blue" aria-label="Ocean Blue"></button>
+                <button type="button" class="colour-swatch" data-value="teal" style="--swatch:#0d9488;" title="Deep Teal" aria-label="Deep Teal"></button>
+                <button type="button" class="colour-swatch" data-value="green" style="--swatch:#16a34a;" title="Forest Green" aria-label="Forest Green"></button>
+                <button type="button" class="colour-swatch" data-value="yellow" style="--swatch:#ca8a04;" title="Golden Yellow" aria-label="Golden Yellow"></button>
+                <button type="button" class="colour-swatch" data-value="orange" style="--swatch:#ea580c;" title="Sunset Orange" aria-label="Sunset Orange"></button>
+                <button type="button" class="colour-swatch" data-value="red" style="--swatch:#dc2626;" title="Cherry Red" aria-label="Cherry Red"></button>
+                <button type="button" class="colour-swatch" data-value="pink" style="--swatch:#db2777;" title="Blossom Pink" aria-label="Blossom Pink"></button>
+            </div>
+        </div>
+        <div class="themes-ctrl-sep"></div>
+        <div class="themes-ctrl-group">
+            <span class="themes-ctrl-label">Size</span>
+            <div class="text-size-grid themes-palette-grid" id="themes-pref-text-size" role="radiogroup" aria-label="Text size">
+                <button type="button" class="text-size-option" data-value="sm"><span class="size-name">S</span></button>
+                <button type="button" class="text-size-option" data-value="md"><span class="size-name">M</span></button>
+                <button type="button" class="text-size-option" data-value="lg"><span class="size-name">L</span></button>
+                <button type="button" class="text-size-option" data-value="xl"><span class="size-name">XL</span></button>
+                <button type="button" class="text-size-option" data-value="xxl"><span class="size-name">XXL</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
+{% block content %}
+<div class="themes-grid">
+
+<div class="themes-col">
 <details class="settings-section" open>
     <summary>Buttons</summary>
     <div class="settings-body theme-btn-groups">
@@ -72,6 +195,20 @@
 </details>
 
 <details class="settings-section" open>
+    <summary>Status pills</summary>
+    <div class="settings-body" style="display:flex; flex-wrap:wrap; gap:8px;">
+        <span class="status-pill pill-exceeding">exceeding</span>
+        <span class="status-pill pill-positive">positive</span>
+        <span class="status-pill pill-caution">caution</span>
+        <span class="status-pill pill-warning">warning</span>
+        <span class="status-pill pill-negative">negative</span>
+        <span class="status-pill pill-purple">purple</span>
+        <span class="status-pill pill-blue">blue</span>
+        <span class="status-pill">no modifier</span>
+    </div>
+</details>
+
+<details class="settings-section" open>
     <summary>Priority chips</summary>
     <div class="settings-body theme-btn-groups">
         <div class="theme-btn-group priority-chips">
@@ -91,27 +228,52 @@
         </div>
     </div>
 </details>
+</div>
 
+<div class="themes-col">
 <details class="settings-section" open>
-    <summary>Status pills</summary>
-    <div class="settings-body" style="display:flex; flex-wrap:wrap; gap:8px;">
-        <span class="status-pill danger">danger</span>
-        <span class="status-pill open">open</span>
-        <span class="status-pill upcoming">upcoming</span>
-        <span class="status-pill in_panel">in_panel</span>
-        <span class="status-pill closed">closed</span>
-        <span class="status-pill discussed">discussed</span>
-        <span class="status-pill assigned">assigned</span>
-        <span class="status-pill discussing">discussing</span>
-        <span class="status-pill requires_follow_up">requires_follow_up</span>
-        <span class="status-pill complete">complete</span>
-        <span class="status-pill incomplete">incomplete</span>
-        <span class="status-pill not_needed">not_needed</span>
-        <span class="status-pill concern">concern</span>
-        <span class="status-pill type-chair">type-chair</span>
-        <span class="status-pill type-mat">type-mat</span>
-        <span class="status-pill type-school">type-school</span>
-        <span class="status-pill type-external">type-external</span>
+    <summary>Surface &amp; text colours</summary>
+    <div class="settings-body">
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <div>
+                <div style="font-size:var(--font-xs); font-weight:600; color:var(--text-tertiary); margin-bottom:6px;">--bg-surface &mdash; card</div>
+                <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                    <span style="color:var(--text-primary); font-size:var(--font-sm);">Primary</span>
+                    <span style="color:var(--text-secondary); font-size:var(--font-sm);">Secondary</span>
+                    <span style="color:var(--text-tertiary); font-size:var(--font-sm);">Tertiary</span>
+                    <span style="color:var(--text-faint); font-size:var(--font-sm);">Faint</span>
+                </div>
+            </div>
+            <div style="background:var(--bg-surface-alt); margin-left:calc(-1 * var(--space-lg)); margin-right:calc(-1 * var(--space-lg)); padding:10px var(--space-lg);">
+                <div style="font-size:var(--font-xs); font-weight:600; color:var(--text-tertiary); margin-bottom:6px;">--bg-surface-alt &mdash; alternating row / header strip</div>
+                <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                    <span style="color:var(--text-primary); font-size:var(--font-sm);">Primary</span>
+                    <span style="color:var(--text-secondary); font-size:var(--font-sm);">Secondary</span>
+                    <span style="color:var(--text-tertiary); font-size:var(--font-sm);">Tertiary</span>
+                    <span style="color:var(--text-faint); font-size:var(--font-sm);">Faint</span>
+                </div>
+            </div>
+            <div style="background:var(--bg-nested); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:10px;">
+                <div>
+                    <div style="font-size:var(--font-xs); font-weight:600; color:var(--text-tertiary); margin-bottom:6px;">--bg-nested &mdash; inset sub-section within a card</div>
+                    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                        <span style="color:var(--text-primary); font-size:var(--font-sm);">Primary</span>
+                        <span style="color:var(--text-secondary); font-size:var(--font-sm);">Secondary</span>
+                        <span style="color:var(--text-tertiary); font-size:var(--font-sm);">Tertiary</span>
+                        <span style="color:var(--text-faint); font-size:var(--font-sm);">Faint</span>
+                    </div>
+                </div>
+                <div style="background:var(--bg-well); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:10px 12px;">
+                    <div style="font-size:var(--font-xs); font-weight:600; color:var(--text-tertiary); margin-bottom:6px;">--bg-well &mdash; deep trough / list well</div>
+                    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                        <span style="color:var(--text-primary); font-size:var(--font-sm);">Primary</span>
+                        <span style="color:var(--text-secondary); font-size:var(--font-sm);">Secondary</span>
+                        <span style="color:var(--text-tertiary); font-size:var(--font-sm);">Tertiary</span>
+                        <span style="color:var(--text-faint); font-size:var(--font-sm);">Faint</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </details>
 
@@ -120,45 +282,93 @@
     <div class="settings-body">
         <div style="display:flex; flex-wrap:wrap; gap:12px;">
             <div class="stat-card stat-card--accent-primary" style="padding:10px 48px 10px 12px;">accent-primary</div>
-            <div class="stat-card stat-card--accent-success" style="padding:10px 48px 10px 12px;">accent-success</div>
+            <div class="stat-card stat-card--accent-exceeding" style="padding:10px 48px 10px 12px;">accent-exceeding</div>
+            <div class="stat-card stat-card--accent-positive" style="padding:10px 48px 10px 12px;">accent-positive</div>
+            <div class="stat-card stat-card--accent-caution" style="padding:10px 48px 10px 12px;">accent-caution</div>
             <div class="stat-card stat-card--accent-warning" style="padding:10px 48px 10px 12px;">accent-warning</div>
-        </div>
-        <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
-            <span>Stat labels: <span class="stat-label--k">K</span> <span class="stat-label--e">E</span> <span class="stat-label--n">N</span></span>
-            <span style="display:inline-flex; gap:4px;">
-                <span class="breakdown-bar-fill" style="display:inline-block; width:24px; height:14px; border-radius:3px;"></span>
-                <span class="breakdown-bar-fill breakdown-bar-fill--secondary" style="display:inline-block; width:24px; height:14px; border-radius:3px;"></span>
-                <span class="breakdown-bar-fill breakdown-bar-fill--n" style="display:inline-block; width:24px; height:14px; border-radius:3px;"></span>
-            </span>
-            <span class="breakdown-callout breakdown-callout--warning">breakdown-callout--warning</span>
-        </div>
-        <div style="margin-top:14px;">
-            <span class="toggle-pill on"><span class="toggle-knob"></span></span>
-            <span class="toggle-pill" style="margin-left:8px;"><span class="toggle-knob"></span></span>
+            <div class="stat-card stat-card--accent-negative" style="padding:10px 48px 10px 12px;">accent-negative</div>
         </div>
     </div>
 </details>
+</div>
 
-<details class="settings-section" open>
-    <summary>Surface &amp; text colours</summary>
-    <div class="settings-body" style="display:flex; flex-wrap:wrap; gap:8px;">
-        {% for token in surface_tokens %}
-        <div style="width:150px; padding:8px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var({{ token }});">
-            <div style="font-size:11px; color:var(--text-primary); background:var(--bg-surface); padding:2px 4px; border-radius:3px; display:inline-block;">{{ token }}</div>
-        </div>
-        {% endfor %}
-    </div>
-    <div class="settings-body" style="display:flex; flex-wrap:wrap; gap:16px;">
-        {% for token in text_tokens %}
-        <span style="color:var({{ token }});">{{ token }}</span>
-        {% endfor %}
-    </div>
-    <div class="settings-body" style="display:flex; flex-wrap:wrap; gap:8px;">
-        {% for token in role_tokens %}
-        <div style="width:170px; padding:8px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var({{ token }}-bg, var(--bg-surface));">
-            <span style="color:var({{ token }}); font-weight:600;">{{ token }}</span>
-        </div>
-        {% endfor %}
-    </div>
-</details>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+    var root = document.documentElement;
+
+    function syncSelected(containerId, value) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        container.querySelectorAll('[data-value]').forEach(function (btn) {
+            btn.classList.toggle('selected', btn.dataset.value === value);
+        });
+    }
+
+    function syncBar() {
+        syncSelected('themes-pref-palette', root.getAttribute('data-palette') || 'pastel');
+        syncSelected('themes-pref-color', root.getAttribute('data-color') || 'purple');
+        syncSelected('themes-pref-text-size', root.getAttribute('data-text-size') || 'md');
+        var t = document.getElementById('themes-pref-theme');
+        if (t) t.setAttribute('aria-checked', (root.getAttribute('data-theme') || 'light') === 'dark' ? 'true' : 'false');
+    }
+    syncBar();
+
+    // Delegate all three controls to their sidebar counterparts so main.js's
+    // full handler chain fires — applyPaletteSwatches, colour name labels, etc.
+    var paletteBar = document.getElementById('themes-pref-palette');
+    if (paletteBar) {
+        paletteBar.querySelectorAll('[data-value]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var sb = document.querySelector('#pref-palette [data-value="' + btn.dataset.value + '"]');
+                if (sb) sb.click();
+            });
+        });
+    }
+
+    var colorBar = document.getElementById('themes-pref-color');
+    if (colorBar) {
+        colorBar.querySelectorAll('[data-value]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var sb = document.querySelector('#pref-color [data-value="' + btn.dataset.value + '"]');
+                if (sb) sb.click();
+            });
+        });
+    }
+
+    var textSizeBar = document.getElementById('themes-pref-text-size');
+    if (textSizeBar) {
+        textSizeBar.querySelectorAll('[data-value]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var sb = document.querySelector('#pref-text-size [data-value="' + btn.dataset.value + '"]');
+                if (sb) sb.click();
+            });
+        });
+    }
+
+    var themeBtn = document.getElementById('themes-pref-theme');
+    if (themeBtn) {
+        themeBtn.addEventListener('click', function () {
+            var sb = document.getElementById('pref-theme');
+            if (sb) sb.click();
+        });
+    }
+
+    // Keep bar in sync when the sidebar settings panel changes the same root attributes
+    new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+            if (m.attributeName === 'data-palette') syncSelected('themes-pref-palette', root.getAttribute('data-palette') || 'pastel');
+            if (m.attributeName === 'data-color') syncSelected('themes-pref-color', root.getAttribute('data-color') || 'purple');
+            if (m.attributeName === 'data-text-size') syncSelected('themes-pref-text-size', root.getAttribute('data-text-size') || 'md');
+            if (m.attributeName === 'data-theme') {
+                var t = document.getElementById('themes-pref-theme');
+                if (t) t.setAttribute('aria-checked', (root.getAttribute('data-theme') || 'light') === 'dark' ? 'true' : 'false');
+            }
+        });
+    }).observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-color', 'data-palette', 'data-text-size'] });
+})();
+</script>
 {% endblock %}

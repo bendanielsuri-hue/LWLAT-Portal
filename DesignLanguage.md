@@ -7,11 +7,14 @@ Extracted from the Inclusion Panel and SEND & Provision hub — the most complet
 ## Design philosophy
 
 - **Token-first**: every colour, radius, shadow, spacing unit and font size references a CSS custom property. No hardcoded hex values or pixel radii outside the token definitions in `static/css/tokens/`, `static/css/theme/`, and `static/css/style.css`.
-- **Surface layering**: visual depth is expressed by background tokens alone — no box-shadows to simulate elevation except on floating surfaces (cards, modals). The four layers in ascending depth:
+- **Surface layering**: visual depth is expressed by background tokens alone — no box-shadows to simulate elevation except on floating surfaces (cards, modals). The five layers in ascending depth:
   - `--bg-page` → page canvas
   - `--bg-surface` → cards, list containers, panels
-  - `--bg-surface-alt` → inputs, read-only fields, secondary/inner cards
-  - `--bg-nested` → items nested inside a `--bg-surface` card (meeting-card, referral-pick-item, action-item, agenda-preview-item)
+  - `--bg-surface-alt` → alternating rows, header strips, inputs, read-only fields; same depth as `--bg-surface`, different shade
+  - `--bg-nested` → content semantically *inside* a card: sub-panels, expanded sections, indented child lists (meeting-card, referral-pick-item, action-item, agenda-preview-item)
+  - `--bg-well` → deep trough within a nested section: a scrollable list well, a grouped field area; rarely needed
+
+  **Alt vs nested** — the test: would a user describe this content as being *inside* or *under* something? Use `--bg-nested`. Or is it a visual stripe to break up peer items at the same level? Use `--bg-surface-alt`.
 - **Meaning through colour, not decoration**: accent colour (`--primary`, `--success`, `--warning`, `--danger`) signals state; neutral tones (`--badge-bg`, `--text-secondary`) mean "no special significance". Never use a semantic colour purely for visual interest.
 - **Interaction is consistent sitewide**: hover, selected, and focus-visible states use the same three tokens everywhere — `--row-hover-bg`, `--primary-light` + inset shadow, `outline: 2px solid var(--primary)`.
 
@@ -328,4 +331,4 @@ Each entry states what to avoid and why it breaks something.
 
 16. **Don't use `.list-page-shell` on a page that doesn't need internal scrolling**. The shell assumes fixed viewport height and pins a stats footer at the bottom. On a short or variable-height page it produces excess whitespace or a misplaced footer.
 
-17. **Don't nest `--bg-nested` inside another `--bg-nested` container**. The depth layers are: `--bg-surface` (card) → `--bg-nested` (item inside card). Going deeper produces backgrounds that are indistinguishable in light mode and invisible in dark mode.
+17. **Don't go deeper than the defined depth stack**. The layers are: `--bg-surface` → `--bg-nested` → `--bg-well`. Nesting `--bg-nested` inside `--bg-nested`, or `--bg-well` inside `--bg-well`, produces backgrounds that are indistinguishable in light mode and invisible in dark mode. If you feel you need a fourth depth level, the component needs redesigning.
