@@ -18,11 +18,19 @@
 
 /* Inside the .list-page-shell (Panel Home): the columns/cards fill the space
    above the stats footer and each card's own list scrolls internally, same
-   pattern as .list-card/.entity-list on the Students/Referrals/Actions pages. */
+   pattern as .list-card/.entity-list on the Students/Referrals/Actions pages.
+   Scoped to :has(.panel-columns) rather than changing .list-page-shell
+   globally — Students/Referrals/Actions use a single .list-card (with its own
+   margin-bottom) inside the same shell class, and would double up on spacing
+   if this gap applied there too. Row-to-row vertical spacing matches the
+   horizontal --space-xl gap .panel-columns already uses between its two
+   cards, so the rhythm reads the same in both directions. */
+.list-page-shell:has(.panel-columns) {
+    gap: var(--space-xl);
+}
 .list-page-shell .panel-columns {
     flex: 1;
     min-height: 0;
-    margin-bottom: var(--space-md);
     align-items: stretch;
     /* Cards must stay side-by-side here — the shell's fixed height assumes a
        single row. Letting them wrap to a stacked layout (the default
@@ -42,6 +50,50 @@
     flex-shrink: 0;
 }
 .list-page-shell .panel-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Belt-and-braces: every direct child of a shell panel-card needs min-height:
+   0, not just the scrolling list. Flex items default to min-height: auto,
+   which floors them at their content's min-content size — a non-scrolling
+   child (empty-state text, a preview block) can silently refuse to shrink
+   and reintroduce the "invisible overflow scrollbar" this shell exists to
+   prevent, even though the scrolling list itself is perfectly fine. */
+.list-page-shell .panel-card > * {
+    min-height: 0;
+}
+
+/* Row 1 (My Referrals/My Actions) is the primary operational area and should
+   dominate the page; Row 2 (Next Panel Meeting/Recent Activity) is secondary
+   context and stays compressed — a 65:35 split of the shell's free space
+   (down from an even 50:50), roughly a 30% height reduction for Row 2. */
+.list-page-shell .panel-columns.panel-row-primary { flex: 65 1 0; }
+.list-page-shell .panel-columns.panel-row-secondary { flex: 35 1 0; }
+
+/* Within Row 2: Next Panel Meeting stays narrow, Recent Activity gets more
+   width, overriding the generic .panel-card flex-basis. */
+.panel-row-secondary .panel-card-meeting { flex: 35 1 0%; }
+.panel-row-secondary .panel-card-activity { flex: 65 1 0%; }
+
+/* Next Panel Meeting's content is short relative to its now-compact card —
+   center it rather than leaving it pinned to the top with dead space below. */
+.panel-card-meeting { justify-content: center; }
+
+/* .empty-note's default padding/font-size (space-3xl + font-xl) is sized for
+   a full-height list-card empty state — inside a compressed Row 2 card that
+   min-content floor is exactly the kind of thing rule 18 above guards
+   against, so it's shrunk here specifically for the shell context. */
+.list-page-shell .panel-card .empty-note {
+    padding: var(--space-sm) 0;
+    font-size: var(--font-base);
+}
+
+/* Recent Activity's feed scrolls internally exactly like .panel-list above —
+   the header stays put via .list-page-shell .panel-card-header's existing
+   flex-shrink: 0, so no separate sticky-header handling is needed here. */
+.list-page-shell .activity-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -124,13 +176,42 @@
 .panel-list li.empty-note:hover { background: transparent; }
 
 .panel-preview {
-    text-align: center;
-    padding: var(--space-md) 0;
+    padding: var(--space-sm) 0 var(--space-xs);
 }
+
+/* Logo + title/date sit side by side rather than stacked-and-centered — fills
+   the card's width instead of leaving it empty either side of a narrow
+   centered column. */
+.panel-preview-top {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.panel-preview-logo {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.panel-preview-logo img { width: 100%; height: 100%; object-fit: contain; }
+.panel-preview-logo svg { width: 24px; height: 24px; }
+
+.panel-preview-heading { min-width: 0; }
 
 .panel-preview-title {
     font-size: var(--font-lg);
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
 }
 
 .panel-preview-date {
@@ -138,9 +219,13 @@
     margin-top: var(--space-micro);
 }
 
+.panel-preview .btn-row {
+    justify-content: flex-start;
+    margin-top: var(--space-md);
+}
+
 .panel-preview-stats {
     display: flex;
-    justify-content: center;
     gap: var(--space-lg);
     margin-top: var(--space-md);
     font-size: var(--font-base);
@@ -157,6 +242,7 @@
 
 .activity-list li {
     display: flex;
+    align-items: center;
     gap: var(--space-md);
     padding: var(--space-sm) var(--space-lg);
     border-bottom: 1px solid var(--border-color);
@@ -165,6 +251,22 @@
 .activity-list li:last-child {
     border-bottom: none;
 }
+
+/* Subtle accent tint per event kind (created/completed/assigned), same
+   --color-* tokens as .stat-card--accent-* so the palette reads as one system. */
+.activity-icon {
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.activity-icon svg { width: 15px; height: 15px; }
+.activity-icon--primary   { color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.activity-icon--positive  { color: var(--color-positive); background: color-mix(in srgb, var(--color-positive) 14%, transparent); }
+.activity-icon--exceeding { color: var(--color-exceeding); background: color-mix(in srgb, var(--color-exceeding) 14%, transparent); }
 
 .activity-time {
     flex: 0 0 70px;
@@ -243,8 +345,11 @@
 
 .status-pill.danger { background: var(--color-negative-bg); color: var(--color-negative); }
 .status-pill.open { background: var(--color-warning-bg); color: var(--color-warning); }
-.status-pill.upcoming { background: var(--color-warning-bg); color: var(--color-warning); }
+.status-pill.draft { background: var(--badge-bg); color: var(--text-secondary); }
+.status-pill.ready { background: var(--color-positive-bg); color: var(--color-positive); }
+.status-pill.running,
 .status-pill.in_panel { background: var(--primary-light); color: var(--primary); }
+.status-pill.delayed { background: var(--color-warning-bg); color: var(--color-warning); }
 .status-pill.closed { background: var(--color-positive-bg); color: var(--color-positive); }
 .status-pill.discussed { background: var(--color-positive-bg); color: var(--color-positive); }
 
@@ -264,24 +369,79 @@
 /* Panel Meetings list — gap (not each card's own margin-bottom) spaces the
    cards, so there's no extra trailing space after the last one. */
 .meeting-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+/* The "Next Panel" heading is a full-width banner above the column row,
+   not inside the name column — so it never affects that row's height and
+   the divider lines/vertical centring across columns stay identical whether
+   or not a card happens to be the next one. It gets its own divider (border-
+   bottom) separating it from the row, and — when the logo column is present
+   — is nudged right by the logo's width + gap so its left edge lines up with
+   the panel name below rather than the card's own edge. The name column is
+   fixed-width so every card's columns start at the same x position
+   regardless of panel name length. The two detail columns grow to fill
+   whatever space is left between the name column and the actions, with all
+   their contents left-aligned (no right-aligned label sub-column). The
+   action column is pinned to the card's far right with margin-left: auto
+   and never changes size, and doesn't get a divider of its own — the gap
+   before it is enough. */
 .meeting-card {
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
     padding: var(--space-md);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-md);
-    background: var(--bg-nested);
+    background: var(--meeting-card-bg, var(--bg-nested));
     box-shadow: var(--shadow-sm);
+}
+.meeting-card-row { display: flex; align-items: center; gap: var(--space-lg); }
+.meeting-card-col { min-width: 0; }
+.meeting-card-col:not(:first-child):not(.meeting-card-actions) { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
+.meeting-card-logo {
+    flex: 0 0 auto;
+    width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+}
+.meeting-card-main { flex: 0 0 300px; }
+.meeting-card-info { flex: 1 1 0; }
+.meeting-card-actions { flex: 0 0 auto; margin-left: auto; min-width: 320px; justify-content: flex-end; }
+.meeting-card h3 { font-size: var(--font-lg); margin-bottom: var(--space-xxs); }
+.meeting-date-line { font-size: var(--font-md); font-weight: 500; color: var(--text-primary); }
+.next-panel-label {
+    font-size: var(--font-xl);
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border-color);
+}
+.next-panel-label-indent { margin-left: calc(32px + var(--space-lg)); }
+.meeting-card:hover, .meeting-card.chosen { background: var(--meeting-card-hover-bg); }
+.meeting-card:hover h3, .meeting-card.chosen h3 { font-weight: 700; }
+.meeting-status-line {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
     flex-wrap: wrap;
 }
-.meeting-card h3 { font-size: var(--font-lg); margin-bottom: var(--space-xxs); }
-.meeting-card h3 .school-nav-logo { vertical-align: -3px; margin-right: 2px; }
-.meeting-card:hover { border-color: var(--accent-border); background: var(--meeting-card-hover-bg); }
-.meeting-card:hover h3 { font-weight: 700; }
-.meeting-card .chair { font-size: var(--font-sm); color: var(--text-secondary); }
-.meeting-card.chosen { border-color: var(--accent-border); box-shadow: var(--shadow-sm), 0 0 0 2px var(--primary-light); }
+/* .status-pill's own 10px horizontal padding otherwise makes its text sit
+   inset compared to the plain-text row below it (e.g. "0 Referrals") in the
+   same column — cancel it out on the first pill so both rows line up. */
+.meeting-status-line .status-pill:first-child { margin-left: -10px; }
+.meeting-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+.meeting-info-label { font-weight: 600; margin-right: var(--space-xxs); }
+.meeting-info-label::after { content: ":"; }
+.meeting-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border-strong); }
+.meeting-card.chosen { box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong); }
+.meeting-card.chosen:hover { box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong), inset 0 0 0 1px var(--border-strong); }
 
 /* Panel Meetings' own action card: at-a-glance stats + "Create New Panel",
    sitting as its own bordered card above the tab-row/meeting-list card
@@ -552,19 +712,6 @@
     display: block;
 }
 
-/* "Next panel" badge on the Panel Meetings list */
-.next-badge {
-    font-size: var(--font-2xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--primary);
-    background: var(--primary-light);
-    padding: 3px 8px;
-    border-radius: var(--radius-xs);
-    margin-left: var(--space-xs);
-}
-
 .panel-toolbar {
     display: flex;
     justify-content: space-between;
@@ -785,6 +932,79 @@ dialog.modal-dialog .modal-close {
 dialog.modal-dialog .modal-close:hover { color: var(--text-primary); }
 dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--space-md); }
 #requires-followup-row { justify-content: flex-start; margin-top: 0; }
+
+/* Panel search modal — fixed size/position regardless of result count, so
+   the dialog never resizes or re-centers as you type (see DesignLanguage.md
+   "Interaction patterns should never surprise the user with layout shift").
+   Anchored near the top rather than the shared .modal-dialog's vertical
+   centering, since a tall fixed-height dialog centered on a short viewport
+   would run off both edges. An ID selector here would otherwise outrank the
+   UA stylesheet's dialog:not([open]) { display: none }, so this must stay
+   scoped to [open] — without it the dialog sits permanently laid out and
+   pointer-interactive (just invisible via .modal-dialog's opacity: 0) over
+   the middle of the page even when closed, silently swallowing clicks/hover
+   for whatever's underneath. */
+dialog#panel-search-dialog[open] {
+    top: 8vh;
+    bottom: auto;
+    margin: 0 auto;
+    height: 76vh;
+    max-height: 76vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+dialog#panel-search-dialog .modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.panel-search-input {
+    width: 100%;
+    flex: 0 0 auto;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+}
+.panel-search-input:focus {
+    outline: 1px solid var(--border-strong);
+}
+.panel-search-results {
+    margin-top: var(--space-md);
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+.search-hint {
+    animation: tab-row-fade-in var(--transition-slow);
+}
+.search-result-group + .search-result-group { margin-top: var(--space-md); }
+.search-result-group-label {
+    font-size: var(--font-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-xs);
+}
+.search-result-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-md);
+    padding: var(--space-sm) var(--space-xs);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+}
+.search-result-row:hover { background: var(--row-hover-bg); }
+.search-result-text { display: flex; flex-direction: column; min-width: 0; }
+.search-result-title { font-weight: 700; }
+.search-result-subtitle { color: var(--text-secondary); font-size: var(--font-sm); }
 
 .panel-group-member-row { display: flex; gap: var(--space-xs); margin-bottom: var(--space-xs); }
 .panel-group-member-row select { flex: 1; min-width: 0; }

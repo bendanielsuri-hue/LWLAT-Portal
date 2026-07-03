@@ -4,7 +4,7 @@
 {% block title %}Panel Setup{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=65">
 {% endblock %}
 
 
@@ -27,6 +27,23 @@
 {% block page_subtitle %}<p class="page-subtitle">Panel: {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}</p>{% endblock %}
 
 {% block content %}
+
+{% if panel.status == 'draft' or panel.status == 'ready' or panel.status == 'delayed' %}
+<div class="panel-toolbar">
+    <div class="panel-toolbar-stats">
+        <span class="status-pill {{ panel.status }}">{{ panel.get_status_display }}</span>
+    </div>
+    <div class="btn-row">
+        {% if panel.status != 'delayed' %}
+        <form method="post" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="toggle_ready">
+            <button type="submit" class="btn btn-secondary btn-sm">{% if panel.status == 'ready' %}Mark as Draft{% else %}Mark as Ready{% endif %}</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 <div class="setup-columns">
     <div class="setup-col">

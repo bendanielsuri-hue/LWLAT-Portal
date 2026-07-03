@@ -4,7 +4,7 @@
 {% block title %}Students{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=65">
 {% endblock %}
 
 
@@ -200,6 +200,15 @@ document.addEventListener('DOMContentLoaded', function () {
     setupToggle(hasReferralsToggle, applyFilters);
     setupToggle(overdueActionsToggle, applyFilters);
     if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
+
+    // Arriving from the panel search modal's "Search students…" prefills
+    // the name search with that student so this page opens already scoped
+    // to them (same convention as referrals.html/actions.html).
+    var params = new URLSearchParams(window.location.search);
+    var name = params.get('name');
+    if (name && search) search.value = name;
+
+    applyFilters();
 });
 </script>
 {% endblock %}

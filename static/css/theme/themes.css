@@ -139,8 +139,8 @@
    Explicit attribute activates tinting and Pastel-specific vars. */
 [data-theme="pastel"] {
     /* Base colours: warm-neutral instead of cool/blue-grey */
-    --bg-page-base: #f8f7f5; --bg-nav-base: #efebe4; --bg-surface-alt: #fbf9f6;
-    --bg-well-base: #f1ede6; --bg-nested-base: #fbf9f6; --bg-rail-base: #e3ddd2;
+    --bg-page-base: #f8f7f5; --bg-nav-base: #efebe4; --bg-surface-alt: #fdf8ee;
+    --bg-well-base: #f1ede6; --bg-nested-base: #fdf8ee; --bg-rail-base: #e3ddd2;
     /* Tinting configuration */
     --bg-tint-colour: #ffe9cf; --bg-tint-page: 6%; --bg-tint-nav: 18%; --bg-tint-surface: 0%; --bg-tint-well: 7%; --bg-tint-nested: 4%; --bg-tint-rail: 26%;
     /* Meeting-card hover: warm tint dose rather than neutral grey */
@@ -149,8 +149,11 @@
        primary) to keep card/row selection calm against the warm Pastel surface. */
     --btn-secondary-border: var(--accent-border);
     --btn-secondary-hover-border: var(--accent-border);
-    /* Accent border: softened blend so card/row selection stays calm */
-    --accent-border: color-mix(in srgb, var(--primary) 42%, #fff);
+    /* Accent border: softened blend so card/row selection stays calm. Blends
+       toward --bg-surface (not a hardcoded #fff) so the softened border stays
+       subtle in dark mode too, instead of bleaching out to near-white against
+       a dark card. */
+    --accent-border: color-mix(in srgb, var(--primary) 42%, var(--bg-surface));
     /* Borders: warmer tone */
     --border-color: #f5efe2; --border-strong: #ece0cc;
     /* Borders do the framing — no drop-shadows on cards */
@@ -165,14 +168,26 @@
 }
 /* Stat card borders: the shared saturated --color-* tokens (same value as
    every other theme) read jarring against Pastel's warm, muted surfaces,
-   so soften them the same way --accent-border already softens primary. */
+   so soften them the same way --accent-border already softens primary.
+   Blended toward --bg-surface rather than a hardcoded #fff so the softened
+   border stays subtle in dark mode instead of bleaching toward white. */
 [data-theme="pastel"] .stat-card { border-color: var(--accent-border); }
 [data-theme="pastel"] .stat-card--accent-primary   { border-color: var(--accent-border); }
-[data-theme="pastel"] .stat-card--accent-exceeding { border-color: color-mix(in srgb, var(--color-exceeding) 42%, #fff); }
-[data-theme="pastel"] .stat-card--accent-positive  { border-color: color-mix(in srgb, var(--color-positive) 42%, #fff); }
-[data-theme="pastel"] .stat-card--accent-caution   { border-color: color-mix(in srgb, var(--color-caution) 42%, #fff); }
-[data-theme="pastel"] .stat-card--accent-warning   { border-color: color-mix(in srgb, var(--color-warning) 42%, #fff); }
-[data-theme="pastel"] .stat-card--accent-negative  { border-color: color-mix(in srgb, var(--color-negative) 42%, #fff); }
+[data-theme="pastel"] .stat-card--accent-exceeding { border-color: color-mix(in srgb, var(--color-exceeding) 42%, var(--bg-surface)); }
+[data-theme="pastel"] .stat-card--accent-positive  { border-color: color-mix(in srgb, var(--color-positive) 42%, var(--bg-surface)); }
+[data-theme="pastel"] .stat-card--accent-caution   { border-color: color-mix(in srgb, var(--color-caution) 42%, var(--bg-surface)); }
+[data-theme="pastel"] .stat-card--accent-warning   { border-color: color-mix(in srgb, var(--color-warning) 42%, var(--bg-surface)); }
+[data-theme="pastel"] .stat-card--accent-negative  { border-color: color-mix(in srgb, var(--color-negative) 42%, var(--bg-surface)); }
+
+/* Priority chips: same over-saturated-border problem as stat cards above —
+   soften the same way in Pastel so the chip outline doesn't shout against
+   the warm/dark surface. */
+[data-theme="pastel"] .priority-chip.priority-high,
+[data-theme="pastel"] .priority-chip.priority-high.active   { border-color: color-mix(in srgb, var(--color-negative) 42%, var(--bg-surface)); }
+[data-theme="pastel"] .priority-chip.priority-medium,
+[data-theme="pastel"] .priority-chip.priority-medium.active { border-color: color-mix(in srgb, var(--color-warning) 42%, var(--bg-surface)); }
+[data-theme="pastel"] .priority-chip.priority-low,
+[data-theme="pastel"] .priority-chip.priority-low.active    { border-color: color-mix(in srgb, var(--color-caution) 42%, var(--bg-surface)); }
 
 /* SEND K/E/N triadic secondary/tertiary — see vibrant block above for the
    family-grouping rationale. Pastel anchors reuse the base (unoverridden)
@@ -520,15 +535,15 @@
    saturated surfaces, so boost the fill and add a glow to match the rest of
    the theme's bold treatment. */
 [data-theme="neon"] .stat-card {
-    background: color-mix(in srgb, var(--primary) 16%, var(--bg-surface-alt));
+    --stat-card-bg: color-mix(in srgb, var(--primary) 16%, var(--bg-surface-alt));
     box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 20%, transparent);
 }
-[data-theme="neon"] .stat-card--accent-primary   { background: color-mix(in srgb, var(--primary) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 30%, transparent); }
-[data-theme="neon"] .stat-card--accent-exceeding { background: color-mix(in srgb, var(--color-exceeding) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-exceeding) 30%, transparent); }
-[data-theme="neon"] .stat-card--accent-positive  { background: color-mix(in srgb, var(--color-positive) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-positive) 30%, transparent); }
-[data-theme="neon"] .stat-card--accent-caution   { background: color-mix(in srgb, var(--color-caution) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-caution) 30%, transparent); }
-[data-theme="neon"] .stat-card--accent-warning   { background: color-mix(in srgb, var(--color-warning) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 30%, transparent); }
-[data-theme="neon"] .stat-card--accent-negative  { background: color-mix(in srgb, var(--color-negative) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-negative) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-primary   { --stat-card-bg: color-mix(in srgb, var(--primary) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-exceeding { --stat-card-bg: color-mix(in srgb, var(--color-exceeding) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-exceeding) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-positive  { --stat-card-bg: color-mix(in srgb, var(--color-positive) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-positive) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-caution   { --stat-card-bg: color-mix(in srgb, var(--color-caution) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-caution) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-warning   { --stat-card-bg: color-mix(in srgb, var(--color-warning) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 30%, transparent); }
+[data-theme="neon"] .stat-card--accent-negative  { --stat-card-bg: color-mix(in srgb, var(--color-negative) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-negative) 30%, transparent); }
 
 /* Selected entity row: inset primary bar + inner bloom */
 [data-theme="neon"] .entity-row.chosen {

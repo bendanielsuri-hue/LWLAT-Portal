@@ -4,7 +4,7 @@
 {% block title %}Actions{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=65">
 {% endblock %}
 
 
@@ -72,6 +72,12 @@
         </div>
     </div>
     <div class="filter-field">
+        <label>Due This Week</label>
+        <div class="filter-toggle-wrap">
+            <button type="button" id="due-this-week-toggle" class="toggle-pill" aria-pressed="false" aria-label="Due This Week"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-field">
         <label>Assigned to Me</label>
         <div class="filter-toggle-wrap">
             <button type="button" id="assigned-to-me-toggle" class="toggle-pill" aria-pressed="false" aria-label="Assigned to Me"><span class="toggle-knob"></span></button>
@@ -90,6 +96,7 @@
         data-assigned="{% if action.assigned_to_id %}{{ action.assigned_to_id }}{% else %}unassigned{% endif %}"
         data-status="{{ action.status }}"
         data-overdue="{% if action.status == 'incomplete' and action.due_date and action.due_date < today %}true{% else %}false{% endif %}"
+        data-due-this-week="{% if action.status == 'incomplete' and action.due_date and action.due_date >= week_start and action.due_date <= week_end %}true{% else %}false{% endif %}"
         data-student-id="{{ action.referral.student_id }}"
         data-referral-id="{{ action.referral_id }}">
         <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
@@ -128,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var assignedFilter = document.getElementById('assigned-filter');
     var statusFilter = document.getElementById('status-filter');
     var overdueToggle = document.getElementById('overdue-toggle');
+    var dueThisWeekToggle = document.getElementById('due-this-week-toggle');
     var meSelect = document.getElementById('me-select');
     var assignedToMeToggle = document.getElementById('assigned-to-me-toggle');
     var clearFiltersBtn = document.getElementById('clear-filters');
@@ -153,6 +161,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var category = categoryFilter ? categoryFilter.value : '';
         var status = statusFilter ? statusFilter.value : '';
         var overdueOnly = overdueToggle && overdueToggle.classList.contains('on');
+        var dueThisWeekOnly = dueThisWeekToggle && dueThisWeekToggle.classList.contains('on');
         var assignedToMeOnly = assignedToMeToggle && assignedToMeToggle.classList.contains('on');
         var assigned = assignedToMeOnly ? (meSelect ? meSelect.value : '') : (assignedFilter ? assignedFilter.value : '');
         var shown = 0;
@@ -163,7 +172,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 && (!category || row.dataset.category === category)
                 && (!assigned || row.dataset.assigned === assigned)
                 && (!status || row.dataset.status === status)
-                && (!overdueOnly || row.dataset.overdue === 'true');
+                && (!overdueOnly || row.dataset.overdue === 'true')
+                && (!dueThisWeekOnly || row.dataset.dueThisWeek === 'true');
             row.style.display = matches ? '' : 'none';
             if (matches) {
                 shown++;
@@ -182,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (categoryFilter) categoryFilter.value = '';
         if (assignedFilter) assignedFilter.value = '';
         if (statusFilter) statusFilter.value = '';
-        [overdueToggle, assignedToMeToggle].forEach(function (toggle) {
+        [overdueToggle, dueThisWeekToggle, assignedToMeToggle].forEach(function (toggle) {
             if (!toggle) return;
             toggle.classList.remove('on');
             toggle.setAttribute('aria-pressed', 'false');
@@ -191,10 +201,24 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Arriving from a student's "Actions" button pre-fills the name search
-    // with that student so this page opens already scoped to them.
+    // with that student so this page opens already scoped to them; arriving
+    // from a staff member's "Actions Assigned" search result pre-fills the
+    // Assigned To filter the same way.
     var params = new URLSearchParams(window.location.search);
     var name = params.get('name');
     if (name && search) search.value = name;
+    var assignedId = params.get('assigned');
+    if (assignedId && assignedFilter) assignedFilter.value = assignedId;
+    var statusParam = params.get('status');
+    if (statusParam && statusFilter) statusFilter.value = statusParam;
+    if (params.get('overdue') === '1' && overdueToggle) {
+        overdueToggle.classList.add('on');
+        overdueToggle.setAttribute('aria-pressed', 'true');
+    }
+    if (params.get('due_this_week') === '1' && dueThisWeekToggle) {
+        dueThisWeekToggle.classList.add('on');
+        dueThisWeekToggle.setAttribute('aria-pressed', 'true');
+    }
 
     if (search) search.addEventListener('input', applyFilters);
     if (categoryFilter) categoryFilter.addEventListener('change', applyFilters);
@@ -203,6 +227,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (overdueToggle) overdueToggle.addEventListener('click', function () {
         var isOn = overdueToggle.classList.toggle('on');
         overdueToggle.setAttribute('aria-pressed', String(isOn));
+        applyFilters();
+    });
+    if (dueThisWeekToggle) dueThisWeekToggle.addEventListener('click', function () {
+        var isOn = dueThisWeekToggle.classList.toggle('on');
+        dueThisWeekToggle.setAttribute('aria-pressed', String(isOn));
         applyFilters();
     });
     if (assignedToMeToggle) assignedToMeToggle.addEventListener('click', function () {

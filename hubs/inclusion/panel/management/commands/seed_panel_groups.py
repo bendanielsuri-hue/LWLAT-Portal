@@ -36,3 +36,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(
                 f'{group.name} ({school.name}): {len(staff_pool)} member(s) seeded.'
             ))
+
+            if group.default_chair_id is None and staff_pool:
+                group.default_chair = staff_pool[0]
+                group.save(update_fields=['default_chair'])
+                self.stdout.write(self.style.SUCCESS(
+                    f'  Set default chair for {group.name} to {staff_pool[0]}.'
+                ))

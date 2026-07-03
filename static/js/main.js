@@ -644,17 +644,21 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // the zone's own bottom padding sits below the header and before the shell,
     // so measuring just the header undercounts that gap and leaves the shell a
     // few pixels too tall (a permanent, near-invisible overflow scrollbar on
-    // main even though nothing looks cut off). The trailing 16 leaves the shell
-    // sitting in half of .main-inner's 32px bottom page padding, so the gap
-    // below the shell's own footer (e.g. the stats strip) matches the ~16px
-    // gap above it instead of doubling it.
+    // main even though nothing looks cut off). The trailing subtraction must
+    // match .main-inner's own bottom padding (--space-2xl, 32px) exactly — that
+    // padding is rendered unconditionally after the shell regardless of the
+    // shell's own height, so subtracting anything less than the full 32px
+    // leaves main's content 32-minus-that-much taller than the viewport,
+    // forcing a scrollbar even though every card looks perfectly laid out
+    // above it (confirmed: shrinking this constant from 16 to 32 removed a
+    // reproducible bottom-of-page scroll on Inclusion Panel Home).
     (function setupListPageShellHeight() {
         var header = document.querySelector('.sticky-header-zone') || document.querySelector('.page-header');
         var shells = document.querySelectorAll('.list-page-shell');
         if (!header || !shells.length) return;
 
         function applyHeight() {
-            var height = window.innerHeight - header.getBoundingClientRect().bottom - 16;
+            var height = window.innerHeight - header.getBoundingClientRect().bottom - 32;
             shells.forEach(function (shell) { shell.style.height = height + 'px'; });
         }
 

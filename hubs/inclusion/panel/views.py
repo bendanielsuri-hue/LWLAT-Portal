@@ -1,5 +1,6 @@
 import datetime
 import json
+from urllib.parse import quote
 
 from django.db.models import Count, Max, Q
 from django.http import JsonResponse
@@ -155,6 +156,28 @@ def _due_followups(panel, as_of=None):
     ).select_related('referral__student', 'panel')
 
 
+def _sync_delayed_panels():
+    # 'delayed' is computed, never set by hand: a panel that hasn't been started and
+    # whose scheduled time has passed is delayed; if it's rescheduled back into the
+    # future it reverts to draft. Completion stays a manual-only action
+    # (end_panel_meeting) — this never touches 'ready'/'running'/'complete' panels.
+    now = timezone.now()
+    for panel in Panel.objects.filter(status__in=['draft', 'ready'], started_at__isnull=True):
+        scheduled_at = timezone.make_aware(
+            datetime.datetime.combine(panel.date, panel.time or datetime.time.min)
+        )
+        if scheduled_at < now:
+            panel.status = 'delayed'
+            panel.save(update_fields=['status'])
+    for panel in Panel.objects.filter(status='delayed', started_at__isnull=True):
+        scheduled_at = timezone.make_aware(
+            datetime.datetime.combine(panel.date, panel.time or datetime.time.min)
+        )
+        if scheduled_at >= now:
+            panel.status = 'draft'
+            panel.save(update_fields=['status'])
+
+
 def _activity_display_time(dt):
     local_dt = timezone.localtime(dt)
     today = timezone.localdate()
@@ -171,17 +194,29 @@ def _recent_activity(scoped_students, school_key, limit=8):
         InclusionReferral.objects.filter(student__in=scoped_students)
         .select_related('student').order_by('-created_at')[:limit]
     ):
-        events.append({'timestamp': referral.created_at, 'text': f'Referral created for {referral.student}'})
+        events.append({
+            'timestamp': referral.created_at,
+            'text': f'Referral created for {referral.student}',
+            'icon': 'document', 'accent': 'primary',
+        })
     for action in (
         Action.objects.filter(referral__student__in=scoped_students, completed_at__isnull=False)
         .select_related('referral__student').order_by('-completed_at')[:limit]
     ):
-        events.append({'timestamp': action.completed_at, 'text': f'Action completed for {action.referral.student}'})
+        events.append({
+            'timestamp': action.completed_at,
+            'text': f'Action completed for {action.referral.student}',
+            'icon': 'checkmark', 'accent': 'positive',
+        })
     for pr in (
         PanelReferral.objects.filter(referral__student__in=scoped_students, removed_at__isnull=True)
         .select_related('referral__student').order_by('-created_at')[:limit]
     ):
-        events.append({'timestamp': pr.created_at, 'text': f'{pr.referral.student} assigned to panel'})
+        events.append({
+            'timestamp': pr.created_at,
+            'text': f'{pr.referral.student} assigned to panel',
+            'icon': 'people', 'accent': 'exceeding',
+        })
     completed_panels = _panels_for_school_key(
         Panel.objects.filter(status='complete', ended_at__isnull=False).select_related('panel_group__school'),
         school_key,
@@ -189,7 +224,10 @@ def _recent_activity(scoped_students, school_key, limit=8):
     for panel in completed_panels:
         school_name = panel.panel_group.school.name if panel.panel_group_id and panel.panel_group.school_id else None
         label = f'{school_name} panel meeting completed' if school_name else 'Panel meeting completed'
-        events.append({'timestamp': panel.ended_at, 'text': label})
+        events.append({
+            'timestamp': panel.ended_at, 'text': label,
+            'icon': 'checkmark', 'accent': 'positive',
+        })
 
     events.sort(key=lambda e: e['timestamp'], reverse=True)
     events = events[:limit]
@@ -274,7 +312,66 @@ def _response_groups(referral):
     return groups
 
 
+def inclusion_panel_search(request):
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+
+    school_key = current_school_key(request)
+    scoped_students = student_queryset_for_school_key(school_key)
+    is_panel_staff = _is_panel_staff(_current_staff(request))
+
+    students_url = reverse('inclusion_panel_students')
+    referrals_url = reverse('inclusion_panel_referrals')
+    actions_url = reverse('inclusion_panel_actions')
+
+    def name_param(student):
+        return f'name={quote(f"{student.first_name} {student.last_name}")}'
+
+    results = []
+
+    students = scoped_students.filter(
+        Q(first_name__icontains=q) | Q(last_name__icontains=q)
+    )[:5]
+    for student in students:
+        param = name_param(student)
+        referrals_count = student.referrals.count()
+        actions_count = Action.objects.filter(referral__student=student).count()
+        results.append({
+            'kind': 'student',
+            'title': f'{student.last_name}, {student.first_name}',
+            'subtitle': f'Year {student.year_group}' if student.year_group else 'Student',
+            'links': [
+                {'label': 'Student', 'url': f'{students_url}?{param}', 'disabled': False},
+                {'label': f'Referrals ({referrals_count})', 'url': f'{referrals_url}?{param}', 'disabled': referrals_count == 0},
+                {'label': f'Actions ({actions_count})', 'url': f'{actions_url}?{param}', 'disabled': actions_count == 0},
+            ],
+        })
+
+    staff_members = staff_queryset_for_school_key(school_key).filter(
+        Q(first_name__icontains=q) | Q(last_name__icontains=q)
+    )[:5]
+    for staff in staff_members:
+        referrals_raised = InclusionReferral.objects.filter(student__in=scoped_students, raised_by=staff).count()
+        actions_assigned = Action.objects.filter(referral__student__in=scoped_students, assigned_to=staff)
+        if not is_panel_staff:
+            actions_assigned = actions_assigned.exclude(category__is_sensitive=True)
+        actions_assigned_count = actions_assigned.count()
+        results.append({
+            'kind': 'staff',
+            'title': f'{staff.last_name}, {staff.first_name}',
+            'subtitle': staff.job_title or 'Staff',
+            'links': [
+                {'label': f'Referrals Raised ({referrals_raised})', 'url': f'{referrals_url}?raised_by={staff.id}', 'disabled': referrals_raised == 0},
+                {'label': f'Actions Assigned ({actions_assigned_count})', 'url': f'{actions_url}?assigned={staff.id}', 'disabled': actions_assigned_count == 0},
+            ],
+        })
+
+    return JsonResponse({'results': results})
+
+
 def inclusion_panel_home(request):
+    _sync_delayed_panels()
     current_staff = _current_staff(request)
     is_panel_staff = _is_panel_staff(current_staff)
 
@@ -318,25 +415,44 @@ def inclusion_panel_home(request):
         student__in=scoped_students, status__in=['open', 'in_panel'],
     ).count()
     scoped_actions_qs = Action.objects.filter(referral__student__in=scoped_students)
-    actions_complete_total = scoped_actions_qs.filter(status='complete').count()
-    actions_incomplete_total = scoped_actions_qs.filter(status='incomplete').count()
+    actions_overdue_total = scoped_actions_qs.filter(status='incomplete', due_date__lt=today).count()
+
+    week_start = today - datetime.timedelta(days=today.weekday())
+    week_end = week_start + datetime.timedelta(days=6)
+    actions_due_this_week = scoped_actions_qs.filter(
+        status='incomplete', due_date__gte=week_start, due_date__lte=week_end,
+    ).count()
+    followups_due_count = PanelReferral.objects.filter(
+        referral__student__in=scoped_students,
+        follow_up_status='incomplete',
+        follow_up_date__lte=today,
+        removed_at__isnull=True,
+    ).count()
+    unassigned_referrals_count = InclusionReferral.objects.filter(
+        student__in=scoped_students, status='open',
+    ).count()
 
     next_panel = _panels_for_school_key(
-        Panel.objects.filter(status='upcoming').select_related('panel_group__school').order_by('date'),
+        Panel.objects.exclude(status__in=['complete', 'delayed']).select_related('panel_group__school').order_by('date'),
         school_key,
     ).first()
     next_panel_preview = None
     if next_panel:
+        school = next_panel.panel_group.school if next_panel.panel_group_id else None
         next_panel_preview = {
             'panel': next_panel,
             'school_name': (
-                next_panel.panel_group.school.name if next_panel.panel_group_id and next_panel.panel_group.school_id
+                school.name if school
                 else next_panel.panel_group.name if next_panel.panel_group_id
                 else 'MAT-wide'
             ),
+            'school_logo_url': school.logo_url if school else '',
             'referrals_assigned': next_panel.panel_referrals.filter(removed_at__isnull=True).count(),
-            'members_confirmed': next_panel.members.filter(is_active=True, checked_in_at__isnull=False).count(),
-            'members_total': next_panel.members.filter(is_active=True).count(),
+            'panel_group_members_count': (
+                next_panel.panel_group.members.count() if next_panel.panel_group_id else 0
+            ),
+            'is_today': next_panel.date == today,
+            'is_running': next_panel.status == 'running',
         }
 
     return render(request, 'hubs/inclusion/panel/home.html', {
@@ -353,8 +469,14 @@ def inclusion_panel_home(request):
         'show_referral_tabs': show_referral_tabs,
         'show_action_tabs': show_action_tabs,
         'active_referrals_count': active_referrals_count,
-        'actions_complete_total': actions_complete_total,
-        'actions_incomplete_total': actions_incomplete_total,
+        'actions_overdue_total': actions_overdue_total,
+        'actions_overdue_total_accent': 'positive' if actions_overdue_total == 0 else 'negative',
+        'actions_due_this_week': actions_due_this_week,
+        'actions_due_this_week_accent': 'positive' if actions_due_this_week == 0 else 'caution',
+        'followups_due_count': followups_due_count,
+        'followups_due_count_accent': 'positive' if followups_due_count == 0 else 'negative',
+        'unassigned_referrals_count': unassigned_referrals_count,
+        'unassigned_referrals_count_accent': 'positive' if unassigned_referrals_count == 0 else 'warning',
         'next_panel_preview': next_panel_preview,
         'recent_activity': _recent_activity(scoped_students, school_key),
     })
@@ -416,6 +538,7 @@ def inclusion_panel_referrals(request):
         **PANEL_BASE_CONTEXT,
         'referrals': referrals,
         'status_choices': InclusionReferral.STATUS_CHOICES,
+        'staff_list': staff_queryset_for_school_key(school_key),
         'students_count': scoped_students.filter(referrals__isnull=False).distinct().count(),
         'actions_count': Action.objects.filter(referral__in=referrals).count(),
     })
@@ -571,13 +694,18 @@ def inclusion_panel_actions(request):
     if not is_panel_staff:
         actions = actions.exclude(category__is_sensitive=True)
         categories = categories.exclude(is_sensitive=True)
+    today = timezone.localdate()
+    week_start = today - datetime.timedelta(days=today.weekday())
+    week_end = week_start + datetime.timedelta(days=6)
     return render(request, 'hubs/inclusion/panel/actions.html', {
         **PANEL_BASE_CONTEXT,
         'actions': actions,
         'categories': categories,
         'staff_list': staff_queryset_for_school_key(school_key),
         'status_choices': Action.STATUS_CHOICES,
-        'today': timezone.localdate(),
+        'today': today,
+        'week_start': week_start,
+        'week_end': week_end,
         'actions_count': actions.count(),
         'students_count': Student.objects.filter(referrals__actions__in=actions).distinct().count(),
         'referrals_count': InclusionReferral.objects.filter(actions__in=actions).distinct().count(),
@@ -808,15 +936,16 @@ def inclusion_panel_external_contact_quick_add(request):
 
 
 def inclusion_panel_meetings(request):
+    _sync_delayed_panels()
     today = timezone.localdate()
-    current_staff = _current_staff(request)
     school_key = current_school_key(request)
     is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
+    meetings = []
     upcoming_meetings = []
     past_meetings = []
     next_marked = False
     panels_this_year = 0
-    panels_ive_been_on = 0
+    status_counts = {'draft': 0, 'ready': 0, 'running': 0, 'delayed': 0, 'complete': 0}
     panels = _panels_for_school_key(
         Panel.objects.select_related('chair', 'panel_group__school').prefetch_related('panel_referrals', 'members').order_by('date'),
         school_key,
@@ -824,12 +953,8 @@ def inclusion_panel_meetings(request):
     for panel in panels:
         if panel.date.year == today.year:
             panels_this_year += 1
-        if current_staff is not None and (
-            panel.chair_id == current_staff.id
-            or any(m.staff_id == current_staff.id for m in panel.members.all())
-        ):
-            panels_ive_been_on += 1
-        is_next = panel.status == 'upcoming' and panel.date >= today and not next_marked
+        status_counts[panel.status] = status_counts.get(panel.status, 0) + 1
+        is_next = panel.status not in ('complete', 'delayed') and panel.date >= today and not next_marked
         if is_next:
             next_marked = True
         referral_count = sum(1 for pr in panel.panel_referrals.all() if pr.removed_at is None)
@@ -848,19 +973,21 @@ def inclusion_panel_meetings(request):
             'member_count': panel.members.count(),
             'total_duration': total_duration,
         }
-        if panel.date < today:
-            past_meetings.append(entry)
-        else:
-            upcoming_meetings.append(entry)
+        meetings.append(entry)
+        (past_meetings if panel.status == 'complete' else upcoming_meetings).append(entry)
     past_meetings.reverse()
+    meetings = upcoming_meetings + past_meetings
     panels_needing_referrals = sum(1 for m in upcoming_meetings if not m['referral_count'])
     return render(request, 'hubs/inclusion/panel/meetings.html', {
         **PANEL_BASE_CONTEXT,
-        'upcoming_meetings': upcoming_meetings,
-        'past_meetings': past_meetings,
+        'meetings': meetings,
         'panels_needing_referrals': panels_needing_referrals,
         'panels_this_year': panels_this_year,
-        'panels_ive_been_on': panels_ive_been_on,
+        'panels_draft': status_counts['draft'],
+        'panels_ready': status_counts['ready'],
+        'panels_running': status_counts['running'],
+        'panels_delayed': status_counts['delayed'],
+        'panels_complete': status_counts['complete'],
         'today': today,
         'is_aggregate_view': is_aggregate_view,
     })
@@ -899,6 +1026,7 @@ def inclusion_panel_meeting_start(request, panel_id):
             just_started = panel.started_at is None
             if just_started:
                 panel.started_at = timezone.now()
+                panel.status = 'running'
                 panel.save()
             return redirect(f'{agenda_url}?just_started=1' if just_started else agenda_url)
         return redirect(f'{agenda_url}?not_today=1')
@@ -913,6 +1041,7 @@ def inclusion_panel_meeting_delete(request, panel_id):
 
 
 def inclusion_panel_meeting_setup(request, panel_id):
+    _sync_delayed_panels()
     panel = get_object_or_404(Panel, pk=panel_id)
 
     unassigned_referrals = InclusionReferral.objects.select_related('student', 'raised_by').exclude(
@@ -1015,6 +1144,12 @@ def inclusion_panel_meeting_setup(request, panel_id):
             for due in _due_followups(panel, as_of=panel.date + datetime.timedelta(days=7)):
                 pr, _created = PanelReferral.objects.get_or_create(panel=panel, referral_id=due.referral_id)
                 _sync_referral_status(pr.referral)
+        elif action == 'toggle_ready':
+            if panel.status == 'draft':
+                panel.status = 'ready'
+            elif panel.status == 'ready':
+                panel.status = 'draft'
+            panel.save()
         return redirect('inclusion_panel_meeting_setup', panel_id=panel.id)
 
     for referral in unassigned_referrals:
@@ -1075,6 +1210,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                 panel.started_at = now
                 panel.date = timezone.localdate(now)
                 panel.time = timezone.localtime(now).time()
+                panel.status = 'running'
                 panel.save()
         elif action == 'check_in':
             member = get_object_or_404(PanelMember, pk=request.POST.get('member_id'), panel=panel)

@@ -4,7 +4,7 @@
 {% block title %}Panel Meetings{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=65">
 {% endblock %}
 
 
@@ -29,11 +29,6 @@
             <span class="mini-stat-label">This year</span>
         </div>
         <div class="mini-stat-card">
-            <span class="mini-stat-icon">{% include 'icons/people_svg.html' %}</span>
-            <span class="mini-stat-value">{{ panels_ive_been_on }}</span>
-            <span class="mini-stat-label">I've been on</span>
-        </div>
-        <div class="mini-stat-card">
             <span class="mini-stat-icon">{% include 'icons/clock_svg.html' %}</span>
             <span class="mini-stat-value{% if panels_needing_referrals %} warning{% endif %}">{{ panels_needing_referrals }}</span>
             <span class="mini-stat-label">Needing referrals</span>
@@ -43,67 +38,60 @@
 </div>
 <div class="list-card meetings-list-card">
 <div class="tab-row">
-    {% if upcoming_meetings %}<button type="button" data-meetings-tab="upcoming">Upcoming ({{ upcoming_meetings|length }})</button>{% endif %}
-    {% if past_meetings %}<button type="button" data-meetings-tab="past">Past ({{ past_meetings|length }})</button>{% endif %}
+    <button type="button" data-meetings-tab="all">All ({{ meetings|length }})</button>
+    {% if panels_draft %}<button type="button" data-meetings-tab="draft">Draft ({{ panels_draft }})</button>{% endif %}
+    {% if panels_ready %}<button type="button" data-meetings-tab="ready">Ready ({{ panels_ready }})</button>{% endif %}
+    {% if panels_running %}<button type="button" data-meetings-tab="running">Live ({{ panels_running }})</button>{% endif %}
+    {% if panels_delayed %}<button type="button" data-meetings-tab="delayed">Delayed ({{ panels_delayed }})</button>{% endif %}
+    {% if panels_complete %}<button type="button" data-meetings-tab="complete">Completed ({{ panels_complete }})</button>{% endif %}
 </div>
 
-<div class="meeting-list" data-selectable="single" data-meetings-panel="upcoming">
-    {% for m in upcoming_meetings %}
-    <div class="meeting-card selectable" tabindex="0" role="button" aria-pressed="false">
-        <div>
-            <h3>
-                {% if is_aggregate_view %}<span class="menu-icon school-nav-logo">{% include 'icons/school_logo_placeholder_svg.html' %}</span> {{ m.panel.panel_group.school.name|default:"All Schools" }} &middot; {% endif %}Panel: {{ m.panel.panel_group.name|default:"Unassigned Group" }}
-                {% if m.is_next %}<span class="next-badge">Next panel</span>{% endif %}
-                {% if m.panel.date == today %}<span class="status-pill in_panel">Today</span>{% endif %}
-                {% if not m.referral_count %}<span class="status-pill danger" title="No referrals assigned yet">Needs referrals</span>{% endif %}
-                {% if not m.member_count %}<span class="status-pill danger" title="No panel members assigned yet">No Panel Members</span>{% endif %}
-                <span class="status-pill{% if m.panel.status == 'upcoming' %} upcoming{% elif m.panel.status == 'complete' %} complete{% endif %}">{{ m.panel.get_status_display }}</span>
-            </h3>
-            <div class="chair">{{ m.panel.date }}{% if m.panel.time %} at {{ m.panel.time|time:'H:i' }}{% endif %} &middot; Chair: {{ m.panel.chair|default:"—" }}</div>
-            <div class="chair">{{ m.referral_count }} referral{{ m.referral_count|pluralize }} &middot; {{ m.member_count }} member{{ m.member_count|pluralize }}{% if m.discussed_count %} &middot; {{ m.discussed_count }} discussed{% endif %}</div>
-        </div>
-        <div class="btn-row">
-            {% if m.panel.date < today %}
-            <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Panel</span>
-            {% else %}
-            <form method="post" action="{% url 'inclusion_panel_meeting_start' m.panel.id %}" style="display:inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Panel</button>
-            </form>
+<div class="meeting-list" data-selectable="single">
+    {% for m in meetings %}
+    <div class="meeting-card selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ m.panel.status }}">
+        {% if m.is_next %}<h2 class="next-panel-label{% if is_aggregate_view %} next-panel-label-indent{% endif %}">Next Panel</h2>{% endif %}
+        <div class="meeting-card-row">
+            {% if is_aggregate_view %}
+            <div class="meeting-card-logo">{% include 'icons/school_logo_placeholder_svg.html' %}</div>
             {% endif %}
-            <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</a>
-            {% if not m.panel.started_at %}
-            <form method="post" action="{% url 'inclusion_panel_meeting_delete' m.panel.id %}" onsubmit="return confirm('Delete this panel meeting? This cannot be undone.');" style="display:inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
-            </form>
-            {% endif %}
+            <div class="meeting-card-col meeting-card-main">
+                <h3>{{ m.panel.panel_group.name|default:"Unassigned Group" }}</h3>
+                <div class="meeting-date-line">{{ m.panel.date }}{% if m.panel.time %} at {{ m.panel.time|time:'H:i' }}{% endif %}</div>
+            </div>
+            <div class="meeting-card-col meeting-card-info">
+                <div class="meeting-status-line">
+                    <span class="status-pill {{ m.panel.status }}">{{ m.panel.get_status_display }}</span>
+                    {% if m.panel.date == today %}<span class="status-pill in_panel">Today</span>{% endif %}
+                    {% if m.panel.status != 'complete' and not m.referral_count %}<span class="status-pill danger" title="No referrals assigned yet">Needs referrals</span>{% endif %}
+                    {% if m.panel.status != 'complete' and not m.member_count %}<span class="status-pill danger" title="No panel members assigned yet">No Panel Members</span>{% endif %}
+                </div>
+                <div>{{ m.referral_count }} Referral{{ m.referral_count|pluralize }}{% if m.discussed_count %} ({{ m.discussed_count }} discussed{% if m.total_duration %}, {{ m.total_duration }}{% endif %}){% endif %}</div>
+            </div>
+            <div class="meeting-card-col meeting-card-info">
+                <div><span class="meeting-info-label">Chair</span>{{ m.panel.chair|default:"—" }}</div>
+                <div>{{ m.member_count }} Panel Member{{ m.member_count|pluralize }}{% if m.panel.status == 'complete' %} in attendance{% endif %}</div>
+            </div>
+            <div class="btn-row meeting-card-col meeting-card-actions">
+                {% if m.panel.status == 'complete' %}
+                <a href="{% url 'inclusion_panel_meeting_agenda' m.panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/document_svg.html' %}</span> View Details</a>
+                {% else %}
+                <form method="post" action="{% url 'inclusion_panel_meeting_start' m.panel.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> {% if m.panel.started_at %}Continue Panel{% else %}Start Panel{% endif %}</button>
+                </form>
+                <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</a>
+                {% if not m.panel.started_at %}
+                <form method="post" action="{% url 'inclusion_panel_meeting_delete' m.panel.id %}" onsubmit="return confirm('Delete this panel meeting? This cannot be undone.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
+                </form>
+                {% endif %}
+                {% endif %}
+            </div>
         </div>
     </div>
     {% empty %}
-    <p class="empty-note">No upcoming panels.</p>
-    {% endfor %}
-</div>
-
-<div class="meeting-list" data-selectable="single" data-meetings-panel="past">
-    {% for m in past_meetings %}
-    <div class="meeting-card selectable" tabindex="0" role="button" aria-pressed="false">
-        <div>
-            <h3>
-                {% if is_aggregate_view %}<span class="menu-icon school-nav-logo">{% include 'icons/school_logo_placeholder_svg.html' %}</span> {{ m.panel.panel_group.school.name|default:"All Schools" }} &middot; {% endif %}Panel: {{ m.panel.panel_group.name|default:"Unassigned Group" }}
-                <span class="status-pill{% if m.panel.status == 'upcoming' %} upcoming{% elif m.panel.status == 'complete' %} complete{% endif %}">{{ m.panel.get_status_display }}</span>
-            </h3>
-            <div class="chair">{{ m.panel.date }}{% if m.panel.time %} at {{ m.panel.time|time:'H:i' }}{% endif %} &middot; Chair: {{ m.panel.chair|default:"—" }}</div>
-            {% if m.referral_count %}
-            <div class="chair">{{ m.referral_count }} referral{{ m.referral_count|pluralize }} &middot; {{ m.discussed_count }} student{{ m.discussed_count|pluralize }} discussed{% if m.total_duration %} &middot; {{ m.total_duration }} discussion time{% endif %}</div>
-            {% endif %}
-        </div>
-        <div class="btn-row">
-            <a href="{% url 'inclusion_panel_meeting_agenda' m.panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/document_svg.html' %}</span> View Details</a>
-        </div>
-    </div>
-    {% empty %}
-    <p class="empty-note">No past panels.</p>
+    <p class="empty-note">No panel meetings yet.</p>
     {% endfor %}
 </div>
 </div>
@@ -112,11 +100,11 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var tabButtons = document.querySelectorAll('[data-meetings-tab]');
-    var panels = document.querySelectorAll('[data-meetings-panel]');
+    var cards = document.querySelectorAll('.meeting-list [data-status]');
 
-    function showPanel(tab) {
-        panels.forEach(function (panel) {
-            panel.style.display = panel.dataset.meetingsPanel === tab ? '' : 'none';
+    function applyTab(tab) {
+        cards.forEach(function (card) {
+            card.style.display = (tab === 'all' || card.dataset.status === tab) ? '' : 'none';
         });
     }
 
@@ -124,14 +112,14 @@ document.addEventListener('DOMContentLoaded', function () {
         button.addEventListener('click', function () {
             tabButtons.forEach(function (b) { b.classList.remove('active'); });
             button.classList.add('active');
-            showPanel(button.dataset.meetingsTab);
+            applyTab(button.dataset.meetingsTab);
         });
     });
 
     // The first rendered tab (zero-count tabs aren't rendered at all) is the default
     if (tabButtons.length) {
         tabButtons[0].classList.add('active');
-        showPanel(tabButtons[0].dataset.meetingsTab);
+        applyTab(tabButtons[0].dataset.meetingsTab);
     }
 });
 </script>

@@ -43,7 +43,7 @@ display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;
 Each column: `flex: 1 1 280px; min-width: 260px` (or `360px` for panel home cards). Columns wrap to single-column below ~600px.
 
 **Fixed-height list shell** (`.list-page-shell`)
-A flex column that fills viewport height: content area (`flex: 1; min-height: 0; overflow-y: auto`) above a pinned `.stats-strip` footer. Any page whose list needs to scroll internally without growing the page uses this pattern.
+A flex column that fills viewport height: content area (`flex: 1; min-height: 0; overflow-y: auto`) above a pinned `.stats-strip` footer. Any page whose list needs to scroll internally without growing the page uses this pattern. If the shell stacks more than one row (e.g. Panel Home's two `.panel-columns` rows above the stats strip), space the rows apart with `gap` on the shell itself, set to the same value as the row's own horizontal card gap (`--space-xl`) — not a per-row `margin-bottom` at a different scale. Scope that `gap` with `:has(.panel-columns)` (or similar) rather than adding it to `.list-page-shell` unconditionally, since other shell pages (Students/Referrals/Actions) use a single `.list-card` with its own margin-bottom in the same shell class and would double up on spacing otherwise.
 
 **Agenda grid** (`.agenda-layout`)
 ```css
@@ -116,14 +116,16 @@ Do not add `margin-bottom` to the last card in a flex container — let `gap` on
 | `--font-base` | Body text, table cells, tab labels, button text |
 | `--font-sm` | Metadata (`.entity-meta`), field labels, table `<th>` |
 | `--font-xs` | Status pills, priority chips, toggle labels |
-| `--font-2xs` | `.field-source`, `.next-badge`, `.priority-badge`, day-of-week in calendar |
+| `--font-2xs` | `.field-source`, `.priority-badge`, day-of-week in calendar |
 
 **Font weight conventions:**
 - 400 — body / metadata
 - 600 — titles, labels, active tab, card count
 - 700 — stat values, timers, chosen row title, bold emphasis
 
-**Uppercase + letter-spacing** (`text-transform: uppercase; letter-spacing: 0.02–0.03em`) is reserved for `.field-source`, `.next-badge`, `.priority-badge` only. Do not apply to running text.
+**Uppercase + letter-spacing** (`text-transform: uppercase; letter-spacing: 0.02–0.03em`) is reserved for `.field-source`, `.priority-badge` only. Do not apply to running text.
+
+**Avoid `text-transform: uppercase` on new labels.** The user has expressed a general preference against all-caps text — e.g. the "Next Panel" heading reads in normal title case, not "NEXT PANEL". The two `text-transform: uppercase` exceptions above are pre-existing and left as-is, but don't reach for `text-transform: uppercase` on new labels/eyebrow text — use normal case with weight/colour/size for emphasis instead.
 
 **Centred headings** inside `.setup-col`, `.discussion-col`, `.panel-card`: always `text-align: center`.
 
@@ -144,7 +146,11 @@ box-shadow: var(--shadow-md);  /* or var(--card-shadow) */
 Same border/radius/surface as above but `display: flex; flex-direction: column` so it can host a scrollable list body.
 
 **Meeting card** (`.meeting-card`)
-Uses `--bg-nested` (one level deeper than surface), `border-radius: var(--radius-lg)` (one step smaller than container), `box-shadow: var(--shadow-sm)`. Hover: `border-color: var(--accent-border)`.
+Uses `--bg-nested` (one level deeper than surface), `border-radius: var(--radius-lg)` (one step smaller than container), `box-shadow: var(--shadow-sm)`. Hover/chosen: see "Hover and chosen on a selectable card" below — unlike row/list selectables, this one stays off `--primary`/`--accent-border` entirely.
+
+The "Next Panel" heading (`.next-panel-label`, see below), when present, is a full-width banner directly inside `.meeting-card` — deliberately *outside* the column row (`.meeting-card-row`) below it, so it adds height above the row without ever affecting that row's own height, its vertical centring, or its divider lines. Whether or not a given card is flagged "next", every `.meeting-card-row` looks identical in cross-section.
+
+Within `.meeting-card-row` (`display: flex; align-items: center`): fixed-width columns for the parts whose content length shouldn't reflow the rest of the row, flexible columns for the parts that should soak up whatever space is left. An optional slim logo column (`.meeting-card-logo`, `width: 32px`, only rendered in aggregate/all-schools views) sits to the left of everything else — icon only, no school name text. Main column (`.meeting-card-main`, fixed `flex: 0 0 300px` so every card's columns start at the same x position down the list regardless of panel name length): just the `<h3>` panel name and, below it, the date/time (`.meeting-date-line`, plain secondary text, no label). Two further `.meeting-card-info` columns (`flex: 1 1 0` — grow to fill whatever space remains between the fixed name column and the pinned action column): the first holds the status line (`.meeting-status-line`, no "Status:" text label — the pill speaks for itself — with any secondary pills like `.in_panel` "Today" or `.danger` "Needs referrals"/"No Panel Members" following at the same normal gap) above the referral count; the second holds Chair above the member count. Wording differs by what reads more naturally: Chair keeps a `Label value` row, label right-aligned in a `flex: 0 0 68px` sub-column with `::after { content: ":" }` so the colons line up down the list; referral/member counts lead with the number instead ("3 Referrals", "3 Panel Members") since that's clearer than "Referrals: 3" — no label prefix, just plain count-first text. Every column after the first gets a divider line (`.meeting-card-col:not(:first-child) { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }`). The action column (`.meeting-card-actions`) is pinned to the row's far edge with `margin-left: auto` and never changes size — it also carries `min-width: 320px; justify-content: flex-end` so a 1-button row (e.g. just "View Details" on a completed panel) reserves the same width as the up-to-3-button row (Start/Continue Panel, Edit, Delete) and right-aligns within it, rather than the whole row shifting depending on how many buttons happen to render.
 
 **Stat card** (`.stat-card`)
 `flex: 1 1 200px`, standard surface/border/radius-lg, `padding: 16px 20px`. Accent variant adds `border-left: 4px solid var(--primary/--color-warning/--color-positive)` and a positioned icon at top-right (`position: absolute; top: 16px; right: 16px; width: 20px`).
@@ -173,6 +179,7 @@ Collapsible `<details>`. `border-radius: var(--radius-xl); padding: 16px 20px`. 
 - Active: indicator is `--primary`, text is `--primary`.
 - The `.tab-row` itself bleeds left via `margin-left: -16px` (matching the list-card's own padding) so tab text aligns with list content.
 - Panel Home cards use `flex-wrap: nowrap; overflow: hidden` — tab overflow is handled by JS (`.tab-row-more` dropdown in `style.css`).
+- **Status-filter tab rows** (e.g. Panel Home's My Actions card, Panel Meetings' All/Draft/Ready/Live/Delayed/Completed): every tab carries its live count in parentheses, e.g. `Draft (3)`. An `All (N)` tab is always rendered — it's the default active tab and never hides. Every other tab is wrapped in `{% if count %}` and simply isn't rendered when its count is 0, rather than rendering a disabled/greyed-out tab — a status with nothing in it shouldn't take up tab-row space at all. Filtering itself is plain JS matching a `data-status`/`data-*-tab` attribute on each row/card against the clicked tab's `data-*-tab` value (see `setupTabs()` in `home.html` and the inline script in `meetings.html`) — no server round-trip.
 
 **Side nav active state**
 `background: var(--primary-light); color: var(--primary); box-shadow: inset 3px 0 0 var(--accent-border); font-weight: 600`.
@@ -209,11 +216,18 @@ Scrollable bounded list (`max-height: min(65vh, 480px); border: 1px solid; borde
 
 ## Interaction patterns
 
-**Hover on a selectable row or card**
+**Hover on a selectable row**
 `background: var(--row-hover-bg)` (= `color-mix(in srgb, var(--text-primary) 6%, var(--bg-surface))`) + title weight bumps to 700. Apply via `.selectable:hover` or explicit `.panel-list li:hover` / `tbody tr:hover`.
 
-**Chosen / selected state** (persistent after click)
-`background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border)` + title weight 700. Hover on a chosen row keeps `--primary-light` — does not revert to `--row-hover-bg`. Applied via `.chosen` on `entity-row`, `panel-list li`, `agenda-table tbody tr`, `meeting-card`.
+**Chosen / selected state on a row** (persistent after click)
+`background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border)` + title weight 700. Hover on a chosen row keeps `--primary-light` — does not revert to `--row-hover-bg`. Applied via `.chosen` on `entity-row`, `panel-list li`, `agenda-table tbody tr`.
+
+**Hover and chosen on a selectable card** (`.meeting-card`, and any future card-shaped — as opposed to row-shaped — selectable)
+Cards stay off `--primary`/`--accent-border` entirely; the accent colour reads as too strong at card scale, where the whole tile (not a thin row) carries the fill. Both states share one background token so a selected card already reads as "hover-lit":
+- Hover: `border-color: var(--border-strong); box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border-strong); background: var(--meeting-card-hover-bg)` + title weight 700.
+- Chosen: same `background: var(--meeting-card-hover-bg)`, `box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong)` + title weight 700.
+- Chosen *and* hovered: layer both insets — `box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong), inset 0 0 0 1px var(--border-strong)` — so a selected card still gives tactile feedback on hover instead of looking inert. Needs an explicit `.chosen:hover` rule since `.chosen` and `:hover` are equal-specificity classes and `.chosen` alone would otherwise always win by source order.
+- `--border-strong` (not a fixed neutral like `--text-secondary`) is the right token here because it's already redefined per theme flavour in `themes.css` — the emphasis stays "on-theme" without touching `--primary`.
 
 **Focus visible**
 `outline: 2px solid var(--primary); outline-offset: 2px`. Never suppress focus outlines.
@@ -293,7 +307,9 @@ Never place a "Create new X" option inside a `<select>` or custom dropdown list.
 | `.discussing` | Currently active + pulse | `--color-warning-bg` / `--color-warning` + animation |
 | `.concern`, `.not_needed`, `.type-school` | Neutral classification | `--badge-bg` / `--text-secondary` |
 
-**Next-panel badge** (`.next-badge`): `--font-2xs`, uppercase, `letter-spacing: 0.03em`, `--primary` on `--primary-light`, `padding: 3px 8px; border-radius: var(--radius-xs)`. Used inline after a meeting card heading.
+**Status line** (`.meeting-status-line` on the Panel Meetings list): its own line below the card's `<h3>` name, `--font-sm`, weight 600, `--text-secondary`. No "Status:" text label — leads straight with the normal-sized `.status-pill` for the panel's actual status, then any further pills (`.in_panel` "Today", `.danger` "Needs referrals"/"No Panel Members") at the same `gap: var(--space-xs)`, no extra margin singling them out.
+
+**Next-panel heading** (`.next-panel-label`): plain text, not a chip/pill — an `<h2>` (`--font-xl`, weight 700, `--primary`) that spans the full width of the meeting card, sitting above `.meeting-card-row` (not inside the name column), so it reads as a heading one level up and never perturbs the row's own height/alignment.
 
 **Priority chip** (`.priority-chip`): `--font-xs`, weight 600, `padding: 4px 10px; border-radius: var(--radius-pill)`. Default (inactive): border-only, `--bg-surface`, `--text-secondary`. Active: filled with `--priority-{level}-bg`, coloured border and text. Tokens come from `theme/light.css` and `theme/themes.css` (`--priority-high/medium/low-bg/border/text`).
 
@@ -331,7 +347,7 @@ Each entry states what to avoid and why it breaks something.
 
 2. **Don't hardcode border-radius values** (`border-radius: 8px`). Use the token scale (`var(--radius-md)`). Hardcoded radii drift silently when the scale is adjusted.
 
-3. **Don't invent a new selected-state colour**. Chosen state is always `background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border)`. A different fill or a non-left inset shadow breaks visual consistency with every other selectable row/card in the app.
+3. **Don't invent a new selected-state colour**. Row selectables always use `background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border)`; card selectables always use `background: var(--meeting-card-hover-bg); box-shadow: inset 3px 0 0 var(--border-strong)` (see "Hover and chosen on a selectable card"). A different fill, an ad-hoc neutral (e.g. `--text-secondary`), or a non-left inset shadow breaks visual consistency with every other selectable of that shape in the app.
 
 4. **Don't use a semantic colour for decoration**. Don't colour an icon or label `--color-warning` unless the user must act on a real warning. Overuse destroys the signal value — users stop noticing warnings.
 
@@ -364,3 +380,7 @@ Each entry states what to avoid and why it breaks something.
 16. **Don't use `.list-page-shell` on a page that doesn't need internal scrolling**. The shell assumes fixed viewport height and pins a stats footer at the bottom. On a short or variable-height page it produces excess whitespace or a misplaced footer.
 
 17. **Don't go deeper than the defined depth stack**. The layers are: `--bg-surface` → `--bg-nested` → `--bg-well`. Nesting `--bg-nested` inside `--bg-nested`, or `--bg-well` inside `--bg-well`, produces backgrounds that are indistinguishable in light mode and invisible in dark mode. If you feel you need a fourth depth level, the component needs redesigning.
+
+18. **Inside `.list-page-shell`, give every direct child of a card `min-height: 0`, not just the scrolling list.** Flex items default to `min-height: auto`, which floors them at their content's min-content size. A card's non-scrolling children (empty-state text, preview blocks) can silently refuse to shrink and reintroduce the "invisible overflow scrollbar" bug this shell exists to prevent — even though the scrolling list itself is fine.
+
+19. **Don't let vertical spacing between stacked rows use a different scale than the horizontal gap between cards in a row.** If a page has both (e.g. `.panel-columns` rows spaced apart vertically, cards spaced apart horizontally within each row), use the same `gap` value for both. Mixing `--space-md` row spacing with `--space-xl` card spacing (or vice versa) reads as accidental, not deliberate rhythm.

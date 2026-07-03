@@ -161,12 +161,18 @@ class PanelGroupMember(models.Model):
 
 
 class Panel(models.Model):
-    STATUS_CHOICES = [('upcoming', 'Upcoming'), ('complete', 'Complete')]
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('ready', 'Ready'),
+        ('running', 'Running'),
+        ('delayed', 'Delayed'),
+        ('complete', 'Complete'),
+    ]
 
     date = models.DateField()
     time = models.TimeField(null=True, blank=True)
     chair = models.ForeignKey('core.Staff', null=True, blank=True, related_name='chaired_panels', on_delete=models.SET_NULL)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='upcoming')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     panel_group = models.ForeignKey(PanelGroup, null=True, blank=True, on_delete=models.SET_NULL, related_name='panels')
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
@@ -274,7 +280,7 @@ class Action(models.Model):
     STATUS_CHOICES = [
         ('incomplete', 'Incomplete'),
         ('complete', 'Complete'),
-        ('not_needed', 'Inactive'),
+        ('not_needed', 'Not Required'),
     ]
 
     referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='actions')

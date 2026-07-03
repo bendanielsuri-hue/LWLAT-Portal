@@ -4,7 +4,7 @@
 {% block title %}Referrals{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=65">
 {% endblock %}
 
 
@@ -40,8 +40,19 @@
         <label for="status-filter">Status</label>
         <select id="status-filter">
             <option value="">All</option>
+            <option value="active">Active (Open + In Panel)</option>
             {% for value, label in status_choices %}
             <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <label for="raised-by-filter">Raised By</label>
+        <select id="raised-by-filter">
+            <option value="">All</option>
+            <option value="unassigned">Unassigned</option>
+            {% for staff in staff_list %}
+            <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -58,7 +69,8 @@
         data-unassigned="{{ referral.is_unassigned|yesno:'true,false' }}"
         data-due-follow-up="{{ referral.is_due_follow_up|yesno:'true,false' }}"
         data-student-id="{{ referral.student_id }}"
-        data-actions-count="{{ referral.actions_count }}">
+        data-actions-count="{{ referral.actions_count }}"
+        data-raised-by="{{ referral.raised_by_id|default:'unassigned' }}">
         <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
         <div class="entity-body">
             <div class="entity-title">{{ referral.student }}</div>
@@ -104,6 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var search = document.getElementById('name-search');
     var sectionFilter = document.getElementById('section-filter');
     var statusFilter = document.getElementById('status-filter');
+    var raisedByFilter = document.getElementById('raised-by-filter');
     var rows = document.querySelectorAll('.referral-row');
     var visibleCount = document.getElementById('visible-count');
     var studentsTotal = document.getElementById('students-total');
@@ -115,12 +128,14 @@ document.addEventListener('DOMContentLoaded', function () {
         var term = search ? search.value.trim().toLowerCase() : '';
         var section = sectionFilter ? sectionFilter.value : '';
         var status = statusFilter ? statusFilter.value : '';
+        var raisedBy = raisedByFilter ? raisedByFilter.value : '';
         var shown = 0;
         var students = new Set();
         var actionsShown = 0;
         rows.forEach(function (row) {
             var matches = row.dataset.name.indexOf(term) !== -1
-                && (!status || row.dataset.status === status)
+                && (!status || (status === 'active' ? row.dataset.status !== 'closed' : row.dataset.status === status))
+                && (!raisedBy || row.dataset.raisedBy === raisedBy)
                 && (section !== 'unassigned' || row.dataset.unassigned === 'true')
                 && (section !== 'due_follow_up' || row.dataset.dueFollowUp === 'true');
             row.style.display = matches ? '' : 'none';
@@ -140,18 +155,28 @@ document.addEventListener('DOMContentLoaded', function () {
         if (search) search.value = '';
         if (sectionFilter) sectionFilter.value = '';
         if (statusFilter) statusFilter.value = '';
+        if (raisedByFilter) raisedByFilter.value = '';
         applyFilters();
     }
 
     // Arriving from a student's "Referrals" button pre-fills the name search
-    // with that student so this page opens already scoped to them.
+    // with that student so this page opens already scoped to them; arriving
+    // from a staff member's "Referrals Raised" search result pre-fills the
+    // Raised By filter the same way.
     var params = new URLSearchParams(window.location.search);
     var name = params.get('name');
     if (name && search) search.value = name;
+    var raisedById = params.get('raised_by');
+    if (raisedById && raisedByFilter) raisedByFilter.value = raisedById;
+    var section = params.get('section');
+    if (section && sectionFilter) sectionFilter.value = section;
+    var statusParam = params.get('status');
+    if (statusParam && statusFilter) statusFilter.value = statusParam;
 
     if (search) search.addEventListener('input', applyFilters);
     if (sectionFilter) sectionFilter.addEventListener('change', applyFilters);
     if (statusFilter) statusFilter.addEventListener('change', applyFilters);
+    if (raisedByFilter) raisedByFilter.addEventListener('change', applyFilters);
     if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
 
     applyFilters();

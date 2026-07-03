@@ -624,4 +624,114 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         });
     });
+
+(function () {
+    var dialog = document.getElementById('panel-search-dialog');
+    if (!dialog) return;
+
+    var input = document.getElementById('panel-search-input');
+    var results = document.getElementById('panel-search-results');
+    var kindLabels = { student: 'Students', staff: 'Staff' };
+    var debounceTimer = null;
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function getModalDuration() {
+        return parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 250;
+    }
+
+    function getTransitionSlowMs() {
+        return parseFloat(getComputedStyle(dialog).getPropertyValue('--transition-slow')) || 400;
+    }
+
+    function openModal() {
+        results.innerHTML = '';
+        dialog.showModal();
+        requestAnimationFrame(function () {
+            dialog.classList.add('is-open');
+            input.focus();
+        });
+    }
+
+    function closeModal() {
+        dialog.classList.remove('is-open');
+        setTimeout(function () { dialog.close(); }, getModalDuration());
+    }
+
+    function renderResults(items) {
+        if (!items.length) {
+            results.innerHTML = '<p class="empty-note">No matches found.</p>';
+            return;
+        }
+        var groups = {};
+        items.forEach(function (item) {
+            (groups[item.kind] = groups[item.kind] || []).push(item);
+        });
+        var html = '';
+        ['student', 'staff'].forEach(function (kind) {
+            if (!groups[kind]) return;
+            html += '<div class="search-result-group">';
+            html += '<h3 class="search-result-group-label">' + kindLabels[kind] + '</h3>';
+            groups[kind].forEach(function (item) {
+                html += '<div class="search-result-row">';
+                html += '<div class="search-result-text">';
+                html += '<span class="search-result-title">' + escapeHtml(item.title) + '</span>';
+                html += '<span class="search-result-subtitle">' + escapeHtml(item.subtitle) + '</span>';
+                html += '</div>';
+                html += '<div class="btn-row">';
+                item.links.forEach(function (link) {
+                    if (link.disabled) {
+                        html += '<span class="btn btn-sm btn-disabled" aria-disabled="true">' + escapeHtml(link.label) + '</span>';
+                    } else {
+                        html += '<a class="btn btn-sm" href="' + escapeHtml(link.url) + '">' + escapeHtml(link.label) + '</a>';
+                    }
+                });
+                html += '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        });
+        results.innerHTML = html;
+    }
+
+    function runSearch(q) {
+        fetch('/inclusion/panel/search/?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.json(); })
+            .then(function (data) { renderResults(data.results); });
+    }
+
+    input.addEventListener('input', function () {
+        var q = input.value.trim();
+        clearTimeout(debounceTimer);
+        if (q.length === 0) {
+            results.innerHTML = '';
+            return;
+        }
+        if (q.length === 1) {
+            debounceTimer = setTimeout(function () {
+                results.innerHTML = '<p class="empty-note search-hint">Keep typing… (2+ characters)</p>';
+            }, getTransitionSlowMs());
+            return;
+        }
+        debounceTimer = setTimeout(function () { runSearch(q); }, 250);
+    });
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-panel-search-trigger]')) {
+            openModal();
+            return;
+        }
+        if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-search-dialog')) {
+            closeModal();
+        }
+    });
+
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog) closeModal();
+    });
+})();
 });

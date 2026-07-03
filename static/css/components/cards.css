@@ -175,7 +175,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--bg-surface-alt);
+    --stat-card-bg: var(--bg-surface-alt);
+    background: var(--stat-card-bg);
     border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border-color));
     border-radius: var(--radius-lg);
     padding: var(--space-md) var(--space-lg);
@@ -185,6 +186,15 @@
 .stat-card .stat-value.warning { color: var(--color-warning); }
 .stat-card .stat-label { font-size: var(--font-md); color: var(--text-secondary); margin-top: var(--space-micro); }
 .stat-card-sublabel { font-size: var(--font-xs); color: var(--text-faint); margin-top: var(--space-micro); }
+
+/* Clickable stat cards (e.g. Inclusion Panel home) are rendered as <a> so they
+   need the link defaults undone; .selectable supplies the hover/focus state. */
+a.stat-card { text-decoration: none; color: inherit; transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast); }
+a.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+/* Stat cards keep their own fill on hover — .selectable's neutral hover
+   tint would otherwise wash it out, so reassert the card's own background
+   (tracked in --stat-card-bg so accent variants aren't lost on hover). */
+a.stat-card.selectable:hover { background: var(--stat-card-bg); }
 
 /* Scoped to dashboards (e.g. SEND & Provision) where the KPI strip should
    read as a summary rather than compete with the charts below it. */
@@ -205,19 +215,19 @@
     height: 20px;
 }
 .stat-card[class*="stat-card--accent-"] { position: relative; border-width: 2px; border-style: solid; }
-.stat-card--accent-primary   { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--bg-surface-alt)); }
+.stat-card--accent-primary   { border-color: var(--primary); --stat-card-bg: color-mix(in srgb, var(--primary) 8%, var(--bg-surface-alt)); }
 .stat-card--accent-primary   .stat-card-icon { color: var(--primary); }
-.stat-card--accent-exceeding { border-color: var(--color-exceeding); background: color-mix(in srgb, var(--color-exceeding) 8%, var(--bg-surface-alt)); }
+.stat-card--accent-exceeding { border-color: var(--color-exceeding); --stat-card-bg: color-mix(in srgb, var(--color-exceeding) 8%, var(--bg-surface-alt)); }
 .stat-card--accent-exceeding .stat-card-icon { color: var(--color-exceeding); }
-.stat-card--accent-positive  { border-color: var(--color-positive); background: color-mix(in srgb, var(--color-positive) 8%, var(--bg-surface-alt)); }
+.stat-card--accent-positive  { border-color: var(--color-positive); --stat-card-bg: color-mix(in srgb, var(--color-positive) 8%, var(--bg-surface-alt)); }
 .stat-card--accent-positive  .stat-card-icon { color: var(--color-positive); }
-.stat-card--accent-caution   { border-color: var(--color-caution); background: color-mix(in srgb, var(--color-caution) 8%, var(--bg-surface-alt)); }
+.stat-card--accent-caution   { border-color: var(--color-caution); --stat-card-bg: color-mix(in srgb, var(--color-caution) 8%, var(--bg-surface-alt)); }
 .stat-card--accent-caution   .stat-card-icon { color: var(--color-caution); }
-.stat-card--accent-warning   { border-color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 8%, var(--bg-surface-alt)); }
+.stat-card--accent-warning   { border-color: var(--color-warning); --stat-card-bg: color-mix(in srgb, var(--color-warning) 8%, var(--bg-surface-alt)); }
 .stat-card--accent-warning   .stat-card-icon { color: var(--color-warning); }
-.stat-card--accent-negative  { border-color: var(--color-negative); background: color-mix(in srgb, var(--color-negative) 8%, var(--bg-surface-alt)); }
+.stat-card--accent-negative  { border-color: var(--color-negative); --stat-card-bg: color-mix(in srgb, var(--color-negative) 8%, var(--bg-surface-alt)); }
 .stat-card--accent-negative  .stat-card-icon { color: var(--color-negative); }
-.stat-card--accent-neutral   { border-color: var(--color-neutral); background: color-mix(in srgb, var(--color-neutral) 8%, var(--bg-surface-alt)); }
+.stat-card--accent-neutral   { border-color: var(--color-neutral); --stat-card-bg: color-mix(in srgb, var(--color-neutral) 8%, var(--bg-surface-alt)); }
 .stat-card--accent-neutral   .stat-card-icon { color: var(--color-neutral); }
 
 /* Simple labelled breakdown bars (SEND & Provision hub home) */
