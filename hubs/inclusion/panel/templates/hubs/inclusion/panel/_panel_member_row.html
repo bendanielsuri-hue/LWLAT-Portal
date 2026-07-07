@@ -1,4 +1,4 @@
-<div class="entity-row" data-staff-id="{{ member.staff_id|default:'' }}" data-active="{{ member.is_active|yesno:'1,0' }}">
+<div class="entity-row selectable" data-staff-id="{{ member.staff_id|default:'' }}" data-active="{{ member.is_active|yesno:'1,0' }}">
     <div class="entity-thumb">
         {% if member.staff and member.staff.photo %}
         <img src="{{ member.staff.photo.url }}" alt="">
@@ -11,31 +11,7 @@
         <div class="entity-meta">
             <span class="status-pill type-chair" data-chair-pill {% if not member.is_active or not member.staff_id or member.staff_id != panel.chair_id %}hidden{% endif %}>Chair</span>
             {% if member.member_type != 'School' %}<span class="status-pill type-{{ member.member_type|lower }}">{{ member.member_type }}</span>{% endif %}
+            {% if member.expertise %}<span class="status-pill type-expertise">{{ member.expertise.name }}</span>{% endif %}
         </div>
-        {% if member.joined_at %}<div class="entity-meta">Joined panel {{ member.joined_at|date:"d/m/Y" }}</div>{% endif %}
-        <form method="post" class="member-expertise-form priority-form">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="update_member_expertise">
-            <input type="hidden" name="member_id" value="{{ member.id }}">
-            <label class="priority-label" for="expertise-{{ member.id }}">Expertise</label>
-            <select name="expertise" id="expertise-{{ member.id }}" onchange="this.form.submit()">
-                <option value="">No expertise tag</option>
-                {% for e in expertise_list %}
-                <option value="{{ e.id }}" {% if member.expertise_id == e.id %}selected{% endif %}>{{ e.name }}</option>
-                {% endfor %}
-            </select>
-        </form>
-    </div>
-    <div class="btn-row">
-        <form method="post" style="display:inline">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="toggle_member_active">
-            <input type="hidden" name="member_id" value="{{ member.id }}">
-            {% if member.is_active %}
-            <button type="submit" class="btn btn-delete btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/remove_svg.html' %}</span> Remove</button>
-            {% else %}
-            <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Restore</button>
-            {% endif %}
-        </form>
     </div>
 </div>

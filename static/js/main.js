@@ -669,43 +669,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         }
     })();
 
-    // Sticky column headings (Panel Setup): any [data-sticky-under-header]
-    // element sticks just below the global sticky .page-header instead of
-    // at the very top of main's scroll area, so it doesn't overlap it as
-    // the page scrolls. Same measurement/resize technique as the list page
-    // shell height above.
-    (function setupStickyColumnHeaders() {
-        var header = document.querySelector('.page-header');
-        var elements = Array.prototype.slice.call(document.querySelectorAll('[data-sticky-under-header]'));
-        if (!header || !elements.length) return;
-
-        function applyOffset() {
-            var headerBottom = header.getBoundingClientRect().bottom;
-            // Stack same-column sticky headers one below another (cumulative
-            // offset) instead of pinning them all to the same top, which
-            // would make a later one overlap an earlier one once both are
-            // pinned at once (e.g. Panel Details above Panel Members).
-            var columns = [];
-            var stacks = [];
-            elements.forEach(function (el) {
-                var col = el.closest('.setup-col') || el.parentElement;
-                var idx = columns.indexOf(col);
-                if (idx === -1) {
-                    idx = columns.push(col) - 1;
-                    stacks.push(0);
-                }
-                el.style.top = (headerBottom + stacks[idx]) + 'px';
-                stacks[idx] += el.getBoundingClientRect().height;
-            });
-        }
-
-        applyOffset();
-        window.addEventListener('resize', applyOffset);
-        if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(applyOffset).observe(header);
-        }
-    })();
-
     // Generic overflow tabs: any row of <button> tabs opting in via
     // [data-overflow-tabs] (or the two cases already relying on it —
     // Inclusion Panel's per-card .tab-row and any .card-switcher) collapses
@@ -1277,8 +1240,22 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // option doesn't narrow the control (and its popover list,
             // which mirrors this width) down enough to clip longer options
             // next time it's opened.
-            var widest = maxOptionTextWidth(selectEl, window.getComputedStyle(trigger).font);
-            trigger.style.minWidth = Math.min(widest + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH) + 'px';
+            //
+            // Skipped inside .ui-labeled-select (Panel Group/Chair/Date/
+            // Time): those fields are always meant to exactly fill their
+            // own cell (auto-aligned column, or the full row once stacked —
+            // see window.initLabeledSelectStacking below) and truncate with
+            // an ellipsis when a value is too long for it. An inline
+            // min-width wins over width:100% whenever the two conflict
+            // (that's how CSS resolves it), so it would force the trigger
+            // wider than its actual cell and overflow into the next column
+            // instead of truncating — exactly the bug this skip avoids.
+            if (selectEl.closest('.ui-labeled-select')) {
+                trigger.style.minWidth = '';
+            } else {
+                var widest = maxOptionTextWidth(selectEl, window.getComputedStyle(trigger).font);
+                trigger.style.minWidth = Math.min(widest + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH) + 'px';
+            }
             panel.innerHTML = '';
             Array.prototype.forEach.call(selectEl.options, function (opt) {
                 var row = document.createElement('div');
@@ -1382,9 +1359,19 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var daySelect = document.createElement('select');
         var monthSelect = document.createElement('select');
         var yearSelect = document.createElement('select');
+        // Day/Month/Year's three mini-dropdowns need more room than a
+        // .ui-labeled-select-group field ever has once it's fallen back to
+        // label-above-field layout (still just one field-width column, not
+        // the whole page) — .ui-labeled-select--stacked hides .ui-date-fields
+        // and shows this compact "DD/MM/YYYY + calendar button" display
+        // instead (components/forms.css), still opening the same calendar
+        // popover to actually change the date.
+        var display = document.createElement('button');
+        display.type = 'button';
+        display.className = 'ui-date-display';
         var calBtn = document.createElement('button');
         calBtn.type = 'button';
-        calBtn.className = 'ui-date-calendar-btn btn btn-sm';
+        calBtn.className = 'ui-date-calendar-btn btn btn-secondary btn-sm';
         calBtn.innerHTML = CALENDAR_ICON_SVG;
         // A <dialog>, not a popover-attribute div — see the matching comment
         // in enhanceSelect() for why (nested modal dialogs are the
@@ -1399,6 +1386,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         fields.appendChild(monthSelect);
         fields.appendChild(yearSelect);
         wrap.appendChild(fields);
+        wrap.appendChild(display);
         wrap.appendChild(calBtn);
         document.body.appendChild(calPanel);
         calPanel.addEventListener('click', function (e) {
@@ -1451,6 +1439,13 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             daySelect.value = Math.max(min, Math.min(selectedDay || min, max));
         }
 
+        function updateDisplay() {
+            var year = parseInt(yearSelect.value, 10);
+            var month = parseInt(monthSelect.value, 10);
+            var day = parseInt(daySelect.value, 10);
+            display.textContent = (year && month && day) ? (pad2(day) + '/' + pad2(month) + '/' + year) : 'Select date';
+        }
+
         function syncFromValue() {
             var parts = (inputEl.value || '').split('-');
             var year = parts.length === 3 ? parseInt(parts[0], 10) : nowYear;
@@ -1466,6 +1461,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             rebuildMonthOptions(month);
             rebuildDayOptions(day);
             [daySelect, monthSelect, yearSelect].forEach(function (s) { if (s._uiSelect) s._uiSelect.refresh(); });
+            updateDisplay();
         }
 
         function commit() {
@@ -1474,6 +1470,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             var day = parseInt(daySelect.value, 10);
             inputEl.value = year + '-' + pad2(month) + '-' + pad2(day);
             inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            updateDisplay();
         }
 
         [daySelect, monthSelect, yearSelect].forEach(function (select) {
@@ -1576,8 +1573,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             yearSelect.insertBefore(extra, yearSelect.firstChild);
         }
 
-        calBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
+        function toggleCalendar() {
             var isOpen = calPanel.open;
             closeAllUiPopovers(calPanel);
             if (isOpen) {
@@ -1587,7 +1583,9 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 calPanel.showModal();
                 positionPopover(calPanel, calBtn, { alignRight: true });
             }
-        });
+        }
+        calBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleCalendar(); });
+        display.addEventListener('click', function (e) { e.stopPropagation(); toggleCalendar(); });
 
         inputEl._uiDate = { refresh: syncFromValue };
         syncFromValue();
@@ -1713,6 +1711,77 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         if (!inputEl.value) commit();
     };
 
+    // .ui-labeled-select-group aligns its fused fields' labels to one shared,
+    // auto-computed column (CSS subgrid — see components/forms.css) when
+    // there's room. A single CSS breakpoint can't decide this per-field
+    // though (querying an element's own size to decide the very grid span
+    // that determines that size is circular, and a shared container query
+    // can't let e.g. a long Panel Group value stack while a short Chair
+    // value stays aligned in the same narrow column) — so each row's actual
+    // available width is measured here instead, and only the rows that don't
+    // fit fall back to label-above-field layout independently of their
+    // siblings.
+    var LABELED_SELECT_HYSTERESIS = 10;
+
+    function evaluateLabeledSelectGroup(groupEl) {
+        // Some groups (e.g. Panel Setup's Panel Settings card) want every row
+        // stacked label-above unconditionally, for visual consistency across
+        // the group, rather than each row independently deciding based on its
+        // own measured overflow - skip the measurement entirely for those.
+        if (groupEl.classList.contains('ui-labeled-select-group--force-stacked')) {
+            groupEl.querySelectorAll('.ui-labeled-select').forEach(function (row) {
+                row.classList.add('ui-labeled-select--stacked');
+            });
+            return;
+        }
+        // Stacking a row taller changes this group's own height, which would
+        // otherwise re-fire the ResizeObserver below on itself even though
+        // nothing about its *width* (the only dimension that matters here)
+        // changed — without this guard that becomes a self-triggering loop,
+        // visibly flickering as rows keep re-toggling.
+        var width = groupEl.getBoundingClientRect().width;
+        if (groupEl._labeledSelectWidth !== undefined && Math.abs(groupEl._labeledSelectWidth - width) < 1) return;
+        groupEl._labeledSelectWidth = width;
+
+        groupEl.querySelectorAll('.ui-labeled-select').forEach(function (row) {
+            var wasStacked = row.classList.contains('ui-labeled-select--stacked');
+            // Measure real overflow rather than approximating with a fixed
+            // width guess — a row's actual required width varies (a single
+            // select's own widest-option floor, vs. Date/Time's several
+            // mini-dropdowns plus a calendar button), and only true overflow
+            // (content wider than the row's own box) is what would actually
+            // clip the chevron or squeeze the label. Un-stack first so the
+            // measurement reflects the row's natural beside-label content
+            // width, not whatever it measured last time.
+            if (wasStacked) row.classList.remove('ui-labeled-select--stacked');
+            var overflow = row.scrollWidth - row.clientWidth;
+            // A select's trigger (or the label) truncates its own text with
+            // an ellipsis rather than growing past its grid cell, so the row
+            // itself never registers scrollWidth > clientWidth even once the
+            // selected option's been squeezed down to unreadable — check
+            // those truncatable pieces directly too. Excludes Date/Time's
+            // mini Day/Month/Year-style dropdowns (.ui-select--sm), which
+            // fall back to a compact display of their own instead.
+            row.querySelectorAll('.ui-labeled-select-label, .ui-select:not(.ui-select--sm) > .ui-select-trigger').forEach(function (el) {
+                overflow = Math.max(overflow, el.scrollWidth - el.clientWidth);
+            });
+            // Once stacked, require a bit of comfortable slack before
+            // switching back, so a row doesn't flip-flop right at the
+            // boundary while a container is being resized.
+            var needsStacking = wasStacked ? overflow > -LABELED_SELECT_HYSTERESIS : overflow > 0;
+            if (needsStacking) row.classList.add('ui-labeled-select--stacked');
+        });
+    }
+
+    window.initLabeledSelectStacking = function (root) {
+        (root || document).querySelectorAll('.ui-labeled-select-group').forEach(function (groupEl) {
+            evaluateLabeledSelectGroup(groupEl);
+            if (typeof ResizeObserver === 'undefined' || groupEl._labeledSelectObserved) return;
+            groupEl._labeledSelectObserved = true;
+            new ResizeObserver(function () { evaluateLabeledSelectGroup(groupEl); }).observe(groupEl);
+        });
+    };
+
     // Single entry point for enhancing every select/date/time field under a
     // given root — called for the whole document on page load, and again by
     // AJAX-loaded modals (e.g. panel.js) on the subtree they just injected, so
@@ -1726,5 +1795,26 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             window.enhanceDateInput(el, { noPast: el.hasAttribute('data-no-past') });
         });
         (root || document).querySelectorAll('input[type="time"]').forEach(window.enhanceTimeInput);
+        window.initLabeledSelectStacking(root);
     };
+})();
+
+// Generic "select + add button" containers (`.ui-select-row` for a
+// side-by-side pair, `.ui-labeled-select` for a label+select+button fused
+// into one control — both styled in components/forms.css). Any page can
+// register a handler here, keyed by the button's `data-add-trigger` value,
+// instead of writing its own dialog- or page-scoped click listener — this
+// single delegated listener covers every such container on the page,
+// including ones injected later into modals.
+(function () {
+    var CONTAINER_SELECTOR = '.ui-select-row, .ui-labeled-select';
+    window.uiSelectRowAdders = window.uiSelectRowAdders || {};
+    document.addEventListener('click', function (e) {
+        var trigger = e.target.closest(CONTAINER_SELECTOR + ' [data-add-trigger]');
+        if (!trigger) return;
+        var handler = window.uiSelectRowAdders[trigger.dataset.addTrigger];
+        if (!handler) return;
+        var row = trigger.closest(CONTAINER_SELECTOR);
+        handler(row ? row.querySelector('select') : null, trigger);
+    });
 })();

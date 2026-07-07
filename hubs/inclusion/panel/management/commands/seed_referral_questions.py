@@ -37,11 +37,17 @@ class Command(BaseCommand):
                 category=None, label=label, defaults={'order': q_order},
             )
 
+        # In the Concern category (order 0), above Concern Details (order 1) -
+        # the referring member picks the headline category before writing the
+        # free-text detail, both on the referral form and in Referral Details.
         mcq, _ = ReferralQuestion.objects.get_or_create(
-            category=None, label='Main Concern Category',
-            defaults={'order': 10, 'question_type': 'select', 'choices': MAIN_CONCERN_CHOICES},
+            label='Main Concern Category',
+            defaults={'category': category, 'order': 0, 'question_type': 'select', 'choices': MAIN_CONCERN_CHOICES},
         )
-        if mcq.choices != MAIN_CONCERN_CHOICES or mcq.question_type != 'select':
+        if (mcq.category_id != category.id or mcq.order != 0
+                or mcq.choices != MAIN_CONCERN_CHOICES or mcq.question_type != 'select'):
+            mcq.category = category
+            mcq.order = 0
             mcq.question_type = 'select'
             mcq.choices = MAIN_CONCERN_CHOICES
             mcq.save()

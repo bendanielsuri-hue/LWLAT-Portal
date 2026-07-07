@@ -45,6 +45,12 @@ Each column: `flex: 1 1 280px; min-width: 260px` (or `360px` for panel home card
 **Fixed-height list shell** (`.list-page-shell`)
 A flex column that fills viewport height: content area (`flex: 1; min-height: 0; overflow-y: auto`) above a pinned `.stats-strip` footer. Any page whose list needs to scroll internally without growing the page uses this pattern. If the shell stacks more than one row (e.g. Panel Home's two `.panel-columns` rows above the stats strip), space the rows apart with `gap` on the shell itself, set to the same value as the row's own horizontal card gap (`--space-xl`) — not a per-row `margin-bottom` at a different scale. Scope that `gap` with `:has(.panel-columns)` (or similar) rather than adding it to `.list-page-shell` unconditionally, since other shell pages (Students/Referrals/Actions) use a single `.list-card` with its own margin-bottom in the same shell class and would double up on spacing otherwise.
 
+**Put a non-.list-card header inside the shell, don't invent a second height calculation**
+`.list-page-shell`'s height is measured once, off `.sticky-header-zone`'s bottom edge (`setupListPageShellHeight()` in `main.js`). Anything that needs to sit above the shell's scrolling body but isn't a `.list-card` filter bar — e.g. Panel Setup's `.panel-toolbar`, whose height varies with panel status — should be a flex-shrunk child *inside* the shell (`flex-shrink: 0`, same as `.list-page-shell .panel-card-header`/`.tab-row`) rather than living outside it and guessing a second `calc(100vh - Npx)` offset to compensate. The scrolling body then just needs `flex: 1; min-height: 0; overflow: hidden` (see `.list-page-shell .setup-columns`) — no matter how tall the header above it turns out to be, it's already accounted for by the shell's one measurement. Pair with `align-items: stretch` on a card row (overriding the two-column-split default of `align-items: flex-start` above) so every card fills that height and only the card's own overflow scrolls.
+
+**Card-internal scroll with a fixed header** (`.setup-col`)
+A card whose list can grow long (Panel Setup's Panel Details/Members, Panel Selection, Panel Agenda) is `display: flex; flex-direction: column; overflow: hidden` with two children: a plain, non-scrolling `.setup-col-header` (the card's `<h2>`) and a `.setup-col-body` (`flex: 1 1 auto; min-height: 0; overflow-y: auto`) holding everything else. The H2 lives structurally outside the scroll area rather than merely `position: sticky` inside it — scrolled content can then never visually collide with it at the top of the scroll. A sub-section heading inside the body (e.g. "Panel Members", "New Referrals") can still use `position: sticky; top: 0`, scoped to `.setup-col-body .setup-col-header` — safe because the body is its one true scrolling ancestor, no page-header offset to account for. `.setup-col-body` bleeds out via `margin: 0 calc(-1 * var(--space-lg)); padding: 0 var(--space-lg)` so its scrollbar sits flush against the card's right edge instead of inset by the card's own padding — same technique as `.panel-list`'s edge-to-edge bleed (see Row items below).
+
 **Agenda grid** (`.agenda-layout`)
 ```css
 display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;
@@ -197,6 +203,8 @@ Left of `<h1>` in `.page-heading-wrap`, separated by a left border. Icon + text.
 **Entity list** (`.entity-list` / `.entity-row`)
 `background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden`. Each row: `padding: 14px 20px; border-bottom: 1px solid var(--border-color)`. Last row: no border.
 
+**Preference: any `.entity-list` with hover/selection feedback bleeds edge-to-edge.** Use the `.entity-list--bleed` modifier (negative margin matching the card's own padding, same technique `.panel-list` below uses) rather than leaving the row's hover/chosen background inset within the card's padding. Applies whenever a row is `.selectable` or otherwise interactive — a highlighted row should always reach the card's edges, never look padded/boxed-in. (Established on Inclusion Panel's Panel Setup member rows.)
+
 **Panel list** (`.panel-list`)
 `list-style: none; margin: 0 -20px` — negative margin bleeds to the `panel-card`'s padding so the hover/chosen background spans edge-to-edge. Each `li`: `padding: 12px 20px`.
 
@@ -232,8 +240,8 @@ Cards stay off `--primary`/`--accent-border` entirely; the accent colour reads a
 **Focus visible**
 `outline: 2px solid var(--primary); outline-offset: 2px`. Never suppress focus outlines.
 
-**Row transition**
-`transition: background var(--transition-fast), box-shadow var(--transition-fast)`.
+**Row transition — none, deliberately**
+Hover/focus/chosen state changes on rows/cards/tabs/nav (background, border-color, box-shadow, color) apply with no `transition` at all — they should read as immediate, not a fade. This applies to `.selectable`, tabs (`.tab-row`, `.card-tab`, `.tab-row-more-btn`), breadcrumbs, the nav rail, `.agenda-table tbody tr`, `.panel-list li`, etc. `.btn` (and its variants) is the one deliberate exception — it keeps a soft `transition: background var(--transition-slide), border-color var(--transition-slide), color var(--transition-slide)` on hover/focus (the slower 360ms token, not `--transition-fast`), since a snappier button hover read as too harsh. Beyond that, smooth `transition`/`animation` is reserved for things that are genuinely animating — an element entering/exiting, moving, or resizing (modal open/close, sidebar collapse, row grow-in/shrink-out, the tab-underline pop-in, the discussing pulse) — not for a plain colour/background swap on `:hover`. The handful of transform-based hover micro-interactions below (chip lift, swatch scale, nav icon nudge) are movement, not a fade, so they keep their transition.
 
 **Modal open/close animation**
 `opacity: 0; transform: translateY(8px) scale(0.97)` → `opacity: 1; transform: translateY(0) scale(1)`. Duration `250ms`. Backdrop: `rgba(15,23,36,0.55)`, transitions opacity. Dark theme backdrop: `rgba(0,0,0,0.7)`.

@@ -193,6 +193,13 @@ select.ui-select-native, input.ui-select-native {
     font-size: var(--font-base);
     font-family: inherit;
     cursor: pointer;
+    /* Long selected values truncate instead of overflowing or wrapping —
+       the chevron above is a background-image on this same box (not a
+       separate positioned icon), so once the box can't overflow its
+       container, the chevron can never be pushed out of view either. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 [data-theme-mode="dark"] .ui-select-trigger {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
@@ -313,6 +320,32 @@ dialog.ui-popover::backdrop { background: transparent; }
     width: 100%;
 }
 .ui-date-fields { display: flex; gap: var(--space-xs); flex: 1; }
+/* Compact fallback for the Day/Month/Year dropdowns: a plain "DD/MM/YYYY"
+   button that opens the same calendar popover the calendar-icon button
+   does. Hidden by default; a .ui-labeled-select field that's fallen back to
+   label-above layout (still just one field-width column, not the whole
+   page — the three dropdowns above still don't fit there) shows this
+   instead, below. */
+.ui-date-display {
+    display: none;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background-color: transparent;
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+    padding: 10px 12px;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ui-date-display:hover, .ui-date-display:focus-visible { color: var(--primary); }
+.ui-labeled-select--stacked .ui-date-fields { display: none; }
+.ui-labeled-select--stacked .ui-date-display { display: flex; }
 .ui-select--sm { flex: 1; min-width: 0; }
 .ui-select--sm .ui-select-trigger {
     padding: var(--space-xs) 26px var(--space-xs) 10px;
@@ -331,10 +364,198 @@ dialog.ui-popover::backdrop { background: transparent; }
     color: var(--text-secondary);
 }
 
-/* Panel Group field: select + a small "+" icon button beside it (same icon-
-   button sizing as the Date field's calendar button). */
+/* Generic "select + a small '+' icon button beside it" row (same icon-button
+   sizing as the Date field's calendar button) — used when the button sits
+   apart from the select rather than fused onto it (contrast .ui-labeled-select
+   below, which fuses both a label and an add-button onto one control). */
 .ui-select-row { display: flex; align-items: center; gap: var(--space-xs); width: 100%; }
-.ui-select-row > .ui-select { flex: 1; }
+.ui-select-row > .ui-select, .ui-select-row > .ui-labeled-select { flex: 1; }
+
+/* Wraps one or more .ui-labeled-select fields (e.g. School/Panel Group/Date/
+   Time/Chair) so their label columns auto-align via CSS subgrid instead of
+   each guessing a shared width. Column 1 (labels) and column 3 (an optional
+   "+" add-button, e.g. Panel Group's) auto-size to whichever sibling field
+   needs the most room; column 2 (the select/date/time itself) takes the
+   rest. A <form> wrapping some of the fields is flattened via `display:
+   contents` so its fields still land directly in this shared grid, and any
+   direct child that isn't itself a fused field (a <hr>, or the Chair
+   fallback heading/empty-note) just spans the full width. */
+.ui-labeled-select-group {
+    display: grid;
+    grid-template-columns: max-content 1fr max-content;
+    row-gap: var(--space-md);
+}
+.ui-labeled-select-group form { display: contents; }
+.ui-labeled-select-group > *:not(.ui-labeled-select) { grid-column: 1 / -1; }
+
+/* Generic "label + select + add-button, all fused into one control" (e.g.
+   the Panel Group field): a single bordered box whose segments — a label,
+   the select/date/time itself, and an optional "+" button — share one
+   border/background instead of reading as separate controls. Wraps a
+   <label> + <select>/<input> + optional <button class="ui-labeled-select-add">;
+   enhanceSelect()/enhanceDateInput()/enhanceTimeInput() then wrap the native
+   control in .ui-select/.ui-date/.ui-time, which becomes this row's middle
+   grid cell.
+
+   `grid-template-columns: subgrid` only takes effect with a `display: grid`
+   parent (a .ui-labeled-select-group) — this component isn't meant to be
+   used standalone outside one. */
+.ui-labeled-select {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / 3;
+    align-items: stretch;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-surface-alt);
+}
+/* Rows with a third segment (the "+" add-button) claim the group's 3rd
+   column too, instead of leaving it empty for that row. */
+.ui-labeled-select:has(> .ui-labeled-select-add) { grid-column: 1 / 4; }
+/* Our own `display: grid` above is an author-stylesheet rule, so it beats
+   the browser's built-in `[hidden] { display: none }` UA-stylesheet
+   default outright (author styles always win over UA ones, tied
+   specificity or not) — without this, the `hidden` attribute (e.g. locking
+   the Create Panel modal's School field to one school) silently does
+   nothing. */
+.ui-labeled-select[hidden] { display: none; }
+/* Two classes deep so this beats .field-group label's `display: block` /
+   margin-bottom (that rule is a class+element selector, lower specificity
+   than a class+class one) when this component sits inside a .field-group. */
+.ui-labeled-select > .ui-labeled-select-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0 var(--space-sm);
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-well);
+    border-right: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+/* Grid items default to min-width: auto (floored at their content's size,
+   same trap flex items have) — without this, .ui-select-trigger's ellipsis
+   truncation above never actually gets a chance to kick in. */
+.ui-labeled-select > .ui-select,
+.ui-labeled-select > .ui-date,
+.ui-labeled-select > .ui-time { min-width: 0; }
+.ui-labeled-select .ui-select-trigger {
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+}
+/* Element-qualified so this reliably beats .btn-add's own border/radius
+   (a class+pseudo-class selector on :hover ties with a two-class selector
+   on specificity alone; adding the `button` element type breaks the tie in
+   our favour regardless of stylesheet import order). Background/text colour
+   still come from .btn-add(:hover) — only the border/shape are overridden,
+   so the "+" still reads as an add action, just flush against the select. */
+.ui-labeled-select > button.ui-labeled-select-add,
+.ui-labeled-select > button.ui-labeled-select-add:hover,
+.ui-labeled-select > button.ui-labeled-select-add:focus-visible {
+    margin: 0;
+    border: none;
+    border-left: 1px solid var(--border-color);
+    border-radius: 0;
+}
+/* .ui-labeled-select also fuses a label onto Date/Time's multi-part pickers
+   (Day/Month/Year, Hour/Minute), not just a single <select> — same "one
+   bordered box" look as the Panel Group/School fields. Day/Month/Year and
+   Hour/Minute read as one fused strip inside the box, so the gap between
+   them needs to become a divider line instead of just whitespace once
+   .ui-select-trigger's own border is stripped below. */
+.ui-labeled-select .ui-date-fields, .ui-labeled-select .ui-time-fields { gap: 0; }
+.ui-labeled-select .ui-date-fields > .ui-select--sm:not(:last-child) .ui-select-trigger,
+.ui-labeled-select .ui-time-fields > .ui-select--sm:not(:last-child) .ui-select-trigger {
+    border-right: 1px solid var(--border-color);
+}
+.ui-labeled-select .ui-date-calendar-btn,
+.ui-labeled-select .ui-date-calendar-btn:hover,
+.ui-labeled-select .ui-date-calendar-btn:focus-visible {
+    border: none;
+    border-left: 1px solid var(--border-color);
+    border-radius: 0;
+}
+/* .ui-date-calendar-btn's own color:var(--text-secondary) rule (above) ties
+   in specificity with .btn-secondary's colour, so make the subtle-fill
+   variant's tinted icon win explicitly regardless of stylesheet order. */
+.ui-date-calendar-btn.btn-secondary { color: var(--btn-secondary-text); }
+.ui-date-calendar-btn.btn-secondary:hover { color: var(--btn-secondary-hover-text); }
+/* In compact date mode the calendar button sits directly beside the plain
+   "DD/MM/YYYY" text button (.ui-date-display, itself transparent over the
+   shared .ui-labeled-select background) — .btn-secondary's own tinted fill
+   would otherwise make it read as a separate, distinct button rather than
+   the other half of one selectable control. */
+/* The calendar button is pulled out of normal flow (below) so it no longer
+   competes with the date text for the row's width — otherwise
+   .ui-date-display's own centering only centers within its flex:1 share of
+   the row (excluding the button), which optically drifts left of the
+   .ui-labeled-select-label centered above it over the row's full width. */
+.ui-labeled-select--stacked .ui-date { position: relative; justify-content: center; }
+.ui-labeled-select--stacked .ui-date-display { flex: none; }
+.ui-labeled-select--stacked .ui-date-calendar-btn,
+.ui-labeled-select--stacked .ui-date-calendar-btn:hover,
+.ui-labeled-select--stacked .ui-date-calendar-btn:focus-visible {
+    background-color: transparent;
+    border-left: none;
+    /* The base 38px fixed width (shared with the "+" add-button elsewhere)
+       centres this icon with a lot of empty space either side of it — fine
+       when it's its own distinct control, but here it's taken out of flow
+       (below) and just needs to sit at the row's right edge. */
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto;
+    padding: 0 var(--space-xs);
+}
+
+/* A single field can independently fall back to label-above-field (rather
+   than beside it) when window.initLabeledSelectStacking (static/js/main.js)
+   measures that it doesn't have room for both an aligned label and a
+   usable select width — escaping the shared column span so it doesn't
+   squeeze its siblings, while fields that do fit stay aligned. The
+   select/date/time control and its optional "+" add-button stay side by
+   side on their own row (2nd column auto-sized to the button) — only the
+   label moves to its own full-width row above; there's no reason a small
+   icon button needs a whole row to itself. */
+.ui-labeled-select--stacked {
+    grid-column: 1 / -1 !important;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+}
+/* Only reserve a 2nd column when there's actually an add-button to put in
+   it — otherwise the label's row-1 span across both columns (below) still
+   inflates the empty 2nd column's auto track, stealing width from the
+   select/date/time in row 2 for no reason (it'd never fill the row). */
+.ui-labeled-select--stacked:has(> .ui-labeled-select-add) {
+    grid-template-columns: 1fr auto;
+}
+.ui-labeled-select--stacked > .ui-labeled-select-label {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-content: center;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+}
+.ui-labeled-select--stacked > .ui-select,
+.ui-labeled-select--stacked > .ui-date,
+.ui-labeled-select--stacked > .ui-time {
+    grid-column: 1;
+    grid-row: 2;
+}
+.ui-labeled-select--stacked > .ui-labeled-select-add {
+    grid-column: 2;
+    grid-row: 2;
+}
+
 .ui-calendar-popover {
     width: 280px;
 }
@@ -365,6 +586,13 @@ dialog.ui-popover::backdrop { background: transparent; }
     font-family: inherit;
 }
 .field-group .field-box { min-height: 44px; }
+
+/* Label and its control share one line instead of stacking - e.g. Panel
+   Setup's Chair select, where the field-group's default block layout wastes
+   a whole row for a short label. */
+.field-group-inline { display: flex; align-items: center; gap: var(--space-sm); }
+.field-group-inline label { margin-bottom: 0; flex-shrink: 0; }
+.field-group-inline input, .field-group-inline select, .field-group-inline .field-box { width: auto; flex: 1 1 auto; }
 
 .field-section-label { display: block; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: var(--space-md) 0 var(--space-xs); }
 
@@ -432,3 +660,14 @@ dialog.ui-popover::backdrop { background: transparent; }
 
 .member-expertise-add-input { display: flex; gap: var(--space-xs); flex: 1 1 auto; align-items: center; }
 .member-expertise-add-input input { width: auto; flex: 1 1 auto; padding: var(--space-xs) var(--space-sm); }
+
+.form-error {
+    background: var(--color-negative-bg);
+    color: var(--color-negative);
+    border-radius: var(--radius-sm);
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-md);
+    font-size: var(--font-sm);
+    font-weight: 600;
+}
+.form-error[hidden] { display: none; }

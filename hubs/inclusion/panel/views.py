@@ -1,5 +1,6 @@
 import datetime
 import json
+from collections import Counter
 from urllib.parse import quote
 
 from django.db.models import Count, Max, Q
@@ -117,6 +118,28 @@ def _panel_referral_stage(pr):
     if pr.follow_up_status == 'incomplete':
         return 'requires_follow_up', 'Requires Follow-up'
     return 'complete', 'Complete'
+
+
+def _next_agenda_order(panel):
+    # New agenda additions always land at the end of the manually-ordered list,
+    # regardless of which action created them (Panel Setup's Add, a pulled-in
+    # follow-up, etc.) — see PanelReferral.agenda_order.
+    return (panel.panel_referrals.aggregate(Max('agenda_order'))['agenda_order__max'] or 0) + 1
+
+
+def _move_agenda_referral(siblings, pr_id, direction):
+    # Swaps agenda_order with the adjacent sibling in the given (already
+    # agenda_order-sorted) list — the click-based fallback for the drag
+    # handle's reordering, e.g. for keyboard-only use.
+    siblings = list(siblings)
+    idx = next((i for i, s in enumerate(siblings) if str(s.id) == str(pr_id)), None)
+    if idx is None:
+        return
+    swap_idx = idx - 1 if direction == 'up' else idx + 1
+    if 0 <= swap_idx < len(siblings):
+        a, b = siblings[idx], siblings[swap_idx]
+        a.agenda_order, b.agenda_order = b.agenda_order, a.agenda_order
+        PanelReferral.objects.bulk_update([a, b], ['agenda_order'])
 
 
 def _sync_referral_status(referral):
@@ -259,6 +282,24 @@ def _grouped_questions():
     if flat_questions:
         groups.append({'category': None, 'questions': flat_questions})
     return groups
+
+
+def _missing_required_answers(question_groups, post_data):
+    # Dropdown questions (currently just Main Concern Category) are required -
+    # see the `required` attribute on their <select> in
+    # _referral_form_fields.html. Client-side validation can be bypassed (a
+    # disabled/hidden field is barred from constraint validation, a manual
+    # fetch() skips the browser's native submit-blocking entirely), so a
+    # referral must never actually save without this - re-check server-side.
+    missing = []
+    for group in question_groups:
+        for question in group['questions']:
+            if question.question_type != 'select':
+                continue
+            answer = post_data.get(f'question_{question.id}', '')
+            if not answer or answer not in question.choice_list():
+                missing.append(question.label)
+    return missing
 
 
 def _pct(numerator, denominator):
@@ -549,30 +590,42 @@ def inclusion_panel_referral_new(request):
     student_id = request.GET.get('student') or request.POST.get('student')
     selected_student = Student.objects.filter(pk=student_id).first() if student_id else None
 
+    question_groups = _grouped_questions()
+    errors = None
+
     if request.method == 'POST':
-        student = get_object_or_404(Student, pk=request.POST.get('student'))
-        raised_by = _current_staff(request)
-        base = CoreReferral.objects.create(
-            referral_type=CoreReferral.TYPE_INCLUSION,
-            student=student,
-            raised_by=raised_by,
-            date_referred=timezone.localdate(),
-        )
-        referral = InclusionReferral.objects.create(referral=base, student=student, raised_by=raised_by)
-        for group in _grouped_questions():
-            for question in group['questions']:
-                answer = request.POST.get(f'question_{question.id}', '')
-                ReferralResponse.objects.create(referral=referral, question=question, answer=answer)
+        errors = _missing_required_answers(question_groups, request.POST)
+        if not errors:
+            student = get_object_or_404(Student, pk=request.POST.get('student'))
+            raised_by = _current_staff(request)
+            base = CoreReferral.objects.create(
+                referral_type=CoreReferral.TYPE_INCLUSION,
+                student=student,
+                raised_by=raised_by,
+                date_referred=timezone.localdate(),
+            )
+            referral = InclusionReferral.objects.create(referral=base, student=student, raised_by=raised_by)
+            for group in question_groups:
+                for question in group['questions']:
+                    answer = request.POST.get(f'question_{question.id}', '')
+                    ReferralResponse.objects.create(referral=referral, question=question, answer=answer)
+            if is_ajax:
+                return JsonResponse({'success': True})
+            return redirect(_safe_next(request, '/inclusion/panel/referrals/'))
         if is_ajax:
-            return JsonResponse({'success': True})
-        return redirect(_safe_next(request, '/inclusion/panel/referrals/'))
+            return JsonResponse({'success': False, 'errors': errors}, status=400)
+        selected_student = get_object_or_404(Student, pk=request.POST.get('student'))
+        for group in question_groups:
+            for question in group['questions']:
+                question.existing_answer = request.POST.get(f'question_{question.id}', '')
 
     context = {
         **PANEL_BASE_CONTEXT,
         'students': student_queryset_for_school_key(current_school_key(request)),
         'selected_student': selected_student,
-        'question_groups': _grouped_questions(),
-        'next': request.GET.get('next', ''),
+        'question_groups': question_groups,
+        'errors': errors,
+        'next': request.GET.get('next', request.POST.get('next', '')),
     }
     return render(request, 'hubs/inclusion/panel/_referral_form_modal.html', context)
 
@@ -584,25 +637,33 @@ def inclusion_panel_referral_edit(request, referral_id):
     is_view_only = current_staff is None or referral.raised_by_id != current_staff.id
     question_groups = _grouped_questions()
 
+    errors = None
     if request.method == 'POST':
         if is_view_only:
             if is_ajax:
                 return JsonResponse({'success': False}, status=403)
             return redirect(_safe_next(request, '/inclusion/panel/'))
+        errors = _missing_required_answers(question_groups, request.POST)
+        if not errors:
+            for group in question_groups:
+                for question in group['questions']:
+                    answer = request.POST.get(f'question_{question.id}', '')
+                    ReferralResponse.objects.update_or_create(
+                        referral=referral, question=question, defaults={'answer': answer},
+                    )
+            if is_ajax:
+                return JsonResponse({'success': True})
+            return redirect(_safe_next(request, '/inclusion/panel/'))
+        if is_ajax:
+            return JsonResponse({'success': False, 'errors': errors}, status=400)
         for group in question_groups:
             for question in group['questions']:
-                answer = request.POST.get(f'question_{question.id}', '')
-                ReferralResponse.objects.update_or_create(
-                    referral=referral, question=question, defaults={'answer': answer},
-                )
-        if is_ajax:
-            return JsonResponse({'success': True})
-        return redirect(_safe_next(request, '/inclusion/panel/'))
-
-    existing_answers = {r.question_id: r.answer for r in referral.responses.all()}
-    for group in question_groups:
-        for question in group['questions']:
-            question.existing_answer = existing_answers.get(question.id, '')
+                question.existing_answer = request.POST.get(f'question_{question.id}', '')
+    else:
+        existing_answers = {r.question_id: r.answer for r in referral.responses.all()}
+        for group in question_groups:
+            for question in group['questions']:
+                question.existing_answer = existing_answers.get(question.id, '')
 
     return render(request, 'hubs/inclusion/panel/_referral_form_modal.html', {
         **PANEL_BASE_CONTEXT,
@@ -611,7 +672,8 @@ def inclusion_panel_referral_edit(request, referral_id):
         'referral': referral,
         'selected_student': referral.student,
         'question_groups': question_groups,
-        'next': request.GET.get('next', ''),
+        'errors': errors,
+        'next': request.GET.get('next', request.POST.get('next', '')),
     })
 
 
@@ -638,6 +700,28 @@ def inclusion_panel_action_set_status(request, action_id):
             action.completed_at = timezone.now() if status == 'complete' else None
             action.save()
     return redirect(_safe_next(request, '/inclusion/panel/'))
+
+
+def inclusion_panel_referral_actions_modal(request, referral_id):
+    referral = get_object_or_404(InclusionReferral.objects.select_related('student'), pk=referral_id)
+    is_panel_staff = _is_panel_staff(_current_staff(request))
+
+    if request.method == 'POST':
+        action = get_object_or_404(Action, pk=request.POST.get('action_id'), referral=referral)
+        status = request.POST.get('status')
+        if status in dict(Action.STATUS_CHOICES):
+            action.status = status
+            action.completed_at = timezone.now() if status == 'complete' else None
+            action.save()
+
+    actions = referral.actions.select_related('category', 'assigned_to')
+    if not is_panel_staff:
+        actions = actions.exclude(category__is_sensitive=True)
+
+    return render(request, 'hubs/inclusion/panel/_referral_actions_modal.html', {
+        'referral': referral,
+        'actions': actions,
+    })
 
 
 def inclusion_panel_referral_escalate(request, referral_id):
@@ -1011,10 +1095,23 @@ def inclusion_panel_meeting_new(request):
             return JsonResponse({'success': True, 'redirect': setup_url})
         return redirect(setup_url)
 
+    school_key = current_school_key(request)
+    if school_key in (None, '', 'all'):
+        schools = School.objects.filter(is_active=True).order_by('name')
+    elif school_key in ('primary', 'secondary'):
+        schools = School.objects.filter(is_active=True, category=school_key.capitalize())
+    else:
+        schools = School.objects.filter(is_active=True, pk=school_key)
+    selected_school = schools.first() if schools.count() == 1 else None
+
     return render(request, 'hubs/inclusion/panel/_panel_meeting_form_modal.html', {
         **PANEL_BASE_CONTEXT,
         'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school'),
         'today': timezone.localdate(),
+        'current_staff': _current_staff(request),
+        'schools': schools,
+        'selected_school_id': selected_school.id if selected_school else '',
+        'school_locked': selected_school is not None,
     })
 
 
@@ -1047,10 +1144,12 @@ def inclusion_panel_meeting_setup(request, panel_id):
     unassigned_referrals = InclusionReferral.objects.select_related('student', 'raised_by').exclude(
         pk__in=PanelReferral.objects.filter(removed_at__isnull=True).values_list('referral_id', flat=True)
     ).prefetch_related('responses__question__category')
+    if panel.panel_group_id and panel.panel_group.school_id:
+        unassigned_referrals = unassigned_referrals.filter(student__school_id=panel.panel_group.school_id)
 
     agenda = panel.panel_referrals.filter(removed_at__isnull=True).select_related(
         'referral__student', 'referral__raised_by'
-    ).prefetch_related('referral__responses__question__category')
+    ).prefetch_related('referral__responses__question__category').order_by('agenda_order', 'id')
 
     agenda_student_ids = [a.referral.student_id for a in agenda]
     followups_due = _due_followups(
@@ -1098,64 +1197,138 @@ def inclusion_panel_meeting_setup(request, panel_id):
             pm = get_object_or_404(PanelMember, pk=request.POST.get('member_id'), panel=panel)
             pm.expertise_id = request.POST.get('expertise') or None
             pm.save()
-        elif action == 'add_referral':
+        elif action in ('add_referral', 'add_followup_to_agenda'):
             referral_id = request.POST.get('referral_id')
+            pr = None
             if referral_id:
                 pr, created = PanelReferral.objects.get_or_create(panel=panel, referral_id=referral_id)
-                if not created and pr.removed_at is not None:
+                if created:
+                    pr.agenda_order = _next_agenda_order(panel)
+                    pr.save()
+                elif pr.removed_at is not None:
                     pr.removed_at = None
                     pr.removed_by = None
+                    pr.agenda_order = _next_agenda_order(panel)
                     pr.save()
                 _sync_referral_status(pr.referral)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # panel_referral_id lets the drag-and-drop client follow up
+                # with a reorder_agenda call to place the new row where the
+                # user actually dropped it, rather than always at the bottom.
+                return JsonResponse({'success': True, 'panel_referral_id': pr.id if pr else None})
         elif action == 'remove_referral_from_agenda':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             pr.removed_at = timezone.now()
             pr.removed_by_id = request.POST.get('removed_by') or None
             pr.save()
             _sync_referral_status(pr.referral)
-        elif action == 'add_all_referrals':
-            for referral_id in unassigned_referrals.values_list('id', flat=True):
-                pr, created = PanelReferral.objects.get_or_create(panel=panel, referral_id=referral_id)
-                if not created and pr.removed_at is not None:
-                    pr.removed_at = None
-                    pr.removed_by = None
-                    pr.save()
-                _sync_referral_status(pr.referral)
-        elif action == 'remove_all_referrals':
-            referral_ids = list(agenda.values_list('referral_id', flat=True))
-            agenda.update(removed_at=timezone.now(), removed_by_id=request.POST.get('removed_by') or None)
-            for referral in InclusionReferral.objects.filter(pk__in=referral_ids):
-                _sync_referral_status(referral)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
         elif action == 'update_priority':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             if request.POST.get('priority') in dict(PanelReferral.PRIORITY_CHOICES):
                 pr.priority = request.POST.get('priority')
                 pr.save()
-        elif action == 'add_followup_to_agenda':
-            referral_id = request.POST.get('referral_id')
-            if referral_id:
-                pr, created = PanelReferral.objects.get_or_create(panel=panel, referral_id=referral_id)
-                if not created and pr.removed_at is not None:
-                    pr.removed_at = None
-                    pr.removed_by = None
-                    pr.save()
-                _sync_referral_status(pr.referral)
-        elif action == 'pull_in_followups':
-            for due in _due_followups(panel, as_of=panel.date + datetime.timedelta(days=7)):
-                pr, _created = PanelReferral.objects.get_or_create(panel=panel, referral_id=due.referral_id)
-                _sync_referral_status(pr.referral)
+        elif action == 'reorder_agenda':
+            ordered_ids = request.POST.getlist('panel_referral_id')
+            referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
+            updated = []
+            for index, pr_id in enumerate(ordered_ids, start=1):
+                pr = referrals.get(int(pr_id))
+                if pr is not None:
+                    pr.agenda_order = index
+                    updated.append(pr)
+            PanelReferral.objects.bulk_update(updated, ['agenda_order'])
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
+        elif action == 'move_agenda_referral':
+            _move_agenda_referral(agenda, request.POST.get('panel_referral_id'), request.POST.get('direction'))
         elif action == 'toggle_ready':
             if panel.status == 'draft':
                 panel.status = 'ready'
             elif panel.status == 'ready':
                 panel.status = 'draft'
             panel.save()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True, 'status': panel.status, 'status_display': panel.get_status_display(),
+                })
         return redirect('inclusion_panel_meeting_setup', panel_id=panel.id)
 
     for referral in unassigned_referrals:
         referral.primary_concern_category = _primary_concern_category(referral)
+    for fpr in followups_due:
+        fpr.primary_concern_category = _primary_concern_category(fpr.referral)
+
+    is_panel_staff = _is_panel_staff(_current_staff(request))
+
+    # Referral Selection's "All" tab merges New Referrals and Due Follow-up
+    # into one list - each entry tagged with its origin so the shared row
+    # partial knows which pill/fields/add-action to use.
+    new_entries = [
+        {
+            'referral': referral, 'origin': 'new',
+            'primary_concern_category': referral.primary_concern_category,
+            'follow_up_date': None, 'last_discussed': None,
+            'actions_total': None, 'actions_complete': None,
+        }
+        for referral in unassigned_referrals
+    ]
+
+    followup_entries = []
+    for fpr in followups_due:
+        actions_qs = fpr.referral.actions.all()
+        if not is_panel_staff:
+            actions_qs = actions_qs.exclude(category__is_sensitive=True)
+        status_counts = Counter(actions_qs.values_list('status', flat=True))
+        actions_total = status_counts['complete'] + status_counts['incomplete']
+        followup_entries.append({
+            'referral': fpr.referral, 'origin': 'followup',
+            'primary_concern_category': fpr.primary_concern_category,
+            'follow_up_date': fpr.follow_up_date, 'last_discussed': fpr.panel.date,
+            'actions_total': actions_total, 'actions_complete': status_counts['complete'],
+        })
+
+    referral_selection_entries = new_entries + followup_entries
+
+    def _entry_sort_key(entry):
+        student = entry['referral'].student
+        return (student.last_name.lower(), student.first_name.lower())
+
+    new_entries.sort(key=_entry_sort_key)
+    followup_entries.sort(key=_entry_sort_key)
+    referral_selection_entries.sort(key=_entry_sort_key)
+
+    # Surfaces when the same student has more than one open referral in this
+    # list (no uniqueness constraint on InclusionReferral.student - two staff
+    # can genuinely raise separate referrals for the same student) so it's
+    # noticed before adding just one to the agenda, without attempting to
+    # merge/combine them for discussion.
+    student_counts = Counter(e['referral'].student_id for e in referral_selection_entries)
+    for entry in referral_selection_entries:
+        entry['other_referrals_count'] = student_counts[entry['referral'].student_id] - 1
+
+    # For an agenda referral that's been discussed before (e.g. pulled in from
+    # a due follow-up), show when - one query for every agenda row rather than
+    # one per row: order by panel date descending and keep only the first
+    # (most recent) PanelReferral per referral_id.
+    last_discussed_by_referral = {}
+    for prev in PanelReferral.objects.filter(
+        referral_id__in=[pr.referral_id for pr in agenda], discussion_status='discussed',
+    ).exclude(panel_id=panel.id).select_related('panel').order_by('referral_id', '-panel__date'):
+        last_discussed_by_referral.setdefault(prev.referral_id, prev.panel)
     for pr in agenda:
         pr.primary_concern_category = _primary_concern_category(pr.referral)
+        pr.last_discussed_panel = last_discussed_by_referral.get(pr.referral_id)
+        pr.actions_total = None
+        pr.actions_complete = None
+        if pr.last_discussed_panel:
+            actions_qs = pr.referral.actions.all()
+            if not is_panel_staff:
+                actions_qs = actions_qs.exclude(category__is_sensitive=True)
+            status_counts = Counter(actions_qs.values_list('status', flat=True))
+            pr.actions_total = status_counts['complete'] + status_counts['incomplete']
+            pr.actions_complete = status_counts['complete']
 
     group_joined_at_by_staff = {}
     if panel.panel_group_id:
@@ -1178,11 +1351,17 @@ def inclusion_panel_meeting_setup(request, panel_id):
     active_members = [m for m in members if m.is_active]
     inactive_members = [m for m in members if not m.is_active]
 
+    staff_list = Staff.objects.filter(is_active=True).select_related('school')
+    panel_groups = PanelGroup.objects.filter(is_active=True).select_related('school')
+    if panel.panel_group_id and panel.panel_group.school_id:
+        staff_list = staff_list.filter(Q(school_id=panel.panel_group.school_id) | Q(school_id__isnull=True))
+        panel_groups = panel_groups.filter(school_id=panel.panel_group.school_id)
+
     return render(request, 'hubs/inclusion/panel/meeting_setup.html', {
         **PANEL_BASE_CONTEXT,
         'panel': panel,
-        'staff_list': Staff.objects.filter(is_active=True).select_related('school'),
-        'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school'),
+        'staff_list': staff_list,
+        'panel_groups': panel_groups,
         'expertise_list': Expertise.objects.visible_for_school(
             panel.panel_group.school_id if panel.panel_group_id else None
         ),
@@ -1194,6 +1373,9 @@ def inclusion_panel_meeting_setup(request, panel_id):
         'unassigned_referrals': unassigned_referrals,
         'agenda': agenda,
         'followups_due': followups_due,
+        'new_entries': new_entries,
+        'followup_entries': followup_entries,
+        'referral_selection_entries': referral_selection_entries,
         'priority_choices': PanelReferral.PRIORITY_CHOICES,
     })
 
@@ -1228,23 +1410,52 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             pr.removed_by_id = request.POST.get('removed_by') or None
             pr.save()
             _sync_referral_status(pr.referral)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
         elif action == 'update_priority':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             if request.POST.get('priority') in dict(PanelReferral.PRIORITY_CHOICES):
                 pr.priority = request.POST.get('priority')
                 pr.save()
+        elif action == 'reorder_agenda':
+            ordered_ids = request.POST.getlist('panel_referral_id')
+            referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
+            updated = []
+            for index, pr_id in enumerate(ordered_ids, start=1):
+                pr = referrals.get(int(pr_id))
+                if pr is not None:
+                    pr.agenda_order = index
+                    updated.append(pr)
+            PanelReferral.objects.bulk_update(updated, ['agenda_order'])
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
+        elif action == 'move_agenda_referral':
+            pending_siblings = panel.panel_referrals.filter(
+                removed_at__isnull=True, discussion_status='pending'
+            ).order_by('agenda_order', 'id')
+            _move_agenda_referral(pending_siblings, request.POST.get('panel_referral_id'), request.POST.get('direction'))
         elif action == 'add_followup_to_agenda':
             referral_id = request.POST.get('referral_id')
+            pr = None
             if referral_id:
                 pr, created = PanelReferral.objects.get_or_create(panel=panel, referral_id=referral_id)
-                if not created and pr.removed_at is not None:
+                if created:
+                    pr.agenda_order = _next_agenda_order(panel)
+                    pr.save()
+                elif pr.removed_at is not None:
                     pr.removed_at = None
                     pr.removed_by = None
+                    pr.agenda_order = _next_agenda_order(panel)
                     pr.save()
                 _sync_referral_status(pr.referral)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'panel_referral_id': pr.id if pr else None})
         elif action == 'pull_in_followups':
             for due in _due_followups(panel):
-                pr, _created = PanelReferral.objects.get_or_create(panel=panel, referral_id=due.referral_id)
+                pr, created = PanelReferral.objects.get_or_create(panel=panel, referral_id=due.referral_id)
+                if created:
+                    pr.agenda_order = _next_agenda_order(panel)
+                    pr.save()
                 _sync_referral_status(pr.referral)
         elif action == 'add_member':
             staff_id = request.POST.get('staff') or None
@@ -1281,10 +1492,9 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         pr.is_followup = referral_counts.get(pr.referral.student_id, 0) > 1
         pr.stage, pr.stage_label = _panel_referral_stage(pr)
 
-    priority_order = {'high': 0, 'medium': 1, 'low': 2}
     pending = sorted(
         (pr for pr in panel_referrals if pr.discussion_status == 'pending'),
-        key=lambda pr: priority_order.get(pr.priority, 1),
+        key=lambda pr: (pr.agenda_order, pr.id),
     )
     discussed = [pr for pr in panel_referrals if pr.discussion_status == 'discussed']
     for pr in discussed:

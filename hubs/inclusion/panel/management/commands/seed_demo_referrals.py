@@ -2,7 +2,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from core.models import Referral as CoreReferral, Student
-from hubs.inclusion.panel.models import InclusionReferral, PanelReferral, ReferralQuestion, ReferralResponse
+from hubs.inclusion.panel.management.seed_helpers import backfill_referral_responses
+from hubs.inclusion.panel.models import InclusionReferral, PanelReferral, ReferralQuestion
 
 
 def _create_inclusion_referral(student, status='open', raised_by=None):
@@ -18,17 +19,6 @@ def _create_inclusion_referral(student, status='open', raised_by=None):
     )
 
 TARGET_UNASSIGNED_COUNT = 5
-
-# Deterministic placeholder answers, keyed by question label, so every demo
-# referral has something to show in the Referral Details panel instead of a
-# blank screen. Falls back to a generic line for any question not listed here.
-DEFAULT_ANSWERS = {
-    'Concern Details': 'Ongoing low-level disruption in lessons and difficulty settling at the start of the day.',
-    'Parent Voice': 'Parents are aware and supportive of any extra support the school can put in place.',
-    'Student Voice': 'Student says they sometimes find it hard to concentrate and would like some extra help.',
-    'What has been put in place so far?': 'Seating plan adjustments and a check-in with form tutor each morning.',
-}
-FALLBACK_ANSWER = 'No further detail recorded.'
 
 
 class Command(BaseCommand):
@@ -62,16 +52,7 @@ class Command(BaseCommand):
         questions = list(ReferralQuestion.objects.filter(is_active=True))
         responses_created = 0
         for referral in InclusionReferral.objects.all():
-            answered_question_ids = set(referral.responses.values_list('question_id', flat=True))
-            for question in questions:
-                if question.id in answered_question_ids:
-                    continue
-                ReferralResponse.objects.get_or_create(
-                    referral=referral,
-                    question=question,
-                    defaults={'answer': DEFAULT_ANSWERS.get(question.label, FALLBACK_ANSWER)},
-                )
-                responses_created += 1
+            responses_created += backfill_referral_responses(referral, questions=questions)
 
         self.stdout.write(self.style.SUCCESS(
             f'Backfilled {responses_created} referral response(s) for existing referrals.'

@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from core.models import Referral as CoreReferral, School, Student
+from hubs.inclusion.panel.management.seed_helpers import backfill_referral_responses
 from hubs.inclusion.panel.models import (
     InclusionReferral, Panel, PanelGroup, PanelGroupMember, PanelMember, PanelReferral,
 )
@@ -13,6 +14,11 @@ PAST_SPECS_BABINGTON = [(-60, 4), (-30, 3)]
 PAST_SPECS_OTHER_SCHOOLS = [(-45, 3), (-15, 2)]
 FUTURE_OFFSET_DAYS = 14
 DISCUSSION_MINUTES = [12, 18, 25, 9]
+# How many of the most recent past panel's discussed referrals get flagged
+# as needing a follow-up, so the Panel Setup Referral Selection "Due
+# Follow-up"/"All" tabs have something to show per school out of the box.
+FOLLOW_UP_COUNT = 2
+FOLLOW_UP_DAYS_AFTER_DISCUSSION = 14
 
 
 def _canonical_group(school):
@@ -39,6 +45,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         today = timezone.localdate()
+        self._repair_orphaned_referrals()
         students_used = set(InclusionReferral.objects.values_list('student_id', flat=True))
 
         for school in School.objects.filter(is_active=True):
@@ -60,7 +67,7 @@ class Command(BaseCommand):
                 existing_past[-len(past_specs):] if existing_past else []
             )
             for extra in excess:
-                extra.delete()
+                self._delete_panel_and_its_referrals(extra)
                 self.stdout.write(self.style.WARNING(
                     f'Deleted excess past panel {extra.date} for {group.name} (beyond target of {len(past_specs)}).'
                 ))
@@ -89,7 +96,7 @@ class Command(BaseCommand):
                         f'Repaired empty past panel {panel.date} for {group.name} with {len(candidates)} referral(s).'
                     ))
                 else:
-                    panel.delete()
+                    self._delete_panel_and_its_referrals(panel)
                     self.stdout.write(self.style.WARNING(
                         f'Deleted empty past panel {panel.date} for {group.name} (no students available to repair it).'
                     ))
@@ -125,7 +132,7 @@ class Command(BaseCommand):
                 .exclude(status='complete').order_by('date')
             )
             for extra in upcoming[1:]:
-                extra.delete()
+                self._delete_panel_and_its_referrals(extra)
                 self.stdout.write(self.style.WARNING(
                     f'Deleted duplicate upcoming panel {extra.date} for {group.name} (already have one).'
                 ))
@@ -146,6 +153,20 @@ class Command(BaseCommand):
                 self._backfill_chair(panel, group)
                 self._seed_members(panel, group)
 
+            # Tie-broken by pk (not just date) so a school with two past panels
+            # sharing the same date (a pre-existing data quirk on some
+            # machines) still lands on the same one every rerun, instead of
+            # flagging a fresh batch of referrals each time.
+            most_recent_past = Panel.objects.filter(
+                panel_group=group, status='complete', date__lt=today,
+            ).order_by('-date', '-pk').first()
+            if most_recent_past:
+                flagged = self._seed_followups(most_recent_past)
+                if flagged:
+                    self.stdout.write(self.style.SUCCESS(
+                        f'Flagged {flagged} referral(s) as due for follow-up on {group.name} ({school.name}).'
+                    ))
+
     def _link_referrals(self, panel, candidates, students_used):
         for idx, student in enumerate(candidates):
             base = CoreReferral.objects.create(
@@ -154,6 +175,10 @@ class Command(BaseCommand):
                 date_referred=timezone.localdate(),
             )
             referral = InclusionReferral.objects.create(referral=base, student=student, status='in_panel')
+            # Without this, a referral created here (rather than by
+            # seed_demo_referrals) has no questionnaire answers at all - a blank
+            # card with no Main Concern Category, regardless of command order.
+            backfill_referral_responses(referral)
             students_used.add(student.id)
             minutes = DISCUSSION_MINUTES[idx % len(DISCUSSION_MINUTES)]
             discussed_at = timezone.make_aware(
@@ -167,6 +192,50 @@ class Command(BaseCommand):
                 discussion_started_at=discussed_at,
                 duration=datetime.timedelta(minutes=minutes),
             )
+
+    def _delete_panel_and_its_referrals(self, panel):
+        # Panel.delete() cascades away the PanelReferral link (panel FK,
+        # CASCADE), but the InclusionReferral/base Referral it pointed at
+        # would otherwise survive as an orphan: unassigned, stuck at whatever
+        # status _link_referrals left it in (never 'open'), with no responses
+        # - a blank card in New Referrals with no Main Concern Category. These
+        # referrals exist solely for this panel's demo discussion, so delete
+        # them (via their base Referral, which cascades everything else) too.
+        base_ids = list(
+            InclusionReferral.objects.filter(panel_referrals__panel=panel).values_list('referral_id', flat=True)
+        )
+        panel.delete()
+        CoreReferral.objects.filter(pk__in=base_ids).delete()
+
+    def _repair_orphaned_referrals(self):
+        # Fixes referrals left orphaned by a past run of this command before
+        # _delete_panel_and_its_referrals existed (or by any other path that
+        # deletes a Panel directly) - same zombie shape: never resynced to
+        # 'open', unassigned, no responses ever recorded for them.
+        orphaned = InclusionReferral.objects.exclude(
+            pk__in=PanelReferral.objects.filter(removed_at__isnull=True).values_list('referral_id', flat=True)
+        ).filter(status='in_panel', responses__isnull=True)
+        base_ids = list(orphaned.values_list('referral_id', flat=True))
+        if base_ids:
+            CoreReferral.objects.filter(pk__in=base_ids).delete()
+            self.stdout.write(self.style.WARNING(
+                f'Deleted {len(base_ids)} orphaned referral(s) left over from a previously deleted past panel.'
+            ))
+
+    def _seed_followups(self, panel):
+        # Idempotent via follow_up_status='' - once a row's been flagged
+        # (here or by real usage), reruns skip straight past it instead of
+        # re-picking a different candidate or pushing the date forward.
+        candidates = list(
+            PanelReferral.objects.filter(
+                panel=panel, removed_at__isnull=True, discussion_status='discussed', follow_up_status='',
+            ).order_by('id')[:FOLLOW_UP_COUNT]
+        )
+        for pr in candidates:
+            pr.follow_up_status = 'incomplete'
+            pr.follow_up_date = panel.date + datetime.timedelta(days=FOLLOW_UP_DAYS_AFTER_DISCUSSION)
+            pr.save(update_fields=['follow_up_status', 'follow_up_date'])
+        return len(candidates)
 
     def _backfill_chair(self, panel, group):
         if panel.chair_id is None and group.default_chair_id is not None:

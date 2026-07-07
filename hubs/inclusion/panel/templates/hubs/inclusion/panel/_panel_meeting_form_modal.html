@@ -2,24 +2,27 @@
     <h2>Create Panel</h2>
 </div>
 <div class="modal-body">
-    <form method="post" action="{% url 'inclusion_panel_meeting_new' %}" class="field-group" data-panel-meeting-modal-form>
+    <form method="post" action="{% url 'inclusion_panel_meeting_new' %}" class="field-group ui-labeled-select-group" data-panel-meeting-modal-form>
         {% csrf_token %}
-        <label>Panel Group</label>
-        <span class="ui-select-row">
-            <select name="panel_group" id="new-panel-group" required data-current-staff-school="{{ current_staff.school_id|default:'' }}">
-                <option value="">Select a group…</option>
-                {% for group in panel_groups %}
-                <option value="{{ group.id }}" data-school="{{ group.school_id|default:'' }}" data-school-name="{{ group.school.name|default:'' }}">{{ group.name }}{% if not group.school_id %} (No school){% endif %}</option>
+        <span class="ui-labeled-select" {% if school_locked %}hidden{% endif %}>
+            <label class="ui-labeled-select-label" for="new-panel-school">School</label>
+            <select id="new-panel-school" data-panel-school-select>
+                {% for school in schools %}
+                <option value="{{ school.id }}" {% if school.id == selected_school_id %}selected{% endif %}>{{ school.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" class="ui-add-group-btn btn btn-add btn-sm" data-create-group-trigger aria-label="Create new Panel Group"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span></button>
+        </span>
+        {% include 'hubs/inclusion/panel/_panel_group_field.html' with field_id='new-panel-group' show_placeholder=True %}
+
+        <span class="ui-labeled-select">
+            <label class="ui-labeled-select-label" for="new-panel-date">Date</label>
+            <input type="date" id="new-panel-date" name="date" value="{{ today|date:'Y-m-d' }}" data-no-past required>
         </span>
 
-        <label>Date</label>
-        <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" data-no-past required>
-
-        <label>Time</label>
-        <input type="time" name="time" value="08:00" required>
+        <span class="ui-labeled-select">
+            <label class="ui-labeled-select-label" for="new-panel-time">Time</label>
+            <input type="time" id="new-panel-time" name="time" value="08:00" required>
+        </span>
 
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>

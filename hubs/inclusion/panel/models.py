@@ -221,6 +221,10 @@ class PanelReferral(models.Model):
     follow_up_date = models.DateField(null=True, blank=True)
     follow_up_status = models.CharField(max_length=20, choices=FOLLOW_UP_CHOICES, blank=True)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
+    # Manual agenda position, independent of `priority` — set by drag-and-drop on the
+    # Panel Setup / Meeting Agenda pages. New rows get the next value (see
+    # _next_agenda_order in views.py) so they land at the end of the list by default.
+    agenda_order = models.PositiveIntegerField(default=0)
     discussion_started_at = models.DateTimeField(null=True, blank=True)
     removed_at = models.DateTimeField(null=True, blank=True)
     removed_by = models.ForeignKey(

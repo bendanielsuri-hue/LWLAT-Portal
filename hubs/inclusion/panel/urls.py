@@ -12,6 +12,7 @@ urlpatterns = [
     path('referrals/<int:referral_id>/delete/', views.inclusion_panel_referral_delete, name='inclusion_panel_referral_delete'),
     path('referrals/<int:referral_id>/escalate/', views.inclusion_panel_referral_escalate, name='inclusion_panel_referral_escalate'),
     path('referrals/<int:referral_id>/actions/new/', views.inclusion_panel_action_new, name='inclusion_panel_action_new'),
+    path('referrals/<int:referral_id>/actions/modal/', views.inclusion_panel_referral_actions_modal, name='inclusion_panel_referral_actions_modal'),
 
     path('actions/', views.inclusion_panel_actions, name='inclusion_panel_actions'),
     path('actions/<int:action_id>/status/', views.inclusion_panel_action_set_status, name='inclusion_panel_action_set_status'),

@@ -45,6 +45,7 @@ manage.py seed_referral_questions   # ReferralCategory + ReferralQuestion rows
 manage.py seed_panel_groups         # Expertise tags + one PanelGroup per active School
 manage.py seed_demo_referrals       # 5 unassigned Referrals with placeholder responses
 manage.py seed_panel_meetings       # Past (complete) + upcoming Panel rows per group
+manage.py seed_referral_actions     # Tops up 2-3 Actions on every discussed (Complete/Requires Follow-up) referral
 ```
 
 `seed_benjamin_admin` (also here) sets `is_mat_staff=True`, `is_developer=True`, `school=None` on Benjamin Suri. Depends only on `seed_dummy_data`.

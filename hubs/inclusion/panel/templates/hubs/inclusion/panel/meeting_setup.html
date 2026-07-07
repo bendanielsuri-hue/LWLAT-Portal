@@ -4,7 +4,7 @@
 {% block title %}Panel Setup{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=65">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=113">
 {% endblock %}
 
 
@@ -24,117 +24,99 @@
 
 {% block page_title %}Panel Setup{% endblock %}
 
-{% block page_subtitle %}<p class="page-subtitle">Panel: {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}</p>{% endblock %}
+{% block page_subtitle %}
+<p class="page-subtitle" id="panel-subtitle">
+    <span>{{ panel.panel_group.name|default:"Panel" }}: <span id="panel-subtitle-date">{{ panel.date }}</span><span id="panel-subtitle-time-wrap"{% if not panel.time %} hidden{% endif %}> at <span id="panel-subtitle-time">{{ panel.time|time:'H:i' }}</span></span></span>
+    <span class="status-pill {{ panel.status }}" id="panel-status-pill">{{ panel.get_status_display }}</span>
+</p>
+{% endblock %}
 
 {% block content %}
 
-{% if panel.status == 'draft' or panel.status == 'ready' or panel.status == 'delayed' %}
-<div class="panel-toolbar">
-    <div class="panel-toolbar-stats">
-        <span class="status-pill {{ panel.status }}">{{ panel.get_status_display }}</span>
-    </div>
-    <div class="btn-row">
-        {% if panel.status != 'delayed' %}
-        <form method="post" style="display:inline">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="toggle_ready">
-            <button type="submit" class="btn btn-secondary btn-sm">{% if panel.status == 'ready' %}Mark as Draft{% else %}Mark as Ready{% endif %}</button>
-        </form>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
+<div class="list-page-shell">
 
-<div class="setup-columns">
-    <div class="setup-col">
-        <div class="setup-col-header" data-sticky-under-header>
-            <h2>Panel Details</h2>
+<div class="card-switcher">
+    <button type="button" class="card-tab active" data-card-target="settings-card">Settings</button>
+    <button type="button" class="card-tab" data-card-target="referral-selection-card">Referral Selection</button>
+    <button type="button" class="card-tab" data-card-target="panel-agenda-card">Panel Agenda</button>
+</div>
+<div class="setup-columns switch-card-group">
+    <div class="setup-col setup-col--narrow switch-card active-card" id="settings-card">
+        <div class="setup-col-header">
+            <h2>Settings</h2>
+            <button type="button" class="btn btn-subtle btn-sm" data-edit-settings-trigger><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
         </div>
-        <form method="post" class="field-group" id="panel-details-form">
-    {% csrf_token %}
-            <input type="hidden" name="form_action" value="update_details">
-            <div class="panel-details-row panel-details-datetime">
-                <div>
-                    <label for="panel-date">Date</label>
-                    <input type="date" id="panel-date" name="date" value="{{ panel.date|date:'Y-m-d' }}" data-no-past>
-                </div>
-                <div>
-                    <label for="panel-time">Time</label>
-                    <input type="time" id="panel-time" name="time" value="{{ panel.time|time:'H:i' }}">
-                </div>
+        <div class="setup-col-body">
+        <div class="settings-sticky">
+        <div class="panel-summary">
+            <div class="summary-line">
+                <span class="summary-label">Group</span>
+                <span class="summary-value">{{ panel.panel_group.name|default:"No group set" }}</span>
             </div>
-            <div class="panel-details-row">
-                <div>
-                    <label for="panel-group">Panel Group</label>
-                    <select id="panel-group" name="panel_group" required data-current-staff-school="{{ current_staff.school_id|default:'' }}">
-                        {% for group in panel_groups %}
-                        <option value="{{ group.id }}" data-school="{{ group.school_id|default:'' }}" data-school-name="{{ group.school.name|default:'' }}" data-default-chair="{{ group.default_chair_id|default:'' }}" {% if panel.panel_group_id == group.id %}selected{% endif %}>{{ group.name }}{% if not group.school_id %} (No school){% endif %}</option>
+            <div class="summary-line">
+                <span class="summary-label">Date</span>
+                <span class="summary-value"><span id="panel-summary-date">{{ panel.date }}</span><span id="panel-summary-time-wrap"{% if not panel.time %} hidden{% endif %}> at <span id="panel-summary-time">{{ panel.time|time:'H:i' }}</span></span></span>
+            </div>
+            <div class="summary-line-chair">
+                {% if active_members %}
+                <span class="ui-labeled-select">
+                    <label class="ui-labeled-select-label" for="panel-chair">Chair</label>
+                    <select id="panel-chair" name="chair" form="panel-details-form">
+                        <option value="">No chair set</option>
+                        {% for member in active_members %}
+                        {% if member.staff_id %}
+                        <option value="{{ member.staff_id }}" {% if panel.chair_id == member.staff_id %}selected{% endif %}>{{ member.staff.first_name }} {{ member.staff.last_name }}</option>
+                        {% endif %}
                         {% endfor %}
-                        <option value="__create_new__">+ Create new panel group</option>
                     </select>
-                </div>
+                </span>
+                {% else %}
+                <span class="summary-label">Chair</span>
+                <span class="summary-value">No members added yet</span>
+                {% endif %}
             </div>
-        </form>
+        </div>
 
         <hr class="setup-divider">
 
-        <div class="setup-col-header" data-sticky-under-header>
-            <h3>Panel Members</h3>
-            <button type="button" class="btn btn-add btn-sm" data-open-member-dialog><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Member</button>
+        <div class="setup-col-header">
+            <h3>Members</h3>
+            <button type="button" class="btn btn-subtle btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
         </div>
-        {% if active_members %}
-        <div class="field-group">
-            <label for="panel-chair">Chair</label>
-            <select id="panel-chair" name="chair" form="panel-details-form">
-                <option value="">No chair set</option>
-                {% for member in active_members %}
-                {% if member.staff_id %}
-                <option value="{{ member.staff_id }}" {% if panel.chair_id == member.staff_id %}selected{% endif %}>{{ member.staff.first_name }} {{ member.staff.last_name }}</option>
-                {% endif %}
-                {% endfor %}
-            </select>
         </div>
-        {% endif %}
-        <div class="entity-list">
+        <div class="entity-list entity-list--bleed">
             {% for member in active_members %}
-            {% include 'hubs/inclusion/panel/_panel_member_row.html' with member=member expertise_list=expertise_list %}
+            {% include 'hubs/inclusion/panel/_panel_member_row.html' with member=member %}
             {% empty %}
             <p class="empty-note">No members added yet.</p>
             {% endfor %}
         </div>
-        {% if inactive_members %}
-        <button type="button" class="btn btn-subtle btn-sm" id="toggle-inactive-members">Show Inactive Members ({{ inactive_members|length }})</button>
-        <div id="inactive-members-section" hidden>
-            <h3 class="member-list-divider">Inactive</h3>
-            <div class="entity-list">
-                {% for member in inactive_members %}
-                {% include 'hubs/inclusion/panel/_panel_member_row.html' with member=member expertise_list=expertise_list %}
-                {% endfor %}
-            </div>
         </div>
-        {% endif %}
     </div>
 
-    <dialog id="panel-member-dialog" class="modal-dialog">
+    <dialog id="panel-settings-dialog" class="modal-dialog">
         <div class="modal-header">
-            <h2>Add Member</h2>
+            <h2>Edit Panel Settings</h2>
         </div>
         <div class="modal-body">
-            <form method="post" class="field-group" data-member-modal-form>
+        <div class="ui-labeled-select-group ui-labeled-select-group--force-stacked">
+        <form method="post" class="field-group" id="panel-details-form">
     {% csrf_token %}
-                <input type="hidden" name="form_action" value="add_member">
-
-                {% include 'hubs/inclusion/panel/_member_picker.html' with school=panel.panel_group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Active Member' %}
-
-                <div data-expertise-wrapper hidden>
-                    {% include 'hubs/inclusion/panel/_expertise_field.html' with field_id='member-expertise' expertise_list=expertise_list school_id=panel.panel_group.school_id %}
-                </div>
-
-                <div class="btn-row">
-                    <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-                    <button type="submit" class="btn btn-add btn-sm" data-member-save disabled><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Member</button>
-                </div>
-            </form>
+            <input type="hidden" name="form_action" value="update_details">
+            <span class="ui-labeled-select">
+                <label class="ui-labeled-select-label" for="panel-date">Date</label>
+                <input type="date" id="panel-date" name="date" value="{{ panel.date|date:'Y-m-d' }}" data-no-past>
+            </span>
+            <span class="ui-labeled-select">
+                <label class="ui-labeled-select-label" for="panel-time">Time</label>
+                <input type="time" id="panel-time" name="time" value="{{ panel.time|time:'H:i' }}">
+            </span>
+            {% include 'hubs/inclusion/panel/_panel_group_field.html' with field_id='panel-group' form_id='panel-details-form' selected_group_id=panel.panel_group_id show_placeholder=True %}
+        </form>
+        </div>
+        <div class="btn-row">
+            <button type="button" class="btn btn-sm" data-modal-close>Done</button>
+        </div>
         </div>
     </dialog>
 
@@ -145,11 +127,67 @@
         var timeInput = document.getElementById('panel-time');
         var groupSelect = document.getElementById('panel-group');
         var chairSelect = document.getElementById('panel-chair');
+
+        // Ready toggle updates in place - status only affects this pill/toggle
+        // and the page subtitle's status pill, nothing else on the page, so a
+        // full reload (like Panel Group's below) would just be a slower way
+        // to change two spans.
+        var readyToggleForm = document.getElementById('ready-toggle-form');
+        if (readyToggleForm) {
+            readyToggleForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var button = readyToggleForm.querySelector('.toggle-pill');
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new FormData(readyToggleForm),
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        var isReady = data.status === 'ready';
+                        button.classList.toggle('on', isReady);
+                        button.setAttribute('aria-pressed', String(isReady));
+                        button.setAttribute('aria-label', isReady ? 'Ready — click to mark as draft' : 'Draft — click to mark as ready');
+                        var statusPill = document.getElementById('panel-status-pill');
+                        if (statusPill) {
+                            statusPill.textContent = data.status_display;
+                            statusPill.className = 'status-pill ' + data.status;
+                            statusPill.id = 'panel-status-pill';
+                        }
+                    });
+            });
+        }
+
+        // Panel Summary's "Edit Settings" opens the Date/Time/Group form in a
+        // dialog rather than showing it inline - the form markup/ids/wiring
+        // below are unchanged from when it lived directly in the column,
+        // just relocated. Chair stays directly editable in the summary
+        // itself (see .summary-line-chair) since it's changed often enough
+        // not to warrant a dialog round-trip.
+        var settingsDialog = document.getElementById('panel-settings-dialog');
+        var editSettingsTrigger = document.querySelector('[data-edit-settings-trigger]');
+        if (settingsDialog && editSettingsTrigger) {
+            function getSettingsModalDuration() {
+                return parseFloat(getComputedStyle(settingsDialog).getPropertyValue('--modal-duration')) || 250;
+            }
+            function closeSettingsDialog() {
+                settingsDialog.classList.remove('is-open');
+                setTimeout(function () { settingsDialog.close(); }, getSettingsModalDuration());
+            }
+            editSettingsTrigger.addEventListener('click', function () {
+                settingsDialog.showModal();
+                requestAnimationFrame(function () { settingsDialog.classList.add('is-open'); });
+            });
+            settingsDialog.addEventListener('click', function (e) {
+                if (e.target === settingsDialog || e.target.closest('[data-modal-close]')) closeSettingsDialog();
+            });
+        }
+
         if (!groupSelect) return;
 
         function submitDetails() {
-            if (!detailsForm) return;
-            fetch(window.location.href, {
+            if (!detailsForm) return Promise.resolve();
+            return fetch(window.location.href, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 body: new FormData(detailsForm),
@@ -166,19 +204,59 @@
             });
         }
 
+        // Panel Group still needs a full reload (rather than the quieter
+        // in-place update Date/Time use below) since changing it can also
+        // change the school-scoped referral/member lists shown elsewhere on
+        // the page, not just its own field.
+        function submitDetailsAndReload() {
+            submitDetails().then(function () { window.location.reload(); });
+        }
+
+        // Date input's raw value is already ISO (YYYY-MM-DD), matching the
+        // unfiltered {{ panel.date }} used in the subtitle - and the time
+        // input's HH:MM matches the subtitle's |time:'H:i' filter - so the
+        // subtitle can be kept in sync with a plain string copy, no reload
+        // or round-trip to the server needed.
+        function updateSubtitle() {
+            var dateSpan = document.getElementById('panel-subtitle-date');
+            var timeWrap = document.getElementById('panel-subtitle-time-wrap');
+            var timeSpan = document.getElementById('panel-subtitle-time');
+            if (dateSpan && dateInput) dateSpan.textContent = dateInput.value;
+            if (timeWrap && timeSpan && timeInput) {
+                timeWrap.hidden = !timeInput.value;
+                if (timeInput.value) timeSpan.textContent = timeInput.value;
+            }
+            // Panel Summary's Date/Time mirror the subtitle's, same plain
+            // string copy - no reload needed to keep them in sync either.
+            var summaryDate = document.getElementById('panel-summary-date');
+            var summaryTimeWrap = document.getElementById('panel-summary-time-wrap');
+            var summaryTime = document.getElementById('panel-summary-time');
+            if (summaryDate && dateInput) summaryDate.textContent = dateInput.value;
+            if (summaryTimeWrap && summaryTime && timeInput) {
+                summaryTimeWrap.hidden = !timeInput.value;
+                if (timeInput.value) summaryTime.textContent = timeInput.value;
+            }
+        }
+
         if (detailsForm) {
-            if (dateInput) dateInput.addEventListener('change', submitDetails);
-            if (timeInput) timeInput.addEventListener('change', submitDetails);
+            if (dateInput) dateInput.addEventListener('change', function () {
+                updateSubtitle();
+                submitDetails();
+            });
+            if (timeInput) timeInput.addEventListener('change', function () {
+                updateSubtitle();
+                submitDetails();
+            });
             if (chairSelect) chairSelect.addEventListener('change', function () {
                 updateChairPills();
                 submitDetails();
             });
         }
 
+        var placeholderOption = groupSelect.querySelector('option[value=""]');
         var allGroupOptions = Array.prototype.slice.call(groupSelect.options).filter(function (opt) {
-            return opt.value !== '__create_new__';
+            return opt.value !== '';
         });
-        var createNewOption = groupSelect.querySelector('option[value="__create_new__"]');
 
         function applyChair() {
             if (!chairSelect) return;
@@ -198,6 +276,7 @@
             var schoolId = resolveSchoolId();
             var previousValue = groupSelect.value;
             groupSelect.innerHTML = '';
+            if (placeholderOption) groupSelect.appendChild(placeholderOption);
             var visible = [];
             allGroupOptions.forEach(function (opt) {
                 if (!schoolId || opt.dataset.school === schoolId) {
@@ -205,7 +284,6 @@
                     visible.push(opt);
                 }
             });
-            if (createNewOption) groupSelect.appendChild(createNewOption);
 
             if (visible.some(function (opt) { return opt.value === previousValue; })) {
                 groupSelect.value = previousValue;
@@ -218,14 +296,8 @@
         filterGroupsBySchool();
 
         groupSelect.addEventListener('change', function () {
-            if (groupSelect.value === '__create_new__') {
-                if (window.openPanelGroupModal) {
-                    window.openPanelGroupModal(resolveSchoolId());
-                }
-                return;
-            }
             applyChair();
-            submitDetails();
+            submitDetailsAndReload();
         });
 
         document.addEventListener('panel-group:created', function (e) {
@@ -240,169 +312,123 @@
             applyChair();
         });
 
-        // --- Add Member dialog ---
-        var memberDialog = document.getElementById('panel-member-dialog');
-        if (memberDialog) {
-            var memberForm = memberDialog.querySelector('[data-member-modal-form]');
-            var saveBtn = memberDialog.querySelector('[data-member-save]');
-            var pickerRoot = memberDialog.querySelector('[data-member-picker-root]');
-            var expertiseWrapper = memberDialog.querySelector('[data-expertise-wrapper]');
-
-            function getModalDuration() {
-                return parseFloat(getComputedStyle(memberDialog).getPropertyValue('--modal-duration')) || 250;
-            }
-
-            function closeMemberDialog() {
-                memberDialog.classList.remove('is-open');
-                setTimeout(function () { memberDialog.close(); }, getModalDuration());
-            }
-
-            pickerRoot.addEventListener('member-picker:change', function (e) {
-                saveBtn.disabled = !e.detail.id;
-                if (expertiseWrapper) expertiseWrapper.hidden = !e.detail.id;
-            });
-
-            document.addEventListener('click', function (e) {
-                if (e.target.closest('[data-open-member-dialog]')) {
-                    memberForm.reset();
-                    if (window.resetMemberPicker) window.resetMemberPicker(pickerRoot);
-                    saveBtn.disabled = true;
-                    if (expertiseWrapper) expertiseWrapper.hidden = true;
-                    memberDialog.showModal();
-                    requestAnimationFrame(function () { memberDialog.classList.add('is-open'); });
-                    return;
-                }
-                if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-member-dialog')) {
-                    closeMemberDialog();
-                }
-            });
-
-            memberDialog.addEventListener('click', function (e) {
-                if (e.target === memberDialog) closeMemberDialog();
-            });
-        }
     });
     </script>
 
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var toggleBtn = document.getElementById('toggle-inactive-members');
-        var section = document.getElementById('inactive-members-section');
-        if (!toggleBtn || !section) return;
-        var showLabel = toggleBtn.textContent;
-        var hideLabel = showLabel.replace('Show', 'Hide');
-        toggleBtn.addEventListener('click', function () {
-            section.hidden = !section.hidden;
-            toggleBtn.textContent = section.hidden ? showLabel : hideLabel;
-        });
-    });
-    </script>
-
-    <div class="setup-col">
-        <div class="setup-col-header" data-sticky-under-header>
-            <h2>Panel Selection</h2>
-        </div>
-
+    <div class="setup-col setup-col--compact switch-card" id="referral-selection-card">
         <div class="setup-col-header">
-            <h3>New Referrals</h3>
-            {% if unassigned_referrals %}
-            <form method="post">
-    {% csrf_token %}
-                <input type="hidden" name="form_action" value="add_all_referrals">
-                <button type="submit" class="btn btn-add btn-secondary btn-sm">Add All</button>
-            </form>
-            {% endif %}
+            <h2>Referral Selection</h2>
         </div>
-        <div class="entity-list">
-            {% for referral in unassigned_referrals %}
-            <div class="entity-row">
-                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-                <div class="entity-body">
-                    <div class="entity-title">{{ referral.student }} <span class="entity-title-meta">(Year {{ referral.student.year_group }}{% if referral.student.reg_form %} &middot; {{ referral.student.reg_form }}{% endif %})</span></div>
-                    <div class="entity-meta">Referred {{ referral.created_at|date:"d/m/Y" }}{% if referral.raised_by %} by {{ referral.raised_by }}{% endif %}</div>
-                    {% if referral.primary_concern_category %}<div class="entity-meta">Main Concern: {{ referral.primary_concern_category }}</div>{% endif %}
-                </div>
-                <div class="btn-row btn-row-stacked">
-                    <button type="button" class="btn btn-helper btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{{ request.path }}">Referral Details</button>
-                    <form method="post">
-    {% csrf_token %}
-                        <input type="hidden" name="form_action" value="add_referral">
-                        <input type="hidden" name="referral_id" value="{{ referral.id }}">
-                        <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add</button>
-                    </form>
-                </div>
-            </div>
+        <div class="setup-col-body">
+
+        <div class="tab-row">
+            <button type="button" class="active" data-referral-tab="all">All ({{ referral_selection_entries|length }})</button>
+            <button type="button" data-referral-tab="new">New Referrals ({{ new_entries|length }})</button>
+            <button type="button" data-referral-tab="followup">Due Follow-up ({{ followup_entries|length }})</button>
+        </div>
+
+        <div data-referral-tab-panel="all">
+        <div class="entity-list entity-list--bleed" data-drop-zone="all">
+            {% for entry in referral_selection_entries %}
+            {% include 'hubs/inclusion/panel/_referral_selection_row.html' %}
+            {% empty %}
+            <p class="empty-note">No referrals.</p>
+            {% endfor %}
+        </div>
+        </div>
+
+        <div data-referral-tab-panel="new" hidden>
+        <div class="entity-list entity-list--bleed" data-drop-zone="new-referrals">
+            {% for entry in new_entries %}
+            {% include 'hubs/inclusion/panel/_referral_selection_row.html' %}
             {% empty %}
             <p class="empty-note">No new referrals.</p>
             {% endfor %}
         </div>
-
-        <div class="setup-col-header">
-            <h3>Due Follow-up</h3>
-            {% if followups_due %}
-            <form method="post">
-    {% csrf_token %}
-                <input type="hidden" name="form_action" value="pull_in_followups">
-                <button type="submit" class="btn btn-add btn-secondary btn-sm">Pull In All</button>
-            </form>
-            {% endif %}
         </div>
-        <div class="entity-list">
-            {% for fpr in followups_due %}
-            <div class="entity-row">
-                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-                <div class="entity-body">
-                    <div class="entity-title">{{ fpr.referral.student }}</div>
-                    <div class="entity-meta">Follow up due {{ fpr.follow_up_date }} — from Panel {{ fpr.panel.date }}</div>
-                </div>
-                <div class="btn-row btn-row-stacked">
-                    <form method="post">
-    {% csrf_token %}
-                        <input type="hidden" name="form_action" value="add_followup_to_agenda">
-                        <input type="hidden" name="referral_id" value="{{ fpr.referral.id }}">
-                        <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add</button>
-                    </form>
-                </div>
-            </div>
+
+        <div data-referral-tab-panel="followup" hidden>
+        <div class="entity-list entity-list--bleed" data-drop-zone="followups">
+            {% for entry in followup_entries %}
+            {% include 'hubs/inclusion/panel/_referral_selection_row.html' %}
             {% empty %}
             <p class="empty-note">No follow-ups due.</p>
             {% endfor %}
         </div>
+        </div>
+        </div>
     </div>
 
-    <div class="setup-col">
-        <div class="setup-col-header" data-sticky-under-header>
-            <h2>Panel Agenda</h2>
-            {% if agenda %}
-            <form method="post">
-    {% csrf_token %}
-                <input type="hidden" name="form_action" value="remove_all_referrals">
-                <button type="submit" class="btn btn-delete btn-secondary btn-sm">Remove All</button>
+    <script>
+    // Named and hung off window (rather than a plain DOMContentLoaded
+    // closure) so window.initAgendaDragDrop's refreshZones() can call it
+    // again after swapping in a fresh Referral Selection column - that
+    // column's tab buttons/panels are brand new nodes with no listeners of
+    // their own until this re-runs.
+    window.initReferralTabs = function () {
+        var STORAGE_KEY = 'panel-setup-referral-tab';
+        var tabButtons = document.querySelectorAll('[data-referral-tab]');
+        var panels = document.querySelectorAll('[data-referral-tab-panel]');
+        if (!tabButtons.length) return;
+
+        function applyTab(tab) {
+            tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.referralTab === tab); });
+            panels.forEach(function (panel) { panel.hidden = panel.dataset.referralTabPanel !== tab; });
+        }
+
+        tabButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                applyTab(button.dataset.referralTab);
+                try { localStorage.setItem(STORAGE_KEY, button.dataset.referralTab); } catch (e) { }
+            });
+        });
+
+        // Adding/removing/reordering referrals refreshes the Referral
+        // Selection column's markup (see window.initAgendaDragDrop) - without
+        // this, that refresh always fell back to whichever tab is hardcoded
+        // "active" in the template, regardless of which tab the user was
+        // actually on.
+        var savedTab;
+        try { savedTab = localStorage.getItem(STORAGE_KEY); } catch (e) { }
+        if (savedTab) applyTab(savedTab);
+    };
+    document.addEventListener('DOMContentLoaded', window.initReferralTabs);
+    </script>
+
+    <div class="setup-col switch-card" id="panel-agenda-card">
+        <div class="setup-col-header">
+            <h2>Panel Agenda <span class="panel-card-count">({{ agenda|length }})</span></h2>
+            {% if panel.status == 'draft' or panel.status == 'ready' %}
+            <form method="post" class="ready-toggle-form" id="ready-toggle-form">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="toggle_ready">
+                <span class="toggle-label">Ready</span>
+                <button type="submit" class="toggle-pill{% if panel.status == 'ready' %} on{% endif %}" aria-pressed="{% if panel.status == 'ready' %}true{% else %}false{% endif %}" aria-label="{% if panel.status == 'ready' %}Ready — click to mark as draft{% else %}Draft — click to mark as ready{% endif %}"><span class="toggle-knob"></span></button>
             </form>
             {% endif %}
         </div>
-        <div class="entity-list">
+        <div class="setup-col-body">
+        <div class="entity-list entity-list--bleed" data-drop-zone="agenda">
             {% for pr in agenda %}
-            <div class="entity-row">
+            <div class="entity-row agenda-row selectable" draggable="true" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
+                {% include 'hubs/inclusion/panel/_agenda_order_controls.html' %}
                 <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                 <div class="entity-body">
-                    <div class="entity-title">{{ pr.referral.student }} <span class="entity-title-meta">(Year {{ pr.referral.student.year_group }}{% if pr.referral.student.reg_form %} &middot; {{ pr.referral.student.reg_form }}{% endif %})</span></div>
-                    <div class="entity-meta">Referred {{ pr.referral.created_at|date:"d/m/Y" }}{% if pr.referral.raised_by %} by {{ pr.referral.raised_by }}{% endif %}</div>
+                    <div class="entity-title">{{ pr.referral.student }} <span class="status-pill type-{% if pr.last_discussed_panel %}followup{% else %}new{% endif %}">{% if pr.last_discussed_panel %}Due Follow-up{% else %}New Referral{% endif %}</span></div>
+                    <div class="entity-meta">Year {{ pr.referral.student.year_group }}{% if pr.referral.student.reg_form %} &middot; {{ pr.referral.student.reg_form }}{% endif %}</div>
+                    {% if pr.last_discussed_panel %}
+                    <div class="entity-meta">Last Discussed: {{ pr.last_discussed_panel.date }}</div>
+                    {% if pr.actions_total %}
+                    <div class="entity-meta">{{ pr.actions_complete }} of {{ pr.actions_total }} actions complete</div>
+                    {% endif %}
+                    {% endif %}
                     {% if pr.primary_concern_category %}<div class="entity-meta">Main Concern: {{ pr.primary_concern_category }}</div>{% endif %}
-                    <form method="post" class="priority-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="form_action" value="update_priority">
-                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                        <span class="priority-label">Priority</span>
-                        <div class="priority-chips">
-                            {% for value, label in priority_choices %}
-                            <button type="submit" name="priority" value="{{ value }}" class="priority-chip priority-{{ value }}{% if pr.priority == value %} active{% endif %}" aria-pressed="{% if pr.priority == value %}true{% else %}false{% endif %}">{{ label }}</button>
-                            {% endfor %}
-                        </div>
-                    </form>
                 </div>
                 <div class="btn-row btn-row-stacked">
-                    <button type="button" class="btn btn-helper btn-sm" data-edit-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
+                    <button type="button" class="btn btn-sm" data-edit-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
+                    {% if pr.last_discussed_panel %}
+                    <button type="button" class="btn btn-sm" data-view-actions-trigger data-referral-id="{{ pr.referral.id }}">View Actions</button>
+                    {% endif %}
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="form_action" value="remove_referral_from_agenda">
@@ -410,11 +436,40 @@
                         <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/remove_svg.html' %}</span> Remove</button>
                     </form>
                 </div>
+                <form method="post" class="priority-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_action" value="update_priority">
+                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                    <div class="priority-segment-group" role="radiogroup" aria-label="Priority">
+                        <span class="priority-segment-label">Priority</span>
+                        {% for value, label in priority_choices %}
+                        <button type="submit" name="priority" value="{{ value }}" class="priority-segment priority-{{ value }}{% if pr.priority == value %} active{% endif %}" role="radio" aria-checked="{% if pr.priority == value %}true{% else %}false{% endif %}">{{ label }}</button>
+                        {% endfor %}
+                    </div>
+                </form>
             </div>
             {% empty %}
             <p class="empty-note">No Referrals Selected</p>
             {% endfor %}
         </div>
+        </div>
     </div>
 </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.initAgendaDragDrop) {
+        window.initAgendaDragDrop({
+            'new-referrals': { addAction: 'add_referral' },
+            'followups': { addAction: 'add_followup_to_agenda' },
+            // "All" mixes both origins in one zone - each row carries its own
+            // data-add-action (see _referral_selection_row.html), which
+            // handleDrop prefers over this zone-level default.
+            'all': { addAction: 'add_referral' },
+            'agenda': { role: 'sink' },
+        }, { removeAction: 'remove_referral_from_agenda' });
+    }
+});
+</script>
 {% endblock %}
