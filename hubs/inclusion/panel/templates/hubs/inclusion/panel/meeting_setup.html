@@ -4,7 +4,7 @@
 {% block title %}Panel Setup{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=113">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=118">
 {% endblock %}
 
 
@@ -315,7 +315,7 @@
     });
     </script>
 
-    <div class="setup-col setup-col--compact switch-card" id="referral-selection-card">
+    <div class="setup-col switch-card" id="referral-selection-card">
         <div class="setup-col-header">
             <h2>Referral Selection</h2>
         </div>
@@ -411,42 +411,63 @@
         <div class="entity-list entity-list--bleed" data-drop-zone="agenda">
             {% for pr in agenda %}
             <div class="entity-row agenda-row selectable" draggable="true" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
+                <form method="post" class="row-action-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_action" value="remove_referral_from_agenda">
+                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                    <button type="submit" class="row-action-bar row-action-remove" aria-label="Remove from agenda">
+                        <span class="row-action-icon">{% include 'icons/arrow_left_svg.html' %}</span>
+                        <span class="row-action-icon">{% include 'icons/arrow_left_svg.html' %}</span>
+                        <span class="row-action-icon">{% include 'icons/arrow_left_svg.html' %}</span>
+                    </button>
+                </form>
                 {% include 'hubs/inclusion/panel/_agenda_order_controls.html' %}
-                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-                <div class="entity-body">
-                    <div class="entity-title">{{ pr.referral.student }} <span class="status-pill type-{% if pr.last_discussed_panel %}followup{% else %}new{% endif %}">{% if pr.last_discussed_panel %}Due Follow-up{% else %}New Referral{% endif %}</span></div>
-                    <div class="entity-meta">Year {{ pr.referral.student.year_group }}{% if pr.referral.student.reg_form %} &middot; {{ pr.referral.student.reg_form }}{% endif %}</div>
-                    {% if pr.last_discussed_panel %}
-                    <div class="entity-meta">Last Discussed: {{ pr.last_discussed_panel.date }}</div>
-                    {% if pr.actions_total %}
-                    <div class="entity-meta">{{ pr.actions_complete }} of {{ pr.actions_total }} actions complete</div>
-                    {% endif %}
-                    {% endif %}
-                    {% if pr.primary_concern_category %}<div class="entity-meta">Main Concern: {{ pr.primary_concern_category }}</div>{% endif %}
-                </div>
-                <div class="btn-row btn-row-stacked">
-                    <button type="button" class="btn btn-sm" data-edit-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
-                    {% if pr.last_discussed_panel %}
-                    <button type="button" class="btn btn-sm" data-view-actions-trigger data-referral-id="{{ pr.referral.id }}">View Actions</button>
-                    {% endif %}
-                    <form method="post">
+                <div class="agenda-content">
+                    <div class="agenda-content-top">
+                        <div class="student-column">
+                            <div class="referral-pills">
+                                <span class="status-pill type-{% if pr.last_discussed_panel %}followup{% else %}new{% endif %}">{% if pr.last_discussed_panel %}Due Follow-up{% else %}New Referral{% endif %}</span>
+                            </div>
+                            <div class="student-thumb-row">
+                                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                                <div class="entity-body">
+                                    <div class="entity-title">{{ pr.referral.student }}</div>
+                                    <div class="entity-meta">Year {{ pr.referral.student.year_group }}{% if pr.referral.student.reg_form %} &middot; {{ pr.referral.student.reg_form }}{% endif %}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="referral-details">
+                            {% if pr.primary_concern_category %}<div class="entity-meta">Concern: {{ pr.primary_concern_category }}</div>{% endif %}
+                            {% if not pr.last_discussed_panel %}
+                            <div class="entity-meta">Referred By: {{ pr.referral.raised_by|default:"—" }}</div>
+                            <div class="entity-meta">Referral Date: {{ pr.referral.created_at|date:"d/m/Y" }}</div>
+                            {% endif %}
+                            {% if pr.last_discussed_panel %}
+                            <div class="entity-meta">Last Discussed: {{ pr.last_discussed_panel.date }}</div>
+                            {% if pr.actions_total %}
+                            <div class="entity-meta">{{ pr.actions_complete }} of {{ pr.actions_total }} actions complete</div>
+                            {% endif %}
+                            {% endif %}
+                            <div class="referral-details-actions">
+                                <button type="button" class="btn btn-subtle btn-sm" data-edit-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">View Details</button>
+                                {% if pr.last_discussed_panel %}
+                                <button type="button" class="btn btn-subtle btn-sm" data-view-actions-trigger data-referral-id="{{ pr.referral.id }}">View Actions</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <form method="post" class="priority-form">
                         {% csrf_token %}
-                        <input type="hidden" name="form_action" value="remove_referral_from_agenda">
+                        <input type="hidden" name="form_action" value="update_priority">
                         <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                        <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/remove_svg.html' %}</span> Remove</button>
+                        <div class="priority-segment-group" role="radiogroup" aria-label="Priority">
+                            <span class="priority-segment-label">Priority</span>
+                            {% for value, label in priority_choices %}
+                            <button type="submit" name="priority" value="{{ value }}" class="priority-segment priority-{{ value }}{% if pr.priority == value %} active{% endif %}" role="radio" aria-checked="{% if pr.priority == value %}true{% else %}false{% endif %}">{{ label }}</button>
+                            {% endfor %}
+                        </div>
                     </form>
                 </div>
-                <form method="post" class="priority-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="form_action" value="update_priority">
-                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                    <div class="priority-segment-group" role="radiogroup" aria-label="Priority">
-                        <span class="priority-segment-label">Priority</span>
-                        {% for value, label in priority_choices %}
-                        <button type="submit" name="priority" value="{{ value }}" class="priority-segment priority-{{ value }}{% if pr.priority == value %} active{% endif %}" role="radio" aria-checked="{% if pr.priority == value %}true{% else %}false{% endif %}">{{ label }}</button>
-                        {% endfor %}
-                    </div>
-                </form>
             </div>
             {% empty %}
             <p class="empty-note">No Referrals Selected</p>

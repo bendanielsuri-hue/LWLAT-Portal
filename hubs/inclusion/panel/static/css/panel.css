@@ -928,10 +928,12 @@
    colour. --priority-*-bg/text tokens already exist in every theme file;
    this is their consumer. */
 .priority-segment-group { display: flex; width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; }
-/* Priority reads as a built-in left label fused into the same bordered group
-   as the segments themselves (same "one box, several segments" language as
-   .ui-labeled-select's fused label), rather than a separate line of text
-   above the control. */
+/* Priority reads as a built-in left label fused into the same bordered
+   group as the segments themselves (same "one box, several parts" language
+   as .ui-labeled-select's fused label). The group stretches to the full
+   width of Student Details + Referral Details combined (see .priority-form
+   grid placement below), so the segments themselves grow evenly (flex: 1)
+   to fill that width instead of staying content-sized. */
 .priority-segment-label {
     display: flex;
     align-items: center;
@@ -959,26 +961,62 @@
 .priority-segment.active.priority-high   { background-color: var(--priority-high-bg);   color: var(--priority-high-text); }
 .priority-segment.active.priority-medium { background-color: var(--priority-medium-bg); color: var(--priority-medium-text); }
 .priority-segment.active.priority-low    { background-color: var(--priority-low-bg);    color: var(--priority-low-text); }
-/* Panel Members/Agenda rows keep dropdowns and Priority chips in the body
-   (with the rest of the row's details) and only action buttons (Details,
-   Add/Remove, Deactivate/Reactivate) in .btn-row, so the button area stays
-   narrow and isn't stretched to match a dropdown/chip-row's width. */
+/* Panel Members rows keep dropdowns in the body (with the rest of the row's
+   details) and only action buttons in .btn-row, so the button area stays
+   narrow and isn't stretched to match a dropdown row's width. */
 .setup-col .entity-row { flex-wrap: wrap; align-items: flex-start; padding-left: 0; padding-right: 0; }
 .setup-col .entity-body { min-width: 140px; }
 .setup-col .btn-row { margin-left: auto; }
-/* Panel Agenda rows only: grid instead of flex, so Priority (a 5th row-level
-   child, not nested in .entity-body) can be explicitly told to start at the
-   same column as the student image. A plain flex-wrap can't do this - a
-   wrapped flex item always resets to the row's true left edge (matching
-   .agenda-order-controls, the first child), not a later sibling's. Column
-   tracks are all auto-sized (max-content/1fr), so this holds regardless of
-   the app's 3 text-size settings without any hardcoded pixel offset. */
-.agenda-row { display: grid; grid-template-columns: max-content max-content 1fr max-content; }
+/* Referral Selection: explicit single-row 3-column grid (handle,
+   student-column, Referral Details). The Add bar is deliberately NOT a
+   grid column - relying on grid/flex "stretch" to match a full-height bar
+   to a row whose real height comes from wrapped text content proved
+   unreliable in practice. Absolute-positioning it to the row's own top/
+   bottom edges is unambiguous: a block box with both top and bottom set
+   always fills exactly that span, no stretch-algorithm involved. The row
+   gets right padding reserved so the bar has room without overlapping
+   Referral Details' text. */
+.setup-col .selection-row { display: grid; grid-template-columns: max-content minmax(160px, 220px) 1fr; position: relative; }
+.selection-row > .drag-handle { grid-column: 1; grid-row: 1; }
+.selection-row > .student-column { grid-column: 2; grid-row: 1; }
+.selection-row > .referral-details { grid-column: 3; grid-row: 1; }
+.selection-row > .row-action-form { position: absolute; top: 0; bottom: 0; right: 0; width: 32px; }
+/* Panel Agenda: same idea, mirrored - the Remove bar is absolutely
+   positioned to the row's true left edge (ahead of the order-controls
+   grid column), not a grid column itself. */
+.agenda-row { display: grid; grid-template-columns: max-content 1fr; position: relative; }
+.agenda-row > .row-action-form { position: absolute; top: 0; bottom: 0; left: 0; width: 32px; }
 .agenda-row > .agenda-order-controls { grid-column: 1; grid-row: 1; }
-.agenda-row > .entity-thumb { grid-column: 2; grid-row: 1; }
-.agenda-row > .entity-body { grid-column: 3; grid-row: 1; }
-.agenda-row > .btn-row { grid-column: 4; grid-row: 1; }
-.agenda-row > .priority-form { grid-column: 2 / -1; grid-row: 2; margin-top: var(--space-sm); }
+.agenda-row > .agenda-content { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
+.agenda-content-top { display: flex; gap: var(--space-md); }
+.agenda-content-top > .student-column { flex: 0 0 auto; min-width: 160px; max-width: 220px; }
+.agenda-content-top > .referral-details { flex: 1; min-width: 0; }
+/* Status pill above the thumb, thumb+name/year beside each other below it. */
+.student-column { display: flex; flex-direction: column; gap: var(--space-sm); }
+.student-thumb-row { display: flex; align-items: flex-start; gap: var(--space-md); }
+.referral-pills { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+/* Referral Details/View Actions read as low-emphasis informational links
+   at the bottom of Referral Details, not the row's primary action -
+   reusing .btn-subtle (same "Edit" pattern used on this page's Settings/
+   Members cards) rather than a new class. Tight margin-top (matching
+   .entity-meta's own rhythm) so it reads as the last line, not a
+   separated block. */
+.referral-details-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-xxs); }
+/* Add/Remove as a full row-height arrow bar instead of a labelled pill
+   button - see .row-action-form's absolute positioning above for how it's
+   pinned to the row's exact height. Colours reuse the existing
+   --btn-add-*/--btn-delete-* tokens so Add stays "positive green" and
+   Remove stays "danger red" exactly as the old labelled buttons did. The
+   arrow repeats 3x down the bar (space-evenly, not a true infinite
+   background-repeat) so it reads as a chevron pattern rather than one icon
+   floating in a tall empty bar. */
+.row-action-bar { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; border: none; border-radius: var(--radius-sm); cursor: pointer; }
+.row-action-icon { display: flex; }
+.row-action-icon svg { width: 16px; height: 16px; }
+.row-action-add { background: var(--btn-add-bg); color: var(--btn-add-text); }
+.row-action-add:hover { background: var(--btn-add-hover-bg); color: var(--btn-add-hover-text); }
+.row-action-remove { background: var(--btn-delete-bg); color: var(--btn-delete-text); }
+.row-action-remove:hover { background: var(--btn-delete-hover-bg); color: var(--btn-delete-hover-text); }
 /* Panel Settings' Date/Time/Panel Group/Panel Chair grid has its own
    row-gap, but nothing previously separated it from the Members heading
    directly beneath it - the two sat flush against each other. */
@@ -994,14 +1032,16 @@
    the card's edge - an obvious grab target - while the row's text/buttons
    on the right keep the fuller --space-lg breathing room. */
 .setup-col-body .entity-list--bleed .entity-row { padding-left: var(--space-sm); padding-right: var(--space-lg); }
+/* Reserve room for the absolutely-positioned Add/Remove bar so it doesn't
+   overlap Referral Details' text or (for Panel Agenda) the order-controls
+   column. */
+.setup-col-body .entity-list--bleed .selection-row { padding-right: 40px; }
+.setup-col-body .entity-list--bleed .agenda-row { padding-left: 40px; }
 
 /* Panel Group card takes less width than Referral Selection/Panel Agenda,
    which keep flex: 1 1 280px and absorb the freed space. */
 .setup-col--narrow { flex: 0 1 300px; }
 
-/* Referral Selection is a touch narrower than Panel Agenda, which needs the
-   extra room for its drag-handle + order-number controls. */
-.setup-col--compact { flex: 1 1 240px; }
 .btn-row-stacked { flex-direction: column; align-items: stretch; gap: var(--space-xs); }
 .btn-row-stacked form { width: 100%; }
 .btn-row-stacked .btn { width: 100%; justify-content: center; }
@@ -1168,7 +1208,11 @@
     background-size: 20px 8px;
     background-repeat: repeat-y;
 }
-.agenda-order-controls { display: flex; gap: var(--space-xs); flex-shrink: 0; align-self: stretch; }
+/* Order arrows/number sit above the grab handle (column stack) - the
+   drag-handle-pattern below them grows (flex: 1) to fill the rest of the
+   row's height as a continuous grab rail. */
+.agenda-order-controls { display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); flex-shrink: 0; align-self: stretch; }
+.agenda-order-controls > .drag-handle-pattern { flex: 1 1 0; }
 .agenda-order-number {
     display: inline-flex;
     align-items: center;

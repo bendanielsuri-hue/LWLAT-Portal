@@ -176,7 +176,7 @@ def _due_followups(panel, as_of=None):
         follow_up_date__lte=as_of or timezone.localdate(),
         removed_at__isnull=True,
         panel__panel_group_id=panel.panel_group_id,
-    ).select_related('referral__student', 'panel')
+    ).select_related('referral__student', 'referral__raised_by', 'panel')
 
 
 def _sync_delayed_panels():
@@ -665,6 +665,12 @@ def inclusion_panel_referral_edit(request, referral_id):
             for question in group['questions']:
                 question.existing_answer = existing_answers.get(question.id, '')
 
+    last_discussed_pr = (
+        referral.panel_referrals.filter(discussion_status='discussed')
+        .select_related('panel').order_by('-panel__date').first()
+    )
+    last_discussed_notes = last_discussed_pr.notes.select_related('author').all() if last_discussed_pr else []
+
     return render(request, 'hubs/inclusion/panel/_referral_form_modal.html', {
         **PANEL_BASE_CONTEXT,
         'is_edit': True,
@@ -674,6 +680,8 @@ def inclusion_panel_referral_edit(request, referral_id):
         'question_groups': question_groups,
         'errors': errors,
         'next': request.GET.get('next', request.POST.get('next', '')),
+        'last_discussed_pr': last_discussed_pr,
+        'last_discussed_notes': last_discussed_notes,
     })
 
 

@@ -14,6 +14,22 @@
 
         {% include 'hubs/inclusion/panel/_referral_form_fields.html' %}
 
+        {% if last_discussed_pr %}
+        <h3>Last Discussion Summary</h3>
+        <div class="field-group">
+            <label>Discussed At</label>
+            <div class="field-readonly">{{ last_discussed_pr.panel.date|date:"d/m/Y" }}</div>
+        </div>
+        {% for note in last_discussed_notes %}
+        <div class="field-group">
+            <label>{{ note.created_at|date:"d/m/Y" }} &middot; {{ note.author|default:"Unknown" }}</label>
+            <div class="field-readonly">{{ note.body }}</div>
+        </div>
+        {% empty %}
+        <p class="empty-note">No notes were recorded during that discussion.</p>
+        {% endfor %}
+        {% endif %}
+
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>{% if is_view_only %}Close{% else %}Cancel{% endif %}</button>
             {% if not is_view_only %}
