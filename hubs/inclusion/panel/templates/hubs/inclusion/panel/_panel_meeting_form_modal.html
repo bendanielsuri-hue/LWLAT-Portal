@@ -1,11 +1,12 @@
 <div class="modal-header">
-    <h2>Create Panel</h2>
+    <h2>Create Panel Meeting</h2>
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
 </div>
 <div class="modal-body">
-    <form method="post" action="{% url 'inclusion_panel_meeting_new' %}" class="field-group ui-labeled-select-group" data-panel-meeting-modal-form>
+    <form method="post" action="{% url 'inclusion_panel_meeting_new' %}" class="field-group ui-fused-field-group" data-panel-meeting-modal-form>
         {% csrf_token %}
-        <span class="ui-labeled-select" {% if school_locked %}hidden{% endif %}>
-            <label class="ui-labeled-select-label" for="new-panel-school">School</label>
+        <span class="ui-fused-field" {% if school_locked %}hidden{% endif %}>
+            <label class="ui-fused-field-label" for="new-panel-school">School</label>
             <select id="new-panel-school" data-panel-school-select>
                 {% for school in schools %}
                 <option value="{{ school.id }}" {% if school.id == selected_school_id %}selected{% endif %}>{{ school.name }}</option>
@@ -14,19 +15,19 @@
         </span>
         {% include 'hubs/inclusion/panel/_panel_group_field.html' with field_id='new-panel-group' show_placeholder=True %}
 
-        <span class="ui-labeled-select">
-            <label class="ui-labeled-select-label" for="new-panel-date">Date</label>
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="new-panel-date">Date</label>
             <input type="date" id="new-panel-date" name="date" value="{{ today|date:'Y-m-d' }}" data-no-past required>
         </span>
 
-        <span class="ui-labeled-select">
-            <label class="ui-labeled-select-label" for="new-panel-time">Time</label>
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="new-panel-time">Time</label>
             <input type="time" id="new-panel-time" name="time" value="08:00" required>
         </span>
 
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-            <button type="submit" class="btn btn-add btn-sm" data-create-panel-save disabled><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Create Panel</button>
+            <button type="submit" class="btn btn-add btn-sm" data-create-panel-save disabled><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Create Panel Meeting</button>
         </div>
     </form>
 </div>

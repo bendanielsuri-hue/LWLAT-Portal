@@ -1098,6 +1098,18 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         if (e.key !== 'Escape') return;
         closeAllUiPopovers();
     });
+    // A .ui-popover (calendar grid, time spinner, select dropdown) is
+    // appended to document.body, a sibling of whatever modal it was opened
+    // from — not a descendant — so closing that parent modal doesn't
+    // automatically close it too. Without this, closing e.g. "Edit Panel
+    // Settings" while the time picker is still open left the picker
+    // orphaned on screen, still fully open and interactive, with no parent
+    // dialog left to close it. 'close' doesn't bubble, so this has to be a
+    // capture-phase listener on document rather than one bound per dialog.
+    document.addEventListener('close', function (e) {
+        if (!e.target.matches || !e.target.matches('dialog') || e.target.classList.contains('ui-popover')) return;
+        closeAllUiPopovers();
+    }, true);
 
     // Each popover is a modal <dialog>, which makes every OTHER trigger on
     // the page inert while it's open — so a click meant for a different
@@ -1241,16 +1253,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // which mirrors this width) down enough to clip longer options
             // next time it's opened.
             //
-            // Skipped inside .ui-labeled-select (Panel Group/Chair/Date/
+            // Skipped inside .ui-fused-field (Panel Group/Chair/Date/
             // Time): those fields are always meant to exactly fill their
             // own cell (auto-aligned column, or the full row once stacked —
-            // see window.initLabeledSelectStacking below) and truncate with
+            // see window.initFusedFieldStacking below) and truncate with
             // an ellipsis when a value is too long for it. An inline
             // min-width wins over width:100% whenever the two conflict
             // (that's how CSS resolves it), so it would force the trigger
             // wider than its actual cell and overflow into the next column
             // instead of truncating — exactly the bug this skip avoids.
-            if (selectEl.closest('.ui-labeled-select')) {
+            if (selectEl.closest('.ui-fused-field')) {
                 trigger.style.minWidth = '';
             } else {
                 var widest = maxOptionTextWidth(selectEl, window.getComputedStyle(trigger).font);
@@ -1344,6 +1356,10 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         + '<rect x="4" y="5.5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" />'
         + '<path d="M4 9.5h16M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />'
         + '</svg>';
+    var CLOCK_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+        + '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6" />'
+        + '<path d="M12 7.5v5l3.5 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />'
+        + '</svg>';
     var MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
@@ -1359,16 +1375,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var daySelect = document.createElement('select');
         var monthSelect = document.createElement('select');
         var yearSelect = document.createElement('select');
-        // Day/Month/Year's three mini-dropdowns need more room than a
-        // .ui-labeled-select-group field ever has once it's fallen back to
-        // label-above-field layout (still just one field-width column, not
-        // the whole page) — .ui-labeled-select--stacked hides .ui-date-fields
-        // and shows this compact "DD/MM/YYYY + calendar button" display
-        // instead (components/forms.css), still opening the same calendar
-        // popover to actually change the date.
-        var display = document.createElement('button');
-        display.type = 'button';
-        display.className = 'ui-date-display';
         var calBtn = document.createElement('button');
         calBtn.type = 'button';
         calBtn.className = 'ui-date-calendar-btn btn btn-secondary btn-sm';
@@ -1386,7 +1392,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         fields.appendChild(monthSelect);
         fields.appendChild(yearSelect);
         wrap.appendChild(fields);
-        wrap.appendChild(display);
         wrap.appendChild(calBtn);
         document.body.appendChild(calPanel);
         calPanel.addEventListener('click', function (e) {
@@ -1439,13 +1444,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             daySelect.value = Math.max(min, Math.min(selectedDay || min, max));
         }
 
-        function updateDisplay() {
-            var year = parseInt(yearSelect.value, 10);
-            var month = parseInt(monthSelect.value, 10);
-            var day = parseInt(daySelect.value, 10);
-            display.textContent = (year && month && day) ? (pad2(day) + '/' + pad2(month) + '/' + year) : 'Select date';
-        }
-
         function syncFromValue() {
             var parts = (inputEl.value || '').split('-');
             var year = parts.length === 3 ? parseInt(parts[0], 10) : nowYear;
@@ -1461,7 +1459,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             rebuildMonthOptions(month);
             rebuildDayOptions(day);
             [daySelect, monthSelect, yearSelect].forEach(function (s) { if (s._uiSelect) s._uiSelect.refresh(); });
-            updateDisplay();
         }
 
         function commit() {
@@ -1470,7 +1467,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             var day = parseInt(daySelect.value, 10);
             inputEl.value = year + '-' + pad2(month) + '-' + pad2(day);
             inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-            updateDisplay();
         }
 
         [daySelect, monthSelect, yearSelect].forEach(function (select) {
@@ -1565,6 +1561,25 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 grid.appendChild(cell);
             }
             calPanel.appendChild(grid);
+
+            var footer = document.createElement('div');
+            footer.className = 'ui-popover-footer';
+            var todayBtn = document.createElement('button');
+            todayBtn.type = 'button';
+            todayBtn.className = 'ui-popover-footer-link';
+            todayBtn.textContent = 'Today';
+            todayBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (!yearSelect.querySelector('option[value="' + nowYear + '"]')) syncYearOption(nowYear);
+                yearSelect.value = nowYear;
+                rebuildMonthOptions(nowMonth);
+                rebuildDayOptions(today.getDate());
+                [monthSelect, yearSelect, daySelect].forEach(function (s) { if (s._uiSelect) s._uiSelect.refresh(); });
+                commit();
+                renderCalendar();
+            });
+            footer.appendChild(todayBtn);
+            calPanel.appendChild(footer);
         }
 
         function syncYearOption(year) {
@@ -1585,7 +1600,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             }
         }
         calBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleCalendar(); });
-        display.addEventListener('click', function (e) { e.stopPropagation(); toggleCalendar(); });
 
         inputEl._uiDate = { refresh: syncFromValue };
         syncFromValue();
@@ -1606,11 +1620,25 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             opt.value = label; opt.textContent = label;
             ampmSelect.appendChild(opt);
         });
-        for (var m = 0; m < 60; m += 5) {
+        for (var m = 0; m < 60; m++) {
             var mOpt = document.createElement('option');
             mOpt.value = pad2(m); mOpt.textContent = pad2(m);
             minuteSelect.appendChild(mOpt);
         }
+        // Clock button opening a picker popover — a quick way to set a time,
+        // alongside (not instead of) the inline Hour/Minute/AM-PM selects,
+        // same relationship the calendar-grid popover has to Date's own
+        // inline Day/Month/Year selects. The popover is a fresh,
+        // independently-rendered picker (see renderTimePopover below), not
+        // a relocation of the inline selects — two surfaces, one underlying
+        // value.
+        var timeBtn = document.createElement('button');
+        timeBtn.type = 'button';
+        timeBtn.className = 'ui-time-picker-btn btn btn-secondary btn-sm';
+        timeBtn.innerHTML = CLOCK_ICON_SVG;
+        var timePanel = document.createElement('dialog');
+        timePanel.className = 'ui-time-popover ui-popover';
+
         inputEl.classList.add('ui-select-native');
         inputEl.parentNode.insertBefore(wrap, inputEl);
         wrap.appendChild(inputEl);
@@ -1618,17 +1646,29 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         fields.appendChild(minuteSelect);
         fields.appendChild(ampmSelect);
         wrap.appendChild(fields);
+        wrap.appendChild(timeBtn);
+        document.body.appendChild(timePanel);
+        timePanel.addEventListener('click', function (e) {
+            if (e.target !== timePanel) return;
+            var x = e.clientX, y = e.clientY;
+            timePanel.close();
+            forwardClickThrough(x, y, timeBtn);
+        });
 
         // Time format (12h/24h) is a global Settings preference (data-time-format
         // on <html>, see templates/layout.html), not a per-field choice.
         var is12h = document.documentElement.getAttribute('data-time-format') === '12';
 
         // Hours outside the typical 08:00-17:00 school day are visually
-        // muted in the dropdown (see applyHourMuting) since they're rarely
-        // the right choice for a panel meeting. A 12h hour maps to two
-        // different 24h hours depending on AM/PM, so both are stashed on
-        // the option for applyHourMuting to resolve against the current
-        // ampmSelect value.
+        // muted (see isHourMuted) since they're rarely the right choice for
+        // a panel meeting. A 12h hour maps to two different 24h hours
+        // depending on AM/PM, so both are stashed on the inline <option>
+        // for applyHourMuting to resolve against the current ampmSelect
+        // value; the popover's own hour rows resolve the same 24h hour
+        // directly from the row's own precomputed value (see
+        // renderTimePopover) since they don't have an <option> to stash it on.
+        function isHourMuted(hour24) { return hour24 < 8 || hour24 > 17; }
+
         function rebuildHourOptions() {
             hourSelect.innerHTML = '';
             var max = is12h ? 12 : 23;
@@ -1652,7 +1692,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 var hour24 = is12h
                     ? parseInt(ampmSelect.value === 'PM' ? opt.dataset.hour24Pm : opt.dataset.hour24Am, 10)
                     : parseInt(opt.dataset.hour24, 10);
-                if (hour24 < 8 || hour24 > 17) {
+                if (isHourMuted(hour24)) {
                     opt.dataset.muted = '1';
                 } else {
                     delete opt.dataset.muted;
@@ -1660,22 +1700,26 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             });
         }
 
-        function syncFromValue() {
+        function currentParts() {
             var parts = (inputEl.value || '00:00').split(':');
-            var hour24 = parseInt(parts[0], 10) || 0;
-            var minute = parts[1] || '00';
+            return { hour24: parseInt(parts[0], 10) || 0, minute: parts[1] || '00' };
+        }
+
+        function syncFromValue() {
+            var parts = currentParts();
             rebuildHourOptions();
             if (is12h) {
-                var isPM = hour24 >= 12;
-                var hour12 = hour24 % 12;
+                var isPM = parts.hour24 >= 12;
+                var hour12 = parts.hour24 % 12;
                 if (hour12 === 0) hour12 = 12;
                 hourSelect.value = pad2(hour12);
                 ampmSelect.value = isPM ? 'PM' : 'AM';
             } else {
-                hourSelect.value = pad2(hour24);
+                hourSelect.value = pad2(parts.hour24);
             }
-            minuteSelect.value = minute;
+            minuteSelect.value = parts.minute;
             [hourSelect, minuteSelect, ampmSelect].forEach(function (s) { if (s._uiSelect) s._uiSelect.refresh(); });
+            if (timePanel.open) renderTimePopover();
         }
 
         function commit() {
@@ -1706,12 +1750,200 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         });
         ampmSelect.parentNode.classList.toggle('ui-hidden', !is12h);
 
+        // Writes a 24h hour back onto hourSelect/ampmSelect (wrapping
+        // 0-23) — the one place that translates a raw hour24 into the
+        // 12h-vs-24h split those two selects actually store, so the spinner
+        // arrows/typed input and the Now button all funnel through it
+        // instead of re-deriving the split themselves.
+        function applyHour24(hour24) {
+            hour24 = ((hour24 % 24) + 24) % 24;
+            if (is12h) {
+                var isPM = hour24 >= 12;
+                var hour12 = hour24 % 12; if (hour12 === 0) hour12 = 12;
+                hourSelect.value = pad2(hour12);
+                ampmSelect.value = isPM ? 'PM' : 'AM';
+            } else {
+                hourSelect.value = pad2(hour24);
+            }
+            applyHourMuting();
+            if (hourSelect._uiSelect) hourSelect._uiSelect.refresh();
+        }
+
+        function applyMinute(minute) {
+            minuteSelect.value = pad2(((minute % 60) + 60) % 60);
+        }
+
+        // Attached spinner picker ("Enter time"): big Hour:Minute digit
+        // boxes stepped by up/down arrows (or typed directly), an AM/PM
+        // toggle beside them in 12h mode, and Now/Clear footer actions —
+        // mirrors common OS/Material time pickers. Deliberately a different
+        // shape from .ui-popover's option-list style (Panel Group/Chair
+        // selects, the calendar grid): there's no discrete list of times to
+        // browse, so a spinner reads more honestly than a scrollable column
+        // of every minute. See DesignLanguage.md.
+        function renderTimePopover() {
+            var parts = currentParts();
+            var isPM = parts.hour24 >= 12;
+            var hour12 = parts.hour24 % 12; if (hour12 === 0) hour12 = 12;
+            timePanel.innerHTML = '';
+
+            var header = document.createElement('div');
+            header.className = 'ui-time-spinner-header';
+            var headerLabel = document.createElement('span');
+            headerLabel.textContent = 'Enter time';
+            header.appendChild(headerLabel);
+            var closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'ui-time-spinner-close';
+            closeBtn.setAttribute('aria-label', 'Close time picker');
+            closeBtn.innerHTML = '&times;';
+            closeBtn.addEventListener('click', function (e) { e.stopPropagation(); timePanel.close(); });
+            header.appendChild(closeBtn);
+            timePanel.appendChild(header);
+
+            var body = document.createElement('div');
+            body.className = 'ui-time-spinner-body';
+
+            function buildUnit(label, value, muted, onStep, onType) {
+                var unit = document.createElement('div');
+                unit.className = 'ui-time-spinner-unit';
+                var up = document.createElement('button');
+                up.type = 'button';
+                up.className = 'ui-time-spinner-arrow ui-time-spinner-arrow--up';
+                up.setAttribute('aria-label', 'Increase ' + label);
+                up.innerHTML = '&#9650;';
+                up.addEventListener('click', function (e) { e.stopPropagation(); onStep(1); });
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.inputMode = 'numeric';
+                input.maxLength = 2;
+                input.className = 'ui-time-spinner-value' + (muted ? ' muted' : '');
+                input.value = value;
+                input.addEventListener('click', function (e) { e.stopPropagation(); input.select(); });
+                input.addEventListener('change', function () {
+                    var n = parseInt(input.value, 10);
+                    onType(isNaN(n) ? 0 : n);
+                });
+                var down = document.createElement('button');
+                down.type = 'button';
+                down.className = 'ui-time-spinner-arrow ui-time-spinner-arrow--down';
+                down.setAttribute('aria-label', 'Decrease ' + label);
+                down.innerHTML = '&#9660;';
+                down.addEventListener('click', function (e) { e.stopPropagation(); onStep(-1); });
+                unit.appendChild(up);
+                unit.appendChild(input);
+                unit.appendChild(down);
+                return unit;
+            }
+
+            body.appendChild(buildUnit('hour', pad2(is12h ? hour12 : parts.hour24), isHourMuted(parts.hour24),
+                function (delta) {
+                    applyHour24(parts.hour24 + delta);
+                    commit();
+                    renderTimePopover();
+                },
+                function (n) {
+                    var hour24 = is12h ? (n % 12) + (isPM ? 12 : 0) : n;
+                    applyHour24(hour24);
+                    commit();
+                    renderTimePopover();
+                }));
+
+            var sep = document.createElement('div');
+            sep.className = 'ui-time-spinner-sep';
+            sep.textContent = ':';
+            body.appendChild(sep);
+
+            body.appendChild(buildUnit('minute', parts.minute, false,
+                function (delta) {
+                    applyMinute(parseInt(parts.minute, 10) + delta);
+                    commit();
+                    renderTimePopover();
+                },
+                function (n) {
+                    applyMinute(n);
+                    commit();
+                    renderTimePopover();
+                }));
+
+            if (is12h) {
+                var ampmWrap = document.createElement('div');
+                ampmWrap.className = 'ui-time-spinner-ampm';
+                ['AM', 'PM'].forEach(function (label) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'ui-time-spinner-ampm-btn' + ((label === 'PM') === isPM ? ' selected' : '');
+                    btn.textContent = label;
+                    btn.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        ampmSelect.value = label;
+                        applyHourMuting();
+                        if (hourSelect._uiSelect) hourSelect._uiSelect.refresh();
+                        commit();
+                        renderTimePopover();
+                    });
+                    ampmWrap.appendChild(btn);
+                });
+                body.appendChild(ampmWrap);
+            }
+            timePanel.appendChild(body);
+
+            var footer = document.createElement('div');
+            footer.className = 'ui-popover-footer';
+            var nowBtn = document.createElement('button');
+            nowBtn.type = 'button';
+            nowBtn.className = 'ui-popover-footer-link';
+            nowBtn.textContent = 'Now';
+            nowBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var now = new Date();
+                inputEl.value = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                syncFromValue();
+                renderTimePopover();
+            });
+            var clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.className = 'ui-popover-footer-link';
+            clearBtn.textContent = 'Clear';
+            clearBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                // "Clear" resets to midnight rather than emptying the native
+                // input outright — hourSelect/minuteSelect are plain
+                // <select>s with no real "no value" option of their own, so
+                // an empty inputEl.value just meant the next syncFromValue()
+                // fell back to '00:00' anyway (see currentParts()) while the
+                // visible spinner still showed whatever it last rendered,
+                // reading as "Clear did nothing."
+                inputEl.value = '00:00';
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                syncFromValue();
+                renderTimePopover();
+            });
+            footer.appendChild(nowBtn);
+            footer.appendChild(clearBtn);
+            timePanel.appendChild(footer);
+        }
+
+        function toggleTimePopover() {
+            var isOpen = timePanel.open;
+            closeAllUiPopovers(timePanel);
+            if (isOpen) {
+                timePanel.close();
+            } else {
+                renderTimePopover();
+                timePanel.showModal();
+                positionPopover(timePanel, timeBtn, { alignRight: true });
+            }
+        }
+        timeBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleTimePopover(); });
+
         inputEl._uiTime = { refresh: syncFromValue };
         syncFromValue();
         if (!inputEl.value) commit();
     };
 
-    // .ui-labeled-select-group aligns its fused fields' labels to one shared,
+    // .ui-fused-field-group aligns its fused fields' labels to one shared,
     // auto-computed column (CSS subgrid — see components/forms.css) when
     // there's room. A single CSS breakpoint can't decide this per-field
     // though (querying an element's own size to decide the very grid span
@@ -1721,16 +1953,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // available width is measured here instead, and only the rows that don't
     // fit fall back to label-above-field layout independently of their
     // siblings.
-    var LABELED_SELECT_HYSTERESIS = 10;
+    var FUSED_FIELD_HYSTERESIS = 10;
 
-    function evaluateLabeledSelectGroup(groupEl) {
+    function evaluateFusedFieldGroup(groupEl) {
         // Some groups (e.g. Panel Setup's Panel Settings card) want every row
         // stacked label-above unconditionally, for visual consistency across
         // the group, rather than each row independently deciding based on its
         // own measured overflow - skip the measurement entirely for those.
-        if (groupEl.classList.contains('ui-labeled-select-group--force-stacked')) {
-            groupEl.querySelectorAll('.ui-labeled-select').forEach(function (row) {
-                row.classList.add('ui-labeled-select--stacked');
+        if (groupEl.classList.contains('ui-fused-field-group--force-stacked')) {
+            groupEl.querySelectorAll('.ui-fused-field').forEach(function (row) {
+                row.classList.add('ui-fused-field--stacked');
             });
             return;
         }
@@ -1743,8 +1975,8 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         if (groupEl._labeledSelectWidth !== undefined && Math.abs(groupEl._labeledSelectWidth - width) < 1) return;
         groupEl._labeledSelectWidth = width;
 
-        groupEl.querySelectorAll('.ui-labeled-select').forEach(function (row) {
-            var wasStacked = row.classList.contains('ui-labeled-select--stacked');
+        groupEl.querySelectorAll('.ui-fused-field').forEach(function (row) {
+            var wasStacked = row.classList.contains('ui-fused-field--stacked');
             // Measure real overflow rather than approximating with a fixed
             // width guess — a row's actual required width varies (a single
             // select's own widest-option floor, vs. Date/Time's several
@@ -1753,7 +1985,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // clip the chevron or squeeze the label. Un-stack first so the
             // measurement reflects the row's natural beside-label content
             // width, not whatever it measured last time.
-            if (wasStacked) row.classList.remove('ui-labeled-select--stacked');
+            if (wasStacked) row.classList.remove('ui-fused-field--stacked');
             var overflow = row.scrollWidth - row.clientWidth;
             // A select's trigger (or the label) truncates its own text with
             // an ellipsis rather than growing past its grid cell, so the row
@@ -1762,23 +1994,23 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // those truncatable pieces directly too. Excludes Date/Time's
             // mini Day/Month/Year-style dropdowns (.ui-select--sm), which
             // fall back to a compact display of their own instead.
-            row.querySelectorAll('.ui-labeled-select-label, .ui-select:not(.ui-select--sm) > .ui-select-trigger').forEach(function (el) {
+            row.querySelectorAll('.ui-fused-field-label, .ui-select:not(.ui-select--sm) > .ui-select-trigger').forEach(function (el) {
                 overflow = Math.max(overflow, el.scrollWidth - el.clientWidth);
             });
             // Once stacked, require a bit of comfortable slack before
             // switching back, so a row doesn't flip-flop right at the
             // boundary while a container is being resized.
-            var needsStacking = wasStacked ? overflow > -LABELED_SELECT_HYSTERESIS : overflow > 0;
-            if (needsStacking) row.classList.add('ui-labeled-select--stacked');
+            var needsStacking = wasStacked ? overflow > -FUSED_FIELD_HYSTERESIS : overflow > 0;
+            if (needsStacking) row.classList.add('ui-fused-field--stacked');
         });
     }
 
-    window.initLabeledSelectStacking = function (root) {
-        (root || document).querySelectorAll('.ui-labeled-select-group').forEach(function (groupEl) {
-            evaluateLabeledSelectGroup(groupEl);
+    window.initFusedFieldStacking = function (root) {
+        (root || document).querySelectorAll('.ui-fused-field-group').forEach(function (groupEl) {
+            evaluateFusedFieldGroup(groupEl);
             if (typeof ResizeObserver === 'undefined' || groupEl._labeledSelectObserved) return;
             groupEl._labeledSelectObserved = true;
-            new ResizeObserver(function () { evaluateLabeledSelectGroup(groupEl); }).observe(groupEl);
+            new ResizeObserver(function () { evaluateFusedFieldGroup(groupEl); }).observe(groupEl);
         });
     };
 
@@ -1795,19 +2027,19 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             window.enhanceDateInput(el, { noPast: el.hasAttribute('data-no-past') });
         });
         (root || document).querySelectorAll('input[type="time"]').forEach(window.enhanceTimeInput);
-        window.initLabeledSelectStacking(root);
+        window.initFusedFieldStacking(root);
     };
 })();
 
 // Generic "select + add button" containers (`.ui-select-row` for a
-// side-by-side pair, `.ui-labeled-select` for a label+select+button fused
+// side-by-side pair, `.ui-fused-field` for a label+select+button fused
 // into one control — both styled in components/forms.css). Any page can
 // register a handler here, keyed by the button's `data-add-trigger` value,
 // instead of writing its own dialog- or page-scoped click listener — this
 // single delegated listener covers every such container on the page,
 // including ones injected later into modals.
 (function () {
-    var CONTAINER_SELECTOR = '.ui-select-row, .ui-labeled-select';
+    var CONTAINER_SELECTOR = '.ui-select-row, .ui-fused-field';
     window.uiSelectRowAdders = window.uiSelectRowAdders || {};
     document.addEventListener('click', function (e) {
         var trigger = e.target.closest(CONTAINER_SELECTOR + ' [data-add-trigger]');

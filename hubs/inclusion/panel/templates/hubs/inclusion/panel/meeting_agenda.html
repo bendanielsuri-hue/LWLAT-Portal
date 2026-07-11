@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=118">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=140">
 {% endblock %}
 
 
@@ -30,10 +30,11 @@
 
 <dialog id="schedule-warning-dialog" class="modal-dialog">
     <div class="modal-header">
-        <h2>Panel not yet due</h2>
+        <h2>Panel Meeting not yet due</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
-        <p>This panel is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Would you like to start the meeting now?</p>
+        <p>This panel meeting is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Would you like to start the meeting now?</p>
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>View Agenda Only</button>
             <form method="post" style="display:inline">
@@ -61,39 +62,13 @@
     </div>
 </div>
 
-{% if followups_due %}
-<div class="followups-card">
-    <h2>Follow-ups Due ({{ followups_due|length }})</h2>
-    <form method="post" style="display:inline">
-        {% csrf_token %}
-        <input type="hidden" name="form_action" value="pull_in_followups">
-        <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Pull In All Due Follow-ups</button>
-    </form>
-    <div class="agenda-preview-list" data-drop-zone="followups-due">
-    {% for fpr in followups_due %}
-    <div class="agenda-preview-item" draggable="true" data-drop-id="{{ fpr.referral.id }}">
-        <span class="drag-handle" aria-hidden="true" title="Drag to add to agenda">{% include 'icons/drag_handle_svg.html' %}</span>
-        <div>
-            <strong>{{ fpr.referral.student }}</strong>
-            <div class="meta">Follow up due {{ fpr.follow_up_date }} — from Panel {{ fpr.panel.date }}</div>
-        </div>
-        <form method="post" style="display:inline">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="add_followup_to_agenda">
-            <input type="hidden" name="referral_id" value="{{ fpr.referral.id }}">
-            <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add to Agenda</button>
-        </form>
-    </div>
-    {% endfor %}
-    </div>
-</div>
-{% endif %}
-
 <div class="agenda-layout">
     <div class="members-register-col setup-col">
         <div class="setup-col-header"><h2>Panel Members Register</h2></div>
-        <button type="button" class="btn btn-add btn-sm members-register-add-btn" data-open-member-dialog><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Member</button>
-        <div class="entity-list">
+        <div class="btn-row">
+            <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ panel.panel_group_id|default:'' }}" {% if not panel.panel_group_id %}disabled title="Assign a Panel Group first"{% endif %}><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Manage Members</button>
+        </div>
+        <div class="entity-list" data-panel-members-list>
             {% for member in members %}
             <div class="entity-row">
                 <div class="entity-thumb">
@@ -113,6 +88,7 @@
                     {% if member.checked_in_at %}
                     <div class="entity-meta">Joined {{ member.checked_in_at|time:"H:i" }}{% if member.left_at %} · Left {{ member.left_at|time:"H:i" }}{% endif %}</div>
                     {% endif %}
+                    {% if panel.status != 'complete' %}
                     <form method="post" class="member-attendance-form">
                         {% csrf_token %}
                         <input type="hidden" name="member_id" value="{{ member.id }}">
@@ -125,10 +101,15 @@
                         <button type="submit" class="toggle-pill" aria-pressed="false" aria-label="Not in attendance — click to mark in attendance"><span class="toggle-knob"></span></button>
                         {% endif %}
                     </form>
+                    {% endif %}
                 </div>
             </div>
             {% empty %}
-            <p class="empty-note">No members on this panel's roster yet — add some from Panel Setup.</p>
+            <p class="empty-note">
+                {% if not panel.panel_group_id %}No Panel Group assigned yet.
+                {% elif panel.status == 'complete' %}No members checked in.
+                {% else %}No members in this Panel Group yet — add some from "Manage Members".{% endif %}
+            </p>
             {% endfor %}
         </div>
     </div>
@@ -138,6 +119,7 @@
         <div class="entity-list" data-drop-zone="pending">
             {% for pr in pending %}
             <div class="entity-row" draggable="true" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
+                <span class="drag-handle drag-handle-pattern" aria-hidden="true" title="Drag to reorder"></span>
                 {% include 'hubs/inclusion/panel/_agenda_order_controls.html' %}
                 <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                 <div class="entity-body">
@@ -148,23 +130,28 @@
                         {% if pr.discussion_started_at %}
                         <span class="agenda-row-timer">Discussing for: <span class="discussion-timer discussion-timer-sm" data-started-at="{{ pr.discussion_started_at|date:'c' }}">00:00:00</span></span>
                         {% endif %}
-                        &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %}
+                        &middot; {% if pr.is_followup %}Review{% else %}New{% endif %}
                     </div>
                     <form method="post" class="priority-form">
                         {% csrf_token %}
                         <input type="hidden" name="form_action" value="update_priority">
-                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <input type="hidden" name="referral_id" value="{{ pr.referral_id }}">
                         <span class="toggle-label priority-form-label">Priority</span>
                         <div class="priority-chips">
-                            <button type="submit" name="priority" value="low" class="priority-chip priority-low{% if pr.priority == 'low' %} active{% endif %}" aria-pressed="{% if pr.priority == 'low' %}true{% else %}false{% endif %}">Low</button>
-                            <button type="submit" name="priority" value="medium" class="priority-chip priority-medium{% if pr.priority == 'medium' %} active{% endif %}" aria-pressed="{% if pr.priority == 'medium' %}true{% else %}false{% endif %}">Medium</button>
-                            <button type="submit" name="priority" value="high" class="priority-chip priority-high{% if pr.priority == 'high' %} active{% endif %}" aria-pressed="{% if pr.priority == 'high' %}true{% else %}false{% endif %}">High</button>
+                            <button type="submit" name="priority" value="low" class="priority-chip priority-low{% if pr.referral.priority == 'low' %} active{% endif %}" aria-pressed="{% if pr.referral.priority == 'low' %}true{% else %}false{% endif %}">Low</button>
+                            <button type="submit" name="priority" value="medium" class="priority-chip priority-medium{% if pr.referral.priority == 'medium' %} active{% endif %}" aria-pressed="{% if pr.referral.priority == 'medium' %}true{% else %}false{% endif %}">Medium</button>
+                            <button type="submit" name="priority" value="high" class="priority-chip priority-high{% if pr.referral.priority == 'high' %} active{% endif %}" aria-pressed="{% if pr.referral.priority == 'high' %}true{% else %}false{% endif %}">High</button>
                         </div>
                     </form>
                 </div>
                 <div class="btn-row btn-row-stacked">
                     {% if panel.started_at %}
-                    <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</a>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="start_discussion">
+                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</button>
+                    </form>
                     {% else %}
                     <span class="btn btn-add btn-sm btn-disabled" aria-disabled="true" title="Start the meeting to begin discussing referrals"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</span>
                     {% endif %}
@@ -193,13 +180,18 @@
                     <div class="entity-meta">
                         <span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span>
                         <span class="status-pill {{ pr.stage }}">{{ pr.stage_label }}</span>
-                        &middot; {% if pr.is_followup %}Follow-up{% else %}New{% endif %}
+                        &middot; {% if pr.is_followup %}Review{% else %}New{% endif %}
                     </div>
                     <div class="entity-meta">Time discussed: {{ pr.duration_display }}</div>
-                    <div class="entity-meta">Follow up: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
+                    <div class="entity-meta">Review due: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
                 </div>
                 <div class="btn-row btn-row-stacked">
-                    <a href="{% url 'inclusion_panel_discussion' pr.id %}" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Continue Discussion</a>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="start_discussion">
+                        <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                        <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Continue Discussion</button>
+                    </form>
                     <a href="{% url 'inclusion_panel_referral_escalate' pr.referral.id %}?next={% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
                 </div>
             </div>
@@ -210,69 +202,24 @@
     </div>
 </div>
 
-<dialog id="panel-member-dialog" class="modal-dialog">
-    <div class="modal-header">
-        <h2>Add Member</h2>
-    </div>
-    <div class="modal-body">
-        <form method="post" class="field-group" data-member-modal-form>
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="add_member">
-
-            {% include 'hubs/inclusion/panel/_member_picker.html' with school=panel.panel_group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Active Member' %}
-
-            <div data-expertise-wrapper hidden>
-                {% include 'hubs/inclusion/panel/_expertise_field.html' with field_id='member-expertise' expertise_list=expertise_list school_id=panel.panel_group.school_id %}
-            </div>
-
-            <div class="btn-row">
-                <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-                <button type="submit" class="btn btn-add btn-sm" data-member-save disabled><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Member</button>
-            </div>
-        </form>
-    </div>
-</dialog>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var memberDialog = document.getElementById('panel-member-dialog');
-    if (!memberDialog) return;
-
-    var memberForm = memberDialog.querySelector('[data-member-modal-form]');
-    var saveBtn = memberDialog.querySelector('[data-member-save]');
-    var pickerRoot = memberDialog.querySelector('[data-member-picker-root]');
-    var expertiseWrapper = memberDialog.querySelector('[data-expertise-wrapper]');
-
-    function getModalDuration() {
-        return parseFloat(getComputedStyle(memberDialog).getPropertyValue('--modal-duration')) || 250;
-    }
-    function closeMemberDialog() {
-        memberDialog.classList.remove('is-open');
-        setTimeout(function () { memberDialog.close(); }, getModalDuration());
-    }
-
-    pickerRoot.addEventListener('member-picker:change', function (e) {
-        saveBtn.disabled = !e.detail.id;
-        if (expertiseWrapper) expertiseWrapper.hidden = !e.detail.id;
-    });
-
-    document.addEventListener('click', function (e) {
-        if (e.target.closest('[data-open-member-dialog]')) {
-            memberForm.reset();
-            if (window.resetMemberPicker) window.resetMemberPicker(pickerRoot);
-            saveBtn.disabled = true;
-            if (expertiseWrapper) expertiseWrapper.hidden = true;
-            memberDialog.showModal();
-            requestAnimationFrame(function () { memberDialog.classList.add('is-open'); });
-            return;
-        }
-        if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-member-dialog')) {
-            closeMemberDialog();
-        }
-    });
-
-    memberDialog.addEventListener('click', function (e) {
-        if (e.target === memberDialog) closeMemberDialog();
+    // The Panel Members Register mirrors the Panel Group's live roster (see
+    // _panel_member_roster in views.py) - "Manage Members" opens the same
+    // shared group modal used elsewhere, which dispatches panel-group:updated
+    // on every change. Refetch this page and swap the register in, same
+    // pattern used on Panel Agenda Setup for its own Members section.
+    document.addEventListener('panel-group:updated', function (e) {
+        var detail = e.detail;
+        if (!detail || String(detail.id) !== '{{ panel.panel_group_id|default:"" }}') return;
+        fetch(window.location.pathname, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.text(); })
+            .then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var freshList = doc.querySelector('[data-panel-members-list]');
+                var oldList = document.querySelector('[data-panel-members-list]');
+                if (freshList && oldList) oldList.replaceWith(freshList);
+            });
     });
 });
 </script>
@@ -319,12 +266,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var warningDialog = document.getElementById('schedule-warning-dialog');
     if (!warningDialog) return;
 
-    function getModalDuration() {
-        return parseFloat(getComputedStyle(warningDialog).getPropertyValue('--modal-duration')) || 250;
-    }
     function closeWarningDialog() {
-        warningDialog.classList.remove('is-open');
-        setTimeout(function () { warningDialog.close(); }, getModalDuration());
+        window.closeModalWithFadeOut(warningDialog);
     }
 
     if ({{ show_schedule_warning|yesno:"true,false" }}) {
@@ -343,7 +286,6 @@ document.addEventListener('DOMContentLoaded', function () {
 document.addEventListener('DOMContentLoaded', function () {
     if (window.initAgendaDragDrop) {
         window.initAgendaDragDrop({
-            'followups-due': { addAction: 'add_followup_to_agenda' },
             'pending': { role: 'sink' },
         }, { removeAction: 'unassign_referral' });
     }

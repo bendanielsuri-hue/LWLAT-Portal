@@ -11,21 +11,72 @@
 <dialog id="new-referral-dialog" class="modal-dialog"></dialog>
 <dialog id="panel-group-dialog" class="modal-dialog"></dialog>
 <dialog id="panel-meeting-dialog" class="modal-dialog"></dialog>
-<dialog id="referral-actions-dialog" class="modal-dialog"></dialog>
 <dialog id="panel-search-dialog" class="modal-dialog">
     <div class="modal-header">
         <h2>Search</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
         <input type="text" id="panel-search-input" class="panel-search-input" placeholder="Search students, referrals, actions…" autocomplete="off">
         <div id="panel-search-results" class="panel-search-results"></div>
-        <div class="btn-row">
-            <button type="button" class="btn btn-sm" data-modal-close>Close</button>
-        </div>
+    </div>
+</dialog>
+{% comment %}
+Shared "Add Expertise Tag" dialog - one instance for the whole page, opened
+by any Expertise field's "+" button (window.openExpertiseQuickAdd(select) in
+panel.js) rather than each field expanding its own inline row. There can be
+several Expertise fields on one page (e.g. one per Panel Group member row),
+so this lives at the page level, a sibling of the other app-wide dialogs
+above, rather than inside any one of them.
+{% endcomment %}
+<dialog id="expertise-quick-add-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2>Add Expertise Tag</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+        <form data-expertise-quick-add-form>
+            <div class="field-group">
+                <label for="expertise-quick-add-input">Tag Name</label>
+                <input type="text" id="expertise-quick-add-input" data-expertise-quick-add-input required>
+            </div>
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-add btn-sm" data-expertise-quick-add-save>Add Tag</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{% comment %}
+Shared "Add External Contact" dialog - same reasoning as the Expertise one
+above: opened by any member picker's "Add New External Contact" button
+(window.openExternalContactQuickAdd(pickerRoot) in panel.js) instead of
+each picker expanding its own inline fields.
+{% endcomment %}
+<dialog id="external-contact-quick-add-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2>Add External Contact</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+        <form data-external-contact-quick-add-form>
+            <div class="field-group">
+                <label for="external-contact-quick-add-name">Name</label>
+                <input type="text" id="external-contact-quick-add-name" data-external-contact-quick-add-name required>
+            </div>
+            <div class="field-group">
+                <label for="external-contact-quick-add-company">Company</label>
+                <input type="text" id="external-contact-quick-add-company" data-external-contact-quick-add-company>
+            </div>
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-add btn-sm" data-external-contact-quick-add-save>Add Contact</button>
+            </div>
+        </form>
     </div>
 </dialog>
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'js/panel.js' %}?v=53"></script>
+<script src="{% static 'js/panel.js' %}?v=63"></script>
 {% endblock %}

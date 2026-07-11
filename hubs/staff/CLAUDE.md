@@ -10,4 +10,5 @@ Uses `core.models.Staff` for the directory view (queries active staff). All othe
 
 - `STAFF_MENU` — hub sidebar menu entries, each with `module_key` matching a URL name.
 - `_local_menu(request)` — standard `filter_by_module(STAFF_MENU, module_map(), request)` helper.
+- `_hub_context(request)` — `{'local_menu': _local_menu(request), 'hub_title': 'Staff'}`, spread into every view's render context instead of retyped per view.
 - No static files specific to this hub.

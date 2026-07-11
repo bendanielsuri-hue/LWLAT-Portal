@@ -6,6 +6,7 @@ from hubs.inclusion.panel.models import Expertise, PanelGroup, PanelGroupMember
 EXPERTISE_NAMES = ['SEND', 'EAL', 'Pastoral', 'Safeguarding', 'Attendance', 'Mental Health']
 
 MEMBERS_PER_GROUP = 3
+MIN_MEMBERS = 2
 
 
 class Command(BaseCommand):
@@ -43,3 +44,37 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(
                     f'  Set default chair for {group.name} to {staff_pool[0]}.'
                 ))
+
+        # Repair pass over every active PanelGroup, including legacy/duplicate
+        # ones the per-school block above doesn't touch (e.g. a group with no
+        # school, or a second group for a school that already has one) - Panel
+        # Setup assumes every group has at least MIN_MEMBERS members and a
+        # default chair, regardless of how the group came to exist.
+        for group in PanelGroup.objects.filter(is_active=True):
+            pool = list(
+                (Staff.objects.filter(school_id=group.school_id, is_active=True) if group.school_id
+                 else Staff.objects.filter(is_active=True)).order_by('id')
+            )
+            existing_staff_ids = set(
+                group.members.exclude(staff__isnull=True).values_list('staff_id', flat=True)
+            )
+            member_count = group.members.count()
+            if member_count < MIN_MEMBERS:
+                extra = [s for s in pool if s.id not in existing_staff_ids][:MIN_MEMBERS - member_count]
+                for idx, staff in enumerate(extra):
+                    PanelGroupMember.objects.get_or_create(
+                        panel_group=group, staff=staff,
+                        defaults={'expertise': expertise_list[idx % len(expertise_list)]},
+                    )
+                if extra:
+                    self.stdout.write(self.style.SUCCESS(
+                        f'Topped up {group.name} with {len(extra)} member(s) (had {member_count}).'
+                    ))
+            if group.default_chair_id is None:
+                chair_member = group.members.filter(staff__isnull=False).order_by('id').first()
+                if chair_member:
+                    group.default_chair = chair_member.staff
+                    group.save(update_fields=['default_chair'])
+                    self.stdout.write(self.style.SUCCESS(
+                        f'Set default chair for {group.name} to {chair_member.staff}.'
+                    ))

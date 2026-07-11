@@ -1,5 +1,12 @@
-﻿<div class="modal-header">
-    <h2>{% if is_view_only %}Referral Details{% elif is_edit %}Edit Referral{% else %}New Referral{% endif %}</h2>
+<div class="modal-header">
+    {% if is_view_only %}
+    <h2>{{ selected_student.first_name }} {{ selected_student.last_name }}{% if selected_student.year_group %} — Year {{ selected_student.year_group }}{% if selected_student.reg_form %} ({{ selected_student.reg_form }}){% endif %}{% endif %}</h2>
+    {% elif is_edit %}
+    <h2>Edit Referral</h2>
+    {% else %}
+    <h2>New Referral</h2>
+    {% endif %}
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
 </div>
 <div class="modal-body">
     <form method="post" action="{% if is_edit %}{% url 'inclusion_panel_referral_edit' referral.id %}{% else %}{% url 'inclusion_panel_referral_new' %}{% endif %}" class="{% if not selected_student %}is-picking-student{% endif %}" data-referral-modal-form>
@@ -12,29 +19,90 @@
         <p class="form-error" data-referral-form-error hidden></p>
         {% endif %}
 
-        {% include 'hubs/inclusion/panel/_referral_form_fields.html' %}
-
-        {% if last_discussed_pr %}
-        <h3>Last Discussion Summary</h3>
-        <div class="field-group">
-            <label>Discussed At</label>
-            <div class="field-readonly">{{ last_discussed_pr.panel.date|date:"d/m/Y" }}</div>
-        </div>
-        {% for note in last_discussed_notes %}
-        <div class="field-group">
-            <label>{{ note.created_at|date:"d/m/Y" }} &middot; {{ note.author|default:"Unknown" }}</label>
-            <div class="field-readonly">{{ note.body }}</div>
-        </div>
-        {% empty %}
-        <p class="empty-note">No notes were recorded during that discussion.</p>
-        {% endfor %}
-        {% endif %}
-
-        <div class="btn-row">
-            <button type="button" class="btn btn-sm" data-modal-close>{% if is_view_only %}Close{% else %}Cancel{% endif %}</button>
-            {% if not is_view_only %}
-            <button type="submit" class="btn btn-add btn-sm" data-referral-save>{% if is_edit %}Save Changes{% else %}Save Referral{% endif %}</button>
+        {% if is_edit and show_decision_strip %}
+        <div class="referral-decision-strip">
+            <div class="summary-line"><span class="summary-label">Concern</span><span class="summary-value">{{ main_concern_question.existing_answer|default:"—" }}</span></div>
+            <div class="summary-line">
+                <span class="summary-label">Referral Status</span>
+                <span class="summary-value"><span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span></span>
+            </div>
+            <div class="summary-line">
+                <span class="summary-label">Actions</span>
+                <span class="summary-value">{{ actions_complete }} of {{ actions_total }} complete{% if actions_overdue %} &nbsp;<span class="status-pill danger">{{ actions_overdue }} overdue</span>{% endif %}</span>
+            </div>
+            {% if stage_key != 'not_discussed' %}
+            <div class="referral-decision-cta referral-decision-cta--{% if stage_key == 'assigned' %}neutral{% elif stage_key == 'discussing' %}warn{% elif stage_key == 'requires_follow_up' %}{% if followup_overdue %}bad{% else %}warn{% endif %}{% elif actions_overdue %}warn{% else %}good{% endif %}">
+                <span class="referral-decision-cta-text">
+                    {% if stage_key == 'assigned' %}On agenda for {{ pending_pr.panel.date|date:"d/m/Y" }}<small>Scheduled for panel discussion — no action needed yet.</small>
+                    {% elif stage_key == 'discussing' %}Currently being discussed<small>Discussion in progress at today's panel.</small>
+                    {% elif stage_key == 'requires_follow_up' %}{{ stage_label }} {% if latest_discussion.pr.follow_up_date %}due {{ latest_discussion.pr.follow_up_date|date:"d/m/Y" }}{% else %}outstanding{% endif %}{% if followup_overdue %} — overdue{% endif %}<small>Set at the {{ latest_discussion.pr.panel.date|date:"d/m/Y" }} discussion, not yet marked complete.</small>
+                    {% elif actions_overdue %}Review complete<small>No further discussion required, but {{ actions_overdue }} action{{ actions_overdue|pluralize }} {{ actions_overdue|pluralize:"is,are" }} overdue.</small>
+                    {% else %}No action needed<small>Review complete, no outstanding actions.</small>
+                    {% endif %}
+                </span>
+                <span class="status-pill{% if stage_key == 'assigned' %} assigned{% elif stage_key == 'discussing' %} discussing{% elif stage_key == 'requires_follow_up' %}{% if followup_overdue %} danger{% else %} requires_follow_up{% endif %}{% else %} complete{% endif %}">{% if stage_key == 'assigned' %}On Agenda{% elif stage_key == 'discussing' %}In Discussion{% elif stage_key == 'requires_follow_up' %}{{ stage_label }}{% else %}No review needed{% endif %}</span>
+            </div>
             {% endif %}
         </div>
+        {% endif %}
+
+        {% include 'hubs/inclusion/panel/_referral_form_fields.html' %}
+
+        {% if discussions %}
+        <div class="referral-flat-section">
+            <h5 class="referral-section-title">Panel Meetings</h5>
+            <div class="referral-history-list">
+            {% for d in discussions %}
+            <div class="referral-history-entry">
+                <h6 class="referral-row-title">{{ d.review_label }} — {{ d.pr.panel.date|date:"d/m/Y" }}</h6>
+                <div class="referral-history-grid">
+                    <div class="referral-history-details">
+                        <div class="entity-meta">Panel Group: {{ d.pr.panel.panel_group.name|default:"—" }}</div>
+                        <div class="entity-meta">Duration: {{ d.pr.duration_display|default:"—" }}</div>
+                        <div class="entity-meta">Actions Added: {{ d.actions_added }}</div>
+                    </div>
+                    <div class="referral-history-side">
+                        <div class="entity-meta">Chair: {{ d.pr.panel.chair|default:"—" }}</div>
+                        <div class="entity-meta">Attendance: {{ d.attendance }} Member{{ d.attendance|pluralize }} in attendance</div>
+                        <a href="{% url 'inclusion_panel_discussion' d.pr.id %}" class="referral-history-more">View Discussion Page &rarr;</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if referral_actions %}
+        <div class="referral-flat-section">
+            <h5 class="referral-section-title">Actions</h5>
+            <div class="action-row-list">
+            {% for action in referral_actions %}
+            {% include 'hubs/inclusion/panel/_action_row.html' with action=action referral=referral allow_status_toggle=True %}
+            {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if student_notes %}
+        <details class="referral-flat-section">
+            <summary class="referral-section-title">Notes</summary>
+            <div class="referral-flat-section-body">
+            {% for note in student_notes %}
+            <div class="field-group">
+                <label>{{ note.created_at|date:"d/m/Y" }} &middot; {{ note.author|default:"Unknown" }}</label>
+                <div class="field-readonly">{{ note.body }}</div>
+            </div>
+            {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+
+        {% if not is_view_only %}
+        <div class="btn-row">
+            <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+            <button type="submit" class="btn btn-add btn-sm" data-referral-save>{% if is_edit %}Save Changes{% else %}Save Referral{% endif %}</button>
+        </div>
+        {% endif %}
     </form>
 </div>

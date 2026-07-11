@@ -1,10 +1,29 @@
 {% comment %}
-Expertise <select> plus an inline "+" to add a new tag (AJAX, no navigation).
-Params: field_id (or field_id_suffix, appended to "member-expertise-" for
-uniqueness when several of these render on one page), expertise_list
+Expertise <select> plus a "+" that opens the shared "Add Expertise Tag"
+dialog (#expertise-quick-add-dialog in _base.html, wired by
+window.openExpertiseQuickAdd in panel.js) rather than expanding an inline
+row. Params: field_id (or field_id_suffix, appended to "member-expertise-"
+for uniqueness when several of these render on one page), expertise_list
 (school-filtered), selected_id, school_id (sent with the quick-add POST so
-the new tag is scoped to the right school).
+the new tag is scoped to the right school), merged (bool - fuses the label
+and "+" button onto the select itself via .ui-fused-field, the app's
+general "label+control+action fused into one box" pattern; the including
+form/wrapper must itself be a .ui-fused-field-group for the grid subgrid
+to resolve - see Panel Group modal's member rows). Defaults to the plain
+label-above layout.
 {% endcomment %}
+{% if merged %}
+<span class="ui-fused-field">
+    <label class="ui-fused-field-label" for="{{ field_id|default:'member-expertise-' }}{{ field_id_suffix }}">Expertise</label>
+    <select id="{{ field_id|default:'member-expertise-' }}{{ field_id_suffix }}" name="expertise" data-expertise-select data-expertise-school-id="{{ school_id|default:'' }}">
+        <option value="">No expertise tag</option>
+        {% for e in expertise_list %}
+        <option value="{{ e.id }}" {% if e.id == selected_id %}selected{% endif %}>{{ e.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="button" class="ui-fused-field-add btn btn-add btn-icon-only btn-no-icon" data-expertise-add-toggle aria-label="Add expertise tag">+</button>
+</span>
+{% else %}
 <div class="expertise-field-row">
     <label for="{{ field_id|default:'member-expertise-' }}{{ field_id_suffix }}">Expertise</label>
     <div class="expertise-field-inline">
@@ -16,8 +35,5 @@ the new tag is scoped to the right school).
         </select>
         <button type="button" class="btn btn-add btn-icon-only btn-no-icon" data-expertise-add-toggle aria-label="Add expertise tag">+</button>
     </div>
-    <div class="expertise-field-add" data-expertise-add-panel hidden>
-        <input type="text" data-expertise-add-input placeholder="New tag name">
-        <button type="button" class="btn btn-add btn-sm" data-expertise-add-save>Add</button>
-    </div>
 </div>
+{% endif %}

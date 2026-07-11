@@ -19,6 +19,8 @@ def _local_menu(request):
 
 Every menu entry carries a `module_key` matching a Django URL name. `core.modules.filter_by_module` hides entries whose module is `hidden` (or `pilot` for the wrong school). Pass the filtered result as `local_menu` in context.
 
+Each hub also defines a `_hub_context(request)` helper — `{'local_menu': _local_menu(request), 'hub_title': '<Name>'}` — so the title string and menu call aren't retyped in every view. Views with no extra context pass `_hub_context(request)` straight to `render`; views with extra keys spread it: `{**_hub_context(request), 'extra': ...}`.
+
 ## Template structure
 
 - Page template extends `templates/layout.html`.

@@ -1,3 +1,4 @@
+{% if not is_view_only %}
 <div class="field-group referral-student-picker" data-referral-student-picker>
     <input type="hidden" name="student" value="{% if selected_student %}{{ selected_student.id }}{% endif %}" data-referral-student-input required>
     <div data-referral-student-search-panel {% if selected_student %}hidden{% endif %}>
@@ -16,27 +17,87 @@
         <label>Student</label>
         <div class="referral-student-selected-row">
             <span data-referral-student-selected-name>{% if selected_student %}{{ selected_student.first_name }} {{ selected_student.last_name }} — Year {{ selected_student.year_group }}{% if selected_student.reg_form %} ({{ selected_student.reg_form }}){% endif %}{% endif %}</span>
-            {% if not is_edit and not is_view_only %}<button type="button" class="btn btn-sm" data-referral-student-change>Change</button>{% endif %}
+            {% if not is_edit %}<button type="button" class="btn btn-sm" data-referral-student-change>Change</button>{% endif %}
         </div>
     </div>
 </div>
+{% endif %}
 
-<div data-referral-question-fields {% if not selected_student %}hidden{% endif %}>
-{% for group in question_groups %}
-{% for question in group.questions %}
-<div class="field-group">
-    <label for="question_{{ question.id }}">{{ question.label }}</label>
-    {% if question.question_type == 'select' %}
-    <select id="question_{{ question.id }}" name="question_{{ question.id }}" required {% if is_view_only %}disabled{% endif %}>
-        <option value="">Select…</option>
-        {% for option in question.choice_list %}
-        <option value="{{ option }}" {% if question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
+{% if is_view_only %}
+{% if main_concern_question or concern_details_question or remaining_question_groups %}
+<div class="referral-flat-section">
+    <h5 class="referral-section-title">Referral{% if main_concern_question %} — {{ main_concern_question.existing_answer|default:"—" }}{% endif %}</h5>
+    <div class="referral-view-fields">
+        <div class="summary-line"><span class="summary-label">Referred By</span><span class="summary-value">{{ referral.raised_by|default:"—" }} ({{ referral.created_at|date:"d/m/Y" }})</span></div>
+        {% if concern_details_question %}
+        <div class="summary-line"><span class="summary-label">{{ concern_details_question.label }}</span><span class="summary-value">{{ concern_details_question.existing_answer|default:"—" }}</span></div>
+        {% endif %}
+        {% for group in remaining_question_groups %}
+        {% for question in group.questions %}
+        <div class="summary-line"><span class="summary-label">{{ question.label }}</span><span class="summary-value">{{ question.existing_answer|default:"—" }}</span></div>
         {% endfor %}
-    </select>
-    {% else %}
-    <textarea id="question_{{ question.id }}" name="question_{{ question.id }}" {% if is_view_only %}disabled{% endif %}>{{ question.existing_answer }}</textarea>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% else %}
+{% comment %}
+data-referral-question-fields hides the picked-question fields until a student is chosen (new-referral flow) -
+view-only mode always has a selected_student, so its .referral-flat-section renders unwrapped above instead,
+as a direct sibling of Panel Meetings/Actions/Notes for the between-section divider to match against.
+{% endcomment %}
+<div data-referral-question-fields {% if not selected_student %}hidden{% endif %}>
+    {% if main_concern_question %}
+    <div class="field-group">
+        <label for="question_{{ main_concern_question.id }}">{{ main_concern_question.label }}</label>
+        <select id="question_{{ main_concern_question.id }}" name="question_{{ main_concern_question.id }}" class="referral-field-compact" required>
+            <option value="">Select…</option>
+            {% for option in main_concern_question.choice_list %}
+            <option value="{{ option }}" {% if main_concern_question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if main_concern_question or concern_details_question or remaining_question_groups %}
+    <details class="settings-section referral-section"{% if not is_edit %} open{% endif %}>
+        <summary>Referral</summary>
+        <div class="settings-body">
+            {% if concern_details_question %}
+            <div class="field-group">
+                <label for="question_{{ concern_details_question.id }}">{{ concern_details_question.label }}</label>
+                <textarea id="question_{{ concern_details_question.id }}" name="question_{{ concern_details_question.id }}" class="referral-field-compact">{{ concern_details_question.existing_answer }}</textarea>
+            </div>
+            {% endif %}
+            {% if is_edit %}
+            <div class="field-group">
+                <label>Referred By</label>
+                <div class="field-readonly">{{ referral.raised_by|default:"—" }}</div>
+            </div>
+            <div class="field-group">
+                <label>Referral Date</label>
+                <div class="field-readonly">{{ referral.created_at|date:"d/m/Y" }}</div>
+            </div>
+            {% endif %}
+            {% for group in remaining_question_groups %}
+            {% for question in group.questions %}
+            <div class="field-group">
+                <label for="question_{{ question.id }}">{{ question.label }}</label>
+                {% if question.question_type == 'select' %}
+                <select id="question_{{ question.id }}" name="question_{{ question.id }}" class="referral-field-compact" required>
+                    <option value="">Select…</option>
+                    {% for option in question.choice_list %}
+                    <option value="{{ option }}" {% if question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <textarea id="question_{{ question.id }}" name="question_{{ question.id }}" class="referral-field-compact">{{ question.existing_answer }}</textarea>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endfor %}
+        </div>
+    </details>
     {% endif %}
 </div>
-{% endfor %}
-{% endfor %}
-</div>
+{% endif %}

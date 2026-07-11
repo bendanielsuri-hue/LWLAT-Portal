@@ -16,35 +16,38 @@ def _local_menu(request):
     return filter_by_module(STUDENT_MENU, module_map(), request)
 
 
+def _hub_context(request):
+    return {'local_menu': _local_menu(request), 'hub_title': 'Student'}
+
+
 def student_hub(request):
-    return render(request, 'hubs/student/hub.html', {'local_menu': _local_menu(request), 'hub_title': 'Student'})
+    return render(request, 'hubs/student/hub.html', _hub_context(request))
 
 
 def student_dashboard(request):
-    return render(request, 'hubs/student/dashboard.html', {'local_menu': _local_menu(request), 'hub_title': 'Student'})
+    return render(request, 'hubs/student/dashboard.html', _hub_context(request))
 
 
 def student_profile(request):
     # No auth/session yet, so there's no "current student" - show the first
     # active record as a stand-in until login is wired up.
     return render(request, 'hubs/student/profile.html', {
-        'local_menu': _local_menu(request),
-        'hub_title': 'Student',
+        **_hub_context(request),
         'student': Student.objects.filter(is_active=True).select_related('form_tutor').first(),
     })
 
 
 def student_progress_tracker(request):
-    return render(request, 'hubs/student/progress_tracker.html', {'local_menu': _local_menu(request), 'hub_title': 'Student'})
+    return render(request, 'hubs/student/progress_tracker.html', _hub_context(request))
 
 
 def student_feedback_dashboard(request):
-    return render(request, 'hubs/student/feedback_dashboard.html', {'local_menu': _local_menu(request), 'hub_title': 'Student'})
+    return render(request, 'hubs/student/feedback_dashboard.html', _hub_context(request))
 
 
 def student_standards_equipment(request):
-    return render(request, 'hubs/student/standards_equipment.html', {'local_menu': _local_menu(request), 'hub_title': 'Student'})
+    return render(request, 'hubs/student/standards_equipment.html', _hub_context(request))
 
 
 def student_pastoral_tracker(request):
-    return render(request, 'hubs/student/pastoral_tracker.html', {'local_menu': _local_menu(request), 'hub_title': 'Student'})
+    return render(request, 'hubs/student/pastoral_tracker.html', _hub_context(request))

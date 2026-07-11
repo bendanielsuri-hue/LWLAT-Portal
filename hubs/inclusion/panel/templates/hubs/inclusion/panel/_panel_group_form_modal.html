@@ -1,28 +1,113 @@
 <div class="modal-header">
-    <h2>Create Panel Group</h2>
+    <h2 data-panel-group-modal-title>{% if group %}Edit Panel Group{% else %}New Panel Group{% endif %}</h2>
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
 </div>
 <div class="modal-body">
-    <form method="post" action="{% url 'inclusion_panel_group_new' %}" class="field-group" data-panel-group-modal-form>
+
+{% if group %}
+<div class="panel-group-modal-header" data-panel-group-header>
+    <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="field-group"
+          data-panel-group-form data-panel-group-form-action="update_group_name" data-autosave="blur">
         {% csrf_token %}
+        <input type="hidden" name="form_action" value="update_group_name">
         <label>Panel Group Name</label>
-        <input type="text" name="name" required>
+        <input type="text" name="name" value="{{ group.name }}" required data-autosave-trigger>
+    </form>
+    {% if chair_choices %}
+    <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="ui-fused-field-group"
+          data-panel-group-form data-panel-group-form-action="update_group_chair" data-autosave="change">
+        {% csrf_token %}
+        <input type="hidden" name="form_action" value="update_group_chair">
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="panel-group-default-chair">Default Chair</label>
+            <select id="panel-group-default-chair" name="default_chair" data-autosave-trigger>
+                <option value="">No chair set</option>
+                {% for member in chair_choices %}
+                <option value="{{ member.staff_id }}" {% if group.default_chair_id == member.staff_id %}selected{% endif %}>{{ member.staff.first_name }} {{ member.staff.last_name }}</option>
+                {% endfor %}
+            </select>
+        </span>
+    </form>
+    {% endif %}
+</div>
+
+<div class="panel-group-modal-scroll" data-panel-group-scroll>
+    <div data-members-list-view>
+        <div class="members-list-toolbar">
+            {% if active_members or inactive_members %}
+            <div class="tab-row" data-members-tab-row>
+                <button type="button" class="active" data-members-tab="active">Active Members ({{ active_members|length }})</button>
+                <button type="button" data-members-tab="inactive">Inactive Members ({{ inactive_members|length }})</button>
+            </div>
+            {% else %}
+            <h3 class="members-list-heading">Active Members ({{ active_members|length }})</h3>
+            {% endif %}
+            <button type="button" class="btn btn-add btn-sm" data-members-mode-toggle><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Member</button>
+        </div>
+
+        <div data-members-tab-panel="active" class="entity-list entity-list--bleed" data-active-members-list>
+            {% for member in active_members %}
+            {% include 'hubs/inclusion/panel/_panel_group_member_row.html' with member=member group=group active=True %}
+            {% empty %}
+            <p class="empty-note">No members in this group yet.</p>
+            {% endfor %}
+        </div>
+
+        {% if active_members or inactive_members %}
+        <div data-members-tab-panel="inactive" class="entity-list entity-list--bleed" hidden>
+            {% for member in inactive_members %}
+            {% include 'hubs/inclusion/panel/_panel_group_member_row.html' with member=member group=group active=False %}
+            {% empty %}
+            <p class="empty-note">No inactive members.</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div data-members-add-view hidden>
+        <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" data-panel-group-form data-panel-group-form-action="add_group_member" data-add-member-form>
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_group_member">
+            <input type="hidden" name="next" value="{{ next }}">
+
+            {% include 'hubs/inclusion/panel/_member_picker.html' with school=group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Already in Group' %}
+        </form>
+
+        <div class="btn-row btn-row--start">
+            <button type="button" class="btn btn-sm" data-members-back-btn>Back</button>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="panel-group-modal-header">
+    <form method="post" action="{% url 'inclusion_panel_group_new' %}" class="panel-group-modal-sticky-row"
+          data-panel-group-form data-panel-group-form-action="create_group">
+        {% csrf_token %}
+        <div class="field-group">
+            <label>Panel Group Name</label>
+            <input type="text" name="name" required>
+        </div>
 
         {% if preselect_school_id %}
         <input type="hidden" name="school" value="{{ preselect_school_id }}">
         {% else %}
-        <label>School</label>
-        <select name="school" required>
-            <option value="">Select a school…</option>
-            {% for school in schools %}
-            <option value="{{ school.id }}">{{ school.name }}</option>
-            {% endfor %}
-        </select>
+        <div class="field-group">
+            <label>School</label>
+            <select name="school" required>
+                <option value="">Select a school…</option>
+                {% for school in schools %}
+                <option value="{{ school.id }}">{{ school.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
         {% endif %}
 
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-            <button type="submit" class="btn btn-add btn-sm" data-create-group-save disabled>Create Group</button>
+            <button type="submit" class="btn btn-add btn-sm" data-panel-group-save disabled>Create Group</button>
         </div>
     </form>
+</div>
+{% endif %}
 </div>
 {{ existing_groups|json_script:"existing-panel-groups" }}

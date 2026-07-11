@@ -27,6 +27,10 @@ def _local_menu(request):
     return filter_by_module(INCLUSION_MENU, module_map(), request)
 
 
+def _hub_context(request):
+    return {'local_menu': _local_menu(request), 'hub_title': 'SEND & Provision'}
+
+
 def _pct(numerator, denominator):
     if not denominator:
         return 0
@@ -263,8 +267,7 @@ def inclusion_hub(request):
     ) if v)
 
     context = {
-        'local_menu': _local_menu(request),
-        'hub_title': 'SEND & Provision',
+        **_hub_context(request),
         'total_students': total_students,
         'send_count': send_count,
         'send_pct': send_pct,
@@ -304,8 +307,8 @@ def inclusion_hub(request):
 
 
 def inclusion_provision_strategies(request):
-    return render(request, 'hubs/inclusion/provision_strategies.html', {'local_menu': _local_menu(request), 'hub_title': 'SEND & Provision'})
+    return render(request, 'hubs/inclusion/provision_strategies.html', _hub_context(request))
 
 
 def inclusion_diagnosis_tracker(request):
-    return render(request, 'hubs/inclusion/diagnosis_tracker.html', {'local_menu': _local_menu(request), 'hub_title': 'SEND & Provision'})
+    return render(request, 'hubs/inclusion/diagnosis_tracker.html', _hub_context(request))

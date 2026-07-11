@@ -21,49 +21,52 @@ def _local_menu(request):
     return filter_by_module(STAFF_MENU, module_map(), request)
 
 
+def _hub_context(request):
+    return {'local_menu': _local_menu(request), 'hub_title': 'Staff'}
+
+
 def staff_hub(request):
-    return render(request, 'hubs/staff/hub.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/hub.html', _hub_context(request))
 
 
 def staff_dashboard(request):
-    return render(request, 'hubs/staff/dashboard.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/dashboard.html', _hub_context(request))
 
 
 def staff_reports(request):
-    return render(request, 'hubs/staff/reports.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/reports.html', _hub_context(request))
 
 
 def staff_my_timetable(request):
-    return render(request, 'hubs/staff/my_timetable.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/my_timetable.html', _hub_context(request))
 
 
 def staff_directory(request):
     return render(request, 'hubs/staff/directory.html', {
-        'local_menu': _local_menu(request),
-        'hub_title': 'Staff',
+        **_hub_context(request),
         'staff_list': Staff.objects.filter(is_active=True),
     })
 
 
 def staff_absence_request(request):
-    return render(request, 'hubs/staff/absence_request.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/absence_request.html', _hub_context(request))
 
 
 def staff_payslips(request):
-    return render(request, 'hubs/staff/payslips.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/payslips.html', _hub_context(request))
 
 
 def staff_cpd_training(request):
-    return render(request, 'hubs/staff/cpd_training.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/cpd_training.html', _hub_context(request))
 
 
 def staff_calendar(request):
-    return render(request, 'hubs/staff/calendar.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/calendar.html', _hub_context(request))
 
 
 def staff_assessment_calendar(request):
-    return render(request, 'hubs/staff/assessment_calendar.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/assessment_calendar.html', _hub_context(request))
 
 
 def staff_school_map(request):
-    return render(request, 'hubs/staff/school_map.html', {'local_menu': _local_menu(request), 'hub_title': 'Staff'})
+    return render(request, 'hubs/staff/school_map.html', _hub_context(request))

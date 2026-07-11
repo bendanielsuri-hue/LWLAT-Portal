@@ -17,33 +17,37 @@ def _local_menu(request):
     return filter_by_module(SERVICES_MENU, module_map(), request)
 
 
+def _hub_context(request):
+    return {'local_menu': _local_menu(request), 'hub_title': 'Operations'}
+
+
 def services_home(request):
-    return render(request, 'hubs/services/home.html', {'local_menu': _local_menu(request), 'hub_title': 'Operations'})
+    return render(request, 'hubs/services/home.html', _hub_context(request))
 
 
 def service_events_planner(request):
-    return render(request, 'hubs/services/events_planner.html', {'local_menu': _local_menu(request), 'hub_title': 'Operations'})
+    return render(request, 'hubs/services/events_planner.html', _hub_context(request))
 
 
 def service_operations_dashboard(request):
-    return render(request, 'hubs/services/operations_dashboard.html', {'local_menu': _local_menu(request), 'hub_title': 'Operations'})
+    return render(request, 'hubs/services/operations_dashboard.html', _hub_context(request))
 
 
 def service_exams_dashboard(request):
-    return render(request, 'hubs/services/exams_dashboard.html', {'local_menu': _local_menu(request), 'hub_title': 'Operations'})
+    return render(request, 'hubs/services/exams_dashboard.html', _hub_context(request))
 
 
 def service_cover_manager(request):
-    return render(request, 'hubs/services/cover_manager.html', {'local_menu': _local_menu(request), 'hub_title': 'Operations'})
+    return render(request, 'hubs/services/cover_manager.html', _hub_context(request))
 
 
 def service_duty_rota(request):
-    return render(request, 'hubs/services/duty_rota.html', {'local_menu': _local_menu(request), 'hub_title': 'Operations'})
+    return render(request, 'hubs/services/duty_rota.html', _hub_context(request))
 
 
 def service_assembly_manager(request):
-    return render(request, 'hubs/services/assembly_manager.html', {'local_menu': _local_menu(request), 'hub_title': 'Operations'})
+    return render(request, 'hubs/services/assembly_manager.html', _hub_context(request))
 
 
 def service_admissions(request):
-    return render(request, 'hubs/services/admissions.html', {'local_menu': _local_menu(request), 'hub_title': 'Operations'})
+    return render(request, 'hubs/services/admissions.html', _hub_context(request))

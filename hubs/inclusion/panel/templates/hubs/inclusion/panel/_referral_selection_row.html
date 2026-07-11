@@ -1,47 +1,48 @@
 <div class="entity-row selection-row selectable" draggable="true" data-drop-id="{{ entry.referral.id }}" data-add-action="{% if entry.origin == 'followup' %}add_followup_to_agenda{% else %}add_referral{% endif %}">
     <span class="drag-handle drag-handle-pattern" aria-hidden="true" title="Drag to add to agenda"></span>
-    <div class="student-column">
-        <div class="referral-pills">
-            <span class="status-pill type-{{ entry.origin }}">{% if entry.origin == 'followup' %}Due Follow-up{% else %}New Referral{% endif %}</span>
-        </div>
-        <div class="student-thumb-row">
-            <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-            <div class="entity-body">
-                <div class="entity-title">{{ entry.referral.student }}</div>
-                <div class="entity-meta">Year {{ entry.referral.student.year_group }}{% if entry.referral.student.reg_form %} &middot; {{ entry.referral.student.reg_form }}{% endif %}</div>
+    <div class="selection-row-content">
+        <div class="referral-row-grid">
+            <div class="referral-pills">
+                <span class="status-pill type-{{ entry.origin }}">{% if entry.origin == 'followup' %}{{ entry.review_label }}{% else %}New Referral{% endif %}</span>
+            </div>
+            <div class="student-column">
+                <div class="student-thumb-row">
+                    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                    <div class="entity-body">
+                        <div class="entity-title">{{ entry.referral.student }}</div>
+                        <div class="entity-meta">Year {{ entry.referral.student.year_group }}{% if entry.referral.student.reg_form %} &middot; {{ entry.referral.student.reg_form }}{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="referral-details">
+                {% if entry.primary_concern_category %}<div class="entity-meta">Concern: {{ entry.primary_concern_category }}</div>{% endif %}
+                {% if entry.origin != 'followup' %}
+                <div class="entity-meta">Referred By: {{ entry.referral.raised_by|default:"—" }}</div>
+                <div class="entity-meta">Referral Date: {{ entry.referral.created_at|date:"d/m/Y" }}</div>
+                {% endif %}
+                {% if entry.origin == 'followup' %}
+                <div class="entity-meta">Last Discussed: {{ entry.last_discussed }}</div>
+                {% if entry.follow_up_date %}<div class="entity-meta">Review Due: {{ entry.follow_up_date|date:"d/m/Y" }}{% if entry.follow_up_overdue %} <span class="status-pill danger">Overdue</span>{% endif %}</div>{% endif %}
+                {% if entry.actions_total %}
+                <div class="entity-meta actions-complete-row">
+                    <span>{{ entry.actions_complete }} of {{ entry.actions_total }} actions complete</span>
+                </div>
+                {% endif %}
+                {% endif %}
+                {% if entry.other_referrals_count %}
+                <div class="entity-meta status-pill danger">Also has {{ entry.other_referrals_count }} more open referral{{ entry.other_referrals_count|pluralize }} for this student</div>
+                {% endif %}
             </div>
         </div>
-    </div>
-    <div class="referral-details">
-        {% if entry.primary_concern_category %}<div class="entity-meta">Concern: {{ entry.primary_concern_category }}</div>{% endif %}
-        {% if entry.origin != 'followup' %}
-        <div class="entity-meta">Referred By: {{ entry.referral.raised_by|default:"—" }}</div>
-        <div class="entity-meta">Referral Date: {{ entry.referral.created_at|date:"d/m/Y" }}</div>
-        {% endif %}
-        {% if entry.origin == 'followup' %}
-        <div class="entity-meta">Last Discussed: {{ entry.last_discussed }}</div>
-        {% if entry.actions_total %}
-        <div class="entity-meta">{{ entry.actions_complete }} of {{ entry.actions_total }} actions complete</div>
-        {% endif %}
-        {% endif %}
-        {% if entry.other_referrals_count %}
-        <div class="entity-meta status-pill danger">Also has {{ entry.other_referrals_count }} more open referral{{ entry.other_referrals_count|pluralize }} for this student</div>
-        {% endif %}
         <div class="referral-details-actions">
-            <button type="button" class="btn btn-subtle btn-sm" data-edit-referral-trigger data-referral-id="{{ entry.referral.id }}" data-next="{{ request.path }}">View Details</button>
-            {% if entry.origin == 'followup' %}
-            <button type="button" class="btn btn-subtle btn-sm" data-view-actions-trigger data-referral-id="{{ entry.referral.id }}">View Actions</button>
-            {% endif %}
+            {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=entry.referral priority_choices=priority_choices %}
+            <button type="button" class="btn btn-secondary btn-sm" data-view-referral-trigger data-referral-id="{{ entry.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
+            <form method="post" class="row-action-form">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="{% if entry.origin == 'followup' %}add_followup_to_agenda{% else %}add_referral{% endif %}">
+                <input type="hidden" name="referral_id" value="{{ entry.referral.id }}">
+                <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add to Agenda</button>
+            </form>
         </div>
     </div>
-    <form method="post" class="row-action-form">
-        {% csrf_token %}
-        <input type="hidden" name="form_action" value="{% if entry.origin == 'followup' %}add_followup_to_agenda{% else %}add_referral{% endif %}">
-        <input type="hidden" name="referral_id" value="{{ entry.referral.id }}">
-        <button type="submit" class="row-action-bar row-action-add" aria-label="Add to agenda">
-            <span class="row-action-icon">{% include 'icons/arrow_right_svg.html' %}</span>
-            <span class="row-action-icon">{% include 'icons/arrow_right_svg.html' %}</span>
-            <span class="row-action-icon">{% include 'icons/arrow_right_svg.html' %}</span>
-        </button>
-    </form>
 </div>

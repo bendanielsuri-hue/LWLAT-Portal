@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=118">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=140">
 {% endblock %}
 
 
@@ -66,13 +66,14 @@
 <dialog id="end-discussion-dialog" class="modal-dialog">
     <div class="modal-header">
         <h2>End Discussion</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
         <form method="post" id="end-discussion-form">
             {% csrf_token %}
             <input type="hidden" name="form_action" value="mark_discussed">
             <div class="field-group">
-                <label>Does this referral require a follow-up discussion?</label>
+                <label>Does this referral require a further review?</label>
                 <div class="btn-row" id="requires-followup-row">
                     <button type="button" class="btn btn-sm followup-toggle-btn{% if panel_referral.follow_up_date %} btn-secondary{% endif %}" data-value="yes">Yes</button>
                     <button type="button" class="btn btn-sm followup-toggle-btn" data-value="no">No</button>
@@ -80,7 +81,7 @@
                 <input type="hidden" name="requires_followup" id="requires-followup-input" value="{% if panel_referral.follow_up_date %}yes{% endif %}">
             </div>
             <div class="field-group" id="follow-up-date-group" hidden>
-                <label for="follow-up-interval">Follow up in...</label>
+                <label for="follow-up-interval">Review in...</label>
                 <select id="follow-up-interval">
                     <option value="">Select…</option>
                     <option value="7">1 Week</option>
@@ -91,7 +92,7 @@
                 </select>
             </div>
             <div class="field-group" id="follow-up-date-custom-group" hidden>
-                <label for="follow-up-date-custom">Follow Up Date</label>
+                <label for="follow-up-date-custom">Review Date</label>
                 <input type="date" id="follow-up-date-custom">
             </div>
             <input type="hidden" name="follow_up_date" id="follow-up-date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
@@ -106,6 +107,7 @@
 <dialog id="leave-confirm-dialog" class="modal-dialog">
     <div class="modal-header">
         <h2>Have you finished discussing this referral?</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
         <div class="btn-row">
@@ -244,7 +246,7 @@
         <p class="empty-note">No actions yet.</p>
         {% endfor %}
 
-        <a href="{% url 'inclusion_panel_action_new' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-add"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Action</a>
+        <a href="{% url 'inclusion_panel_action_new' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}&panel_referral={{ panel_referral.id }}" class="btn btn-add"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Action</a>
     </div>
 
     {% if is_panel_staff %}
@@ -348,12 +350,8 @@ document.addEventListener('DOMContentLoaded', function () {
         return d.toISOString().slice(0, 10);
     }
 
-    function getModalDuration(dialog) {
-        return parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 250;
-    }
     function closeDialog(dialog) {
-        dialog.classList.remove('is-open');
-        setTimeout(function () { dialog.close(); }, getModalDuration(dialog));
+        window.closeModalWithFadeOut(dialog);
     }
     function openDialog(dialog) {
         dialog.showModal();
@@ -417,8 +415,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target === endDialog) closeDialog(endDialog);
     });
 
-    {% if panel_referral.discussion_status == 'pending' %}
-    // Discussion hasn't been ended yet — confirm before any in-app link navigates away.
+    {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
+    // An active discussion timer is running - confirm before any in-app link navigates away.
+    // Scoped to discussion_started_at (not just discussion_status=='pending', which is
+    // also true for a referral that's on the agenda but was never opened/started) so the
+    // warning only fires while a discussion is genuinely in progress.
     var leaveDialog = document.getElementById('leave-confirm-dialog');
     var pendingHref = null;
 
@@ -441,7 +442,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (pendingHref) window.location.href = pendingHref;
     });
     leaveDialog.addEventListener('click', function (e) {
-        if (e.target === leaveDialog) closeDialog(leaveDialog);
+        if (e.target === leaveDialog || e.target.closest('[data-modal-close]')) closeDialog(leaveDialog);
     });
 
     window.addEventListener('beforeunload', function (e) {

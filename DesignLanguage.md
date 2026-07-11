@@ -2,6 +2,8 @@
 
 Extracted from the Inclusion Panel and SEND & Provision hub — the most complete, stable UI in the codebase. Apply these rules to all future hub pages.
 
+Covers static visual rules: colour, layout, typography, spacing, naming. For hover/focus/motion rules, see [InteractionLanguage.md](InteractionLanguage.md). For Inclusion Panel's own implementation-specific patterns (meeting cards, panel status pill modifiers), see [hubs/inclusion/panel/DesignLanguage.md](hubs/inclusion/panel/DesignLanguage.md).
+
 ---
 
 ## Design philosophy
@@ -48,8 +50,8 @@ A flex column that fills viewport height: content area (`flex: 1; min-height: 0;
 **Put a non-.list-card header inside the shell, don't invent a second height calculation**
 `.list-page-shell`'s height is measured once, off `.sticky-header-zone`'s bottom edge (`setupListPageShellHeight()` in `main.js`). Anything that needs to sit above the shell's scrolling body but isn't a `.list-card` filter bar — e.g. Panel Setup's `.panel-toolbar`, whose height varies with panel status — should be a flex-shrunk child *inside* the shell (`flex-shrink: 0`, same as `.list-page-shell .panel-card-header`/`.tab-row`) rather than living outside it and guessing a second `calc(100vh - Npx)` offset to compensate. The scrolling body then just needs `flex: 1; min-height: 0; overflow: hidden` (see `.list-page-shell .setup-columns`) — no matter how tall the header above it turns out to be, it's already accounted for by the shell's one measurement. Pair with `align-items: stretch` on a card row (overriding the two-column-split default of `align-items: flex-start` above) so every card fills that height and only the card's own overflow scrolls.
 
-**Card-internal scroll with a fixed header** (`.setup-col`)
-A card whose list can grow long (Panel Setup's Panel Details/Members, Panel Selection, Panel Agenda) is `display: flex; flex-direction: column; overflow: hidden` with two children: a plain, non-scrolling `.setup-col-header` (the card's `<h2>`) and a `.setup-col-body` (`flex: 1 1 auto; min-height: 0; overflow-y: auto`) holding everything else. The H2 lives structurally outside the scroll area rather than merely `position: sticky` inside it — scrolled content can then never visually collide with it at the top of the scroll. A sub-section heading inside the body (e.g. "Panel Members", "New Referrals") can still use `position: sticky; top: 0`, scoped to `.setup-col-body .setup-col-header` — safe because the body is its one true scrolling ancestor, no page-header offset to account for. `.setup-col-body` bleeds out via `margin: 0 calc(-1 * var(--space-lg)); padding: 0 var(--space-lg)` so its scrollbar sits flush against the card's right edge instead of inset by the card's own padding — same technique as `.panel-list`'s edge-to-edge bleed (see Row items below).
+**Card-internal scroll with a fixed header** (`.setup-col`; also `dialog.modal-dialog`)
+A card whose list can grow long (Panel Setup's Panel Details/Members, Panel Selection, Panel Agenda) is `display: flex; flex-direction: column; overflow: hidden` with two children: a plain, non-scrolling `.setup-col-header` (the card's `<h2>`) and a `.setup-col-body` (`flex: 1 1 auto; min-height: 0; overflow-y: auto`) holding everything else. The H2 lives structurally outside the scroll area rather than merely `position: sticky` inside it — scrolled content can then never visually collide with it at the top of the scroll. Every `dialog.modal-dialog` uses this same technique for the identical reason, plus one more: a `position: sticky` header *inside* the one element that scrolls (the old approach) means the scrollbar itself belongs to that same element, so it runs the dialog's full height — including behind the header — and sits flush against the dialog's own rounded corners rather than inset from them. Structurally separating `.modal-header` (`flex-shrink: 0`) from `.modal-body` (`flex: 1 1 auto; min-height: 0; overflow-y: auto`) fixes both: the scrollbar now starts exactly where the body starts, and it's inset by the body's own padding, clear of the corners. A sub-section heading inside the body (e.g. "Panel Members", "New Referrals") can still use `position: sticky; top: 0`, scoped to `.setup-col-body .setup-col-header` — safe because the body is its one true scrolling ancestor, no page-header offset to account for. `.setup-col-body` bleeds out via `margin: 0 calc(-1 * var(--space-lg)); padding: 0 var(--space-lg)` so its scrollbar sits flush against the card's right edge instead of inset by the card's own padding — same technique as `.panel-list`'s edge-to-edge bleed (see Row items below).
 
 **Agenda grid** (`.agenda-layout`)
 ```css
@@ -151,13 +153,6 @@ box-shadow: var(--shadow-md);  /* or var(--card-shadow) */
 **List container card** (`.list-card`)
 Same border/radius/surface as above but `display: flex; flex-direction: column` so it can host a scrollable list body.
 
-**Meeting card** (`.meeting-card`)
-Uses `--bg-nested` (one level deeper than surface), `border-radius: var(--radius-lg)` (one step smaller than container), `box-shadow: var(--shadow-sm)`. Hover/chosen: see "Hover and chosen on a selectable card" below — unlike row/list selectables, this one stays off `--primary`/`--accent-border` entirely.
-
-The "Next Panel" heading (`.next-panel-label`, see below), when present, is a full-width banner directly inside `.meeting-card` — deliberately *outside* the column row (`.meeting-card-row`) below it, so it adds height above the row without ever affecting that row's own height, its vertical centring, or its divider lines. Whether or not a given card is flagged "next", every `.meeting-card-row` looks identical in cross-section.
-
-Within `.meeting-card-row` (`display: flex; align-items: center`): fixed-width columns for the parts whose content length shouldn't reflow the rest of the row, flexible columns for the parts that should soak up whatever space is left. An optional slim logo column (`.meeting-card-logo`, `width: 32px`, only rendered in aggregate/all-schools views) sits to the left of everything else — icon only, no school name text. Main column (`.meeting-card-main`, fixed `flex: 0 0 300px` so every card's columns start at the same x position down the list regardless of panel name length): just the `<h3>` panel name and, below it, the date/time (`.meeting-date-line`, plain secondary text, no label). Two further `.meeting-card-info` columns (`flex: 1 1 0` — grow to fill whatever space remains between the fixed name column and the pinned action column): the first holds the status line (`.meeting-status-line`, no "Status:" text label — the pill speaks for itself — with any secondary pills like `.in_panel` "Today" or `.danger` "Needs referrals"/"No Panel Members" following at the same normal gap) above the referral count; the second holds Chair above the member count. Wording differs by what reads more naturally: Chair keeps a `Label value` row, label right-aligned in a `flex: 0 0 68px` sub-column with `::after { content: ":" }` so the colons line up down the list; referral/member counts lead with the number instead ("3 Referrals", "3 Panel Members") since that's clearer than "Referrals: 3" — no label prefix, just plain count-first text. Every column after the first gets a divider line (`.meeting-card-col:not(:first-child) { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }`). The action column (`.meeting-card-actions`) is pinned to the row's far edge with `margin-left: auto` and never changes size — it also carries `min-width: 320px; justify-content: flex-end` so a 1-button row (e.g. just "View Details" on a completed panel) reserves the same width as the up-to-3-button row (Start/Continue Panel, Edit, Delete) and right-aligns within it, rather than the whole row shifting depending on how many buttons happen to render.
-
 **Stat card** (`.stat-card`)
 `flex: 1 1 200px`, standard surface/border/radius-lg, `padding: 16px 20px`. Accent variant adds `border-left: 4px solid var(--primary/--color-warning/--color-positive)` and a positioned icon at top-right (`position: absolute; top: 16px; right: 16px; width: 20px`).
 
@@ -172,6 +167,15 @@ Collapsible `<details>`. `border-radius: var(--radius-xl); padding: 16px 20px`. 
 
 **Accent / emphasis card** (`.set-action-card`)
 `border: 2px solid var(--accent-border); box-shadow: var(--shadow-emphasis)` — used sparingly for the single most-important item on a page (e.g. current action being set during a discussion).
+
+**Flat section** (`.referral-flat-section`)
+No border/background/radius of its own — just a generous `margin-top` and a left-aligned `.referral-section-title` heading. Use this instead of `.settings-section`/`.panel-card` when several always-visible sections already sit inside one bordered container that already has its own card at the top (e.g. a modal body whose only bordered card is a decision-strip summary): stacking a bordered card per section below that would read as nested cards inside the modal's own card. Sections aren't separated by their own border — instead `.referral-flat-section + .referral-flat-section` gets a `border-top` (the first section skips it, since it already sits directly below the decision strip's own border) — a single horizontal rule marking the boundary *between* sections, distinct from the finer divider each section's own last row/item already carries (`.referral-view-fields`, an `.action-row-list`, `.referral-history-list`) between individual rows within it. One flat section may still be a native `<details>` (summary gets `.referral-section-title` too, plus the same `▸`/`▾` chevron treatment as `.settings-section`) when it's the one lower-priority, high-volume section in the group that's fine collapsed by default (e.g. a Notes section sitting alongside otherwise-always-open sections) — every other flat section in the group stays permanently open, no collapse.
+
+**Action row card** (`.action-row--card`, applied to `.action-row`)
+`border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-surface-alt); padding: 8px 16px`, stacked in `.action-row-list` (`display:flex; flex-direction:column; gap:12px` — no border/background of its own). Use for a short, low-volume list of actions inside a modal where each action is a distinct, individually-actionable item — a bordered card per row reads as more separable/scannable than a divided `.entity-list`. Bare `.action-row` (no `--card` modifier) is the page-level convention instead — combined with `.entity-row` inside an `.entity-list` on a full list page (e.g. Actions) — since a page-level list is expected to read as one continuous list, not a stack of cards. When the row's status is editable (a `<select>` styled as a pill, `data-action-status-select`), drop the plain status pill from the row's heading — the dropdown already shows the current value, so a separate pill next to it is redundant. Keep an "Overdue" pill regardless — that's signal the dropdown doesn't otherwise carry.
+
+**Key-fact row** (`.summary-line`, e.g. `.referral-decision-strip .summary-line` / `.referral-view-fields .summary-line` / `.referral-history-grid .summary-line`)
+A handful of `label: value` facts, one per line — inside one bordered card as an at-a-glance summary above more detailed sections (a modal's "should this go back to panel?" decision strip), as the compact read-only rendering of a longer field list (a Referral section's Concern/Referred By/questionnaire answers), or as a past discussion's own facts (Panel Meetings' Chair/Attendance/Duration/Actions Added, each on its own line rather than crammed two-per-row) — all the same row pattern, sharing the same `minmax(160px, 200px)` column width used by `.action-row-grid`'s left column too, so every section's left-hand column lines up down the same modal rather than each one picking its own floor. Each row: `display: grid; grid-template-columns: minmax(160px, 200px) 1fr; column-gap: 16px`, value `text-align: left`. **Never right-align the value against a left-aligned label** — a value pinned to the row's far edge, opposite a label pinned to its near edge, reads as disconnected from that label (the eye has to jump the full row width to reconnect them). Keep label and value close together, both left-aligned. **Don't reach for `.field-group`'s label-above-value stacking here either** — that's the live-form-field look (a disabled `<textarea>` in edit mode sits under exactly that label style), so using it for a read-only summary makes the summary look like a form again, which defeats the point of a compact read-only view. Rows are divided by `.summary-line + .summary-line { border-top: 1px solid var(--border-color) }` (decision strip) or `border-bottom` per row with the last one cleared (field-list use), not both. The denser field-list use keeps tighter vertical row padding (`--space-xs`) than the decision strip's (`--space-sm`) — it's meant to read as the more condensed of the two.
 
 ---
 
@@ -222,38 +226,27 @@ Scrollable bounded list (`max-height: min(65vh, 480px); border: 1px solid; borde
 
 ---
 
+## Form control patterns
+
+**Fused field** (`.ui-fused-field`, e.g. Panel Setup's School/Panel Group/Date/Time/Chair fields)
+A `<label>` + `<select>`/`<input>` + optional trailing button, sharing one bordered box (`components/forms.css`) rather than reading as separate controls — this is the pattern behind the *inset label* look (not a Material-style floating label, which animates from inside the field on focus; a fused label is permanently visible, closer to Bootstrap's "input group" or Stripe's "field group"). One or more fused fields sit inside a `.ui-fused-field-group`, which auto-aligns every field's label column via CSS subgrid.
+
+- **Label always centres over the control's own value, not the row's full width.** When a field has a trailing button (Panel Group's "+", Date's calendar button, Time's clock button — all a fixed 38px), the button eats into the row without the label knowing, so the label needs matching `padding-right` to stay lined up with the value instead of drifting to centre over button-included space it doesn't actually occupy.
+- **Trailing buttons are always real fused segments, never overlaid.** The calendar/time-picker/"+" buttons sit flush against the control, sharing the box's border (`border-left` only, no radius of their own) and taking real layout width — not `position: absolute`-ed over the control to save space. An overlaid button reads as a floating afterthought; a fused one reads as part of the same control.
+- **A trailing "+" button keeps its semantic colour** (`btn-add`, green) even though it's a small icon — colour signals "this creates a new record" everywhere else in the app (see Button patterns below), and a `.ui-add-group-btn`-sized icon is no exception. Solve "doesn't look like a real button" with border/shape (the point above), not by stripping colour down to `btn-secondary`.
+- **Multi-segment fields stay directly editable — no display-only fallback.** Date (Day/Month/Year) and Time (Hour/Minute/AM-PM) always show their live mini-dropdowns, in every layout (beside the label or stacked above it) — never collapsed down to a single read-only "11/07/2026" text button that requires opening a popover just to change one segment. The calendar/clock icon button beside them stays as a *supplementary* quick-picker (a full calendar grid; a spinner-style time picker, see below) for jumping to a value fast, not as the only way in.
+
+**Dropdown/select popover** (`.ui-popover`, `.ui-option`)
+A floating `<dialog>`, not a plain positioned `<div>` — detached from its trigger by a small `4px` gap, fully rounded (`radius-md`), with its own elevation shadow. This is deliberate, not an oversight: it matches the dominant modern pattern (Material 3, Radix UI/shadcn, macOS/iOS) rather than the flush/square-cornered look of older native combo-boxes. Don't square the corners or remove the gap to make a popover read as "attached" to its trigger — that reads as dated, not modern, and nothing about this pattern has been flagged as a problem in practice. Every popover — including the calendar grid and the time-spinner below, not just plain option lists — anchors to the icon button that opened it (not the whole fused field) with this same small gap, so all three read as one consistent family. Selected-row styling is a fill-only variant of the sitewide `.chosen` convention: `background: var(--primary-light)` + bold text, deliberately **without** the left `--accent-border` bar `.chosen` rows elsewhere use — a popover option is already corner-clipped to the popover's own radius, where a left bar reads oddly against the clipped edge. See [InteractionLanguage.md](InteractionLanguage.md)'s anti-pattern #1.
+
+**Time picker popover** (`.ui-time-popover`, the clock-icon quick-picker)
+A spinner, not an option list: "Enter time" header, big Hour:Minute digit boxes stepped by up/down arrows or typed directly, an AM/PM toggle in 12h mode, Now/Clear footer actions. It's shaped differently from `.ui-option` rows because it isn't an option list — there's no discrete, browsable set of times the way there's a browsable set of Panel Groups or days-in-a-month, so a spinner is the honest shape for "dial in one arbitrary value" — but it keeps the same gapped positioning and rounded shell as every other popover (see above); it's a different *content* shape, not a different *frame*. The calendar grid popover shares the same footer pattern (`.ui-popover-footer`/`.ui-popover-footer-link`) for its own "Today" shortcut. Closing it: a header `×` closes it explicitly (don't rely on backdrop-click alone being discoverable), and closing whatever modal it was opened from must also close it — see `main.js`'s `close`-event listener on `document` (capture phase, since `.ui-popover` dialogs are appended to `document.body` as siblings of their opening modal, not descendants, so a parent modal's own `close()` doesn't cascade to them for free).
+
+---
+
 ## Interaction patterns
 
-**Hover on a selectable row**
-`background: var(--row-hover-bg)` (= `color-mix(in srgb, var(--text-primary) 6%, var(--bg-surface))`) + title weight bumps to 700. Apply via `.selectable:hover` or explicit `.panel-list li:hover` / `tbody tr:hover`.
-
-**Chosen / selected state on a row** (persistent after click)
-`background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border)` + title weight 700. Hover on a chosen row keeps `--primary-light` — does not revert to `--row-hover-bg`. Applied via `.chosen` on `entity-row`, `panel-list li`, `agenda-table tbody tr`.
-
-**Hover and chosen on a selectable card** (`.meeting-card`, and any future card-shaped — as opposed to row-shaped — selectable)
-Cards stay off `--primary`/`--accent-border` entirely; the accent colour reads as too strong at card scale, where the whole tile (not a thin row) carries the fill. Both states share one background token so a selected card already reads as "hover-lit":
-- Hover: `border-color: var(--border-strong); box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border-strong); background: var(--meeting-card-hover-bg)` + title weight 700.
-- Chosen: same `background: var(--meeting-card-hover-bg)`, `box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong)` + title weight 700.
-- Chosen *and* hovered: layer both insets — `box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong), inset 0 0 0 1px var(--border-strong)` — so a selected card still gives tactile feedback on hover instead of looking inert. Needs an explicit `.chosen:hover` rule since `.chosen` and `:hover` are equal-specificity classes and `.chosen` alone would otherwise always win by source order.
-- `--border-strong` (not a fixed neutral like `--text-secondary`) is the right token here because it's already redefined per theme flavour in `themes.css` — the emphasis stays "on-theme" without touching `--primary`.
-
-**Focus visible**
-`outline: 2px solid var(--primary); outline-offset: 2px`. Never suppress focus outlines.
-
-**Row transition — none, deliberately**
-Hover/focus/chosen state changes on rows/cards/tabs/nav (background, border-color, box-shadow, color) apply with no `transition` at all — they should read as immediate, not a fade. This applies to `.selectable`, tabs (`.tab-row`, `.card-tab`, `.tab-row-more-btn`), breadcrumbs, the nav rail, `.agenda-table tbody tr`, `.panel-list li`, etc. `.btn` (and its variants) is the one deliberate exception — it keeps a soft `transition: background var(--transition-slide), border-color var(--transition-slide), color var(--transition-slide)` on hover/focus (the slower 360ms token, not `--transition-fast`), since a snappier button hover read as too harsh. Beyond that, smooth `transition`/`animation` is reserved for things that are genuinely animating — an element entering/exiting, moving, or resizing (modal open/close, sidebar collapse, row grow-in/shrink-out, the tab-underline pop-in, the discussing pulse) — not for a plain colour/background swap on `:hover`. The handful of transform-based hover micro-interactions below (chip lift, swatch scale, nav icon nudge) are movement, not a fade, so they keep their transition.
-
-**Modal open/close animation**
-`opacity: 0; transform: translateY(8px) scale(0.97)` → `opacity: 1; transform: translateY(0) scale(1)`. Duration `250ms`. Backdrop: `rgba(15,23,36,0.55)`, transitions opacity. Dark theme backdrop: `rgba(0,0,0,0.7)`.
-
-**Discussing pulse** (`.status-pill.discussing`)
-`animation: discussing-pulse 2s ease-in-out infinite` — oscillates opacity 1 → 0.6. Only on the active-discussion state; do not use for general attention-drawing.
-
-**Micro-interactions**
-Priority chips: `transform: translateY(-1px)` on hover. Colour swatches: `transform: scale(1.12)`. Text-size options: `transform: translateY(-2px)`. These are the only elements that use transform-based hover — do not add hover transforms to buttons or cards.
-
-**Input focus ring**
-`border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent)`.
+See [InteractionLanguage.md](InteractionLanguage.md) for hover/focus/selected states, transitions, and animation rules.
 
 ---
 
@@ -303,21 +296,7 @@ Never place a "Create new X" option inside a `<select>` or custom dropdown list.
 | `.pill-exceeding` | Above target / standout positive | `--color-exceeding-bg` / `--color-exceeding` |
 | `.pill-purple`, `.pill-blue` | Named-hue classification (not a signal level) | `--color-{hue}-bg` / `--color-{hue}` |
 
-**Panel-specific status pill modifiers** (`panel.css`, same underlying tokens):
-
-| Modifier class | Semantic | Colours |
-|---|---|---|
-| *(none)* | Neutral / pending | `--badge-bg` / `--text-secondary` |
-| `.open`, `.upcoming`, `.incomplete`, `.requires_follow_up`, `.type-external` | Needs attention | `--color-warning-bg` / `--color-warning` |
-| `.closed`, `.discussed`, `.complete` | Done / positive | `--color-positive-bg` / `--color-positive` |
-| `.in_panel`, `.assigned`, `.type-chair`, `.type-mat` | Active / institutional | `--primary-light` / `--primary` |
-| `.danger` | Critical | `--color-negative-bg` / `--color-negative` |
-| `.discussing` | Currently active + pulse | `--color-warning-bg` / `--color-warning` + animation |
-| `.concern`, `.not_needed`, `.type-school` | Neutral classification | `--badge-bg` / `--text-secondary` |
-
-**Status line** (`.meeting-status-line` on the Panel Meetings list): its own line below the card's `<h3>` name, `--font-sm`, weight 600, `--text-secondary`. No "Status:" text label — leads straight with the normal-sized `.status-pill` for the panel's actual status, then any further pills (`.in_panel` "Today", `.danger` "Needs referrals"/"No Panel Members") at the same `gap: var(--space-xs)`, no extra margin singling them out.
-
-**Next-panel heading** (`.next-panel-label`): plain text, not a chip/pill — an `<h2>` (`--font-xl`, weight 700, `--primary`) that spans the full width of the meeting card, sitting above `.meeting-card-row` (not inside the name column), so it reads as a heading one level up and never perturbs the row's own height/alignment.
+Panel's own status pill modifiers (`.open`, `.discussing`, `.in_panel`, etc.), its meeting-card status line, and the next-panel heading are documented in [hubs/inclusion/panel/DesignLanguage.md](hubs/inclusion/panel/DesignLanguage.md) — they're Panel-specific implementation detail on top of these shared classes.
 
 **Priority chip** (`.priority-chip`): `--font-xs`, weight 600, `padding: 4px 10px; border-radius: var(--radius-pill)`. Default (inactive): border-only, `--bg-surface`, `--text-secondary`. Active: filled with `--priority-{level}-bg`, coloured border and text. Tokens come from `theme/light.css` and `theme/themes.css` (`--priority-high/medium/low-bg/border/text`).
 
@@ -355,40 +334,36 @@ Each entry states what to avoid and why it breaks something.
 
 2. **Don't hardcode border-radius values** (`border-radius: 8px`). Use the token scale (`var(--radius-md)`). Hardcoded radii drift silently when the scale is adjusted.
 
-3. **Don't invent a new selected-state colour**. Row selectables always use `background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border)`; card selectables always use `background: var(--meeting-card-hover-bg); box-shadow: inset 3px 0 0 var(--border-strong)` (see "Hover and chosen on a selectable card"). A different fill, an ad-hoc neutral (e.g. `--text-secondary`), or a non-left inset shadow breaks visual consistency with every other selectable of that shape in the app.
+3. **Don't use a semantic colour for decoration**. Don't colour an icon or label `--color-warning` unless the user must act on a real warning. Overuse destroys the signal value — users stop noticing warnings.
 
-4. **Don't use a semantic colour for decoration**. Don't colour an icon or label `--color-warning` unless the user must act on a real warning. Overuse destroys the signal value — users stop noticing warnings.
-
-5. **Don't apply `transform: translateY` or `scale` hover effects to buttons or cards**. Lift/scale transforms are reserved for chips, swatches, and text-size options. Adding them to buttons or cards makes the UI feel unstable.
-
-6. **Don't suppress `focus-visible` outlines**. The design relies on `outline: 2px solid var(--primary); outline-offset: 2px` for keyboard accessibility. Never set `outline: none` without an equivalent replacement.
-
-7. **Don't use bare element selectors for scoped styles** (e.g. `h2 { … }` in panel.css). Always scope to a parent class (`.panel-card h2`). Bare element rules bleed across every instance of that element on the page.
+4. **Don't use bare element selectors for scoped styles** (e.g. `h2 { … }` in panel.css). Always scope to a parent class (`.panel-card h2`). Bare element rules bleed across every instance of that element on the page.
 
 ### HTML / template structure
 
-8. **Don't skip heading levels**. A page has one `<h1>` (page title), cards use `<h2>`, sections inside cards use `<h3>`. Jumping from `<h1>` to `<h3>` breaks screen-reader navigation and the visual rhythm.
+5. **Don't skip heading levels**. A page has one `<h1>` (page title), cards use `<h2>`, sections inside cards use `<h3>`. Jumping from `<h1>` to `<h3>` breaks screen-reader navigation and the visual rhythm.
 
-9. **Don't left-align `<h2>` headings inside `.setup-col`, `.discussion-col`, or `.panel-card`**. These columns are centre-aligned by design. Left-aligned headings look like an oversight.
+6. **Don't left-align `<h2>` headings inside `.setup-col`, `.discussion-col`, or `.panel-card`**. These columns are centre-aligned by design. Left-aligned headings look like an oversight.
 
-10. **Don't put an "Add new…" option inside a `<select>` or custom dropdown**. Use a `+` icon-button beside the select (`.ui-add-group-btn`) or a standalone `btn-add` below the list. A dropdown option that triggers a modal rather than selecting a value confuses the interaction model.
+7. **Don't put an "Add new…" option inside a `<select>` or custom dropdown**. Use a `+` icon-button beside the select (`.ui-add-group-btn`) or a standalone `btn-add` below the list. A dropdown option that triggers a modal rather than selecting a value confuses the interaction model.
 
-11. **Don't use `display: none` to hide elements that JS toggles**. Use the `hidden` attribute. The codebase's JS consistently toggles `hidden`; mixing in `display: none` breaks those assumptions.
+8. **Don't use `display: none` to hide elements that JS toggles**. Use the `hidden` attribute. The codebase's JS consistently toggles `hidden`; mixing in `display: none` breaks those assumptions.
 
-12. **Don't place a bare SVG directly inside a button**. Wrap it in `<span class="btn-icon">{% include 'icons/X_svg.html' %}</span>`. A bare SVG skips the spacing rules that `.btn-icon` provides between icon and label text.
+9. **Don't place a bare SVG directly inside a button**. Wrap it in `<span class="btn-icon">{% include 'icons/X_svg.html' %}</span>`. A bare SVG skips the spacing rules that `.btn-icon` provides between icon and label text.
 
 ### Layout decisions
 
-13. **Don't use CSS grid with fixed pixel column widths**. The pattern is `flex: 1 1 Xpx; min-width: Ypx` on children, or `repeat(auto-fit, minmax(280px, 1fr))` for equal-width grids. Fixed pixel columns break at unexpected viewport widths.
+10. **Don't use CSS grid with fixed pixel column widths**. The pattern is `flex: 1 1 Xpx; min-width: Ypx` on children, or `repeat(auto-fit, minmax(280px, 1fr))` for equal-width grids. Fixed pixel columns break at unexpected viewport widths.
 
-14. **Don't add `margin-bottom` to the last card in a flex container**. Spacing between cards comes entirely from `gap` on the parent. A trailing margin creates uneven space at the container's bottom.
+11. **Don't add `margin-bottom` to the last card in a flex container**. Spacing between cards comes entirely from `gap` on the parent. A trailing margin creates uneven space at the container's bottom.
 
-15. **Don't add `margin-bottom` between list rows**. Row separation is `border-bottom: 1px solid var(--border-color)` on each row. Margins inside a list break the edge-to-edge bleed (negative-margin) pattern used by `.panel-list`.
+12. **Don't add `margin-bottom` between list rows**. Row separation is `border-bottom: 1px solid var(--border-color)` on each row. Margins inside a list break the edge-to-edge bleed (negative-margin) pattern used by `.panel-list`.
 
-16. **Don't use `.list-page-shell` on a page that doesn't need internal scrolling**. The shell assumes fixed viewport height and pins a stats footer at the bottom. On a short or variable-height page it produces excess whitespace or a misplaced footer.
+13. **Don't use `.list-page-shell` on a page that doesn't need internal scrolling**. The shell assumes fixed viewport height and pins a stats footer at the bottom. On a short or variable-height page it produces excess whitespace or a misplaced footer.
 
-17. **Don't go deeper than the defined depth stack**. The layers are: `--bg-surface` → `--bg-nested` → `--bg-well`. Nesting `--bg-nested` inside `--bg-nested`, or `--bg-well` inside `--bg-well`, produces backgrounds that are indistinguishable in light mode and invisible in dark mode. If you feel you need a fourth depth level, the component needs redesigning.
+14. **Don't go deeper than the defined depth stack**. The layers are: `--bg-surface` → `--bg-nested` → `--bg-well`. Nesting `--bg-nested` inside `--bg-nested`, or `--bg-well` inside `--bg-well`, produces backgrounds that are indistinguishable in light mode and invisible in dark mode. If you feel you need a fourth depth level, the component needs redesigning.
 
-18. **Inside `.list-page-shell`, give every direct child of a card `min-height: 0`, not just the scrolling list.** Flex items default to `min-height: auto`, which floors them at their content's min-content size. A card's non-scrolling children (empty-state text, preview blocks) can silently refuse to shrink and reintroduce the "invisible overflow scrollbar" bug this shell exists to prevent — even though the scrolling list itself is fine.
+15. **Inside `.list-page-shell`, give every direct child of a card `min-height: 0`, not just the scrolling list.** Flex items default to `min-height: auto`, which floors them at their content's min-content size. A card's non-scrolling children (empty-state text, preview blocks) can silently refuse to shrink and reintroduce the "invisible overflow scrollbar" bug this shell exists to prevent — even though the scrolling list itself is fine.
 
-19. **Don't let vertical spacing between stacked rows use a different scale than the horizontal gap between cards in a row.** If a page has both (e.g. `.panel-columns` rows spaced apart vertically, cards spaced apart horizontally within each row), use the same `gap` value for both. Mixing `--space-md` row spacing with `--space-xl` card spacing (or vice versa) reads as accidental, not deliberate rhythm.
+16. **Don't let vertical spacing between stacked rows use a different scale than the horizontal gap between cards in a row.** If a page has both (e.g. `.panel-columns` rows spaced apart vertically, cards spaced apart horizontally within each row), use the same `gap` value for both. Mixing `--space-md` row spacing with `--space-xl` card spacing (or vice versa) reads as accidental, not deliberate rhythm.
+
+See [InteractionLanguage.md](InteractionLanguage.md) for interaction-specific anti-patterns (selected-state colours, hover transforms, focus-visible outlines).

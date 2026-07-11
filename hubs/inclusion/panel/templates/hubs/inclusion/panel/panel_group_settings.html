@@ -4,7 +4,7 @@
 {% block title %}Panel Groups{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=118">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=140">
 {% endblock %}
 
 
@@ -26,82 +26,72 @@
     <button type="button" class="btn btn-add btn-sm" onclick="window.openPanelGroupModal && window.openPanelGroupModal()"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Panel Group</button>
 </div>
 
+<div data-groups-list>
 {% for group in groups %}
-<details class="settings-section" open>
-    <summary>{{ group.name }}</summary>
-    <div class="settings-body">
-        <form method="post" class="field-group">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="update_group">
-            <input type="hidden" name="group_id" value="{{ group.id }}">
-            <label>Name</label>
-            <input type="text" name="name" value="{{ group.name }}" required>
-            <label>Default Chair</label>
-            <select name="default_chair">
-                <option value="">No chair set</option>
-                {% for staff in staff_list %}
-                <option value="{{ staff.id }}" {% if group.default_chair_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary btn-sm">Update</button>
-        </form>
-
-        <h3>Default Roster</h3>
-        {% for member in group.sorted_members %}
-        <div class="settings-row">
-            <span>{{ member.staff|default:member.external_contact }}{% if member.expertise %} — {{ member.expertise.name }}{% endif %}</span>
-            <form method="post" style="display:inline">
+<div class="settings-section" data-group-row data-group-id="{{ group.id }}">
+    <div class="settings-row">
+        <div>
+            <strong data-group-name>{{ group.name }}</strong>
+            <div class="entity-meta">
+                <span data-group-school>{{ group.school.name|default:"No school set" }}</span> ·
+                Chair: <span data-group-chair>{{ group.default_chair|default:"None set" }}</span> ·
+                <span data-group-member-count>{{ group.active_member_count }}</span> active member{{ group.active_member_count|pluralize }}
+            </div>
+        </div>
+        <div class="btn-row">
+            <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ group.id }}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
+            <form method="post">
                 {% csrf_token %}
-                <input type="hidden" name="form_action" value="remove_group_member">
-                <input type="hidden" name="member_id" value="{{ member.id }}">
-                <button type="submit" class="btn btn-sm">Remove</button>
+                <input type="hidden" name="form_action" value="deactivate_group">
+                <input type="hidden" name="group_id" value="{{ group.id }}">
+                <button type="submit" class="btn btn-sm">Deactivate Group</button>
             </form>
         </div>
-        {% empty %}
-        <p class="empty-note">No members in this group yet.</p>
-        {% endfor %}
-        <form method="post" class="field-group" style="margin-top:14px" data-add-member-form>
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="add_group_member">
-            <input type="hidden" name="group_id" value="{{ group.id }}">
-
-            {% include 'hubs/inclusion/panel/_member_picker.html' with school=group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=group.existing_staff_ids existing_external_ids=group.existing_external_ids already_member_label='Already in Roster' %}
-
-            <div data-expertise-wrapper hidden>
-                {% include 'hubs/inclusion/panel/_expertise_field.html' with field_id_suffix=group.id expertise_list=group.available_expertise school_id=group.school_id %}
-            </div>
-
-            <button type="submit" class="btn btn-add btn-sm" data-add-member-save disabled><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add to Roster</button>
-        </form>
-
-        <form method="post" style="margin-top:10px">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="deactivate_group">
-            <input type="hidden" name="group_id" value="{{ group.id }}">
-            <button type="submit" class="btn btn-sm">Deactivate Group</button>
-        </form>
     </div>
-</details>
+</div>
 {% empty %}
 <p class="empty-note">No panel groups yet.</p>
 {% endfor %}
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 {{ block.super }}
 <script>
-document.addEventListener('panel-group:created', function () {
-    window.location.reload();
+document.addEventListener('panel-group:created', function (e) {
+    var detail = e.detail;
+    var list = document.querySelector('[data-groups-list]');
+    var template = list && list.querySelector('[data-group-row]');
+    if (!detail || !detail.id || !list || !template) {
+        window.location.reload();
+        return;
+    }
+    var emptyNote = list.querySelector('.empty-note');
+    if (emptyNote) emptyNote.remove();
+    var row = template.cloneNode(true);
+    row.setAttribute('data-group-id', detail.id);
+    row.querySelector('[data-group-name]').textContent = detail.name;
+    row.querySelector('[data-group-school]').textContent = detail.school_name || 'No school set';
+    row.querySelector('[data-group-chair]').textContent = 'None set';
+    row.querySelector('[data-group-member-count]').textContent = '0';
+    var editTrigger = row.querySelector('[data-open-group-edit-trigger]');
+    if (editTrigger) editTrigger.setAttribute('data-group-id', detail.id);
+    var groupIdInput = row.querySelector('input[name="group_id"]');
+    if (groupIdInput) groupIdInput.value = detail.id;
+    list.appendChild(row);
+    growIn(row);
 });
-document.querySelectorAll('[data-add-member-form]').forEach(function (form) {
-    var pickerRoot = form.querySelector('[data-member-picker-root]');
-    var saveBtn = form.querySelector('[data-add-member-save]');
-    var expertiseWrapper = form.querySelector('[data-expertise-wrapper]');
-    if (!pickerRoot || !saveBtn) return;
-    pickerRoot.addEventListener('member-picker:change', function (e) {
-        saveBtn.disabled = !e.detail.id;
-        if (expertiseWrapper) expertiseWrapper.hidden = !e.detail.id;
-    });
+document.addEventListener('panel-group:updated', function (e) {
+    var detail = e.detail;
+    if (!detail || !detail.id) return;
+    var row = document.querySelector('[data-group-row][data-group-id="' + detail.id + '"]');
+    if (!row) return;
+    var nameEl = row.querySelector('[data-group-name]');
+    if (nameEl) nameEl.textContent = detail.name;
+    var chairEl = row.querySelector('[data-group-chair]');
+    if (chairEl) chairEl.textContent = detail.chair_name;
+    var countEl = row.querySelector('[data-group-member-count]');
+    if (countEl) countEl.textContent = detail.active_member_count;
 });
 </script>
 {% endblock %}

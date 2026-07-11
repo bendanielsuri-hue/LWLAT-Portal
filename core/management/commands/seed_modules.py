@@ -43,6 +43,15 @@ MODULES = [
     ('inclusion_hub', 'SEND & Provision', None, Module.STATUS_LIVE),
     ('inclusion_provision_strategies', 'Provision & Strategies', 'inclusion_hub', Module.STATUS_HIDDEN),
     ('inclusion_panel', 'Inclusion Panel', 'inclusion_hub', Module.STATUS_LIVE),
+    # Panel sub-pages: seeded live (not the usual hidden default) since the whole
+    # panel area is already live and fully built — this only adds the ability to
+    # hide/pilot individual pages later, without changing current visibility.
+    ('inclusion_panel_students', 'Students', 'inclusion_panel', Module.STATUS_LIVE),
+    ('inclusion_panel_referrals', 'Referrals', 'inclusion_panel', Module.STATUS_LIVE),
+    ('inclusion_panel_actions', 'Actions', 'inclusion_panel', Module.STATUS_LIVE),
+    ('inclusion_panel_meetings', 'Panel Meetings', 'inclusion_panel', Module.STATUS_LIVE),
+    ('inclusion_panel_escalations', 'Escalations', 'inclusion_panel', Module.STATUS_LIVE),
+    ('inclusion_panel_settings', 'Admin', 'inclusion_panel', Module.STATUS_LIVE),
     ('inclusion_diagnosis_tracker', 'SEND Diagnosis Tracker', 'inclusion_hub', Module.STATUS_HIDDEN),
 
     ('careers_hub', 'Careers', None, Module.STATUS_HIDDEN),

@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 class ReferralCategory(models.Model):
@@ -43,7 +44,25 @@ class ReferralQuestion(models.Model):
 
 
 class InclusionReferral(models.Model):
-    STATUS_CHOICES = [('open', 'Open'), ('in_panel', 'In Panel'), ('closed', 'Closed')]
+    # 'assigned'/'discussing' mean it's genuinely on a panel's live agenda
+    # right now (pending or actively being discussed) - same words as
+    # _panel_referral_stage's per-meeting stage_key, deliberately, so the
+    # same real-world moment reads identically everywhere. The other three
+    # cover a referral that's been discussed before and has a follow-up
+    # due but isn't on any current agenda (the Reviews Due queue), tiered
+    # by how close that follow-up date is: 'review_scheduled' (more than a
+    # week away), 'awaiting_review' (within a week either side of it), or
+    # 'overdue_review' (more than a week past it). See _sync_referral_status.
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('review_scheduled', 'Review Scheduled'),
+        ('awaiting_review', 'Awaiting Review'),
+        ('overdue_review', 'Overdue Review'),
+        ('assigned', 'Assigned to Panel'),
+        ('discussing', 'Discussing'),
+        ('closed', 'Closed'),
+    ]
+    PRIORITY_CHOICES = [('low', 'Low'), ('medium', 'Medium'), ('high', 'High')]
 
     # Links this Inclusion-specific detail row to the shared cross-type base record.
     referral = models.OneToOneField(
@@ -52,6 +71,11 @@ class InclusionReferral(models.Model):
     student = models.ForeignKey('core.Student', on_delete=models.CASCADE, related_name='referrals')
     raised_by = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    # Blank (not defaulted to 'medium') so a fresh referral reads as "not yet
+    # triaged" rather than silently claiming a priority nobody chose. Lives
+    # here (not on PanelReferral) so it's set once, before a referral is ever
+    # added to a panel's agenda, and carries over automatically afterward.
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -60,6 +84,31 @@ class InclusionReferral(models.Model):
 
     def __str__(self):
         return f'Referral #{self.pk} - {self.student}'
+
+    @classmethod
+    def create_for(cls, student, raised_by, date_referred=None, status='open'):
+        # Single owner of the "CoreReferral.raised_by must match
+        # InclusionReferral.raised_by" invariant - both the live referral-new
+        # view and the demo-data seed scripts go through this instead of
+        # each re-deriving the dual write independently.
+        from core.models import Referral as CoreReferral
+
+        base = CoreReferral.objects.create(
+            referral_type=CoreReferral.TYPE_INCLUSION,
+            student=student,
+            raised_by=raised_by,
+            date_referred=date_referred or timezone.localdate(),
+            status=CoreReferral.STATUS_CLOSED if status == 'closed' else CoreReferral.STATUS_OPEN,
+        )
+        return cls.objects.create(referral=base, student=student, raised_by=raised_by, status=status)
+
+    def set_raised_by(self, staff):
+        # Same invariant as create_for, for the repair/backfill path where the
+        # rows already exist (see seed_helpers.backfill_raised_by).
+        self.raised_by = staff
+        self.save(update_fields=['raised_by'])
+        self.referral.raised_by = staff
+        self.referral.save(update_fields=['raised_by'])
 
 
 class ReferralResponse(models.Model):
@@ -151,6 +200,8 @@ class PanelGroupMember(models.Model):
     )
     expertise = models.ForeignKey(Expertise, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     joined_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    deactivated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = [('panel_group', 'staff'), ('panel_group', 'external_contact')]
@@ -184,31 +235,47 @@ class Panel(models.Model):
     def __str__(self):
         return f'Panel {self.date}'
 
+    def update_details(self, date=None, time=None, chair_id=None, panel_group_id=None):
+        # Owns the "Panel Agenda Setup -> Details tab" save rule: a rescheduled
+        # date is only ever moved forward (never into the past), and a group
+        # change with no explicit chair falls back to that group's default
+        # chair. Single place both the view and any future caller (tests,
+        # admin actions) can trigger this without going through a request.
+        if date is not None and date >= timezone.localdate():
+            self.date = date
+        self.time = time
+        self.chair_id = chair_id
+        self.panel_group_id = panel_group_id
+        if not self.chair_id and self.panel_group_id:
+            self.chair_id = self.panel_group.default_chair_id
+        self.save()
+
 
 class PanelMember(models.Model):
+    # Per-meeting attendance only - who actually checked into *this* Panel,
+    # and when they left. Not a roster: identity (staff/external_contact),
+    # expertise, and active/inactive state all live on the referenced
+    # PanelGroupMember, which is also what every "who's on this panel" query
+    # reads for draft/running panels (see inclusion_panel_meeting_setup and
+    # inclusion_panel_meeting_agenda). A completed panel's attendance is the
+    # one place these diverge on purpose - it's a frozen record of who was
+    # actually present, independent of later changes to the group's roster.
     panel = models.ForeignKey(Panel, on_delete=models.CASCADE, related_name='members')
-    staff = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.CASCADE)
-    external_contact = models.ForeignKey(
-        ExternalContact, null=True, blank=True, on_delete=models.CASCADE, related_name='+'
-    )
-    expertise = models.ForeignKey(Expertise, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
-    attended = models.BooleanField(default=True)
-    is_active = models.BooleanField(default=True)
+    panel_group_member = models.ForeignKey(PanelGroupMember, on_delete=models.CASCADE, related_name='+')
     checked_in_at = models.DateTimeField(null=True, blank=True)
     left_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        unique_together = [('panel', 'staff'), ('panel', 'external_contact')]
+        unique_together = [('panel', 'panel_group_member')]
         db_table = 'inclusion_panelmember'
 
     def __str__(self):
-        return str(self.staff) if self.staff_id else str(self.external_contact or 'Guest')
+        return str(self.panel_group_member)
 
 
 class PanelReferral(models.Model):
     DISCUSSION_CHOICES = [('pending', 'Pending'), ('discussed', 'Discussed')]
     FOLLOW_UP_CHOICES = [('incomplete', 'Incomplete'), ('complete', 'Complete')]
-    PRIORITY_CHOICES = [('low', 'Low'), ('medium', 'Medium'), ('high', 'High')]
 
     panel = models.ForeignKey(Panel, on_delete=models.CASCADE, related_name='panel_referrals')
     referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='panel_referrals')
@@ -220,9 +287,8 @@ class PanelReferral(models.Model):
     duration = models.DurationField(null=True, blank=True)
     follow_up_date = models.DateField(null=True, blank=True)
     follow_up_status = models.CharField(max_length=20, choices=FOLLOW_UP_CHOICES, blank=True)
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
-    # Manual agenda position, independent of `priority` — set by drag-and-drop on the
-    # Panel Setup / Meeting Agenda pages. New rows get the next value (see
+    # Manual agenda position — set by drag-and-drop on the
+    # Panel Agenda Setup / Meeting Agenda pages. New rows get the next value (see
     # _next_agenda_order in views.py) so they land at the end of the list by default.
     agenda_order = models.PositiveIntegerField(default=0)
     discussion_started_at = models.DateTimeField(null=True, blank=True)
@@ -294,6 +360,13 @@ class Action(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='incomplete')
     completed_at = models.DateTimeField(null=True, blank=True)
     note = models.TextField(blank=True)
+    # Provenance only - the action stays a referral-level checklist item (not
+    # reset/fragmented per meeting) even for a referral discussed at several
+    # panels over time. Null when created outside a live discussion (e.g. the
+    # standalone Actions page), where there's no discussion to attribute it to.
+    origin_panel_referral = models.ForeignKey(
+        'PanelReferral', null=True, blank=True, on_delete=models.SET_NULL, related_name='raised_actions',
+    )
 
     class Meta:
         ordering = ['due_date']

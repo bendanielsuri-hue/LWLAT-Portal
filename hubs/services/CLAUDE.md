@@ -10,4 +10,5 @@ No real models — all views return hardcoded data. No ORM use.
 
 - `SERVICES_MENU` — 7-item sidebar, all entries carry `module_key`.
 - `_local_menu(request)` — standard `filter_by_module` helper.
+- `_hub_context(request)` — `{'local_menu': _local_menu(request), 'hub_title': 'Operations'}`, spread into every view's render context.
 - No static files specific to this hub.

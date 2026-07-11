@@ -1,0 +1,44 @@
+{% comment %}
+One Panel Group member row - two lines: name (+ Default Chair / External
+pills) on line 1, the merged Expertise picker + Active toggle on line 2.
+Shared between the Active and Inactive Members tabs in
+_panel_group_form_modal.html; only the toggle's pressed state/label differs,
+driven by `active`. Params: member, group, active (bool).
+{% endcomment %}
+<div class="entity-row">
+    <div class="entity-thumb">
+        {% if member.staff and member.staff.photo %}
+        <img src="{{ member.staff.photo.url }}" alt="">
+        {% else %}
+        {% include 'icons/avatar_placeholder_svg.html' %}
+        {% endif %}
+    </div>
+    <div class="entity-body">
+        <div class="entity-title">
+            {% if member.staff %}{{ member.staff }}{% else %}{{ member.external_contact }}{% endif %}
+            {% if active and member.staff_id and member.staff_id == group.default_chair_id %}<span class="status-pill type-chair">Default Chair</span>{% endif %}
+            {% if not member.staff_id %}<span class="status-pill type-external">External</span>{% endif %}
+        </div>
+        <div class="member-row-controls">
+            <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="expertise-field-form ui-fused-field-group"
+                  data-panel-group-form data-panel-group-form-action="update_member_expertise" data-autosave="change">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="update_member_expertise">
+                <input type="hidden" name="member_id" value="{{ member.id }}">
+                {% include 'hubs/inclusion/panel/_expertise_field.html' with merged=True field_id_suffix=member.id expertise_list=available_expertise selected_id=member.expertise_id school_id=group.school_id %}
+            </form>
+            <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="member-attendance-form" data-panel-group-form data-panel-group-form-action="toggle_group_member_active">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="toggle_group_member_active">
+                <input type="hidden" name="member_id" value="{{ member.id }}">
+                <input type="hidden" name="next" value="{{ next }}">
+                <span class="toggle-label">Active</span>
+                {% if active %}
+                <button type="submit" class="toggle-pill on" aria-pressed="true" aria-label="Active — click to deactivate"><span class="toggle-knob"></span></button>
+                {% else %}
+                <button type="submit" class="toggle-pill" aria-pressed="false" aria-label="Inactive — click to reactivate"><span class="toggle-knob"></span></button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>

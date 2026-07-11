@@ -1,3 +1,4 @@
+from core.models import Staff
 from hubs.inclusion.panel.models import ReferralQuestion, ReferralResponse
 
 # Deterministic placeholder answers, keyed by question label, so every demo
@@ -52,3 +53,28 @@ def backfill_referral_responses(referral, questions=None):
                 response.save(update_fields=['answer'])
                 changed += 1
     return changed
+
+
+def backfill_raised_by(referral):
+    """Assigns a deterministic 'Referred By' staff member to any referral
+    missing one - covers referrals created directly (seed_demo_referrals) as
+    well as ones seed_panel_meetings creates its own way, and repairs any
+    already-seeded referral from before this backfill existed. Picked from
+    active staff at the student's own school (falling back to any active
+    staff if the student has none) so it reads as plausible rather than from
+    a random school - deterministic on student_id, same idempotency approach
+    as _placeholder_answer above, no randomness. Syncs core.Referral and
+    InclusionReferral's own raised_by via InclusionReferral.set_raised_by,
+    the same owner InclusionReferral.create_for uses at creation time.
+    Returns True if it changed anything."""
+    if referral.raised_by_id:
+        return False
+    staff_qs = Staff.objects.filter(is_active=True)
+    school_id = referral.student.school_id
+    scoped = staff_qs.filter(school_id=school_id).order_by('id') if school_id else Staff.objects.none()
+    candidates = list(scoped) or list(staff_qs.order_by('id'))
+    if not candidates:
+        return False
+    staff = candidates[referral.student_id % len(candidates)]
+    referral.set_raised_by(staff)
+    return True

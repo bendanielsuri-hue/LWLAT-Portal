@@ -8,8 +8,6 @@ from .models import (
     ExternalContact,
     InclusionReferral,
     Panel,
-    PanelGroup,
-    PanelGroupMember,
     PanelMember,
     PanelReferral,
     PanelReferralNote,
@@ -30,8 +28,6 @@ admin.site.register(PanelReferralNote)
 admin.site.register(ActionCategory)
 admin.site.register(Action)
 admin.site.register(Escalation)
-admin.site.register(PanelGroup)
-admin.site.register(PanelGroupMember)
 admin.site.register(StudentNote)
 admin.site.register(Expertise)
 admin.site.register(ExternalContact)

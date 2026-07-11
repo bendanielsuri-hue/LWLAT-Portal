@@ -1,0 +1,41 @@
+<div class="action-row action-row--divided">
+    <div class="action-row-heading">
+        <span class="referral-row-title">{{ action.category|default:"No category" }}</span>
+        {% if action.is_overdue %}<span class="status-pill danger">Overdue</span>{% endif %}
+    </div>
+    <div class="action-row-grid">
+        <div class="action-row-details">
+            <div class="entity-meta">Assigned: {{ action.assigned_to|default:"Unassigned" }}</div>
+            <div class="entity-meta">Due: {{ action.due_date|default:"—" }}</div>
+            <div class="entity-meta">{% if action.origin_review_label %}Raised at: {{ action.origin_review_label }}{% else %}Raised outside a discussion{% endif %}</div>
+        </div>
+        <div class="action-row-side">
+            <div class="action-row-description">
+                {% if action.note %}{{ action.note }}{% else %}<span class="empty-note">No description.</span>{% endif %}
+            </div>
+            <div class="action-row-status">
+                {% if not allow_status_toggle %}<span class="status-pill{% if action.status == 'complete' %} complete{% elif action.status == 'not_needed' %} not_needed{% else %} incomplete{% endif %}">{{ action.get_status_display }}</span>{% endif %}
+                {% if allow_status_toggle %}
+                {% comment %}
+                Not a <form> - this partial is included inside the referral modal's
+                own outer <form data-referral-modal-form>, and browsers silently
+                drop/mismatch nested <form> elements (illegal HTML), which broke
+                both this control and the outer form for whichever action rendered
+                first. data-action-toggle-form's own submit is built manually in
+                panel.js instead.
+                {% endcomment %}
+                <div data-action-toggle-form data-action-url="{% url 'inclusion_panel_action_status_update' referral.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action_id" value="{{ action.id }}">
+                    {% if is_view_only %}<input type="hidden" name="view" value="1">{% endif %}
+                    <select name="status" class="status-pill {{ action.status }}" data-action-status-select>
+                        {% for value, label in action.STATUS_CHOICES %}
+                        <option value="{{ value }}" {% if action.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
