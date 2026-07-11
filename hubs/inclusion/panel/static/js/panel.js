@@ -135,6 +135,15 @@ window.animateModalHeightChange = function (dialog, mutate) {
     var duration = parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 450;
     var startHeight = dialog.getBoundingClientRect().height;
     dialog.style.height = startHeight + 'px';
+    // Force a synchronous layout flush here, or the browser is free to
+    // batch this style write together with `mutate`'s DOM changes and the
+    // rAF callback's target-height write below into a single style/layout
+    // pass — since none of the three would ever get its own paint, the
+    // "start" height is never actually rendered and the transition has
+    // nothing to interpolate from, so it jumps straight to the end state
+    // instead of easing. Same fix closeModalWithFadeOut already documents
+    // needing (`void ghost.offsetHeight`) for the identical reason.
+    void dialog.offsetHeight;
     mutate();
     requestAnimationFrame(function () {
         dialog.style.height = dialog.scrollHeight + 'px';
@@ -393,12 +402,18 @@ window.animateModalHeightChange = function (dialog, mutate) {
         window.closeModalWithFadeOut(dialog);
     }
 
-    function wireCreateForm() {
-        var form = dialog.querySelector('[data-panel-group-form-action="create_group"]');
-        var saveBtn = form && form.querySelector('[data-panel-group-save]');
-        if (!form || !saveBtn) return;
-        var dataEl = document.getElementById('existing-panel-groups');
-        var existingGroups = dataEl ? JSON.parse(dataEl.textContent) : [];
+    // Shared by both the standalone #panel-group-dialog's own create form
+    // (wireCreateForm, below) and openInlinePanelGroupCreate's swapped-in
+    // one — same validity rule either way: non-empty name + school, and
+    // not a case-insensitive name+school duplicate of an existing group,
+    // since the server itself only rejects a duplicate on submit (see the
+    // Create button's `disabled` starting state and the round-trip error
+    // handling in openInlinePanelGroupCreate for what still needs it as a
+    // backstop - two people racing to create the same name is a real,
+    // if rare, gap this live check can't close on its own).
+    function wireCreateGroupValidation(form, existingGroups) {
+        var saveBtn = form.querySelector('[data-panel-group-save]');
+        if (!saveBtn) return;
 
         function updateSaveState() {
             var name = (form.elements.name.value || '').trim();
@@ -417,6 +432,13 @@ window.animateModalHeightChange = function (dialog, mutate) {
         form.addEventListener('input', updateSaveState);
         form.addEventListener('change', updateSaveState);
         updateSaveState();
+    }
+
+    function wireCreateForm() {
+        var form = dialog.querySelector('[data-panel-group-form-action="create_group"]');
+        if (!form) return;
+        var dataEl = document.getElementById('existing-panel-groups');
+        wireCreateGroupValidation(form, dataEl ? JSON.parse(dataEl.textContent) : []);
     }
 
     // Every field past group-creation autosaves via its own tiny <form
@@ -824,13 +846,16 @@ window.animateModalHeightChange = function (dialog, mutate) {
 
                 // The template's Create Group button starts `disabled`,
                 // only ever enabled by #panel-group-dialog's own
-                // wireCreateForm() (live name/school/duplicate validation)
-                // — which won't find this relocated form. Native `required`
-                // on Name/School is enough validation for this bare create
-                // step (see the duplicate-name error handling below for the
-                // one case that still needs a round-trip to catch).
-                var saveBtn = form.querySelector('[data-panel-group-save]');
-                if (saveBtn) saveBtn.disabled = false;
+                // wireCreateForm() — which won't find this relocated form.
+                // wireCreateGroupValidation is the same live name/school/
+                // duplicate check that function uses, wired here against
+                // this form instead; existingGroups comes from the same
+                // json_script the fetched fragment already carries (see
+                // _panel_group_form_modal.html), just read off the
+                // detached parsed doc rather than the live document.
+                var existingGroupsEl = doc.getElementById('existing-panel-groups');
+                var existingGroups = existingGroupsEl ? JSON.parse(existingGroupsEl.textContent) : [];
+                wireCreateGroupValidation(form, existingGroups);
 
                 // The fetched form's Cancel button carries data-modal-close,
                 // the sitewide convention for "close the dialog I'm in" —
