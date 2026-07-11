@@ -1,57 +1,68 @@
-/* App-level search (homepage hero bar and side-nav overlay) */
+/* Search component — shared idle/hover/focus/has-text convention for every
+   standalone search box in the app (Global Rail, homepage hero, staff
+   switcher, Panel search modal, picker search fields). See DesignLanguage.md
+   "Search" for the full state table and the rationale.
+   Primary is reserved for the "has text" state (border + icon) so it reads
+   as "this box is doing something" rather than firing on mere hover/focus;
+   :focus-visible's primary outline is the one exception, kept unconditional
+   as a plain a11y affordance rather than a state signal. */
 .app-search { position: relative; width: 100%; }
 
-.app-search-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-color);
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    font-size: var(--font-base);
-}
-
-/* Inside the side-nav overlays, match the transparent/pill-shaped nav-row
-   look instead of the boxed input look above. The homepage's own search bar
-   (.home-search-row, outside .side-nav) keeps the boxed style untouched. */
-.side-nav .app-search-input {
-    border: 1px solid transparent;
-    background: transparent;
-    border-radius: var(--radius-pill);
-    padding-left: 34px;
-    appearance: none;
-    -webkit-appearance: none;
-    box-shadow: none;
-}
-.side-nav .app-search-input:hover {
-    background: var(--bg-surface-alt);
-}
-.side-nav .app-search-input:focus-visible {
-    background: var(--bg-surface-alt);
-    border-color: var(--border-color);
-    outline: 2px solid var(--primary);
-    outline-offset: 1px;
-}
 /* .app-search-field wraps just the icon+input, separately from the results
    list below (.app-search-results) — the icon anchors to this inner
    wrapper's own height rather than the outer .app-search's, since the
    outer one grows taller once results render. */
-.side-nav .app-search-field {
-    position: relative;
-}
-.side-nav .app-search-icon {
+.app-search-field { position: relative; }
+
+.app-search-icon {
     position: absolute;
     left: 10px;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
-    color: var(--text-secondary);
+    color: var(--text-faint);
     pointer-events: none;
+    transition: color var(--transition-base);
 }
-.side-nav .app-search-icon svg {
+.app-search-icon svg {
     width: 16px;
     height: 16px;
+}
+
+/* Selectors are scoped under .app-search-field (rather than a bare
+   .app-search-input class) so this beats .field-group input's generic
+   border/padding (forms.css) on specificity when a Search field sits inside
+   a .field-group (e.g. the referral-student-picker) — without this, the
+   two-class .field-group input selector would outrank a single-class one
+   and silently strip the icon padding and state borders below. */
+.app-search-field .app-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--space-xs) var(--space-sm) var(--space-xs) 34px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    transition: border-color var(--transition-base);
+}
+.app-search-field .app-search-input:hover { border-color: var(--border-strong); }
+/* Plain mouse :focus gets no outline (matches this component's original
+   behaviour) — must come before :focus-visible below so the keyboard-focus
+   case (where both match) resolves to :focus-visible's primary outline via
+   source order, since the two selectors tie on specificity. Also needed to
+   beat .field-group input:focus (forms.css) when nested in a field-group. */
+.app-search-field .app-search-input:focus { outline: none; }
+.app-search-field .app-search-input:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+/* Has text wins over hover's border-strong — once the box has a value, it
+   stays primary regardless of the pointer, rather than flickering back to
+   neutral on hover. */
+.app-search-field .app-search-input:not(:placeholder-shown) { border-color: var(--primary); }
+.app-search-field:has(.app-search-input:not(:placeholder-shown)) .app-search-icon {
+    color: var(--primary);
 }
 
 .app-search-results {

@@ -1208,7 +1208,7 @@ window.animateModalHeightChange = function (dialog, mutate) {
 // can exist on one page (one per panel group), so everything is scoped via
 // closest()/querySelector() on the picker's own root rather than global ids.
 function initMemberPicker(rootEl) {
-    var sourceSelect = rootEl.querySelector('[data-member-source-select]');
+    var sourceOptions = Array.prototype.slice.call(rootEl.querySelectorAll('[data-member-source-segmented] .ui-segmented-option'));
     var searchInput = rootEl.querySelector('[data-member-search]');
     var staffInput = rootEl.querySelector('[data-member-staff-input]');
     var externalInput = rootEl.querySelector('[data-member-external-input]');
@@ -1220,7 +1220,12 @@ function initMemberPicker(rootEl) {
     var changeBtn = rootEl.querySelector('[data-member-change]');
     var addExternalRow = rootEl.querySelector('[data-member-add-external]');
     var schoolId = rootEl.dataset.schoolId || '';
-    if (!sourceSelect || !searchInput) return;
+    if (!sourceOptions.length || !searchInput) return;
+
+    // Source is a segmented control, not a <select> (see DesignLanguage.md
+    // "Segmented control") - mode lives in this closure var instead of a
+    // form element's .value, kept in sync with the .active class below.
+    var mode = (sourceOptions.filter(function (btn) { return btn.classList.contains('active'); })[0] || sourceOptions[0]).dataset.value;
 
     function dispatchChange(type, id, name) {
         rootEl.dispatchEvent(new CustomEvent('member-picker:change', { bubbles: true, detail: { type: type, id: id, name: name } }));
@@ -1228,7 +1233,6 @@ function initMemberPicker(rootEl) {
 
     function applySearch() {
         var term = searchInput.value.trim().toLowerCase();
-        var mode = sourceSelect.value;
         options.forEach(function (btn) {
             var source = btn.dataset.source;
             var matchesSearch = !term || btn.dataset.name.toLowerCase().indexOf(term) !== -1;
@@ -1264,17 +1268,20 @@ function initMemberPicker(rootEl) {
         selectedSection.hidden = false;
     }
 
-    function setMode(mode) {
-        sourceSelect.value = mode;
+    function setMode(newMode) {
+        mode = newMode;
+        sourceOptions.forEach(function (btn) { btn.classList.toggle('active', btn.dataset.value === mode); });
         showPicker();
     }
 
     function reset() {
-        var hasSchoolOption = !!rootEl.querySelector('[data-member-source-select] option[value="school"]');
+        var hasSchoolOption = sourceOptions.some(function (btn) { return btn.dataset.value === 'school'; });
         setMode(hasSchoolOption ? 'school' : 'mat');
     }
 
-    sourceSelect.addEventListener('change', function () { setMode(sourceSelect.value); });
+    sourceOptions.forEach(function (btn) {
+        btn.addEventListener('click', function () { setMode(btn.dataset.value); });
+    });
     searchInput.addEventListener('input', applySearch);
     if (changeBtn) changeBtn.addEventListener('click', showPicker);
 

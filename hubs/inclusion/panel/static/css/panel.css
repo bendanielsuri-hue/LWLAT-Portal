@@ -1914,20 +1914,10 @@ dialog#panel-search-dialog .modal-body {
     flex: 1 1 auto;
     min-height: 0;
 }
-.panel-search-input {
-    width: 100%;
-    flex: 0 0 auto;
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-color);
-    background: var(--bg-surface-alt);
-    color: var(--text-primary);
-    font-size: var(--font-base);
-    font-family: inherit;
-}
-.panel-search-input:focus {
-    outline: 1px solid var(--border-strong);
-}
+/* Layout glue only — border/background/hover/focus/has-text states come
+   from the shared .app-search-field/.app-search-input component in
+   navigation.css (see DesignLanguage.md "Search"). */
+.panel-search-field { width: 100%; flex: 0 0 auto; }
 .panel-search-results {
     margin-top: var(--space-md);
     flex: 1 1 auto;
@@ -1963,65 +1953,14 @@ dialog#panel-search-dialog .modal-body {
 .panel-group-member-row { display: flex; gap: var(--space-xs); margin-bottom: var(--space-xs); }
 .panel-group-member-row select { flex: 1; min-width: 0; }
 
-/* Source select + search input read as one fused control - same "one
-   bordered box, segments divided by a border instead of a gap" idiom as
-   .ui-fused-field's Day/Month/Year segments, rather than two separate
-   boxes sitting apart. The search <input> has no ancestor .field-group
-   (this is the one place it's used bare), so unlike most inputs in the app
-   it gets no styling at all unless set here. */
-.member-picker-row {
-    display: flex;
-    align-items: stretch;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface-alt);
-    overflow: hidden;
-    margin-bottom: var(--space-sm);
-}
-.member-picker-row:focus-within { border-color: var(--primary); }
-/* select elements are replaced by enhanceSelect() (static/js/main.js) with a
-   .ui-select wrapper + .ui-select-trigger button — the real <select> is
-   hidden, so width/border rules must target those, not "select" directly
-   (the default .ui-select{width:100%}/.ui-select-trigger{width:100%} rules
-   in style.css would otherwise stretch it to fill the row). */
-/* border-right lives on .ui-select (the flex item that actually stretches
-   to the row's full height via align-items: stretch) rather than only on
-   .ui-select-trigger inside it - the trigger button's own height is just
-   its padding/line-height, shorter than the stretched wrapper around it, so
-   a divider on the trigger alone only ran partway down the row. */
-.member-picker-row .ui-select { flex: 0 0 auto; width: auto; border-right: 1px solid var(--border-color); }
-.member-picker-row .ui-select-trigger {
-    width: auto;
-    /* Centred, not left-aligned - .ui-select-trigger's own base rule
-       (forms.css) already defaults to text-align: center; this only exists
-       to *not* override that the way an earlier pass here did. */
-    border: none;
-    border-radius: 0;
-    /* background-color, not the `background` shorthand - the trigger's own
-       chevron (forms.css) is a background-image on this same box, and the
-       shorthand resets every background-* sub-property (including the
-       image) to its initial value, silently deleting the chevron. Same
-       distinct-fill idea as .ui-fused-field-label, so the dropdown half
-       of this fused control reads as a dropdown rather than a text field. */
-    background-color: var(--bg-well);
-}
-/* .ui-select-trigger's own vertical padding is --space-xs (forms.css,
-   deliberately matching .btn's) - matched here explicitly since the bare
-   <input> has no base rule of its own to inherit it from, so the two
-   segments line up at the same height. */
-.member-picker-row input[type="text"] {
-    flex: 1 1 auto;
-    min-width: 0;
-    width: auto;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    padding: var(--space-xs) var(--space-sm);
-    font-size: var(--font-base);
-    font-family: inherit;
-    color: var(--text-primary);
-}
-.member-picker-row input[type="text"]:focus { outline: none; }
+/* Source segmented control (≤3 static options, see DesignLanguage.md
+   "Segmented control") and Search sit side by side as two independent
+   controls, each keeping its own border - unlike the old <select>+bare-input
+   fused box this replaced, neither piece needs the other's chrome to read
+   as a control on its own. */
+.member-picker-row { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-sm); }
+.member-picker-row .ui-segmented { flex: 0 0 auto; }
+.member-picker-row .app-search-field { flex: 1 1 auto; min-width: 0; }
 
 #panel-member-dialog { max-height: 92vh; }
 
@@ -2094,15 +2033,9 @@ dialog#panel-search-dialog .modal-body {
 .expertise-field-inline .btn-icon-only { height: 41px; box-sizing: border-box; }
 .btn-icon-only { flex: 0 0 auto; padding: 0 14px; line-height: 1; }
 
-.referral-student-picker input[data-referral-student-search] {
-    border-color: var(--border-color);
-}
-.referral-student-picker input[data-referral-student-search]::placeholder { color: var(--text-faint); }
-.referral-student-picker input[data-referral-student-search]:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
-}
+/* Border/hover/focus/has-text states come from the shared .app-search-field
+   component in navigation.css (see DesignLanguage.md "Search"), which wins
+   over .field-group input's generic styling on specificity. */
 .referral-student-list-label { font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: var(--space-sm) 0 var(--space-xs); }
 .referral-student-picker .referral-student-results {
     height: min(70vh, 560px);
