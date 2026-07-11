@@ -409,6 +409,26 @@ dialog.ui-popover::backdrop { background: transparent; }
 /* Rows with a third segment (the "+" add-button) claim the group's 3rd
    column too, instead of leaving it empty for that row. */
 .ui-fused-field:has(> .ui-fused-field-add) { grid-column: 1 / 4; }
+/* Rows with no add-button (e.g. School/Date/Time beside Panel Group's "+")
+   would otherwise stop at the group's 2nd column, ending short of Panel
+   Group's own right edge (which extends into the 3rd column the button
+   reserves) — the row reads as narrower than its siblings and its select/
+   date/time control visibly doesn't fill the row. Claim the 3rd column too
+   and hand it straight to the control itself (not just the row's own box)
+   so the value fills the full row width like every other field, instead of
+   leaving a blank gap where a button would've sat. Excludes
+   .ui-fused-field--stacked, which already repositions its own children onto
+   an explicit 2-row/1-column layout that has nothing to do with this 3rd
+   column. */
+.ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) {
+    grid-column: 1 / 4;
+}
+.ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-select,
+.ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-date,
+.ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-time,
+.ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > input[type="text"] {
+    grid-column: 2 / 4;
+}
 /* Our own `display: grid` above is an author-stylesheet rule, so it beats
    the browser's built-in `[hidden] { display: none }` UA-stylesheet
    default outright (author styles always win over UA ones, tied

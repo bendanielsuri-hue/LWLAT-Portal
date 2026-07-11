@@ -157,6 +157,7 @@ window.animateModalHeightChange = function (dialog, mutate) {
     if (dialog._heightClearTimer) clearTimeout(dialog._heightClearTimer);
     var generation = (dialog._heightChangeGeneration = (dialog._heightChangeGeneration || 0) + 1);
     var duration = parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 450;
+    var body = dialog.querySelector('.modal-body');
     var startHeight = dialog.getBoundingClientRect().height;
     dialog.style.height = startHeight + 'px';
     // Force a synchronous layout flush so this first height write is
@@ -165,6 +166,16 @@ window.animateModalHeightChange = function (dialog, mutate) {
     // already documents needing (`void ghost.offsetHeight`) for the
     // identical reason.
     void dialog.offsetHeight;
+    // .modal-body's own overflow-y: auto (panel.css) pops its scrollbar in
+    // the instant its content outgrows the dialog's still-animating pinned
+    // height (e.g. easing back up to the taller Create Panel Meeting
+    // content after a shorter Create Panel Group swap) - that scrollbar
+    // claims width from the content next to it, visibly shoving it
+    // sideways for the split second before the dialog reaches its target
+    // height. Suppressed for the duration of the animation and restored by
+    // the same generation-guarded timer that clears the pinned height
+    // below, once there's no more mid-transition mismatch to hide.
+    if (body) body.style.overflowY = 'hidden';
     mutate();
     // Briefly release the pinned height to measure the mutated content's
     // true natural size (see point 1 above), then re-pin to startHeight
@@ -189,7 +200,10 @@ window.animateModalHeightChange = function (dialog, mutate) {
         });
     });
     dialog._heightClearTimer = setTimeout(function () {
-        if (dialog._heightChangeGeneration === generation) dialog.style.height = '';
+        if (dialog._heightChangeGeneration === generation) {
+            dialog.style.height = '';
+            if (body) body.style.overflowY = '';
+        }
         dialog._heightClearTimer = null;
     }, duration);
 };
