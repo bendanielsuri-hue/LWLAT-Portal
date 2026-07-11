@@ -1845,21 +1845,36 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 #panel-group-dialog .member-row-controls { display: flex; align-items: center; gap: var(--space-sm); margin-top: var(--space-xxs); }
 #panel-group-dialog .member-row-controls .ui-fused-field-group { flex: 1; min-width: 0; }
 #panel-group-dialog .member-row-controls .member-attendance-form { margin-top: 0; flex-shrink: 0; }
-/* Tabs (Active/Inactive Members) share a row with the "+" add-member
-   trigger - the tab-row's own border-bottom/margin is dropped in favour of
-   one border-bottom on the shared toolbar row, so the "+" button sits on
-   the same baseline as the tabs rather than looking like a separate row. */
-#panel-group-dialog .members-list-toolbar {
+/* Tabs (Active/Inactive Members) get their own row, no button beside them -
+   see root DesignLanguage.md's tab-row anti-pattern #17. No edge-to-edge
+   bleed here: the base .tab-row rule's `margin-left: -16px` assumes a
+   16px (--space-md) parent padding to bleed into, but .modal-body's own
+   horizontal padding is --space-xl (24px) - left at the default, the tabs
+   would overshoot the dialog's own left padding instead of aligning with
+   it. */
+#panel-group-dialog [data-members-list-view] > .tab-row { margin-left: 0; }
+/* margin-bottom matches .tab-row's own (--space-md), not the root
+   DesignLanguage.md spacing table's generic 28px below an <h3> - this
+   heading only ever renders in place of the tab-row (a brand-new group
+   with no members at all yet), so it needs the same gap above the member
+   list the tab-row would leave, not a bigger one that shifts the list down
+   depending on which of the two happened to render. */
+#panel-group-dialog .members-list-heading { margin: 0 0 var(--space-md); font-size: var(--font-md); }
+
+/* Persistent action slot pinned below the scrolling member list/picker,
+   swapping between "+ Add Member" (list view) and "Back" (add view) rather
+   than each view rendering its own trailing button inline - moved here
+   specifically so it no longer shares a row with the Active/Inactive tabs
+   above. Same fixed-footer extension of the header/body split
+   dialog.modal-dialog already uses (root DesignLanguage.md's "Card-internal
+   scroll with a fixed header"), so it stays flush against the bottom of the
+   dialog regardless of how long the member list/picker above it gets. */
+#panel-group-dialog .panel-group-modal-footer {
+    flex-shrink: 0;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-sm);
-    padding-bottom: var(--space-sm);
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: var(--space-md);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-color);
 }
-#panel-group-dialog .members-list-toolbar .tab-row { border-bottom: none; margin: 0; flex: 1; }
-#panel-group-dialog .members-list-heading { margin: 0; font-size: var(--font-md); }
 
 /* Add Expertise Tag - a single-field quick-add, narrower than the shared
    560px modal shell (dialog.modal-dialog) since one label+input+btn-row

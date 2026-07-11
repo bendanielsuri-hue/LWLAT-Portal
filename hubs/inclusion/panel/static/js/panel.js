@@ -535,15 +535,17 @@ window.animateModalHeightChange = function (dialog, mutate) {
     }
 
     // Two distinct buttons rather than one relabelled toggle: [data-members-mode-toggle]
-    // (a small "+" next to the Active/Inactive tabs, only ever present in
-    // list mode's markup) enters add mode; [data-members-back-btn] (only
-    // present in add mode's markup, at the bottom) exits it without adding.
-    // The whole sticky header (Name/Chair) hides while adding - Default
-    // Chair only makes sense against members that already exist, and the
-    // add-member picker doesn't need the group's own name repeated above
-    // it. Always resets to list mode on every render, which is also what
-    // auto-returns here right after a member is successfully added
-    // (render() re-runs post-submit).
+    // ("+ Add Member" in the shared footer, data-panel-group-footer) enters
+    // add mode; [data-members-back-btn] (same footer, hidden until add mode)
+    // exits it without adding. Both live in the one persistent footer slot
+    // below the scrolling member list/picker rather than each view rendering
+    // its own trailing button inline - see hubs/inclusion/panel/DesignLanguage.md's
+    // "Edit Panel Group modal" section for why. The whole sticky header
+    // (Name/Chair) hides while adding - Default Chair only makes sense
+    // against members that already exist, and the add-member picker doesn't
+    // need the group's own name repeated above it. Always resets to list
+    // mode on every render, which is also what auto-returns here right after
+    // a member is successfully added (render() re-runs post-submit).
     function wireMembersModeToggle() {
         var header = dialog.querySelector('[data-panel-group-header]');
         var listView = dialog.querySelector('[data-members-list-view]');
@@ -553,10 +555,12 @@ window.animateModalHeightChange = function (dialog, mutate) {
         var title = dialog.querySelector('[data-panel-group-modal-title]');
         if (!listView || !addView) return;
 
-        function setMode(mode) {
+        function applyMode(mode) {
             listView.hidden = mode !== 'list';
             addView.hidden = mode !== 'add';
             if (header) header.hidden = mode !== 'list';
+            if (enterBtn) enterBtn.hidden = mode !== 'list';
+            if (backBtn) backBtn.hidden = mode !== 'add';
             if (title) title.textContent = mode === 'add' ? 'Add Member' : 'Edit Panel Group';
             if (mode === 'add') {
                 var searchInput = addView.querySelector('[data-member-search]');
@@ -564,10 +568,18 @@ window.animateModalHeightChange = function (dialog, mutate) {
             }
         }
 
+        // Wrapped in animateModalHeightChange, same as every other in-place
+        // content swap in this dialog - the list/add views differ enough in
+        // height (a short member list vs. the taller staff/contact picker)
+        // that snapping reads as a jump rather than a transition.
+        function setMode(mode) {
+            window.animateModalHeightChange(dialog, function () { applyMode(mode); });
+        }
+
         if (enterBtn) enterBtn.addEventListener('click', function () { setMode('add'); });
         if (backBtn) backBtn.addEventListener('click', function () { setMode('list'); });
 
-        setMode('list');
+        applyMode('list');
     }
 
     // Active/Inactive Members tabs. Restores currentMembersTab after every

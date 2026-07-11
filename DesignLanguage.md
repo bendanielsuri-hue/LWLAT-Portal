@@ -31,7 +31,7 @@ Covers static visual rules: colour, layout, typography, spacing, naming. For hov
 4. **Row / item title** (`.entity-title`, `.panel-item-title`, `--font-md`, weight 600) — the primary label for a list row.
 5. **Row metadata** (`.entity-meta`, `.panel-item-meta`, `--font-sm`, `--text-secondary`) — supporting detail on the same row.
 6. **Note / faint detail** (`.panel-item-note`, `--font-sm`, `--text-muted`) — tertiary, lowest-contrast text.
-7. **Field label** (`<label>`, `--font-sm`, weight 600, `--text-secondary`) — always sits above its control; never inline.
+7. **Field label** (`<label>`, `--font-sm`, weight 600, `--text-secondary`) — for a plain `.field-group` field, always sits above its control, never inline. A fused field (`.ui-fused-field`) is the deliberate exception — see Form control patterns below for when Left Fused (label beside control) applies instead.
 8. **Source / context annotation** (`.field-source`, `--font-2xs`, uppercase, `letter-spacing: 0.03em`, `--text-faint`) — rendered above a label to explain where a read-only value comes from.
 
 ---
@@ -52,6 +52,8 @@ A flex column that fills viewport height: content area (`flex: 1; min-height: 0;
 
 **Card-internal scroll with a fixed header** (`.setup-col`; also `dialog.modal-dialog`)
 A card whose list can grow long (Panel Setup's Panel Details/Members, Panel Selection, Panel Agenda) is `display: flex; flex-direction: column; overflow: hidden` with two children: a plain, non-scrolling `.setup-col-header` (the card's `<h2>`) and a `.setup-col-body` (`flex: 1 1 auto; min-height: 0; overflow-y: auto`) holding everything else. The H2 lives structurally outside the scroll area rather than merely `position: sticky` inside it — scrolled content can then never visually collide with it at the top of the scroll. Every `dialog.modal-dialog` uses this same technique for the identical reason, plus one more: a `position: sticky` header *inside* the one element that scrolls (the old approach) means the scrollbar itself belongs to that same element, so it runs the dialog's full height — including behind the header — and sits flush against the dialog's own rounded corners rather than inset from them. Structurally separating `.modal-header` (`flex-shrink: 0`) from `.modal-body` (`flex: 1 1 auto; min-height: 0; overflow-y: auto`) fixes both: the scrollbar now starts exactly where the body starts, and it's inset by the body's own padding, clear of the corners. A sub-section heading inside the body (e.g. "Panel Members", "New Referrals") can still use `position: sticky; top: 0`, scoped to `.setup-col-body .setup-col-header` — safe because the body is its one true scrolling ancestor, no page-header offset to account for. `.setup-col-body` bleeds out via `margin: 0 calc(-1 * var(--space-lg)); padding: 0 var(--space-lg)` so its scrollbar sits flush against the card's right edge instead of inset by the card's own padding — same technique as `.panel-list`'s edge-to-edge bleed (see Row items below).
+
+The same technique extends to a fixed *footer*, not just a header: a modal whose scrolling body needs a persistent action below it (e.g. Panel Group's Add Member/Back slot, see `hubs/inclusion/panel/DesignLanguage.md`) adds that action as a third flex child after `.modal-body`'s scrolling region — `flex-shrink: 0`, same as the header — rather than pinning it inside the scroll area with `position: sticky; bottom: 0`. A sticky-inside-the-scroller footer shares that element's own scrollbar (the same corner/inset problem `.modal-header` avoids by living outside the scroll area), where a true flex sibling doesn't.
 
 **Agenda grid** (`.agenda-layout`)
 ```css
@@ -182,6 +184,7 @@ A handful of `label: value` facts, one per line — inside one bordered card as 
 ## Navigation patterns
 
 **Tab row** (`.tab-row`)
+- **Never shares a row with a button or any other control.** A `.tab-row` sitting beside a taller sibling (e.g. an "Add" button) inherits that sibling's height, leaving visible dead space under the tabs' own underline indicator — the tabs read as floating rather than flush against the content below them. Give the other control its own row (above the tabs, or a dedicated footer row) instead. No exceptions — a tab's own status-count badge lives *inside* that tab already (see below), so it isn't a competing control sharing the row.
 - Underline indicator only — no background fill on tabs themselves.
 - Indicator: `position: absolute; bottom: -1px; height: 2px; border-radius: 2px`.
 - Animated in via `transform: scaleX(0) → scaleX(1)` (`--transition-pop`) and `opacity: 0 → 1`.
@@ -227,6 +230,14 @@ Scrollable bounded list (`max-height: min(65vh, 480px); border: 1px solid; borde
 ---
 
 ## Form control patterns
+
+**Single-line control height matches button height.** Any single-line text/select control — plain `.field-group`/`.filter-field` input or select, `.ui-select-trigger`, `.ui-fused-field`'s boxed control — uses `padding: var(--space-xs) var(--space-sm)` (vertical `--space-xs`, the same as `.btn`'s own vertical padding) rather than the more generous `--space-sm` vertical padding a field might default to. A field that renders taller than the buttons sitting beside or below it (e.g. a Group Name field above a Cancel/Save row) reads as an inconsistency, not a deliberate size choice — the height difference has no signal value. Doesn't apply to `<textarea>` or anything else inherently multi-line.
+
+**Fused vs. plain, and Left vs. Upper fused.** Default to a fused field (`.ui-fused-field`, boxed label+control) over a plain `.field-group` (label above, unboxed) whenever a field has room for it — the boxed look reads as more deliberate and lines up with the rest of the app's controls. Within fused fields, pick the orientation by available width:
+- **Left Fused** (label beside the control, one line, the `.ui-fused-field` default) — use whenever there's enough horizontal room for the label without truncating or cramping the control's own value.
+- **Upper Fused** (label above the control, boxed, `.ui-fused-field--stacked`) — use where fields sit in a narrow multi-column row and a side-by-side label would eat too much of the control's width.
+
+**Exception: filter bars (`.filter-field`) are never fused.** The active-filter highlight (`.filter-field--active`) fills the *entire* label+control wrapper with `--primary-light` as a "chip" so an active filter pops against inactive ones in the same bar — see "Active field highlight" above. Wrapping every field in its own permanent border first (the fused look) would blunt that contrast, since active and inactive fields would already look boxed the same way. This is a deliberate carve-out, not an oversight — don't convert filter bars to `.ui-fused-field`/`.ui-fused-field--stacked` even though they're visually a stacked label-above-control layout like Upper Fused.
 
 **Fused field** (`.ui-fused-field`, e.g. Panel Setup's School/Panel Group/Date/Time/Chair fields)
 A `<label>` + `<select>`/`<input>` + optional trailing button, sharing one bordered box (`components/forms.css`) rather than reading as separate controls — this is the pattern behind the *inset label* look (not a Material-style floating label, which animates from inside the field on focus; a fused label is permanently visible, closer to Bootstrap's "input group" or Stripe's "field group"). One or more fused fields sit inside a `.ui-fused-field-group`, which auto-aligns every field's label column via CSS subgrid.
@@ -373,5 +384,7 @@ Each entry states what to avoid and why it breaks something.
 15. **Inside `.list-page-shell`, give every direct child of a card `min-height: 0`, not just the scrolling list.** Flex items default to `min-height: auto`, which floors them at their content's min-content size. A card's non-scrolling children (empty-state text, preview blocks) can silently refuse to shrink and reintroduce the "invisible overflow scrollbar" bug this shell exists to prevent — even though the scrolling list itself is fine.
 
 16. **Don't let vertical spacing between stacked rows use a different scale than the horizontal gap between cards in a row.** If a page has both (e.g. `.panel-columns` rows spaced apart vertically, cards spaced apart horizontally within each row), use the same `gap` value for both. Mixing `--space-md` row spacing with `--space-xl` card spacing (or vice versa) reads as accidental, not deliberate rhythm.
+
+17. **Don't pack a `.tab-row` into the same row as a button or other control.** See "Tab row" under Navigation patterns above. Give the other control its own row instead — a dedicated header row above the tabs, or a footer row below the tabbed content.
 
 See [InteractionLanguage.md](InteractionLanguage.md) for interaction-specific anti-patterns (selected-state colours, hover transforms, focus-visible outlines).

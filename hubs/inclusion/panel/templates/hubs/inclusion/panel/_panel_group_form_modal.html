@@ -6,12 +6,14 @@
 
 {% if group %}
 <div class="panel-group-modal-header" data-panel-group-header>
-    <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="field-group"
+    <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="ui-fused-field-group"
           data-panel-group-form data-panel-group-form-action="update_group_name" data-autosave="blur">
         {% csrf_token %}
         <input type="hidden" name="form_action" value="update_group_name">
-        <label>Panel Group Name</label>
-        <input type="text" name="name" value="{{ group.name }}" required data-autosave-trigger>
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="panel-group-name">Panel Group Name</label>
+            <input type="text" id="panel-group-name" name="name" value="{{ group.name }}" required data-autosave-trigger>
+        </span>
     </form>
     {% if chair_choices %}
     <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="ui-fused-field-group"
@@ -33,17 +35,14 @@
 
 <div class="panel-group-modal-scroll" data-panel-group-scroll>
     <div data-members-list-view>
-        <div class="members-list-toolbar">
-            {% if active_members or inactive_members %}
-            <div class="tab-row" data-members-tab-row>
-                <button type="button" class="active" data-members-tab="active">Active Members ({{ active_members|length }})</button>
-                <button type="button" data-members-tab="inactive">Inactive Members ({{ inactive_members|length }})</button>
-            </div>
-            {% else %}
-            <h3 class="members-list-heading">Active Members ({{ active_members|length }})</h3>
-            {% endif %}
-            <button type="button" class="btn btn-add btn-sm" data-members-mode-toggle><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Member</button>
+        {% if active_members or inactive_members %}
+        <div class="tab-row" data-members-tab-row>
+            <button type="button" class="active" data-members-tab="active">Active Members ({{ active_members|length }})</button>
+            <button type="button" data-members-tab="inactive">Inactive Members ({{ inactive_members|length }})</button>
         </div>
+        {% else %}
+        <h3 class="members-list-heading">Active Members ({{ active_members|length }})</h3>
+        {% endif %}
 
         <div data-members-tab-panel="active" class="entity-list entity-list--bleed" data-active-members-list>
             {% for member in active_members %}
@@ -72,11 +71,12 @@
 
             {% include 'hubs/inclusion/panel/_member_picker.html' with school=group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Already in Group' %}
         </form>
-
-        <div class="btn-row btn-row--start">
-            <button type="button" class="btn btn-sm" data-members-back-btn>Back</button>
-        </div>
     </div>
+</div>
+
+<div class="panel-group-modal-footer" data-panel-group-footer>
+    <button type="button" class="btn btn-add btn-sm" data-members-mode-toggle><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Member</button>
+    <button type="button" class="btn btn-sm" data-members-back-btn hidden>Back</button>
 </div>
 {% else %}
 <div class="panel-group-modal-header">
