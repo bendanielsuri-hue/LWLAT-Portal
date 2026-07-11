@@ -110,28 +110,52 @@ window.closeModalWithFadeOut = function (dialog) {
 // showing/hiding sections in place) via the `height` transition it already
 // declares in CSS (components/panel.css) but otherwise never uses, since
 // `height: auto` can't itself be transitioned — snapshot the current
-// rendered height, run `mutate` (the actual DOM change), then measure the
-// new natural height (scrollHeight) and transition to that explicit pixel
-// value, clearing back to `height: auto` once the transition's had time to
-// finish so later content changes aren't pinned to a stale pixel height.
-// A no-op dialog (not open, e.g. content swapped before first showModal())
-// just runs `mutate` immediately - nothing to animate from.
+// rendered height, run `mutate` (the actual DOM change), measure the
+// mutated content's true natural height, then transition to that explicit
+// pixel value, clearing back to `height: auto` once the transition's had
+// time to finish so later content changes aren't pinned to a stale pixel
+// height. A no-op dialog (not open, e.g. content swapped before first
+// showModal()) just runs `mutate` immediately - nothing to animate from.
 //
-// Calls on the same dialog can overlap (e.g. openInlinePanelGroupCreate's
+// Two things that look like they'd work here don't, both confirmed live
+// via Playwright (a plausible-looking fix landed twice before this one and
+// visibly still snapped instead of easing):
+//
+// 1. Measuring the target height with `dialog.scrollHeight` right after
+//    `mutate` is wrong whenever the new content is *shorter* than the
+//    still-pinned start height — scrollHeight can't report anything
+//    smaller than the element's own current rendered box, so it just
+//    echoes the pinned startHeight back, forever, no matter how much
+//    smaller the actual content is. The only way to measure the mutated
+//    content's true natural size is to briefly release the pinned height
+//    (`height: auto`), read the now-accurate rendered height, and
+//    immediately re-pin back to startHeight — all synchronously, so
+//    nothing ever paints the transient unpinned state.
+// 2. A *single* requestAnimationFrame isn't enough to get a real "before"
+//    frame for the transition to ease from: a rAF callback requested from
+//    ordinary script runs in the very next "update the rendering" step,
+//    before that step's own paint - so writing the target height there
+//    lands in the same rendering opportunity as the mutation, and the
+//    browser only ever paints once, straight at the final height. Nesting
+//    a second rAF defers the target-height write to the *following*
+//    rendering opportunity, guaranteeing a real paint at the start height
+//    happens first.
+//
+// Calls on the same dialog can also overlap (e.g. openInlinePanelGroupCreate's
 // "show loading" swap immediately followed by "loading -> loaded content"
-// once the fetch resolves, which can easily land inside the first swap's
-// own transition window) - the pending clear-to-auto from an earlier call
-// is tracked per dialog (via a property stashed on the element itself, not
-// a module-level map, since there's exactly one timer that ever matters
-// per dialog at a time) and cancelled before scheduling a new one, so an
-// in-flight later transition never gets snapped back to `auto` mid-way by
-// a stale timer from the call before it.
+// once the fetch resolves — near-instant on a local dev server, easily
+// landing before the first swap's own nested rAFs have even fired). A
+// per-dialog generation counter is bumped on every call; the nested rAF
+// and the clear-timer both bail out if a newer call has since started, so
+// a stale write from an overlapped-and-superseded call never clobbers the
+// one that actually matters.
 window.animateModalHeightChange = function (dialog, mutate) {
     if (!dialog || !dialog.open) {
         if (mutate) mutate();
         return;
     }
     if (dialog._heightClearTimer) clearTimeout(dialog._heightClearTimer);
+    var generation = (dialog._heightChangeGeneration = (dialog._heightChangeGeneration || 0) + 1);
     var duration = parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 450;
     var startHeight = dialog.getBoundingClientRect().height;
     dialog.style.height = startHeight + 'px';
@@ -142,24 +166,30 @@ window.animateModalHeightChange = function (dialog, mutate) {
     // identical reason.
     void dialog.offsetHeight;
     mutate();
-    // A *single* rAF here still isn't enough: a requestAnimationFrame
-    // callback requested from ordinary script (not from inside another
-    // rAF callback) runs in the browser's very next "update the
-    // rendering" step, before that step's own paint — so setting the
-    // target height there lands in the same rendering opportunity as the
-    // mutation above, and the browser only ever paints once, straight at
-    // the final height, with the start height never actually rendered to
-    // transition from. Nesting a second rAF defers the target-height
-    // write to the *following* rendering opportunity, guaranteeing a real
-    // paint at the start height happens first, which is what the CSS
-    // transition needs as its "before" value.
+    // Briefly release the pinned height to measure the mutated content's
+    // true natural size (see point 1 above), then re-pin to startHeight
+    // immediately - all in the same synchronous pass, so this never paints.
+    // Must be `''` (remove the inline override entirely), not an explicit
+    // `'auto'` string - confirmed live via Playwright that those two are
+    // NOT equivalent here: dialog.modal-dialog is `position: fixed;
+    // inset: 0; margin: auto` (the fixed-centering trick), and explicitly
+    // writing the inline value 'auto' resolves through that positioning
+    // math to the element's max-height (86vh) instead of its content size,
+    // while genuinely having no inline height at all correctly falls back
+    // to content-based sizing. Same two keyword-looking values, different
+    // resolved height entirely.
+    dialog.style.height = '';
+    var targetHeight = dialog.getBoundingClientRect().height;
+    dialog.style.height = startHeight + 'px';
+    void dialog.offsetHeight;
     requestAnimationFrame(function () {
         requestAnimationFrame(function () {
-            dialog.style.height = dialog.scrollHeight + 'px';
+            if (dialog._heightChangeGeneration !== generation) return;
+            dialog.style.height = targetHeight + 'px';
         });
     });
     dialog._heightClearTimer = setTimeout(function () {
-        dialog.style.height = '';
+        if (dialog._heightChangeGeneration === generation) dialog.style.height = '';
         dialog._heightClearTimer = null;
     }, duration);
 };
@@ -838,6 +868,13 @@ window.animateModalHeightChange = function (dialog, mutate) {
                     fused.appendChild(label);
                     fused.appendChild(control);
                     fieldsWrap.appendChild(fused);
+                    // label/control were moved out (appendChild moves, not
+                    // clones), leaving this an empty husk still sitting in
+                    // `form` at its original position - remove it, or it
+                    // adds a stray extra .field-group's worth of margin
+                    // and confuses the next `:scope > .field-group` query
+                    // if this ever runs twice on the same form.
+                    fieldGroup.remove();
                 });
                 form.insertBefore(fieldsWrap, form.firstChild);
                 // The template's own sticky-row class put Name/School and
