@@ -1,10 +1,11 @@
 <div class="modal-header">
-    <h2>Create Panel Meeting</h2>
+    <h2>{% if panel %}Edit Panel Settings{% else %}Create Panel Meeting{% endif %}</h2>
     <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
 </div>
 <div class="modal-body">
-    <form method="post" action="{% url 'inclusion_panel_meeting_new' %}" class="field-group ui-fused-field-group" data-panel-meeting-modal-form>
+    <form method="post" action="{% if panel %}{% url 'inclusion_panel_meeting_edit_details' panel.id %}{% else %}{% url 'inclusion_panel_meeting_new' %}{% endif %}" id="panel-meeting-form" class="ui-fused-field-group ui-fused-field-group--force-stacked" data-panel-meeting-modal-form>
         {% csrf_token %}
+        {% if not panel %}
         <span class="ui-fused-field" {% if school_locked %}hidden{% endif %}>
             <label class="ui-fused-field-label" for="new-panel-school">School</label>
             <select id="new-panel-school" data-panel-school-select>
@@ -13,21 +14,32 @@
                 {% endfor %}
             </select>
         </span>
-        {% include 'hubs/inclusion/panel/_panel_group_field.html' with field_id='new-panel-group' show_placeholder=True %}
+        {% endif %}
+        {% include 'hubs/inclusion/panel/_panel_group_field.html' with field_id='new-panel-group' form_id='panel-meeting-form' selected_group_id=panel.panel_group_id show_placeholder=True %}
 
         <span class="ui-fused-field">
             <label class="ui-fused-field-label" for="new-panel-date">Date</label>
-            <input type="date" id="new-panel-date" name="date" value="{{ today|date:'Y-m-d' }}" data-no-past required>
+            <input type="date" id="new-panel-date" name="date" value="{{ panel.date|default:today|date:'Y-m-d' }}" data-no-past required>
         </span>
 
         <span class="ui-fused-field">
             <label class="ui-fused-field-label" for="new-panel-time">Time</label>
-            <input type="time" id="new-panel-time" name="time" value="08:00" required>
+            {% comment %}
+            Only required at creation - a brand new Panel always starts
+            with a time (08:00 default). Panel.time is nullable and stays
+            optional once editing an existing one, same as before these
+            two dialogs shared a template.
+            {% endcomment %}
+            <input type="time" id="new-panel-time" name="time" value="{% if panel %}{{ panel.time|time:'H:i' }}{% else %}08:00{% endif %}" {% if not panel %}required{% endif %}>
         </span>
 
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+            {% if panel %}
+            <button type="submit" class="btn btn-add btn-sm" data-create-panel-save disabled><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Save Changes</button>
+            {% else %}
             <button type="submit" class="btn btn-add btn-sm" data-create-panel-save disabled><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Create Panel Meeting</button>
+            {% endif %}
         </div>
     </form>
 </div>

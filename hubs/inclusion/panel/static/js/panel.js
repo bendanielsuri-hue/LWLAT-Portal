@@ -1105,8 +1105,15 @@ window.animateModalHeightChange = function (dialog, mutate) {
         updateSaveState();
     }
 
-    window.openPanelMeetingModal = function () {
-        fetch('/inclusion/panel/meetings/new/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    // One dialog, one fetch/render path for both modes - `panelId` present
+    // means "Edit Panel Settings" for that Panel, omitted means "Create
+    // Panel Meeting" (see inclusion_panel_meeting_new in views.py, which
+    // renders the same _panel_meeting_form_modal.html fragment either way).
+    window.openPanelMeetingModal = function (panelId) {
+        var url = panelId
+            ? '/inclusion/panel/meetings/' + encodeURIComponent(panelId) + '/edit-details/'
+            : '/inclusion/panel/meetings/new/';
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (res) { return res.text(); })
             .then(function (html) {
                 dialog.innerHTML = html;
@@ -1121,6 +1128,11 @@ window.animateModalHeightChange = function (dialog, mutate) {
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-create-panel-trigger]')) {
             window.openPanelMeetingModal();
+            return;
+        }
+        var editTrigger = e.target.closest('[data-edit-settings-trigger]');
+        if (editTrigger) {
+            window.openPanelMeetingModal(editTrigger.dataset.panelId);
             return;
         }
         if (e.target.closest('[data-modal-close]') && e.target.closest('#panel-meeting-dialog')) {

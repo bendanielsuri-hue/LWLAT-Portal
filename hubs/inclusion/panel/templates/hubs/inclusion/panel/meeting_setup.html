@@ -44,7 +44,7 @@
     <div class="setup-col setup-col--narrow switch-card active-card" id="settings-card">
         <div class="setup-col-header">
             <h2>Settings</h2>
-            <button type="button" class="btn btn-subtle btn-sm" data-edit-settings-trigger><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
+            <button type="button" class="btn btn-subtle btn-sm" data-edit-settings-trigger data-panel-id="{{ panel.id }}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
         </div>
         <div class="setup-col-body">
         <div class="settings-sticky">
@@ -59,9 +59,18 @@
             </div>
             {% if active_members %}
             <div class="summary-line-chair">
+                {% comment %}
+                Not inside a <form> - the select autosaves standalone via
+                fetch (see the chairSelect wiring below), which reads this
+                token off the page rather than relying on some other form
+                being rendered. Guaranteed present whenever the Chair
+                select itself is, unlike e.g. the Ready toggle form below,
+                which only renders for draft/ready panels.
+                {% endcomment %}
+                {% csrf_token %}
                 <span class="ui-fused-field ui-fused-field--stacked">
                     <label class="ui-fused-field-label" for="panel-chair">Chair</label>
-                    <select id="panel-chair" name="chair" form="panel-details-form">
+                    <select id="panel-chair" name="chair">
                         <option value="">No chair set</option>
                         {% for member in active_members %}
                         {% if member.staff_id %}
@@ -91,37 +100,23 @@
         </div>
     </div>
 
-    <dialog id="panel-settings-dialog" class="modal-dialog">
-        <div class="modal-header">
-            <h2>Edit Panel Settings</h2>
-            <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
-        </div>
-        <div class="modal-body">
-        <div class="ui-fused-field-group ui-fused-field-group--force-stacked">
-        <form method="post" class="field-group" id="panel-details-form">
-    {% csrf_token %}
-            <input type="hidden" name="form_action" value="update_details">
-            <span class="ui-fused-field">
-                <label class="ui-fused-field-label" for="panel-date">Date</label>
-                <input type="date" id="panel-date" name="date" value="{{ panel.date|date:'Y-m-d' }}" data-no-past>
-            </span>
-            <span class="ui-fused-field">
-                <label class="ui-fused-field-label" for="panel-time">Time</label>
-                <input type="time" id="panel-time" name="time" value="{{ panel.time|time:'H:i' }}">
-            </span>
-            {% include 'hubs/inclusion/panel/_panel_group_field.html' with field_id='panel-group' form_id='panel-details-form' selected_group_id=panel.panel_group_id show_placeholder=True %}
-        </form>
-        </div>
-        </div>
-    </dialog>
+    {% comment %}
+    Editing Date/Time/Panel Group now opens the same shared dialog Create
+    Panel Meeting uses (window.openPanelMeetingModal(panel.id) - see
+    panel.js and _panel_meeting_form_modal.html) instead of a dialog local
+    to this page, so the two stop drifting apart from each other. Chair
+    stays directly editable from the summary below, independent of that
+    dialog - see the standalone update_chair autosave further down.
+    {% endcomment %}
 
     <script>
     document.addEventListener('DOMContentLoaded', function () {
-        var detailsForm = document.getElementById('panel-details-form');
-        var dateInput = document.getElementById('panel-date');
-        var timeInput = document.getElementById('panel-time');
-        var groupSelect = document.getElementById('panel-group');
         var chairSelect = document.getElementById('panel-chair');
+        // Server-rendered once, not read off a live <select> - the Panel
+        // Group select only exists inside the shared Edit Panel Settings
+        // dialog (panel.js's openPanelMeetingModal), which isn't in this
+        // page's DOM at all until opened.
+        var currentPanelGroupId = '{{ panel.panel_group_id|default:"" }}';
 
         // Ready toggle updates in place - status only affects this pill/toggle
         // and the page subtitle's status pill, nothing else on the page, so a
@@ -153,38 +148,6 @@
             });
         }
 
-        // Panel Summary's "Edit Settings" opens the Date/Time/Group form in a
-        // dialog rather than showing it inline - the form markup/ids/wiring
-        // below are unchanged from when it lived directly in the column,
-        // just relocated. Chair stays directly editable in the summary
-        // itself (see .summary-line-chair) since it's changed often enough
-        // not to warrant a dialog round-trip.
-        var settingsDialog = document.getElementById('panel-settings-dialog');
-        var editSettingsTrigger = document.querySelector('[data-edit-settings-trigger]');
-        if (settingsDialog && editSettingsTrigger) {
-            function closeSettingsDialog() {
-                window.closeModalWithFadeOut(settingsDialog);
-            }
-            editSettingsTrigger.addEventListener('click', function () {
-                settingsDialog.showModal();
-                requestAnimationFrame(function () { settingsDialog.classList.add('is-open'); });
-            });
-            settingsDialog.addEventListener('click', function (e) {
-                if (e.target === settingsDialog || e.target.closest('[data-modal-close]')) closeSettingsDialog();
-            });
-        }
-
-        if (!groupSelect) return;
-
-        function submitDetails() {
-            if (!detailsForm) return Promise.resolve();
-            return fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: new FormData(detailsForm),
-            });
-        }
-
         function updateChairPills() {
             if (!chairSelect) return;
             var chairId = chairSelect.value;
@@ -195,113 +158,31 @@
             });
         }
 
-        // Panel Group still needs a full reload (rather than the quieter
-        // in-place update Date/Time use below) since changing it can also
-        // change the school-scoped referral/member lists shown elsewhere on
-        // the page, not just its own field.
-        function submitDetailsAndReload() {
-            submitDetails().then(function () { window.location.reload(); });
-        }
-
-        // Date input's raw value is already ISO (YYYY-MM-DD), matching the
-        // unfiltered {{ panel.date }} used in the subtitle - and the time
-        // input's HH:MM matches the subtitle's |time:'H:i' filter - so the
-        // subtitle can be kept in sync with a plain string copy, no reload
-        // or round-trip to the server needed.
-        function updateSubtitle() {
-            var dateSpan = document.getElementById('panel-subtitle-date');
-            var timeWrap = document.getElementById('panel-subtitle-time-wrap');
-            var timeSpan = document.getElementById('panel-subtitle-time');
-            if (dateSpan && dateInput) dateSpan.textContent = dateInput.value;
-            if (timeWrap && timeSpan && timeInput) {
-                timeWrap.hidden = !timeInput.value;
-                if (timeInput.value) timeSpan.textContent = timeInput.value;
-            }
-            // Panel Summary's Date/Time mirror the subtitle's, same plain
-            // string copy - no reload needed to keep them in sync either.
-            var summaryDate = document.getElementById('panel-summary-date');
-            var summaryTimeWrap = document.getElementById('panel-summary-time-wrap');
-            var summaryTime = document.getElementById('panel-summary-time');
-            if (summaryDate && dateInput) summaryDate.textContent = dateInput.value;
-            if (summaryTimeWrap && summaryTime && timeInput) {
-                summaryTimeWrap.hidden = !timeInput.value;
-                if (timeInput.value) summaryTime.textContent = timeInput.value;
-            }
-        }
-
-        if (detailsForm) {
-            if (dateInput) dateInput.addEventListener('change', function () {
-                updateSubtitle();
-                submitDetails();
-            });
-            if (timeInput) timeInput.addEventListener('change', function () {
-                updateSubtitle();
-                submitDetails();
-            });
-            if (chairSelect) chairSelect.addEventListener('change', function () {
+        // Chair stays directly editable from the summary itself, on its own
+        // standalone autosave (deliberately not part of the shared Edit
+        // Panel Settings dialog - it's changed often enough not to warrant
+        // a dialog round-trip) - see the update_chair action in
+        // inclusion_panel_meeting_setup (views.py).
+        if (chairSelect) {
+            chairSelect.addEventListener('change', function () {
                 updateChairPills();
-                submitDetails();
+                // csrfmiddlewaretoken read off any csrf_token input already
+                // on the page (here, the Ready toggle's own form carries
+                // one) - Django's CSRF check only cares that the POST body
+                // has a valid token, not which <form> it visually belongs
+                // to. Same lookup panel.js's own postForm() uses.
+                var csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams({
+                        form_action: 'update_chair',
+                        chair: chairSelect.value,
+                        csrfmiddlewaretoken: csrfInput ? csrfInput.value : '',
+                    }),
+                });
             });
         }
-
-        var placeholderOption = groupSelect.querySelector('option[value=""]');
-        var allGroupOptions = Array.prototype.slice.call(groupSelect.options).filter(function (opt) {
-            return opt.value !== '';
-        });
-
-        function applyChair() {
-            if (!chairSelect) return;
-            var opt = groupSelect.options[groupSelect.selectedIndex];
-            var defaultChair = opt ? opt.dataset.defaultChair : '';
-            if (defaultChair) chairSelect.value = defaultChair;
-            updateChairPills();
-        }
-
-        function resolveSchoolId() {
-            return window.resolvePanelSchoolFilter
-                ? window.resolvePanelSchoolFilter(allGroupOptions, groupSelect.dataset.currentStaffSchool)
-                : '';
-        }
-
-        function filterGroupsBySchool() {
-            var schoolId = resolveSchoolId();
-            var previousValue = groupSelect.value;
-            groupSelect.innerHTML = '';
-            if (placeholderOption) groupSelect.appendChild(placeholderOption);
-            var visible = [];
-            allGroupOptions.forEach(function (opt) {
-                if (!schoolId || opt.dataset.school === schoolId) {
-                    groupSelect.appendChild(opt);
-                    visible.push(opt);
-                }
-            });
-
-            if (visible.some(function (opt) { return opt.value === previousValue; })) {
-                groupSelect.value = previousValue;
-            } else if (visible.length === 1) {
-                groupSelect.value = visible[0].value;
-                applyChair();
-            }
-        }
-
-        filterGroupsBySchool();
-
-        groupSelect.addEventListener('change', function () {
-            applyChair();
-            submitDetailsAndReload();
-        });
-
-        document.addEventListener('panel-group:created', function (e) {
-            var group = e.detail;
-            var opt = document.createElement('option');
-            opt.value = group.id;
-            opt.dataset.school = group.school_id || '';
-            opt.textContent = group.name;
-            allGroupOptions.push(opt);
-            filterGroupsBySchool();
-            groupSelect.value = group.id;
-            applyChair();
-        });
 
         // The Members section (right below) is read-only here - it just
         // mirrors this panel's Panel Group roster, edited via the "Edit"
@@ -316,7 +197,7 @@
         // below) and swap in just the Members list.
         document.addEventListener('panel-group:updated', function (e) {
             var detail = e.detail;
-            if (!detail || String(detail.id) !== groupSelect.value) return;
+            if (!detail || String(detail.id) !== currentPanelGroupId) return;
             fetch(window.location.pathname, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (res) { return res.text(); })
                 .then(function (html) {

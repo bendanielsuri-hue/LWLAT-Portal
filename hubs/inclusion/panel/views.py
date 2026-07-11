@@ -1450,41 +1450,70 @@ def inclusion_panel_meetings(request):
     })
 
 
-def inclusion_panel_meeting_new(request):
+def inclusion_panel_meeting_new(request, panel_id=None):
+    # One dialog/template (_panel_meeting_form_modal.html) serves both
+    # "Create Panel Meeting" (panel_id is None) and "Edit Panel Settings"
+    # (panel_id set) - they share the same School/Panel Group/Date/Time
+    # fields and the same explicit-Save submit model, so a single view
+    # branching on whether `panel` exists is more honest than two near-
+    # duplicate ones. Chair is deliberately not part of this form in
+    # either mode - it stays directly editable from the Panel Settings
+    # summary itself (see inclusion_panel_meeting_setup's `update_chair`
+    # action), independent of this dialog.
+    panel = get_object_or_404(Panel, pk=panel_id) if panel_id else None
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if request.method == 'POST':
         date = request.POST.get('date')
-        parsed_date = datetime.date.fromisoformat(date) if date else timezone.localdate()
-        if parsed_date < timezone.localdate():
-            parsed_date = timezone.localdate()
-        panel = Panel.objects.create(
-            date=parsed_date,
-            time=request.POST.get('time') or None,
-            panel_group_id=request.POST.get('panel_group') or None,
-        )
+
+        if panel is None:
+            parsed_date = datetime.date.fromisoformat(date) if date else timezone.localdate()
+            if parsed_date < timezone.localdate():
+                parsed_date = timezone.localdate()
+            panel = Panel.objects.create(
+                date=parsed_date,
+                time=request.POST.get('time') or None,
+                panel_group_id=request.POST.get('panel_group') or None,
+            )
+        else:
+            panel.update_details(
+                date=datetime.date.fromisoformat(date) if date else None,
+                time=request.POST.get('time') or None,
+                chair_id=panel.chair_id,
+                panel_group_id=request.POST.get('panel_group') or None,
+            )
+
         setup_url = reverse('inclusion_panel_meeting_setup', args=[panel.id])
         if is_ajax:
             return JsonResponse({'success': True, 'redirect': setup_url})
         return redirect(setup_url)
 
-    school_key = current_school_key(request)
-    if school_key in (None, '', 'all'):
-        schools = School.objects.filter(is_active=True).order_by('name')
-    elif school_key in ('primary', 'secondary'):
-        schools = School.objects.filter(is_active=True, category=school_key.capitalize())
-    else:
-        schools = School.objects.filter(is_active=True, pk=school_key)
-    selected_school = schools.first() if schools.count() == 1 else None
+    # School is only ever a field on this form in create mode - an
+    # existing Panel has no school of its own (only via panel.panel_group.
+    # school, itself nullable), so editing one never shows or sets it
+    # directly, same as before the two dialogs were merged.
+    schools = selected_school_id = school_locked = None
+    if panel is None:
+        school_key = current_school_key(request)
+        if school_key in (None, '', 'all'):
+            schools = School.objects.filter(is_active=True).order_by('name')
+        elif school_key in ('primary', 'secondary'):
+            schools = School.objects.filter(is_active=True, category=school_key.capitalize())
+        else:
+            schools = School.objects.filter(is_active=True, pk=school_key)
+        selected_school = schools.first() if schools.count() == 1 else None
+        selected_school_id = selected_school.id if selected_school else ''
+        school_locked = selected_school is not None
 
     return render(request, 'hubs/inclusion/panel/_panel_meeting_form_modal.html', {
         **_panel_base_context(request),
+        'panel': panel,
         'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school'),
         'today': timezone.localdate(),
         'current_staff': _current_staff(request),
         'schools': schools,
-        'selected_school_id': selected_school.id if selected_school else '',
-        'school_locked': selected_school is not None,
+        'selected_school_id': selected_school_id,
+        'school_locked': school_locked,
     })
 
 
@@ -1540,14 +1569,17 @@ def inclusion_panel_meeting_setup(request, panel_id):
 
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action == 'update_details':
-            new_date = request.POST.get('date')
-            panel.update_details(
-                date=datetime.date.fromisoformat(new_date) if new_date else None,
-                time=request.POST.get('time') or None,
-                chair_id=request.POST.get('chair') or None,
-                panel_group_id=request.POST.get('panel_group') or None,
-            )
+        if action == 'update_chair':
+            # Deliberately its own narrow action rather than routing
+            # through Panel.update_details() - that method unconditionally
+            # overwrites time/panel_group_id too (fine when a shared Save
+            # button submits all of them together, as
+            # inclusion_panel_meeting_new's edit-mode POST does), which
+            # would silently wipe them here since Chair is the one field
+            # in this dialog's summary still submitted on its own, standalone
+            # from Date/Time/Panel Group's Edit dialog.
+            panel.chair_id = request.POST.get('chair') or None
+            panel.save(update_fields=['chair_id'])
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
         elif action in ('add_referral', 'add_followup_to_agenda'):
