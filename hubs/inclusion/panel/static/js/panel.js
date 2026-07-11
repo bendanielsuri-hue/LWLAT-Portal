@@ -106,6 +106,45 @@ window.closeModalWithFadeOut = function (dialog) {
     dialog.close();
 };
 
+// Animates a dialog.modal-dialog's height across a content swap (e.g.
+// showing/hiding sections in place) via the `height` transition it already
+// declares in CSS (components/panel.css) but otherwise never uses, since
+// `height: auto` can't itself be transitioned — snapshot the current
+// rendered height, run `mutate` (the actual DOM change), then measure the
+// new natural height (scrollHeight) and transition to that explicit pixel
+// value, clearing back to `height: auto` once the transition's had time to
+// finish so later content changes aren't pinned to a stale pixel height.
+// A no-op dialog (not open, e.g. content swapped before first showModal())
+// just runs `mutate` immediately - nothing to animate from.
+//
+// Calls on the same dialog can overlap (e.g. openInlinePanelGroupCreate's
+// "show loading" swap immediately followed by "loading -> loaded content"
+// once the fetch resolves, which can easily land inside the first swap's
+// own transition window) - the pending clear-to-auto from an earlier call
+// is tracked per dialog (via a property stashed on the element itself, not
+// a module-level map, since there's exactly one timer that ever matters
+// per dialog at a time) and cancelled before scheduling a new one, so an
+// in-flight later transition never gets snapped back to `auto` mid-way by
+// a stale timer from the call before it.
+window.animateModalHeightChange = function (dialog, mutate) {
+    if (!dialog || !dialog.open) {
+        if (mutate) mutate();
+        return;
+    }
+    if (dialog._heightClearTimer) clearTimeout(dialog._heightClearTimer);
+    var duration = parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 450;
+    var startHeight = dialog.getBoundingClientRect().height;
+    dialog.style.height = startHeight + 'px';
+    mutate();
+    requestAnimationFrame(function () {
+        dialog.style.height = dialog.scrollHeight + 'px';
+    });
+    dialog._heightClearTimer = setTimeout(function () {
+        dialog.style.height = '';
+        dialog._heightClearTimer = null;
+    }, duration);
+};
+
 (function () {
     var dialog = document.getElementById('new-referral-dialog');
     if (!dialog) return;
@@ -144,26 +183,12 @@ window.closeModalWithFadeOut = function (dialog) {
             });
     }
 
-    function getModalDuration() {
-        return parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 450;
-    }
-
     function closeModal() {
         window.closeModalWithFadeOut(dialog);
     }
 
     function animateHeightChange(mutate) {
-        if (!dialog.open) {
-            mutate();
-            return;
-        }
-        var startHeight = dialog.getBoundingClientRect().height;
-        dialog.style.height = startHeight + 'px';
-        mutate();
-        requestAnimationFrame(function () {
-            dialog.style.height = dialog.scrollHeight + 'px';
-        });
-        setTimeout(function () { dialog.style.height = ''; }, getModalDuration());
+        window.animateModalHeightChange(dialog, mutate);
     }
 
     function wireStudentPicker() {
@@ -649,12 +674,8 @@ window.closeModalWithFadeOut = function (dialog) {
     // opens as before.
     window.uiSelectRowAdders = window.uiSelectRowAdders || {};
     window.uiSelectRowAdders['panel-group'] = function (select, trigger) {
-        var schoolId = '';
-        if (select) {
-            var options = Array.prototype.slice.call(select.options).filter(function (opt) { return opt.value; });
-            schoolId = window.resolvePanelSchoolFilter(options, select.dataset.currentStaffSchool);
-        }
         var hostDialog = trigger && trigger.closest('dialog[open]');
+        var schoolId = resolveCreateGroupSchoolId(select, hostDialog);
         if (hostDialog) {
             openInlinePanelGroupCreate(hostDialog, select, schoolId);
             return;
@@ -662,20 +683,55 @@ window.closeModalWithFadeOut = function (dialog) {
         window.openPanelGroupModal(schoolId);
     };
 
-    // Swaps `hostDialog`'s .modal-body over to a bare "New Panel Group"
-    // create form (fetched from the same groups/new/ endpoint
-    // openPanelGroupModal uses), in place of whatever form fields the host
-    // modal normally shows. The original content is wrapped and hidden
-    // (never removed), so any in-progress edits elsewhere in that form
-    // (e.g. Date/Time already picked) survive untouched. On success,
-    // dispatches the same `panel-group:created` event the full
-    // #panel-group-dialog flow already dispatches — every host page
-    // listens for that itself (see meeting_setup.html /
-    // _panel_meeting_form_modal.html's own panel-group:created handlers)
-    // to add the new option and select it, so this function doesn't need
-    // to know anything about the host's own select-refresh logic.
+    // Which school to preselect on the create-group form, most-specific
+    // signal first:
+    //  1. The host modal's own explicit School select (Create Panel
+    //     Meeting's data-panel-school-select) - the most deliberate choice
+    //     available, since the user picked it themselves in this same form.
+    //  2. The Panel Group select's own currently-selected option's school,
+    //     when a group is already chosen (Edit Panel Settings on a Panel
+    //     that already has one) - Panel has no school field of its own,
+    //     only via panel.panel_group.school, but the select's selected
+    //     <option> already carries that as data-school.
+    //  3. The sidebar School-switcher filter (resolvePanelSchoolFilter) -
+    //     today's only signal, still the right fallback when neither of
+    //     the above apply (e.g. no group chosen yet, or called from
+    //     outside any dialog).
+    function resolveCreateGroupSchoolId(select, hostDialog) {
+        var hostSchoolSelect = hostDialog && hostDialog.querySelector('[data-panel-school-select]');
+        if (hostSchoolSelect && hostSchoolSelect.value) return hostSchoolSelect.value;
+
+        if (select && select.value) {
+            var current = select.options[select.selectedIndex];
+            if (current && current.dataset.school) return current.dataset.school;
+        }
+
+        if (select) {
+            var options = Array.prototype.slice.call(select.options).filter(function (opt) { return opt.value; });
+            return window.resolvePanelSchoolFilter(options, select.dataset.currentStaffSchool);
+        }
+        return '';
+    }
+
+    // Swaps `hostDialog`'s .modal-body over to a bare "Create Panel Group"
+    // form (fetched from the same groups/new/ endpoint openPanelGroupModal
+    // uses), in place of whatever form fields the host modal normally
+    // shows. The original content is wrapped and hidden (never removed),
+    // so any in-progress edits elsewhere in that form (e.g. Date/Time
+    // already picked) survive untouched. Every content swap - showing the
+    // create form, replacing "Loading…" with the fetched fields, and
+    // restoring the original content - runs through
+    // window.animateModalHeightChange so the dialog eases to its new
+    // height instead of snapping. On success, dispatches the same
+    // `panel-group:created` event the full #panel-group-dialog flow
+    // already dispatches — every host page listens for that itself (see
+    // meeting_setup.html / _panel_meeting_form_modal.html's own
+    // panel-group:created handlers) to add the new option and select it,
+    // so this function doesn't need to know anything about the host's own
+    // select-refresh logic.
     function openInlinePanelGroupCreate(hostDialog, select, schoolId) {
         var body = hostDialog.querySelector('.modal-body');
+        var titleEl = hostDialog.querySelector('.modal-header h2');
         if (!body) { window.openPanelGroupModal(schoolId); return; }
 
         var original = body.querySelector('[data-inline-create-original]');
@@ -692,15 +748,23 @@ window.closeModalWithFadeOut = function (dialog) {
             body.appendChild(host);
         }
 
+        var originalTitle = titleEl ? titleEl.textContent : '';
+
         function restore() {
-            host.hidden = true;
-            host.innerHTML = '';
-            original.hidden = false;
+            window.animateModalHeightChange(hostDialog, function () {
+                host.hidden = true;
+                host.innerHTML = '';
+                original.hidden = false;
+                if (titleEl) titleEl.textContent = originalTitle;
+            });
         }
 
-        original.hidden = true;
-        host.hidden = false;
-        host.innerHTML = '<p class="empty-note">Loading…</p>';
+        window.animateModalHeightChange(hostDialog, function () {
+            original.hidden = true;
+            host.hidden = false;
+            host.innerHTML = '<p class="empty-note">Loading…</p>';
+            if (titleEl) titleEl.textContent = 'Create Panel Group';
+        });
 
         var url = '/inclusion/panel/groups/new/?';
         if (schoolId) url += 'school=' + encodeURIComponent(schoolId);
@@ -709,13 +773,7 @@ window.closeModalWithFadeOut = function (dialog) {
             .then(function (html) {
                 var doc = new DOMParser().parseFromString(html, 'text/html');
                 var form = doc.querySelector('[data-panel-group-form-action="create_group"]');
-                host.innerHTML = '';
                 if (!form) { restore(); return; }
-
-                var heading = document.createElement('h3');
-                heading.className = 'inline-create-heading';
-                heading.textContent = 'New Panel Group';
-                host.appendChild(heading);
 
                 var errorNote = document.createElement('p');
                 errorNote.className = 'field-error';
@@ -727,8 +785,41 @@ window.closeModalWithFadeOut = function (dialog) {
                 // attribute below, but the message shouldn't lie if it does.
                 errorNote.textContent = "Couldn't create this group — check the name and school.";
 
-                host.appendChild(form);
-                host.appendChild(errorNote);
+                // Name (and School, when it isn't already preselected into
+                // a hidden input server-side - see preselect_school_id in
+                // _panel_group_form_modal.html) get the same fused-label
+                // treatment as every other field in this modal, instead of
+                // the standalone dialog's plain label-above-input style —
+                // consistent with the Date/Time/Panel Group fields this
+                // form is standing in for. Each field group's own
+                // label/control pair is moved as-is, not rebuilt, so
+                // nothing about validation/ids/for-attributes changes.
+                var fieldsWrap = document.createElement('div');
+                fieldsWrap.className = 'ui-fused-field-group';
+                Array.prototype.slice.call(form.querySelectorAll(':scope > .field-group')).forEach(function (fieldGroup) {
+                    var label = fieldGroup.querySelector('label');
+                    var control = fieldGroup.querySelector('input, select');
+                    if (!label || !control) { fieldsWrap.appendChild(fieldGroup); return; }
+                    var fused = document.createElement('span');
+                    fused.className = 'ui-fused-field';
+                    label.className = 'ui-fused-field-label';
+                    fused.appendChild(label);
+                    fused.appendChild(control);
+                    fieldsWrap.appendChild(fused);
+                });
+                form.insertBefore(fieldsWrap, form.firstChild);
+                // The template's own sticky-row class put Name/School and
+                // the Cancel/Create buttons in one shared flex row - now
+                // split into its own fields row (above) and .btn-row
+                // (already the template's own class, left as the form's
+                // last child), so Cancel/Create get a row of their own.
+                form.classList.remove('panel-group-modal-sticky-row');
+
+                window.animateModalHeightChange(hostDialog, function () {
+                    host.innerHTML = '';
+                    host.appendChild(form);
+                    host.appendChild(errorNote);
+                });
                 window.enhanceFormControls(host);
 
                 // The template's Create Group button starts `disabled`,

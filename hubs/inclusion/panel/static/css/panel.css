@@ -1792,37 +1792,38 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 #panel-group-dialog .panel-group-modal-header .field-group { margin-bottom: 0; }
 /* New Panel Group form only (no group yet, so none of the scroll/tabs/member
    markup above exists) - Name + School + the Cancel/Create buttons share one
-   row inside the header. Also matches [data-inline-create-host] (panel.js's
-   openInlinePanelGroupCreate) - the same create-group fragment, fetched from
-   the same endpoint, gets swapped into a *different* modal (Create Panel
-   Meeting/Edit Panel Settings) instead of #panel-group-dialog when the "+"
-   is clicked from inside one of those, so the layout rule needs to follow
-   it there too rather than staying scoped to one specific dialog's id. */
-#panel-group-dialog .panel-group-modal-sticky-row,
-[data-inline-create-host] .panel-group-modal-sticky-row {
+   row inside the header. #panel-group-dialog only: openInlinePanelGroupCreate
+   (panel.js) strips this class off the same fetched form when swapping it
+   into a *different* modal (Create Panel Meeting/Edit Panel Settings)
+   instead, in favour of .ui-fused-field-group + its own .btn-row (below) -
+   see DesignLanguage.md's "Inline creation swap" for why. */
+#panel-group-dialog .panel-group-modal-sticky-row {
     display: flex;
     align-items: flex-end;
     gap: var(--space-md);
 }
-#panel-group-dialog .panel-group-modal-sticky-row .field-group,
-[data-inline-create-host] .panel-group-modal-sticky-row .field-group {
+#panel-group-dialog .panel-group-modal-sticky-row .field-group {
     flex: 1;
     margin-bottom: 0;
     min-width: 0;
 }
-/* openInlinePanelGroupCreate's own "New Panel Group" heading and duplicate-
-   name error, shown above/below that same swapped-in create form. */
-[data-inline-create-host] .inline-create-heading {
-    margin: 0 0 var(--space-sm);
-    font-size: var(--font-sm);
-    font-weight: 600;
-    color: var(--text-secondary);
-}
+/* openInlinePanelGroupCreate's own duplicate-name error, shown below the
+   swapped-in create form's button row. */
 [data-inline-create-host] .field-error {
     margin: var(--space-sm) 0 0;
     font-size: var(--font-sm);
     color: var(--color-negative);
 }
+/* openInlinePanelGroupCreate's swapped-in create form: Name/School as
+   .ui-fused-field-group (see components/forms.css) instead of the
+   standalone dialog's plain label-above-input .field-group. Cancel/Create
+   already land in their own row for free - .btn-row's own
+   dialog.modal-dialog .btn-row rule (components/buttons.css) applies here
+   too, same as every other in-modal button row - the only thing this
+   swap actually changes is no longer sharing that row with the fields
+   (contrast #panel-group-dialog's .panel-group-modal-sticky-row above,
+   which keeps everything in one row). */
+[data-inline-create-host] .ui-fused-field-group { margin-bottom: var(--space-md); }
 #panel-group-dialog .panel-group-modal-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* Lets the Default Chair / External pills sit inline right after the
    member's name instead of dropping to their own line below, unlike every
