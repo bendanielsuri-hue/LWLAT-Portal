@@ -135,18 +135,28 @@ window.animateModalHeightChange = function (dialog, mutate) {
     var duration = parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 450;
     var startHeight = dialog.getBoundingClientRect().height;
     dialog.style.height = startHeight + 'px';
-    // Force a synchronous layout flush here, or the browser is free to
-    // batch this style write together with `mutate`'s DOM changes and the
-    // rAF callback's target-height write below into a single style/layout
-    // pass — since none of the three would ever get its own paint, the
-    // "start" height is never actually rendered and the transition has
-    // nothing to interpolate from, so it jumps straight to the end state
-    // instead of easing. Same fix closeModalWithFadeOut already documents
-    // needing (`void ghost.offsetHeight`) for the identical reason.
+    // Force a synchronous layout flush so this first height write is
+    // committed as a real, distinct value (not coalesced with whatever
+    // came before it) before `mutate` runs — same fix closeModalWithFadeOut
+    // already documents needing (`void ghost.offsetHeight`) for the
+    // identical reason.
     void dialog.offsetHeight;
     mutate();
+    // A *single* rAF here still isn't enough: a requestAnimationFrame
+    // callback requested from ordinary script (not from inside another
+    // rAF callback) runs in the browser's very next "update the
+    // rendering" step, before that step's own paint — so setting the
+    // target height there lands in the same rendering opportunity as the
+    // mutation above, and the browser only ever paints once, straight at
+    // the final height, with the start height never actually rendered to
+    // transition from. Nesting a second rAF defers the target-height
+    // write to the *following* rendering opportunity, guaranteeing a real
+    // paint at the start height happens first, which is what the CSS
+    // transition needs as its "before" value.
     requestAnimationFrame(function () {
-        dialog.style.height = dialog.scrollHeight + 'px';
+        requestAnimationFrame(function () {
+            dialog.style.height = dialog.scrollHeight + 'px';
+        });
     });
     dialog._heightClearTimer = setTimeout(function () {
         dialog.style.height = '';
