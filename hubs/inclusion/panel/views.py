@@ -820,15 +820,40 @@ def inclusion_panel_students(request):
     return render(request, template, context)
 
 
-
 def inclusion_panel_referrals(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
     scoped_students = student_queryset_for_school_key(school_key)
-    referrals = InclusionReferral.objects.filter(student__in=scoped_students).select_related('student').prefetch_related(
-        'responses__question', 'panel_referrals',
-    )
     today = timezone.localdate()
     current_staff = _current_staff(request)
+
+    name_filter = request.GET.get('name') or ''
+    section_filter = request.GET.get('section') or ''
+    status_filter = request.GET.get('status') or ''
+    raised_by_filter = request.GET.get('raised_by') or ''
+
+    referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related('student').prefetch_related(
+        'responses__question', 'panel_referrals',
+    )
+    if name_filter:
+        referrals_qs = referrals_qs.filter(
+            Q(student__first_name__icontains=name_filter) | Q(student__last_name__icontains=name_filter)
+        )
+    if status_filter == 'active':
+        referrals_qs = referrals_qs.exclude(status='closed')
+    elif status_filter:
+        referrals_qs = referrals_qs.filter(status=status_filter)
+    if raised_by_filter == 'unassigned':
+        referrals_qs = referrals_qs.filter(raised_by__isnull=True)
+    elif raised_by_filter:
+        referrals_qs = referrals_qs.filter(raised_by_id=raised_by_filter)
+
+    # is_unassigned/is_due_follow_up read the already-prefetched panel_referrals
+    # in Python (same as before) rather than an ORM filter - unassigned in
+    # particular needs an exclude() across a multi-valued relation that's easy
+    # to get subtly wrong, and referrals_qs is already narrowed by the filters
+    # above first, so this loop runs over a bounded set, not every referral.
+    referrals = list(referrals_qs)
     for referral in referrals:
         referral.is_unassigned = _is_referral_unassigned(referral)
         referral.is_due_follow_up = any(
@@ -840,14 +865,29 @@ def inclusion_panel_referrals(request):
             referral.is_unassigned and current_staff is not None and referral.raised_by_id == current_staff.id
         )
         referral.concern_category = _primary_concern_category(referral)
-    return render(request, 'hubs/inclusion/panel/referrals.html', {
+
+    if section_filter == 'unassigned':
+        referrals = [r for r in referrals if r.is_unassigned]
+    elif section_filter == 'due_follow_up':
+        referrals = [r for r in referrals if r.is_due_follow_up]
+
+    active_filter_count = sum(1 for v in (name_filter, section_filter, status_filter, raised_by_filter) if v)
+
+    context = {
         **_panel_base_context(request),
         'referrals': referrals,
         'status_choices': InclusionReferral.STATUS_CHOICES,
         'staff_list': staff_queryset_for_school_key(school_key),
-        'students_count': scoped_students.filter(referrals__isnull=False).distinct().count(),
-        'actions_count': Action.objects.filter(referral__in=referrals).count(),
-    })
+        'name_filter': name_filter,
+        'section_filter': section_filter,
+        'status_filter': status_filter,
+        'raised_by_filter': raised_by_filter,
+        'active_filter_count': active_filter_count,
+        'students_count': len({r.student_id for r in referrals}),
+        'actions_count': sum(r.actions_count for r in referrals),
+    }
+    template = 'hubs/inclusion/panel/_referrals_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/referrals.html'
+    return render(request, template, context)
 
 
 def inclusion_panel_referral_new(request):
