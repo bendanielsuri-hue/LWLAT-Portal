@@ -1232,17 +1232,57 @@ def inclusion_panel_escalation_resolve(request, escalation_id):
 
 
 def inclusion_panel_actions(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
     current_staff = _current_staff(request)
-    actions = Action.objects.filter(referral__student__in=student_queryset_for_school_key(school_key)).select_related(
-        'referral__student', 'assigned_to', 'category',
-    )
-    actions = visible_actions_for(current_staff, actions)
-    categories = visible_categories_for(current_staff)
     today = timezone.localdate()
     week_start = today - datetime.timedelta(days=today.weekday())
     week_end = week_start + datetime.timedelta(days=6)
-    return render(request, 'hubs/inclusion/panel/actions.html', {
+
+    name_filter = request.GET.get('name') or ''
+    category_filter = request.GET.get('category') or ''
+    assigned_filter = request.GET.get('assigned') or ''
+    status_filter = request.GET.get('status') or ''
+    overdue_filter = request.GET.get('overdue') == '1'
+    due_this_week_filter = request.GET.get('due_this_week') == '1'
+    assigned_to_me_filter = request.GET.get('assigned_to_me') == '1' and current_staff is not None
+
+    actions_qs = Action.objects.filter(referral__student__in=student_queryset_for_school_key(school_key)).select_related(
+        'referral__student', 'assigned_to', 'category',
+    )
+    actions_qs = visible_actions_for(current_staff, actions_qs)
+    categories = visible_categories_for(current_staff)
+
+    if name_filter:
+        actions_qs = actions_qs.filter(
+            Q(referral__student__first_name__icontains=name_filter)
+            | Q(referral__student__last_name__icontains=name_filter)
+        )
+    if category_filter:
+        actions_qs = actions_qs.filter(category_id=category_filter)
+    if assigned_to_me_filter:
+        actions_qs = actions_qs.filter(assigned_to_id=current_staff.id)
+    elif assigned_filter == 'unassigned':
+        actions_qs = actions_qs.filter(assigned_to__isnull=True)
+    elif assigned_filter:
+        actions_qs = actions_qs.filter(assigned_to_id=assigned_filter)
+    if status_filter:
+        actions_qs = actions_qs.filter(status=status_filter)
+    if overdue_filter:
+        actions_qs = actions_qs.filter(status='incomplete', due_date__lt=today)
+    if due_this_week_filter:
+        actions_qs = actions_qs.filter(status='incomplete', due_date__gte=week_start, due_date__lte=week_end)
+
+    actions = list(actions_qs)
+
+    active_filter_count = sum(
+        1 for v in (
+            name_filter, category_filter, assigned_filter, status_filter,
+            overdue_filter, due_this_week_filter, assigned_to_me_filter,
+        ) if v
+    )
+
+    context = {
         **_panel_base_context(request),
         'actions': actions,
         'categories': categories,
@@ -1251,10 +1291,20 @@ def inclusion_panel_actions(request):
         'today': today,
         'week_start': week_start,
         'week_end': week_end,
-        'actions_count': actions.count(),
-        'students_count': Student.objects.filter(referrals__actions__in=actions).distinct().count(),
-        'referrals_count': InclusionReferral.objects.filter(actions__in=actions).distinct().count(),
-    })
+        'name_filter': name_filter,
+        'category_filter': category_filter,
+        'assigned_filter': assigned_filter,
+        'status_filter': status_filter,
+        'overdue_filter': overdue_filter,
+        'due_this_week_filter': due_this_week_filter,
+        'assigned_to_me_filter': assigned_to_me_filter,
+        'active_filter_count': active_filter_count,
+        'actions_count': len(actions),
+        'students_count': len({a.referral.student_id for a in actions}),
+        'referrals_count': len({a.referral_id for a in actions}),
+    }
+    template = 'hubs/inclusion/panel/_actions_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/actions.html'
+    return render(request, template, context)
 
 
 def inclusion_panel_action_new(request, referral_id):

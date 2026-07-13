@@ -1,0 +1,32 @@
+{% load static %}
+<div class="list-card">
+<div class="entity-list" data-selectable="single">
+    {% for action in actions %}
+    <div class="entity-row selectable action-row" tabindex="0" role="button" aria-pressed="false">
+        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+        <div class="entity-body">
+            <div class="entity-title">{{ action.referral.student }}</div>
+            <div class="entity-meta">{{ action.category|default:"No category" }} &middot; Assigned: {{ action.assigned_to|default:"Unassigned" }} &middot; Due: {{ action.due_date|default:"—" }} &middot; <span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span></div>
+            {% if action.note %}<div class="entity-meta">{{ action.note }}</div>{% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <p class="empty-note">No actions yet.</p>
+    {% endfor %}
+</div>
+</div>
+
+<div class="stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ actions_count }}</div>
+        <div class="stat-label">Actions</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ referrals_count }}</div>
+        <div class="stat-label">Referrals</div>
+    </div>
+</div>
