@@ -1,13 +1,102 @@
 {% load static %}
 <div class="list-card">
 <div class="entity-list" data-selectable="single">
+    {% comment %}
+    PROTOTYPE (issue #12) — row-detail for "Actions — richer row detail",
+    reusing the shape confirmed on Students (#8) / Referrals (#10): school
+    logo (aggregate views only) + name + interpunct separator + Category
+    (same weight as name) + status pill + an Overdue callout pill when
+    applicable. Note (the action's own free-text description) sits above
+    the facts row's divider, right under the title row - full-width, since
+    it's often long freeform text that doesn't fit a fixed-width column.
+    Facts row groups below that divider - Created At/Created By, Assigned
+    To/Due - dividers sized to the widest value actually present (ch
+    units, capped). A third group was tried and dropped across several
+    rounds - Referral Priority, then Concern Category, then a per-student
+    Total Complete/Total Incomplete count (Action is FK'd to a Referral,
+    not a Student directly, and a student can have more than one referral -
+    a per-student aggregate didn't actually belong on a per-action row) -
+    landed on just the two groups above. Created At/By are FAKED stand-ins
+    (Action has neither field yet): At from origin_panel_referral.panel.date,
+    By from that panel's chair - blank for actions with no
+    origin_panel_referral (e.g. added from the standalone Actions page).
+    Real created_at/created_by fields + a seed change so every demo action
+    traces back to a discussion are flagged for the /implement pass, same
+    treatment as Students' House field in #8. Right-hand button column
+    (.proto-btn-row-stacked) is two stacked rows: the Action Status
+    control on its own row on top, then Referral Details + primary "Edit
+    Action" in a row below. The status control went through two tries:
+    separate Mark Complete/Mark Not Required/Reopen buttons, then a fused
+    status-pill <select> - landed on a `.ui-segmented` control (3
+    always-visible buttons, one per STATUS_CHOICES value) instead, per
+    DesignLanguage.md's own rule: "for any control with 3 or fewer static
+    options, always show every option as its own button... never hide
+    them behind a <select>" - exactly this control's shape. Each segmented
+    button is its own `<button type="submit" name="status"
+    value="...">`, so clicking one submits that exact value with no JS at
+    all. Posts to the existing inclusion_panel_action_set_status endpoint;
+    a plain full-page-reload submit, since that view's AJAX branch is
+    hardcoded to re-render the Home page's My Actions fragment
+    specifically - wiring an in-place row update for this page is
+    /implement-pass polish, not a row-detail decision. `.ui-segmented`'s
+    default border/divider colour was promoted from --border-color to
+    --border-strong globally (components/forms.css) rather than overridden
+    just here - it reads more clearly everywhere the control is used, not
+    only in this compact row (see DesignLanguage.md's "Segmented control").
+
+    BUG FIX: the row's own class used to be "action-row", which collides
+    with an unrelated bare `.action-row { flex-direction: column }` rule
+    already in panel.css (a referral-history-style component, see its own
+    comment around line 1584) - that rule silently overrode this row's
+    normal thumb-beside-body layout, stacking the avatar above the title
+    and leaving the dead space reported against this row. Renamed to
+    "actions-list-row" (no JS/CSS depended on the old name).
+    {% endcomment %}
     {% for action in actions %}
-    <div class="entity-row selectable action-row" tabindex="0" role="button" aria-pressed="false">
+    <div class="entity-row selectable actions-list-row" tabindex="0" role="button" aria-pressed="false">
         <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
         <div class="entity-body">
-            <div class="entity-title">{{ action.referral.student }}</div>
-            <div class="entity-meta">{{ action.category|default:"No category" }} &middot; Assigned: {{ action.assigned_to|default:"Unassigned" }} &middot; Due: {{ action.due_date|default:"—" }} &middot; <span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span></div>
-            {% if action.note %}<div class="entity-meta">{{ action.note }}</div>{% endif %}
+            <div class="proto-title-row">
+                {% if is_aggregate_view %}
+                <span class="meeting-card-logo-inline">
+                    {% if action.referral.student.school.logo_url %}<img src="{{ action.referral.student.school.logo_url }}" alt="{{ action.referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+                </span>
+                {% endif %}
+                <div class="entity-title">{{ action.referral.student }}</div>
+                <span class="proto-title-sep">&middot;</span>
+                <div class="entity-title proto-concern-text">Category: {{ action.category|default:"—" }}</div>
+                <span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span>
+                {% if action.is_overdue %}
+                <span class="status-pill overdue_review">Overdue {{ action.days_overdue }}d</span>
+                {% endif %}
+            </div>
+            {% if action.note %}<div class="entity-meta proto-action-note">{{ action.note }}</div>{% endif %}
+            <div class="proto-facts proto-facts-cols">
+                <div class="proto-fact-col" style="width: {{ col_widths.created }}">
+                    <span>Created At: {{ action.created_date|date:"d M Y"|default:"—" }}</span>
+                    <span>Created By: {{ action.created_by|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="proto-fact-col" style="width: {{ col_widths.assigned }}">
+                    <span>Assigned to: {{ action.assigned_to|default:"Unassigned" }}</span>
+                    <span>Due: {{ action.due_date|date:"d M Y"|default:"—" }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="proto-btn-row proto-btn-row-stacked">
+            <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" data-action-status-form>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
+                <div class="ui-segmented">
+                    {% for value, label in status_choices %}
+                    <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
+                    {% endfor %}
+                </div>
+            </form>
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm btn-secondary" data-view-referral-trigger data-referral-id="{{ action.referral.id }}" data-next="{% url 'inclusion_panel_actions' %}">Referral Details</button>
+                <a href="{% url 'inclusion_panel_action_edit' action.id %}?next={% url 'inclusion_panel_actions' %}" class="btn btn-primary btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Action</a>
+            </div>
         </div>
     </div>
     {% empty %}
@@ -15,6 +104,21 @@
     {% endfor %}
 </div>
 </div>
+
+<style>
+.proto-title-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+.proto-title-row .meeting-card-logo-inline img { width: 16px; height: 16px; object-fit: contain; }
+.proto-title-sep { color: var(--text-faint); }
+.proto-facts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
+.proto-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
+.proto-facts-cols { gap: 10px; }
+.proto-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.proto-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proto-action-note { margin-top: var(--space-xs); }
+.entity-list[data-selectable] > .entity-row { align-items: stretch; }
+.entity-row > .proto-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
+.proto-btn-row-stacked { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-xs); }
+</style>
 
 <div class="stats-strip">
     <div class="stat-card">

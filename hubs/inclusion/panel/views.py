@@ -1234,6 +1234,7 @@ def inclusion_panel_escalation_resolve(request, escalation_id):
 def inclusion_panel_actions(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
     current_staff = _current_staff(request)
     today = timezone.localdate()
     week_start = today - datetime.timedelta(days=today.weekday())
@@ -1248,8 +1249,9 @@ def inclusion_panel_actions(request):
     assigned_to_me_filter = request.GET.get('assigned_to_me') == '1' and current_staff is not None
 
     actions_qs = Action.objects.filter(referral__student__in=student_queryset_for_school_key(school_key)).select_related(
-        'referral__student', 'assigned_to', 'category',
-    )
+        'referral__student', 'referral__student__school', 'assigned_to', 'category',
+        'origin_panel_referral__panel__chair',
+    ).prefetch_related('referral__responses__question')
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
 
@@ -1275,12 +1277,48 @@ def inclusion_panel_actions(request):
 
     actions = list(actions_qs)
 
+    # PROTOTYPE (issue #12) — richer row-detail candidates, reusing the
+    # shape confirmed on Students (#8) / Referrals (#10): title row (logo +
+    # name + Category, same weight as name) + grouped facts row.
+    for action in actions:
+        action.is_overdue = action.status == 'incomplete' and action.due_date is not None and action.due_date < today
+        action.days_overdue = (today - action.due_date).days if action.is_overdue else 0
+        # FAKED, flagged for /implement - Action has no created_at/created_by
+        # of its own yet. Stand-in only: Created At from the discussion's
+        # panel date, Created By from that panel's chair. Actions can also be
+        # added from the standalone Actions page with no origin_panel_referral
+        # at all, so both are best-effort, not a guarantee - real fields (plus
+        # a seed change so every demo action traces back to a discussion, per
+        # user request) are implement-pass work, same treatment as Students'
+        # House field in #8.
+        action.created_date = action.origin_panel_referral.panel.date if action.origin_panel_referral_id else None
+        action.created_by = (
+            action.origin_panel_referral.panel.chair if action.origin_panel_referral_id else None
+        )
+
     active_filter_count = sum(
         1 for v in (
             name_filter, category_filter, assigned_filter, status_filter,
             overdue_filter, due_this_week_filter, assigned_to_me_filter,
         ) if v
     )
+
+    def _col_width(strings, max_ch, min_ch=4):
+        longest = max((len(s) for s in strings), default=min_ch)
+        return f'{max(min_ch, min(longest, max_ch))}ch'
+
+    col_widths = {
+        'created': _col_width(
+            [f'Created At: {a.created_date:%d %b %Y}' if a.created_date else 'Created At: —' for a in actions]
+            + [f'Created By: {a.created_by}' if a.created_by else 'Created By: —' for a in actions],
+            max_ch=26,
+        ),
+        'assigned': _col_width(
+            [f'Assigned to: {a.assigned_to}' if a.assigned_to else 'Assigned to: Unassigned' for a in actions]
+            + [f'Due: {a.due_date:%d %b %Y}' if a.due_date else 'Due: —' for a in actions],
+            max_ch=26,
+        ),
+    }
 
     context = {
         **_panel_base_context(request),
@@ -1302,6 +1340,8 @@ def inclusion_panel_actions(request):
         'actions_count': len(actions),
         'students_count': len({a.referral.student_id for a in actions}),
         'referrals_count': len({a.referral_id for a in actions}),
+        'is_aggregate_view': is_aggregate_view,
+        'col_widths': col_widths,
     }
     template = 'hubs/inclusion/panel/_actions_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/actions.html'
     return render(request, template, context)
