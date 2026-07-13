@@ -370,6 +370,14 @@ def _primary_concern_category(referral):
     return None
 
 
+def _col_width(strings, max_ch, min_ch=4):
+    # Shared by Students/Referrals/Actions row-detail facts columns - each
+    # column's width is the longest label+value string actually present
+    # across every row currently displayed, clamped to [min_ch, max_ch].
+    longest = max((len(s) for s in strings), default=min_ch)
+    return f'{max(min_ch, min(longest, max_ch))}ch'
+
+
 def _grouped_questions():
     # Flat (category=None) questions are appended last as a headerless group, so
     # callers/templates can keep iterating one flat list of groups.
@@ -583,7 +591,9 @@ def inclusion_panel_search(request):
             'links': [
                 {'label': 'Student', 'url': f'{students_url}?{param}', 'disabled': False},
                 {'label': f'Referrals ({referrals_count})', 'url': f'{referrals_url}?{param}', 'disabled': referrals_count == 0},
-                {'label': f'Actions ({actions_count})', 'url': f'{actions_url}?{param}', 'disabled': actions_count == 0},
+                # Actions' Name filter is a student-id select, not a text
+                # search (issue #13) - unlike Students/Referrals above.
+                {'label': f'Actions ({actions_count})', 'url': f'{actions_url}?name={student.id}', 'disabled': actions_count == 0},
             ],
         })
 
@@ -749,12 +759,24 @@ def inclusion_panel_students(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
     school_key = current_school_key(request)
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
 
     name_filter = request.GET.get('name') or ''
     year_filter = request.GET.get('year') or ''
+    house_filter = request.GET.get('house') or ''
     reg_filter = request.GET.get('reg') or ''
     has_referrals_filter = request.GET.get('has_referrals') == '1'
     overdue_actions_filter = request.GET.get('overdue_actions') == '1'
+    # Candidate filters behind "More filters" (issue #9).
+    sen_status_filter = request.GET.get('sen_status') or ''
+    gender_filter = request.GET.get('gender') or ''
+    ethnicity_filter = request.GET.get('ethnicity') or ''
+    tutor_filter = request.GET.get('tutor') or ''
+    is_pp_filter = request.GET.get('is_pp') == '1'
+    is_eal_filter = request.GET.get('is_eal') == '1'
+    is_lac_filter = request.GET.get('is_lac') == '1'
+    is_young_carer_filter = request.GET.get('is_young_carer') == '1'
+    is_more_able_filter = request.GET.get('is_more_able') == '1'
 
     base_students = student_queryset_for_school_key(school_key)
 
@@ -770,6 +792,8 @@ def inclusion_panel_students(request):
         })
         for year in years
     }
+    houses = sorted({h for h in base_students.values_list('house', flat=True) if h})
+    has_houses = bool(houses)
 
     # Count(..., distinct=True) on each reverse relation is immune to the
     # join fan-out from combining referrals and actions in one annotate()
@@ -783,22 +807,69 @@ def inclusion_panel_students(request):
             filter=Q(referrals__actions__status='incomplete', referrals__actions__due_date__lt=today),
             distinct=True,
         ),
-    )
+    ).select_related('school', 'form_tutor')
     if name_filter:
         students = students.filter(Q(first_name__icontains=name_filter) | Q(last_name__icontains=name_filter))
     if year_filter:
         students = students.filter(year_group=year_filter)
+    if house_filter:
+        students = students.filter(house=house_filter)
     if reg_filter:
         students = students.filter(reg_form=reg_filter)
     if has_referrals_filter:
         students = students.filter(referrals_count__gt=0)
     if overdue_actions_filter:
         students = students.filter(overdue_actions_count__gt=0)
+    if sen_status_filter:
+        students = students.filter(sen_status=sen_status_filter)
+    if gender_filter:
+        students = students.filter(gender=gender_filter)
+    if ethnicity_filter:
+        students = students.filter(ethnicity=ethnicity_filter)
+    if tutor_filter:
+        students = students.filter(form_tutor_id=tutor_filter)
+    if is_pp_filter:
+        students = students.filter(is_pp=True)
+    if is_eal_filter:
+        students = students.filter(is_eal=True)
+    if is_lac_filter:
+        students = students.filter(is_lac=True)
+    if is_young_carer_filter:
+        students = students.filter(is_young_carer=True)
+    if is_more_able_filter:
+        students = students.filter(is_more_able=True)
     students = list(students.order_by('last_name', 'first_name'))
+    for student in students:
+        student.has_pills = bool(
+            student.sen_status or student.is_pp or student.is_eal
+            or student.is_lac or student.is_young_carer or student.is_more_able
+        )
 
     active_filter_count = sum(
-        1 for v in (name_filter, year_filter, reg_filter, has_referrals_filter, overdue_actions_filter) if v
+        1 for v in (
+            name_filter, year_filter, house_filter, reg_filter, has_referrals_filter, overdue_actions_filter,
+            sen_status_filter, gender_filter, ethnicity_filter, tutor_filter,
+            is_pp_filter, is_eal_filter, is_lac_filter, is_young_carer_filter, is_more_able_filter,
+        ) if v
     )
+
+    col_widths = {
+        'yearform': _col_width(
+            [f'Year {s.year_group}' + (f' (House {s.house})' if s.house else '') for s in students]
+            + [f'Form {s.reg_form}' + (f' ({s.form_tutor})' if s.form_tutor else '') for s in students],
+            max_ch=30,
+        ),
+        'genderethnicity': _col_width(
+            [s.get_gender_display() or '—' for s in students]
+            + [s.get_ethnicity_display() or '—' for s in students],
+            max_ch=22,
+        ),
+        'counts': _col_width(
+            [f'Referrals: {s.referrals_count}' for s in students]
+            + [f'Actions: {s.actions_count}' for s in students],
+            max_ch=16,
+        ),
+    }
 
     context = {
         **_panel_base_context(request),
@@ -806,15 +877,33 @@ def inclusion_panel_students(request):
         'years': years,
         'forms': forms,
         'forms_by_year_json': json.dumps(forms_by_year),
+        'has_houses': has_houses,
+        'houses': houses,
         'name_filter': name_filter,
         'year_filter': year_filter,
+        'house_filter': house_filter,
         'reg_filter': reg_filter,
         'has_referrals_filter': has_referrals_filter,
         'overdue_actions_filter': overdue_actions_filter,
+        'sen_status_filter': sen_status_filter,
+        'sen_status_choices': Student.SEN_STATUS_CHOICES,
+        'gender_filter': gender_filter,
+        'gender_choices': Student.GENDER_CHOICES,
+        'ethnicity_filter': ethnicity_filter,
+        'ethnicity_choices': Student.ETHNICITY_CHOICES,
+        'tutor_filter': tutor_filter,
+        'tutors': staff_queryset_for_school_key(school_key).filter(tutees__isnull=False).distinct().order_by('last_name', 'first_name'),
+        'is_pp_filter': is_pp_filter,
+        'is_eal_filter': is_eal_filter,
+        'is_lac_filter': is_lac_filter,
+        'is_young_carer_filter': is_young_carer_filter,
+        'is_more_able_filter': is_more_able_filter,
         'active_filter_count': active_filter_count,
         'students_count': len(students),
         'referrals_count': sum(s.referrals_count for s in students),
         'actions_count': sum(s.actions_count for s in students),
+        'is_aggregate_view': is_aggregate_view,
+        'col_widths': col_widths,
     }
     template = 'hubs/inclusion/panel/_students_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/students.html'
     return render(request, template, context)
@@ -823,17 +912,28 @@ def inclusion_panel_students(request):
 def inclusion_panel_referrals(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
     scoped_students = student_queryset_for_school_key(school_key)
     today = timezone.localdate()
     current_staff = _current_staff(request)
 
     name_filter = request.GET.get('name') or ''
-    section_filter = request.GET.get('section') or ''
     status_filter = request.GET.get('status') or ''
+    # Status (lifecycle: active/closed) and Panel Stage (where in the panel
+    # process - unassigned/assigned/discussing/review tiers) are two
+    # different questions even though they share the one underlying
+    # `status` field - see issue #11.
+    stage_filter = request.GET.get('stage') or ''
     raised_by_filter = request.GET.get('raised_by') or ''
+    concern_filter = request.GET.get('concern') or ''
+    priority_filter = request.GET.get('priority') or ''
+    panel_group_filter = request.GET.get('panel_group') or ''
+    overdue_actions_filter = request.GET.get('overdue_actions') == '1'
 
-    referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related('student').prefetch_related(
-        'responses__question', 'panel_referrals',
+    referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related(
+        'student', 'student__school', 'raised_by',
+    ).prefetch_related(
+        'responses__question', 'panel_referrals__panel__panel_group',
     )
     if name_filter:
         referrals_qs = referrals_qs.filter(
@@ -841,37 +941,93 @@ def inclusion_panel_referrals(request):
         )
     if status_filter == 'active':
         referrals_qs = referrals_qs.exclude(status='closed')
-    elif status_filter:
-        referrals_qs = referrals_qs.filter(status=status_filter)
+    elif status_filter == 'closed':
+        referrals_qs = referrals_qs.filter(status='closed')
+    if stage_filter:
+        referrals_qs = referrals_qs.filter(status=stage_filter)
     if raised_by_filter == 'unassigned':
         referrals_qs = referrals_qs.filter(raised_by__isnull=True)
     elif raised_by_filter:
         referrals_qs = referrals_qs.filter(raised_by_id=raised_by_filter)
+    if concern_filter:
+        referrals_qs = referrals_qs.filter(
+            responses__question__label='Main Concern Category', responses__answer=concern_filter
+        )
+    if priority_filter:
+        referrals_qs = referrals_qs.filter(priority=priority_filter)
+    if panel_group_filter:
+        referrals_qs = referrals_qs.filter(panel_referrals__panel__panel_group_id=panel_group_filter)
+    if overdue_actions_filter:
+        referrals_qs = referrals_qs.filter(actions__status='incomplete', actions__due_date__lt=today)
+    referrals_qs = referrals_qs.distinct()
 
-    # is_unassigned/is_due_follow_up read the already-prefetched panel_referrals
-    # in Python (same as before) rather than an ORM filter - unassigned in
-    # particular needs an exclude() across a multi-valued relation that's easy
-    # to get subtly wrong, and referrals_qs is already narrowed by the filters
-    # above first, so this loop runs over a bounded set, not every referral.
+    # is_unassigned reads the already-prefetched panel_referrals in Python
+    # (same as before) rather than an ORM filter - it needs an exclude()
+    # across a multi-valued relation that's easy to get subtly wrong, and
+    # referrals_qs is already narrowed by the filters above first, so this
+    # loop runs over a bounded set, not every referral.
     referrals = list(referrals_qs)
     for referral in referrals:
         referral.is_unassigned = _is_referral_unassigned(referral)
-        referral.is_due_follow_up = any(
-            pr.follow_up_status == 'incomplete' and pr.follow_up_date and pr.follow_up_date <= today
-            for pr in referral.panel_referrals.all()
-        )
         referral.actions_count = referral.actions.count()
+        referral.completed_actions_count = referral.actions.filter(status='complete').count()
+        referral.incomplete_actions_count = referral.actions.filter(status='incomplete').count()
         referral.can_delete = (
             referral.is_unassigned and current_staff is not None and referral.raised_by_id == current_staff.id
         )
         referral.concern_category = _primary_concern_category(referral)
+        upcoming_prs = sorted(
+            (pr for pr in referral.panel_referrals.all() if pr.removed_at is None and pr.panel.date >= today),
+            key=lambda pr: pr.panel.date,
+        )
+        next_panel = upcoming_prs[0].panel if upcoming_prs else None
+        referral.next_panel_group = next_panel.panel_group if next_panel else None
+        referral.next_panel_date = next_panel.date if next_panel else None
+        past_prs = sorted(
+            (pr for pr in referral.panel_referrals.all() if pr.discussion_status == 'discussed' and pr.panel.date < today),
+            key=lambda pr: pr.panel.date,
+            reverse=True,
+        )
+        previous_panel = past_prs[0].panel if past_prs else None
+        referral.previous_panel_group = previous_panel.panel_group if previous_panel else None
+        referral.previous_panel_date = previous_panel.date if previous_panel else None
+        next_review_pr = next(
+            (pr for pr in referral.panel_referrals.all() if pr.follow_up_status == 'incomplete' and pr.follow_up_date),
+            None,
+        )
+        referral.next_review_date = next_review_pr.follow_up_date if next_review_pr else None
+        # New Referral vs Nth Review - same classification/labels/pill
+        # classes (type-new/type-followup) as Panel Agenda Setup's referral
+        # selection row (_referral_selection_row.html).
+        discussed_count = sum(1 for pr in referral.panel_referrals.all() if pr.discussion_status == 'discussed')
+        referral.is_new_referral = discussed_count == 0
+        referral.review_label = _review_label(discussed_count) if discussed_count else None
+        if referral.status == 'closed':
+            referral.review_pill_label = 'Closed'
+            referral.review_pill_class = 'type-already'
+        elif referral.is_new_referral:
+            referral.review_pill_label = 'New Referral'
+            referral.review_pill_class = 'type-new'
+        else:
+            referral.review_pill_label = referral.review_label
+            referral.review_pill_class = 'type-followup'
 
-    if section_filter == 'unassigned':
-        referrals = [r for r in referrals if r.is_unassigned]
-    elif section_filter == 'due_follow_up':
-        referrals = [r for r in referrals if r.is_due_follow_up]
+    active_filter_count = sum(
+        1 for v in (
+            name_filter, status_filter, stage_filter, raised_by_filter, concern_filter,
+            priority_filter, panel_group_filter, overdue_actions_filter,
+        ) if v
+    )
 
-    active_filter_count = sum(1 for v in (name_filter, section_filter, status_filter, raised_by_filter) if v)
+    concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
+    stage_choices = [
+        ('open', 'Unassigned'),
+        ('assigned', 'Assigned to Panel'),
+        ('discussing', 'Discussing'),
+        ('review_scheduled', 'Review Scheduled'),
+        ('awaiting_review', 'Awaiting Review'),
+        ('overdue_review', 'Overdue Review'),
+    ]
 
     context = {
         **_panel_base_context(request),
@@ -879,12 +1035,43 @@ def inclusion_panel_referrals(request):
         'status_choices': InclusionReferral.STATUS_CHOICES,
         'staff_list': staff_queryset_for_school_key(school_key),
         'name_filter': name_filter,
-        'section_filter': section_filter,
         'status_filter': status_filter,
+        'stage_filter': stage_filter,
+        'stage_choices': stage_choices,
         'raised_by_filter': raised_by_filter,
+        'concern_filter': concern_filter,
+        'concern_choices': concern_question.choice_list() if concern_question else [],
+        'priority_filter': priority_filter,
+        'priority_choices': InclusionReferral.PRIORITY_CHOICES,
+        'panel_group_filter': panel_group_filter,
+        'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school').order_by('name'),
+        'overdue_actions_filter': overdue_actions_filter,
         'active_filter_count': active_filter_count,
         'students_count': len({r.student_id for r in referrals}),
         'actions_count': sum(r.actions_count for r in referrals),
+        'is_aggregate_view': is_aggregate_view,
+    }
+    context['col_widths'] = {
+        'raisedby': _col_width(
+            [f'Raised by: {r.raised_by.first_name} {r.raised_by.last_name}' if r.raised_by else 'Raised by: Unassigned' for r in referrals]
+            + [f'Raised on: {r.created_at:%d %b %Y}' for r in referrals],
+            max_ch=26,
+        ),
+        'panels': _col_width(
+            [f'Prev Panel: {r.previous_panel_date:%d %b %Y}' if r.previous_panel_date else 'Prev Panel: —' for r in referrals]
+            + [f'Next Panel: {r.next_panel_date:%d %b %Y}' if r.next_panel_date else 'Next Panel: —' for r in referrals],
+            max_ch=23,
+        ),
+        'priorityreview': _col_width(
+            [f'Priority: {r.get_priority_display()}' if r.priority else 'Priority: —' for r in referrals]
+            + [f'Review Due: {r.next_review_date:%d %b %Y}' if r.next_review_date else 'Review Due: —' for r in referrals],
+            max_ch=23,
+        ),
+        'actionsstatus': _col_width(
+            [f'Completed Actions: {r.completed_actions_count}' for r in referrals]
+            + [f'Incomplete Actions: {r.incomplete_actions_count}' for r in referrals],
+            max_ch=22,
+        ),
     }
     template = 'hubs/inclusion/panel/_referrals_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/referrals.html'
     return render(request, template, context)
@@ -1234,53 +1421,74 @@ def inclusion_panel_escalation_resolve(request, escalation_id):
 def inclusion_panel_actions(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
     current_staff = _current_staff(request)
     today = timezone.localdate()
     week_start = today - datetime.timedelta(days=today.weekday())
     week_end = week_start + datetime.timedelta(days=6)
+    next_week_start = week_start + datetime.timedelta(days=7)
+    next_week_end = week_end + datetime.timedelta(days=7)
 
     name_filter = request.GET.get('name') or ''
     category_filter = request.GET.get('category') or ''
     assigned_filter = request.GET.get('assigned') or ''
     status_filter = request.GET.get('status') or ''
-    overdue_filter = request.GET.get('overdue') == '1'
-    due_this_week_filter = request.GET.get('due_this_week') == '1'
-    assigned_to_me_filter = request.GET.get('assigned_to_me') == '1' and current_staff is not None
+    # Due Date consolidates the old separate Overdue Only/Due This Week
+    # toggles into one dropdown with a few more tiers (issue #13).
+    due_filter = request.GET.get('due') or ''
 
-    actions_qs = Action.objects.filter(referral__student__in=student_queryset_for_school_key(school_key)).select_related(
-        'referral__student', 'assigned_to', 'category',
+    scoped_students = student_queryset_for_school_key(school_key)
+    actions_qs = Action.objects.filter(referral__student__in=scoped_students).select_related(
+        'referral__student', 'referral__student__school', 'assigned_to', 'category', 'created_by',
     )
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
 
     if name_filter:
-        actions_qs = actions_qs.filter(
-            Q(referral__student__first_name__icontains=name_filter)
-            | Q(referral__student__last_name__icontains=name_filter)
-        )
+        actions_qs = actions_qs.filter(referral__student_id=name_filter)
     if category_filter:
         actions_qs = actions_qs.filter(category_id=category_filter)
-    if assigned_to_me_filter:
-        actions_qs = actions_qs.filter(assigned_to_id=current_staff.id)
-    elif assigned_filter == 'unassigned':
+    if assigned_filter == 'unassigned':
         actions_qs = actions_qs.filter(assigned_to__isnull=True)
     elif assigned_filter:
         actions_qs = actions_qs.filter(assigned_to_id=assigned_filter)
     if status_filter:
         actions_qs = actions_qs.filter(status=status_filter)
-    if overdue_filter:
+    if due_filter == 'overdue':
         actions_qs = actions_qs.filter(status='incomplete', due_date__lt=today)
-    if due_this_week_filter:
-        actions_qs = actions_qs.filter(status='incomplete', due_date__gte=week_start, due_date__lte=week_end)
+    elif due_filter == 'today':
+        actions_qs = actions_qs.filter(due_date=today)
+    elif due_filter == 'this_week':
+        actions_qs = actions_qs.filter(due_date__gte=week_start, due_date__lte=week_end)
+    elif due_filter == 'next_week':
+        actions_qs = actions_qs.filter(due_date__gte=next_week_start, due_date__lte=next_week_end)
+    elif due_filter == 'no_due_date':
+        actions_qs = actions_qs.filter(due_date__isnull=True)
 
     actions = list(actions_qs)
 
+    # Row-detail candidates (issue #12): title row + facts row + an
+    # Overdue callout pill.
+    for action in actions:
+        action.is_overdue = action.status == 'incomplete' and action.due_date is not None and action.due_date < today
+        action.days_overdue = (today - action.due_date).days if action.is_overdue else 0
+
     active_filter_count = sum(
-        1 for v in (
-            name_filter, category_filter, assigned_filter, status_filter,
-            overdue_filter, due_this_week_filter, assigned_to_me_filter,
-        ) if v
+        1 for v in (name_filter, category_filter, assigned_filter, status_filter, due_filter) if v
     )
+
+    col_widths = {
+        'created': _col_width(
+            [f'Created At: {a.created_at:%d %b %Y}' if a.created_at else 'Created At: —' for a in actions]
+            + [f'Created By: {a.created_by}' if a.created_by else 'Created By: —' for a in actions],
+            max_ch=26,
+        ),
+        'assigned': _col_width(
+            [f'Assigned to: {a.assigned_to}' if a.assigned_to else 'Assigned to: Unassigned' for a in actions]
+            + [f'Due: {a.due_date:%d %b %Y}' if a.due_date else 'Due: —' for a in actions],
+            max_ch=26,
+        ),
+    }
 
     context = {
         **_panel_base_context(request),
@@ -1292,16 +1500,27 @@ def inclusion_panel_actions(request):
         'week_start': week_start,
         'week_end': week_end,
         'name_filter': name_filter,
+        # Name is a dropdown of students who actually have an action,
+        # scoped to the current school selection, rather than a free-text
+        # search - bounded list, not every student (issue #13). Filtered
+        # through visible_actions_for so a student whose only actions are
+        # sensitive-category ones invisible to this viewer doesn't show up
+        # with an empty result when selected.
+        'students_with_actions': Student.objects.filter(
+            pk__in=visible_actions_for(
+                current_staff, Action.objects.filter(referral__student__in=scoped_students)
+            ).values('referral__student_id')
+        ).order_by('last_name', 'first_name'),
         'category_filter': category_filter,
         'assigned_filter': assigned_filter,
         'status_filter': status_filter,
-        'overdue_filter': overdue_filter,
-        'due_this_week_filter': due_this_week_filter,
-        'assigned_to_me_filter': assigned_to_me_filter,
+        'due_filter': due_filter,
         'active_filter_count': active_filter_count,
         'actions_count': len(actions),
         'students_count': len({a.referral.student_id for a in actions}),
         'referrals_count': len({a.referral_id for a in actions}),
+        'is_aggregate_view': is_aggregate_view,
+        'col_widths': col_widths,
     }
     template = 'hubs/inclusion/panel/_actions_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/actions.html'
     return render(request, template, context)
@@ -1332,6 +1551,7 @@ def inclusion_panel_action_new(request, referral_id):
             due_date=request.POST.get('due_date') or None,
             note=request.POST.get('note', ''),
             origin_panel_referral_id=origin_panel_referral_id,
+            created_by=_current_staff(request),
         )
         return redirect(_safe_next(request, '/inclusion/panel/actions/'))
 

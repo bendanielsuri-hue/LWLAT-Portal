@@ -4,7 +4,7 @@
 {% block title %}Actions{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=159">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=160">
 {% endblock %}
 
 
@@ -22,11 +22,25 @@
 
 <div class="list-page-shell">
 
+{% comment %}
+Filter-bar merged into the list-card as its header (issue #7). Name is a
+dropdown scoped to students who actually have an action (not every
+student); Priority/Concern Category/Assigned to Me dropped entirely;
+Overdue Only + Due This Week merged into one Due Date dropdown with more
+tiers (issue #13). Five simple fields fit inline with no disclosure
+needed, unlike Students/Referrals.
+{% endcomment %}
+<div class="list-card">
 <form method="get" class="filter-bar" data-ajax-target="#actions-filtered-content">
     <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
-        <label for="name-search">Name Search</label>
-        <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
+        <label for="name-filter">Name</label>
+        <select id="name-filter" name="name">
+            <option value="" {% if not name_filter %}selected{% endif %}>All</option>
+            {% for student in students_with_actions %}
+            <option value="{{ student.id }}" {% if name_filter == student.id|stringformat:'s' %}selected{% endif %}>{{ student }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div class="filter-field{% if category_filter %} filter-field--active{% endif %}">
         <label for="category-filter">Category</label>
@@ -56,32 +70,23 @@
             {% endfor %}
         </select>
     </div>
-    <div class="filter-field">
-        <label>Overdue Only</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="overdue-input" name="overdue" value="1" hidden {% if overdue_filter %}checked{% endif %}>
-            <button type="button" id="overdue-toggle" class="toggle-pill{% if overdue_filter %} on{% endif %}" aria-pressed="{% if overdue_filter %}true{% else %}false{% endif %}" aria-label="Overdue Only"><span class="toggle-knob"></span></button>
-        </div>
-    </div>
-    <div class="filter-field">
-        <label>Due This Week</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="due-this-week-input" name="due_this_week" value="1" hidden {% if due_this_week_filter %}checked{% endif %}>
-            <button type="button" id="due-this-week-toggle" class="toggle-pill{% if due_this_week_filter %} on{% endif %}" aria-pressed="{% if due_this_week_filter %}true{% else %}false{% endif %}" aria-label="Due This Week"><span class="toggle-knob"></span></button>
-        </div>
-    </div>
-    <div class="filter-field">
-        <label>Assigned to Me</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="assigned-to-me-input" name="assigned_to_me" value="1" hidden {% if assigned_to_me_filter %}checked{% endif %}>
-            <button type="button" id="assigned-to-me-toggle" class="toggle-pill{% if assigned_to_me_filter %} on{% endif %}" aria-pressed="{% if assigned_to_me_filter %}true{% else %}false{% endif %}" aria-label="Assigned to Me"><span class="toggle-knob"></span></button>
-        </div>
+    <div class="filter-field{% if due_filter %} filter-field--active{% endif %}">
+        <label for="due-filter">Due Date</label>
+        <select id="due-filter" name="due" class="ui-select--center">
+            <option value="" {% if not due_filter %}selected{% endif %}>All</option>
+            <option value="overdue" {% if due_filter == 'overdue' %}selected{% endif %}>Overdue</option>
+            <option value="today" {% if due_filter == 'today' %}selected{% endif %}>Due Today</option>
+            <option value="this_week" {% if due_filter == 'this_week' %}selected{% endif %}>Due This Week</option>
+            <option value="next_week" {% if due_filter == 'next_week' %}selected{% endif %}>Due Next Week</option>
+            <option value="no_due_date" {% if due_filter == 'no_due_date' %}selected{% endif %}>No Due Date</option>
+        </select>
     </div>
     <a href="{% url 'inclusion_panel_actions' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
 </form>
 
 <div id="actions-filtered-content">
     {% include 'hubs/inclusion/panel/_actions_filtered_content.html' %}
+</div>
 </div>
 
 </div>
@@ -90,20 +95,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
-
-    function setupToggle(toggle, input) {
-        if (!toggle || !input) return;
-        toggle.addEventListener('click', function () {
-            var isOn = toggle.classList.toggle('on');
-            toggle.setAttribute('aria-pressed', String(isOn));
-            input.checked = isOn;
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-    }
-    setupToggle(document.getElementById('overdue-toggle'), document.getElementById('overdue-input'));
-    setupToggle(document.getElementById('due-this-week-toggle'), document.getElementById('due-this-week-input'));
-    setupToggle(document.getElementById('assigned-to-me-toggle'), document.getElementById('assigned-to-me-input'));
-
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
 });
 </script>

@@ -61,3 +61,20 @@ class Command(BaseCommand):
                     student_updated += 1
             offset += count
         self.stdout.write(self.style.SUCCESS(f'Students assigned to a school: {student_updated} updated.'))
+
+        # Babington is the one school piloting a house system for now (see
+        # issue #8) - deterministic A-E cycle by student id, not random.
+        # Other schools stay blank ("no house") rather than being forced
+        # into a scheme they don't use.
+        babington = schools_by_name.get('Babington Academy')
+        house_updated = 0
+        if babington:
+            houses = ['A', 'B', 'C', 'D', 'E']
+            for i, student in enumerate(Student.objects.filter(school=babington).order_by('id')):
+                house = houses[i % len(houses)]
+                if student.house != house:
+                    student.house = house
+                    student.save(update_fields=['house'])
+                    house_updated += 1
+        if house_updated:
+            self.stdout.write(self.style.SUCCESS(f'Babington students assigned a house: {house_updated} updated.'))

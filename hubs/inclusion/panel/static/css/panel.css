@@ -380,8 +380,12 @@
 }
 
 /* Panel Meetings list — gap (not each card's own margin-bottom) spaces the
-   cards, so there's no extra trailing space after the last one. */
-.meeting-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+   cards, so there's no extra trailing space after the last one. Cards are
+   de-nested from any wrapping .list-card (issue #6) - independent
+   top-level cards stacked directly in the page shell, not children of one
+   big card - so the gap here is the portal-wide --space-md card-to-card
+   spacing, not the tighter --space-sm previously used for nested rows. */
+.meeting-list { display: flex; flex-direction: column; gap: var(--space-md); }
 /* The "Next Panel" heading is a full-width banner above the column row,
    not inside the name column — so it never affects that row's height and
    the divider lines/vertical centring across columns stay identical whether
@@ -473,32 +477,78 @@
 .meeting-card-actions { flex: 0 0 auto; display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; border-left: 1px solid var(--border-color); padding-left: var(--space-lg); gap: var(--space-xs); }
 .meeting-card-actions .btn { width: auto; white-space: nowrap; }
 
+/* ==================== Shared list-row detail (Students/Referrals/Actions) ====================
+   Title row: optional school logo (aggregate views only) + name + an
+   interpunct (middle dot) separator + a secondary same-weight text (row's
+   own "concern"/"category" style field) + pills. Facts row: grouped
+   two-line columns, dynamically sized per-column to the widest value
+   actually present (ch units, capped server-side - see each view's
+   _col_width() helper), divided by .mc-vdivider. Button column stretched
+   to the row's full content height, divided from the row body. See
+   issues #8/#10/#12. */
+.row-title-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+.row-title-row .meeting-card-logo-inline img { width: 16px; height: 16px; object-fit: contain; }
+.row-title-sep { color: var(--text-faint); }
+.row-secondary-text { font-weight: 600; }
+.row-facts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
+.row-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
+.row-facts-cols { gap: 10px; }
+.row-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.row-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action-note { margin-top: var(--space-xs); }
+.entity-list[data-selectable] > .entity-row { align-items: stretch; }
+.entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
+.row-btn-row-stacked { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-xs); }
+
+/* ==================== Shared progressive-disclosure filter bar (Students/Referrals) ====================
+   Primary filter fields stay inline; candidate/secondary filters sit
+   behind a "More filters" toggle - a filled button chip, same .btn.btn-sm
+   height as Clear Filters, so it reads as a standard button rather than a
+   dropdown or one-off control (per DesignLanguage.md's rule against
+   hiding 3-or-fewer static options behind a <select>, this is instead for
+   an open-ended set of secondary filters, not a fixed small choice set).
+   More filters/Clear Filters are a sibling of the fields wrap (not one
+   more item wrapping inside it), so they always sit at the bar's true
+   right edge regardless of how many field rows wrap on the left. See
+   issues #9/#11. */
+.filter-fields-wrap { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-xs); flex: 1; min-width: 0; }
+.filter-actions-right {
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+    align-self: stretch; flex-shrink: 0;
+    border-left: 1px solid var(--border-strong); padding-left: var(--space-md);
+}
+.filter-actions-right .filter-bar-clear { margin-left: 0; }
+.filter-actions-right .btn { width: 100%; }
+/* Secondary fields are direct flex items of .filter-fields-wrap
+   (display:contents - no box/border of their own), so they wrap onto a
+   new line inside that same wrap's own flex-wrap. A divider marks the
+   seam between the two rows while expanded. */
+.filter-secondary-fields { display: contents; }
+.filter-secondary-fields[hidden] { display: none; }
+.filter-divider { flex-basis: 100%; height: 0; border-top: 2px solid var(--border-strong); }
+.more-filters-toggle { display: flex; align-items: center; gap: 6px; width: 100%; }
+.more-filters-toggle-icon { display: inline-flex; transition: transform var(--transition-fast); }
+.more-filters-toggle-icon svg { width: 14px; height: 14px; }
+.more-filters-toggle[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.more-filters-toggle[aria-expanded="true"] .more-filters-toggle-icon { transform: rotate(180deg); }
+
 /* ==================== Panel Meetings ====================
    Filters are their own standalone card (plain .filter-bar, not nested in
    .list-card) - New Panel Meeting used to live at the end of that bar, but
    felt wrong sitting inside a card that's now purely about filtering, so it
    moved to key_actions_extra (see meetings.html/_base.html) instead, in the
    page header alongside Search/Referral like every other panel page's main
-   action (see grilling session 2026-07-12). Status tab-row + meeting list
-   live in a second .list-card below. #meetings-filtered-content is the part
-   that's re-fetched on every filter change (see data-ajax-target on the
-   form) - it needs its own flex column so the tab-row stays put and
-   .meeting-list is what scrolls, same as .list-card's own direct-child
-   layout would do without the extra nesting level the AJAX swap boundary
-   requires. */
-.meetings-list-card #meetings-filtered-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+   action (see grilling session 2026-07-12).
 
-/* #meetings-filtered-content (this row's real parent) carries no padding of
-   its own, so .tab-row is already flush at the true card edges by default
-   (see the base .tab-row rule's "CONVENTION" comment above) - the
-   border-bottom needs no bleed here. padding-left (not a margin) instead
-   lines the tab labels up with .meeting-list's own --space-xl horizontal
-   inset below, without pulling the border in from the edge to do it. */
-.meetings-list-card .tab-row { flex-shrink: 0; padding-left: var(--space-xl); }
-.list-card .meeting-list { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-md); }
-
-/* Panel Meetings only: extra left/right breathing room around the cards. */
-.meetings-list-card .meeting-list { padding: var(--space-md) var(--space-xl); }
+   Meeting cards are de-nested (issue #6) - no wrapping .list-card any
+   more, .meeting-card is an independent top-level card, stacked directly
+   in .list-page-shell. #meetings-filtered-content (renamed .meetings-scroll
+   in the markup) is the part that's re-fetched on every filter change (see
+   data-ajax-target on the form) and is now itself the scrolling body the
+   fixed-height shell measures against - flex:1/min-height:0/overflow-y:auto
+   directly on it, same as .list-card's own direct-child scroll behaviour
+   on every other list page, just without the extra card wrapper. */
+.meetings-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-md) var(--space-xl); }
 
 /* Multi-column setup/discussion layouts */
 .setup-columns, .discussion-columns {

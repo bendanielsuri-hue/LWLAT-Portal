@@ -1,30 +1,51 @@
 {% load static %}
-<div class="list-card">
 <div class="entity-list" data-selectable="single">
     {% for referral in referrals %}
     <div class="entity-row selectable referral-row" tabindex="0" role="button" aria-pressed="false">
         <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
         <div class="entity-body">
-            <div class="entity-title">{{ referral.student }}</div>
-            <div class="entity-meta">Created {{ referral.created_at|date:"d/m/Y" }} &middot; <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>{% if referral.concern_category %} <span class="status-pill concern">{{ referral.concern_category }}</span>{% endif %}</div>
+            <div class="row-title-row">
+                {% if is_aggregate_view %}
+                <span class="meeting-card-logo-inline">
+                    {% if referral.student.school.logo_url %}<img src="{{ referral.student.school.logo_url }}" alt="{{ referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+                </span>
+                {% endif %}
+                <div class="entity-title">{{ referral.student }}</div>
+                <span class="row-title-sep">&middot;</span>
+                <div class="entity-title row-secondary-text">Concern: {{ referral.concern_category|default:"—" }}</div>
+                <span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>
+                <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
+            </div>
+            <div class="row-facts row-facts-cols">
+                <div class="row-fact-col" style="width: {{ col_widths.raisedby }}">
+                    <span>Raised by: {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}</span>
+                    <span>Raised on: {{ referral.created_at|date:"d M Y" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.panels }}">
+                    <span>Prev Panel: {{ referral.previous_panel_date|date:"d M Y"|default:"—" }}</span>
+                    <span>Next Panel: {{ referral.next_panel_date|date:"d M Y"|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.priorityreview }}">
+                    <span>Priority: {{ referral.get_priority_display|default:"—" }}</span>
+                    <span>Review Due: {{ referral.next_review_date|date:"d M Y"|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.actionsstatus }}">
+                    <span>Completed Actions: {{ referral.completed_actions_count }}</span>
+                    <span>Incomplete Actions: {{ referral.incomplete_actions_count }}</span>
+                </div>
+            </div>
         </div>
-        <div class="btn-row">
-            <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student|urlencode }}" class="btn btn-sm">View Actions</a>
-            <a href="{% url 'inclusion_panel_action_new' referral.id %}?next={% url 'inclusion_panel_referrals' %}" class="btn btn-add btn-sm">New Action</a>
-            <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_referrals' %}" class="btn btn-sm">Escalate to MAT</a>
-            {% if referral.can_delete %}
-            <form method="post" action="{% url 'inclusion_panel_referral_delete' referral.id %}" data-row-remove-form data-confirm-message="Delete this referral? This cannot be undone.">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{% url 'inclusion_panel_referrals' %}">
-                <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
-            </form>
-            {% endif %}
+        <div class="btn-row row-btn-row">
+            <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student.id }}" class="btn btn-sm">View Actions</a>
+            <button type="button" class="btn btn-primary btn-sm" data-view-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel_referrals' %}">Referral Details</button>
         </div>
     </div>
     {% empty %}
     <p class="empty-note">No referrals yet.</p>
     {% endfor %}
-</div>
 </div>
 
 <div class="stats-strip">

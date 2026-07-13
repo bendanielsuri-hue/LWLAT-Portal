@@ -1,19 +1,72 @@
 {% load static %}
-<div class="list-card">
 <div class="entity-list" data-selectable="single">
+    {% comment %}
+    Row-detail for Actions (issue #12), reusing the shape confirmed on
+    Students (#8)/Referrals (#10): school logo (aggregate views only) +
+    name + interpunct separator + Category (same weight as name) + status
+    pill + an Overdue callout pill when applicable. Note (the action's own
+    free-text description) sits above the facts row's divider, full-width.
+    Facts row - Created At/Created By, Assigned To/Due - dividers sized to
+    the widest value actually present. Right-hand button column: Action
+    Status `.ui-segmented` control (3 always-visible buttons, no JS - see
+    DesignLanguage.md's rule for 3-or-fewer static options) on its own
+    row, then Referral Details + primary Edit Action below it.
+
+    The row's own class is "actions-list-row", not "action-row" - that
+    name collides with an unrelated bare `.action-row { flex-direction:
+    column }` rule elsewhere in panel.css (a referral-history-style
+    component), which silently broke this row's thumb-beside-body layout.
+    {% endcomment %}
     {% for action in actions %}
-    <div class="entity-row selectable action-row" tabindex="0" role="button" aria-pressed="false">
+    <div class="entity-row selectable actions-list-row" tabindex="0" role="button" aria-pressed="false">
         <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
         <div class="entity-body">
-            <div class="entity-title">{{ action.referral.student }}</div>
-            <div class="entity-meta">{{ action.category|default:"No category" }} &middot; Assigned: {{ action.assigned_to|default:"Unassigned" }} &middot; Due: {{ action.due_date|default:"—" }} &middot; <span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span></div>
-            {% if action.note %}<div class="entity-meta">{{ action.note }}</div>{% endif %}
+            <div class="row-title-row">
+                {% if is_aggregate_view %}
+                <span class="meeting-card-logo-inline">
+                    {% if action.referral.student.school.logo_url %}<img src="{{ action.referral.student.school.logo_url }}" alt="{{ action.referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+                </span>
+                {% endif %}
+                <div class="entity-title">{{ action.referral.student }}</div>
+                <span class="row-title-sep">&middot;</span>
+                <div class="entity-title row-secondary-text">Category: {{ action.category|default:"—" }}</div>
+                <span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span>
+                {% if action.is_overdue %}
+                <span class="status-pill overdue_review">Overdue {{ action.days_overdue }}d</span>
+                {% endif %}
+            </div>
+            {% if action.note %}<div class="entity-meta action-note">{{ action.note }}</div>{% endif %}
+            <div class="row-facts row-facts-cols">
+                <div class="row-fact-col" style="width: {{ col_widths.created }}">
+                    <span>Created At: {{ action.created_at|date:"d M Y"|default:"—" }}</span>
+                    <span>Created By: {{ action.created_by|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.assigned }}">
+                    <span>Assigned to: {{ action.assigned_to|default:"Unassigned" }}</span>
+                    <span>Due: {{ action.due_date|date:"d M Y"|default:"—" }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="row-btn-row row-btn-row-stacked">
+            <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
+                <div class="ui-segmented">
+                    {% for value, label in status_choices %}
+                    <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
+                    {% endfor %}
+                </div>
+            </form>
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm btn-secondary" data-view-referral-trigger data-referral-id="{{ action.referral.id }}" data-next="{% url 'inclusion_panel_actions' %}">Referral Details</button>
+                <a href="{% url 'inclusion_panel_action_edit' action.id %}?next={% url 'inclusion_panel_actions' %}" class="btn btn-primary btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Action</a>
+            </div>
         </div>
     </div>
     {% empty %}
     <p class="empty-note">No actions yet.</p>
     {% endfor %}
-</div>
 </div>
 
 <div class="stats-strip">

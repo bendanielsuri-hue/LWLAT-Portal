@@ -137,6 +137,10 @@ class Student(models.Model):
     last_name = models.CharField(max_length=100)
     year_group = models.PositiveSmallIntegerField()
     reg_form = models.CharField(max_length=10, blank=True)
+    # Plain CharField, not a fixed choice list - houses are a per-school
+    # naming scheme (e.g. Babington uses A-E), not a portal-wide fixed set,
+    # and not every school runs a house system at all (blank means none).
+    house = models.CharField(max_length=20, blank=True)
     form_tutor = models.ForeignKey(
         Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='tutees'
     )

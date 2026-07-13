@@ -4,7 +4,7 @@
 {% block title %}Students{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=159">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=160">
 {% endblock %}
 
 
@@ -22,7 +22,15 @@
 
 <div class="list-page-shell">
 
+{% comment %}
+Filter-bar merged into the list-card as its header (issue #7). Kept
+Name/Year/House/Reg/Has Referrals/Overdue Actions inline; SEN Status/
+Gender/Ethnicity/Tutor/PP/EAL/LAC/Young Carer/More Able sit behind a
+"More filters" disclosure; School dropped entirely (issue #9).
+{% endcomment %}
+<div class="list-card">
 <form method="get" class="filter-bar" data-ajax-target="#students-filtered-content">
+    <div class="filter-fields-wrap">
     <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
         <label for="name-search">Name Search</label>
@@ -37,6 +45,17 @@
             {% endfor %}
         </select>
     </div>
+    {% if has_houses %}
+    <div class="filter-field{% if house_filter %} filter-field--active{% endif %}">
+        <label for="house-filter">House</label>
+        <select id="house-filter" name="house">
+            <option value="">All</option>
+            {% for h in houses %}
+            <option value="{{ h }}" {% if house_filter == h %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
     <div class="filter-field{% if reg_filter %} filter-field--active{% endif %}">
         <label for="reg-filter">Reg</label>
         <select id="reg-filter" name="reg">
@@ -60,11 +79,95 @@
             <button type="button" id="overdue-actions-toggle" class="toggle-pill{% if overdue_actions_filter %} on{% endif %}" aria-pressed="{% if overdue_actions_filter %}true{% else %}false{% endif %}" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
         </div>
     </div>
-    <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+
+    <div class="filter-secondary-fields" hidden>
+        <span class="filter-divider"></span>
+        <div class="filter-field{% if sen_status_filter %} filter-field--active{% endif %}">
+            <label for="sen-status-filter">SEN Status</label>
+            <select id="sen-status-filter" name="sen_status">
+                <option value="">All</option>
+                {% for value, label in sen_status_choices %}
+                <option value="{{ value }}" {% if sen_status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field{% if gender_filter %} filter-field--active{% endif %}">
+            <label for="gender-filter">Gender</label>
+            <select id="gender-filter" name="gender">
+                <option value="">All</option>
+                {% for value, label in gender_choices %}
+                <option value="{{ value }}" {% if gender_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field{% if ethnicity_filter %} filter-field--active{% endif %}">
+            <label for="ethnicity-filter">Ethnicity</label>
+            <select id="ethnicity-filter" name="ethnicity">
+                <option value="">All</option>
+                {% for value, label in ethnicity_choices %}
+                <option value="{{ value }}" {% if ethnicity_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field{% if tutor_filter %} filter-field--active{% endif %}">
+            <label for="tutor-filter">Tutor</label>
+            <select id="tutor-filter" name="tutor">
+                <option value="">All</option>
+                {% for t in tutors %}
+                <option value="{{ t.id }}" {% if tutor_filter == t.id|stringformat:'s' %}selected{% endif %}>{{ t.first_name }} {{ t.last_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field">
+            <label>Pupil Premium</label>
+            <div class="filter-toggle-wrap">
+                <input type="checkbox" id="is-pp-input" name="is_pp" value="1" hidden {% if is_pp_filter %}checked{% endif %}>
+                <button type="button" id="is-pp-toggle" class="toggle-pill{% if is_pp_filter %} on{% endif %}" aria-pressed="{% if is_pp_filter %}true{% else %}false{% endif %}" aria-label="Pupil Premium"><span class="toggle-knob"></span></button>
+            </div>
+        </div>
+        <div class="filter-field">
+            <label>EAL</label>
+            <div class="filter-toggle-wrap">
+                <input type="checkbox" id="is-eal-input" name="is_eal" value="1" hidden {% if is_eal_filter %}checked{% endif %}>
+                <button type="button" id="is-eal-toggle" class="toggle-pill{% if is_eal_filter %} on{% endif %}" aria-pressed="{% if is_eal_filter %}true{% else %}false{% endif %}" aria-label="EAL"><span class="toggle-knob"></span></button>
+            </div>
+        </div>
+        <div class="filter-field">
+            <label>Looked After</label>
+            <div class="filter-toggle-wrap">
+                <input type="checkbox" id="is-lac-input" name="is_lac" value="1" hidden {% if is_lac_filter %}checked{% endif %}>
+                <button type="button" id="is-lac-toggle" class="toggle-pill{% if is_lac_filter %} on{% endif %}" aria-pressed="{% if is_lac_filter %}true{% else %}false{% endif %}" aria-label="Looked After Child"><span class="toggle-knob"></span></button>
+            </div>
+        </div>
+        <div class="filter-field">
+            <label>Young Carer</label>
+            <div class="filter-toggle-wrap">
+                <input type="checkbox" id="is-young-carer-input" name="is_young_carer" value="1" hidden {% if is_young_carer_filter %}checked{% endif %}>
+                <button type="button" id="is-young-carer-toggle" class="toggle-pill{% if is_young_carer_filter %} on{% endif %}" aria-pressed="{% if is_young_carer_filter %}true{% else %}false{% endif %}" aria-label="Young Carer"><span class="toggle-knob"></span></button>
+            </div>
+        </div>
+        <div class="filter-field">
+            <label>More Able</label>
+            <div class="filter-toggle-wrap">
+                <input type="checkbox" id="is-more-able-input" name="is_more_able" value="1" hidden {% if is_more_able_filter %}checked{% endif %}>
+                <button type="button" id="is-more-able-toggle" class="toggle-pill{% if is_more_able_filter %} on{% endif %}" aria-pressed="{% if is_more_able_filter %}true{% else %}false{% endif %}" aria-label="More Able"><span class="toggle-knob"></span></button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="filter-actions-right">
+        <button type="button" class="btn btn-sm btn-secondary more-filters-toggle" data-more-filters aria-expanded="false">
+            <span class="more-filters-toggle-icon">{% include 'icons/arrow_down_svg.html' %}</span>
+            More filters
+        </button>
+        <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
 </form>
 
 <div id="students-filtered-content">
     {% include 'hubs/inclusion/panel/_students_filtered_content.html' %}
+</div>
 </div>
 
 </div>
@@ -74,10 +177,6 @@ document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
     var yearFilter = document.getElementById('year-filter');
     var regFilter = document.getElementById('reg-filter');
-    var hasReferralsToggle = document.getElementById('has-referrals-toggle');
-    var hasReferralsInput = document.getElementById('has-referrals-input');
-    var overdueActionsToggle = document.getElementById('overdue-actions-toggle');
-    var overdueActionsInput = document.getElementById('overdue-actions-input');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
 
     var allForms = Array.prototype.slice.call(regFilter.options).slice(1).map(function (o) { return o.value; });
@@ -112,11 +211,32 @@ document.addEventListener('DOMContentLoaded', function () {
             input.dispatchEvent(new Event('change', { bubbles: true }));
         });
     }
-    setupToggle(hasReferralsToggle, hasReferralsInput);
-    setupToggle(overdueActionsToggle, overdueActionsInput);
+    setupToggle(document.getElementById('has-referrals-toggle'), document.getElementById('has-referrals-input'));
+    setupToggle(document.getElementById('overdue-actions-toggle'), document.getElementById('overdue-actions-input'));
+    setupToggle(document.getElementById('is-pp-toggle'), document.getElementById('is-pp-input'));
+    setupToggle(document.getElementById('is-eal-toggle'), document.getElementById('is-eal-input'));
+    setupToggle(document.getElementById('is-lac-toggle'), document.getElementById('is-lac-input'));
+    setupToggle(document.getElementById('is-young-carer-toggle'), document.getElementById('is-young-carer-input'));
+    setupToggle(document.getElementById('is-more-able-toggle'), document.getElementById('is-more-able-input'));
 
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
+
+    var moreFiltersBtn = document.querySelector('[data-more-filters]');
+    var secondaryRow = document.querySelector('.filter-secondary-fields');
+    if (moreFiltersBtn && secondaryRow) {
+        var hasActiveSecondary = secondaryRow.querySelector('.filter-field--active')
+            || Array.prototype.some.call(secondaryRow.querySelectorAll('input[type=checkbox]'), function (i) { return i.checked; });
+        if (hasActiveSecondary) {
+            secondaryRow.hidden = false;
+            moreFiltersBtn.setAttribute('aria-expanded', 'true');
+        }
+        moreFiltersBtn.addEventListener('click', function () {
+            var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
+            secondaryRow.hidden = expanded;
+            moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
+        });
+    }
 });
 </script>
 {% endblock %}

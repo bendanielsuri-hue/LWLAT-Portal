@@ -74,7 +74,7 @@ class Command(BaseCommand):
                 # its first action is done, the rest stay open. A fully
                 # "Complete" referral has every action wrapped up already.
                 complete = (not is_followup) or slot == 0
-                Action.objects.create(
+                action = Action.objects.create(
                     referral=pr.referral,
                     category=category,
                     assigned_to=pr.panel.chair,
@@ -83,6 +83,15 @@ class Command(BaseCommand):
                     completed_at=timezone.now() if complete else None,
                     note=self._description_for(category, pr.referral_id + slot),
                     origin_panel_referral=pr,
+                    created_by=pr.panel.chair,
+                )
+                # auto_now_add always stamps "now" on save() regardless of
+                # what's passed to create() - force it back to the
+                # discussion's own date via a queryset .update() (bypasses
+                # save()) so demo data reads as "raised at the discussion",
+                # not "raised whenever this seed command last ran".
+                Action.objects.filter(pk=action.pk).update(
+                    created_at=timezone.make_aware(datetime.datetime.combine(pr.panel.date, datetime.time(9, 0)))
                 )
                 created_total += 1
             topped_up += 1
@@ -172,6 +181,63 @@ class Command(BaseCommand):
         if assigned_fixed:
             self.stdout.write(self.style.SUCCESS(
                 f'Assigned staff to {assigned_fixed} action(s) that had none.'
+            ))
+
+        # created_by backfill - same fallback chain as assigned_to above
+        # (discussion chair, then referral's raised_by, then a deterministic
+        # school-scoped staff pick), since every demo action should trace
+        # back to who raised it, per issue #12/#13's decision.
+        created_by_fixed = 0
+        for action in Action.objects.filter(created_by__isnull=True).select_related(
+            'referral__student', 'referral__raised_by', 'origin_panel_referral__panel__chair',
+        ):
+            staff = None
+            if action.origin_panel_referral_id and action.origin_panel_referral.panel.chair_id:
+                staff = action.origin_panel_referral.panel.chair
+            if staff is None:
+                latest_pr = PanelReferral.objects.filter(
+                    referral_id=action.referral_id, removed_at__isnull=True, discussion_status='discussed',
+                ).select_related('panel__chair').order_by('-panel__date').first()
+                if latest_pr and latest_pr.panel.chair_id:
+                    staff = latest_pr.panel.chair
+            if staff is None:
+                staff = action.referral.raised_by
+            if staff is None:
+                school_id = action.referral.student.school_id
+                staff_qs = Staff.objects.filter(is_active=True, school_id=school_id) if school_id else Staff.objects.none()
+                candidates = list(staff_qs.order_by('id')) or list(Staff.objects.filter(is_active=True).order_by('id'))
+                if candidates:
+                    staff = candidates[action.id % len(candidates)]
+            if staff:
+                action.created_by = staff
+                action.save(update_fields=['created_by'])
+                created_by_fixed += 1
+        if created_by_fixed:
+            self.stdout.write(self.style.SUCCESS(
+                f'Backfilled "Created By" on {created_by_fixed} action(s) that had none.'
+            ))
+
+        # created_at backfill - actions created before this field existed
+        # (or created outside the top-up loop above, which already sets a
+        # believable historical value) show whatever moment this seed
+        # command happened to run, not a realistic "raised at the
+        # discussion" date. Re-point every non-standalone action at its
+        # origin discussion's panel date instead, same "always something
+        # plausible" approach as every other backfill here. Standalone
+        # actions (no origin_panel_referral) keep their real creation time.
+        created_at_fixed = 0
+        for action in Action.objects.filter(origin_panel_referral__isnull=False).select_related(
+            'origin_panel_referral__panel',
+        ):
+            believable_created_at = timezone.make_aware(
+                datetime.datetime.combine(action.origin_panel_referral.panel.date, datetime.time(9, 0))
+            )
+            if action.created_at != believable_created_at:
+                Action.objects.filter(pk=action.pk).update(created_at=believable_created_at)
+                created_at_fixed += 1
+        if created_at_fixed:
+            self.stdout.write(self.style.SUCCESS(
+                f'Backfilled "Created At" on {created_at_fixed} action(s) to their discussion date.'
             ))
 
         # Documented as the last command in the panel seed sequence (see

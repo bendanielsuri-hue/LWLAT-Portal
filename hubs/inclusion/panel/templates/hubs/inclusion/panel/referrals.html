@@ -4,7 +4,7 @@
 {% block title %}Referrals{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=159">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=160">
 {% endblock %}
 
 
@@ -22,27 +22,57 @@
 
 <div class="list-page-shell">
 
+{% comment %}
+Filter-bar merged into the list-card as its header (issue #7). Status
+(lifecycle: Active/Closed) and Panel Stage (Unassigned/Assigned to
+Panel/Discussing/Review tiers) are split out of what used to be one
+combined Status select, and Concern Category is now a primary filter
+(issue #11). Priority/Panel Group/Overdue Actions sit behind a "More
+filters" disclosure, same progressive-disclosure shape as Students/
+Actions.
+{% endcomment %}
+<div class="list-card">
 <form method="get" class="filter-bar" data-ajax-target="#referrals-filtered-content">
+    <div class="filter-fields-wrap">
     <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
         <label for="name-search">Name Search</label>
         <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
     </div>
-    <div class="filter-field{% if section_filter %} filter-field--active{% endif %}">
-        <label for="section-filter">Section</label>
-        <select id="section-filter" name="section">
-            <option value="" {% if not section_filter %}selected{% endif %}>All Referrals</option>
-            <option value="unassigned" {% if section_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
-            <option value="due_follow_up" {% if section_filter == 'due_follow_up' %}selected{% endif %}>Review Due</option>
+    <div class="filter-field{% if status_filter %} filter-field--active{% endif %}">
+        <label>Status</label>
+        {% comment %}
+        3 static options - .ui-segmented per DesignLanguage.md's "Segmented
+        control" rule, not a hidden <select>. Same hidden-input + real
+        <button> + JS pattern as the toggle-pill fields on this same page
+        (Overdue Actions etc.) - a hidden radio isn't keyboard-focusable on
+        its own, so the actual interactive/focusable element is the
+        visible button, not the input.
+        {% endcomment %}
+        <div class="ui-segmented" data-status-segmented>
+            <input type="radio" name="status" value="" id="status-all" hidden {% if not status_filter %}checked{% endif %}>
+            <input type="radio" name="status" value="active" id="status-active" hidden {% if status_filter == 'active' %}checked{% endif %}>
+            <input type="radio" name="status" value="closed" id="status-closed" hidden {% if status_filter == 'closed' %}checked{% endif %}>
+            <button type="button" class="ui-segmented-option{% if not status_filter %} active{% endif %}" data-status-value="">All</button>
+            <button type="button" class="ui-segmented-option{% if status_filter == 'active' %} active{% endif %}" data-status-value="active">Active</button>
+            <button type="button" class="ui-segmented-option{% if status_filter == 'closed' %} active{% endif %}" data-status-value="closed">Closed</button>
+        </div>
+    </div>
+    <div class="filter-field{% if stage_filter %} filter-field--active{% endif %}">
+        <label for="stage-filter">Panel Stage</label>
+        <select id="stage-filter" name="stage">
+            <option value="" {% if not stage_filter %}selected{% endif %}>All</option>
+            {% for value, label in stage_choices %}
+            <option value="{{ value }}" {% if stage_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
         </select>
     </div>
-    <div class="filter-field{% if status_filter %} filter-field--active{% endif %}">
-        <label for="status-filter">Status</label>
-        <select id="status-filter" name="status" class="ui-select--center">
-            <option value="" {% if not status_filter %}selected{% endif %}>All</option>
-            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active (Not Closed)</option>
-            {% for value, label in status_choices %}
-            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+    <div class="filter-field{% if concern_filter %} filter-field--active{% endif %}">
+        <label for="concern-filter">Concern Category</label>
+        <select id="concern-filter" name="concern">
+            <option value="">All</option>
+            {% for c in concern_choices %}
+            <option value="{{ c }}" {% if concern_filter == c %}selected{% endif %}>{{ c }}</option>
             {% endfor %}
         </select>
     </div>
@@ -56,11 +86,49 @@
             {% endfor %}
         </select>
     </div>
-    <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+
+    <div class="filter-secondary-fields" hidden>
+        <span class="filter-divider"></span>
+        <div class="filter-field{% if priority_filter %} filter-field--active{% endif %}">
+            <label for="priority-filter">Priority</label>
+            <select id="priority-filter" name="priority">
+                <option value="">All</option>
+                {% for value, label in priority_choices %}
+                <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field{% if panel_group_filter %} filter-field--active{% endif %}">
+            <label for="panel-group-filter">Panel Group</label>
+            <select id="panel-group-filter" name="panel_group">
+                <option value="">All</option>
+                {% for group in panel_groups %}
+                <option value="{{ group.id }}" {% if panel_group_filter == group.id|stringformat:'s' %}selected{% endif %}>{{ group.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field">
+            <label>Overdue Actions</label>
+            <div class="filter-toggle-wrap">
+                <input type="checkbox" id="overdue-actions-input" name="overdue_actions" value="1" hidden {% if overdue_actions_filter %}checked{% endif %}>
+                <button type="button" id="overdue-actions-toggle" class="toggle-pill{% if overdue_actions_filter %} on{% endif %}" aria-pressed="{% if overdue_actions_filter %}true{% else %}false{% endif %}" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="filter-actions-right">
+        <button type="button" class="btn btn-sm btn-secondary more-filters-toggle" data-more-filters aria-expanded="false">
+            <span class="more-filters-toggle-icon">{% include 'icons/arrow_down_svg.html' %}</span>
+            More filters
+        </button>
+        <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
 </form>
 
 <div id="referrals-filtered-content">
     {% include 'hubs/inclusion/panel/_referrals_filtered_content.html' %}
+</div>
 </div>
 
 </div>
@@ -69,7 +137,56 @@
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+    var overdueActionsToggle = document.getElementById('overdue-actions-toggle');
+    var overdueActionsInput = document.getElementById('overdue-actions-input');
+
+    function setupToggle(toggle, input) {
+        if (!toggle || !input) return;
+        toggle.addEventListener('click', function () {
+            var isOn = toggle.classList.toggle('on');
+            toggle.setAttribute('aria-pressed', String(isOn));
+            input.checked = isOn;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+    setupToggle(overdueActionsToggle, overdueActionsInput);
+
+    // Status .ui-segmented control - clicking a button checks its paired
+    // hidden radio and dispatches change, same wiring shape as the
+    // toggle-pill fields above (the hidden inputs aren't keyboard-
+    // focusable themselves, so the buttons are the real interactive
+    // element; .active is toggled in JS to mirror whichever radio is
+    // actually checked).
+    var statusSegmented = document.querySelector('[data-status-segmented]');
+    if (statusSegmented) {
+        statusSegmented.querySelectorAll('.ui-segmented-option').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var input = statusSegmented.querySelector('#status-' + (button.dataset.statusValue || 'all'));
+                if (!input) return;
+                statusSegmented.querySelectorAll('.ui-segmented-option').forEach(function (b) { b.classList.remove('active'); });
+                button.classList.add('active');
+                input.checked = true;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        });
+    }
+
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
+
+    var moreFiltersBtn = document.querySelector('[data-more-filters]');
+    var secondaryRow = document.querySelector('.filter-secondary-fields');
+    if (moreFiltersBtn && secondaryRow) {
+        var hasActiveSecondary = secondaryRow.querySelector('.filter-field--active') || (overdueActionsInput && overdueActionsInput.checked);
+        if (hasActiveSecondary) {
+            secondaryRow.hidden = false;
+            moreFiltersBtn.setAttribute('aria-expanded', 'true');
+        }
+        moreFiltersBtn.addEventListener('click', function () {
+            var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
+            secondaryRow.hidden = expanded;
+            moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
+        });
+    }
 });
 </script>
 {% endblock %}

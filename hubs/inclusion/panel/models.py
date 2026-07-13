@@ -382,6 +382,12 @@ class Action(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='incomplete')
     completed_at = models.DateTimeField(null=True, blank=True)
     note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    # Who raised the action - the discussion's chair when raised from a live
+    # discussion, or whoever used the standalone "New Action" form otherwise.
+    # null=True since actions created before this field existed have no
+    # value to backfill with confidence (see seed_referral_actions).
+    created_by = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     # Provenance only - the action stays a referral-level checklist item (not
     # reset/fragmented per meeting) even for a referral discussed at several
     # panels over time. Null when created outside a live discussion (e.g. the
