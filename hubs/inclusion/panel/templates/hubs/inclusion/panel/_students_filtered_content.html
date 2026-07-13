@@ -1,0 +1,44 @@
+{% load static %}
+<div class="list-card">
+<div class="entity-list" data-selectable="single">
+    {% for s in students %}
+    <div class="entity-row selectable" tabindex="0" role="button" aria-pressed="false">
+        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+        <div class="entity-body">
+            <div class="entity-title">{{ s.first_name }} {{ s.last_name }}</div>
+            <div class="entity-meta">Form: {{ s.reg_form }}</div>
+        </div>
+        <div class="btn-row">
+            {% if s.referrals_count > 0 %}
+            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Referrals ({{ s.referrals_count }})</a>
+            {% else %}
+            <span class="btn btn-sm btn-disabled" aria-disabled="true">Referrals (0)</span>
+            {% endif %}
+            {% if s.actions_count > 0 %}
+            <a href="{% url 'inclusion_panel_actions' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Actions ({{ s.actions_count }})</a>
+            {% else %}
+            <span class="btn btn-sm btn-disabled" aria-disabled="true">Actions (0)</span>
+            {% endif %}
+            <button type="button" class="btn btn-add btn-sm" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Referral</button>
+        </div>
+    </div>
+    {% empty %}
+    <p class="empty-note">No students yet.</p>
+    {% endfor %}
+</div>
+</div>
+
+<div class="stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ referrals_count }}</div>
+        <div class="stat-label">Referrals</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ actions_count }}</div>
+        <div class="stat-label">Actions</div>
+    </div>
+</div>

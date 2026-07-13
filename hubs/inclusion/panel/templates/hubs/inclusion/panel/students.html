@@ -4,7 +4,7 @@
 {% block title %}Students{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=158">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=159">
 {% endblock %}
 
 
@@ -21,114 +21,67 @@
 {% block content %}
 
 <div class="list-page-shell">
-<div class="list-card">
-<div class="filter-bar">
-    <span class="filter-bar-label">Filters <span class="filter-bar-count filter-bar-count--empty">0</span></span>
-    <div class="filter-field">
+
+<form method="get" class="filter-bar" data-ajax-target="#students-filtered-content">
+    <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+    <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
         <label for="name-search">Name Search</label>
-        <input type="text" id="name-search" placeholder="Find items">
+        <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
     </div>
-    <div class="filter-field">
+    <div class="filter-field{% if year_filter %} filter-field--active{% endif %}">
         <label for="year-filter">Year</label>
-        <select id="year-filter" class="ui-select--center">
+        <select id="year-filter" name="year" class="ui-select--center">
             <option value="">All</option>
             {% for year in years %}
-            <option value="{{ year }}">{{ year }}</option>
+            <option value="{{ year }}" {% if year_filter == year|stringformat:'s' %}selected{% endif %}>{{ year }}</option>
             {% endfor %}
         </select>
     </div>
-    <div class="filter-field">
+    <div class="filter-field{% if reg_filter %} filter-field--active{% endif %}">
         <label for="reg-filter">Reg</label>
-        <select id="reg-filter">
+        <select id="reg-filter" name="reg">
             <option value="">All</option>
             {% for form in forms %}
-            <option value="{{ form }}">{{ form }}</option>
+            <option value="{{ form }}" {% if reg_filter == form %}selected{% endif %}>{{ form }}</option>
             {% endfor %}
         </select>
     </div>
     <div class="filter-field">
         <label>Has Referrals</label>
         <div class="filter-toggle-wrap">
-            <button type="button" id="has-referrals-toggle" class="toggle-pill" aria-pressed="false" aria-label="Has Referrals"><span class="toggle-knob"></span></button>
+            <input type="checkbox" id="has-referrals-input" name="has_referrals" value="1" hidden {% if has_referrals_filter %}checked{% endif %}>
+            <button type="button" id="has-referrals-toggle" class="toggle-pill{% if has_referrals_filter %} on{% endif %}" aria-pressed="{% if has_referrals_filter %}true{% else %}false{% endif %}" aria-label="Has Referrals"><span class="toggle-knob"></span></button>
         </div>
     </div>
     <div class="filter-field">
         <label>Overdue Actions</label>
         <div class="filter-toggle-wrap">
-            <button type="button" id="overdue-actions-toggle" class="toggle-pill" aria-pressed="false" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
+            <input type="checkbox" id="overdue-actions-input" name="overdue_actions" value="1" hidden {% if overdue_actions_filter %}checked{% endif %}>
+            <button type="button" id="overdue-actions-toggle" class="toggle-pill{% if overdue_actions_filter %} on{% endif %}" aria-pressed="{% if overdue_actions_filter %}true{% else %}false{% endif %}" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
         </div>
     </div>
-    <div class="filter-field">
-        <button type="button" id="clear-filters" class="btn btn-sm filter-bar-clear">Clear Filters</button>
-    </div>
+    <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+</form>
+
+<div id="students-filtered-content">
+    {% include 'hubs/inclusion/panel/_students_filtered_content.html' %}
 </div>
 
-<div class="entity-list" data-selectable="single">
-    {% for s in students %}
-    <div class="entity-row selectable" tabindex="0" role="button" aria-pressed="false" data-name="{{ s.name|lower }}" data-year="{{ s.year }}" data-reg="{{ s.form }}" data-referrals="{{ s.referrals }}" data-actions="{{ s.actions }}" data-overdue-actions="{{ s.overdue_actions }}">
-        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-        <div class="entity-body">
-            <div class="entity-title">{{ s.name }}</div>
-            <div class="entity-meta">Form: {{ s.form }}</div>
-        </div>
-        <div class="btn-row">
-            {% if s.referrals > 0 %}
-            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.name|urlencode }}" class="btn btn-sm">Referrals ({{ s.referrals }})</a>
-            {% else %}
-            <span class="btn btn-sm btn-disabled" aria-disabled="true">Referrals (0)</span>
-            {% endif %}
-            {% if s.actions > 0 %}
-            <a href="{% url 'inclusion_panel_actions' %}?name={{ s.name|urlencode }}" class="btn btn-sm">Actions ({{ s.actions }})</a>
-            {% else %}
-            <span class="btn btn-sm btn-disabled" aria-disabled="true">Actions (0)</span>
-            {% endif %}
-            <button type="button" class="btn btn-add btn-sm" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Referral</button>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-</div>
-
-<div class="stats-strip">
-    <div class="stat-card">
-        <div class="stat-value" id="visible-count">{{ students_count }}</div>
-        <div class="stat-label">Students</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value" id="referrals-total">{{ referrals_count }}</div>
-        <div class="stat-label">Referrals</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value" id="actions-total">{{ actions_count }}</div>
-        <div class="stat-label">Actions</div>
-    </div>
-</div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var search = document.getElementById('name-search');
+    var filterBar = document.querySelector('form.filter-bar');
     var yearFilter = document.getElementById('year-filter');
     var regFilter = document.getElementById('reg-filter');
     var hasReferralsToggle = document.getElementById('has-referrals-toggle');
+    var hasReferralsInput = document.getElementById('has-referrals-input');
     var overdueActionsToggle = document.getElementById('overdue-actions-toggle');
-    var clearFiltersBtn = document.getElementById('clear-filters');
-    var visibleCount = document.getElementById('visible-count');
-    var referralsTotal = document.getElementById('referrals-total');
-    var actionsTotal = document.getElementById('actions-total');
-    var rows = document.querySelectorAll('.entity-list .entity-row');
+    var overdueActionsInput = document.getElementById('overdue-actions-input');
+    var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
 
-    function setupToggle(toggle, onChange) {
-        if (!toggle) return;
-        toggle.addEventListener('click', function () {
-            var isOn = toggle.classList.toggle('on');
-            toggle.setAttribute('aria-pressed', String(isOn));
-            onChange();
-        });
-    }
     var allForms = Array.prototype.slice.call(regFilter.options).slice(1).map(function (o) { return o.value; });
     var formsByYear = JSON.parse('{{ forms_by_year_json|escapejs }}');
-    var refreshFilterBarState = window.wireFilterBarActiveState(document.querySelector('.filter-bar'));
 
     function refreshRegOptions() {
         var year = yearFilter.value;
@@ -150,65 +103,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (regFilter._uiSelect) regFilter._uiSelect.refresh();
     }
 
-    function applyFilters() {
-        var term = search ? search.value.trim().toLowerCase() : '';
-        var year = yearFilter ? yearFilter.value : '';
-        var reg = regFilter ? regFilter.value : '';
-        var requireReferrals = hasReferralsToggle && hasReferralsToggle.classList.contains('on');
-        var requireOverdueActions = overdueActionsToggle && overdueActionsToggle.classList.contains('on');
-        var shown = 0;
-        var referralsShown = 0;
-        var actionsShown = 0;
-        rows.forEach(function (row) {
-            var matches = row.dataset.name.indexOf(term) !== -1
-                && (!year || row.dataset.year === year)
-                && (!reg || row.dataset.reg === reg)
-                && (!requireReferrals || Number(row.dataset.referrals) > 0)
-                && (!requireOverdueActions || Number(row.dataset.overdueActions) > 0);
-            row.style.display = matches ? '' : 'none';
-            if (matches) {
-                shown++;
-                referralsShown += Number(row.dataset.referrals) || 0;
-                actionsShown += Number(row.dataset.actions) || 0;
-            }
+    function setupToggle(toggle, input) {
+        if (!toggle || !input) return;
+        toggle.addEventListener('click', function () {
+            var isOn = toggle.classList.toggle('on');
+            toggle.setAttribute('aria-pressed', String(isOn));
+            input.checked = isOn;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        if (visibleCount) visibleCount.textContent = shown;
-        if (referralsTotal) referralsTotal.textContent = referralsShown;
-        if (actionsTotal) actionsTotal.textContent = actionsShown;
-        refreshFilterBarState();
     }
+    setupToggle(hasReferralsToggle, hasReferralsInput);
+    setupToggle(overdueActionsToggle, overdueActionsInput);
 
-    function clearFilters() {
-        if (search) search.value = '';
-        if (yearFilter) yearFilter.value = '';
-        refreshRegOptions();
-        if (regFilter) regFilter.value = '';
-        [hasReferralsToggle, overdueActionsToggle].forEach(function (toggle) {
-            if (!toggle) return;
-            toggle.classList.remove('on');
-            toggle.setAttribute('aria-pressed', 'false');
-        });
-        applyFilters();
-    }
-
-    if (search) search.addEventListener('input', applyFilters);
-    if (yearFilter) yearFilter.addEventListener('change', function () {
-        refreshRegOptions();
-        applyFilters();
-    });
-    if (regFilter) regFilter.addEventListener('change', applyFilters);
-    setupToggle(hasReferralsToggle, applyFilters);
-    setupToggle(overdueActionsToggle, applyFilters);
-    if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
-
-    // Arriving from the panel search modal's "Search students…" prefills
-    // the name search with that student so this page opens already scoped
-    // to them (same convention as referrals.html/actions.html).
-    var params = new URLSearchParams(window.location.search);
-    var name = params.get('name');
-    if (name && search) search.value = name;
-
-    applyFilters();
+    if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
+    if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
 });
 </script>
 {% endblock %}

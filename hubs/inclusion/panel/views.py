@@ -746,36 +746,79 @@ def inclusion_panel_home(request):
 
 
 def inclusion_panel_students(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
-    students = []
-    for student in student_queryset_for_school_key(current_school_key(request)):
-        students.append({
-            'id': student.id,
-            'name': f'{student.first_name} {student.last_name}',
-            'year': student.year_group,
-            'form': student.reg_form,
-            'referrals': student.referrals.count(),
-            'actions': Action.objects.filter(referral__student=student).count(),
-            'overdue_actions': Action.objects.filter(
-                referral__student=student, status='incomplete', due_date__lt=today,
-            ).count(),
-        })
-    years = sorted({s['year'] for s in students if s['year'] is not None})
-    forms = sorted({s['form'] for s in students if s['form']})
+    school_key = current_school_key(request)
+
+    name_filter = request.GET.get('name') or ''
+    year_filter = request.GET.get('year') or ''
+    reg_filter = request.GET.get('reg') or ''
+    has_referrals_filter = request.GET.get('has_referrals') == '1'
+    overdue_actions_filter = request.GET.get('overdue_actions') == '1'
+
+    base_students = student_queryset_for_school_key(school_key)
+
+    # Option lists computed from the school-scoped set, before the filters
+    # below are applied - same convention as inclusion_panel_meetings'
+    # chair/academic-year choices, so Year/Reg don't shrink each other's
+    # dropdowns as other filters change.
+    years = sorted({y for y in base_students.values_list('year_group', flat=True) if y is not None})
+    forms = sorted({f for f in base_students.values_list('reg_form', flat=True) if f})
     forms_by_year = {
-        year: sorted({s['form'] for s in students if s['year'] == year and s['form']})
+        year: sorted({
+            f for f in base_students.filter(year_group=year).values_list('reg_form', flat=True) if f
+        })
         for year in years
     }
-    return render(request, 'hubs/inclusion/panel/students.html', {
+
+    # Count(..., distinct=True) on each reverse relation is immune to the
+    # join fan-out from combining referrals and actions in one annotate()
+    # call - each COUNT(DISTINCT <that table's pk>) dedupes on its own
+    # column regardless of how many joined rows precede it.
+    students = base_students.annotate(
+        referrals_count=Count('referrals', distinct=True),
+        actions_count=Count('referrals__actions', distinct=True),
+        overdue_actions_count=Count(
+            'referrals__actions',
+            filter=Q(referrals__actions__status='incomplete', referrals__actions__due_date__lt=today),
+            distinct=True,
+        ),
+    )
+    if name_filter:
+        students = students.filter(Q(first_name__icontains=name_filter) | Q(last_name__icontains=name_filter))
+    if year_filter:
+        students = students.filter(year_group=year_filter)
+    if reg_filter:
+        students = students.filter(reg_form=reg_filter)
+    if has_referrals_filter:
+        students = students.filter(referrals_count__gt=0)
+    if overdue_actions_filter:
+        students = students.filter(overdue_actions_count__gt=0)
+    students = list(students.order_by('last_name', 'first_name'))
+
+    active_filter_count = sum(
+        1 for v in (name_filter, year_filter, reg_filter, has_referrals_filter, overdue_actions_filter) if v
+    )
+
+    context = {
         **_panel_base_context(request),
         'students': students,
         'years': years,
         'forms': forms,
         'forms_by_year_json': json.dumps(forms_by_year),
+        'name_filter': name_filter,
+        'year_filter': year_filter,
+        'reg_filter': reg_filter,
+        'has_referrals_filter': has_referrals_filter,
+        'overdue_actions_filter': overdue_actions_filter,
+        'active_filter_count': active_filter_count,
         'students_count': len(students),
-        'referrals_count': InclusionReferral.objects.filter(student__in=[s['id'] for s in students]).count(),
-        'actions_count': Action.objects.filter(referral__student_id__in=[s['id'] for s in students]).count(),
-    })
+        'referrals_count': sum(s.referrals_count for s in students),
+        'actions_count': sum(s.actions_count for s in students),
+    }
+    template = 'hubs/inclusion/panel/_students_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/students.html'
+    return render(request, template, context)
+
 
 
 def inclusion_panel_referrals(request):
