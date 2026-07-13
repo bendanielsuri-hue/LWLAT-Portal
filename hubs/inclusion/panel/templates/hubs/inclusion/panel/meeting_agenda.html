@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=160">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=161">
 {% endblock %}
 
 
@@ -46,6 +46,8 @@
     </div>
 </dialog>
 
+<div class="list-page-shell">
+
 <div class="panel-toolbar">
     <div class="panel-toolbar-stats">
         <span>Students pending discussion: {{ pending|length }}</span>
@@ -64,10 +66,11 @@
 
 <div class="agenda-layout">
     <div class="members-register-col setup-col">
-        <div class="setup-col-header"><h2>Panel Members Register</h2></div>
-        <div class="btn-row">
+        <div class="setup-col-header">
+            <h2>Panel Members Register</h2>
             <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ panel.panel_group_id|default:'' }}" {% if not panel.panel_group_id %}disabled title="Assign a Panel Group first"{% endif %}><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Manage Members</button>
         </div>
+        <div class="setup-col-body">
         <div class="entity-list" data-panel-members-list>
             {% for member in members %}
             <div class="entity-row">
@@ -112,10 +115,12 @@
             </p>
             {% endfor %}
         </div>
+        </div>
     </div>
 
     <div class="agenda-section setup-col">
         <div class="setup-col-header"><h2>Students Pending <span class="count" data-count-key="heading" data-count="{{ pending|length }}">({{ pending|length }})</span></h2></div>
+        <div class="setup-col-body">
         <div class="entity-list" data-drop-zone="pending">
             {% for pr in pending %}
             <div class="entity-row" draggable="true" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
@@ -167,10 +172,12 @@
             <p class="empty-note">No students pending discussion.</p>
             {% endfor %}
         </div>
+        </div>
     </div>
 
     <div class="agenda-section setup-col">
         <div class="setup-col-header"><h2>Students Discussed ({{ discussed|length }})</h2></div>
+        <div class="setup-col-body">
         <div class="entity-list">
             {% for pr in discussed %}
             <div class="entity-row">
@@ -199,7 +206,10 @@
             <p class="empty-note">No students discussed yet.</p>
             {% endfor %}
         </div>
+        </div>
     </div>
+</div>
+
 </div>
 
 <script>

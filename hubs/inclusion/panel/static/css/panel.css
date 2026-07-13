@@ -593,14 +593,17 @@
     overflow: hidden;
     align-items: stretch;
 }
-.setup-columns .setup-col {
+.setup-columns .setup-col,
+.agenda-layout .setup-col {
     display: flex;
     flex-direction: column;
     /* height: 100% + min-height: 0, not align-items: stretch alone - same
        belt-and-braces pairing as .list-page-shell .panel-card below. Flex
        items default to min-height: auto, which floors them at their
        content's min-content size and silently defeats stretch whenever that
-       content is taller than the stretched height. */
+       content is taller than the stretched height. Shared with .agenda-layout
+       (a grid, not flex) - Panel Agenda wraps in .list-page-shell too now,
+       see .list-page-shell .agenda-layout further below. */
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -991,6 +994,19 @@
 .agenda-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-xl); align-items: start; }
 .agenda-layout .agenda-section { min-width: 0; margin-bottom: 0; }
 .agenda-layout .members-register-col { min-width: 0; }
+/* Panel Agenda wraps toolbar + agenda-layout in the standard .list-page-shell
+   (see meeting_setup.html's identical .list-page-shell .setup-columns rule
+   above, and DesignLanguage.md "Card-internal scroll with a fixed header") -
+   the live stats bar (elapsed timer, progress, counts) stays pinned while
+   each column's own list scrolls, rather than the whole page scrolling with
+   it. align-items: stretch overrides .agenda-layout's own align-items: start
+   above so every column fills the grid row's height. */
+.list-page-shell .agenda-layout {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    align-items: stretch;
+}
 .members-register-add-btn { margin-bottom: var(--space-sm); }
 .entity-body > .btn-row { margin-top: var(--space-xs); }
 .member-attendance-form { margin-top: var(--space-xs); display: flex; align-items: center; gap: var(--space-xs); }
