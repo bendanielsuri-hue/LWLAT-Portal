@@ -22,7 +22,18 @@
 
 <div class="list-page-shell">
 
+{% comment %}
+PROTOTYPE (issue #9) — filter-review for Students. Three variants of the
+filter-bar, switched via ?variant=: A) minimal addition (+SEN Status only),
+B) progressive disclosure (a "More filters" row revealing the rest), C) full
+flat (every candidate filter inline). All wired to real Q filters (see
+inclusion_panel_students in views.py) so the fidelity is genuine, not just
+decorative markup.
+{% endcomment %}
 <form method="get" class="filter-bar" data-ajax-target="#students-filtered-content">
+    <input type="hidden" name="variant" value="{{ row_variant }}">
+    <input type="hidden" name="toggle" value="{{ toggle_style }}">
+    <div class="proto-filter-fields-wrap">
     <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
         <label for="name-search">Name Search</label>
@@ -37,6 +48,17 @@
             {% endfor %}
         </select>
     </div>
+    {% if has_houses %}
+    <div class="filter-field{% if house_filter %} filter-field--active{% endif %}">
+        <label for="house-filter">House</label>
+        <select id="house-filter" name="house">
+            <option value="">All</option>
+            {% for h in houses %}
+            <option value="{{ h }}" {% if house_filter == h %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
     <div class="filter-field{% if reg_filter %} filter-field--active{% endif %}">
         <label for="reg-filter">Reg</label>
         <select id="reg-filter" name="reg">
@@ -46,21 +68,178 @@
             {% endfor %}
         </select>
     </div>
+
+    {% if row_variant == 'A' %}
+    <div class="filter-field{% if sen_status_filter %} filter-field--active{% endif %}">
+        <label for="sen-status-filter">SEN Status</label>
+        <select id="sen-status-filter" name="sen_status">
+            <option value="">All</option>
+            {% for value, label in sen_status_choices %}
+            <option value="{{ value }}" {% if sen_status_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
     <div class="filter-field">
         <label>Has Referrals</label>
         <div class="filter-toggle-wrap">
-            <input type="checkbox" id="has-referrals-input" name="has_referrals" value="1" hidden {% if has_referrals_filter %}checked{% endif %}>
-            <button type="button" id="has-referrals-toggle" class="toggle-pill{% if has_referrals_filter %} on{% endif %}" aria-pressed="{% if has_referrals_filter %}true{% else %}false{% endif %}" aria-label="Has Referrals"><span class="toggle-knob"></span></button>
+            <input type="checkbox" name="has_referrals" value="1" hidden {% if has_referrals_filter %}checked{% endif %}>
+            <button type="button" class="toggle-pill{% if has_referrals_filter %} on{% endif %}" aria-pressed="{% if has_referrals_filter %}true{% else %}false{% endif %}" aria-label="Has Referrals"><span class="toggle-knob"></span></button>
         </div>
     </div>
     <div class="filter-field">
         <label>Overdue Actions</label>
         <div class="filter-toggle-wrap">
-            <input type="checkbox" id="overdue-actions-input" name="overdue_actions" value="1" hidden {% if overdue_actions_filter %}checked{% endif %}>
-            <button type="button" id="overdue-actions-toggle" class="toggle-pill{% if overdue_actions_filter %} on{% endif %}" aria-pressed="{% if overdue_actions_filter %}true{% else %}false{% endif %}" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
+            <input type="checkbox" name="overdue_actions" value="1" hidden {% if overdue_actions_filter %}checked{% endif %}>
+            <button type="button" class="toggle-pill{% if overdue_actions_filter %} on{% endif %}" aria-pressed="{% if overdue_actions_filter %}true{% else %}false{% endif %}" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
         </div>
     </div>
-    <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+
+    {% if row_variant == 'C' %}
+    <div class="filter-field{% if sen_status_filter %} filter-field--active{% endif %}">
+        <label for="sen-status-filter">SEN Status</label>
+        <select id="sen-status-filter" name="sen_status">
+            <option value="">All</option>
+            {% for value, label in sen_status_choices %}
+            <option value="{{ value }}" {% if sen_status_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if gender_filter %} filter-field--active{% endif %}">
+        <label for="gender-filter">Gender</label>
+        <select id="gender-filter" name="gender">
+            <option value="">All</option>
+            {% for value, label in gender_choices %}
+            <option value="{{ value }}" {% if gender_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if ethnicity_filter %} filter-field--active{% endif %}">
+        <label for="ethnicity-filter">Ethnicity</label>
+        <select id="ethnicity-filter" name="ethnicity">
+            <option value="">All</option>
+            {% for value, label in ethnicity_choices %}
+            <option value="{{ value }}" {% if ethnicity_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if tutor_filter %} filter-field--active{% endif %}">
+        <label for="tutor-filter">Tutor</label>
+        <select id="tutor-filter" name="tutor">
+            <option value="">All</option>
+            {% for t in tutors %}
+            <option value="{{ t.id }}" {% if tutor_filter == t.id|stringformat:'s' %}selected{% endif %}>{{ t.first_name }} {{ t.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field">
+        <label>Pupil Premium</label>
+        <div class="filter-toggle-wrap">
+            <input type="checkbox" name="is_pp" value="1" hidden {% if is_pp_filter %}checked{% endif %}>
+            <button type="button" class="toggle-pill{% if is_pp_filter %} on{% endif %}" aria-pressed="{% if is_pp_filter %}true{% else %}false{% endif %}" aria-label="Pupil Premium"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-field">
+        <label>EAL</label>
+        <div class="filter-toggle-wrap">
+            <input type="checkbox" name="is_eal" value="1" hidden {% if is_eal_filter %}checked{% endif %}>
+            <button type="button" class="toggle-pill{% if is_eal_filter %} on{% endif %}" aria-pressed="{% if is_eal_filter %}true{% else %}false{% endif %}" aria-label="EAL"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-field">
+        <label>Looked After</label>
+        <div class="filter-toggle-wrap">
+            <input type="checkbox" name="is_lac" value="1" hidden {% if is_lac_filter %}checked{% endif %}>
+            <button type="button" class="toggle-pill{% if is_lac_filter %} on{% endif %}" aria-pressed="{% if is_lac_filter %}true{% else %}false{% endif %}" aria-label="Looked After Child"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-field">
+        <label>Young Carer</label>
+        <div class="filter-toggle-wrap">
+            <input type="checkbox" name="is_young_carer" value="1" hidden {% if is_young_carer_filter %}checked{% endif %}>
+            <button type="button" class="toggle-pill{% if is_young_carer_filter %} on{% endif %}" aria-pressed="{% if is_young_carer_filter %}true{% else %}false{% endif %}" aria-label="Young Carer"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-field">
+        <label>More Able</label>
+        <div class="filter-toggle-wrap">
+            <input type="checkbox" name="is_more_able" value="1" hidden {% if is_more_able_filter %}checked{% endif %}>
+            <button type="button" class="toggle-pill{% if is_more_able_filter %} on{% endif %}" aria-pressed="{% if is_more_able_filter %}true{% else %}false{% endif %}" aria-label="More Able"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if row_variant == 'B' %}
+    <div class="proto-filter-secondary-fields" hidden>
+        <span class="proto-filter-divider"></span>
+        <div class="filter-field{% if sen_status_filter %} filter-field--active{% endif %}">
+            <label for="sen-status-filter-b">SEN Status</label>
+            <select id="sen-status-filter-b" name="sen_status">
+                <option value="">All</option>
+                {% for value, label in sen_status_choices %}
+                <option value="{{ value }}" {% if sen_status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field{% if gender_filter %} filter-field--active{% endif %}">
+            <label for="gender-filter-b">Gender</label>
+            <select id="gender-filter-b" name="gender">
+                <option value="">All</option>
+                {% for value, label in gender_choices %}
+                <option value="{{ value }}" {% if gender_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field{% if ethnicity_filter %} filter-field--active{% endif %}">
+            <label for="ethnicity-filter-b">Ethnicity</label>
+            <select id="ethnicity-filter-b" name="ethnicity">
+                <option value="">All</option>
+                {% for value, label in ethnicity_choices %}
+                <option value="{{ value }}" {% if ethnicity_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field{% if tutor_filter %} filter-field--active{% endif %}">
+            <label for="tutor-filter-b">Tutor</label>
+            <select id="tutor-filter-b" name="tutor">
+                <option value="">All</option>
+                {% for t in tutors %}
+                <option value="{{ t.id }}" {% if tutor_filter == t.id|stringformat:'s' %}selected{% endif %}>{{ t.first_name }} {{ t.last_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    {% endif %}
+    </div>
+
+    <div class="proto-filter-actions-right">
+        {% if row_variant == 'B' %}
+        {% if toggle_style == '1' %}
+        <button type="button" class="btn btn-sm btn-secondary proto-toggle-1" data-proto-more-filters aria-expanded="false">
+            <span class="proto-toggle-1-icon">{% include 'icons/arrow_down_svg.html' %}</span>
+            More filters
+        </button>
+        {% elif toggle_style == '2' %}
+        <button type="button" class="proto-toggle-2" data-proto-more-filters aria-expanded="false" aria-label="More filters" title="More filters">
+            {% include 'icons/cog_svg.html' %}
+            {% if hidden_filter_count %}<span class="proto-toggle-2-badge">{{ hidden_filter_count }}</span>{% endif %}
+        </button>
+        {% elif toggle_style == '3' %}
+        <button type="button" class="proto-toggle-3" data-proto-more-filters aria-expanded="false">
+            More filters <span class="proto-toggle-3-chevron">&rsaquo;</span>
+        </button>
+        {% elif toggle_style == '4' %}
+        <div class="filter-field proto-toggle-4">
+            <label>More filters</label>
+            <div class="filter-toggle-wrap">
+                <button type="button" class="toggle-pill" data-proto-more-filters aria-expanded="false" aria-label="More filters"><span class="toggle-knob"></span></button>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+        <a href="{% url 'inclusion_panel_students' %}?variant={{ row_variant }}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
 </form>
 
 <div id="students-filtered-content">
@@ -74,10 +253,6 @@ document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
     var yearFilter = document.getElementById('year-filter');
     var regFilter = document.getElementById('reg-filter');
-    var hasReferralsToggle = document.getElementById('has-referrals-toggle');
-    var hasReferralsInput = document.getElementById('has-referrals-input');
-    var overdueActionsToggle = document.getElementById('overdue-actions-toggle');
-    var overdueActionsInput = document.getElementById('overdue-actions-input');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
 
     var allForms = Array.prototype.slice.call(regFilter.options).slice(1).map(function (o) { return o.value; });
@@ -103,7 +278,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (regFilter._uiSelect) regFilter._uiSelect.refresh();
     }
 
-    function setupToggle(toggle, input) {
+    // PROTOTYPE (issue #9) — generic toggle wiring (button + hidden
+    // checkbox inside a shared wrapper) instead of one named pair of ids
+    // per toggle, so new candidate toggles (variant C's flags) don't need
+    // their own JS.
+    document.querySelectorAll('.filter-toggle-wrap').forEach(function (wrap) {
+        var toggle = wrap.querySelector('.toggle-pill');
+        var input = wrap.querySelector('input[type=checkbox]');
         if (!toggle || !input) return;
         toggle.addEventListener('click', function () {
             var isOn = toggle.classList.toggle('on');
@@ -111,12 +292,153 @@ document.addEventListener('DOMContentLoaded', function () {
             input.checked = isOn;
             input.dispatchEvent(new Event('change', { bubbles: true }));
         });
-    }
-    setupToggle(hasReferralsToggle, hasReferralsInput);
-    setupToggle(overdueActionsToggle, overdueActionsInput);
+    });
 
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
+
+    // PROTOTYPE (issue #9) — variant B's "More filters" disclosure row.
+    var moreFiltersBtn = document.querySelector('[data-proto-more-filters]');
+    var secondaryRow = document.querySelector('.proto-filter-secondary-fields');
+    if (moreFiltersBtn && secondaryRow) {
+        // Style-agnostic: only flips aria-expanded + the hidden secondary
+        // row. Each toggle style's expanded/collapsed look is pure CSS off
+        // [aria-expanded="true"] - no text/innerHTML swap needed, so the
+        // same handler works for all four styles.
+        moreFiltersBtn.addEventListener('click', function () {
+            var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
+            secondaryRow.hidden = expanded;
+            moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
+        });
+    }
 });
+</script>
+
+{% comment %}
+==================== PROTOTYPE (issue #9) ====================
+Filter-bar variant switcher for "Students — filter review". Throwaway -
+strip this block, the ?variant= handling in views.py, and the row_variant
+branches above and in _students_filtered_content.html once a variant is
+picked.
+{% endcomment %}
+{% if row_variant == 'B' %}
+<div class="proto-switcher proto-switcher--toggle" role="toolbar" aria-label="More-filters toggle style switcher">
+    <a href="?{% querystring toggle=prev_toggle_style %}" class="proto-switcher-arrow" aria-label="Previous toggle style">&larr;</a>
+    <span class="proto-switcher-label">Toggle {{ toggle_style }} &mdash; {{ toggle_style_name }}</span>
+    <a href="?{% querystring toggle=next_toggle_style %}" class="proto-switcher-arrow" aria-label="Next toggle style">&rarr;</a>
+</div>
+{% endif %}
+<div class="proto-switcher" role="toolbar" aria-label="Filter-bar prototype variant switcher">
+    <a href="?{% querystring variant=prev_variant %}" class="proto-switcher-arrow" aria-label="Previous variant">&larr;</a>
+    <span class="proto-switcher-label">{{ row_variant }} &mdash; {{ variant_name }}</span>
+    <a href="?{% querystring variant=next_variant %}" class="proto-switcher-arrow" aria-label="Next variant">&rarr;</a>
+</div>
+<style>
+.proto-switcher {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px;
+    background: #1a1a1a; color: #fff; border-radius: 999px;
+    padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    font-size: 13px; font-weight: 600; z-index: 9999;
+}
+.proto-switcher--toggle { bottom: 64px; background: #3a2f6b; }
+.proto-switcher-arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); color: #fff; text-decoration: none;
+}
+.proto-switcher-arrow:hover { background: rgba(255,255,255,0.24); }
+.proto-switcher-label { white-space: nowrap; padding: 0 4px; }
+
+/* More filters + Clear Filters grouped as one stacked unit at the bar's
+   right edge, separated from the filter fields by a vertical divider (same
+   border-left/padding-left convention as .meeting-card-actions). Now a
+   sibling of .proto-filter-fields-wrap (not one more item wrapping inside
+   it), so it always sits at the bar's true right edge - regardless of how
+   many field rows wrap on the left - instead of landing wherever it fell
+   in the wrap order. */
+.proto-filter-fields-wrap { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-xs); flex: 1; min-width: 0; }
+.proto-filter-actions-right {
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+    align-self: stretch; flex-shrink: 0;
+    border-left: 1px solid var(--border-strong); padding-left: var(--space-md);
+}
+.proto-filter-actions-right .filter-bar-clear { margin-left: 0; }
+.proto-filter-actions-right .btn { width: 100%; }
+
+/* Variant B - secondary fields are direct flex items of
+   .proto-filter-fields-wrap (display:contents - no box/border of their
+   own), so they wrap onto a new line inside the same fields area via that
+   wrap's own flex-wrap. A prominent divider (2px, --border-strong) marks
+   the seam between the two rows while expanded. */
+.proto-filter-secondary-fields { display: contents; }
+.proto-filter-secondary-fields[hidden] { display: none; }
+.proto-filter-divider { flex-basis: 100%; height: 0; border-top: 2px solid var(--border-strong); }
+
+/* "More filters" toggle-affordance styles (?toggle=1-4) - deliberately not
+   select-shaped (no bordered rectangle with a trailing caret that reads as
+   a dropdown), each signalling expanded/collapsed a different way. */
+
+/* 1: filled button chip - plain .btn.btn-sm (same class Clear Filters
+   uses) for identical height/padding/shape, so it reads as a standard
+   button, not a pill or a one-off. Only the fill flips solid + the icon
+   rotates on expand - no shape or size change between states. */
+.proto-toggle-1 { display: flex; align-items: center; gap: 6px; width: 100%; }
+.proto-toggle-1-icon { display: inline-flex; transition: transform var(--transition-fast); }
+.proto-toggle-1-icon svg { width: 14px; height: 14px; }
+.proto-toggle-1[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.proto-toggle-1[aria-expanded="true"] .proto-toggle-1-icon { transform: rotate(180deg); }
+
+/* 2: icon-only circular button + a badge for how many hidden filters are
+   already active - an inset/pressed look is the "expanded" signal, not
+   any text. Compact enough that it clearly isn't a value-holding field. */
+.proto-toggle-2 {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-secondary);
+    cursor: pointer;
+}
+.proto-toggle-2 svg { width: 16px; height: 16px; }
+.proto-toggle-2[aria-expanded="true"] { background: var(--primary-light); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.proto-toggle-2-badge {
+    position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 3px;
+    border-radius: var(--radius-pill); background: var(--color-negative); color: #fff;
+    font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+
+/* 3: plain text link, no box/border/fill at all - can't be mistaken for
+   any form control since it carries none of a control's chrome. Chevron
+   rotates 90deg when expanded (› becomes a downward-pointing ⌄). */
+.proto-toggle-3 {
+    display: flex; align-items: center; gap: 2px; border: none; background: none;
+    color: var(--primary); font-size: var(--font-sm); font-weight: 600; cursor: pointer; padding: var(--space-xs) 0;
+}
+.proto-toggle-3:hover { text-decoration: underline; }
+.proto-toggle-3-chevron { display: inline-block; transition: transform var(--transition-fast); }
+.proto-toggle-3[aria-expanded="true"] .proto-toggle-3-chevron { transform: rotate(90deg); }
+
+/* 4: reuses the exact sliding .toggle-pill switch already used elsewhere
+   in this same bar (Has Referrals/Overdue Actions) - unambiguous since
+   it's a familiar on/off control, not a value-picker. */
+.proto-toggle-4 { flex-shrink: 0; }
+.proto-toggle-4 .toggle-pill[aria-expanded="true"] { background: var(--primary); }
+.proto-toggle-4 .toggle-pill[aria-expanded="true"] .toggle-knob { transform: translateX(20px); }
+</style>
+<script>
+(function () {
+    var order = ['A', 'B', 'C'];
+    document.addEventListener('keydown', function (e) {
+        var tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        var current = order.indexOf('{{ row_variant }}');
+        var next = e.key === 'ArrowLeft'
+            ? order[(current - 1 + order.length) % order.length]
+            : order[(current + 1) % order.length];
+        var params = new URLSearchParams(window.location.search);
+        params.set('variant', next);
+        window.location.search = params.toString();
+    });
+})();
 </script>
 {% endblock %}

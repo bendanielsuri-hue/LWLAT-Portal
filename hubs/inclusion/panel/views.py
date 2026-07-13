@@ -755,6 +755,18 @@ def inclusion_panel_students(request):
     reg_filter = request.GET.get('reg') or ''
     has_referrals_filter = request.GET.get('has_referrals') == '1'
     overdue_actions_filter = request.GET.get('overdue_actions') == '1'
+    # PROTOTYPE (issue #9) — filter-review candidates, only wired up for the
+    # variants that use them (?variant=).
+    sen_status_filter = request.GET.get('sen_status') or ''
+    gender_filter = request.GET.get('gender') or ''
+    ethnicity_filter = request.GET.get('ethnicity') or ''
+    house_filter = request.GET.get('house') or ''
+    tutor_filter = request.GET.get('tutor') or ''
+    is_pp_filter = request.GET.get('is_pp') == '1'
+    is_eal_filter = request.GET.get('is_eal') == '1'
+    is_lac_filter = request.GET.get('is_lac') == '1'
+    is_young_carer_filter = request.GET.get('is_young_carer') == '1'
+    is_more_able_filter = request.GET.get('is_more_able') == '1'
 
     base_students = student_queryset_for_school_key(school_key)
 
@@ -770,12 +782,15 @@ def inclusion_panel_students(request):
         })
         for year in years
     }
+    # PROTOTYPE (issue #9) — option lists for the candidate filters.
+    tutors = Staff.objects.filter(tutees__in=base_students).distinct().order_by('first_name', 'last_name')
+    has_houses = base_students.filter(school__name='Babington Academy').exists()
 
     # Count(..., distinct=True) on each reverse relation is immune to the
     # join fan-out from combining referrals and actions in one annotate()
     # call - each COUNT(DISTINCT <that table's pk>) dedupes on its own
     # column regardless of how many joined rows precede it.
-    students = base_students.annotate(
+    students = base_students.select_related('form_tutor', 'school').annotate(
         referrals_count=Count('referrals', distinct=True),
         actions_count=Count('referrals__actions', distinct=True),
         overdue_actions_count=Count(
@@ -794,10 +809,42 @@ def inclusion_panel_students(request):
         students = students.filter(referrals_count__gt=0)
     if overdue_actions_filter:
         students = students.filter(overdue_actions_count__gt=0)
+    if sen_status_filter:
+        students = students.filter(sen_status=sen_status_filter)
+    if gender_filter:
+        students = students.filter(gender=gender_filter)
+    if ethnicity_filter:
+        students = students.filter(ethnicity=ethnicity_filter)
+    if tutor_filter:
+        students = students.filter(form_tutor_id=tutor_filter)
+    if is_pp_filter:
+        students = students.filter(is_pp=True)
+    if is_eal_filter:
+        students = students.filter(is_eal=True)
+    if is_lac_filter:
+        students = students.filter(is_lac=True)
+    if is_young_carer_filter:
+        students = students.filter(is_young_carer=True)
+    if is_more_able_filter:
+        students = students.filter(is_more_able=True)
     students = list(students.order_by('last_name', 'first_name'))
 
+    # PROTOTYPE (issue #9) — House isn't a real Student field (same fake as
+    # ticket #8's row-detail prototype); filtering by it happens in Python,
+    # after the real DB filters above, since there's nothing to filter on
+    # in SQL.
+    houses = ['A', 'B', 'C', 'D', 'E']
+    for s in students:
+        s.house = houses[s.id % len(houses)] if s.school and s.school.name == 'Babington Academy' else None
+    if house_filter:
+        students = [s for s in students if s.house == house_filter]
+
     active_filter_count = sum(
-        1 for v in (name_filter, year_filter, reg_filter, has_referrals_filter, overdue_actions_filter) if v
+        1 for v in (
+            name_filter, year_filter, reg_filter, has_referrals_filter, overdue_actions_filter,
+            sen_status_filter, gender_filter, ethnicity_filter, house_filter, tutor_filter,
+            is_pp_filter, is_eal_filter, is_lac_filter, is_young_carer_filter, is_more_able_filter,
+        ) if v
     )
 
     context = {
@@ -815,7 +862,60 @@ def inclusion_panel_students(request):
         'students_count': len(students),
         'referrals_count': sum(s.referrals_count for s in students),
         'actions_count': sum(s.actions_count for s in students),
+        # PROTOTYPE (issue #9) — filter-bar variant switcher, throwaway.
+        'sen_status_choices': Student.SEN_STATUS_CHOICES,
+        'gender_choices': Student.GENDER_CHOICES,
+        'ethnicity_choices': Student.ETHNICITY_CHOICES,
+        'tutors': tutors,
+        'has_houses': has_houses,
+        'houses': houses,
+        'sen_status_filter': sen_status_filter,
+        'gender_filter': gender_filter,
+        'ethnicity_filter': ethnicity_filter,
+        'house_filter': house_filter,
+        'tutor_filter': tutor_filter,
+        'is_pp_filter': is_pp_filter,
+        'is_eal_filter': is_eal_filter,
+        'is_lac_filter': is_lac_filter,
+        'is_young_carer_filter': is_young_carer_filter,
+        'is_more_able_filter': is_more_able_filter,
+        # PROTOTYPE (issue #9) — count of active filters that live only in
+        # variant B's hidden "more filters" row, for that style's badge.
+        'hidden_filter_count': sum(
+            1 for v in (sen_status_filter, gender_filter, ethnicity_filter, house_filter, tutor_filter) if v
+        ),
     }
+    variant_order = ['A', 'B', 'C']
+    variant_names = {
+        'A': 'Minimal addition (+SEN Status)',
+        'B': 'Progressive disclosure (More filters row)',
+        'C': 'Full flat (everything inline)',
+    }
+    row_variant = request.GET.get('variant') if request.GET.get('variant') in variant_order else 'A'
+    idx = variant_order.index(row_variant)
+    context.update({
+        'row_variant': row_variant,
+        'variant_name': variant_names[row_variant],
+        'prev_variant': variant_order[(idx - 1) % len(variant_order)],
+        'next_variant': variant_order[(idx + 1) % len(variant_order)],
+    })
+    # PROTOTYPE (issue #9) — sub-variants of variant B's "More filters"
+    # toggle affordance, only meaningful when row_variant == 'B'.
+    toggle_style_order = ['1', '2', '3', '4']
+    toggle_style_names = {
+        '1': 'Filled pill chip',
+        '2': 'Icon button + hidden-count badge',
+        '3': 'Plain text link + chevron',
+        '4': 'Sliding switch',
+    }
+    toggle_style = request.GET.get('toggle') if request.GET.get('toggle') in toggle_style_order else '1'
+    t_idx = toggle_style_order.index(toggle_style)
+    context.update({
+        'toggle_style': toggle_style,
+        'toggle_style_name': toggle_style_names[toggle_style],
+        'prev_toggle_style': toggle_style_order[(t_idx - 1) % len(toggle_style_order)],
+        'next_toggle_style': toggle_style_order[(t_idx + 1) % len(toggle_style_order)],
+    })
     template = 'hubs/inclusion/panel/_students_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/students.html'
     return render(request, template, context)
 
