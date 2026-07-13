@@ -118,6 +118,15 @@
 .btn-row { display: flex; gap: var(--space-xs); flex-wrap: wrap; align-items: center; flex-shrink: 0; }
 .btn-row .btn { flex-shrink: 0; }
 .btn-row[hidden] { display: none; }
+/* .btn's own unconditional `display: inline-flex` above is author CSS, which
+   always beats the browser's `[hidden] { display: none }` UA-stylesheet rule
+   regardless of specificity - same trap dialog.modal-dialog:not([open]) and
+   .ui-fused-field[hidden] already guard against elsewhere. .btn-row[hidden]
+   above only covers a *wrapped* group; a lone .btn toggled via its own
+   hidden attribute (e.g. Edit Panel Group's Back button, data-members-back-btn)
+   needs the same explicit override, otherwise it stays visibly rendered and
+   collides with whatever sits beside it. */
+.btn[hidden] { display: none; }
 /* Overrides a context's own justify-content: flex-end (e.g.
    dialog.modal-dialog .btn-row) for a .btn-row whose action reads as
    "back"/navigation rather than a primary form action - those sit on the

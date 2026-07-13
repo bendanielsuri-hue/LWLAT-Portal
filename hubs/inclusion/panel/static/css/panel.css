@@ -10,7 +10,9 @@
     flex: 1 1 360px;
     min-width: 320px;
     background: var(--bg-surface);
-    border: 1px solid var(--border-color);
+    /* --border-strong (see grilling session 2026-07-12, applied portal-wide
+       to every card). */
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
     padding: var(--space-lg);
     box-shadow: var(--shadow-md);
@@ -158,6 +160,14 @@
 @keyframes tab-row-fade-in {
     from { opacity: 0; }
     to { opacity: 1; }
+}
+
+/* Panel Group's Active/Inactive tab buttons fade in individually the moment
+   one goes from zero members to its first - see tabMemberState in panel.js.
+   Reuses the row's own fade-in keyframe rather than defining a near-
+   identical one. */
+.tab-row button.tab-fade-in {
+    animation: tab-row-fade-in var(--transition-base) ease;
 }
 
 .panel-list li:last-child {
@@ -349,6 +359,7 @@
 .status-pill.ready { background: var(--color-positive-bg); color: var(--color-positive); }
 .status-pill.running,
 .status-pill.in_panel,
+.status-pill.next-panel,
 .status-pill.review_scheduled { background: var(--primary-light); color: var(--primary); }
 .status-pill.delayed,
 .status-pill.awaiting_review { background: var(--color-warning-bg); color: var(--color-warning); }
@@ -385,119 +396,108 @@
    action column is pinned to the card's far right with margin-left: auto
    and never changes size, and doesn't get a divider of its own — the gap
    before it is enough. */
+/* ==================== Meeting card ====================
+   Single title/status line (status pill sits inline after the title;
+   the title truncates with an ellipsis under pressure rather than
+   wrapping, so a long school name never pushes the pill onto its own
+   line - min-width:0 + flex-shrink:0 on the pill is what makes that
+   work). Date+Chair share one line below. A New/Review + Priority (or,
+   for a completed panel, Discussed Referrals + Meeting Duration)
+   breakdown sits under a divider. Actions are a right-hand column,
+   vertically centred against the whole card. */
 .meeting-card {
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
-    padding: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
     background: var(--meeting-card-bg, var(--bg-nested));
     box-shadow: var(--shadow-sm);
-}
-.meeting-card-row { display: flex; align-items: center; gap: var(--space-lg); }
-.meeting-card-col { min-width: 0; }
-.meeting-card-col:not(:first-child):not(.meeting-card-actions) { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
-.meeting-card-logo {
-    flex: 0 0 auto;
-    width: 32px;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-faint);
+    align-items: stretch;
+    gap: var(--space-md);
 }
-.meeting-card-main { flex: 0 0 300px; }
-.meeting-card-info { flex: 1 1 0; }
-.meeting-card-actions { flex: 0 0 auto; margin-left: auto; min-width: 320px; justify-content: flex-end; }
-.meeting-card h3 { font-size: var(--font-lg); margin-bottom: var(--space-xxs); }
-.meeting-date-line { font-size: var(--font-md); font-weight: 500; color: var(--text-primary); }
-.next-panel-label {
-    font-size: var(--font-xl);
-    font-weight: 700;
-    color: var(--primary);
-    margin-bottom: var(--space-sm);
-    padding-bottom: var(--space-sm);
-    border-bottom: 1px solid var(--border-color);
-}
-.next-panel-label-indent { margin-left: calc(32px + var(--space-lg)); }
 .meeting-card:hover, .meeting-card.chosen { background: var(--meeting-card-hover-bg); }
 .meeting-card:hover h3, .meeting-card.chosen h3 { font-weight: 700; }
-.meeting-status-line {
-    font-size: var(--font-sm);
-    font-weight: 600;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    flex-wrap: wrap;
-}
-/* .status-pill's own 10px horizontal padding otherwise makes its text sit
-   inset compared to the plain-text row below it (e.g. "0 Referrals") in the
-   same column — cancel it out on the first pill so both rows line up. */
-.meeting-status-line .status-pill:first-child { margin-left: -10px; }
-.meeting-card-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: var(--font-sm);
-    color: var(--text-secondary);
-}
-.meeting-info-label { font-weight: 600; margin-right: var(--space-xxs); }
-.meeting-info-label::after { content: ":"; }
 .meeting-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border-strong); }
 .meeting-card.chosen { box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong); }
 .meeting-card.chosen:hover { box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong), inset 0 0 0 1px var(--border-strong); }
 
-/* Panel Meetings' own action card: at-a-glance stats + "Create New Panel",
-   sitting as its own bordered card above the tab-row/meeting-list card
-   (rather than crammed into that card's header), so it doesn't compete with
-   or get squeezed by the tab row. Sized to its content, not flex:1 like
-   .list-card, since it doesn't need to grow/scroll. */
-.meeting-actions-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-md);
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    margin-bottom: var(--space-md);
-    padding: var(--space-md) var(--space-lg);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-}
+.meeting-card-body { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; gap: 6px; }
+.meeting-card-title-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: nowrap; min-width: 0; }
+.meeting-card-title-row h3 { margin: 0; font-size: var(--font-md); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meeting-card-title-row .status-pill { flex-shrink: 0; }
+/* MAT/aggregate-view school logo - inline in the title row only (not a
+   full-height column), so single-school cards render identically to the
+   aggregate view and rows 2/3 never shift regardless of whether it's shown. */
+.meeting-card-logo-inline { display: inline-flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
+.meeting-card-logo-inline svg { width: 16px; height: 16px; }
+.meeting-date-line { font-size: var(--font-sm); margin-top: 1px; color: var(--text-secondary); }
+.meeting-info-label { font-weight: 600; margin-right: var(--space-xxs); }
+.meeting-info-label::after { content: ":"; }
 
-/* Compact stat chips — same idea as .stat-card (icon + value + label) but
-   small enough to sit inline next to a button instead of filling a whole
-   strip on their own. */
-.mini-stats { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
-.mini-stat-card {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    padding: var(--space-xs) var(--space-md);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-pill);
-    background: var(--bg-surface-alt);
-}
-.mini-stat-icon { width: 16px; height: 16px; color: var(--text-faint); flex-shrink: 0; }
-.mini-stat-icon svg { width: 100%; height: 100%; }
-.mini-stat-value { font-weight: 700; font-size: var(--font-base); color: var(--text-primary); }
-.mini-stat-value.warning { color: var(--color-warning); }
-.mini-stat-label { font-size: var(--font-sm); color: var(--text-secondary); }
 
-/* Alignment note: tab text sits at margin-left(16) + the tab button's own
-   16px padding = 32px from the list-card edge. .meeting-card text should
-   line up with that same 16px outer padding, so .meeting-list uses 16px
-   left/right padding to give the cards proper breathing room from the
-   list-card edges. */
-.list-card .tab-row { flex-shrink: 0; margin-left: var(--space-md); }
+.meeting-card-breakdown { border-top: 1px solid var(--border-color); margin-top: var(--space-xs); padding-top: var(--space-xs); display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.breakdown-cluster-label { font-size: var(--font-2xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-faint); flex-shrink: 0; }
+.meeting-card-breakdown .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 var(--space-sm); }
+.meeting-card-duration-line { font-size: var(--font-xs); color: var(--text-secondary); }
+.meeting-card-duration-line .duration-label { font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.03em; font-size: var(--font-2xs); margin-right: 4px; }
+.meeting-card-duration-line .duration-value { font-weight: 600; color: var(--text-primary); }
+
+/* Breakdown pills - New/Review reuse the same green/caution tokens as
+   Panel Agenda Setup's type-new/type-followup pills (same real-world
+   meaning, same colour everywhere); Priority reuses the shared
+   --priority-*-bg/-text tokens the priority-select dropdown uses elsewhere. */
+.bd-pill { display: inline-flex; align-items: center; font-size: var(--font-xs); font-weight: 600; border-radius: var(--radius-pill); flex-shrink: 0; padding: 2px 8px; }
+.bd-pill.bd-new { background: var(--color-positive-bg); color: var(--color-positive); }
+.bd-pill.bd-review { background: var(--color-caution-bg); color: var(--color-caution); }
+.bd-pill.bd-high { background: var(--priority-high-bg); color: var(--priority-high-text); }
+.bd-pill.bd-medium { background: var(--priority-medium-bg); color: var(--priority-medium-text); }
+.bd-pill.bd-low { background: var(--priority-low-bg); color: var(--priority-low-text); }
+.bd-pill.bd-untriaged { background: var(--badge-bg); color: var(--text-faint); }
+/* Stands in for the whole New/Review (+ Priority) cluster when a card has
+   no referrals at all - same warning tone as .status-pill.open/.delayed
+   rather than a neutral one, since an empty agenda this close to the
+   meeting is worth noticing (see grilling session 2026-07-13, Panel
+   Meetings review). */
+.bd-pill.bd-empty { background: var(--color-warning-bg); color: var(--color-warning); }
+
+/* Row action buttons (Start/Continue Meeting, Edit Agenda): auto-sized and
+   horizontal instead of a full-width vertical stack, so a two-button card
+   doesn't burn a tall column of mostly-empty button for no reason. */
+/* flex-wrap: wrap, not nowrap - the not-yet-started case now carries three
+   buttons (Start Meeting, Edit Agenda, Delete, added see grilling session
+   2026-07-13 Panel Meetings review) instead of the two this column was
+   originally sized for, so it can no longer assume everything fits one
+   line at every viewport width; justify-content: flex-end keeps a
+   wrapped second line right-aligned like the first instead of drifting
+   left. */
+.meeting-card-actions { flex: 0 0 auto; display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; border-left: 1px solid var(--border-color); padding-left: var(--space-lg); gap: var(--space-xs); }
+.meeting-card-actions .btn { width: auto; white-space: nowrap; }
+
+/* ==================== Panel Meetings ====================
+   Filters are their own standalone card (plain .filter-bar, not nested in
+   .list-card) - New Panel Meeting used to live at the end of that bar, but
+   felt wrong sitting inside a card that's now purely about filtering, so it
+   moved to key_actions_extra (see meetings.html/_base.html) instead, in the
+   page header alongside Search/Referral like every other panel page's main
+   action (see grilling session 2026-07-12). Status tab-row + meeting list
+   live in a second .list-card below. #meetings-filtered-content is the part
+   that's re-fetched on every filter change (see data-ajax-target on the
+   form) - it needs its own flex column so the tab-row stays put and
+   .meeting-list is what scrolls, same as .list-card's own direct-child
+   layout would do without the extra nesting level the AJAX swap boundary
+   requires. */
+.meetings-list-card #meetings-filtered-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+/* #meetings-filtered-content (this row's real parent) carries no padding of
+   its own, so .tab-row is already flush at the true card edges by default
+   (see the base .tab-row rule's "CONVENTION" comment above) - the
+   border-bottom needs no bleed here. padding-left (not a margin) instead
+   lines the tab labels up with .meeting-list's own --space-xl horizontal
+   inset below, without pulling the border in from the edge to do it. */
+.meetings-list-card .tab-row { flex-shrink: 0; padding-left: var(--space-xl); }
 .list-card .meeting-list { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-md); }
 
-/* Panel Meetings only: extra left/right breathing room around the cards.
-   Scoped to .meetings-list-card (rather than changing the shared rules
-   above) so Students/Referrals/Actions tab rows keep their 16px margin.
-   Tab text now sits at margin-left(24) + the tab's own 16px padding = 40px
-   from the list-card edge, matching .meeting-list's 24px padding + the
-   meeting-card's own 16px padding. */
-.meetings-list-card .tab-row { margin-left: var(--space-xl); }
+/* Panel Meetings only: extra left/right breathing room around the cards. */
 .meetings-list-card .meeting-list { padding: var(--space-md) var(--space-xl); }
 
 /* Multi-column setup/discussion layouts */
@@ -507,11 +507,12 @@
     flex-wrap: wrap;
     align-items: flex-start;
 }
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
 .setup-col, .discussion-col {
     flex: 1 1 280px;
     min-width: 260px;
     background: var(--bg-surface);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
     padding: var(--space-lg);
     box-shadow: var(--card-shadow);
@@ -625,20 +626,37 @@
 .panel-details-row > div { flex: 1; min-width: 0; }
 
 /* Referral Selection tabs + picker */
-.tab-row { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); margin-bottom: var(--space-md); margin-left: -16px; }
-/* .setup-col's own padding is --space-lg (20px), not the 16px the base rule
-   above assumes (that value matches .list-card's padding instead) - rebleed
-   to the real edge. margin-right bleeds the same amount (the base rule only
-   ever set margin-left, so the border-bottom below stopped short of the
-   card's right edge by a full padding-width) - same two-sided bleed
-   .entity-list--bleed already uses below for the row list itself. */
-.setup-col .tab-row { margin-left: calc(-1 * var(--space-lg)); margin-right: calc(-1 * var(--space-lg)); }
+/* --border-strong, not --border-color - same too-pale-in-Soft-theme problem
+   already fixed on .list-card/.ui-select-trigger/.toggle-pill/.filter-bar
+   this session (see grilling session 2026-07-12).
+
+   CONVENTION - read before adding .tab-row to a new container: this base
+   rule carries NO horizontal margin/bleed at all, on purpose. A hardcoded
+   "bleed by 16px" default used to live here, tuned for one specific
+   ancestor's padding - every other context either had to override it back
+   out (.list-card) or silently inherited a mismatched bleed (.panel-card
+   was 4px off against its own --space-lg padding; bare pages with no
+   padded ancestor at all, e.g. _settings_tabs.html, got a bleed with
+   nothing to bleed into, pulling the row past the page's own left margin)
+   - see grilling session 2026-07-12, "tabs not going edge to edge." A
+   single shared assumption can't be right for every container, so there
+   isn't one: .tab-row defaults to a plain, unbled block (flush with
+   whatever it's placed in), and any container that actually needs it
+   bled to reach a padded ancestor's true edge sets its own two-sided
+   margin below, sized to that ancestor's own real padding - never
+   margin-left alone, which only ever fixes one side and leaves the
+   border-bottom short on the other. */
+.tab-row { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border-strong); margin-bottom: var(--space-md); }
+/* .setup-col/.discussion-col's own padding is --space-lg (20px) - bleed by
+   exactly that on both sides to reach their true edge. */
+.setup-col .tab-row, .discussion-col .tab-row { margin-left: calc(-1 * var(--space-lg)); margin-right: calc(-1 * var(--space-lg)); }
 
 /* Panel Home's tab rows are overflow-managed by JS (collapsed into a "More"
    dropdown instead of wrapping — see .tab-row-more in static/css/style.css
    for the shared dropdown styling), so they need a single non-wrapping line
-   to measure against. */
-.panel-card .tab-row { flex-wrap: nowrap; overflow: hidden; }
+   to measure against. .panel-card's own padding is --space-lg (20px) too -
+   same two-sided bleed as .setup-col above. */
+.panel-card .tab-row { flex-wrap: nowrap; overflow: hidden; margin-left: calc(-1 * var(--space-lg)); margin-right: calc(-1 * var(--space-lg)); }
 
 .tab-row button, .tab-row a {
     position: relative;
@@ -660,8 +678,8 @@
 .tab-row button::after, .tab-row a::after {
     content: '';
     position: absolute;
-    left: 16px;
-    right: 16px;
+    left: 4px;
+    right: 4px;
     bottom: -1px;
     height: 2px;
     border-radius: 2px;
@@ -682,6 +700,54 @@
     opacity: 1;
     transform: scaleX(1);
     background: var(--primary);
+}
+
+/* Status-filter tab entering/leaving the tab row (DesignLanguage.md's
+   "Status-filter tab rows", InteractionLanguage.md's own section of the same
+   name) - a tab whose count is 0 still isn't rendered as a disabled state,
+   it's just collapsed to zero width instead of omitted from the DOM outright,
+   so JS can transition it in/out live instead of it appearing/disappearing
+   with a snap. 200px is a generous cap for these labels (longest is "Not
+   Required (99)"), not a real measured width - it only needs to clear the
+   button's natural width once expanded. */
+.tab-row button { max-width: 200px; }
+.tab-row button.tab-collapsed {
+    opacity: 0;
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.tab-row button.tab-visibility-animating {
+    transition: opacity 260ms ease, max-width 260ms ease, padding-left 260ms ease, padding-right 260ms ease;
+}
+
+/* Count-delta pulse (InteractionLanguage.md's "Tab count-delta pulse") -
+   fires on any live count when an action changes it, not on a page load -
+   a tab's own (N), or a card/section heading's count (.panel-card-count and
+   similar). Scale + colour, no background box (read too "boxy" at this text
+   size) and no weight change. Deliberately NOT gated behind
+   prefers-reduced-motion - see InteractionLanguage.md's "prefers-reduced-
+   motion scope": this is a passive indicator, not a hover effect on
+   something clickable. Not scoped to .tab-row - applies wherever
+   window.pulseCount() is called (see panel.js). */
+.count-pulse-up, .count-pulse-down { display: inline-block; transform-origin: center; }
+.count-pulse-up {
+    animation: countPulseUp 750ms cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes countPulseUp {
+    0% { transform: scale(1); color: inherit; }
+    40% { transform: scale(1.32); color: var(--color-positive); }
+    100% { transform: scale(1); color: inherit; }
+}
+.count-pulse-down {
+    animation: countPulseDown 750ms ease;
+}
+@keyframes countPulseDown {
+    0% { transform: scale(1); color: inherit; }
+    35% { transform: scale(0.78); color: var(--color-negative); }
+    100% { transform: scale(1); color: inherit; }
 }
 
 .referral-pick-item { background: var(--bg-nested); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-sm); margin-bottom: var(--space-sm); }
@@ -811,12 +877,13 @@
     display: block;
 }
 
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
 .panel-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     background: var(--bg-surface);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
     padding: var(--space-md) var(--space-lg);
     margin-bottom: var(--space-lg);
@@ -861,7 +928,8 @@
 .discussion-profile-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-md); }
 .detail-grid-span { grid-column: 1 / -1; }
-.detail-stat-card { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); }
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
+.detail-stat-card { border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); }
 .detail-stat-card summary { font-weight: 600; cursor: pointer; }
 .detail-stat-card .field-readonly { margin-top: var(--space-xs); }
 .detail-stat-card-header { display: flex; justify-content: center; align-items: center; gap: var(--space-sm); }
@@ -884,16 +952,18 @@
 .ready-toggle-form { display: flex; align-items: center; gap: var(--space-xs); }
 .toggle-label { font-size: var(--font-xs); color: var(--text-secondary); font-weight: 600; }
 
-/* Settings (Group/Date/Chair) plus the Members heading right below it stay
-   pinned together as one unit while only the member rows scroll underneath -
-   wrapping both in a single sticky container avoids having to hardcode a
-   pixel offset for a second stacked sticky element (which would need to
-   match this block's rendered height exactly, and break across the app's
-   3 text-size settings). Members' own .setup-col-header sticky rule below
-   is therefore redundant here (this wrapper already pins it) and is turned
-   off to avoid two nested sticky contexts. */
-.settings-sticky { position: sticky; top: 0; z-index: 2; background: var(--bg-surface); }
-.settings-sticky .setup-col-header { position: static; }
+/* Settings (Group/Date/Chair) is a true non-scrolling flex sibling of
+   .setup-col-body, same "Card-internal scroll with a fixed header" technique
+   .setup-col-header/.modal-header use (see DesignLanguage.md) - not
+   position: sticky inside the scrolling body, which used to make the
+   Members entity-list's own scrollbar run the full height of this
+   unusually-tall block (Group + Date + Chair + the Members sub-heading),
+   including behind it, since the scrollbar always belongs to whichever
+   element actually scrolls. Members' own "Members" h3 sits inside
+   .setup-col-body instead, where the existing .setup-col-body
+   .setup-col-header sticky rule (above) already pins a sub-heading
+   correctly against that body's own, much shorter, scroll range. */
+.settings-fixed { flex-shrink: 0; }
 
 /* Panel Summary (Panel Agenda Setup's condensed replacement for the old inline
    settings form) - plain label/value pairs, one per line, no box/padding
@@ -916,6 +986,19 @@
    `display: contents` the way the plain rows above do. Still spans both of
    .panel-summary's own columns so the fused box gets the full row width. */
 .summary-line-chair { display: grid; grid-template-columns: max-content 1fr; grid-column: 1 / -1; align-items: center; }
+/* Chair select's "Default Chair" option carries a real newline in its
+   template source (meeting_setup.html) so the name reads as a genuine
+   second line rather than a parenthetical - the base .ui-select-trigger/
+   .ui-option rules (forms.css) set white-space: nowrap/no wrapping at all,
+   which would otherwise collapse that newline into a plain space. Scoped to
+   .chair-select (mirrored by enhanceSelect, static/js/main.js, onto both the
+   closed trigger and the open popover rows) so no other select on the site
+   is affected by allowing wrapped/multi-line text. */
+.ui-select-trigger.chair-select,
+.ui-select-panel.chair-select .ui-option {
+    white-space: pre-line;
+    text-overflow: clip;
+}
 .priority-form { display: flex; align-items: center; gap: var(--space-xs); margin-top: var(--space-xs); }
 .priority-form-label { display: block; margin-bottom: var(--space-xxs); }
 .priority-chips { display: flex; gap: var(--space-xxs); }
@@ -948,14 +1031,13 @@
    to match the row's .btn-sm buttons specifically (a size down from .btn's
    own default font-size). */
 .priority-select { font-size: var(--font-sm); }
-/* Unset ("Set Priority") state: an explicit solid background + the stronger
-   of the app's two border tones, rather than inheriting .ui-select-trigger's
-   --bg-surface-alt/--border-color default - both are pale enough that once
-   .selectable's row-hover tint (also a subtle neutral) lands underneath it,
-   the control's own edges nearly vanish into the hovered row. High/Medium/
-   Low don't have this problem - their fill below is saturated enough to
-   read as a distinct control against any hover tint. */
-.priority-select { background-color: var(--bg-surface); border-color: var(--border-strong); }
+/* Unset ("Set Priority") state: an explicit solid --bg-surface fill, a shade
+   stronger than .ui-select-trigger's own --bg-surface-alt default, since this
+   state has no colour of its own to lean on the way High/Medium/Low do below.
+   The border no longer needs its own override here - .ui-select-trigger's
+   shared default is --border-strong now (forms.css), which was previously
+   only patched in on this one component (see grilling session 2026-07-12). */
+.priority-select { background-color: var(--bg-surface); }
 /* Trigger button: border + text colour full-strength as before, but the
    fill is diluted well below the popover's own option rows
    (.ui-option.priority-*, still full-strength -bg tint below) - the
@@ -976,6 +1058,14 @@
 .setup-col .entity-row { flex-wrap: wrap; align-items: flex-start; padding-left: 0; padding-right: 0; }
 .setup-col .entity-body { min-width: 140px; }
 .setup-col .btn-row { margin-left: auto; }
+/* The Members list (_panel_member_row.html, data-panel-members-list) is a
+   much simpler row - just a thumb + name + pills, no dropdown/button-row
+   content - so it doesn't need (and in this narrow column, actively breaks
+   under) the wrap/min-width treatment above: 42px thumb + a 140px-min body
+   don't both fit on one line in .setup-col--narrow, so the body wraps onto
+   its own line below the thumb instead of sitting inline beside it. */
+.setup-col [data-panel-members-list] .entity-row { flex-wrap: nowrap; align-items: center; }
+.setup-col [data-panel-members-list] .entity-body { min-width: 0; }
 /* Referral Selection: the drag handle is a direct child of .selection-row
    (a flex row), not nested inside .referral-row-grid, so align-items:
    stretch gives it the row's true full height rather than just the height
@@ -1398,8 +1488,9 @@
 .setup-col .entity-list:has(+ .member-list-divider) { margin-bottom: 0; }
 
 /* Settings pages: collapsible sections + bullet-free rows */
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
 .settings-section {
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
     padding: var(--space-md) var(--space-lg);
     margin-bottom: var(--space-md);
@@ -1731,6 +1822,16 @@ dialog.modal-dialog.is-open::backdrop {
 /* Same dark-on-dark problem as the global side-nav backdrop — solid black
    reads clearly against the dark theme's near-identical page background. */
 [data-theme-mode="dark"] dialog.modal-dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
+
+/* Fade toggle - generic "this one thing appears/disappears in place"
+   companion to window.setFadeHidden (panel.js), for elements too small to
+   change the dialog's own height (a footer button swap, not a whole
+   section) - see InteractionLanguage.md "Fade toggle". Only takes effect
+   once JS has added the class (a call to setFadeHidden); a plain
+   server-rendered `hidden` attribute with neither class still just snaps
+   via the [hidden] UA rule, same as any other element on first paint. */
+.fade-toggle { transition: opacity var(--transition-base); opacity: 0; }
+.fade-toggle.is-visible { opacity: 1; }
 dialog.modal-dialog .modal-header {
     flex-shrink: 0;
     display: flex;
@@ -1784,10 +1885,17 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 /* The border/spacing below only makes sense once there's scrolling content
    underneath to separate from - [data-panel-group-header] (the Edit-mode
    header) carries it; the New Panel Group form has nothing below it. */
+/* Also a .ui-fused-field-group (Name + Chair as its two rows) so both
+   labels share one subgrid and render the same width instead of each
+   one-field form guessing its own - see DesignLanguage.md "Fused field"
+   ("Matching label widths"). Beats .panel-group-modal-header's own
+   unconditional `display: flex` above via the ID selector's specificity,
+   not source order. */
 #panel-group-dialog [data-panel-group-header] {
-    padding-bottom: var(--space-md);
+    display: grid;
+    grid-template-columns: max-content 1fr max-content;
+    gap: var(--space-sm) 0;
     margin-bottom: var(--space-md);
-    border-bottom: 1px solid var(--border-color);
 }
 #panel-group-dialog .panel-group-modal-header .field-group { margin-bottom: 0; }
 /* New Panel Group form only (no group yet, so none of the scroll/tabs/member
@@ -1824,7 +1932,19 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    (contrast #panel-group-dialog's .panel-group-modal-sticky-row above,
    which keeps everything in one row). */
 [data-inline-create-host] .ui-fused-field-group { margin-bottom: var(--space-md); }
-#panel-group-dialog .panel-group-modal-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* Bleeds out through .modal-body's own right padding (same technique as
+   .panel-search-results/.setup-col-body, see DesignLanguage.md "Card-internal
+   scroll with a fixed header") so this scroll region's scrollbar sits flush
+   against the dialog's right edge instead of inset by --space-xl.
+   padding-right restores that gap for the content itself (tab row, member
+   rows) so nothing actually shifts, only the scrollbar's own position does. */
+#panel-group-dialog .panel-group-modal-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin-right: calc(-1 * var(--space-xl));
+    padding-right: var(--space-xl);
+}
 /* Lets the Default Chair / External pills sit inline right after the
    member's name instead of dropping to their own line below, unlike every
    other .entity-title in the app (plain bold text). */
@@ -1834,11 +1954,24 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    own border. Row-to-row division still comes from .entity-row's own
    border-bottom. */
 #panel-group-dialog .entity-list--bleed { background: none; border: none; border-radius: 0; }
+/* .entity-row:last-child suppresses its border-bottom by default (cards.css)
+   since most cards' own outer border already closes off the last row - but
+   with that border removed above, and each row ending in its own Expertise
+   picker/Active toggle rather than plain text, the last member row's
+   controls would otherwise read as loose and unassociated with any row.
+   Same fix, same reasoning, as .setup-col-body .entity-list--bleed's
+   Referral Selection/Panel Agenda rows above. */
+#panel-group-dialog .entity-list--bleed .entity-row:last-child { border-bottom: 1px solid var(--border-color); }
 /* Same `[hidden]` vs. unconditional `display` trap as above -
    .entity-list's own `display: flex` (cards.css) otherwise keeps the
    Inactive tab's panel visibly rendered (stacked directly below the Active
    panel) regardless of the `hidden` attribute switching between tabs. */
 #panel-group-dialog [data-members-tab-panel][hidden] { display: none; }
+/* Same `[hidden]` vs. unconditional `display` trap again - .tab-row button's
+   own `display: inline-block` (base rule above) otherwise keeps a tab with
+   zero members visible even once panel.js sets `hidden` on it (see
+   tabHasMembers in panel.js). */
+#panel-group-dialog [data-members-tab][hidden] { display: none; }
 /* Expertise picker + Active toggle share one line per member row (the row's
    2nd of 2 total lines) instead of stacking - the expertise field takes the
    leftover width, the toggle stays its own compact size. */
@@ -1846,13 +1979,25 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 #panel-group-dialog .member-row-controls .ui-fused-field-group { flex: 1; min-width: 0; }
 #panel-group-dialog .member-row-controls .member-attendance-form { margin-top: 0; flex-shrink: 0; }
 /* Tabs (Active/Inactive Members) get their own row, no button beside them -
-   see root DesignLanguage.md's tab-row anti-pattern #17. No edge-to-edge
-   bleed here: the base .tab-row rule's `margin-left: -16px` assumes a
-   16px (--space-md) parent padding to bleed into, but .modal-body's own
-   horizontal padding is --space-xl (24px) - left at the default, the tabs
-   would overshoot the dialog's own left padding instead of aligning with
-   it. */
-#panel-group-dialog [data-members-list-view] > .tab-row { margin-left: 0; }
+   see root DesignLanguage.md's tab-row anti-pattern #17. margin-left: 0 is
+   just restating .tab-row's own default (no bleed) explicitly, since it
+   sits directly under this selector's specificity - .modal-body's own
+   padding (--space-xl) is what the tabs align with unbled.
+   Sticky against .panel-group-modal-scroll (its nearest scrolling ancestor)
+   so the tabs stay put as the member list scrolls underneath them, same
+   "tab row pinned above its own scrolling body" treatment as
+   .setup-col-body .tab-row - see root DesignLanguage.md's "Tab row" section.
+   Keeps the base .tab-row rule's own border-bottom (not overridden here),
+   same as that Referral Selection instance - the divider belongs directly
+   under the tabs, not between the static Name/Chair fields above and the
+   tabbed area (hence no border on [data-panel-group-header] either). */
+#panel-group-dialog [data-members-list-view] > .tab-row {
+    margin-left: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-surface);
+}
 /* margin-bottom matches .tab-row's own (--space-md), not the root
    DesignLanguage.md spacing table's generic 28px below an <h3> - this
    heading only ever renders in place of the tab-row (a brand-new group
@@ -1872,9 +2017,14 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 #panel-group-dialog .panel-group-modal-footer {
     flex-shrink: 0;
     display: flex;
+    justify-content: flex-end;
     padding-top: var(--space-sm);
-    border-top: 1px solid var(--border-color);
 }
+/* Forward-moving actions (+ Add Member) dock right by default (the flex-end
+   above); Back is the one exception - it undoes rather than advances, so it
+   pins left instead via its own margin-right:auto, regardless of whether
+   it's rendering alongside another button or (as today) alone. */
+#panel-group-dialog [data-members-back-btn] { margin-right: auto; }
 
 /* Add Expertise Tag - a single-field quick-add, narrower than the shared
    560px modal shell (dialog.modal-dialog) since one label+input+btn-row
@@ -1887,22 +2037,44 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 #external-contact-quick-add-dialog { width: min(360px, 92vw); }
 #external-contact-quick-add-dialog .field-group { margin-bottom: var(--space-md); }
 
-/* Panel search modal — fixed size/position regardless of result count, so
-   the dialog never resizes or re-centers as you type (see DesignLanguage.md
-   "Interaction patterns should never surprise the user with layout shift").
-   Anchored near the top rather than the shared .modal-dialog's vertical
-   centering, since a tall fixed-height dialog centered on a short viewport
-   would run off both edges. An ID selector here would otherwise outrank the
-   UA stylesheet's dialog:not([open]) { display: none }, so this must stay
-   scoped to [open] — without it the dialog sits permanently laid out and
-   pointer-interactive (just invisible via .modal-dialog's opacity: 0) over
-   the middle of the page even when closed, silently swallowing clicks/hover
-   for whatever's underneath. */
-dialog#panel-search-dialog[open] {
+/* Growable modals — dialogs whose content is likely to change height
+   *repeatedly* while open (adding/removing rows, a live search-filtered
+   list) rather than switching once between a couple of fixed modes —
+   anchored near the top of the viewport instead of the shared
+   .modal-dialog's vertical centering, so the top edge stays put as the
+   dialog grows/shrinks and only the bottom edge moves. Centering would
+   shift the top edge upward on every grow, which reads far jumpier than a
+   stable top with a moving bottom - a cost worth paying when height keeps
+   changing, but not for a dialog that only ever resizes once or twice per
+   open (see InteractionLanguage.md "Modal content swap" for the full
+   growable-vs-mode-switch distinction, and why Panel Meeting/Settings is
+   the one dialog that looks similar but stays centered instead).
+   - Panel Search: result count changes on every keystroke.
+   - Panel Group Edit: tabs, add/remove members, search-filtered picker.
+   - New Referral: its student search re-filters live as you type, even
+     though the picker-vs-form step itself is a one-off switch.
+   Small static dialogs (Add Expertise Tag, confirm dialogs) and one-off
+   mode-switch dialogs (Panel Meeting/Settings' inline "Create Panel Group"
+   swap) stay centered — this is a deliberate, scoped override per dialog,
+   not a change to the shared dialog.modal-dialog base rule.
+   ID selectors here would otherwise outrank the UA stylesheet's
+   dialog:not([open]) { display: none }, so each must stay scoped to [open]
+   — without it the dialog sits permanently laid out and pointer-interactive
+   (just invisible via .modal-dialog's opacity: 0) over the middle of the
+   page even when closed, silently swallowing clicks/hover for whatever's
+   underneath. */
+dialog#panel-search-dialog[open],
+dialog#panel-group-dialog[open],
+dialog#new-referral-dialog[open] {
     top: 8vh;
     bottom: auto;
     margin: 0 auto;
-    height: 76vh;
+}
+
+/* Panel search modal — grows/shrinks with the live result count (capped,
+   with the results list scrolling internally beyond that) instead of
+   staying pinned to a fixed height regardless of content. */
+dialog#panel-search-dialog[open] {
     max-height: 76vh;
     display: flex;
     flex-direction: column;
@@ -1918,11 +2090,19 @@ dialog#panel-search-dialog .modal-body {
    from the shared .app-search-field/.app-search-input component in
    navigation.css (see DesignLanguage.md "Search"). */
 .panel-search-field { width: 100%; flex: 0 0 auto; }
+/* Bleeds out through .modal-body's own right padding (same technique as
+   .setup-col-body, see DesignLanguage.md "Card-internal scroll with a fixed
+   header") so the results list's scrollbar sits flush against the dialog's
+   right edge instead of inset by --space-xl. padding-right restores that gap
+   for the row content itself; left stays untouched so it keeps lining up
+   with .panel-search-field above it. */
 .panel-search-results {
     margin-top: var(--space-md);
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    margin-right: calc(-1 * var(--space-xl));
+    padding-right: var(--space-xl);
 }
 .search-hint {
     animation: tab-row-fade-in var(--transition-slow);
@@ -1953,23 +2133,95 @@ dialog#panel-search-dialog .modal-body {
 .panel-group-member-row { display: flex; gap: var(--space-xs); margin-bottom: var(--space-xs); }
 .panel-group-member-row select { flex: 1; min-width: 0; }
 
-/* Source segmented control (≤3 static options, see DesignLanguage.md
-   "Segmented control") and Search sit side by side as two independent
-   controls, each keeping its own border - unlike the old <select>+bare-input
-   fused box this replaced, neither piece needs the other's chrome to read
-   as a control on its own. */
-.member-picker-row { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-sm); }
-.member-picker-row .ui-segmented { flex: 0 0 auto; }
-.member-picker-row .app-search-field { flex: 1 1 auto; min-width: 0; }
+/* Source segmented control (still 3 always-visible buttons, see
+   DesignLanguage.md "Segmented control") stacks above Search as one fused
+   component, not two independently-bordered ones beside each other - no
+   border-radius seam between them, single shared outer border/corner
+   radius, one divider line between the two rows. Each option is flex: 1
+   (equal width) rather than sized to its own text - labels are short and
+   even ("School Staff" / "MAT Staff" / "External") so equal-width no longer
+   leaves obvious dead space trailing the row the way "<School> Staff" once did. */
+.member-picker-controls {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-bottom: var(--space-sm);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.member-picker-controls .ui-segmented {
+    display: flex;
+    width: 100%;
+    border: none;
+    border-radius: 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.member-picker-controls .ui-segmented-option {
+    flex: 1;
+    text-align: center;
+    position: relative;
+}
+/* Active option reads via the shared .ui-segmented-option.active fill alone
+   (--primary-light background, weight 600 - forms.css) - no longer stacks an
+   extra bold-700 + 3px underline bar on top of that fill. The fill already
+   reads clearly against the row it's fused onto; the underline was one
+   emphasis signal too many, out-weighing the search field sitting right below it. */
+/* The search input's own border/radius (navigation.css) would otherwise
+   double up against this wrapper's outer border and reintroduce the corner
+   radius this fused look is specifically removing - stripped here, same
+   "beats the shared component's own border via a more specific selector"
+   pattern as every other .app-search-field override in this file. */
+.member-picker-controls .app-search-field .app-search-input {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+.member-picker-controls .app-search-field .app-search-input:focus-visible { box-shadow: none; }
+/* has-text/focus states move from the (now borderless) input onto the whole
+   fused shell instead, so the accent still reads as "this component is
+   active," just around the outside edge rather than a seam in the middle. */
+.member-picker-controls:has(.app-search-input:focus-visible) {
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--primary);
+}
+.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) {
+    border-color: var(--primary);
+}
+.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .app-search-icon {
+    color: var(--primary);
+}
+/* The segmented row's own border-bottom (the internal divider) and its
+   options' border-right dividers are separate declared borders from the
+   wrapper's outer one above - without this they'd stay neutral grey while
+   the outer edge goes primary, reading as two different components again
+   instead of one uniformly-highlighted shell. */
+.member-picker-controls:has(.app-search-input:focus-visible) .ui-segmented,
+.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .ui-segmented {
+    border-color: var(--primary);
+}
+.member-picker-controls:has(.app-search-input:focus-visible) .ui-segmented-option,
+.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .ui-segmented-option {
+    border-color: var(--primary);
+}
 
 #panel-member-dialog { max-height: 92vh; }
 
+/* Bleeds out through its scrolling ancestor's (.panel-group-modal-scroll)
+   own right padding, same technique/reason as that element's own bleed
+   through .modal-body - without this, a long result list's scrollbar (this
+   box has its own overflow-y:auto, capped at 480px) renders flush against
+   this box's own border, which itself sits --space-xl short of the dialog's
+   true edge - not the dialog edge itself. padding-right restores that gap
+   for the rows themselves, so only the scrollbar's position moves. */
+/* No outer card - see the matching comment on .referral-student-results
+   above and InteractionLanguage.md "Search". */
 .member-result-list {
     max-height: min(65vh, 480px);
     overflow-y: auto;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
     margin-bottom: var(--space-sm);
+    margin-right: calc(-1 * var(--space-xl));
+    padding-right: var(--space-xl);
 }
 .member-result-option {
     display: flex;
@@ -1977,19 +2229,17 @@ dialog#panel-search-dialog .modal-body {
     gap: var(--space-sm);
     width: 100%;
     text-align: left;
-    padding: var(--space-xs) var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
     border: none;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--text-primary);
     cursor: pointer;
 }
-.member-result-option:last-child { border-bottom: none; }
 .member-result-option:hover { background: var(--row-hover-bg); }
 .member-result-option.selected { background: var(--primary-light); color: var(--primary); }
-.member-result-option[hidden] { display: none; }
 .member-result-option[data-already-member="1"] { opacity: 0.55; cursor: not-allowed; }
-.member-result-option[data-already-member="1"]:hover { background: var(--bg-surface); }
+.member-result-option[data-already-member="1"]:hover { background: transparent; }
 .status-pill.type-already { background: var(--badge-bg); color: var(--text-faint); }
 .member-result-icon {
     flex-shrink: 0;
@@ -2004,14 +2254,17 @@ dialog#panel-search-dialog .modal-body {
 }
 .member-result-icon img { width: 100%; height: 100%; object-fit: cover; }
 .member-result-icon svg { width: 20px; height: 20px; }
-.member-result-label-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.member-result-label-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; gap: var(--space-xxs); }
 .member-result-label-stack .result-name { font-size: var(--font-md); color: var(--text-primary); }
-.member-result-label-stack .result-role,
-.member-result-label-stack .result-school { font-size: var(--font-xs); color: var(--text-faint); }
-/* A stable footer row below the (possibly scrolling) result list, not part
-   of it - stays put rather than scrolling away with the results above it. */
-.member-result-add { padding-top: var(--space-sm); margin-top: var(--space-xs); border-top: 1px solid var(--border-color); }
-
+/* Name + "Already in Group" pill share one line - same "title row wraps its
+   own trailing badge" treatment as #panel-group-dialog .entity-title above,
+   rather than the pill dropping to its own line below the name. */
+.member-result-name-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+/* School (MAT staff only) before job title, dot-separated on one line - same
+   "·"-joined meta line other entity rows use (see panel_group_settings.html's
+   .entity-meta), just at this list's own smaller/fainter size. */
+.member-result-meta { display: flex; align-items: center; font-size: var(--font-xs); color: var(--text-faint); }
+.member-result-meta > span:not(:first-child)::before { content: '·'; margin: 0 var(--space-xxs); }
 .member-staff-selected[hidden] { display: none; }
 .member-staff-selected-row {
     display: flex;
@@ -2036,12 +2289,22 @@ dialog#panel-search-dialog .modal-body {
 /* Border/hover/focus/has-text states come from the shared .app-search-field
    component in navigation.css (see DesignLanguage.md "Search"), which wins
    over .field-group input's generic styling on specificity. */
-.referral-student-list-label { font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: var(--space-sm) 0 var(--space-xs); }
+/* Bleeds out through .modal-body's own right padding, same technique (and
+   same reason) as .panel-search-results above - otherwise the scrollbar
+   sits inset by --space-xl instead of flush against the dialog's right
+   edge. padding-right restores the row content's own right-hand gutter. */
+/* No outer card - matches the Sidebar Search overlay's look (navigation.css
+   ".side-nav .app-search-results"), not the floating hero-search card: rows
+   sit directly in the modal's own flow, hugging their actual content via
+   max-height (not a fixed height reserving dead space), each row reading as
+   its own rounded "card" only once hovered/active rather than a permanently
+   boxed list. See InteractionLanguage.md "Search". */
 .referral-student-picker .referral-student-results {
-    height: min(70vh, 560px);
+    max-height: min(60vh, 400px);
     overflow-y: auto;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    margin-top: var(--space-xs);
+    margin-right: calc(-1 * var(--space-xl));
+    padding-right: var(--space-xl);
 }
 .referral-student-option {
     display: flex;
@@ -2050,17 +2313,15 @@ dialog#panel-search-dialog .modal-body {
     gap: var(--space-xs);
     width: 100%;
     text-align: left;
-    padding: var(--space-xs) var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
     border: none;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--text-primary);
     font-size: var(--font-base);
     cursor: pointer;
 }
-.referral-student-option:last-child { border-bottom: none; }
 .referral-student-option:hover { background: var(--row-hover-bg); }
-.referral-student-option[hidden] { display: none; }
 .referral-student-option-meta { color: var(--text-faint); font-size: var(--font-sm); flex-shrink: 0; }
 .referral-student-selected[hidden] { display: none; }
 .referral-student-selected-row {

@@ -1,3 +1,5 @@
+- When Reporting information to me, be extremely consise and sacrifice grammar for the sake of concision
+
 # TestProject — Django MAT Portal
 
 A Django multi-hub portal for a Multi-Academy Trust (MAT). One project, several "hubs," each hub itself a Django app.
@@ -108,6 +110,20 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix:
 
 See [DesignLanguage.md](DesignLanguage.md) for the portal-wide visual design language (colour, layout, typography, spacing, cards, navigation, table/list, button, pill/badge patterns, naming conventions) and [InteractionLanguage.md](InteractionLanguage.md) for hover/focus/motion rules — both extracted from the Inclusion Panel (the most complete, stable UI in the codebase). All future hub pages should follow these rules. Hub-specific implementation detail that isn't portal-wide (e.g. Panel's own status pill modifiers, meeting-card anatomy) lives in that hub's own `DesignLanguage.md` alongside its `CLAUDE.md` — see `hubs/inclusion/panel/DesignLanguage.md`.
 
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `bendanielsuri-hue/LWLAT-Portal` (uses the `gh` CLI — not yet installed on this machine). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), unchanged. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Per-app `CONTEXT.md` files created lazily alongside each app's own `CLAUDE.md`; single shared `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
 ## Architecture decisions
 
 Hard-to-reverse design decisions with non-obvious rationale are recorded in `docs/adr/` as they come up — see the existing ADRs there for the format. Not every decision needs one; see `docs/adr/` only when a future reader would plausibly ask "why did we do it this way?"
@@ -119,3 +135,7 @@ Apps with real, non-obvious domain vocabulary get a `CONTEXT.md` glossary alongs
 ## Verifying UI changes
 
 Ask before using the Playwright MCP browser tools to visually verify a change — don't reach for them by default. The user can usually eyeball a UI/layout change themselves against the running dev server; offer Playwright as an option rather than driving the browser automatically. Reserve unprompted Playwright use for cases where self-verification genuinely isn't practical.
+
+## Design mockups
+
+When building an HTML mockup/artifact to compare UI design alternatives, style it in the app's **Soft** theme (`data-theme="pastel"`), light mode — not the cool blue-grey default. Pull the actual token values from `static/css/theme/light.css` + the `[data-theme="pastel"]` block in `static/css/theme/themes.css` rather than approximating. Remember the "Editable field background" rule ([DesignLanguage.md](DesignLanguage.md) "Form control patterns"): pickable/label-like chrome (segmented options, fused-field labels) fills with `--bg-well`, actual text/search fields fill with `--bg-surface-alt` — never plain white `--bg-surface`, which is reserved for cards/read-only surfaces.

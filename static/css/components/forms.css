@@ -1,10 +1,37 @@
 .filter-bar {
     display: flex;
-    gap: var(--space-xl);
+    /* --space-xs - condensed per grilling session 2026-07-12 ("filters can
+       afford to be closer"), tightened once more in a follow-up pass. At
+       this gap there's no room left over for the merge bridge below to
+       paint a partial fill into (see .filter-field--active's merge rules),
+       so a merged pair now relies on squared corners alone, no fill. */
+    gap: var(--space-xs);
     flex-wrap: wrap;
-    padding: var(--space-md) var(--space-lg);
-    background: var(--bg-surface-alt);
-    border: 1px solid var(--border-color);
+    /* --space-xs vertical - condensed per grilling session 2026-07-12, then
+       nudged back up one step in a follow-up pass (4px read too cramped);
+       horizontal stays --space-lg, this is vertical-only. */
+    padding: var(--space-xs) var(--space-lg);
+    /* --bg-well, not --bg-surface-alt: the bar is a controls strip (chrome),
+       not an editable field itself (see DesignLanguage.md "Editable field
+       background") - --bg-surface-alt sits too close to --bg-surface/--bg-page
+       in several themes (e.g. Soft/pastel) to read as its own layer, especially
+       since Pastel cards carry no shadow. --bg-well already exists for exactly
+       this "you're inside interactive chrome" tier, reused rather than adding a
+       new token (see grilling session 2026-07-12). The .filter-field selects
+       inside keep --bg-surface-alt, so they still read as a lighter field
+       sitting inside the now-darker bar. */
+    background: var(--bg-well);
+    /* --border-strong, not --border-color - too pale to read as an edge
+       against its own backdrop in Soft/pastel (same fix already applied
+       portal-wide to .list-card/.hub-card/.tab-row/etc., see grilling
+       session 2026-07-12). Matters even more now that a standalone filter
+       bar (e.g. Panel Meetings) is its own card rather than fused atop a
+       taller .list-card. 2px, not 1px - border-strong is already the
+       strongest border token that exists, so at 1px the bar's edge still
+       read as too soft against its own darker --bg-well fill; widening
+       the stroke reads as more prominent without inventing a new colour
+       token (see grilling session 2026-07-13, Panel Meetings review). */
+    border: 2px solid var(--border-strong);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-md);
     align-items: flex-end;
@@ -17,10 +44,10 @@
 
 /* Stronger boundary once the bar is actually pinned to the top of the
    viewport — see .sticky-zone-sentinel in layout.css for how .is-stuck
-   gets toggled. */
+   gets toggled. No padding override any more - the base bar is already at
+   its minimum (--space-xxs) since the 2026-07-12 condensing pass, so
+   there's nothing left to shrink further when stuck. */
 .filter-bar.is-stuck {
-    padding-top: var(--space-sm);
-    padding-bottom: var(--space-sm);
     box-shadow: var(--shadow-md);
     border-color: var(--border-strong);
     border-top-left-radius: 0;
@@ -36,8 +63,19 @@
     transition: opacity var(--transition-fast);
 }
 
+/* margin-left: auto - pushes Clear Filters all the way to the bar's right
+   edge, since it isn't actually a filter field itself (see grilling session
+   2026-07-12). Only takes effect when .filter-bar-clear is a direct flex
+   child of .filter-bar - harmless wherever it's still nested inside its own
+   .filter-field (a column-flex context, where margin-left: auto on a
+   block-level link has nothing to push against). */
 .filter-bar-clear {
-    align-self: flex-end;
+    /* center, not flex-end - Clear Filters is a single-line button, shorter
+       than a label+control field column, so bottom-aligning it against the
+       bar's tallest content (like the fields do) left it visibly sitting
+       lower than its siblings. */
+    align-self: center;
+    margin-left: auto;
 }
 
 .filter-bar-label {
@@ -45,11 +83,25 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-xs);
+    /* Extra right margin beyond the bar's own (now tighter, --space-xs)
+       gap - "Filters" + its count badge is a heavier, differently-styled
+       cluster than a filter chip, and reads cramped sitting only 8px from
+       the first field at that weight. */
+    margin-right: var(--space-sm);
     font-size: var(--font-base);
     font-weight: 700;
-    color: var(--primary);
+    /* --text-secondary by default - "Filters" is chrome describing an empty
+       control, not itself a filtered/active state, so it shouldn't borrow
+       --primary (the app's "this is active/selected" signal - see every
+       .filter-field--active, .ui-segmented-option.active, etc.) unless a
+       filter is actually applied. Only goes --primary once the count badge
+       is non-empty (see DesignLanguage.md "Filter bar"). */
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
+}
+.filter-bar-label:not(:has(.filter-bar-count--empty)) {
+    color: var(--primary);
 }
 
 .filter-bar-count {
@@ -59,6 +111,14 @@
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
+    /* line-height: 1 - without it the digit's line box inherits the page's
+       normal line-height, which isn't vertically symmetric around the
+       glyph itself, so flex centering was centering the (asymmetric) line
+       box rather than the digit. (A follow-up 1px top-padding "optical
+       nudge" was tried here and over-corrected it downward without ever
+       being checked at real zoom - reverted; measure before nudging
+       further rather than guessing again.) */
+    line-height: 1;
     border-radius: var(--radius-pill);
     background: var(--primary);
     color: #fff;
@@ -72,21 +132,130 @@
     visibility: hidden;
 }
 
-/* Fields with a non-default value read as a filled "chip" so it's obvious
-   which filters are actually narrowing the data; fields left on "All" stay
-   plain. Padding lives on the base .filter-field rule below (not here) so
-   toggling --active only recolours the chip instead of resizing it. */
-.filter-field--active {
+/* Fields with a non-default value read as an inset chip, so it's obvious at
+   a glance which filters are actually narrowing the data; fields left on
+   "All" stay plain. Tried a full-height/full-bleed column first (see the
+   .filter-bar comment history), but that read as too big a departure from
+   every other "active" signal in the app (status pills, priority chips),
+   which are all inset chips, and didn't compose with merging adjacent
+   actives below (see grilling session 2026-07-12, "go back to option B").
+   No padding override here - the base .filter-field rule already carries
+   the vertical padding this chip needs (bumped to --space-xs there
+   specifically so activating/deactivating a field never changes its own
+   size, only its background/border/radius/colour - a padding-only override
+   here used to make an inactive field 4px shorter than an active one,
+   shifting it against .filter-bar's align-items: flex-end on every toggle).
+   Border is --primary mixed 22% into --bg-well rather than a flat
+   --border-strong or a full-strength --primary - enough definition to read
+   as "framed" without competing with the fill itself (see grilling session
+   2026-07-12, option E). Only border-color changes here, not the border
+   itself - the base .filter-field rule below already reserves a transparent
+   1px border on every field, active or not, so switching an inactive field
+   to active only ever swaps that colour in rather than adding a border
+   where there wasn't one - a field is auto-width (not fixed), so a border
+   that only appears on activation grows the box by ~2px and visibly nudges
+   every field after it (see grilling session 2026-07-12). Selector is
+   .filter-field.filter-field--active, not just .filter-field--active alone
+   - the base .filter-field rule below sets its border via the `border`
+   shorthand (which also resets border-color), and a single-class selector
+   here would tie with it on specificity and lose to it on source order
+   since the base rule appears later in this file. */
+.filter-field.filter-field--active {
     background: var(--primary-light);
+    border-color: color-mix(in srgb, var(--primary) 22%, var(--bg-well));
     border-radius: var(--radius-sm);
 }
 .filter-field--active label {
     color: var(--primary);
-    font-weight: 700;
+    /* text-stroke, not font-weight: 700 - a real weight change resizes the
+       label's rendered width, which contradicts the "only recolours, doesn't
+       resize" invariant above for any field where the label (not the select/
+       input) is the widest element - e.g. My Meetings' toggle-pill field,
+       where going bold pushed every field after it to the right (see
+       grilling session 2026-07-12). text-stroke is a paint-only effect, so
+       it thickens the glyphs without changing layout at all. */
+    -webkit-text-stroke: 0.4px currentColor;
 }
 
-.filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); padding: var(--space-xxs) var(--space-xs); }
-.filter-field label { text-align: center; }
+/* A toggle-pill field (e.g. My Meetings) never gets the active chip - the
+   pill's own colour change (grey to primary) already signals on/off, so
+   the chip background/border is a redundant second signal, and unlike a
+   select's trigger (which fills its column edge to edge) a fixed-width
+   toggle can never fill the chip's own width - it sits flush left with a
+   visibly empty purple gap to its right (see grilling session
+   2026-07-12). Selector matches .filter-field.filter-field--active above
+   on specificity so source order (this comes after) decides it. */
+.filter-field.filter-field--active:has(.toggle-pill) {
+    background: none;
+    border-color: transparent;
+}
+.filter-field.filter-field--active:has(.toggle-pill) label {
+    color: var(--text-secondary);
+    -webkit-text-stroke: 0;
+}
+
+/* Two adjacent active filter fields read as one grouped pair rather than
+   two separate chips - but the bar's own gap (--space-xs, 8px) is never
+   resized or collapsed, so nothing to their right ever shifts regardless of
+   which fields are active (see grilling session 2026-07-12 - a flex `gap`
+   can't be zeroed for one specific pair of children any other way, since
+   it's a single value on the container, not a per-item margin). At 8px
+   there's no gap left to spare for a fill bridge between them (an earlier,
+   wider-gap version painted a partial fill into the gap - see grilling
+   session 2026-07-12, "V2" - but 8px is tight enough that grouping now
+   relies on squared corners alone, no fill). Each chip keeps its own border
+   on every side - only the two facing (inner) corners square off, so the
+   border doesn't curve away right where the pair reads as continuous (an
+   earlier attempt dropped the border on those sides instead, which read as
+   a doubled seam - squaring the radius while keeping the border was the
+   actual fix). */
+.filter-field.filter-field--active:has(+ .filter-field.filter-field--active) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.filter-field.filter-field--active + .filter-field.filter-field--active {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* Caps a filter field's width to whichever is smaller: its own natural size,
+   or this - without it, one long option (a Panel Group name, say) blows the
+   whole column out to fit it. .ui-select-trigger already truncates with an
+   ellipsis (overflow/text-overflow above); the actual reason it wasn't
+   getting the chance to is main.js's enhanceSelect(), which pins an inline
+   min-width sized to the *widest option* in the list (so the control doesn't
+   visually narrow when a short option gets picked) - an inline style always
+   wins over max-width here, so that's skipped for .filter-field the same way
+   it already was for .ui-fused-field (see the comment in main.js). 200px
+   matches the existing cap on Panel Home's status-filter tabs (panel.css) -
+   generous enough for ordinary values, not a measured width (see grilling
+   session 2026-07-12). */
+/* Horizontal padding is --space-sm (12px), not --space-xs (8px) - 8px read
+   too tight against .filter-field--active's own primary-light fill edge
+   (see grilling session 2026-07-12). Label stays flush at that edge rather
+   than indenting to match the select's own internal text inset - tried both
+   live, flush-at-edge read better. */
+/* border: 1px solid transparent - reserved on every field, active or not,
+   so .filter-field--active only ever swaps the border's colour in rather
+   than adding a border that wasn't there before. A field is auto-width
+   (not fixed), so a border that appears only on activation grows the box
+   by ~2px and visibly nudges every field after it (see grilling session
+   2026-07-12). */
+.filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); padding: var(--space-xs) var(--space-sm); max-width: 200px; border: 1px solid transparent; }
+/* Left, not centred: matches every other label in the app (.field-group
+   label, .ui-fused-field-label - neither overrides text-align, both plain
+   left) - .filter-field was the one place centering labels at all. Left also
+   lines the label up with the select/input's own left-aligned text below it
+   (see DesignLanguage.md "Text alignment") instead of sitting disconnected
+   over its midpoint (see grilling session 2026-07-12). */
+/* nowrap/ellipsis, same treatment as the select/trigger below it - a label
+   should never wrap to a second line under this field's own 200px cap.
+   font-weight: 600 matches every other label in the app (.field-group
+   label, .field-section-label) - .filter-field was plain/normal weight by
+   default and only gained emphasis via .filter-field--active's text-stroke,
+   so an inactive filter label read lighter than every other label on the
+   page for no real reason (see grilling session 2026-07-12). */
+.filter-field label { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .filter-field input, .filter-field select {
     padding: var(--space-xs) var(--space-sm); /* matches button height, see DesignLanguage.md */
     border-radius: var(--radius-sm);
@@ -180,18 +349,27 @@ select.ui-select-native, input.ui-select-native {
 }
 .ui-select-trigger {
     width: 100%;
-    text-align: center;
-    /* Vertical padding matches .btn's own (--space-xs) - dropdowns and
-       buttons sit side by side throughout the app (e.g. Inclusion Panel's
-       row actions), so the two should be the same height by default rather
-       than a select consistently reading taller. Left/right padding is
-       symmetric (34px both sides) even though only the right side needs
-       room for the chevron — asymmetric padding leaves text-align:center's
-       centered text visually off-centre within the box itself, which then
-       doesn't line up with a .ui-fused-field-label centred above it. */
-    padding: var(--space-xs) 34px;
+    /* Left-aligned by default per DesignLanguage.md "Text alignment" - most
+       selects hold names or descriptions/categories, which read left like
+       any other text. Vertical padding matches .btn's own (--space-xs) -
+       dropdowns and buttons sit side by side throughout the app (e.g.
+       Inclusion Panel's row actions), so the two should be the same height
+       by default rather than a select consistently reading taller.
+       Left padding matches the plain text-input reset's own --space-sm
+       below; right stays wider (34px) to leave room for the chevron. */
+    text-align: left;
+    padding: var(--space-xs) 34px var(--space-xs) var(--space-sm);
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border-color);
+    /* --border-strong, not --border-color: this trigger sits inside all
+       kinds of surfaces (hoverable rows, filter bars, plain cards), and
+       --border-color is pale enough in some themes to nearly vanish against
+       --row-hover-bg specifically - see the priority-select "Unset" state in
+       hubs/inclusion/panel/static/css/panel.css, which used to patch this
+       one component at a time with an explicit border-strong override.
+       Making it the shared default here means that override is now
+       redundant everywhere, not just fixed in one spot (see grilling
+       session 2026-07-12). */
+    border: 1px solid var(--border-strong);
     background-color: var(--bg-surface-alt);
     background-repeat: no-repeat;
     background-position: right 10px center;
@@ -223,8 +401,12 @@ select.ui-select-native, input.ui-select-native {
 .ui-select-trigger:hover, .ui-select-trigger.open {
     color: var(--primary);
 }
+/* Resting border is now --border-strong too (see above), so this can no
+   longer signal focus by switching border colour - a real outline instead,
+   same convention as .selectable:focus-visible (cards.css). */
 .ui-select-trigger:focus {
-    border-color: var(--border-strong);
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
 }
 /* Disabled ui-select: the real <select> is hidden off-screen by .ui-select-native,
    so disabled state has to be styled on this trigger button instead. */
@@ -264,7 +446,7 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-option {
     position: relative;
     padding: var(--space-xs) var(--space-sm);
-    text-align: center;
+    text-align: left;
     font-size: var(--font-base);
     color: var(--text-primary);
     cursor: pointer;
@@ -289,6 +471,23 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-option.selected:hover, .ui-option.selected.highlighted { background: var(--primary-light); }
 .ui-option.muted { color: var(--text-secondary); background: var(--bg-surface-alt); }
 .ui-option.muted:hover, .ui-option.muted.highlighted { background: var(--row-hover-bg); color: var(--primary); }
+
+/* Opt-in centering for selects whose values are short status/enum words
+   (High/Medium/Low, Y/N, single-letter codes) rather than names or
+   descriptions - see DesignLanguage.md "Text alignment". Put the class on
+   the source <select> itself; enhanceSelect() (static/js/main.js) mirrors
+   the select's own classes onto both the trigger (render()) and its
+   popover panel (creation time), so this one class reaches both the closed
+   value and the open option list. */
+.ui-select-trigger.ui-select--center { text-align: center; }
+.ui-select-panel.ui-select--center .ui-option { text-align: center; }
+/* Stacked/Card-style selects (e.g. Chair) center their value - see the
+   .ui-fused-field--stacked trigger override above. Its popover panel gets
+   this class in JS (enhanceSelect(), static/js/main.js) since a
+   .ui-fused-field--stacked context can't be read via a CSS descendant
+   selector - the panel is a <dialog> appended to document.body, a sibling
+   of the trigger it belongs to, not a descendant. */
+.ui-select-panel--stacked-context .ui-option { text-align: center; }
 
 .ui-calendar-header {
     display: flex;
@@ -341,8 +540,13 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-date-fields { display: flex; gap: var(--space-xs); flex: 1; }
 .ui-select--sm { flex: 1; min-width: 0; }
 .ui-select--sm .ui-select-trigger {
-    /* Same symmetric-padding reasoning as .ui-select-trigger above, scaled
-       down for the smaller Day/Month/Year and Hour/Minute mini-dropdowns. */
+    /* Day/Month/Year and Hour/Minute values are bare numbers, not names/
+       descriptions, so they stay centered per DesignLanguage.md "Text
+       alignment" even though the base .ui-select-trigger default is now
+       left. Symmetric padding keeps that centered text visually centred
+       within the box itself, matching the calendar/clock button's own
+       fixed width to its right. */
+    text-align: center;
     padding: var(--space-xs) 26px;
     font-size: var(--font-sm);
     background-size: 12px;
@@ -462,7 +666,16 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-fused-field > .ui-date,
 .ui-fused-field > .ui-time,
 .ui-fused-field > input[type="text"] { min-width: 0; }
+/* .ui-select stretches to the fused row's full height (grid's align-items:
+   stretch on .ui-fused-field), but .ui-select-trigger is a plain button
+   nested one level inside it, not itself a grid item — it doesn't inherit
+   that stretch and instead sits at its own intrinsic (padding-based) height,
+   top-aligned inside the taller wrapper. That left its text sitting higher
+   than .ui-fused-field-label's, which *is* a direct grid item and centers
+   properly across the full stretched height. height: 100% makes the trigger
+   fill its wrapper so both centre on the same row height. */
 .ui-fused-field .ui-select-trigger {
+    height: 100%;
     border: none;
     border-radius: 0;
     background-color: transparent;
@@ -604,6 +817,19 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-fused-field--stacked > .ui-fused-field-add {
     grid-column: 2;
     grid-row: 2;
+}
+/* Stacked/Card-style selectors always keep a centered value under their
+   centered label (e.g. the Chair field) - see DesignLanguage.md "Fused vs.
+   plain, and Left vs. Upper fused". This overrides the base trigger's new
+   left-aligned default even for name/description content. Restores the
+   symmetric 34px/34px padding the base rule used before it switched to an
+   asymmetric left-aligned default, so the centered text still sits at the
+   row's true midpoint. Excludes .ui-select--sm (Day/Month/Year, Hour/
+   Minute mini-dropdowns), which already centers with its own smaller
+   padding regardless of stacked/beside-label context. */
+.ui-fused-field--stacked > .ui-select:not(.ui-select--sm) > .ui-select-trigger {
+    text-align: center;
+    padding-left: 34px;
 }
 
 /* The base .ui-popover max-height:260px/overflow-y:auto is sized for a
@@ -880,7 +1106,10 @@ dialog.ui-popover::backdrop { background: transparent; }
    for a small fixed option set (see DesignLanguage.md "Segmented control").
    Active option reuses .filter-field--active's vocabulary (primary-light
    fill = "this is the active choice") so Search's has-text state, filter
-   chips, and this control all read as one consistent signal. */
+   chips, and this control all read as one consistent signal. Inactive
+   options use the same --bg-well tone as .ui-fused-field-label (forms.css),
+   so a segmented control reads as part of the same "label/control" family
+   as fused fields rather than a plain white button row. */
 .ui-segmented {
     display: inline-flex;
     border: 1px solid var(--border-color);
@@ -890,7 +1119,7 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-segmented-option {
     border: none;
     border-right: 1px solid var(--border-color);
-    background: var(--bg-surface);
+    background: var(--bg-well);
     color: var(--text-secondary);
     font-size: var(--font-sm);
     font-family: inherit;

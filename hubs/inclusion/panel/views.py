@@ -481,13 +481,85 @@ def _response_groups(referral):
     return groups
 
 
+def _token_name_filter(tokens, *fields):
+    # Every whitespace-separated token must match somewhere across the given
+    # fields (AND across tokens, OR across fields per token) - "Be S" finds
+    # "Ben Suri" (token "Be" matches first_name, "S" matches last_name), the
+    # shared matching rule for every search surface (see InteractionLanguage.md
+    # "Search").
+    q = Q()
+    for token in tokens:
+        token_q = Q()
+        for field in fields:
+            token_q |= Q(**{f'{field}__icontains': token})
+        q &= token_q
+    return q
+
+
+# Single shared search endpoint behind every Search box that queries real DB
+# data (Panel general search, Add Referral's student picker, Add Member's
+# staff/external picker) - one parameterized view rather than one endpoint
+# per picker, so debounce/min-chars/token-matching only ever need fixing in
+# one place. See docs/adr/0006-shared-search-endpoint-server-fetch-pickers.md.
+PICKER_RESULT_LIMIT = 8
+
+
 def inclusion_panel_search(request):
     q = request.GET.get('q', '').strip()
+    tokens = q.split()
     if len(q) < 2:
         return JsonResponse({'results': []})
 
+    kind = request.GET.get('kind', 'all')
     school_key = current_school_key(request)
     scoped_students = student_queryset_for_school_key(school_key)
+
+    if kind == 'student':
+        students = scoped_students.filter(_token_name_filter(tokens, 'first_name', 'last_name'))[:PICKER_RESULT_LIMIT]
+        results = [{
+            'id': s.id,
+            'name': f'{s.first_name} {s.last_name}',
+            'subtitle': f'Year {s.year_group}' + (f' · {s.reg_form}' if s.reg_form else '') if s.year_group else '',
+        } for s in students]
+        return JsonResponse({'results': results})
+
+    if kind in ('staff', 'external'):
+        exclude_ids = {int(i) for i in request.GET.get('exclude', '').split(',') if i.strip().isdigit()}
+        results = []
+        if kind == 'staff':
+            mode = request.GET.get('mode', 'mat')
+            staff_qs = Staff.objects.filter(is_active=True).select_related('school')
+            if mode == 'school':
+                staff_qs = staff_qs.filter(school_id=request.GET.get('school_id') or None)
+            staff_qs = staff_qs.filter(_token_name_filter(tokens, 'first_name', 'last_name'))[:PICKER_RESULT_LIMIT]
+            for staff in staff_qs:
+                results.append({
+                    'source': 'staff',
+                    'id': staff.id,
+                    'name': f'{staff.first_name} {staff.last_name}',
+                    'subtitle': staff.job_title or '',
+                    'school_name': staff.school.name if staff.is_mat_staff and staff.school_id else '',
+                    'photo_url': staff.photo.url if staff.photo else '',
+                    'already_member': staff.id in exclude_ids,
+                })
+        else:
+            contacts = ExternalContact.objects.filter(is_active=True).filter(
+                _token_name_filter(tokens, 'name')
+            )[:PICKER_RESULT_LIMIT]
+            for contact in contacts:
+                results.append({
+                    'source': 'external',
+                    'id': contact.id,
+                    'name': contact.name,
+                    'subtitle': contact.job_title or '',
+                    'school_name': '',
+                    'already_member': contact.id in exclude_ids,
+                })
+        return JsonResponse({'results': results})
+
+    # kind == 'all': Panel's own general search - the only surface that
+    # legitimately spans more than one entity type, so it's the only one
+    # that groups results by kind (see InteractionLanguage.md "Search").
     is_panel_staff = _is_panel_staff(_current_staff(request))
 
     students_url = reverse('inclusion_panel_students')
@@ -499,9 +571,7 @@ def inclusion_panel_search(request):
 
     results = []
 
-    students = scoped_students.filter(
-        Q(first_name__icontains=q) | Q(last_name__icontains=q)
-    )[:5]
+    students = scoped_students.filter(_token_name_filter(tokens, 'first_name', 'last_name'))[:5]
     for student in students:
         param = name_param(student)
         referrals_count = student.referrals.count()
@@ -518,7 +588,7 @@ def inclusion_panel_search(request):
         })
 
     staff_members = staff_queryset_for_school_key(school_key).filter(
-        Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        _token_name_filter(tokens, 'first_name', 'last_name')
     )[:5]
     for staff in staff_members:
         referrals_raised = InclusionReferral.objects.filter(student__in=scoped_students, raised_by=staff).count()
@@ -537,6 +607,36 @@ def inclusion_panel_search(request):
         })
 
     return JsonResponse({'results': results})
+
+
+def _my_actions_context(current_staff, is_panel_staff):
+    # Shared by inclusion_panel_home (full page) and
+    # inclusion_panel_action_set_status's AJAX branch (re-renders just the My
+    # Actions card fragment after a status change) - one place computing
+    # these counts so both stay in sync.
+    today = timezone.localdate()
+    if current_staff is not None:
+        my_actions = Action.objects.filter(assigned_to=current_staff).select_related('referral__student').order_by('status', 'due_date')
+        if not is_panel_staff:
+            my_actions = my_actions.exclude(category__is_sensitive=True)
+        my_actions = list(my_actions)
+    else:
+        my_actions = []
+    for action in my_actions:
+        action.is_overdue = action.status == 'incomplete' and action.due_date and action.due_date < today
+    overdue_actions = sum(1 for a in my_actions if a.is_overdue)
+    actions_incomplete_count = sum(1 for a in my_actions if a.status == 'incomplete')
+    actions_complete_count = sum(1 for a in my_actions if a.status == 'complete')
+    actions_not_needed_count = sum(1 for a in my_actions if a.status == 'not_needed')
+    show_action_tabs = sum(1 for c in (actions_incomplete_count, overdue_actions, actions_not_needed_count, actions_complete_count) if c) > 1
+    return {
+        'my_actions': my_actions,
+        'overdue_actions': overdue_actions,
+        'actions_incomplete_count': actions_incomplete_count,
+        'actions_complete_count': actions_complete_count,
+        'actions_not_needed_count': actions_not_needed_count,
+        'show_action_tabs': show_action_tabs,
+    }
 
 
 def inclusion_panel_home(request):
@@ -561,22 +661,15 @@ def inclusion_panel_home(request):
     referrals_awaiting_count = len(my_referrals) - referrals_discussed_count
 
     today = timezone.localdate()
-    if current_staff is not None:
-        my_actions = Action.objects.filter(assigned_to=current_staff).select_related('referral__student').order_by('status', 'due_date')
-        if not is_panel_staff:
-            my_actions = my_actions.exclude(category__is_sensitive=True)
-        my_actions = list(my_actions)
-    else:
-        my_actions = []
-    for action in my_actions:
-        action.is_overdue = action.status == 'incomplete' and action.due_date and action.due_date < today
-    overdue_actions = sum(1 for a in my_actions if a.is_overdue)
-    actions_incomplete_count = sum(1 for a in my_actions if a.status == 'incomplete')
-    actions_complete_count = sum(1 for a in my_actions if a.status == 'complete')
-    actions_not_needed_count = sum(1 for a in my_actions if a.status == 'not_needed')
+    actions_ctx = _my_actions_context(current_staff, is_panel_staff)
+    my_actions = actions_ctx['my_actions']
+    overdue_actions = actions_ctx['overdue_actions']
+    actions_incomplete_count = actions_ctx['actions_incomplete_count']
+    actions_complete_count = actions_ctx['actions_complete_count']
+    actions_not_needed_count = actions_ctx['actions_not_needed_count']
+    show_action_tabs = actions_ctx['show_action_tabs']
 
     show_referral_tabs = sum(1 for c in (referrals_awaiting_count, referrals_discussed_count) if c) > 1
-    show_action_tabs = sum(1 for c in (actions_incomplete_count, overdue_actions, actions_not_needed_count, actions_complete_count) if c) > 1
 
     school_key = current_school_key(request)
     scoped_students = student_queryset_for_school_key(school_key)
@@ -746,7 +839,6 @@ def inclusion_panel_referral_new(request):
 
     context = {
         **_panel_base_context(request),
-        'students': student_queryset_for_school_key(current_school_key(request)),
         'selected_student': selected_student,
         'question_groups': question_groups,
         'main_concern_question': main_concern_question,
@@ -945,6 +1037,14 @@ def inclusion_panel_action_set_status(request, action_id):
             action.status = status
             action.completed_at = timezone.now() if status == 'complete' else None
             action.save()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Fired from the Home page's My Actions card (see home.html) so the
+        # tab counts/rows can update in place with the InteractionLanguage.md
+        # "Tab count-delta pulse" / "Status-filter tab entering/leaving the
+        # tab row" animations, instead of a full page reload snapping them.
+        current_staff = _current_staff(request)
+        is_panel_staff = _is_panel_staff(current_staff)
+        return render(request, 'hubs/inclusion/panel/_my_actions_card.html', _my_actions_context(current_staff, is_panel_staff))
     return redirect(_safe_next(request, '/inclusion/panel/'))
 
 
@@ -1327,8 +1427,6 @@ def inclusion_panel_group_edit(request, group_id=None):
         'existing_staff_ids': {m.staff_id for m in active_members if m.staff_id},
         'existing_external_ids': {m.external_contact_id for m in active_members if m.external_contact_id},
         'available_expertise': Expertise.objects.visible_for_school(group.school_id),
-        'staff_list': Staff.objects.filter(is_active=True).select_related('school'),
-        'external_contacts': ExternalContact.objects.filter(is_active=True),
         'existing_groups': list(
             PanelGroup.objects.filter(is_active=True).exclude(pk=group.pk).values('name', 'school_id')
         ),
@@ -1384,70 +1482,182 @@ def inclusion_panel_external_contact_quick_add(request):
     })
 
 
+def _format_duration(td):
+    # "2h 15m" / "45m" / "3h" - short form for the meeting card, not the
+    # verbose default str(timedelta) ("2:15:00") the raw value would render as.
+    if not td:
+        return None
+    total_minutes = int(td.total_seconds() // 60)
+    hours, minutes = divmod(total_minutes, 60)
+    if hours and minutes:
+        return f'{hours}h {minutes}m'
+    if hours:
+        return f'{hours}h'
+    return f'{minutes}m'
+
+
+def _academic_year_key(d):
+    # Sept-Aug academic year, keyed by its start calendar year (e.g. a date
+    # in Sept 2025-Aug 2026 both key to 2025) - no academic-year concept
+    # exists anywhere else in the codebase, so this is deliberately the only
+    # place that boundary is defined.
+    return d.year if d.month >= 9 else d.year - 1
+
+
+def _academic_year_label(start_year):
+    return f'{start_year}/{str(start_year + 1)[-2:]}'
+
+
+def _effective_chair_q(staff_id):
+    # Mirrors Panel.effective_chair_id as a queryset filter: chair_id when
+    # not following the group default, panel_group.default_chair_id when it is.
+    return Q(chair_follows_default=False, chair_id=staff_id) | Q(
+        chair_follows_default=True, panel_group__default_chair_id=staff_id,
+    )
+
+
 def inclusion_panel_meetings(request):
     _sync_delayed_panels()
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
     school_key = current_school_key(request)
     is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
+    current_staff = _current_staff(request)
+
+    panel_group_filter = request.GET.get('panel_group') or ''
+    chair_filter = request.GET.get('chair') or ''
+    academic_year_filter = request.GET.get('academic_year') or ''
+    status_filter = request.GET.get('status') or ''
+    my_meetings_filter = request.GET.get('my_meetings') == '1' and current_staff is not None
+
+    # Option lists computed from the school-scoped set, before the filters
+    # below are applied, same convention as inclusion_hub's year_group_choices -
+    # so Panel Group/Chair/Academic Year don't shrink each other's dropdowns.
+    base_panels = _panels_for_school_key(
+        Panel.objects.select_related('chair', 'panel_group__default_chair'),
+        school_key,
+    )
+    chairs_by_id = {}
+    academic_years_present = set()
+    for panel in base_panels:
+        chair = panel.effective_chair
+        if chair:
+            chairs_by_id[chair.id] = chair
+        academic_years_present.add(_academic_year_key(panel.date))
+    chair_choices = sorted(chairs_by_id.values(), key=lambda s: (s.last_name, s.first_name))
+    academic_year_choices = [
+        (year, _academic_year_label(year)) for year in sorted(academic_years_present, reverse=True)
+    ]
+    current_academic_year = _academic_year_key(today)
+    if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
+        academic_year_filter = ''
+
+    panels = _panels_for_school_key(
+        Panel.objects.select_related('chair', 'panel_group__school', 'panel_group__default_chair').prefetch_related(
+            'panel_referrals__referral',
+        ).order_by('date'),
+        school_key,
+    )
+    if panel_group_filter:
+        panels = panels.filter(panel_group_id=panel_group_filter)
+    if chair_filter:
+        panels = panels.filter(_effective_chair_q(chair_filter))
+    if academic_year_filter:
+        start, end = datetime.date(int(academic_year_filter), 9, 1), datetime.date(int(academic_year_filter) + 1, 8, 31)
+        panels = panels.filter(date__gte=start, date__lte=end)
+    if status_filter:
+        panels = panels.filter(status=status_filter)
+    if my_meetings_filter:
+        my_group_ids = PanelGroupMember.objects.filter(
+            staff=current_staff, is_active=True,
+        ).values_list('panel_group_id', flat=True)
+        panels = panels.filter(_effective_chair_q(current_staff.id) | Q(panel_group_id__in=my_group_ids))
+
+    # Batched once for every referral appearing on any panel in this list
+    # (rather than one query per panel/card) - same "has this referral been
+    # discussed on some other panel before" check inclusion_panel_meeting_setup
+    # uses to distinguish New vs Review agenda items (last_discussed_panel).
+    all_referral_ids = {
+        pr.referral_id for panel in panels for pr in panel.panel_referrals.all() if pr.removed_at is None
+    }
+    discussed_panels_by_referral = {}
+    for referral_id, panel_id in PanelReferral.objects.filter(
+        discussion_status='discussed', referral_id__in=all_referral_ids,
+    ).values_list('referral_id', 'panel_id'):
+        discussed_panels_by_referral.setdefault(referral_id, set()).add(panel_id)
+
     meetings = []
     upcoming_meetings = []
     past_meetings = []
     next_marked = False
-    panels_this_year = 0
-    status_counts = {'draft': 0, 'ready': 0, 'running': 0, 'delayed': 0, 'complete': 0}
-    panels = _panels_for_school_key(
-        Panel.objects.select_related('chair', 'panel_group__school').prefetch_related('panel_referrals', 'members').order_by('date'),
-        school_key,
-    )
     for panel in panels:
-        if panel.date.year == today.year:
-            panels_this_year += 1
-        status_counts[panel.status] = status_counts.get(panel.status, 0) + 1
+        active_referrals = [pr for pr in panel.panel_referrals.all() if pr.removed_at is None]
+        referral_count = len(active_referrals)
         is_next = panel.status not in ('complete', 'delayed') and panel.date >= today and not next_marked
         if is_next:
             next_marked = True
-        referral_count = sum(1 for pr in panel.panel_referrals.all() if pr.removed_at is None)
-        discussed_count = sum(
-            1 for pr in panel.panel_referrals.all() if pr.removed_at is None and pr.discussion_status == 'discussed'
-        )
-        total_duration = sum(
-            (pr.duration for pr in panel.panel_referrals.all() if pr.removed_at is None and pr.duration),
-            datetime.timedelta(),
-        )
+
         if panel.status == 'complete':
-            # Frozen historical fact - who actually checked in - not the
-            # live group roster, which may have changed since.
-            member_count = panel.members.filter(checked_in_at__isnull=False).count()
+            discussed = [pr for pr in active_referrals if pr.discussion_status == 'discussed']
+            new_count = sum(
+                1 for pr in discussed
+                if not (discussed_panels_by_referral.get(pr.referral_id, set()) - {panel.id})
+            )
+            review_count = len(discussed) - new_count
+            duration_display = _format_duration(sum(
+                (pr.duration for pr in discussed if pr.duration), datetime.timedelta(),
+            ))
+            priority_counts = None
         else:
-            # Nobody's checked in yet for an upcoming/in-progress panel, so
-            # the meaningful number here is the group's live roster size.
-            member_count = panel.panel_group.members.filter(is_active=True).count() if panel.panel_group_id else 0
+            new_count = sum(
+                1 for pr in active_referrals
+                if not (discussed_panels_by_referral.get(pr.referral_id, set()) - {panel.id})
+            )
+            review_count = referral_count - new_count
+            priority_counts = Counter(pr.referral.priority or 'untriaged' for pr in active_referrals)
+            duration_display = None
+
         entry = {
             'panel': panel,
             'is_next': is_next,
             'referral_count': referral_count,
-            'discussed_count': discussed_count,
-            'member_count': member_count,
-            'total_duration': total_duration,
+            'new_count': new_count,
+            'review_count': review_count,
+            'priority_counts': priority_counts,
+            'duration_display': duration_display,
         }
         meetings.append(entry)
         (past_meetings if panel.status == 'complete' else upcoming_meetings).append(entry)
     past_meetings.reverse()
     meetings = upcoming_meetings + past_meetings
-    panels_needing_referrals = sum(1 for m in upcoming_meetings if not m['referral_count'])
-    return render(request, 'hubs/inclusion/panel/meetings.html', {
+
+    panel_groups = PanelGroup.objects.filter(is_active=True).select_related('school').order_by('name')
+    if not is_aggregate_view:
+        panel_groups = panel_groups.filter(Q(school_id=school_key) | Q(school__isnull=True))
+
+    active_filter_count = sum(
+        1 for v in (panel_group_filter, chair_filter, academic_year_filter, status_filter, my_meetings_filter) if v
+    )
+
+    context = {
         **_panel_base_context(request),
         'meetings': meetings,
-        'panels_needing_referrals': panels_needing_referrals,
-        'panels_this_year': panels_this_year,
-        'panels_draft': status_counts['draft'],
-        'panels_ready': status_counts['ready'],
-        'panels_running': status_counts['running'],
-        'panels_delayed': status_counts['delayed'],
-        'panels_complete': status_counts['complete'],
         'today': today,
         'is_aggregate_view': is_aggregate_view,
-    })
+        'panel_groups': panel_groups,
+        'panel_group_filter': panel_group_filter,
+        'chair_choices': chair_choices,
+        'chair_filter': chair_filter,
+        'academic_year_choices': academic_year_choices,
+        'academic_year_filter': academic_year_filter,
+        'current_academic_year': current_academic_year,
+        'status_choices': Panel.STATUS_CHOICES,
+        'status_filter': status_filter,
+        'my_meetings_filter': my_meetings_filter,
+        'active_filter_count': active_filter_count,
+    }
+    template = 'hubs/inclusion/panel/_meetings_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/meetings.html'
+    return render(request, template, context)
 
 
 def inclusion_panel_meeting_new(request, panel_id=None):
@@ -1474,6 +1684,7 @@ def inclusion_panel_meeting_new(request, panel_id=None):
                 date=parsed_date,
                 time=request.POST.get('time') or None,
                 panel_group_id=request.POST.get('panel_group') or None,
+                chair_follows_default=True,
             )
         else:
             panel.update_details(
@@ -1578,8 +1789,10 @@ def inclusion_panel_meeting_setup(request, panel_id):
             # would silently wipe them here since Chair is the one field
             # in this dialog's summary still submitted on its own, standalone
             # from Date/Time/Panel Group's Edit dialog.
-            panel.chair_id = request.POST.get('chair') or None
-            panel.save(update_fields=['chair_id'])
+            chair_value = request.POST.get('chair') or ''
+            panel.chair_follows_default = (chair_value == 'default')
+            panel.chair_id = None if chair_value in ('', 'default') else chair_value
+            panel.save(update_fields=['chair_id', 'chair_follows_default'])
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
         elif action in ('add_referral', 'add_followup_to_agenda'):
@@ -1822,6 +2035,14 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             ).order_by('agenda_order', 'id')
             _move_agenda_referral(pending_siblings, request.POST.get('panel_referral_id'), request.POST.get('direction'))
         elif action == 'end_panel_meeting':
+            # Freeze whatever chair this panel was following into a plain
+            # snapshot before completing it - a completed panel's chair is a
+            # historical record and must not keep moving if the group's
+            # default_chair changes later (same reasoning as _panel_member_roster
+            # only trusting checked-in PanelMember rows once complete).
+            if panel.chair_follows_default:
+                panel.chair_id = panel.effective_chair_id
+                panel.chair_follows_default = False
             panel.status = 'complete'
             panel.ended_at = timezone.now()
             panel.save()

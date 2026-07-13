@@ -3,9 +3,14 @@
    switcher, Panel search modal, picker search fields). See DesignLanguage.md
    "Search" for the full state table and the rationale.
    Primary is reserved for the "has text" state (border + icon) so it reads
-   as "this box is doing something" rather than firing on mere hover/focus;
-   :focus-visible's primary outline is the one exception, kept unconditional
-   as a plain a11y affordance rather than a state signal. */
+   as "this box is doing something" rather than firing on mere hover;
+   :focus-visible is the one exception, kept unconditional as a plain a11y
+   affordance rather than a state signal — it sets the *same* border-color
+   has-text uses (rather than a separately-coloured outline) plus an inset
+   box-shadow ring, so a focused+has-text box reads as one emphasised edge
+   instead of two concentric rings. Being inset (not an offset outline) also
+   means the ring can never be clipped by a zero-padding scroll container
+   (e.g. dialog.modal-dialog .modal-body) the way an offset outline could. */
 .app-search { position: relative; width: 100%; }
 
 /* .app-search-field wraps just the icon+input, separately from the results
@@ -41,30 +46,43 @@
     padding: var(--space-xs) var(--space-sm) var(--space-xs) 34px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
-    background: var(--bg-surface);
+    /* --bg-surface-alt, not --bg-surface - see DesignLanguage.md "Editable
+       field background". Every other editable control in the app
+       (.field-group input, .ui-fused-field, .filter-field, .ui-select-trigger)
+       already uses this tint to read as "you can type/pick here"; Search
+       was the one exception, sharing plain --bg-surface with inert
+       cards/page background instead, which is why it read as flat/inert
+       next to everything else. */
+    background: var(--bg-surface-alt);
     color: var(--text-primary);
     font-size: var(--font-base);
-    transition: border-color var(--transition-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
-.app-search-field .app-search-input:hover { border-color: var(--border-strong); }
-/* Plain mouse :focus gets no outline (matches this component's original
+.app-search-field .app-search-input:hover { border-color: var(--text-faint); }
+/* Plain mouse :focus gets no ring (matches this component's original
    behaviour) — must come before :focus-visible below so the keyboard-focus
-   case (where both match) resolves to :focus-visible's primary outline via
-   source order, since the two selectors tie on specificity. Also needed to
-   beat .field-group input:focus (forms.css) when nested in a field-group. */
-.app-search-field .app-search-input:focus { outline: none; }
+   case (where both match) resolves to :focus-visible's ring via source
+   order, since the two selectors tie on specificity. Also needed to beat
+   .field-group input:focus (forms.css) when nested in a field-group. */
+.app-search-field .app-search-input:focus { outline: none; box-shadow: none; }
 .app-search-field .app-search-input:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 1px;
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--primary);
 }
-/* Has text wins over hover's border-strong — once the box has a value, it
-   stays primary regardless of the pointer, rather than flickering back to
-   neutral on hover. */
+/* Has text wins over hover's text-faint border — once the box has a value,
+   it stays primary regardless of the pointer, rather than flickering back
+   to neutral on hover. */
 .app-search-field .app-search-input:not(:placeholder-shown) { border-color: var(--primary); }
 .app-search-field:has(.app-search-input:not(:placeholder-shown)) .app-search-icon {
     color: var(--primary);
 }
 
+/* max-height + overflow-y:auto (not just overflow:hidden) so a result list
+   taller than the viewport scrolls internally instead of growing the box
+   unbounded off the bottom of the screen - same "cap it, scroll the rest"
+   treatment as .panel-search-results (panel.css) and .member-result-list
+   (DesignLanguage.md "Member result list"). */
 .app-search-results {
     position: absolute;
     top: calc(100% + 6px);
@@ -75,7 +93,9 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    overflow: hidden;
+    max-height: min(60vh, 400px);
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* Inside the side-nav Search overlay, the results sit inline underneath

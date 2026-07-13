@@ -734,7 +734,11 @@ a { color: inherit; }
     min-height: 0;
     margin-bottom: var(--space-md);
     background: var(--bg-surface);
-    border: 1px solid var(--border-color);
+    /* --border-strong, not --border-color - same "too pale to read as an
+       edge against its own backdrop in Soft/pastel" problem already fixed
+       on .ui-select-trigger, .toggle-pill, and .filter-bar itself (see
+       grilling session 2026-07-12). */
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
     overflow: hidden;
 }
@@ -745,7 +749,9 @@ a { color: inherit; }
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     box-shadow: none;
     margin-bottom: 0;
-    border-bottom: 1px solid var(--border-color);
+    /* --border-strong, matching .tab-row's own divider and every other
+       card border fixed this session (see grilling session 2026-07-12). */
+    border-bottom: 1px solid var(--border-strong);
 }
 .list-card .entity-list {
     flex: 1;
@@ -771,7 +777,15 @@ a { color: inherit; }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); }
 .page-header-main { min-width: 0; }
 .page-header-extras { display: flex; align-items: center; flex-shrink: 0; }
-.key-actions { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+/* Two stacked rows (app-wide actions on top, a page's own primary action
+   below via key_actions_extra - see hubs/inclusion/panel/_base.html) rather
+   than one flat row, so the page-specific action's already-stronger button
+   styling isn't visually flattened into the same line as the muted
+   app-wide actions. align-items: flex-end keeps both rows right-aligned
+   against the page header's right edge, matching the single-row layout
+   this replaced. */
+.key-actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-xs); }
+.key-actions-row { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
 
 .side-nav .nav-row-btn:focus-visible {
     background: var(--bg-surface-alt);

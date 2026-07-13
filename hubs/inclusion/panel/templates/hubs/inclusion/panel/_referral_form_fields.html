@@ -1,4 +1,4 @@
-{% if not is_view_only %}
+﻿{% if not is_view_only %}
 <div class="field-group referral-student-picker" data-referral-student-picker>
     <input type="hidden" name="student" value="{% if selected_student %}{{ selected_student.id }}{% endif %}" data-referral-student-input required>
     <div data-referral-student-search-panel {% if selected_student %}hidden{% endif %}>
@@ -6,15 +6,14 @@
             <span class="app-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
             <input type="text" id="referral-student-search" class="app-search-input" placeholder="Search students by name…" autocomplete="off" data-referral-student-search>
         </div>
-        <div class="referral-student-list-label">Students</div>
-        <div class="referral-student-results" data-referral-student-results>
-            {% for s in students %}
-            <button type="button" class="referral-student-option" data-id="{{ s.id }}" data-name="{{ s.first_name }} {{ s.last_name }}" data-display="{{ s.first_name }} {{ s.last_name }} — Year {{ s.year_group }}{% if s.reg_form %} ({{ s.reg_form }}){% endif %}">
-                <span class="referral-student-option-name">{{ s.first_name }} {{ s.last_name }}</span>
-                <span class="referral-student-option-meta">Year {{ s.year_group }}{% if s.reg_form %} · {{ s.reg_form }}{% endif %}</span>
-            </button>
-            {% endfor %}
-        </div>
+        {% comment %}
+        Results are server-fetched from the shared inclusion_panel_search
+        endpoint (kind=student) and hidden until typed - see
+        InteractionLanguage.md "Search". No "Students" label above the
+        results: this picker only ever searches one entity type, so there's
+        nothing to disambiguate a group header would add.
+        {% endcomment %}
+        <div class="referral-student-results" data-referral-student-results></div>
     </div>
     <div class="referral-student-selected" data-referral-student-selected {% if not selected_student %}hidden{% endif %}>
         <label>Student</label>

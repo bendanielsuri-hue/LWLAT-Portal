@@ -223,6 +223,16 @@ class Panel(models.Model):
     date = models.DateField()
     time = models.TimeField(null=True, blank=True)
     chair = models.ForeignKey('core.Staff', null=True, blank=True, related_name='chaired_panels', on_delete=models.SET_NULL)
+    # When True, `chair` is ignored and the effective chair is always
+    # whatever the Panel Group's default_chair currently is (see
+    # effective_chair/effective_chair_id below) - lets a draft/ready panel
+    # keep tracking the group's default chair even if it's changed after
+    # this panel was created, instead of freezing a snapshot at create time.
+    # Never True on a 'complete' panel - see end_panel_meeting in views.py,
+    # which freezes the resolved chair into `chair` and clears this flag so
+    # a finished meeting's chair is a historical record like everything
+    # else about its attendance.
+    chair_follows_default = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     panel_group = models.ForeignKey(PanelGroup, null=True, blank=True, on_delete=models.SET_NULL, related_name='panels')
     started_at = models.DateTimeField(null=True, blank=True)
@@ -235,19 +245,31 @@ class Panel(models.Model):
     def __str__(self):
         return f'Panel {self.date}'
 
+    @property
+    def effective_chair_id(self):
+        if self.chair_follows_default and self.panel_group_id:
+            return self.panel_group.default_chair_id
+        return self.chair_id
+
+    @property
+    def effective_chair(self):
+        if self.chair_follows_default and self.panel_group_id:
+            return self.panel_group.default_chair
+        return self.chair
+
     def update_details(self, date=None, time=None, chair_id=None, panel_group_id=None):
         # Owns the "Panel Agenda Setup -> Details tab" save rule: a rescheduled
-        # date is only ever moved forward (never into the past), and a group
-        # change with no explicit chair falls back to that group's default
-        # chair. Single place both the view and any future caller (tests,
-        # admin actions) can trigger this without going through a request.
+        # date is only ever moved forward (never into the past). Chair itself
+        # is untouched here - chair_id is passed back in as whatever it
+        # already was, since Chair (including whether it's following the
+        # group's default) is edited on its own, separately, via update_chair.
+        # Single place both the view and any future caller (tests, admin
+        # actions) can trigger this without going through a request.
         if date is not None and date >= timezone.localdate():
             self.date = date
         self.time = time
         self.chair_id = chair_id
         self.panel_group_id = panel_group_id
-        if not self.chair_id and self.panel_group_id:
-            self.chair_id = self.panel_group.default_chair_id
         self.save()
 
 

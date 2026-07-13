@@ -1,0 +1,66 @@
+﻿{% comment %}
+My Actions card - shared by home.html's initial render and
+inclusion_panel_action_set_status's AJAX branch, which re-renders this whole
+fragment after a status change so the tab counts/rows animate in place
+instead of the page reloading (see InteractionLanguage.md's "Tab count-delta
+pulse" / "Status-filter tab entering/leaving the tab row").
+
+Every status tab is always rendered now, even at count 0 - it just collapses
+to zero width via .tab-collapsed (panel.css) instead of being omitted from
+the DOM like {% if count %} used to, so home.html's JS has something to
+animate in when a count goes from 0 back up.
+{% endcomment %}
+<div class="panel-card switch-card" id="actions-card">
+    <div class="panel-card-header">
+        <h2>My Actions</h2>
+        <span class="panel-card-count count" data-heading-count data-count="{{ my_actions|length }}">({{ my_actions|length }})</span>
+    </div>
+    {% if show_action_tabs %}
+    <div class="tab-row" data-action-tab-row>
+        <button type="button" data-action-tab="all" data-count="{{ my_actions|length }}">All <span class="count">({{ my_actions|length }})</span></button>
+        <button type="button" data-action-tab="incomplete" data-count="{{ actions_incomplete_count }}" class="{% if not actions_incomplete_count %}tab-collapsed{% endif %}"{% if not actions_incomplete_count %} tabindex="-1"{% endif %}>Incomplete <span class="count">({{ actions_incomplete_count }})</span></button>
+        <button type="button" data-action-tab="overdue" data-count="{{ overdue_actions }}" class="{% if not overdue_actions %}tab-collapsed{% endif %}"{% if not overdue_actions %} tabindex="-1"{% endif %}>Overdue <span class="count">({{ overdue_actions }})</span></button>
+        <button type="button" data-action-tab="not_needed" data-count="{{ actions_not_needed_count }}" class="{% if not actions_not_needed_count %}tab-collapsed{% endif %}"{% if not actions_not_needed_count %} tabindex="-1"{% endif %}>Not Required <span class="count">({{ actions_not_needed_count }})</span></button>
+        <button type="button" data-action-tab="complete" data-count="{{ actions_complete_count }}" class="{% if not actions_complete_count %}tab-collapsed{% endif %}"{% if not actions_complete_count %} tabindex="-1"{% endif %}>Complete <span class="count">({{ actions_complete_count }})</span></button>
+    </div>
+    {% endif %}
+    <ul class="panel-list" id="my-actions-list" data-selectable="single">
+        {% for action in my_actions %}
+        <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}">
+            <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+            <div class="panel-item-body">
+                <div class="panel-item-title">{{ action.referral.student }}</div>
+                <div class="panel-item-meta">
+                    Due Date: {{ action.due_date|default:"—" }}
+                    &middot;
+                    {% if action.is_overdue %}<span class="status-pill danger">Overdue</span>{% else %}<span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span>{% endif %}
+                </div>
+                <div class="panel-item-note">{{ action.note }}</div>
+            </div>
+            <div class="panel-item-actions panel-item-actions-stacked">
+                <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" data-action-status-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
+                    {% if action.status == 'incomplete' %}
+                    <input type="hidden" name="status" value="complete">
+                    <button type="submit" class="btn btn-sm btn-success"><span class="btn-icon">{% include 'icons/checkmark_svg.html' %}</span> Mark Complete</button>
+                    {% else %}
+                    <input type="hidden" name="status" value="incomplete">
+                    <button type="submit" class="btn btn-sm">Reopen</button>
+                    {% endif %}
+                </form>
+                {% if action.status == 'incomplete' %}
+                <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" data-action-status-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
+                    <input type="hidden" name="status" value="not_needed">
+                    <button type="submit" class="btn btn-sm">Mark Not Required</button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+        {% empty %}
+        <li class="empty-note">No actions yet.</li>
+        {% endfor %}
+    </ul>
+</div>

@@ -1,12 +1,12 @@
-<div class="modal-header">
+﻿<div class="modal-header">
     <h2 data-panel-group-modal-title>{% if group %}Edit Panel Group{% else %}New Panel Group{% endif %}</h2>
     <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
 </div>
 <div class="modal-body">
 
 {% if group %}
-<div class="panel-group-modal-header" data-panel-group-header>
-    <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="ui-fused-field-group"
+<div class="panel-group-modal-header ui-fused-field-group" data-panel-group-header>
+    <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}"
           data-panel-group-form data-panel-group-form-action="update_group_name" data-autosave="blur">
         {% csrf_token %}
         <input type="hidden" name="form_action" value="update_group_name">
@@ -16,7 +16,7 @@
         </span>
     </form>
     {% if chair_choices %}
-    <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="ui-fused-field-group"
+    <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}"
           data-panel-group-form data-panel-group-form-action="update_group_chair" data-autosave="change">
         {% csrf_token %}
         <input type="hidden" name="form_action" value="update_group_chair">
@@ -37,8 +37,8 @@
     <div data-members-list-view>
         {% if active_members or inactive_members %}
         <div class="tab-row" data-members-tab-row>
-            <button type="button" class="active" data-members-tab="active">Active Members ({{ active_members|length }})</button>
-            <button type="button" data-members-tab="inactive">Inactive Members ({{ inactive_members|length }})</button>
+            <button type="button" class="active" data-members-tab="active">Active Members <span class="count" data-count="{{ active_members|length }}">({{ active_members|length }})</span></button>
+            <button type="button" data-members-tab="inactive">Inactive Members <span class="count" data-count="{{ inactive_members|length }}">({{ inactive_members|length }})</span></button>
         </div>
         {% else %}
         <h3 class="members-list-heading">Active Members ({{ active_members|length }})</h3>
@@ -69,7 +69,7 @@
             <input type="hidden" name="form_action" value="add_group_member">
             <input type="hidden" name="next" value="{{ next }}">
 
-            {% include 'hubs/inclusion/panel/_member_picker.html' with school=group.school staff_list=staff_list external_contacts=external_contacts existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Already in Group' %}
+            {% include 'hubs/inclusion/panel/_member_picker.html' with school=group.school existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Already in Group' %}
         </form>
     </div>
 </div>
@@ -77,6 +77,15 @@
 <div class="panel-group-modal-footer" data-panel-group-footer>
     <button type="button" class="btn btn-add btn-sm" data-members-mode-toggle><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Member</button>
     <button type="button" class="btn btn-sm" data-members-back-btn hidden>Back</button>
+    {% comment %}
+    Lives here (not inside _member_picker.html) so it reads as one row with
+    Back rather than its own stacked row - see _member_picker.html's own
+    doc comment. Hidden attribute is owned by two collaborators: initMemberPicker
+    (panel.js) toggles it with the External segmented option; wireMembersModeToggle
+    force-hides it on leaving add mode, since this footer (unlike the picker
+    itself) stays visible in list mode too.
+    {% endcomment %}
+    <button type="button" class="btn btn-add btn-sm" data-member-add-external data-member-add-external-toggle hidden><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New External Contact</button>
 </div>
 {% else %}
 <div class="panel-group-modal-header">

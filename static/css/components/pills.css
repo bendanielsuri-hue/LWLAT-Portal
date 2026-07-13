@@ -1,5 +1,9 @@
 /* Wraps a toggle-pill inside a .filter-field so its label lines up with
-   sibling text-input/select labels, despite the pill being shorter. */
+   sibling text-input/select labels, despite the pill being shorter. Labels
+   are left-aligned (forms.css), so this stays left (flex-start, the
+   default) too - it briefly needed justify-content: center while labels
+   were centred, flipped back when that changed (see grilling session
+   2026-07-12). */
 .filter-toggle-wrap { display: flex; align-items: center; height: 38px; }
 
 .toggle-pill {
@@ -7,7 +11,13 @@
     width: 44px;
     height: 24px;
     border-radius: var(--radius-pill);
-    background: var(--border-color);
+    /* --border-strong, not --border-color: same fill-too-close-to-its-backdrop
+       problem as .ui-select-trigger (see components/forms.css) - the off-state
+       track is a flat, borderless fill, so it needs a colour that reliably
+       reads against whatever it's sitting on (filter bar's --bg-well, a plain
+       card, etc.), not just the palest border tone (see grilling session
+       2026-07-12). */
+    background: var(--border-strong);
     border: none;
     cursor: pointer;
     flex-shrink: 0;
@@ -27,7 +37,7 @@
 
 /* .status-pill base — shared across all hubs. Panel-specific modifier classes
    (.status-pill.complete, .status-pill.danger, etc.) remain in panel.css. */
-.status-pill { font-size: var(--font-xs); font-weight: 600; padding: var(--space-xxs) 10px; border-radius: var(--radius-pill); background: var(--badge-bg); color: var(--text-secondary); display: inline-block; }
+.status-pill { font-size: var(--font-xs); font-weight: 600; padding: var(--space-xxs) 10px; border-radius: var(--radius-pill); background: var(--badge-bg); color: var(--text-secondary); display: inline-block; text-align: center; }
 .status-pill[hidden] { display: none; }
 
 /* Shared semantic signal modifiers — theme-aware */

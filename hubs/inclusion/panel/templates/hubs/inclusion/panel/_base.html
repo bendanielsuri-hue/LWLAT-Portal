@@ -5,8 +5,23 @@
 
 {% block page_extras %}
 <div class="key-actions">
-    <button type="button" class="btn btn-sm" data-panel-search-trigger><span class="btn-icon">{% include 'icons/search_svg.html' %}</span> Search</button>
-    <button type="button" class="btn btn-add btn-secondary btn-sm" data-new-referral-trigger data-student-id="{% if student %}{{ student.id }}{% endif %}" data-next="{{ request.path }}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Referral</button>
+    {% comment %}
+    Two stacked rows, not one flat row: app-wide actions (Search, Referral -
+    every panel page has them) on top, a page's own primary action (e.g.
+    Panel Meetings' "New Panel Meeting") in its own row underneath via
+    key_actions_extra. Keeps the page-specific action visually dominant
+    (it already carries the strongest button styling, e.g. bare btn-add)
+    over the app-wide row (already muted: plain/btn-secondary) - splitting
+    the rows reinforces that hierarchy instead of flattening it into one
+    line where everything reads as equally important. See grilling session
+    2026-07-13 (Panel Meetings review, before Students/Referrals/Actions
+    copied this pattern).
+    {% endcomment %}
+    <div class="key-actions-row key-actions-row--app">
+        <button type="button" class="btn btn-sm" data-panel-search-trigger><span class="btn-icon">{% include 'icons/search_svg.html' %}</span> Search</button>
+        <button type="button" class="btn btn-add btn-secondary btn-sm" data-new-referral-trigger data-student-id="{% if student %}{{ student.id }}{% endif %}" data-next="{{ request.path }}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Referral</button>
+    </div>
+    {% block key_actions_extra %}{% endblock %}
 </div>
 <dialog id="new-referral-dialog" class="modal-dialog"></dialog>
 <dialog id="panel-group-dialog" class="modal-dialog"></dialog>
@@ -81,5 +96,5 @@ each picker expanding its own inline fields.
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'js/panel.js' %}?v=68"></script>
+<script src="{% static 'js/panel.js' %}?v=73"></script>
 {% endblock %}

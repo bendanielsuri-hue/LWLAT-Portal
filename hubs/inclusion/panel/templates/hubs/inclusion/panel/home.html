@@ -4,7 +4,7 @@
 {% block title %}Inclusion Panel{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=141">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=158">
 {% endblock %}
 
 
@@ -28,16 +28,16 @@
     <button type="button" class="card-tab" data-card-target="actions-card">My Actions ({{ my_actions|length }})</button>
 </div>
 <div class="panel-columns panel-row-primary switch-card-group">
-    <div class="panel-card switch-card active-card" id="referrals-card">
+    <div class="panel-card switch-card active-card" id="referrals-card" data-recount-container>
         <div class="panel-card-header">
             <h2>My Referrals</h2>
-            <span class="panel-card-count">({{ my_referrals|length }})</span>
+            <span class="panel-card-count count" data-heading-count data-count="{{ my_referrals|length }}">({{ my_referrals|length }})</span>
         </div>
         {% if show_referral_tabs %}
-        <div class="tab-row">
-            <button type="button" data-referral-tab="all">All ({{ my_referrals|length }})</button>
-            {% if referrals_awaiting_count %}<button type="button" data-referral-tab="awaiting">Awaiting Discussion ({{ referrals_awaiting_count }})</button>{% endif %}
-            {% if referrals_discussed_count %}<button type="button" data-referral-tab="discussed">Discussed ({{ referrals_discussed_count }})</button>{% endif %}
+        <div class="tab-row" data-referral-tab-row>
+            <button type="button" data-referral-tab="all" data-count="{{ my_referrals|length }}">All <span class="count">({{ my_referrals|length }})</span></button>
+            <button type="button" data-referral-tab="awaiting" data-count="{{ referrals_awaiting_count }}" class="{% if not referrals_awaiting_count %}tab-collapsed{% endif %}"{% if not referrals_awaiting_count %} tabindex="-1"{% endif %}>Awaiting Discussion <span class="count">({{ referrals_awaiting_count }})</span></button>
+            <button type="button" data-referral-tab="discussed" data-count="{{ referrals_discussed_count }}" class="{% if not referrals_discussed_count %}tab-collapsed{% endif %}"{% if not referrals_discussed_count %} tabindex="-1"{% endif %}>Discussed <span class="count">({{ referrals_discussed_count }})</span></button>
         </div>
         {% endif %}
         <ul class="panel-list" id="my-referrals-list" data-selectable="single">
@@ -75,60 +75,7 @@
             {% endfor %}
         </ul>
     </div>
-    <div class="panel-card switch-card" id="actions-card">
-        <div class="panel-card-header">
-            <h2>My Actions</h2>
-            <span class="panel-card-count">({{ my_actions|length }})</span>
-        </div>
-        {% if show_action_tabs %}
-        <div class="tab-row">
-            <button type="button" data-action-tab="all">All ({{ my_actions|length }})</button>
-            {% if actions_incomplete_count %}<button type="button" data-action-tab="incomplete">Incomplete ({{ actions_incomplete_count }})</button>{% endif %}
-            {% if overdue_actions %}<button type="button" data-action-tab="overdue">Overdue ({{ overdue_actions }})</button>{% endif %}
-            {% if actions_not_needed_count %}<button type="button" data-action-tab="not_needed">Not Required ({{ actions_not_needed_count }})</button>{% endif %}
-            {% if actions_complete_count %}<button type="button" data-action-tab="complete">Complete ({{ actions_complete_count }})</button>{% endif %}
-        </div>
-        {% endif %}
-        <ul class="panel-list" id="my-actions-list" data-selectable="single">
-            {% for action in my_actions %}
-            <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}">
-                <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-                <div class="panel-item-body">
-                    <div class="panel-item-title">{{ action.referral.student }}</div>
-                    <div class="panel-item-meta">
-                        Due Date: {{ action.due_date|default:"—" }}
-                        &middot;
-                        {% if action.is_overdue %}<span class="status-pill danger">Overdue</span>{% else %}<span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span>{% endif %}
-                    </div>
-                    <div class="panel-item-note">{{ action.note }}</div>
-                </div>
-                <div class="panel-item-actions panel-item-actions-stacked">
-                    <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
-                        {% if action.status == 'incomplete' %}
-                        <input type="hidden" name="status" value="complete">
-                        <button type="submit" class="btn btn-sm btn-success"><span class="btn-icon">{% include 'icons/checkmark_svg.html' %}</span> Mark Complete</button>
-                        {% else %}
-                        <input type="hidden" name="status" value="incomplete">
-                        <button type="submit" class="btn btn-sm">Reopen</button>
-                        {% endif %}
-                    </form>
-                    {% if action.status == 'incomplete' %}
-                    <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
-                        <input type="hidden" name="status" value="not_needed">
-                        <button type="submit" class="btn btn-sm">Mark Not Required</button>
-                    </form>
-                    {% endif %}
-                </div>
-            </li>
-            {% empty %}
-            <li class="empty-note">No actions yet.</li>
-            {% endfor %}
-        </ul>
-    </div>
+    {% include 'hubs/inclusion/panel/_my_actions_card.html' %}
 </div>
 
 <div class="panel-columns panel-row-secondary">
@@ -243,42 +190,189 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        // The first rendered tab (zero-count tabs aren't rendered at all) is the default
+        // "All" is always first and never collapses (see DesignLanguage.md's
+        // "Status-filter tab rows"), so it's always a safe default even now
+        // that zero-count tabs stay in the DOM collapsed rather than omitted.
         tabButtons[0].classList.add('active');
         applyTab(tabButtons[0].dataset[tabDataKey]);
     }
 
     setupTabs('[data-referral-tab]', 'referralTab', '#my-referrals-list li[data-discussed]', 'discussed');
+    wireReferralRecount();
 
-    var actionTabButtons = document.querySelectorAll('[data-action-tab]');
-    var actionRows = document.querySelectorAll('#my-actions-list li[data-status]');
-    var actionMatchers = {
-        all: function (row) { return true; },
-        incomplete: function (row) { return row.dataset.status === 'incomplete'; },
-        overdue: function (row) { return row.dataset.overdue === 'true'; },
-        not_needed: function (row) { return row.dataset.status === 'not_needed'; },
-        complete: function (row) { return row.dataset.status === 'complete'; },
-    };
-    actionTabButtons.forEach(function (button) {
-        button.addEventListener('click', function () {
-            actionTabButtons.forEach(function (b) { b.classList.remove('active'); });
-            button.classList.add('active');
-            var matcher = actionMatchers[button.dataset.actionTab];
-            actionRows.forEach(function (row) {
-                row.style.display = matcher(row) ? '' : 'none';
-            });
-        });
-    });
-    if (actionTabButtons.length) {
-        actionTabButtons[0].classList.add('active');
-        var defaultMatcher = actionMatchers[actionTabButtons[0].dataset.actionTab];
-        actionRows.forEach(function (row) {
-            row.style.display = defaultMatcher(row) ? '' : 'none';
-        });
-    }
+    initActionTabs();
+    wireActionForms();
     // Overflow handling for each card's own tab row (collapsing into "More"),
     // and the My Referrals/My Actions card switcher itself, are both wired up
-    // generically in static/js/main.js � nothing page-specific needed here.
+    // generically in static/js/main.js — nothing page-specific needed here.
 });
+
+var referralMatchers = {
+    all: function (row) { return true; },
+    awaiting: function (row) { return row.dataset.discussed === 'awaiting'; },
+    discussed: function (row) { return row.dataset.discussed === 'discussed'; },
+};
+
+// My Referrals has no status-change action on this page itself (moving a
+// referral to "Discussed" only happens via the Panel Agenda's "start
+// discussion" flow, elsewhere) - the one thing that can change its counts
+// live here is deleting a referral (data-row-remove-form, panel.js), which
+// fires 'panel:row-removed' once the row's actually gone. Recomputed purely
+// from the remaining DOM rows - no server round-trip needed, unlike My
+// Actions' status changes (see refreshMyActionsCard), since a delete doesn't
+// need any server-derived field recomputed for the rows that remain.
+function wireReferralRecount() {
+    var card = document.getElementById('referrals-card');
+    if (!card) return;
+    card.addEventListener('panel:row-removed', function () {
+        var rows = card.querySelectorAll('#my-referrals-list li[data-discussed]');
+        var tabRow = card.querySelector('[data-referral-tab-row]');
+        var heading = card.querySelector('[data-heading-count]');
+        window.recountTabsFromRows(tabRow, rows, referralMatchers, 'referralTab', heading);
+    });
+}
+
+var actionMatchers = {
+    all: function (row) { return true; },
+    incomplete: function (row) { return row.dataset.status === 'incomplete'; },
+    overdue: function (row) { return row.dataset.overdue === 'true'; },
+    not_needed: function (row) { return row.dataset.status === 'not_needed'; },
+    complete: function (row) { return row.dataset.status === 'complete'; },
+};
+
+function applyActionTab(key) {
+    var matcher = actionMatchers[key] || actionMatchers.all;
+    document.querySelectorAll('#my-actions-list li[data-status]').forEach(function (row) {
+        row.style.display = matcher(row) ? '' : 'none';
+    });
+}
+
+// Re-run after every full page load and every AJAX refresh of the My Actions
+// card (see refreshMyActionsCard below) — the buttons are fresh DOM nodes
+// each time, so their click listeners need re-wiring rather than surviving
+// from before.
+function initActionTabs() {
+    var actionTabButtons = document.querySelectorAll('[data-action-tab]');
+    if (!actionTabButtons.length) return;
+    actionTabButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            if (button.classList.contains('tab-collapsed')) return;
+            actionTabButtons.forEach(function (b) { b.classList.remove('active'); });
+            button.classList.add('active');
+            applyActionTab(button.dataset.actionTab);
+        });
+    });
+    var active = Array.prototype.filter.call(actionTabButtons, function (b) {
+        return b.classList.contains('active') && !b.classList.contains('tab-collapsed');
+    })[0] || actionTabButtons[0];
+    active.classList.add('active');
+    applyActionTab(active.dataset.actionTab);
+}
+
+// "Mark Complete"/"Reopen"/"Mark Not Required" submit via fetch instead of a
+// full page reload, so the tab counts/rows can animate instead of snapping
+// (InteractionLanguage.md's "Tab count-delta pulse" / "Status-filter tab
+// entering/leaving the tab row"). data-ajax-wired guards against double-
+// binding the same form across repeated initActionTabs-style re-inits.
+function wireActionForms() {
+    document.querySelectorAll('#actions-card [data-action-status-form]').forEach(function (form) {
+        if (form.dataset.ajaxWired) return;
+        form.dataset.ajaxWired = 'true';
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form),
+            }).then(function (res) { return res.text(); })
+                .then(function (html) { refreshMyActionsCard(html); });
+        });
+    });
+}
+
+// Swaps in the freshly-rendered My Actions card fragment, then diffs the old
+// tab row against the new one to animate whatever changed — a tab crossing
+// to/from zero (setTabCollapsed) and/or a visible tab's own count changing
+// (pulseCount) — rather than the new counts just appearing. Both helpers
+// are defined in panel.js, alongside the row grow-in/shrink-out ones.
+function refreshMyActionsCard(html) {
+    var card = document.getElementById('actions-card');
+    if (!card) return;
+    var oldList = card.querySelector('#my-actions-list');
+    var scrollTop = oldList ? oldList.scrollTop : 0;
+    var oldTabRow = card.querySelector('[data-action-tab-row]');
+    var activeBtn = oldTabRow ? oldTabRow.querySelector('button.active') : null;
+    var activeKey = activeBtn ? activeBtn.dataset.actionTab : 'all';
+    var oldCounts = {};
+    if (oldTabRow) {
+        oldTabRow.querySelectorAll('[data-action-tab]').forEach(function (btn) {
+            oldCounts[btn.dataset.actionTab] = {
+                count: parseInt(btn.dataset.count, 10) || 0,
+                collapsed: btn.classList.contains('tab-collapsed'),
+            };
+        });
+    }
+    var oldHeading = card.querySelector('[data-heading-count]');
+    var oldHeadingCount = oldHeading ? parseInt(oldHeading.dataset.count, 10) || 0 : 0;
+
+    var temp = document.createElement('div');
+    temp.innerHTML = html;
+    var freshCard = temp.querySelector('#actions-card');
+    if (!freshCard) return;
+    card.replaceWith(freshCard);
+
+    var newList = freshCard.querySelector('#my-actions-list');
+    if (newList) newList.scrollTop = scrollTop;
+    window.initSelectable(freshCard);
+
+    var newHeading = freshCard.querySelector('[data-heading-count]');
+    if (newHeading) {
+        var newHeadingCount = parseInt(newHeading.dataset.count, 10) || 0;
+        if (oldHeading && newHeadingCount !== oldHeadingCount) {
+            window.pulseCount(newHeading, newHeadingCount > oldHeadingCount ? 'up' : 'down');
+        }
+    }
+
+    var newTabRow = freshCard.querySelector('[data-action-tab-row]');
+    if (newTabRow) {
+        // The one-shot tab-row-fade-in shouldn't replay on a refresh — see
+        // InteractionLanguage.md's "Refreshing a live fragment in place".
+        // But if the row didn't exist before (the tab-row itself just
+        // crossed from a single populated bucket to its first second one),
+        // this genuinely is its first appearance, so let it fade in.
+        if (oldTabRow) newTabRow.style.animation = 'none';
+        newTabRow.querySelectorAll('[data-action-tab]').forEach(function (btn) {
+            var key = btn.dataset.actionTab;
+            var prev = oldCounts[key];
+            var isCollapsedNow = btn.classList.contains('tab-collapsed');
+            if (!prev) return;
+            if (prev.collapsed !== isCollapsedNow) {
+                // Force the old visual state first so setTabCollapsed has
+                // something to transition away from, not just snap into.
+                if (prev.collapsed) { btn.classList.add('tab-collapsed'); btn.setAttribute('tabindex', '-1'); }
+                else { btn.classList.remove('tab-collapsed'); btn.removeAttribute('tabindex'); }
+                void btn.offsetWidth;
+                window.setTabCollapsed(btn, isCollapsedNow);
+            }
+            var newCount = parseInt(btn.dataset.count, 10) || 0;
+            if (prev.count !== newCount && !isCollapsedNow) {
+                window.pulseCount(btn.querySelector('.count'), newCount > prev.count ? 'up' : 'down');
+            }
+            if (key === activeKey && !isCollapsedNow) btn.classList.add('active');
+        });
+        // Fall back to All if the previously active tab just collapsed away.
+        if (!newTabRow.querySelector('button.active')) {
+            var allBtn = newTabRow.querySelector('[data-action-tab="all"]');
+            if (allBtn) allBtn.classList.add('active');
+        }
+        // The old row's own "More" overflow dropdown (static/js/main.js) went
+        // away with it — re-init on the fresh row rather than leaving narrow
+        // viewports without one.
+        window.setupOverflowTabs(newTabRow);
+    }
+
+    initActionTabs();
+    wireActionForms();
+}
 </script>
 {% endblock %}

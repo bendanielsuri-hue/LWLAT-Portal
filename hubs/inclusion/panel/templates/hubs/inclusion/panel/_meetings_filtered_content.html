@@ -1,0 +1,67 @@
+﻿{% load static %}
+<div class="meeting-list" data-selectable="single">
+    {% for m in meetings %}
+    <div class="meeting-card selectable" tabindex="0" role="button" aria-pressed="false">
+        <div class="meeting-card-body">
+            <div class="meeting-card-title-row">
+                {% if is_aggregate_view %}
+                <span class="meeting-card-logo-inline">{% include 'icons/school_logo_placeholder_svg.html' %}</span>
+                {% endif %}
+                <h3>{{ m.panel.panel_group.name|default:"Unassigned Group" }}</h3>
+                <span class="status-pill {{ m.panel.status }}">{{ m.panel.get_status_display }}</span>
+                {% if m.is_next %}<span class="status-pill next-panel">Next Panel</span>{% elif m.panel.date == today %}<span class="status-pill in_panel">Today</span>{% endif %}
+            </div>
+            <div class="meeting-date-line">{{ m.panel.date }}{% if m.panel.time %} at {{ m.panel.time|time:'H:i' }}{% endif %} &middot; <span class="meeting-info-label">Chair</span>{{ m.panel.effective_chair|default:"—" }}</div>
+            {% if m.panel.status == 'complete' %}
+            <div class="meeting-card-breakdown">
+                <span class="breakdown-cluster-label">Discussed Referrals</span>
+                {% if m.new_count or m.review_count %}
+                <span class="bd-pill bd-new">{{ m.new_count }} New</span>
+                <span class="bd-pill bd-review">{{ m.review_count }} Review</span>
+                {% else %}
+                <span class="bd-pill bd-empty">No Referrals</span>
+                {% endif %}
+                <span class="mc-vdivider"></span>
+                <span class="meeting-card-duration-line"><span class="duration-label">Meeting Duration</span><span class="duration-value">{{ m.duration_display|default:"—" }}</span></span>
+            </div>
+            {% else %}
+            <div class="meeting-card-breakdown">
+                {% if m.new_count or m.review_count %}
+                <span class="breakdown-cluster-label">Referrals</span>
+                <span class="bd-pill bd-new">{{ m.new_count }} New</span>
+                <span class="bd-pill bd-review">{{ m.review_count }} Review</span>
+                <span class="mc-vdivider"></span>
+                <span class="breakdown-cluster-label">Priority</span>
+                {% if m.priority_counts.high %}<span class="bd-pill bd-high">{{ m.priority_counts.high }} High</span>{% endif %}
+                {% if m.priority_counts.medium %}<span class="bd-pill bd-medium">{{ m.priority_counts.medium }} Medium</span>{% endif %}
+                {% if m.priority_counts.low %}<span class="bd-pill bd-low">{{ m.priority_counts.low }} Low</span>{% endif %}
+                {% if m.priority_counts.untriaged %}<span class="bd-pill bd-untriaged">{{ m.priority_counts.untriaged }} Untriaged</span>{% endif %}
+                {% else %}
+                <span class="bd-pill bd-empty">No Referrals</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="meeting-card-actions">
+            {% if m.panel.status == 'complete' %}
+            <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true" title="Coming soon"><span class="btn-icon">{% include 'icons/document_svg.html' %}</span> Summary</span>
+            <a href="{% url 'inclusion_panel_meeting_agenda' m.panel.id %}" class="btn btn-tertiary btn-sm">View Meeting</a>
+            {% else %}
+            <form method="post" action="{% url 'inclusion_panel_meeting_start' m.panel.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> {% if m.panel.started_at %}Continue Meeting{% else %}Start Meeting{% endif %}</button>
+            </form>
+            {% if not m.panel.started_at %}
+            <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Agenda</a>
+            <form method="post" action="{% url 'inclusion_panel_meeting_delete' m.panel.id %}" data-row-remove-form data-confirm-message="Delete this panel meeting? This cannot be undone.">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
+            </form>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <p class="empty-note">No panel meetings yet.</p>
+    {% endfor %}
+</div>

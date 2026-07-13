@@ -1,11 +1,131 @@
-document.addEventListener('DOMContentLoaded', function () {
-    function closest(el, selector) {
-        while (el) {
-            if (el.matches && el.matches(selector)) return el;
-            el = el.parentElement;
-        }
-        return null;
+function closest(el, selector) {
+    while (el) {
+        if (el.matches && el.matches(selector)) return el;
+        el = el.parentElement;
     }
+    return null;
+}
+
+// Selectable cards/rows: clicking (or Enter/Space on) a card toggles a "chosen"
+// state, without triggering when the click lands on an inner link/button.
+// Pulled out of the DOMContentLoaded sweep and exposed on window so a page
+// that swaps in a fresh `[data-selectable]` list via AJAX (e.g. a refreshed
+// card fragment) can re-wire just that root instead of duplicating this.
+function initSelectable(root) {
+    (root || document).querySelectorAll('[data-selectable]').forEach(function (container) {
+        var single = container.dataset.selectable === 'single';
+
+        function toggle(item) {
+            var isChosen = item.classList.contains('chosen');
+            if (single && !isChosen) {
+                container.querySelectorAll('.selectable.chosen').forEach(function (other) {
+                    other.classList.remove('chosen');
+                    other.setAttribute('aria-pressed', 'false');
+                });
+            }
+            item.classList.toggle('chosen', !isChosen);
+            item.setAttribute('aria-pressed', String(!isChosen));
+        }
+
+        container.addEventListener('click', function (e) {
+            if (closest(e.target, 'a, button')) return;
+            var item = closest(e.target, '.selectable');
+            if (!item || !container.contains(item)) return;
+            toggle(item);
+        });
+        container.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            if (closest(e.target, 'a, button')) return;
+            var item = closest(e.target, '.selectable');
+            if (!item || !container.contains(item)) return;
+            e.preventDefault();
+            toggle(item);
+        });
+    });
+}
+window.initSelectable = initSelectable;
+
+// Generic overflow tabs: any row of <button> tabs opting in via
+// [data-overflow-tabs] (or the two cases already relying on it — Inclusion
+// Panel's per-card .tab-row and any .card-switcher) collapses whichever
+// buttons don't fit into a "More" dropdown instead of wrapping. Re-measures
+// on resize and whenever a tab is clicked (so the dropdown's contents and
+// active-state stay in sync). Pulled out of the DOMContentLoaded sweep and
+// exposed on window for the same reason as initSelectable above — a tab row
+// swapped in fresh via AJAX (e.g. Inclusion Panel Home's My Actions card
+// refresh) needs this re-run on the new element, not just the page's
+// original rows.
+function setupOverflowTabs(row) {
+    if (!row) return;
+    var buttons = Array.prototype.slice.call(row.children).filter(function (el) {
+        return el.tagName === 'BUTTON';
+    });
+    if (buttons.length < 2) return;
+
+    var moreWrap = document.createElement('div');
+    moreWrap.className = 'tab-row-more';
+    var moreBtn = document.createElement('button');
+    moreBtn.type = 'button';
+    moreBtn.className = 'tab-row-more-btn';
+    moreBtn.textContent = 'More ▾';
+    var menu = document.createElement('div');
+    menu.className = 'tab-row-more-menu hidden';
+    moreWrap.appendChild(moreBtn);
+    moreWrap.appendChild(menu);
+    row.appendChild(moreWrap);
+
+    moreBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        menu.classList.toggle('hidden');
+    });
+    document.addEventListener('click', function () { menu.classList.add('hidden'); });
+
+    function measure() {
+        moreWrap.style.display = 'none';
+        buttons.forEach(function (b) { b.style.display = ''; });
+        menu.innerHTML = '';
+
+        var available = row.clientWidth;
+        var totalWidth = buttons.reduce(function (sum, b) { return sum + b.offsetWidth; }, 0);
+        if (totalWidth <= available) return;
+
+        moreWrap.style.display = '';
+        var budget = available - moreWrap.offsetWidth;
+        var used = 0;
+        var overflowed = [];
+        buttons.forEach(function (b) {
+            var w = b.offsetWidth;
+            if (used + w <= budget) {
+                used += w;
+            } else {
+                b.style.display = 'none';
+                overflowed.push(b);
+            }
+        });
+
+        overflowed.forEach(function (b) {
+            var item = document.createElement('button');
+            item.type = 'button';
+            item.textContent = b.textContent;
+            if (b.classList.contains('active')) item.classList.add('active');
+            item.addEventListener('click', function () {
+                menu.classList.add('hidden');
+                b.click();
+            });
+            menu.appendChild(item);
+        });
+    }
+
+    row.addEventListener('click', function () { measure(); });
+    measure();
+    window.addEventListener('resize', measure);
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(measure).observe(row);
+    }
+}
+window.setupOverflowTabs = setupOverflowTabs;
+
+document.addEventListener('DOMContentLoaded', function () {
 
     // Manual collapse/expand of the hub sidebar to an icon-only rail. Below the
     // narrow-window breakpoint there's no stored preference yet, default to
@@ -163,38 +283,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Selectable cards/rows: clicking (or Enter/Space on) a card toggles a "chosen"
-    // state, without triggering when the click lands on an inner link/button.
-    document.querySelectorAll('[data-selectable]').forEach(function (container) {
-        var single = container.dataset.selectable === 'single';
-
-        function toggle(item) {
-            var isChosen = item.classList.contains('chosen');
-            if (single && !isChosen) {
-                container.querySelectorAll('.selectable.chosen').forEach(function (other) {
-                    other.classList.remove('chosen');
-                    other.setAttribute('aria-pressed', 'false');
-                });
-            }
-            item.classList.toggle('chosen', !isChosen);
-            item.setAttribute('aria-pressed', String(!isChosen));
-        }
-
-        container.addEventListener('click', function (e) {
-            if (closest(e.target, 'a, button')) return;
-            var item = closest(e.target, '.selectable');
-            if (!item || !container.contains(item)) return;
-            toggle(item);
-        });
-        container.addEventListener('keydown', function (e) {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            if (closest(e.target, 'a, button')) return;
-            var item = closest(e.target, '.selectable');
-            if (!item || !container.contains(item)) return;
-            e.preventDefault();
-            toggle(item);
-        });
-    });
+    initSelectable();
 
     // "+N more" toggles the hidden apps within a card instead of navigating to the hub
     document.querySelectorAll('.hub-more-toggle').forEach(function (btn) {
@@ -602,6 +691,18 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
 
         input.addEventListener('input', function () { search(input.value); });
 
+        // Each row's own mouseenter (above) moves .active onto itself as the
+        // mouse crosses rows, but nothing ever removed it again once the
+        // cursor left the list entirely - the primary-fill highlight stuck
+        // on whichever row was last hovered even after moving away, reading
+        // as though it were still selected. Bound once here (not inside
+        // render(), which tears down and rebuilds `results`' children, but
+        // never `results` itself) rather than re-attached on every render.
+        results.addEventListener('mouseleave', function () {
+            var active = results.querySelector('.app-search-result.active');
+            if (active) active.classList.remove('active');
+        });
+
         input.addEventListener('keydown', function (e) {
             var rows = Array.prototype.slice.call(results.querySelectorAll('.app-search-result'));
             if (!rows.length) {
@@ -668,84 +769,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             new ResizeObserver(applyHeight).observe(header);
         }
     })();
-
-    // Generic overflow tabs: any row of <button> tabs opting in via
-    // [data-overflow-tabs] (or the two cases already relying on it —
-    // Inclusion Panel's per-card .tab-row and any .card-switcher) collapses
-    // whichever buttons don't fit into a "More" dropdown instead of wrapping.
-    // Re-measures on resize and whenever a tab is clicked (so the dropdown's
-    // contents and active-state stay in sync). Reusable sitewide: a page
-    // with its own tab row that needs this just adds the same data attribute
-    // and a non-wrapping row — see .panel-card .tab-row in panel.css for the
-    // CSS half (flex-wrap: nowrap; overflow: hidden) the row itself needs.
-    function setupOverflowTabs(row) {
-        if (!row) return;
-        var buttons = Array.prototype.slice.call(row.children).filter(function (el) {
-            return el.tagName === 'BUTTON';
-        });
-        if (buttons.length < 2) return;
-
-        var moreWrap = document.createElement('div');
-        moreWrap.className = 'tab-row-more';
-        var moreBtn = document.createElement('button');
-        moreBtn.type = 'button';
-        moreBtn.className = 'tab-row-more-btn';
-        moreBtn.textContent = 'More ▾';
-        var menu = document.createElement('div');
-        menu.className = 'tab-row-more-menu hidden';
-        moreWrap.appendChild(moreBtn);
-        moreWrap.appendChild(menu);
-        row.appendChild(moreWrap);
-
-        moreBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            menu.classList.toggle('hidden');
-        });
-        document.addEventListener('click', function () { menu.classList.add('hidden'); });
-
-        function measure() {
-            moreWrap.style.display = 'none';
-            buttons.forEach(function (b) { b.style.display = ''; });
-            menu.innerHTML = '';
-
-            var available = row.clientWidth;
-            var totalWidth = buttons.reduce(function (sum, b) { return sum + b.offsetWidth; }, 0);
-            if (totalWidth <= available) return;
-
-            moreWrap.style.display = '';
-            var budget = available - moreWrap.offsetWidth;
-            var used = 0;
-            var overflowed = [];
-            buttons.forEach(function (b) {
-                var w = b.offsetWidth;
-                if (used + w <= budget) {
-                    used += w;
-                } else {
-                    b.style.display = 'none';
-                    overflowed.push(b);
-                }
-            });
-
-            overflowed.forEach(function (b) {
-                var item = document.createElement('button');
-                item.type = 'button';
-                item.textContent = b.textContent;
-                if (b.classList.contains('active')) item.classList.add('active');
-                item.addEventListener('click', function () {
-                    menu.classList.add('hidden');
-                    b.click();
-                });
-                menu.appendChild(item);
-            });
-        }
-
-        row.addEventListener('click', function () { measure(); });
-        measure();
-        window.addEventListener('resize', measure);
-        if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(measure).observe(row);
-        }
-    }
 
     document.querySelectorAll('.panel-card .tab-row, .card-switcher, [data-overflow-tabs]').forEach(setupOverflowTabs);
 
@@ -1061,6 +1084,43 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 var clear = closest(e.target, '.filter-bar-clear');
                 if (!clear) return;
                 e.preventDefault();
+                // Unlike a normal filter change - where the control the user
+                // just touched already shows its new value - the AJAX swap
+                // only ever replaces the target, never the filter bar itself
+                // (see DesignLanguage.md "Server-side dashboard filter"), so
+                // nothing resets the bar's own controls back to "no filter"
+                // on Clear Filters. form.reset() looked like the obvious
+                // fix but is wrong here: it restores each control's value at
+                // *page load*, and the page was server-rendered with these
+                // same filters already applied/selected - so on a page
+                // that's showing filtered results, reset() is a no-op.
+                // Blank every named control explicitly instead, then refresh
+                // anything that mirrors a control's value outside the
+                // control itself (an enhanced select's trigger button, a
+                // toggle-pill's .on class) since setting .value/.checked
+                // directly doesn't touch either of those.
+                Array.prototype.forEach.call(form.querySelectorAll('select'), function (s) {
+                    s.value = '';
+                    if (s._uiSelect) s._uiSelect.refresh();
+                });
+                Array.prototype.forEach.call(form.querySelectorAll('input[type=checkbox], input[type=radio]'), function (c) {
+                    c.checked = false;
+                });
+                Array.prototype.forEach.call(form.querySelectorAll('input[type=text], input[type=search]'), function (t) {
+                    t.value = '';
+                });
+                Array.prototype.forEach.call(form.querySelectorAll('.toggle-pill'), function (btn) {
+                    var input = btn.parentElement && btn.parentElement.querySelector('input[type=checkbox]');
+                    if (!input) return;
+                    btn.classList.toggle('on', input.checked);
+                    btn.setAttribute('aria-pressed', String(input.checked));
+                });
+                // Lets any page-level `filterBar.addEventListener('change', ...)`
+                // (e.g. wireFilterBarActiveState's refresh(), see panel.js)
+                // re-derive the active-field highlighting and count badge
+                // from the now-blanked controls, the same way it would after
+                // a real user-driven change.
+                form.dispatchEvent(new Event('change'));
                 load(clear.href);
             });
         });
@@ -1175,6 +1235,14 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // control further.
     var SELECT_TRIGGER_PADDING = 48;
     var SELECT_TRIGGER_MAX_WIDTH = 240;
+    // .filter-field has its own, smaller, fixed cap (components/forms.css
+    // .filter-field { max-width: 200px }) - 200 minus the field's own
+    // horizontal padding (--space-sm, 12px each side), since that padding
+    // eats into the budget actually available to .ui-select-trigger inside
+    // it. Using the generic 240px cap here would still overflow the field
+    // by up to 16px - a smaller version of the exact bug this constant
+    // exists to avoid (see grilling session 2026-07-12).
+    var FILTER_FIELD_TRIGGER_MAX_WIDTH = 176;
     var selectWidthGhost = null;
     function maxOptionTextWidth(selectEl, font) {
         if (!selectWidthGhost) {
@@ -1194,6 +1262,31 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         return max;
     }
 
+    // The closed trigger's stable width, one rule for all three contexts a
+    // select can be enhanced in:
+    // - .ui-fused-field: no fixed pixel makes sense - the control is always
+    //   meant to exactly fill a variable-width cell (an auto-aligned column,
+    //   or the full row once stacked), so this is skipped entirely and the
+    //   trigger just fills its cell via width: 100%, truncating with an
+    //   ellipsis if a value doesn't fit.
+    // - .filter-field: has its own smaller, fixed cap (FILTER_FIELD_TRIGGER_
+    //   MAX_WIDTH, see above) - sized to the widest *option* rather than
+    //   whichever one happens to be selected (so picking a short option
+    //   doesn't narrow the control down enough to clip a longer one next
+    //   time it's opened), same as the generic case, just capped tighter to
+    //   match the field's own budget.
+    // - everywhere else: the generic SELECT_TRIGGER_MAX_WIDTH cap.
+    // An inline min-width always wins over max-width/width: 100% when they
+    // conflict, which is exactly why .ui-fused-field and .filter-field each
+    // need their own cap rather than the generic one (see grilling session
+    // 2026-07-12).
+    function resolveTriggerMinWidth(selectEl, trigger) {
+        if (selectEl.closest('.ui-fused-field')) return '';
+        var maxWidth = selectEl.closest('.filter-field') ? FILTER_FIELD_TRIGGER_MAX_WIDTH : SELECT_TRIGGER_MAX_WIDTH;
+        var widest = maxOptionTextWidth(selectEl, window.getComputedStyle(trigger).font);
+        return Math.min(widest + SELECT_TRIGGER_PADDING, maxWidth) + 'px';
+    }
+
     window.enhanceSelect = function (selectEl) {
         if (!selectEl || selectEl._uiSelect) return;
 
@@ -1211,7 +1304,21 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // browser pattern for "must stay on top of, and interactive
         // alongside, an open dialog."
         var panel = document.createElement('dialog');
-        panel.className = 'ui-select-panel ui-popover';
+        // Mirrors the source <select>'s own classes onto the panel, same as
+        // render() below does for the trigger button - the panel is a
+        // sibling of the trigger in document.body, not a descendant, so a
+        // class like ui-select--center placed on the <select> in a template
+        // wouldn't otherwise reach its popover options via CSS.
+        panel.className = 'ui-select-panel ui-popover ' + Array.prototype.filter.call(
+            selectEl.classList, function (c) { return c !== 'ui-select-native'; }
+        ).join(' ');
+        // .ui-fused-field--stacked selects (e.g. Chair) center their value
+        // under a centered label - see DesignLanguage.md "Text alignment".
+        // That context lives on an ancestor, not the <select>'s own class
+        // list, so it can't be picked up by the mirroring above.
+        if (selectEl.closest('.ui-fused-field--stacked')) {
+            panel.classList.add('ui-select-panel--stacked-context');
+        }
 
         selectEl.classList.add('ui-select-native');
         selectEl.parentNode.insertBefore(wrap, selectEl);
@@ -1251,23 +1358,9 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // whichever one happens to be selected, so picking a short
             // option doesn't narrow the control (and its popover list,
             // which mirrors this width) down enough to clip longer options
-            // next time it's opened.
-            //
-            // Skipped inside .ui-fused-field (Panel Group/Chair/Date/
-            // Time): those fields are always meant to exactly fill their
-            // own cell (auto-aligned column, or the full row once stacked —
-            // see window.initFusedFieldStacking below) and truncate with
-            // an ellipsis when a value is too long for it. An inline
-            // min-width wins over width:100% whenever the two conflict
-            // (that's how CSS resolves it), so it would force the trigger
-            // wider than its actual cell and overflow into the next column
-            // instead of truncating — exactly the bug this skip avoids.
-            if (selectEl.closest('.ui-fused-field')) {
-                trigger.style.minWidth = '';
-            } else {
-                var widest = maxOptionTextWidth(selectEl, window.getComputedStyle(trigger).font);
-                trigger.style.minWidth = Math.min(widest + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH) + 'px';
-            }
+            // next time it's opened - see resolveTriggerMinWidth above for
+            // the per-context caps (.ui-fused-field/.filter-field/generic).
+            trigger.style.minWidth = resolveTriggerMinWidth(selectEl, trigger);
             panel.innerHTML = '';
             Array.prototype.forEach.call(selectEl.options, function (opt) {
                 var row = document.createElement('div');

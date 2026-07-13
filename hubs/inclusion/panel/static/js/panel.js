@@ -157,7 +157,6 @@ window.animateModalHeightChange = function (dialog, mutate) {
     if (dialog._heightClearTimer) clearTimeout(dialog._heightClearTimer);
     var generation = (dialog._heightChangeGeneration = (dialog._heightChangeGeneration || 0) + 1);
     var duration = parseFloat(getComputedStyle(dialog).getPropertyValue('--modal-duration')) || 450;
-    var body = dialog.querySelector('.modal-body');
     var startHeight = dialog.getBoundingClientRect().height;
     dialog.style.height = startHeight + 'px';
     // Force a synchronous layout flush so this first height write is
@@ -166,17 +165,26 @@ window.animateModalHeightChange = function (dialog, mutate) {
     // already documents needing (`void ghost.offsetHeight`) for the
     // identical reason.
     void dialog.offsetHeight;
-    // .modal-body's own overflow-y: auto (panel.css) pops its scrollbar in
-    // the instant its content outgrows the dialog's still-animating pinned
-    // height (e.g. easing back up to the taller Create Panel Meeting
-    // content after a shorter Create Panel Group swap) - that scrollbar
-    // claims width from the content next to it, visibly shoving it
-    // sideways for the split second before the dialog reaches its target
-    // height. Suppressed for the duration of the animation and restored by
-    // the same generation-guarded timer that clears the pinned height
-    // below, once there's no more mid-transition mismatch to hide.
-    if (body) body.style.overflowY = 'hidden';
     mutate();
+    // Whichever element actually scrolls (`.modal-body` in most dialogs,
+    // `.panel-group-modal-scroll` nested a level deeper in Panel Group Edit,
+    // since that one's own .modal-body is unscrollable by design) pops its
+    // scrollbar the instant its content outgrows the dialog's
+    // still-animating pinned height - e.g. switching to a tab with more
+    // rows than fit at the *previous* tab's height, for the split second
+    // before the dialog eases up to the new target height. Queried fresh
+    // *after* mutate (not hardcoded to `.modal-body`, and not captured
+    // before mutate runs) because a full innerHTML replace - as opposed to
+    // a plain hidden-attribute toggle - swaps in an entirely new element
+    // instance, so anything captured beforehand would be suppressing a
+    // detached node while the real, connected one goes unsuppressed.
+    // Restored by the same generation-guarded timer that clears the pinned
+    // height below, once there's no more mid-transition mismatch to hide.
+    var scrollEls = Array.prototype.filter.call(dialog.querySelectorAll('*'), function (el) {
+        var overflowY = getComputedStyle(el).overflowY;
+        return overflowY === 'auto' || overflowY === 'scroll';
+    });
+    scrollEls.forEach(function (el) { el.style.overflowY = 'hidden'; });
     // Briefly release the pinned height to measure the mutated content's
     // true natural size (see point 1 above), then re-pin to startHeight
     // immediately - all in the same synchronous pass, so this never paints.
@@ -202,10 +210,50 @@ window.animateModalHeightChange = function (dialog, mutate) {
     dialog._heightClearTimer = setTimeout(function () {
         if (dialog._heightChangeGeneration === generation) {
             dialog.style.height = '';
-            if (body) body.style.overflowY = '';
+            scrollEls.forEach(function (el) { el.style.overflowY = ''; });
         }
         dialog._heightClearTimer = null;
     }, duration);
+};
+
+// Fades an element in/out instead of flipping its `hidden` attribute
+// abruptly - for small, same-size elements (a button, a footer row) that
+// pop in/out of an already-open dialog without changing its height, e.g.
+// the Panel Group modal footer swapping "+ Add Member" for "Back"/"New
+// External Contact". Genuine height-affecting swaps still go through
+// window.animateModalHeightChange above - this is for the plain "this one
+// thing appears/disappears in place" case that rule doesn't cover, per
+// InteractionLanguage.md's "Fade toggle" entry.
+//
+// [hidden] is UA-styled `display: none`, which can't be transitioned - so
+// hiding needs the *opposite* order from showing: drop opacity first (via
+// removing .is-visible), only set `hidden` once that transition has had
+// time to finish. `el._fadeHiddenTarget` (not just reading `el.hidden`,
+// which lags behind the true intent while a hide is still mid-transition)
+// tracks which state a call actually asked for, so a show that arrives
+// before a prior hide's timer fires cancels it instead of the two racing.
+window.setFadeHidden = function (el, hide) {
+    if (!el) return;
+    var targetHidden = !!hide;
+    if (el._fadeHiddenTarget === targetHidden) return;
+    el._fadeHiddenTarget = targetHidden;
+    if (el._fadeHiddenTimer) window.clearTimeout(el._fadeHiddenTimer);
+    el.classList.add('fade-toggle');
+    if (targetHidden) {
+        el.classList.remove('is-visible');
+        el._fadeHiddenTimer = window.setTimeout(function () {
+            if (el._fadeHiddenTarget) el.hidden = true;
+        }, 160);
+    } else {
+        el.hidden = false;
+        // Force a style flush so the browser commits the pre-transition
+        // opacity: 0 (the .fade-toggle base rule, now that [hidden] no
+        // longer overrides it) as a real starting frame before the next
+        // line asks it to transition away from that - without this the two
+        // writes coalesce and the fade-in never plays.
+        void el.offsetHeight;
+        el.classList.add('is-visible');
+    }
 };
 
 (function () {
@@ -242,6 +290,15 @@ window.animateModalHeightChange = function (dialog, mutate) {
                 window.enhanceFormControls(dialog);
                 wireStudentPicker();
                 dialog.showModal();
+                // Autofocus the student search the moment the dialog opens,
+                // but only when it's actually the visible step (a pre-selected
+                // student, e.g. opened from a student's own page, hides the
+                // search panel entirely - see _referral_form_fields.html).
+                // Must run after showModal(): focusing a still-closed <dialog>
+                // is silently ignored by the browser.
+                var initialSearch = dialog.querySelector('[data-referral-student-search]');
+                var initialSearchPanel = dialog.querySelector('[data-referral-student-search-panel]');
+                if (initialSearch && initialSearchPanel && !initialSearchPanel.hidden) initialSearch.focus();
                 requestAnimationFrame(function () { dialog.classList.add('is-open'); });
             });
     }
@@ -262,13 +319,14 @@ window.animateModalHeightChange = function (dialog, mutate) {
         var input = picker.querySelector('[data-referral-student-input]');
         var search = picker.querySelector('[data-referral-student-search]');
         var searchPanel = picker.querySelector('[data-referral-student-search-panel]');
-        var results = picker.querySelectorAll('.referral-student-option');
+        var resultsEl = picker.querySelector('[data-referral-student-results]');
         var selectedRow = picker.querySelector('[data-referral-student-selected]');
         var selectedName = picker.querySelector('[data-referral-student-selected-name]');
         var changeBtn = picker.querySelector('[data-referral-student-change]');
         var questionFields = dialog.querySelector('[data-referral-question-fields]');
         var btnRow = dialog.querySelector('.btn-row');
         var saveBtn = dialog.querySelector('[data-referral-save]');
+        var debounceTimer = null;
 
         function updateSaveState() {
             if (saveBtn && form) saveBtn.disabled = !form.checkValidity();
@@ -285,6 +343,28 @@ window.animateModalHeightChange = function (dialog, mutate) {
             });
         }
 
+        function renderResults(students) {
+            animateHeightChange(function () {
+                if (!students.length) {
+                    resultsEl.innerHTML = '<p class="empty-note search-hint">No matching students.</p>';
+                    return;
+                }
+                resultsEl.innerHTML = students.map(function (s) {
+                    var display = s.name + (s.subtitle ? ' — ' + s.subtitle : '');
+                    return '<button type="button" class="referral-student-option" data-id="' + s.id + '" data-name="' + s.name + '" data-display="' + display + '">' +
+                        '<span class="referral-student-option-name">' + s.name + '</span>' +
+                        '<span class="referral-student-option-meta">' + (s.subtitle || '') + '</span>' +
+                        '</button>';
+                }).join('');
+            });
+        }
+
+        function runSearch(term) {
+            fetch('/inclusion/panel/search/?kind=student&q=' + encodeURIComponent(term), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (res) { return res.json(); })
+                .then(function (data) { renderResults(data.results); });
+        }
+
         function showPicker() {
             animateHeightChange(function () {
                 input.value = '';
@@ -294,26 +374,41 @@ window.animateModalHeightChange = function (dialog, mutate) {
                 if (btnRow) btnRow.hidden = true;
                 if (form) form.classList.add('is-picking-student');
                 search.value = '';
-                results.forEach(function (btn) { btn.hidden = false; });
+                resultsEl.innerHTML = '<p class="empty-note search-hint">Start typing to search students…</p>';
                 search.focus();
                 updateSaveState();
             });
         }
 
+        // Hidden until typed, server-fetched, debounced 250ms with a 2-char
+        // minimum - the shared Search precedent (InteractionLanguage.md
+        // "Search"), same numbers as Panel search and Add Member.
         search.addEventListener('input', function () {
-            var term = search.value.trim().toLowerCase();
-            results.forEach(function (btn) {
-                var name = (btn.getAttribute('data-name') || '').toLowerCase();
-                btn.hidden = term.length > 0 && name.indexOf(term) === -1;
-            });
+            var term = search.value.trim();
+            clearTimeout(debounceTimer);
+            if (!term) {
+                animateHeightChange(function () {
+                    resultsEl.innerHTML = '<p class="empty-note search-hint">Start typing to search students…</p>';
+                });
+                return;
+            }
+            if (term.length === 1) {
+                debounceTimer = setTimeout(function () {
+                    animateHeightChange(function () {
+                        resultsEl.innerHTML = '<p class="empty-note search-hint">Keep typing… (2+ characters)</p>';
+                    });
+                }, 400);
+                return;
+            }
+            debounceTimer = setTimeout(function () { runSearch(term); }, 250);
         });
 
-        results.forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                input.value = btn.getAttribute('data-id');
-                selectedName.textContent = btn.getAttribute('data-display') || btn.getAttribute('data-name');
-                showForm();
-            });
+        resultsEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('.referral-student-option');
+            if (!btn) return;
+            input.value = btn.getAttribute('data-id');
+            selectedName.textContent = btn.getAttribute('data-display') || btn.getAttribute('data-name');
+            showForm();
         });
 
         if (changeBtn) changeBtn.addEventListener('click', showPicker);
@@ -448,6 +543,27 @@ window.animateModalHeightChange = function (dialog, mutate) {
     // toggle refreshed already-visible content", so it only lets one-shot
     // entrance animations (e.g. .tab-row's fade-in) play on the former.
     var hasRenderedOnce = false;
+    // Whether each tab had a button showing as of the last render (see
+    // tabHasMembers below) - compared against the freshly-fetched fragment
+    // in render() so a tab that just gained its first member (e.g. adding
+    // someone to a group whose Inactive tab was previously hidden) can play
+    // a one-shot fade-in on its button, same idea as hasRenderedOnce gating
+    // .tab-row's own entrance animation but scoped to a single button
+    // instead of the whole row.
+    var tabMemberState = { active: true, inactive: true };
+
+    // A tab with zero members hides its own button entirely rather than
+    // showing an empty "No members"/"No inactive members" state - unlike the
+    // list/picker views (wireMembersModeToggle above), there's nothing
+    // actionable to show someone on an empty members tab, so it's just
+    // dead-weight chrome. Shared by render()'s pre-connection correction and
+    // wireMemberTabs()'s click handling so both agree on what counts as
+    // "empty" (the presence of an actual .entity-row, not just the panel
+    // existing - the empty-note <p> renders inside every panel regardless).
+    function tabHasMembers(panels, tab) {
+        var panel = Array.prototype.filter.call(panels, function (p) { return p.dataset.membersTabPanel === tab; })[0];
+        return !!(panel && panel.querySelector('.entity-row'));
+    }
 
     function closeModal() {
         currentGroupId = null;
@@ -501,6 +617,15 @@ window.animateModalHeightChange = function (dialog, mutate) {
     // use this same generic wiring instead of a shared Save button.
     function wireAutosaveForms() {
         dialog.querySelectorAll('[data-autosave]').forEach(function (form) {
+            // render() now leaves unchanged member rows' DOM nodes (and
+            // whatever this already wired onto them last render) untouched
+            // instead of always handing back a fresh parse - same idempotency
+            // guard as initExpertiseField's data-expertise-wired, needed for
+            // the same reason: without it, a form that survives two renders
+            // unwired would pick up a second listener and autosave-submit
+            // twice.
+            if (form.dataset.autosaveWired) return;
+            form.dataset.autosaveWired = '1';
             // Per-member expertise forms wrap the shared _expertise_field.html
             // partial, which has no data-autosave-trigger of its own (it's
             // also used, un-autosaved, by the Add Member picker) - fall back
@@ -566,6 +691,7 @@ window.animateModalHeightChange = function (dialog, mutate) {
         var addView = dialog.querySelector('[data-members-add-view]');
         var enterBtn = dialog.querySelector('[data-members-mode-toggle]');
         var backBtn = dialog.querySelector('[data-members-back-btn]');
+        var addExternalBtn = dialog.querySelector('[data-member-add-external]');
         var title = dialog.querySelector('[data-panel-group-modal-title]');
         if (!listView || !addView) return;
 
@@ -573,8 +699,21 @@ window.animateModalHeightChange = function (dialog, mutate) {
             listView.hidden = mode !== 'list';
             addView.hidden = mode !== 'add';
             if (header) header.hidden = mode !== 'list';
-            if (enterBtn) enterBtn.hidden = mode !== 'list';
-            if (backBtn) backBtn.hidden = mode !== 'add';
+            // The footer's own buttons are small, same-height elements that
+            // pop in/out without changing the dialog's height - fade rather
+            // than snap (window.setFadeHidden, panel.js; InteractionLanguage.md
+            // "Fade toggle"), unlike listView/addView/header just above,
+            // which are real content swaps already covered by this whole
+            // callback being wrapped in animateModalHeightChange.
+            if (enterBtn) window.setFadeHidden(enterBtn, mode !== 'list');
+            if (backBtn) window.setFadeHidden(backBtn, mode !== 'add');
+            // Only force-hide on the way OUT of add mode - initMemberPicker
+            // (its own External segmented option) owns showing it back on
+            // the way in, since this footer (unlike the picker's own markup)
+            // stays visible in list mode too and would otherwise keep
+            // showing a stale "New External Contact" from the last time
+            // External was selected.
+            if (addExternalBtn && mode !== 'add') window.setFadeHidden(addExternalBtn, true);
             if (title) title.textContent = mode === 'add' ? 'Add Member' : 'Edit Panel Group';
             if (mode === 'add') {
                 var searchInput = addView.querySelector('[data-member-search]');
@@ -615,18 +754,30 @@ window.animateModalHeightChange = function (dialog, mutate) {
         function setActiveTab(tab) {
             var panelExists = Array.prototype.some.call(panels, function (p) { return p.dataset.membersTabPanel === tab; });
             if (!panelExists) tab = 'active';
+            if (!tabHasMembers(panels, tab)) {
+                var fallback = tab === 'active' ? 'inactive' : 'active';
+                if (tabHasMembers(panels, fallback)) tab = fallback;
+            }
             currentMembersTab = tab;
             panels.forEach(function (p) { p.hidden = p.dataset.membersTabPanel !== tab; });
             if (tabRow) {
                 tabRow.querySelectorAll('[data-members-tab]').forEach(function (btn) {
+                    btn.hidden = !tabHasMembers(panels, btn.dataset.membersTab);
                     btn.classList.toggle('active', btn.dataset.membersTab === tab);
                 });
             }
         }
 
+        // Clicking a tab only ever toggles which already-rendered panel is
+        // hidden (see setActiveTab above) - no fetch, no innerHTML replace -
+        // so without this wrapper the height snapped straight to the other
+        // panel's size. Same animateModalHeightChange used for every other
+        // in-place content swap in this dialog (see wireMembersModeToggle).
         if (tabRow) {
             tabRow.querySelectorAll('[data-members-tab]').forEach(function (btn) {
-                btn.addEventListener('click', function () { setActiveTab(btn.dataset.membersTab); });
+                btn.addEventListener('click', function () {
+                    window.animateModalHeightChange(dialog, function () { setActiveTab(btn.dataset.membersTab); });
+                });
             });
         }
 
@@ -659,6 +810,19 @@ window.animateModalHeightChange = function (dialog, mutate) {
         var oldScrollEl = dialog.querySelector('[data-panel-group-scroll]');
         var scrollTop = oldScrollEl ? oldScrollEl.scrollTop : 0;
 
+        // Snapshot for the Active/Inactive count-delta pulse below (see
+        // InteractionLanguage.md's "Count-delta pulse") - taken before this
+        // render tears the old buttons out, compared against the freshly-
+        // rendered ones once they're in. Skipped entirely on the render that
+        // first opens the modal (isFirstRender) - a pulse on open would be
+        // "reacting" to a page-load-shaped render, not a live change.
+        var isFirstRender = !hasRenderedOnce;
+        var oldMemberCounts = {};
+        dialog.querySelectorAll('[data-members-tab]').forEach(function (btn) {
+            var countEl = btn.querySelector('.count');
+            if (countEl) oldMemberCounts[btn.dataset.membersTab] = parseInt(countEl.dataset.count, 10) || 0;
+        });
+
         // Parse into a detached <template> first - its content is never
         // connected to the document, so nothing in it is ever styled or
         // painted - and correct the Active/Inactive tab selection there,
@@ -685,12 +849,61 @@ window.animateModalHeightChange = function (dialog, mutate) {
             var panels = template.content.querySelectorAll('[data-members-tab-panel]');
             var panelExists = Array.prototype.some.call(panels, function (p) { return p.dataset.membersTabPanel === currentMembersTab; });
             var targetTab = panelExists ? currentMembersTab : 'active';
+            // Route away from a tab that's about to lose its button (see
+            // tabHasMembers above) before the fragment is ever connected -
+            // same reasoning as the .active correction below: fixing it here
+            // means the live DOM never sees the "wrong" state to transition
+            // away from.
+            if (!tabHasMembers(panels, targetTab)) {
+                var fallback = targetTab === 'active' ? 'inactive' : 'active';
+                if (tabHasMembers(panels, fallback)) targetTab = fallback;
+            }
+            var nextMemberState = { active: tabHasMembers(panels, 'active'), inactive: tabHasMembers(panels, 'inactive') };
             tabRow.querySelectorAll('[data-members-tab]').forEach(function (btn) {
-                btn.classList.toggle('active', btn.dataset.membersTab === targetTab);
+                var tab = btn.dataset.membersTab;
+                btn.hidden = !nextMemberState[tab];
+                btn.classList.toggle('active', tab === targetTab);
+                // Fade in a tab button that just gained its first member -
+                // see tabMemberState above. Setting the class on the
+                // detached fragment (rather than after connecting) is
+                // required, not just tidier: unlike the .active correction
+                // above (a transition, which needs a real before/after delta
+                // while connected), this is a CSS `animation`, which plays
+                // off the element simply existing at first paint - it needs
+                // the class already present the instant this button is
+                // connected, same mechanism .tab-row's own fade-in relies on.
+                if (hasRenderedOnce && nextMemberState[tab] && !tabMemberState[tab]) {
+                    btn.classList.add('tab-fade-in');
+                }
             });
             panels.forEach(function (p) { p.hidden = p.dataset.membersTabPanel !== targetTab; });
             currentMembersTab = targetTab;
+            tabMemberState = nextMemberState;
         }
+
+        // Diff-patch the two member-list containers in place, before the
+        // rest of the fragment (name/chair forms, add-member picker, footer)
+        // gets its usual full swap below. Untouched rows keep the exact DOM
+        // node they had a moment ago - including any shrink/grow animation
+        // still playing on them from a *different*, concurrent click -
+        // instead of every render() destroying the whole list and recreating
+        // it from the fresh HTML. That full-list destruction was what made
+        // rapid Add/Remove clicks read as rows vanishing or animations
+        // cutting off mid-flight (see grilling session 2026-07-12).
+        // freshList.replaceWith(oldList) moves oldList (still connected to
+        // the live dialog at this point) into template.content in freshList's
+        // place - a plain DOM reparent, not a clone - so the node that ends
+        // up back in the document a few lines down via replaceChildren is
+        // the same one this just finished patching, animations and all.
+        ['[data-active-members-list]', '[data-members-tab-panel="inactive"]'].forEach(function (sel) {
+            var freshList = template.content.querySelector(sel);
+            var oldList = dialog.querySelector(sel);
+            if (!freshList || !oldList) return;
+            var wasHidden = freshList.hidden;
+            diffPatchRowList(oldList, freshList, 'data-member-id');
+            oldList.hidden = wasHidden;
+            freshList.replaceWith(oldList);
+        });
 
         dialog.replaceChildren(template.content);
 
@@ -714,6 +927,23 @@ window.animateModalHeightChange = function (dialog, mutate) {
         // Just wires click listeners at this point - the tab state itself
         // was already corrected above, before insertion.
         wireMemberTabs();
+
+        // Count-delta pulse for Active/Inactive (see the snapshot above) -
+        // skipped for a tab that just faded in via .tab-fade-in (gained its
+        // first member this render): that entrance animation is already
+        // its own "something changed here" signal, so pulsing its count too
+        // would be doubling up on the same moment.
+        if (!isFirstRender) {
+            dialog.querySelectorAll('[data-members-tab]').forEach(function (btn) {
+                if (btn.classList.contains('tab-fade-in')) return;
+                var countEl = btn.querySelector('.count');
+                if (!countEl) return;
+                var newCount = parseInt(countEl.dataset.count, 10) || 0;
+                var oldCount = oldMemberCounts[btn.dataset.membersTab];
+                if (oldCount === undefined || oldCount === newCount) return;
+                window.pulseCount(countEl, newCount > oldCount ? 'up' : 'down');
+            });
+        }
 
         window.enhanceFormControls(dialog);
         dialog.querySelectorAll('[data-member-picker-root]').forEach(window.initMemberPicker || function () {});
@@ -1004,6 +1234,13 @@ window.animateModalHeightChange = function (dialog, mutate) {
         if (!form) return;
         e.preventDefault();
 
+        // Rapid successive submits (e.g. clicking Remove on two different
+        // rows before the first fetch has returned) have no guaranteed
+        // resolution order - captures which submit this is so a response
+        // that's no longer the latest can be dropped instead of overwriting
+        // fresher state with a stale fragment (see beginFetchSeq above).
+        var seq = beginFetchSeq(dialog);
+
         var fetchPromise = fetch(form.action, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -1039,6 +1276,29 @@ window.animateModalHeightChange = function (dialog, mutate) {
                 toggleBtn.setAttribute('aria-label', willBeActive
                     ? 'Active — click to deactivate'
                     : 'Inactive — click to reactivate');
+
+                // Same reasoning as optimisticallyDecrementCounts elsewhere in
+                // this file (see InteractionLanguage.md's "Count-delta pulse"
+                // - every count pulse fires the instant its own action is
+                // confirmed, never waiting on a row/column animation-gated
+                // re-render): which tab gains a member and which loses one is
+                // fully known right here, so both counts bump and pulse now
+                // rather than waiting out the row's ~900ms shrink-out below
+                // plus a round-trip. render()'s own before/after diff (used
+                // for every *other* trigger of a re-render) will see these
+                // already-bumped numbers match the freshly-fetched ones and
+                // stay quiet, rather than pulsing a second time.
+                var activeCountEl = dialog.querySelector('[data-members-tab="active"] .count');
+                var inactiveCountEl = dialog.querySelector('[data-members-tab="inactive"] .count');
+                var bump = willBeActive ? 1 : -1;
+                [[activeCountEl, bump], [inactiveCountEl, -bump]].forEach(function (pair) {
+                    var el = pair[0], delta = pair[1];
+                    if (!el) return;
+                    var newCount = Math.max(0, (parseInt(el.dataset.count, 10) || 0) + delta);
+                    el.dataset.count = String(newCount);
+                    el.textContent = '(' + newCount + ')';
+                    window.pulseCount(el, delta > 0 ? 'up' : 'down');
+                });
             }
 
             var shrinkPromise = new Promise(function (resolve) {
@@ -1048,7 +1308,13 @@ window.animateModalHeightChange = function (dialog, mutate) {
                 var data = results[0];
                 if (!data.success || !currentGroupId) return;
                 return loadGroupFragment(currentGroupId).then(function (html) {
-                    render(html);
+                    if (!isCurrentFetchSeq(dialog, seq)) return;
+                    // Toggling active/inactive can hide/reveal a tab button
+                    // (see tabHasMembers) on top of the row's own optimistic
+                    // shrink-out above - animate the dialog easing to
+                    // whatever height that leaves it at, same as every other
+                    // in-place swap here.
+                    window.animateModalHeightChange(dialog, function () { render(html); });
                     var summary = readGroupSummary();
                     if (summary) document.dispatchEvent(new CustomEvent('panel-group:updated', { detail: summary }));
                 });
@@ -1062,12 +1328,16 @@ window.animateModalHeightChange = function (dialog, mutate) {
             if (form.dataset.panelGroupFormAction === 'create_group') {
                 currentGroupId = data.group.id;
                 document.dispatchEvent(new CustomEvent('panel-group:created', { detail: data.group }));
-                return loadGroupFragment(currentGroupId).then(render);
+                return loadGroupFragment(currentGroupId).then(function (html) {
+                    if (!isCurrentFetchSeq(dialog, seq)) return;
+                    window.animateModalHeightChange(dialog, function () { render(html); });
+                });
             }
 
             if (!currentGroupId) return;
             return loadGroupFragment(currentGroupId).then(function (html) {
-                render(html);
+                if (!isCurrentFetchSeq(dialog, seq)) return;
+                window.animateModalHeightChange(dialog, function () { render(html); });
                 var summary = readGroupSummary();
                 if (summary) document.dispatchEvent(new CustomEvent('panel-group:updated', { detail: summary }));
             });
@@ -1213,65 +1483,166 @@ function initMemberPicker(rootEl) {
     var staffInput = rootEl.querySelector('[data-member-staff-input]');
     var externalInput = rootEl.querySelector('[data-member-external-input]');
     var resultList = rootEl.querySelector('[data-member-result-list]');
-    var options = Array.prototype.slice.call(rootEl.querySelectorAll('.member-result-option'));
     var searchPanel = rootEl.querySelector('[data-member-search-panel]');
     var selectedSection = rootEl.querySelector('[data-member-selected]');
     var selectedName = rootEl.querySelector('[data-member-selected-name]');
     var changeBtn = rootEl.querySelector('[data-member-change]');
-    var addExternalRow = rootEl.querySelector('[data-member-add-external]');
+    // Lives in the including page's own footer (e.g. .panel-group-modal-footer),
+    // not inside rootEl - see _member_picker.html's doc comment - so this
+    // looks it up scoped to the nearest <dialog> rather than rootEl itself.
+    var addExternalRow = (rootEl.closest('dialog') || document).querySelector('[data-member-add-external]');
     var schoolId = rootEl.dataset.schoolId || '';
+    var existingStaffIds = (rootEl.dataset.existingStaffIds || '').split(',').filter(Boolean);
+    var existingExternalIds = (rootEl.dataset.existingExternalIds || '').split(',').filter(Boolean);
+    var alreadyMemberLabel = rootEl.dataset.alreadyMemberLabel || 'Already a Member';
+    var debounceTimer = null;
     if (!sourceOptions.length || !searchInput) return;
 
     // Source is a segmented control, not a <select> (see DesignLanguage.md
     // "Segmented control") - mode lives in this closure var instead of a
     // form element's .value, kept in sync with the .active class below.
-    var mode = (sourceOptions.filter(function (btn) { return btn.classList.contains('active'); })[0] || sourceOptions[0]).dataset.value;
+    var initialActiveBtn = sourceOptions.filter(function (btn) { return btn.classList.contains('active'); })[0] || sourceOptions[0];
+    var mode = initialActiveBtn.dataset.value;
+    searchInput.placeholder = 'Search ' + initialActiveBtn.textContent + '…';
 
     function dispatchChange(type, id, name) {
         rootEl.dispatchEvent(new CustomEvent('member-picker:change', { bubbles: true, detail: { type: type, id: id, name: name } }));
     }
 
-    function applySearch() {
-        var term = searchInput.value.trim().toLowerCase();
-        options.forEach(function (btn) {
-            var source = btn.dataset.source;
-            var matchesSearch = !term || btn.dataset.name.toLowerCase().indexOf(term) !== -1;
-            var matchesMode;
-            if (mode === 'external') {
-                matchesMode = source === 'external';
-            } else if (mode === 'school') {
-                matchesMode = source === 'staff' && btn.dataset.schoolId === schoolId;
-            } else {
-                // "All MAT Staff" — every staff record, regardless of school or is_mat_staff.
-                matchesMode = source === 'staff';
-            }
-            btn.hidden = !(matchesSearch && matchesMode);
-        });
-        // Adding a new External contact is always on offer once External mode
-        // is selected (not just as a "no match" fallback).
-        if (addExternalRow) addExternalRow.hidden = mode !== 'external';
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
-    function showPicker() {
-        staffInput.value = '';
-        externalInput.value = '';
-        dispatchChange('', '', '');
-        searchPanel.hidden = false;
-        selectedSection.hidden = true;
-        searchInput.value = '';
-        applySearch();
+    // Mirrors templates/icons/avatar_placeholder_svg.html - inlined here
+    // since search results are built in JS from fetched JSON, not rendered
+    // via {% include %} (same reasoning as HUB_RESULT_ICONS above).
+    var AVATAR_PLACEHOLDER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+        '<circle cx="12" cy="8.5" r="4" fill="currentColor" /><path d="M3 21c0-4.7 4-8.5 9-8.5s9 3.8 9 8.5" fill="currentColor" /></svg>';
+
+    function renderResults(items) {
+        if (!items.length) {
+            resultList.innerHTML = '<p class="empty-note search-hint">No matches found.</p>';
+            return;
+        }
+        resultList.innerHTML = items.map(function (item) {
+            var metaBits = [];
+            if (item.school_name) metaBits.push('<span class="result-school">' + escapeHtml(item.school_name) + '</span>');
+            if (item.subtitle) metaBits.push('<span class="result-role">' + escapeHtml(item.subtitle) + '</span>');
+            var meta = metaBits.length ? '<span class="member-result-meta">' + metaBits.join('') + '</span>' : '';
+            var pill = item.already_member ? '<span class="status-pill type-already">' + escapeHtml(alreadyMemberLabel) + '</span>' : '';
+            var icon = item.photo_url ? '<img src="' + escapeHtml(item.photo_url) + '" alt="">' : AVATAR_PLACEHOLDER_SVG;
+            return '<button type="button" class="member-result-option" data-source="' + item.source + '" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '"' +
+                (item.already_member ? ' data-already-member="1"' : '') + '>' +
+                '<span class="member-result-icon">' + icon + '</span>' +
+                '<span class="member-result-label-stack">' +
+                '<span class="member-result-name-row"><span class="result-name">' + escapeHtml(item.name) + '</span>' + pill + '</span>' +
+                meta +
+                '</span>' +
+                '</button>';
+        }).join('');
+    }
+
+    function runSearch(term) {
+        var params = 'q=' + encodeURIComponent(term);
+        if (mode === 'external') {
+            params += '&kind=external&exclude=' + existingExternalIds.join(',');
+        } else {
+            params += '&kind=staff&mode=' + mode + '&school_id=' + encodeURIComponent(schoolId) + '&exclude=' + existingStaffIds.join(',');
+        }
+        fetch('/inclusion/panel/search/?' + params, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.json(); })
+            .then(function (data) { renderResults(data.results); });
+    }
+
+    // Hidden until typed, server-fetched, debounced 250ms with a 2-char
+    // minimum - the shared Search precedent (InteractionLanguage.md
+    // "Search"), same numbers as Panel search and the referral student
+    // picker.
+    function applySearch() {
+        var term = searchInput.value.trim();
+        clearTimeout(debounceTimer);
+        if (!term) {
+            var activeBtn = sourceOptions.filter(function (btn) { return btn.classList.contains('active'); })[0] || initialActiveBtn;
+            resultList.innerHTML = '<p class="empty-note search-hint">Start typing to search ' + activeBtn.textContent + '…</p>';
+        } else if (term.length === 1) {
+            debounceTimer = setTimeout(function () {
+                resultList.innerHTML = '<p class="empty-note search-hint">Keep typing… (2+ characters)</p>';
+            }, 400);
+        } else {
+            debounceTimer = setTimeout(function () { runSearch(term); }, 250);
+        }
+        // Adding a new External contact is always on offer once External mode
+        // is selected (not just as a "no match" fallback).
+        if (addExternalRow) window.setFadeHidden(addExternalRow, mode !== 'external');
+    }
+
+    // Switching between the search panel and the compact "selected member"
+    // row is a real height change (the full search UI is much taller than
+    // one summary row) - same animateModalHeightChange treatment as every
+    // other in-place content swap in these dialogs. rootEl may not sit
+    // inside a <dialog> at all (a future non-modal use of this picker), so
+    // this falls back to running the mutation unanimated rather than
+    // requiring one.
+    var ownerDialog = rootEl.closest('dialog');
+    function animateHeightChange(mutate) {
+        if (ownerDialog) {
+            window.animateModalHeightChange(ownerDialog, mutate);
+        } else {
+            mutate();
+        }
+    }
+
+    // keepSearchText: setMode() (switching Staff/MAT/External) wants to
+    // re-run whatever's already typed against the new source rather than
+    // discarding it - clearing it on every source switch meant a half-typed
+    // search vanished just for touching the segmented control, forcing a
+    // retype. The "Change" button (a genuinely fresh pick) still wants the
+    // full reset.
+    function showPicker(keepSearchText) {
+        animateHeightChange(function () {
+            staffInput.value = '';
+            externalInput.value = '';
+            dispatchChange('', '', '');
+            searchPanel.hidden = false;
+            selectedSection.hidden = true;
+            if (!keepSearchText) searchInput.value = '';
+            applySearch();
+            // Every caller of showPicker() - clicking "Change", and picking a
+            // different source via setMode() below - lands the user back in
+            // a state where typing a search term is the obvious next thing
+            // to do, same as New Referral's own showPicker(). Without this,
+            // clicking a segmented source button (itself a <button>, which
+            // takes focus on click) silently strands focus on that button
+            // instead of returning it to Search.
+            searchInput.focus();
+        });
     }
 
     function showSelected(name) {
-        selectedName.textContent = name;
-        searchPanel.hidden = true;
-        selectedSection.hidden = false;
+        animateHeightChange(function () {
+            selectedName.textContent = name;
+            searchPanel.hidden = true;
+            selectedSection.hidden = false;
+        });
     }
 
     function setMode(newMode) {
         mode = newMode;
-        sourceOptions.forEach(function (btn) { btn.classList.toggle('active', btn.dataset.value === mode); });
-        showPicker();
+        var activeBtn;
+        sourceOptions.forEach(function (btn) {
+            var isActive = btn.dataset.value === mode;
+            btn.classList.toggle('active', isActive);
+            if (isActive) activeBtn = btn;
+        });
+        // Search's own placeholder names whichever source is currently
+        // selected ("Search School Staff…") rather than a fixed
+        // generic "Search…" - the segmented row right above it already shows
+        // this, but repeating it here means the field still makes sense on
+        // its own once you've scrolled/focused past the row.
+        if (activeBtn) searchInput.placeholder = 'Search ' + activeBtn.textContent + '…';
+        showPicker(true);
     }
 
     function reset() {
@@ -1283,7 +1654,7 @@ function initMemberPicker(rootEl) {
         btn.addEventListener('click', function () { setMode(btn.dataset.value); });
     });
     searchInput.addEventListener('input', applySearch);
-    if (changeBtn) changeBtn.addEventListener('click', showPicker);
+    if (changeBtn) changeBtn.addEventListener('click', function () { showPicker(false); });
 
     rootEl.addEventListener('click', function (e) {
         var optBtn = e.target.closest('.member-result-option');
@@ -1319,19 +1690,24 @@ function initMemberPicker(rootEl) {
             btn.dataset.name = contact.name;
             var stack = document.createElement('span');
             stack.className = 'member-result-label-stack';
+            var nameRow = document.createElement('span');
+            nameRow.className = 'member-result-name-row';
             var nameSpan = document.createElement('span');
             nameSpan.className = 'result-name';
             nameSpan.textContent = contact.name;
-            stack.appendChild(nameSpan);
+            nameRow.appendChild(nameSpan);
+            stack.appendChild(nameRow);
             if (contact.job_title) {
+                var meta = document.createElement('span');
+                meta.className = 'member-result-meta';
                 var roleSpan = document.createElement('span');
                 roleSpan.className = 'result-role';
                 roleSpan.textContent = contact.job_title;
-                stack.appendChild(roleSpan);
+                meta.appendChild(roleSpan);
+                stack.appendChild(meta);
             }
             btn.appendChild(stack);
             resultList.appendChild(btn);
-            options.push(btn);
             externalInput.value = contact.id;
             staffInput.value = '';
             dispatchChange('external', contact.id, contact.name);
@@ -1369,6 +1745,92 @@ function flash(el, kind) {
         }, { once: true });
     }, 1200);
 }
+
+// Status-filter tab entering/leaving the tab row, and any live count
+// pulsing when it changes (InteractionLanguage.md's "Status-filter tab
+// entering/leaving the tab row" / "Tab count-delta pulse") - a tab's own
+// (N), or a card/section heading's count. Defined at top level for the same
+// reason as flash() above - any page's inline script can call these after
+// an AJAX refresh (or a DOM-only recount - see recountFromRows below) changes
+// a count.
+
+// A tab at count 0 stays in the DOM (collapsed to zero width via panel.css's
+// .tab-collapsed), rather than being added/removed outright, so this can
+// transition it instead of it snapping in/out. `collapsed` is the target
+// state; a no-op if the button's already there.
+function setTabCollapsed(btn, collapsed) {
+    if (!btn) return;
+    var isCollapsed = btn.classList.contains('tab-collapsed');
+    if (isCollapsed === collapsed) return;
+    btn.classList.add('tab-visibility-animating');
+    if (collapsed) {
+        btn.classList.add('tab-collapsed');
+        btn.setAttribute('tabindex', '-1');
+    } else {
+        btn.classList.remove('tab-collapsed');
+        btn.removeAttribute('tabindex');
+    }
+    setTimeout(function () {
+        btn.classList.remove('tab-visibility-animating');
+    }, 280);
+}
+window.setTabCollapsed = setTabCollapsed;
+
+// `direction` is 'up' or 'down'. Restarts the animation even if it's already
+// mid-flight (e.g. two quick status changes) by removing both classes and
+// forcing a reflow before re-adding one. `el` can be a tab's own .count span
+// or a card/section heading's count element - the animation itself doesn't
+// care which.
+function pulseCount(el, direction) {
+    if (!el) return;
+    el.classList.remove('count-pulse-up', 'count-pulse-down');
+    void el.offsetWidth;
+    el.classList.add(direction === 'up' ? 'count-pulse-up' : 'count-pulse-down');
+}
+window.pulseCount = pulseCount;
+
+// Recomputes a set of tab-row button counts (and, optionally, a card
+// heading's total) purely from currently-rendered DOM rows - no server
+// round-trip. Right for a plain client-side change like a row being deleted
+// (the remaining rows' own data attributes are already correct, nothing
+// server-derived needs recomputing) - contrast with a status change whose
+// derived fields (e.g. an action's is_overdue) genuinely need the server's
+// answer, which goes through a fragment refresh instead (see home.html's
+// refreshMyActionsCard for that shape).
+//
+// `matchers` is a { tabKey: function(row) { return bool; } } map, same shape
+// as each page's own actionMatchers/referralMatchers. `keyAttr` is the
+// dataset property holding each button's tab key (e.g. 'referralTab').
+function recountTabsFromRows(tabRowEl, rows, matchers, keyAttr, headingCountEl) {
+    var rowList = Array.prototype.slice.call(rows);
+    if (tabRowEl) {
+        tabRowEl.querySelectorAll('[data-count]').forEach(function (btn) {
+            var key = btn.dataset[keyAttr];
+            var matcher = matchers[key];
+            if (!matcher) return;
+            var newCount = rowList.filter(matcher).length;
+            var oldCount = parseInt(btn.dataset.count, 10) || 0;
+            if (newCount === oldCount) return;
+            btn.dataset.count = String(newCount);
+            var countEl = btn.querySelector('.count');
+            if (countEl) {
+                countEl.textContent = '(' + newCount + ')';
+                if (!btn.classList.contains('tab-collapsed')) pulseCount(countEl, newCount > oldCount ? 'up' : 'down');
+            }
+            setTabCollapsed(btn, newCount === 0);
+        });
+    }
+    if (headingCountEl) {
+        var total = rowList.length;
+        var oldTotal = parseInt(headingCountEl.dataset.count, 10) || total;
+        if (total !== oldTotal) {
+            headingCountEl.dataset.count = String(total);
+            headingCountEl.textContent = '(' + total + ')';
+            pulseCount(headingCountEl, total > oldTotal ? 'up' : 'down');
+        }
+    }
+}
+window.recountTabsFromRows = recountTabsFromRows;
 
 // Both row animations below use the Web Animations API (Element.animate)
 // rather than toggling a CSS transition class - explicit from/to
@@ -1472,6 +1934,104 @@ function growIn(el) {
     });
 }
 
+// Diffs two row-list containers by a caller-given key attribute (e.g.
+// 'data-member-id', 'data-drop-id') and animates only the delta (grow-in
+// newly added rows, shrink-fade-out removed ones, in-place swap for changed
+// content) instead of a wholesale innerHTML/replaceWith of the whole list.
+// Generic version of what started as a one-off for Panel Agenda Setup's
+// read-only Members card mirror - pulled out so Edit Panel Group's own
+// member list and Panel Agenda Setup's drag zones can reuse it too, instead
+// of each doing a full-container swap that tears out whatever unrelated row
+// happens to still be mid-animation from a *different*, concurrent click.
+// That full-swap-on-every-update pattern was the actual root cause of rows
+// "vanishing"/animations cutting short under rapid clicking - not a flaw in
+// the animations themselves (see grilling session 2026-07-12).
+//
+// onRowChanged(row), if given, fires for every row that's newly inserted or
+// had its content replaced (not for rows left untouched) - callers with
+// per-row listeners that don't survive a fresh DOMParser parse (e.g. Agenda
+// Setup's drag handlers, bound directly to each row) use it to rebind just
+// those rows instead of every row in the list. Returns the grow-in promises
+// for newly-inserted rows so a caller that needs to know when the patch has
+// fully settled (not just started) can wait on them.
+function diffPatchRowList(oldList, freshList, keyAttr, onRowChanged) {
+    function rowMap(list) {
+        var map = {};
+        list.querySelectorAll(':scope > [' + keyAttr + ']').forEach(function (row) {
+            map[row.getAttribute(keyAttr)] = row;
+        });
+        return map;
+    }
+    var oldRows = rowMap(oldList);
+    var freshOrder = Array.prototype.slice.call(freshList.querySelectorAll(':scope > [' + keyAttr + ']'));
+    var freshIds = {};
+    freshOrder.forEach(function (row) { freshIds[row.getAttribute(keyAttr)] = true; });
+
+    Object.keys(oldRows).forEach(function (id) {
+        if (!freshIds[id]) {
+            shrinkAndFadeOut(oldRows[id], function () { oldRows[id].remove(); });
+        }
+    });
+
+    // Unchanged rows whose content differs swap in place with no animation -
+    // only presence/absence is animated here.
+    freshOrder.forEach(function (freshRow) {
+        var id = freshRow.getAttribute(keyAttr);
+        var oldRow = oldRows[id];
+        if (oldRow && oldRow.outerHTML !== freshRow.outerHTML) {
+            oldRow.replaceWith(freshRow);
+            oldRows[id] = freshRow;
+            if (onRowChanged) onRowChanged(freshRow);
+        }
+    });
+
+    var emptyNote = oldList.querySelector(':scope > .empty-note');
+    if (emptyNote && freshOrder.length) emptyNote.remove();
+
+    // Added rows: insert before whichever later fresh row already has a
+    // place in oldList, so a newly-added row lands in the same sorted
+    // position it has in the fresh render instead of always at the end.
+    var growPromises = [];
+    freshOrder.forEach(function (freshRow, index) {
+        var id = freshRow.getAttribute(keyAttr);
+        if (oldRows[id]) return;
+        var beforeEl = null;
+        for (var i = index + 1; i < freshOrder.length; i++) {
+            var nextRow = oldRows[freshOrder[i].getAttribute(keyAttr)];
+            if (nextRow) { beforeEl = nextRow; break; }
+        }
+        if (beforeEl) oldList.insertBefore(freshRow, beforeEl);
+        else oldList.appendChild(freshRow);
+        growPromises.push(growIn(freshRow));
+        oldRows[id] = freshRow;
+        if (onRowChanged) onRowChanged(freshRow);
+    });
+
+    if (!freshOrder.length && !oldList.querySelector(':scope > .empty-note')) {
+        var freshEmpty = freshList.querySelector(':scope > .empty-note');
+        if (freshEmpty) oldList.appendChild(freshEmpty);
+    }
+    return growPromises;
+}
+window.diffPatchRowList = diffPatchRowList;
+
+// Per-container fetch sequence guard: bump before firing a request that will
+// eventually mutate `container`, capture the returned number, and check it's
+// still current once the response lands - drops a response that's no longer
+// the latest instead of applying it. Guards against an older, slower request
+// resolving *after* a newer one and overwriting state the newer response
+// already applied (nothing here reorders or cancels the network requests
+// themselves, just whether a given response is still allowed to act).
+function beginFetchSeq(container) {
+    container._fetchSeq = (container._fetchSeq || 0) + 1;
+    return container._fetchSeq;
+}
+function isCurrentFetchSeq(container, seq) {
+    return container._fetchSeq === seq;
+}
+window.beginFetchSeq = beginFetchSeq;
+window.isCurrentFetchSeq = isCurrentFetchSeq;
+
 // Generic wiring for "delete/remove-this-row" forms: submits over fetch
 // instead of letting the browser navigate, and on success shrink-fades the
 // row out of the DOM instead of a full page reload. Falls back to a normal
@@ -1490,6 +2050,13 @@ function growIn(el) {
 // bug entirely.
 function wireRowRemoveForm(form) {
     var row = form.closest('.entity-row, .settings-row, .meeting-card, li');
+    // If the row lives inside a tab-row/heading-count container (e.g. My
+    // Referrals' <ul>), fire a plain DOM event once it's actually gone so
+    // that page's own inline script can recount its own tabs/heading - see
+    // recountTabsFromRows above. Kept as a generic event rather than calling
+    // that function directly from here, since the matchers/keyAttr needed
+    // are page-specific and this helper is reused well beyond referrals.
+    var recountContainer = form.closest('[data-recount-container]');
     form.addEventListener('submit', function (e) {
         if (form.dataset.submitting) { e.preventDefault(); return; }
         var confirmMessage = form.dataset.confirmMessage;
@@ -1513,6 +2080,9 @@ function wireRowRemoveForm(form) {
             if (row) {
                 shrinkAndFadeOut(row, function () {
                     if (row.parentNode) row.parentNode.removeChild(row);
+                    if (recountContainer) {
+                        recountContainer.dispatchEvent(new CustomEvent('panel:row-removed', { bubbles: true }));
+                    }
                 });
             }
         }).catch(function () {
@@ -1722,84 +2292,90 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
             .then(function (html) { return new DOMParser().parseFromString(html, 'text/html'); });
     }
 
-    // Swaps in just the given zone names' columns from a freshly-fetched
-    // document, instead of a full window.location.reload() - keeps
-    // counts/tabs/order in sync with the server without the jarring
-    // full-page flash. Zone elements, their rows, and the tab-switcher all
-    // get rebound against the new DOM. names defaults to every zone.
+    // Applies a freshly-fetched document's state for the given zone names,
+    // instead of a full window.location.reload() - keeps counts/tabs/order
+    // in sync with the server without the jarring full-page flash. Used to
+    // replace the whole owning .setup-col wholesale (oldCol.replaceWith),
+    // which meant tearing out and recreating every row in that column - tab
+    // buttons, drag zones, everything - on every single Add/Remove/reorder,
+    // even the rows nothing about this action touched. Now diff-patches just
+    // each zone's own row list (window.diffPatchRowList, keyed on
+    // data-drop-id) in place instead: a row this action didn't touch keeps
+    // its exact DOM node - and any shrink/grow animation still playing on it
+    // from a *different*, concurrent action - rather than being destroyed
+    // and rebuilt from the fresh HTML (see grilling session 2026-07-12).
+    // Since the column itself is never replaced anymore, the tab/active-card
+    // carry-over hacks below used to need (freshCol always rendering with
+    // the template's hardcoded defaults) simply don't apply - the live
+    // column's own state was never disturbed to begin with. Same reasoning
+    // for zone.el and each row's drag listeners: they're bound once (init /
+    // first insertion) and stay valid for as long as the node they're bound
+    // to stays in the document, which - for anything this diff-patch left
+    // untouched - is indefinitely.
     function applyFreshDoc(doc, flashInfo, names) {
         names = names || zoneNames;
-        var swappedCols = [];
+        var growPromises = [];
+        var patchedCols = [];
         names.forEach(function (name) {
             var freshZoneEl = doc.querySelector('[data-drop-zone="' + name + '"]');
             var oldZoneEl = zones[name].el;
             if (!freshZoneEl || !oldZoneEl) return;
-            var freshCol = freshZoneEl.closest('.setup-col') || freshZoneEl;
-            var oldCol = oldZoneEl.closest('.setup-col') || oldZoneEl;
-            if (swappedCols.indexOf(oldCol) !== -1) return;
-            swappedCols.push(oldCol);
-            // freshCol comes from a plain fetch of the page, which always
-            // renders with the template's hardcoded default card active
-            // (Settings) - carry over whichever card the user actually had
-            // open (relevant below the .switch-card-group breakpoint, where
-            // only one card shows at a time) so the swap doesn't silently
-            // flip them back to Settings or, if the untouched card wasn't
-            // Settings either, hide every card at once.
-            if (oldCol.classList.contains('switch-card')) {
-                freshCol.classList.toggle('active-card', oldCol.classList.contains('active-card'));
-            }
-            // Same problem as active-card above, for Referral Selection's
-            // All/New/Review tabs: freshCol always renders with the
-            // template's hardcoded default tab ("All") active. Correcting
-            // that afterwards (window.initReferralTabs(), below) still
-            // means freshCol briefly enters the document showing "All"
-            // before that correction lands - visible as the tab flicking to
-            // All and back on every Add/Remove. Carry over the old column's
-            // actual active tab onto freshCol *before* it's inserted so it
-            // never shows the wrong tab at all.
-            var oldActiveTabBtn = oldCol.querySelector('[data-referral-tab].active');
-            if (oldActiveTabBtn) {
-                var activeTab = oldActiveTabBtn.dataset.referralTab;
-                freshCol.querySelectorAll('[data-referral-tab]').forEach(function (b) {
-                    b.classList.toggle('active', b.dataset.referralTab === activeTab);
-                });
-                freshCol.querySelectorAll('[data-referral-tab-panel]').forEach(function (p) {
-                    p.hidden = p.dataset.referralTabPanel !== activeTab;
-                });
-            }
-            oldCol.replaceWith(freshCol);
-            // freshCol's <select>s (Priority, etc.) are plain DOMParser output,
-            // never run through enhanceSelect - without this they render as
-            // bare native dropdowns (no colour class, no popover, default
-            // browser chevron) once swapped in, unlike every select on a
-            // normal full-page load. Runs after replaceWith so it's live in
-            // the document, matching every other place enhanceSelect expects
-            // to measure/append against real layout.
+            growPromises = growPromises.concat(
+                window.diffPatchRowList(oldZoneEl, freshZoneEl, 'data-drop-id', function (row) { bindRow(row, name); })
+            );
+            // freshZoneEl's <select>s (Priority, etc.) are plain DOMParser
+            // output, never run through enhanceSelect - enhanceSelect is
+            // idempotent (its own _uiSelect guard), so it's safe to call
+            // broadly here rather than tracking exactly which rows the diff
+            // just touched.
             if (window.enhanceSelect) {
-                freshCol.querySelectorAll('select').forEach(window.enhanceSelect);
+                oldZoneEl.querySelectorAll('select').forEach(window.enhanceSelect);
             }
+
+            var oldCol = oldZoneEl.closest('.setup-col') || oldZoneEl;
+            if (patchedCols.indexOf(oldCol) !== -1) return;
+            patchedCols.push(oldCol);
+            var freshCol = freshZoneEl.closest('.setup-col') || freshZoneEl;
+            // Tab/heading counts (see InteractionLanguage.md's "Tab
+            // count-delta pulse") live in the column's header/tab-row, not
+            // inside the zone element itself - sync them directly from the
+            // fresh doc now that a whole-column swap doesn't bring them
+            // along for free.
+            oldCol.querySelectorAll('[data-count-key]').forEach(function (el) {
+                var key = el.dataset.countKey;
+                var freshEl = freshCol.querySelector('[data-count-key="' + key + '"]');
+                if (!freshEl) return;
+                var oldCount = parseInt(el.dataset.count, 10) || 0;
+                var newCount = parseInt(freshEl.dataset.count, 10) || 0;
+                if (oldCount === newCount) return;
+                el.dataset.count = String(newCount);
+                var countEl = el.classList.contains('count') ? el : el.querySelector('.count');
+                if (countEl) {
+                    countEl.textContent = '(' + newCount + ')';
+                    window.pulseCount(countEl, newCount > oldCount ? 'up' : 'down');
+                }
+            });
         });
-        names.forEach(function (name) {
-            var freshZoneEl = document.querySelector('[data-drop-zone="' + name + '"]');
-            if (freshZoneEl) zones[name].el = freshZoneEl;
-        });
-        names.forEach(bindZone);
-        if (window.initReferralTabs) window.initReferralTabs();
-        return flashAcrossZones(flashInfo, names);
+        return growPromises.concat(flashAcrossZones(flashInfo, names));
     }
 
     // --- Column swap serialization ---------------------------------------
-    // A column (.setup-col) must never be torn out via applyFreshDoc's
-    // oldCol.replaceWith() while any row inside it is still mid shrink/grow
-    // - whether that animation belongs to the same action that's asking to
-    // swap this column, or a *different*, concurrent one (e.g. Remove's
-    // immediate "referral reappears in the pool" swap racing an unrelated
-    // Add whose pool row is still shrinking away in that very same column).
-    // Swapping early cuts the other animation short - the row doesn't
-    // finish fading, it just vanishes. Every swap request, whether it would
-    // previously have been "immediate" or "deferred", is funnelled through
-    // requestSwap()/flushColumn() below, keyed by column, so a swap only
-    // ever actually happens once nothing in that column is animating.
+    // A column's zones must never be re-fetched-and-diff-patched (see
+    // applyFreshDoc above) while any row inside them is still mid
+    // shrink/grow - whether that animation belongs to the same action that's
+    // asking to apply this fetch, or a *different*, concurrent one (e.g.
+    // Remove's immediate "referral reappears in the pool" swap racing an
+    // unrelated Add whose pool row is still shrinking away in that very same
+    // column). Applying early cuts the other animation short - the row
+    // doesn't finish fading, it just vanishes. Every swap request, whether
+    // it would previously have been "immediate" or "deferred", is funnelled
+    // through requestSwap()/flushColumn() below, keyed by column, so a
+    // fetch+apply only ever actually happens once nothing in that column is
+    // animating. This still matters even though applyFreshDoc's own diff no
+    // longer destroys untouched rows - fetchFreshDoc() re-reads the entire
+    // page's server state, so two overlapping fetches for the same column
+    // would still risk the older one's snapshot landing after, and
+    // overwriting, whatever the newer one already applied.
     function columnState(col) {
         if (!col._swapState) col._swapState = { pendingAnims: 0, flushing: false, names: [], flashes: [], pendingFlush: null, resolvePendingFlush: null };
         return col._swapState;
@@ -1937,6 +2513,54 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
         return requestSwapAll(zoneNames, flashInfo);
     }
 
+    // A pool row carries its own origin (see _referral_selection_row.html's
+    // data-add-action) regardless of which zone/tab it's currently shown
+    // under - lets a row leaving any of Referral Selection's three zones
+    // (All, New, Reviews Due) resolve which specific count-key(s) it affects
+    // without this file needing to know Referral Selection's own domain
+    // vocabulary beyond this one lookup.
+    var ADD_ACTION_TO_COUNT_KEY = { add_referral: 'new', add_followup_to_agenda: 'followup' };
+
+    // The increase side of an Add/Remove already pulses immediately (the
+    // *other* column's swap isn't gated - see refreshZonesAfter below). The
+    // decrease side used to wait out the full ~900ms shrink-out before its
+    // count changed at all, since that's genuinely how long the column swap
+    // that carries the new number is held off (see beginColumnAnim below) -
+    // correct for the DOM swap, but read as a laggy, asymmetric pulse next to
+    // the instant increase. This settles the count(s) the instant the row
+    // starts leaving, ahead of the real swap: by the time that swap lands,
+    // the freshly-fetched number already matches what's showing, so nothing
+    // re-pulses - it's a genuine early decrement, not a fake one that gets
+    // corrected later.
+    function optimisticallyDecrementCounts(row, col) {
+        if (!col) return;
+        var keyEls = col.querySelectorAll('[data-count-key]');
+        if (!keyEls.length) return;
+        var targetKeys;
+        if (row.dataset.addAction) {
+            var originKey = ADD_ACTION_TO_COUNT_KEY[row.dataset.addAction];
+            targetKeys = originKey ? ['all', originKey] : ['all'];
+        } else if (keyEls.length === 1) {
+            // A column with a single count (Panel Agenda's heading, Meeting
+            // Agenda's Students Pending heading) - unambiguous, no per-row
+            // classification needed.
+            targetKeys = [keyEls[0].dataset.countKey];
+        } else {
+            return;
+        }
+        keyEls.forEach(function (el) {
+            if (targetKeys.indexOf(el.dataset.countKey) === -1) return;
+            var oldCount = parseInt(el.dataset.count, 10) || 0;
+            var newCount = Math.max(0, oldCount - 1);
+            el.dataset.count = String(newCount);
+            var countEl = el.classList.contains('count') ? el : el.querySelector('.count');
+            if (countEl) {
+                countEl.textContent = '(' + newCount + ')';
+                window.pulseCount(countEl, 'down');
+            }
+        });
+    }
+
     // Starts a row's local shrink-out animation *and* registers it with the
     // column swap gate in the same synchronous tick (see beginColumnAnim) -
     // both have to happen together, with nothing async in between. Doing the
@@ -1950,6 +2574,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
     // settles).
     function startRowRemoval(row) {
         var col = row.closest('.setup-col');
+        optimisticallyDecrementCounts(row, col);
         var release = beginColumnAnim(col);
         var animDone = new Promise(function (resolve) { shrinkAndFadeOut(row, resolve); });
         animDone.then(release);
@@ -2625,11 +3250,18 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
 
     // Delegated at the document level (rather than wired per-picker inside
     // initMemberPicker) so one listener covers every picker instance on the
-    // page, present now or rendered in later.
+    // page, present now or rendered in later. The toggle itself now lives in
+    // the including page's own footer (e.g. .panel-group-modal-footer), not
+    // inside the picker's own root (see _member_picker.html's doc comment),
+    // so it can't be found via toggle.closest('[data-member-picker-root]')
+    // any more - only one picker is ever visible per dialog at a time, so
+    // scoping the lookup to the toggle's nearest <dialog> instead finds the
+    // same, single, currently-active picker root.
     document.addEventListener('click', function (e) {
         var toggle = e.target.closest('[data-member-add-external-toggle]');
         if (!toggle) return;
-        var pickerRoot = toggle.closest('[data-member-picker-root]');
+        var scope = toggle.closest('dialog') || document;
+        var pickerRoot = scope.querySelector('[data-member-picker-root]');
         if (pickerRoot) window.openExternalContactQuickAdd(pickerRoot);
     });
 
@@ -2696,6 +3328,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var results = document.getElementById('panel-search-results');
     var kindLabels = { student: 'Students', staff: 'Staff' };
     var debounceTimer = null;
+    // Shown before typing anything (and again once the box is cleared)
+    // rather than leaving `results` truly empty - the dialog no longer has a
+    // fixed height (see dialog#panel-search-dialog[open], panel.css), so a
+    // genuinely empty results area would collapse it down to just the
+    // search field the instant it opens, then jump back to full size once
+    // there's something to show. Reserving this one line of height up
+    // front means it only ever settles once.
+    var IDLE_HTML = '<p class="empty-note">Start typing to search students and staff…</p>';
 
     function escapeHtml(str) {
         var div = document.createElement('div');
@@ -2707,8 +3347,21 @@ document.addEventListener('DOMContentLoaded', function () {
         return parseFloat(getComputedStyle(dialog).getPropertyValue('--transition-slow')) || 400;
     }
 
+    // Every results swap after the dialog is already open goes through
+    // animateModalHeightChange, same as every other modal in the app whose
+    // content changes shape at runtime (see InteractionLanguage.md) - the
+    // dialog now grows/shrinks with the live result count instead of
+    // staying pinned to a fixed height regardless of content.
+    function setResults(html) {
+        window.animateModalHeightChange(dialog, function () { results.innerHTML = html; });
+    }
+
     function openModal() {
-        results.innerHTML = '';
+        // Not wrapped in setResults: the dialog isn't open yet, so there's
+        // nothing to animate from - animateModalHeightChange would just call
+        // its mutate callback directly anyway (see its own !dialog.open
+        // guard), this skips the pointless measure/pin work.
+        results.innerHTML = IDLE_HTML;
         dialog.showModal();
         requestAnimationFrame(function () {
             dialog.classList.add('is-open');
@@ -2722,7 +3375,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function renderResults(items) {
         if (!items.length) {
-            results.innerHTML = '<p class="empty-note">No matches found.</p>';
+            setResults('<p class="empty-note">No matches found.</p>');
             return;
         }
         var groups = {};
@@ -2753,7 +3406,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             html += '</div>';
         });
-        results.innerHTML = html;
+        setResults(html);
     }
 
     function runSearch(q) {
@@ -2766,12 +3419,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var q = input.value.trim();
         clearTimeout(debounceTimer);
         if (q.length === 0) {
-            results.innerHTML = '';
+            setResults(IDLE_HTML);
             return;
         }
         if (q.length === 1) {
             debounceTimer = setTimeout(function () {
-                results.innerHTML = '<p class="empty-note search-hint">Keep typing… (2+ characters)</p>';
+                setResults('<p class="empty-note search-hint">Keep typing… (2+ characters)</p>');
             }, getTransitionSlowMs());
             return;
         }

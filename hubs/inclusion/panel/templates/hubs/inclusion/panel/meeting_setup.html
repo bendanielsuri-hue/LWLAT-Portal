@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda Setup{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=141">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=158">
 {% endblock %}
 
 
@@ -46,8 +46,7 @@
             <h2>Settings</h2>
             <button type="button" class="btn btn-subtle btn-sm" data-edit-settings-trigger data-panel-id="{{ panel.id }}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
         </div>
-        <div class="setup-col-body">
-        <div class="settings-sticky">
+        <div class="settings-fixed">
         <div class="panel-summary">
             <div class="summary-line">
                 <span class="summary-label">Group</span>
@@ -70,11 +69,22 @@
                 {% csrf_token %}
                 <span class="ui-fused-field ui-fused-field--stacked">
                     <label class="ui-fused-field-label" for="panel-chair">Chair</label>
-                    <select id="panel-chair" name="chair">
-                        <option value="">No chair set</option>
+                    <select id="panel-chair" name="chair" class="chair-select" data-default-chair-id="{{ panel.panel_group.default_chair_id|default:'' }}">
+                        {% comment %}
+                        Real newline between "Default Chair" and the name (not
+                        a space/parenthetical) - .chair-select's CSS turns on
+                        white-space: pre-line so this renders as a genuine
+                        second line, both in the closed trigger and the open
+                        popover row (see enhanceSelect in main.js, which turns
+                        every <select> into a .ui-select-trigger/.ui-option
+                        pair reading this same option's textContent verbatim).
+                        {% endcomment %}
+                        <option value="default" {% if panel.chair_follows_default %}selected{% endif %}>Default Chair
+{% if panel.panel_group.default_chair %}{{ panel.panel_group.default_chair.first_name }} {{ panel.panel_group.default_chair.last_name }}{% else %}None set{% endif %}</option>
+                        <option value="" {% if not panel.chair_follows_default and not panel.chair_id %}selected{% endif %}>No chair set</option>
                         {% for member in active_members %}
                         {% if member.staff_id %}
-                        <option value="{{ member.staff_id }}" {% if panel.chair_id == member.staff_id %}selected{% endif %}>{{ member.staff.first_name }} {{ member.staff.last_name }}</option>
+                        <option value="{{ member.staff_id }}" {% if not panel.chair_follows_default and panel.chair_id == member.staff_id %}selected{% endif %}>{{ member.staff.first_name }} {{ member.staff.last_name }}</option>
                         {% endif %}
                         {% endfor %}
                     </select>
@@ -82,13 +92,14 @@
             </div>
             {% endif %}
         </div>
+        </div>
 
         <hr class="setup-divider">
 
+        <div class="setup-col-body">
         <div class="setup-col-header">
             <h3>Members</h3>
             <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ panel.panel_group_id|default:'' }}" {% if not panel.panel_group_id %}disabled title="Assign a Panel Group first"{% endif %}><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
-        </div>
         </div>
         <div class="entity-list entity-list--bleed" data-panel-members-list>
             {% for member in active_members %}
@@ -150,7 +161,10 @@
 
         function updateChairPills() {
             if (!chairSelect) return;
-            var chairId = chairSelect.value;
+            // "default" isn't a real staff id - it means "whoever the Panel
+            // Group's default_chair currently is", read off the select's own
+            // data attribute (server-rendered from panel.panel_group.default_chair_id).
+            var chairId = chairSelect.value === 'default' ? chairSelect.dataset.defaultChairId : chairSelect.value;
             document.querySelectorAll('[data-chair-pill]').forEach(function (pill) {
                 var row = pill.closest('.entity-row');
                 var isMatch = !!(row && chairId && row.dataset.active === '1' && row.dataset.staffId === chairId);
@@ -194,17 +208,48 @@
         // that changed is actually the one this panel is using - fetch
         // this same page fresh (matches the fetchFreshDoc/applyFreshDoc
         // pattern used for the Referral Selection/Panel Agenda columns
-        // below) and swap in just the Members list.
+        // below) and diff+animate just the Members list (window.diffPatchRowList
+        // in panel.js) instead of yanking the whole container in as a static
+        // snapshot, so add/remove reads the same here as it does in the modal.
+        //
+        // The Chair select's <option> list is driven by this same roster
+        // (only active members with a staff_id are chairable, see
+        // chair_choices/active_members in views.py) and needs the same
+        // refresh - a member added in the modal couldn't be picked as Chair,
+        // and one deactivated/removed stayed pickable, until a full reload.
+        // Its `selected` markup is also server-authoritative (chair_id gets
+        // cleared server-side if the deactivated member was chair - see
+        // toggle_group_member_active), so swapping in the fresh <option>s
+        // wholesale is correct, not just for the roster but for what's
+        // currently selected too. Replacing innerHTML (not the whole select
+        // node) keeps this same element/its change listener intact.
+        var membersListSeqEl = document.querySelector('[data-panel-members-list]');
         document.addEventListener('panel-group:updated', function (e) {
             var detail = e.detail;
             if (!detail || String(detail.id) !== currentPanelGroupId) return;
+            var seq = membersListSeqEl ? window.beginFetchSeq(membersListSeqEl) : null;
             fetch(window.location.pathname, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (res) { return res.text(); })
                 .then(function (html) {
+                    if (membersListSeqEl && !window.isCurrentFetchSeq(membersListSeqEl, seq)) return;
                     var doc = new DOMParser().parseFromString(html, 'text/html');
                     var freshList = doc.querySelector('[data-panel-members-list]');
                     var oldList = document.querySelector('[data-panel-members-list]');
-                    if (freshList && oldList) oldList.replaceWith(freshList);
+                    if (freshList && oldList) window.diffPatchRowList(oldList, freshList, 'data-member-id');
+
+                    var freshChairSelect = doc.getElementById('panel-chair');
+                    if (freshChairSelect && chairSelect) {
+                        chairSelect.innerHTML = freshChairSelect.innerHTML;
+                        chairSelect.dataset.defaultChairId = freshChairSelect.dataset.defaultChairId || '';
+                        // The visible control is window.enhanceSelect's mirrored
+                        // trigger button/popover (main.js), not this <select>
+                        // itself - it's hidden off-screen once enhanced. Its own
+                        // refresh() re-reads these fresh options into both; a
+                        // plain updateChairPills() alone would leave the visible
+                        // trigger/popover showing the stale roster.
+                        if (chairSelect._uiSelect) chairSelect._uiSelect.refresh();
+                        updateChairPills();
+                    }
                 });
         });
 
@@ -218,9 +263,9 @@
         <div class="setup-col-body">
 
         <div class="tab-row">
-            <button type="button" class="active" data-referral-tab="all">All ({{ referral_selection_entries|length }})</button>
-            <button type="button" data-referral-tab="new">New Referrals ({{ new_entries|length }})</button>
-            <button type="button" data-referral-tab="followup">Reviews Due ({{ followup_entries|length }})</button>
+            <button type="button" class="active" data-referral-tab="all" data-count-key="all" data-count="{{ referral_selection_entries|length }}">All <span class="count">({{ referral_selection_entries|length }})</span></button>
+            <button type="button" data-referral-tab="new" data-count-key="new" data-count="{{ new_entries|length }}">New Referrals <span class="count">({{ new_entries|length }})</span></button>
+            <button type="button" data-referral-tab="followup" data-count-key="followup" data-count="{{ followup_entries|length }}">Reviews Due <span class="count">({{ followup_entries|length }})</span></button>
         </div>
 
         <div data-referral-tab-panel="all">
@@ -293,7 +338,7 @@
 
     <div class="setup-col switch-card" id="panel-agenda-card">
         <div class="setup-col-header">
-            <h2>Panel Agenda <span class="panel-card-count">({{ agenda|length }})</span></h2>
+            <h2>Panel Agenda <span class="panel-card-count count" data-count-key="heading" data-count="{{ agenda|length }}">({{ agenda|length }})</span></h2>
             {% if panel.status == 'draft' or panel.status == 'ready' %}
             <form method="post" class="ready-toggle-form" id="ready-toggle-form">
                 {% csrf_token %}
