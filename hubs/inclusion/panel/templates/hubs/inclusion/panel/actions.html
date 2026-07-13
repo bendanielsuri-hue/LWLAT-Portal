@@ -56,15 +56,6 @@
             {% endfor %}
         </select>
     </div>
-    <div class="filter-field" data-not-a-filter>
-        <label for="me-select">Staff Assigned</label>
-        <select id="me-select">
-            <option value="">Select yourself…</option>
-            {% for staff in staff_list %}
-            <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-            {% endfor %}
-        </select>
-    </div>
     <div class="filter-field">
         <label>Overdue Only</label>
         <div class="filter-toggle-wrap">
@@ -136,7 +127,6 @@ document.addEventListener('DOMContentLoaded', function () {
     var statusFilter = document.getElementById('status-filter');
     var overdueToggle = document.getElementById('overdue-toggle');
     var dueThisWeekToggle = document.getElementById('due-this-week-toggle');
-    var meSelect = document.getElementById('me-select');
     var assignedToMeToggle = document.getElementById('assigned-to-me-toggle');
     var clearFiltersBtn = document.getElementById('clear-filters');
     var visibleCount = document.getElementById('visible-count');
@@ -145,16 +135,12 @@ document.addEventListener('DOMContentLoaded', function () {
     var rows = document.querySelectorAll('.action-row');
     var refreshFilterBarState = window.wireFilterBarActiveState(document.querySelector('.filter-bar'));
 
-    // No login system exists yet, so "who am I" is just remembered per-browser —
-    // same pattern as the theme/colour prefs in main.js.
-    var ME_STORAGE_KEY = 'inclusion-current-staff-id';
-    if (meSelect) {
-        try { meSelect.value = localStorage.getItem(ME_STORAGE_KEY) || ''; } catch (e) { }
-        meSelect.addEventListener('change', function () {
-            try { localStorage.setItem(ME_STORAGE_KEY, meSelect.value); } catch (e) { }
-            applyFilters();
-        });
-    }
+    // "Who am I" comes from the sidebar's current-user identity cookie (see
+    // core.identity), surfaced here via the current_staff_id context
+    // processor value - same identity every other hub page uses, rather
+    // than a page-local picker. Switching identity in the sidebar reloads
+    // the page, which re-renders this value.
+    var CURRENT_STAFF_ID = '{{ current_staff_id }}';
 
     function applyFilters() {
         var term = search ? search.value.trim().toLowerCase() : '';
@@ -163,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var overdueOnly = overdueToggle && overdueToggle.classList.contains('on');
         var dueThisWeekOnly = dueThisWeekToggle && dueThisWeekToggle.classList.contains('on');
         var assignedToMeOnly = assignedToMeToggle && assignedToMeToggle.classList.contains('on');
-        var assigned = assignedToMeOnly ? (meSelect ? meSelect.value : '') : (assignedFilter ? assignedFilter.value : '');
+        var assigned = assignedToMeOnly ? CURRENT_STAFF_ID : (assignedFilter ? assignedFilter.value : '');
         var shown = 0;
         var students = new Set();
         var referrals = new Set();
