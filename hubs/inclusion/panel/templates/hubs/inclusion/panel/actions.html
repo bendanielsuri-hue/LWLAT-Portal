@@ -23,22 +23,28 @@
 <div class="list-page-shell">
 
 {% comment %}
-PROTOTYPE (issue #13) — filter review for Actions, reusing the
-progressive-disclosure shape confirmed on Students (#9)/Referrals (#11):
-primary filters stay inline (Name/Category/Assigned To/Status - unchanged
-from before), candidates sit behind a "More filters" toggle (style 1 -
-filled button chip, same .btn.btn-sm height as Clear Filters). Overdue
-Only/Due This Week/Assigned to Me (all pre-existing) moved back there too
-- Actions already had the widest primary filter set of the three pages
-before adding Priority/Concern Category, so the primary row stays as it
-was rather than growing to 6 fields.
+PROTOTYPE (issue #13) — filter review for Actions. Priority/Concern
+Category/Assigned to Me all dropped (tried behind a "More filters"
+disclosure first, rejected). Overdue Only + Due This Week merged into one
+Due Date dropdown with more tiers (Overdue/Due Today/Due This Week/Due
+Next Week/No Due Date) rather than one toggle per tier. Name switched
+from a text search to a dropdown, scoped to only students who actually
+have an action (not every student) so it stays a bounded list. With
+those five removed/merged, the remaining five fields (Name/Category/
+Assigned To/Status/Due Date) fit inline with no disclosure needed - the
+progressive-disclosure shape from Students (#9)/Referrals (#11) doesn't
+apply here any more.
 {% endcomment %}
 <form method="get" class="filter-bar" data-ajax-target="#actions-filtered-content">
-    <div class="proto-filter-fields-wrap">
     <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
-        <label for="name-search">Name Search</label>
-        <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
+        <label for="name-filter">Name</label>
+        <select id="name-filter" name="name">
+            <option value="" {% if not name_filter %}selected{% endif %}>All</option>
+            {% for student in students_with_actions %}
+            <option value="{{ student.id }}" {% if name_filter == student.id|stringformat:'s' %}selected{% endif %}>{{ student }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div class="filter-field{% if category_filter %} filter-field--active{% endif %}">
         <label for="category-filter">Category</label>
@@ -68,58 +74,18 @@ was rather than growing to 6 fields.
             {% endfor %}
         </select>
     </div>
-
-    <div class="proto-filter-secondary-fields" hidden>
-        <span class="proto-filter-divider"></span>
-        <div class="filter-field">
-            <label>Overdue Only</label>
-            <div class="filter-toggle-wrap">
-                <input type="checkbox" id="overdue-input" name="overdue" value="1" hidden {% if overdue_filter %}checked{% endif %}>
-                <button type="button" id="overdue-toggle" class="toggle-pill{% if overdue_filter %} on{% endif %}" aria-pressed="{% if overdue_filter %}true{% else %}false{% endif %}" aria-label="Overdue Only"><span class="toggle-knob"></span></button>
-            </div>
-        </div>
-        <div class="filter-field">
-            <label>Due This Week</label>
-            <div class="filter-toggle-wrap">
-                <input type="checkbox" id="due-this-week-input" name="due_this_week" value="1" hidden {% if due_this_week_filter %}checked{% endif %}>
-                <button type="button" id="due-this-week-toggle" class="toggle-pill{% if due_this_week_filter %} on{% endif %}" aria-pressed="{% if due_this_week_filter %}true{% else %}false{% endif %}" aria-label="Due This Week"><span class="toggle-knob"></span></button>
-            </div>
-        </div>
-        <div class="filter-field">
-            <label>Assigned to Me</label>
-            <div class="filter-toggle-wrap">
-                <input type="checkbox" id="assigned-to-me-input" name="assigned_to_me" value="1" hidden {% if assigned_to_me_filter %}checked{% endif %}>
-                <button type="button" id="assigned-to-me-toggle" class="toggle-pill{% if assigned_to_me_filter %} on{% endif %}" aria-pressed="{% if assigned_to_me_filter %}true{% else %}false{% endif %}" aria-label="Assigned to Me"><span class="toggle-knob"></span></button>
-            </div>
-        </div>
-        <div class="filter-field{% if priority_filter %} filter-field--active{% endif %}">
-            <label for="priority-filter">Priority</label>
-            <select id="priority-filter" name="priority">
-                <option value="">All</option>
-                {% for value, label in priority_choices %}
-                <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="filter-field{% if concern_filter %} filter-field--active{% endif %}">
-            <label for="concern-filter">Concern Category</label>
-            <select id="concern-filter" name="concern">
-                <option value="">All</option>
-                {% for c in concern_choices %}
-                <option value="{{ c }}" {% if concern_filter == c %}selected{% endif %}>{{ c }}</option>
-                {% endfor %}
-            </select>
-        </div>
+    <div class="filter-field{% if due_filter %} filter-field--active{% endif %}">
+        <label for="due-filter">Due Date</label>
+        <select id="due-filter" name="due" class="ui-select--center">
+            <option value="" {% if not due_filter %}selected{% endif %}>All</option>
+            <option value="overdue" {% if due_filter == 'overdue' %}selected{% endif %}>Overdue</option>
+            <option value="today" {% if due_filter == 'today' %}selected{% endif %}>Due Today</option>
+            <option value="this_week" {% if due_filter == 'this_week' %}selected{% endif %}>Due This Week</option>
+            <option value="next_week" {% if due_filter == 'next_week' %}selected{% endif %}>Due Next Week</option>
+            <option value="no_due_date" {% if due_filter == 'no_due_date' %}selected{% endif %}>No Due Date</option>
+        </select>
     </div>
-    </div>
-
-    <div class="proto-filter-actions-right">
-        <button type="button" class="btn btn-sm btn-secondary proto-toggle-1" data-proto-more-filters aria-expanded="false">
-            <span class="proto-toggle-1-icon">{% include 'icons/arrow_down_svg.html' %}</span>
-            More filters
-        </button>
-        <a href="{% url 'inclusion_panel_actions' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
-    </div>
+    <a href="{% url 'inclusion_panel_actions' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
 </form>
 
 <div id="actions-filtered-content">
@@ -128,62 +94,11 @@ was rather than growing to 6 fields.
 
 </div>
 
-<style>
-.proto-filter-fields-wrap { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-xs); flex: 1; min-width: 0; }
-.proto-filter-actions-right {
-    display: flex; flex-direction: column; justify-content: center; gap: 4px;
-    align-self: stretch; flex-shrink: 0;
-    border-left: 1px solid var(--border-strong); padding-left: var(--space-md);
-}
-.proto-filter-actions-right .filter-bar-clear { margin-left: 0; }
-.proto-filter-actions-right .btn { width: 100%; }
-.proto-filter-secondary-fields { display: contents; }
-.proto-filter-secondary-fields[hidden] { display: none; }
-.proto-filter-divider { flex-basis: 100%; height: 0; border-top: 2px solid var(--border-strong); }
-.proto-toggle-1 { display: flex; align-items: center; gap: 6px; width: 100%; }
-.proto-toggle-1-icon { display: inline-flex; transition: transform var(--transition-fast); }
-.proto-toggle-1-icon svg { width: 14px; height: 14px; }
-.proto-toggle-1[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
-.proto-toggle-1[aria-expanded="true"] .proto-toggle-1-icon { transform: rotate(180deg); }
-</style>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
-
-    function setupToggle(toggle, input) {
-        if (!toggle || !input) return;
-        toggle.addEventListener('click', function () {
-            var isOn = toggle.classList.toggle('on');
-            toggle.setAttribute('aria-pressed', String(isOn));
-            input.checked = isOn;
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-    }
-    setupToggle(document.getElementById('overdue-toggle'), document.getElementById('overdue-input'));
-    setupToggle(document.getElementById('due-this-week-toggle'), document.getElementById('due-this-week-input'));
-    setupToggle(document.getElementById('assigned-to-me-toggle'), document.getElementById('assigned-to-me-input'));
-
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
-
-    var moreFiltersBtn = document.querySelector('[data-proto-more-filters]');
-    var secondaryRow = document.querySelector('.proto-filter-secondary-fields');
-    if (moreFiltersBtn && secondaryRow) {
-        var hasActiveSecondary = secondaryRow.querySelector('.filter-field--active')
-            || (document.getElementById('overdue-input') && document.getElementById('overdue-input').checked)
-            || (document.getElementById('due-this-week-input') && document.getElementById('due-this-week-input').checked)
-            || (document.getElementById('assigned-to-me-input') && document.getElementById('assigned-to-me-input').checked);
-        if (hasActiveSecondary) {
-            secondaryRow.hidden = false;
-            moreFiltersBtn.setAttribute('aria-expanded', 'true');
-        }
-        moreFiltersBtn.addEventListener('click', function () {
-            var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
-            secondaryRow.hidden = expanded;
-            moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
-        });
-    }
 });
 </script>
 {% endblock %}

@@ -1243,62 +1243,46 @@ def inclusion_panel_actions(request):
     category_filter = request.GET.get('category') or ''
     assigned_filter = request.GET.get('assigned') or ''
     status_filter = request.GET.get('status') or ''
-    # PROTOTYPE (issue #13) — candidate filters behind "More filters",
-    # reusing the progressive-disclosure shape confirmed on Students (#9)/
-    # Referrals (#11). Overdue/Due This Week/Assigned to Me moved back here
-    # too - Actions already had the widest primary filter set of the three
-    # pages before adding these, so the primary row stays Name/Category/
-    # Assigned To/Status only.
-    overdue_filter = request.GET.get('overdue') == '1'
-    due_this_week_filter = request.GET.get('due_this_week') == '1'
-    assigned_to_me_filter = request.GET.get('assigned_to_me') == '1' and current_staff is not None
-    priority_filter = request.GET.get('priority') or ''
-    concern_filter = request.GET.get('concern') or ''
+    # PROTOTYPE (issue #13) — Due Date consolidates the old separate
+    # Overdue Only/Due This Week toggles into one dropdown with a few more
+    # tiers, rather than one toggle per tier.
+    due_filter = request.GET.get('due') or ''
+    next_week_start = week_start + datetime.timedelta(days=7)
+    next_week_end = week_end + datetime.timedelta(days=7)
 
-    actions_qs = Action.objects.filter(referral__student__in=student_queryset_for_school_key(school_key)).select_related(
+    scoped_students = student_queryset_for_school_key(school_key)
+    actions_qs = Action.objects.filter(referral__student__in=scoped_students).select_related(
         'referral__student', 'assigned_to', 'category',
-    ).prefetch_related('referral__responses__question')
+    )
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
 
     if name_filter:
-        actions_qs = actions_qs.filter(
-            Q(referral__student__first_name__icontains=name_filter)
-            | Q(referral__student__last_name__icontains=name_filter)
-        )
+        actions_qs = actions_qs.filter(referral__student_id=name_filter)
     if category_filter:
         actions_qs = actions_qs.filter(category_id=category_filter)
-    if assigned_to_me_filter:
-        actions_qs = actions_qs.filter(assigned_to_id=current_staff.id)
-    elif assigned_filter == 'unassigned':
+    if assigned_filter == 'unassigned':
         actions_qs = actions_qs.filter(assigned_to__isnull=True)
     elif assigned_filter:
         actions_qs = actions_qs.filter(assigned_to_id=assigned_filter)
     if status_filter:
         actions_qs = actions_qs.filter(status=status_filter)
-    if overdue_filter:
+    if due_filter == 'overdue':
         actions_qs = actions_qs.filter(status='incomplete', due_date__lt=today)
-    if due_this_week_filter:
-        actions_qs = actions_qs.filter(status='incomplete', due_date__gte=week_start, due_date__lte=week_end)
-    if priority_filter:
-        actions_qs = actions_qs.filter(referral__priority=priority_filter)
-    if concern_filter:
-        actions_qs = actions_qs.filter(
-            referral__responses__question__label='Main Concern Category', referral__responses__answer=concern_filter
-        )
-    actions_qs = actions_qs.distinct()
+    elif due_filter == 'today':
+        actions_qs = actions_qs.filter(due_date=today)
+    elif due_filter == 'this_week':
+        actions_qs = actions_qs.filter(due_date__gte=week_start, due_date__lte=week_end)
+    elif due_filter == 'next_week':
+        actions_qs = actions_qs.filter(due_date__gte=next_week_start, due_date__lte=next_week_end)
+    elif due_filter == 'no_due_date':
+        actions_qs = actions_qs.filter(due_date__isnull=True)
 
     actions = list(actions_qs)
 
     active_filter_count = sum(
-        1 for v in (
-            name_filter, category_filter, assigned_filter, status_filter,
-            overdue_filter, due_this_week_filter, assigned_to_me_filter,
-            priority_filter, concern_filter,
-        ) if v
+        1 for v in (name_filter, category_filter, assigned_filter, status_filter, due_filter) if v
     )
-
-    concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
 
     context = {
         **_panel_base_context(request),
@@ -1310,21 +1294,20 @@ def inclusion_panel_actions(request):
         'week_start': week_start,
         'week_end': week_end,
         'name_filter': name_filter,
+        # PROTOTYPE (issue #13) — Name is now a dropdown of students who
+        # actually have an action, scoped to the current school selection,
+        # rather than a free-text search - bounded list, not every student.
+        'students_with_actions': Student.objects.filter(
+            pk__in=Action.objects.filter(referral__student__in=scoped_students).values('referral__student_id')
+        ).order_by('last_name', 'first_name'),
         'category_filter': category_filter,
         'assigned_filter': assigned_filter,
         'status_filter': status_filter,
-        'overdue_filter': overdue_filter,
-        'due_this_week_filter': due_this_week_filter,
-        'assigned_to_me_filter': assigned_to_me_filter,
+        'due_filter': due_filter,
         'active_filter_count': active_filter_count,
         'actions_count': len(actions),
         'students_count': len({a.referral.student_id for a in actions}),
         'referrals_count': len({a.referral_id for a in actions}),
-        # PROTOTYPE (issue #13) — candidate filters behind "More filters".
-        'priority_filter': priority_filter,
-        'priority_choices': InclusionReferral.PRIORITY_CHOICES,
-        'concern_filter': concern_filter,
-        'concern_choices': concern_question.choice_list() if concern_question else [],
     }
     template = 'hubs/inclusion/panel/_actions_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/actions.html'
     return render(request, template, context)
