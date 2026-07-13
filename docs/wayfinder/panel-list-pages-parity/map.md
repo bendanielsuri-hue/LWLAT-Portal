@@ -1,6 +1,6 @@
 ---
 label: wayfinder:map
-status: open
+status: closed
 ---
 
 # Map: Panel List Pages Parity
@@ -10,6 +10,8 @@ status: open
 Students, Referrals, and Actions (Inclusion Panel) converted to match the Panel Meetings page's pattern: server-side AJAX-filtered content (GET request swaps a partial via `data-ajax-target`, `active_filter_count` computed server-side) instead of today's render-everything + client-side `display:none` filtering. Status filtering lives only in the filter-bar dropdown, no tab-row anywhere (Meetings' own tab-row was removed during its review — see Decisions below). Actions' page-local "who am I" picker (localStorage `inclusion-current-staff-id`) is dropped in favour of `core.identity.current_staff` — the same identity cookie the sidebar switcher already sets everywhere else.
 
 Reached when all three pages match this pattern. Starts with a review/polish pass on Panel Meetings itself, since it's the reference every other ticket copies.
+
+**Reached.** All four tickets closed — [#1](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/1) Students, [#2](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/2) Actions identity unification, [#3](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/3) Referrals, [#4](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/4) Actions — plus [ticket 001](tickets/001-review-panel-meetings.md) (Panel Meetings review). Students, Referrals, and Actions now match Panel Meetings' server-side AJAX-filtering pattern exactly.
 
 ## Notes
 
@@ -23,13 +25,16 @@ Reached when all three pages match this pattern. Starts with a review/polish pas
 ## Decisions so far
 
 - [Review & improve Panel Meetings before it's the template](tickets/001-review-panel-meetings.md) — disabled Summary button switched from `<a href="#">` to `<span>`; page-header actions split into two stacked rows (app-wide vs page-specific) and documented in DesignLanguage.md; filter-bar border widened to 2px; empty referral/priority breakdown replaced with a "No Referrals" pill; delete-meeting button wired onto not-yet-started cards; **tab-row removed entirely, status filtering folded into the filter-bar as a plain dropdown** — this last one reverses the original destination statement above (tab-row was previously planned for Referrals/Actions too) and is now the pattern all three migration tickets follow instead.
+- [Migrate Students to server-side AJAX filtering (#1)](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/1) — own bespoke view (no shared filtering helper across pages, per the spec's Out of Scope); fixed an N+1 query pattern along the way via `Count(..., distinct=True)` annotations. "Has Referrals"/"Overdue Actions" toggles became `.filter(referrals_count__gt=0)`/`.filter(overdue_actions_count__gt=0)` on the annotated queryset.
+- [Unify Actions' "Assigned to Me" onto core.identity (#2)](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/2) — dropped the page-local localStorage picker; resolves against the sidebar's identity cookie everywhere.
+- [Migrate Referrals to server-side AJAX filtering (#3)](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/3) — Name/Status/Raised-By filter via the ORM; Section (unassigned/due-follow-up) stays a Python-level filter over the already-prefetched `panel_referrals`, since "unassigned" needs an `exclude()` across a multi-valued relation that's easy to get subtly wrong.
+- [Migrate Actions to server-side AJAX filtering (#4)](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/4) — all 7 filters (Name, Category, Assigned To, Status, Overdue, Due This Week, Assigned to Me) as plain ORM `.filter()` calls.
+- **Clear Filters**: every page uses a real `<a href="{% url ... %}">` link (matching Meetings), not a JS-only reset.
 
 ## Not yet specified
 
-- Whether the three pages share a backend filtering helper/partial-rendering convention, or each gets its own bespoke view (mirrors how much `_meetings_filtered_content.html`'s approach generalises once we're actually building it).
-- Whether "Clear Filters" becomes a real URL link per page (like Meetings' `<a href="{% url ... %}">`) and how existing query-param prefills (`?name=`, `?raised_by=`, `?assigned=`, `?status=`, `?overdue=1`, `?due_this_week=1`) survive the move to server-rendered partials.
-- Implementation shape of entity-specific filters once server-side: Students' "Has Referrals" / "Overdue Actions" toggles; Actions' Category / Overdue / Due This Week toggles.
+(none — destination reached, nothing left to specify)
 
 ## Out of scope
 
-(none yet)
+(none)

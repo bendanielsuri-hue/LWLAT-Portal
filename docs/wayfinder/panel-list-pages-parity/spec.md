@@ -1,6 +1,6 @@
 ---
-status: ready-for-agent
-tracker: none-configured (run /setup-matt-pocock-skills to wire a real tracker; filed as a repo markdown doc in the meantime)
+status: done
+tracker: GitHub Issues (configured partway through — see docs/agents/issue-tracker.md); this spec predates that and stayed local markdown
 map: map.md
 ---
 
