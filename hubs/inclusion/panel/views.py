@@ -823,6 +823,7 @@ def inclusion_panel_students(request):
 def inclusion_panel_referrals(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
     scoped_students = student_queryset_for_school_key(school_key)
     today = timezone.localdate()
     current_staff = _current_staff(request)
@@ -832,8 +833,10 @@ def inclusion_panel_referrals(request):
     status_filter = request.GET.get('status') or ''
     raised_by_filter = request.GET.get('raised_by') or ''
 
-    referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related('student').prefetch_related(
-        'responses__question', 'panel_referrals',
+    referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related(
+        'student', 'student__school', 'raised_by',
+    ).prefetch_related(
+        'responses__question', 'panel_referrals__panel__panel_group', 'actions',
     )
     if name_filter:
         referrals_qs = referrals_qs.filter(
@@ -860,11 +863,50 @@ def inclusion_panel_referrals(request):
             pr.follow_up_status == 'incomplete' and pr.follow_up_date and pr.follow_up_date <= today
             for pr in referral.panel_referrals.all()
         )
-        referral.actions_count = referral.actions.count()
+        referral_actions = list(referral.actions.all())
+        referral.actions_count = len(referral_actions)
+        referral.completed_actions_count = sum(1 for a in referral_actions if a.status == 'complete')
+        referral.incomplete_actions_count = sum(1 for a in referral_actions if a.status == 'incomplete')
         referral.can_delete = (
             referral.is_unassigned and current_staff is not None and referral.raised_by_id == current_staff.id
         )
         referral.concern_category = _primary_concern_category(referral)
+        # PROTOTYPE (issue #10) — richer row-detail candidates.
+        upcoming_prs = sorted(
+            (pr for pr in referral.panel_referrals.all() if pr.removed_at is None and pr.panel.date >= today),
+            key=lambda pr: pr.panel.date,
+        )
+        next_panel = upcoming_prs[0].panel if upcoming_prs else None
+        referral.next_panel_group = next_panel.panel_group if next_panel else None
+        referral.next_panel_date = next_panel.date if next_panel else None
+        past_prs = sorted(
+            (pr for pr in referral.panel_referrals.all() if pr.discussion_status == 'discussed' and pr.panel.date < today),
+            key=lambda pr: pr.panel.date,
+            reverse=True,
+        )
+        previous_panel = past_prs[0].panel if past_prs else None
+        referral.previous_panel_group = previous_panel.panel_group if previous_panel else None
+        referral.previous_panel_date = previous_panel.date if previous_panel else None
+        next_review_pr = next(
+            (pr for pr in referral.panel_referrals.all() if pr.follow_up_status == 'incomplete' and pr.follow_up_date),
+            None,
+        )
+        referral.next_review_date = next_review_pr.follow_up_date if next_review_pr else None
+        # New Referral vs Nth Review - same classification/labels/pill
+        # classes (type-new/type-followup) as Panel Agenda Setup's referral
+        # selection row (_referral_selection_row.html).
+        discussed_count = sum(1 for pr in referral.panel_referrals.all() if pr.discussion_status == 'discussed')
+        referral.is_new_referral = discussed_count == 0
+        referral.review_label = _review_label(discussed_count) if discussed_count else None
+        if referral.status == 'closed':
+            referral.review_pill_label = 'Closed'
+            referral.review_pill_class = 'type-already'
+        elif referral.is_new_referral:
+            referral.review_pill_label = 'New Referral'
+            referral.review_pill_class = 'type-new'
+        else:
+            referral.review_pill_label = referral.review_label
+            referral.review_pill_class = 'type-followup'
 
     if section_filter == 'unassigned':
         referrals = [r for r in referrals if r.is_unassigned]
@@ -885,6 +927,38 @@ def inclusion_panel_referrals(request):
         'active_filter_count': active_filter_count,
         'students_count': len({r.student_id for r in referrals}),
         'actions_count': sum(r.actions_count for r in referrals),
+        # PROTOTYPE (issue #10) — row-detail, reusing #8's confirmed shape:
+        # school logo (aggregate views only) + pills beside name, one
+        # grouped facts row with merged/paired columns sized to the widest
+        # value actually present (ch units, capped).
+        'is_aggregate_view': is_aggregate_view,
+    }
+
+    def _col_width(strings, max_ch, min_ch=4):
+        longest = max((len(s) for s in strings), default=min_ch)
+        return f'{max(min_ch, min(longest, max_ch))}ch'
+
+    context['col_widths'] = {
+        'raisedby': _col_width(
+            [f'Raised by: {r.raised_by.first_name} {r.raised_by.last_name}' if r.raised_by else 'Raised by: Unassigned' for r in referrals]
+            + [f'Raised on: {r.created_at:%d %b %Y}' for r in referrals],
+            max_ch=26,
+        ),
+        'panels': _col_width(
+            [f'Prev Panel: {r.previous_panel_date:%d %b %Y}' if r.previous_panel_date else 'Prev Panel: —' for r in referrals]
+            + [f'Next Panel: {r.next_panel_date:%d %b %Y}' if r.next_panel_date else 'Next Panel: —' for r in referrals],
+            max_ch=23,
+        ),
+        'priorityreview': _col_width(
+            [f'Priority: {r.get_priority_display()}' if r.priority else 'Priority: —' for r in referrals]
+            + [f'Review Due: {r.next_review_date:%d %b %Y}' if r.next_review_date else 'Review Due: —' for r in referrals],
+            max_ch=23,
+        ),
+        'actionsstatus': _col_width(
+            [f'Completed Actions: {r.completed_actions_count}' for r in referrals]
+            + [f'Incomplete Actions: {r.incomplete_actions_count}' for r in referrals],
+            max_ch=22,
+        ),
     }
     template = 'hubs/inclusion/panel/_referrals_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/referrals.html'
     return render(request, template, context)
