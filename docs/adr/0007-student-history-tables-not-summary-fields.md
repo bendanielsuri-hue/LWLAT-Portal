@@ -1,0 +1,9 @@
+# Attendance/Behaviour/Exclusions as history tables, not summary fields on Student
+
+`core.models.Student` held `attendance_pct` (a single rolling percentage), `behaviour_summary` (a single freeform text blob), and `exclusions_count` (a single counter) — no underlying history, and no way for the "More Details" buttons already present on Panel Discussion's Student Details cards to show anything. Replaced with three independent history tables — `AttendanceDay` (per-day AM/PM session marks — the actual grain a UK school register takes, not a weekly or termly rollup), `BehaviourIncident` (one row per logged event: date, description, category, severity, logged-by), and `Exclusion` (one row per exclusion: date range, type, reason) — each FK'd to `Student`. Any percentage, summary, or count shown anywhere in the app is always computed from these at query time, never stored on `Student` directly, so it can't drift out of sync with the underlying records the way a hand-maintained summary field can.
+
+## Considered options
+
+- **Keep the summary fields, just seed them with dummy values**: rejected — doesn't fix the underlying problem (no real detail for "More Details" to show), and a summary field with no source data is exactly the kind of thing that silently goes stale once anyone tries to maintain it by hand.
+- **Weekly attendance grain instead of daily**: considered, then reversed once daily was recognised as the real stored fact a school register produces — a week is just a query over `AttendanceDay` rows, not something that needs its own table.
+- **Single combined severity field on Behaviour Incident, no separate category**: rejected in favour of category + severity as two dimensions, mirroring the existing `ActionCategory` preset pattern elsewhere in the app, and because "what kind of incident" and "how serious" are genuinely different questions.
