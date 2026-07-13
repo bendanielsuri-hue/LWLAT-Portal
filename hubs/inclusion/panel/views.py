@@ -1243,13 +1243,21 @@ def inclusion_panel_actions(request):
     category_filter = request.GET.get('category') or ''
     assigned_filter = request.GET.get('assigned') or ''
     status_filter = request.GET.get('status') or ''
+    # PROTOTYPE (issue #13) — candidate filters behind "More filters",
+    # reusing the progressive-disclosure shape confirmed on Students (#9)/
+    # Referrals (#11). Overdue/Due This Week/Assigned to Me moved back here
+    # too - Actions already had the widest primary filter set of the three
+    # pages before adding these, so the primary row stays Name/Category/
+    # Assigned To/Status only.
     overdue_filter = request.GET.get('overdue') == '1'
     due_this_week_filter = request.GET.get('due_this_week') == '1'
     assigned_to_me_filter = request.GET.get('assigned_to_me') == '1' and current_staff is not None
+    priority_filter = request.GET.get('priority') or ''
+    concern_filter = request.GET.get('concern') or ''
 
     actions_qs = Action.objects.filter(referral__student__in=student_queryset_for_school_key(school_key)).select_related(
         'referral__student', 'assigned_to', 'category',
-    )
+    ).prefetch_related('referral__responses__question')
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
 
@@ -1272,6 +1280,13 @@ def inclusion_panel_actions(request):
         actions_qs = actions_qs.filter(status='incomplete', due_date__lt=today)
     if due_this_week_filter:
         actions_qs = actions_qs.filter(status='incomplete', due_date__gte=week_start, due_date__lte=week_end)
+    if priority_filter:
+        actions_qs = actions_qs.filter(referral__priority=priority_filter)
+    if concern_filter:
+        actions_qs = actions_qs.filter(
+            referral__responses__question__label='Main Concern Category', referral__responses__answer=concern_filter
+        )
+    actions_qs = actions_qs.distinct()
 
     actions = list(actions_qs)
 
@@ -1279,8 +1294,11 @@ def inclusion_panel_actions(request):
         1 for v in (
             name_filter, category_filter, assigned_filter, status_filter,
             overdue_filter, due_this_week_filter, assigned_to_me_filter,
+            priority_filter, concern_filter,
         ) if v
     )
+
+    concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
 
     context = {
         **_panel_base_context(request),
@@ -1302,6 +1320,11 @@ def inclusion_panel_actions(request):
         'actions_count': len(actions),
         'students_count': len({a.referral.student_id for a in actions}),
         'referrals_count': len({a.referral_id for a in actions}),
+        # PROTOTYPE (issue #13) — candidate filters behind "More filters".
+        'priority_filter': priority_filter,
+        'priority_choices': InclusionReferral.PRIORITY_CHOICES,
+        'concern_filter': concern_filter,
+        'concern_choices': concern_question.choice_list() if concern_question else [],
     }
     template = 'hubs/inclusion/panel/_actions_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/actions.html'
     return render(request, template, context)
