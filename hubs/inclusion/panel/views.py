@@ -2169,10 +2169,15 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 return JsonResponse({'success': True, 'panel_referral_id': pr.id if pr else None})
         elif action == 'remove_referral_from_agenda':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
-            pr.removed_at = timezone.now()
-            pr.removed_by_id = request.POST.get('removed_by') or None
-            pr.save()
-            _sync_referral_status(pr.referral)
+            # Already-discussed referrals are a historical record of this
+            # meeting, not agenda composition - removing one here would
+            # silently drop it from the meeting's own discussed list. Only
+            # a still-pending referral can be taken back off the agenda.
+            if pr.discussion_status != 'discussed':
+                pr.removed_at = timezone.now()
+                pr.removed_by_id = request.POST.get('removed_by') or None
+                pr.save()
+                _sync_referral_status(pr.referral)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
         elif action == 'update_priority':
@@ -2469,6 +2474,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'scheduled_at': scheduled_at,
         'show_schedule_warning': show_schedule_warning,
         'today': today,
+        'priority_choices': InclusionReferral.PRIORITY_CHOICES,
     })
 
 

@@ -119,7 +119,10 @@
     </div>
 
     <div class="agenda-section setup-col">
-        <div class="setup-col-header"><h2>Students Pending <span class="count" data-count-key="heading" data-count="{{ pending|length }}">({{ pending|length }})</span></h2></div>
+        <div class="setup-col-header">
+            <h2>Students Pending <span class="count" data-count-key="heading" data-count="{{ pending|length }}">({{ pending|length }})</span></h2>
+            <a href="{% url 'inclusion_panel_meeting_setup' panel.id %}" class="btn btn-subtle btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add to Agenda</a>
+        </div>
         <div class="setup-col-body">
         <div class="entity-list" data-drop-zone="pending">
             {% for pr in pending %}
@@ -136,17 +139,7 @@
                         {% endif %}
                         &middot; {% if pr.is_followup %}Review{% else %}New{% endif %}
                     </div>
-                    <form method="post" class="priority-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="form_action" value="update_priority">
-                        <input type="hidden" name="referral_id" value="{{ pr.referral_id }}">
-                        <span class="toggle-label priority-form-label">Priority</span>
-                        <div class="priority-chips">
-                            <button type="submit" name="priority" value="low" class="priority-chip priority-low{% if pr.referral.priority == 'low' %} active{% endif %}" aria-pressed="{% if pr.referral.priority == 'low' %}true{% else %}false{% endif %}">Low</button>
-                            <button type="submit" name="priority" value="medium" class="priority-chip priority-medium{% if pr.referral.priority == 'medium' %} active{% endif %}" aria-pressed="{% if pr.referral.priority == 'medium' %}true{% else %}false{% endif %}">Medium</button>
-                            <button type="submit" name="priority" value="high" class="priority-chip priority-high{% if pr.referral.priority == 'high' %} active{% endif %}" aria-pressed="{% if pr.referral.priority == 'high' %}true{% else %}false{% endif %}">High</button>
-                        </div>
-                    </form>
+                    {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices %}
                 </div>
                 <div class="btn-row btn-row-stacked">
                     {% if panel.started_at %}
@@ -190,6 +183,7 @@
                     </div>
                     <div class="entity-meta">Time discussed: {{ pr.duration_display }}</div>
                     <div class="entity-meta">Review due: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
+                    {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices %}
                 </div>
                 <div class="btn-row btn-row-stacked">
                     <form method="post">

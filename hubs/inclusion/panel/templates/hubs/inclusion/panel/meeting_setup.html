@@ -406,12 +406,14 @@
                     <div class="referral-details-actions">
                         {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices %}
                         <button type="button" class="btn btn-secondary btn-sm" data-view-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
+                        {% if pr.discussion_status != 'discussed' %}
                         <form method="post" class="row-action-form">
                             {% csrf_token %}
                             <input type="hidden" name="form_action" value="remove_referral_from_agenda">
                             <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
                             <button type="submit" class="btn btn-secondary btn-delete btn-sm"><span class="btn-icon">{% include 'icons/remove_svg.html' %}</span> Remove</button>
                         </form>
+                        {% endif %}
                     </div>
                 </div>
             </div>
