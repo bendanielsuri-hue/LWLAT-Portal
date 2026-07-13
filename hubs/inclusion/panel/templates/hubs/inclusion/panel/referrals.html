@@ -22,27 +22,49 @@
 
 <div class="list-page-shell">
 
+{% comment %}
+PROTOTYPE (issue #11) — filter review for Referrals, reusing the
+progressive-disclosure shape confirmed on Students (#9): primary filters
+stay inline, candidates (Priority/Panel Group/Overdue Actions) sit behind
+a "More filters" toggle (style 1 - filled button chip, same .btn.btn-sm
+height as Clear Filters). Button-stack sibling layout keeps More
+filters/Clear Filters right-aligned regardless of how many fields wrap on
+the left. Status (lifecycle: Active/Closed) and Panel Stage (Unassigned/
+Assigned to Panel/Discussing/Review tiers) were split out of the single
+combined Status select that used to list all of InclusionReferral.status's
+raw choices - same underlying field, two different questions. Concern
+Category promoted to a primary filter (was behind the disclosure).
+{% endcomment %}
 <form method="get" class="filter-bar" data-ajax-target="#referrals-filtered-content">
+    <div class="proto-filter-fields-wrap">
     <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
         <label for="name-search">Name Search</label>
         <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
     </div>
-    <div class="filter-field{% if section_filter %} filter-field--active{% endif %}">
-        <label for="section-filter">Section</label>
-        <select id="section-filter" name="section">
-            <option value="" {% if not section_filter %}selected{% endif %}>All Referrals</option>
-            <option value="unassigned" {% if section_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
-            <option value="due_follow_up" {% if section_filter == 'due_follow_up' %}selected{% endif %}>Review Due</option>
-        </select>
-    </div>
     <div class="filter-field{% if status_filter %} filter-field--active{% endif %}">
         <label for="status-filter">Status</label>
         <select id="status-filter" name="status" class="ui-select--center">
             <option value="" {% if not status_filter %}selected{% endif %}>All</option>
-            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active (Not Closed)</option>
-            {% for value, label in status_choices %}
-            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+            <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Closed</option>
+        </select>
+    </div>
+    <div class="filter-field{% if stage_filter %} filter-field--active{% endif %}">
+        <label for="stage-filter">Panel Stage</label>
+        <select id="stage-filter" name="stage">
+            <option value="" {% if not stage_filter %}selected{% endif %}>All</option>
+            {% for value, label in stage_choices %}
+            <option value="{{ value }}" {% if stage_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if concern_filter %} filter-field--active{% endif %}">
+        <label for="concern-filter">Concern Category</label>
+        <select id="concern-filter" name="concern">
+            <option value="">All</option>
+            {% for c in concern_choices %}
+            <option value="{{ c }}" {% if concern_filter == c %}selected{% endif %}>{{ c }}</option>
             {% endfor %}
         </select>
     </div>
@@ -56,7 +78,44 @@
             {% endfor %}
         </select>
     </div>
-    <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+
+    <div class="proto-filter-secondary-fields" hidden>
+        <span class="proto-filter-divider"></span>
+        <div class="filter-field{% if priority_filter %} filter-field--active{% endif %}">
+            <label for="priority-filter">Priority</label>
+            <select id="priority-filter" name="priority">
+                <option value="">All</option>
+                {% for value, label in priority_choices %}
+                <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field{% if panel_group_filter %} filter-field--active{% endif %}">
+            <label for="panel-group-filter">Panel Group</label>
+            <select id="panel-group-filter" name="panel_group">
+                <option value="">All</option>
+                {% for group in panel_groups %}
+                <option value="{{ group.id }}" {% if panel_group_filter == group.id|stringformat:'s' %}selected{% endif %}>{{ group.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field">
+            <label>Overdue Actions</label>
+            <div class="filter-toggle-wrap">
+                <input type="checkbox" id="overdue-actions-input" name="overdue_actions" value="1" hidden {% if overdue_actions_filter %}checked{% endif %}>
+                <button type="button" id="overdue-actions-toggle" class="toggle-pill{% if overdue_actions_filter %} on{% endif %}" aria-pressed="{% if overdue_actions_filter %}true{% else %}false{% endif %}" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="proto-filter-actions-right">
+        <button type="button" class="btn btn-sm btn-secondary proto-toggle-1" data-proto-more-filters aria-expanded="false">
+            <span class="proto-toggle-1-icon">{% include 'icons/arrow_down_svg.html' %}</span>
+            More filters
+        </button>
+        <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
 </form>
 
 <div id="referrals-filtered-content">
@@ -65,11 +124,59 @@
 
 </div>
 
+<style>
+.proto-filter-fields-wrap { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-xs); flex: 1; min-width: 0; }
+.proto-filter-actions-right {
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+    align-self: stretch; flex-shrink: 0;
+    border-left: 1px solid var(--border-strong); padding-left: var(--space-md);
+}
+.proto-filter-actions-right .filter-bar-clear { margin-left: 0; }
+.proto-filter-actions-right .btn { width: 100%; }
+.proto-filter-secondary-fields { display: contents; }
+.proto-filter-secondary-fields[hidden] { display: none; }
+.proto-filter-divider { flex-basis: 100%; height: 0; border-top: 2px solid var(--border-strong); }
+.proto-toggle-1 { display: flex; align-items: center; gap: 6px; width: 100%; }
+.proto-toggle-1-icon { display: inline-flex; transition: transform var(--transition-fast); }
+.proto-toggle-1-icon svg { width: 14px; height: 14px; }
+.proto-toggle-1[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.proto-toggle-1[aria-expanded="true"] .proto-toggle-1-icon { transform: rotate(180deg); }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+    var overdueActionsToggle = document.getElementById('overdue-actions-toggle');
+    var overdueActionsInput = document.getElementById('overdue-actions-input');
+
+    function setupToggle(toggle, input) {
+        if (!toggle || !input) return;
+        toggle.addEventListener('click', function () {
+            var isOn = toggle.classList.toggle('on');
+            toggle.setAttribute('aria-pressed', String(isOn));
+            input.checked = isOn;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+    setupToggle(overdueActionsToggle, overdueActionsInput);
+
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
+
+    var moreFiltersBtn = document.querySelector('[data-proto-more-filters]');
+    var secondaryRow = document.querySelector('.proto-filter-secondary-fields');
+    if (moreFiltersBtn && secondaryRow) {
+        var hasActiveSecondary = secondaryRow.querySelector('.filter-field--active') || (overdueActionsInput && overdueActionsInput.checked);
+        if (hasActiveSecondary) {
+            secondaryRow.hidden = false;
+            moreFiltersBtn.setAttribute('aria-expanded', 'true');
+        }
+        moreFiltersBtn.addEventListener('click', function () {
+            var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
+            secondaryRow.hidden = expanded;
+            moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
+        });
+    }
 });
 </script>
 {% endblock %}

@@ -828,12 +828,23 @@ def inclusion_panel_referrals(request):
     current_staff = _current_staff(request)
 
     name_filter = request.GET.get('name') or ''
-    section_filter = request.GET.get('section') or ''
     status_filter = request.GET.get('status') or ''
+    # PROTOTYPE (issue #11) — Status (lifecycle: active/closed) and Panel
+    # Stage (where in the panel process - unassigned/assigned/discussing/
+    # review tiers) were both folded into the single `status` field's raw
+    # choices before; split into two filters here since they're two
+    # different questions even though they share one underlying field.
+    stage_filter = request.GET.get('stage') or ''
     raised_by_filter = request.GET.get('raised_by') or ''
+    concern_filter = request.GET.get('concern') or ''
+    # PROTOTYPE (issue #11) — candidate filters behind "More filters",
+    # reusing the progressive-disclosure shape confirmed on Students (#9).
+    priority_filter = request.GET.get('priority') or ''
+    panel_group_filter = request.GET.get('panel_group') or ''
+    overdue_actions_filter = request.GET.get('overdue_actions') == '1'
 
     referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related('student').prefetch_related(
-        'responses__question', 'panel_referrals',
+        'responses__question', 'panel_referrals__panel__panel_group',
     )
     if name_filter:
         referrals_qs = referrals_qs.filter(
@@ -841,50 +852,82 @@ def inclusion_panel_referrals(request):
         )
     if status_filter == 'active':
         referrals_qs = referrals_qs.exclude(status='closed')
-    elif status_filter:
-        referrals_qs = referrals_qs.filter(status=status_filter)
+    elif status_filter == 'closed':
+        referrals_qs = referrals_qs.filter(status='closed')
+    if stage_filter:
+        referrals_qs = referrals_qs.filter(status=stage_filter)
     if raised_by_filter == 'unassigned':
         referrals_qs = referrals_qs.filter(raised_by__isnull=True)
     elif raised_by_filter:
         referrals_qs = referrals_qs.filter(raised_by_id=raised_by_filter)
+    if priority_filter:
+        referrals_qs = referrals_qs.filter(priority=priority_filter)
+    if concern_filter:
+        referrals_qs = referrals_qs.filter(
+            responses__question__label='Main Concern Category', responses__answer=concern_filter
+        )
+    if panel_group_filter:
+        referrals_qs = referrals_qs.filter(panel_referrals__panel__panel_group_id=panel_group_filter)
+    if overdue_actions_filter:
+        referrals_qs = referrals_qs.filter(actions__status='incomplete', actions__due_date__lt=today)
+    referrals_qs = referrals_qs.distinct()
 
-    # is_unassigned/is_due_follow_up read the already-prefetched panel_referrals
-    # in Python (same as before) rather than an ORM filter - unassigned in
-    # particular needs an exclude() across a multi-valued relation that's easy
-    # to get subtly wrong, and referrals_qs is already narrowed by the filters
-    # above first, so this loop runs over a bounded set, not every referral.
+    # is_unassigned reads the already-prefetched panel_referrals in Python
+    # (same as before) rather than an ORM filter - it needs an exclude()
+    # across a multi-valued relation that's easy to get subtly wrong, and
+    # referrals_qs is already narrowed by the filters above first, so this
+    # loop runs over a bounded set, not every referral.
     referrals = list(referrals_qs)
     for referral in referrals:
         referral.is_unassigned = _is_referral_unassigned(referral)
-        referral.is_due_follow_up = any(
-            pr.follow_up_status == 'incomplete' and pr.follow_up_date and pr.follow_up_date <= today
-            for pr in referral.panel_referrals.all()
-        )
         referral.actions_count = referral.actions.count()
         referral.can_delete = (
             referral.is_unassigned and current_staff is not None and referral.raised_by_id == current_staff.id
         )
         referral.concern_category = _primary_concern_category(referral)
 
-    if section_filter == 'unassigned':
-        referrals = [r for r in referrals if r.is_unassigned]
-    elif section_filter == 'due_follow_up':
-        referrals = [r for r in referrals if r.is_due_follow_up]
+    active_filter_count = sum(
+        1 for v in (
+            name_filter, status_filter, stage_filter, raised_by_filter, concern_filter,
+            priority_filter, panel_group_filter, overdue_actions_filter,
+        ) if v
+    )
 
-    active_filter_count = sum(1 for v in (name_filter, section_filter, status_filter, raised_by_filter) if v)
+    concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
+    # PROTOTYPE (issue #11) — Panel Stage option labels are custom to this
+    # filter (not InclusionReferral.STATUS_CHOICES' own labels), since
+    # 'open' reads as "Open" everywhere else in the app (status pills etc.)
+    # but means "not yet on any panel" here - relabelling the shared choice
+    # list would leak into those other displays.
+    stage_choices = [
+        ('open', 'Unassigned'),
+        ('assigned', 'Assigned to Panel'),
+        ('discussing', 'Discussing'),
+        ('review_scheduled', 'Review Scheduled'),
+        ('awaiting_review', 'Awaiting Review'),
+        ('overdue_review', 'Overdue Review'),
+    ]
 
     context = {
         **_panel_base_context(request),
         'referrals': referrals,
-        'status_choices': InclusionReferral.STATUS_CHOICES,
         'staff_list': staff_queryset_for_school_key(school_key),
         'name_filter': name_filter,
-        'section_filter': section_filter,
         'status_filter': status_filter,
+        'stage_filter': stage_filter,
+        'stage_choices': stage_choices,
         'raised_by_filter': raised_by_filter,
+        'concern_filter': concern_filter,
+        'concern_choices': concern_question.choice_list() if concern_question else [],
         'active_filter_count': active_filter_count,
         'students_count': len({r.student_id for r in referrals}),
         'actions_count': sum(r.actions_count for r in referrals),
+        # PROTOTYPE (issue #11) — candidate filters behind "More filters".
+        'priority_filter': priority_filter,
+        'priority_choices': InclusionReferral.PRIORITY_CHOICES,
+        'panel_group_filter': panel_group_filter,
+        'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school').order_by('name'),
+        'overdue_actions_filter': overdue_actions_filter,
     }
     template = 'hubs/inclusion/panel/_referrals_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/referrals.html'
     return render(request, template, context)
