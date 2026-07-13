@@ -749,6 +749,11 @@ def inclusion_panel_students(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
     school_key = current_school_key(request)
+    # PROTOTYPE (issue #8) — when the sidebar isn't scoped to one specific
+    # school, rows can mix students from several schools, so each row needs
+    # its own school logo to tell them apart (same is_aggregate_view gate
+    # Panel Meetings already uses for its inline logo).
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
 
     name_filter = request.GET.get('name') or ''
     year_filter = request.GET.get('year') or ''
@@ -775,7 +780,7 @@ def inclusion_panel_students(request):
     # join fan-out from combining referrals and actions in one annotate()
     # call - each COUNT(DISTINCT <that table's pk>) dedupes on its own
     # column regardless of how many joined rows precede it.
-    students = base_students.annotate(
+    students = base_students.select_related('form_tutor', 'school').annotate(
         referrals_count=Count('referrals', distinct=True),
         actions_count=Count('referrals__actions', distinct=True),
         overdue_actions_count=Count(
@@ -783,6 +788,8 @@ def inclusion_panel_students(request):
             filter=Q(referrals__actions__status='incomplete', referrals__actions__due_date__lt=today),
             distinct=True,
         ),
+        # PROTOTYPE (issue #8) — "last referral date" candidate field.
+        last_referral_date=Max('referrals__created_at'),
     )
     if name_filter:
         students = students.filter(Q(first_name__icontains=name_filter) | Q(last_name__icontains=name_filter))
@@ -796,6 +803,49 @@ def inclusion_panel_students(request):
         students = students.filter(overdue_actions_count__gt=0)
     students = list(students.order_by('last_name', 'first_name'))
 
+    # PROTOTYPE (issue #8) — House isn't a real field on Student; not every
+    # school has houses, so this only fakes a value for Babington Academy
+    # (deterministic on id, not random) to react to how a school-specific
+    # field should look when it's absent for everyone else.
+    houses = ['A', 'B', 'C', 'D', 'E']
+    for s in students:
+        s.house = houses[s.id % len(houses)] if s.school and s.school.name == 'Babington Academy' else None
+        s.has_pills = bool(
+            s.sen_status or s.is_pp or s.is_eal or s.is_lac or s.is_young_carer or s.is_more_able
+        )
+
+    # PROTOTYPE (issue #8) — column width sized to the widest value actually
+    # present in this filtered list (capped), instead of one arbitrary fixed
+    # width for every column regardless of what it holds.
+    def _col_width(strings, max_ch, min_ch=4):
+        longest = max((len(s) for s in strings), default=min_ch)
+        return f'{max(min_ch, min(longest, max_ch))}ch'
+
+    col_widths = {
+        # Single merged column now: "Year: 10 · House: E" / "Form: 10A (George Patel)".
+        'yearform': _col_width(
+            [
+                f'Year: {s.year_group} · House: {s.house}' if s.house else f'Year: {s.year_group}'
+                for s in students
+            ]
+            + [
+                f'Form: {s.reg_form} ({s.form_tutor.first_name} {s.form_tutor.last_name})' if s.form_tutor
+                else f'Form: {s.reg_form}'
+                for s in students
+            ],
+            max_ch=32,
+        ),
+        'genderethnicity': _col_width(
+            [s.get_gender_display() for s in students if s.gender]
+            + [s.get_ethnicity_display() for s in students if s.ethnicity],
+            max_ch=22,
+        ),
+        'activity': _col_width(
+            [f'Referrals: {s.referrals_count}' for s in students] + [f'Actions: {s.actions_count}' for s in students],
+            max_ch=14,
+        ),
+    }
+
     active_filter_count = sum(
         1 for v in (name_filter, year_filter, reg_filter, has_referrals_filter, overdue_actions_filter) if v
     )
@@ -803,6 +853,8 @@ def inclusion_panel_students(request):
     context = {
         **_panel_base_context(request),
         'students': students,
+        'col_widths': col_widths,
+        'is_aggregate_view': is_aggregate_view,
         'years': years,
         'forms': forms,
         'forms_by_year_json': json.dumps(forms_by_year),
@@ -816,6 +868,22 @@ def inclusion_panel_students(request):
         'referrals_count': sum(s.referrals_count for s in students),
         'actions_count': sum(s.actions_count for s in students),
     }
+    # PROTOTYPE (issue #8) — row-detail variant switcher, throwaway.
+    variant_order = ['A', 'B', 'C', 'D']
+    variant_names = {
+        'A': 'Pills beside name',
+        'B': 'Pills grouped into facts row',
+        'C': 'Pills on their own line',
+        'D': 'Pills as avatar badges',
+    }
+    row_variant = request.GET.get('variant') if request.GET.get('variant') in variant_order else 'A'
+    idx = variant_order.index(row_variant)
+    context.update({
+        'row_variant': row_variant,
+        'variant_name': variant_names[row_variant],
+        'prev_variant': variant_order[(idx - 1) % len(variant_order)],
+        'next_variant': variant_order[(idx + 1) % len(variant_order)],
+    })
     template = 'hubs/inclusion/panel/_students_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/students.html'
     return render(request, template, context)
 

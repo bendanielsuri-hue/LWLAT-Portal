@@ -23,6 +23,8 @@
 <div class="list-page-shell">
 
 <form method="get" class="filter-bar" data-ajax-target="#students-filtered-content">
+    {# PROTOTYPE (issue #8): carries the row-detail variant through AJAX re-fetches. #}
+    <input type="hidden" name="variant" value="{{ row_variant }}">
     <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
         <label for="name-search">Name Search</label>
@@ -118,5 +120,104 @@ document.addEventListener('DOMContentLoaded', function () {
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
 });
+</script>
+
+{% comment %}
+==================== PROTOTYPE (issue #8) ====================
+Row-detail variant switcher for "Students — richer row detail". Throwaway —
+strip this block, the ?variant= handling in views.py, and the row_variant
+branches in _students_filtered_content.html once a variant is picked (see
+docs/agents/issue-tracker.md wayfinder conventions: capture the full set
+on a throwaway branch, fold only the winner into main).
+{% endcomment %}
+<div class="proto-switcher" role="toolbar" aria-label="Row-detail prototype variant switcher">
+    <a href="?{% querystring variant=prev_variant %}" class="proto-switcher-arrow" aria-label="Previous variant">&larr;</a>
+    <span class="proto-switcher-label">{{ row_variant }} &mdash; {{ variant_name }}</span>
+    <a href="?{% querystring variant=next_variant %}" class="proto-switcher-arrow" aria-label="Next variant">&rarr;</a>
+</div>
+<style>
+.proto-switcher {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px;
+    background: #1a1a1a; color: #fff; border-radius: 999px;
+    padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    font-size: 13px; font-weight: 600; z-index: 9999;
+}
+.proto-switcher-arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); color: #fff; text-decoration: none;
+}
+.proto-switcher-arrow:hover { background: rgba(255,255,255,0.24); }
+.proto-switcher-label { white-space: nowrap; padding: 0 4px; }
+
+/* Name alone on its own row (except variant A - see .proto-title-row);
+   grouped facts below it, separated by vertical dividers (reusing
+   .mc-vdivider from Panel Meetings), with a divider line above it back -
+   same border-top/padding-top convention as .meeting-card-breakdown. */
+.proto-facts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
+.proto-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
+
+/* Paired columns (Year/Form+House/Tutor, Gender/Ethnicity, Referrals/
+   Actions) - each column stacks two lines, one shared vertical divider
+   between groups spans both lines via .mc-vdivider's own align-self. Width
+   is set inline per column (col_widths in views.py) - sized to the widest
+   value actually present in the current filtered list, in `ch` units, up
+   to a per-field cap - not one arbitrary fixed width for everything. */
+.proto-facts-cols { gap: 10px; }
+.proto-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.proto-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Title row - school logo (aggregate views only) + name, plus variant A's
+   pills. */
+.proto-title-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+.proto-title-row .meeting-card-logo-inline img { width: 16px; height: 16px; object-fit: contain; }
+
+/* Variant B - pills grouped onto the end of the facts row itself, inline
+   (not stacked two-line like the other columns - a pill cluster doesn't
+   pair up the way a label/value column does). */
+.proto-pill-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+/* Variant C - pills sit on their own trailing line, undivided. */
+.proto-pill-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: var(--space-xxs); }
+
+/* Variant D - pills become small coloured dots overlaid on the avatar's
+   corner instead of any text-row real estate at all. */
+.proto-thumb-badged { position: relative; overflow: visible; }
+.proto-thumb-badges { position: absolute; top: -4px; right: -4px; display: flex; gap: 2px; }
+.proto-thumb-badge { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--bg-surface); }
+.proto-badge-sen { background: var(--color-warning); }
+.proto-badge-pp { background: var(--color-positive); }
+.proto-badge-eal { background: var(--primary); }
+.proto-badge-lac { background: var(--priority-medium-text); }
+.proto-badge-yc { background: var(--color-caution); }
+.proto-badge-ma { background: var(--priority-low-text); }
+
+/* Divider between the facts/name column and the action buttons - same
+   border-left/padding-left convention as .meeting-card-actions. Stretched
+   to the row's own content height (minus the row's padding) rather than
+   just the buttons' own height, via align-items:stretch on the row itself
+   - .btn-row's own align-items:center (buttons.css) keeps the buttons
+   vertically centred within that taller box. Scoped to this page's own
+   rows, not a global .entity-row/.btn-row change. */
+.entity-list[data-selectable] > .entity-row { align-items: stretch; }
+.entity-row > .proto-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
+</style>
+<script>
+(function () {
+    var order = ['A', 'B', 'C', 'D'];
+    document.addEventListener('keydown', function (e) {
+        var tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        var current = order.indexOf('{{ row_variant }}');
+        var next = e.key === 'ArrowLeft'
+            ? order[(current - 1 + order.length) % order.length]
+            : order[(current + 1) % order.length];
+        var params = new URLSearchParams(window.location.search);
+        params.set('variant', next);
+        window.location.search = params.toString();
+    });
+})();
 </script>
 {% endblock %}

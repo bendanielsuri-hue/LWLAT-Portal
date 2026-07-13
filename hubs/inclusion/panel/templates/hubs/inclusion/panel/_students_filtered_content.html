@@ -1,24 +1,93 @@
 {% load static %}
 <div class="list-card">
 <div class="entity-list" data-selectable="single">
+    {% comment %}
+    PROTOTYPE (issue #8) — row-detail for "Students — richer row detail".
+    Name row also carries the school logo (aggregate views only, same
+    is_aggregate_view gate as Panel Meetings) and, in variant A, the SEN/
+    flag pills. Facts row groups into columns - Year/House on one line,
+    Form/Tutor(in brackets) on the next, one merged column; then Gender/
+    Ethnicity; then Referrals/Actions - one shared vertical divider
+    (.mc-vdivider) between columns, spanning both lines. The four variants
+    differ only in where the SEN/flag pills go: A) beside the name, B)
+    grouped onto the end of the facts row itself, C) their own trailing
+    line, D) as small coloured badges on the avatar corner.
+    {% endcomment %}
     {% for s in students %}
     <div class="entity-row selectable" tabindex="0" role="button" aria-pressed="false">
-        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-        <div class="entity-body">
-            <div class="entity-title">{{ s.first_name }} {{ s.last_name }}</div>
-            <div class="entity-meta">Form: {{ s.reg_form }}</div>
+        <div class="entity-thumb{% if row_variant == 'D' %} proto-thumb-badged{% endif %}">
+            {% include 'icons/avatar_placeholder_svg.html' %}
+            {% if row_variant == 'D' %}
+            <div class="proto-thumb-badges">
+                {% if s.sen_status %}<span class="proto-thumb-badge proto-badge-sen" title="{{ s.get_sen_status_display }}"></span>{% endif %}
+                {% if s.is_pp %}<span class="proto-thumb-badge proto-badge-pp" title="Pupil Premium"></span>{% endif %}
+                {% if s.is_eal %}<span class="proto-thumb-badge proto-badge-eal" title="EAL"></span>{% endif %}
+                {% if s.is_lac %}<span class="proto-thumb-badge proto-badge-lac" title="Looked After Child"></span>{% endif %}
+                {% if s.is_young_carer %}<span class="proto-thumb-badge proto-badge-yc" title="Young Carer"></span>{% endif %}
+                {% if s.is_more_able %}<span class="proto-thumb-badge proto-badge-ma" title="More Able"></span>{% endif %}
+            </div>
+            {% endif %}
         </div>
-        <div class="btn-row">
-            {% if s.referrals_count > 0 %}
-            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Referrals ({{ s.referrals_count }})</a>
-            {% else %}
-            <span class="btn btn-sm btn-disabled" aria-disabled="true">Referrals (0)</span>
+        <div class="entity-body">
+            <div class="proto-title-row">
+                {% if is_aggregate_view %}
+                <span class="meeting-card-logo-inline">
+                    {% if s.school.logo_url %}<img src="{{ s.school.logo_url }}" alt="{{ s.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+                </span>
+                {% endif %}
+                <div class="entity-title">{{ s.first_name }} {{ s.last_name }}</div>
+                {% if row_variant == 'A' %}
+                {% if s.sen_status %}<span class="bd-pill {% if s.sen_status == 'E' %}bd-high{% else %}bd-review{% endif %}">{{ s.get_sen_status_display }}</span>{% endif %}
+                {% if s.is_pp %}<span class="bd-pill bd-new" title="Pupil Premium">PP</span>{% endif %}
+                {% if s.is_eal %}<span class="bd-pill bd-untriaged" title="EAL">EAL</span>{% endif %}
+                {% if s.is_lac %}<span class="bd-pill bd-medium" title="Looked After Child">LAC</span>{% endif %}
+                {% if s.is_young_carer %}<span class="bd-pill bd-review" title="Young Carer">YC</span>{% endif %}
+                {% if s.is_more_able %}<span class="bd-pill bd-low" title="More Able">MA</span>{% endif %}
+                {% endif %}
+            </div>
+
+            <div class="proto-facts proto-facts-cols">
+                <div class="proto-fact-col" style="width: {{ col_widths.yearform }}">
+                    <span>Year: {{ s.year_group }}{% if s.house %} &middot; House: {{ s.house }}{% endif %}</span>
+                    <span>Form: {{ s.reg_form }}{% if s.form_tutor %} ({{ s.form_tutor.first_name }} {{ s.form_tutor.last_name }}){% endif %}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="proto-fact-col" style="width: {{ col_widths.genderethnicity }}">
+                    <span>{{ s.get_gender_display|default:"—" }}</span>
+                    <span>{{ s.get_ethnicity_display|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="proto-fact-col" style="width: {{ col_widths.activity }}">
+                    <span>Referrals: {{ s.referrals_count }}</span>
+                    <span>Actions: {{ s.actions_count }}</span>
+                </div>
+                {% if row_variant == 'B' and s.has_pills %}
+                <span class="mc-vdivider"></span>
+                <div class="proto-pill-group">
+                    {% if s.sen_status %}<span class="bd-pill {% if s.sen_status == 'E' %}bd-high{% else %}bd-review{% endif %}">{{ s.get_sen_status_display }}</span>{% endif %}
+                    {% if s.is_pp %}<span class="bd-pill bd-new" title="Pupil Premium">PP</span>{% endif %}
+                    {% if s.is_eal %}<span class="bd-pill bd-untriaged" title="EAL">EAL</span>{% endif %}
+                    {% if s.is_lac %}<span class="bd-pill bd-medium" title="Looked After Child">LAC</span>{% endif %}
+                    {% if s.is_young_carer %}<span class="bd-pill bd-review" title="Young Carer">YC</span>{% endif %}
+                    {% if s.is_more_able %}<span class="bd-pill bd-low" title="More Able">MA</span>{% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            {% if row_variant == 'C' and s.has_pills %}
+            <div class="proto-pill-row">
+                {% if s.sen_status %}<span class="bd-pill {% if s.sen_status == 'E' %}bd-high{% else %}bd-review{% endif %}">{{ s.get_sen_status_display }}</span>{% endif %}
+                {% if s.is_pp %}<span class="bd-pill bd-new" title="Pupil Premium">PP</span>{% endif %}
+                {% if s.is_eal %}<span class="bd-pill bd-untriaged" title="EAL">EAL</span>{% endif %}
+                {% if s.is_lac %}<span class="bd-pill bd-medium" title="Looked After Child">LAC</span>{% endif %}
+                {% if s.is_young_carer %}<span class="bd-pill bd-review" title="Young Carer">YC</span>{% endif %}
+                {% if s.is_more_able %}<span class="bd-pill bd-low" title="More Able">MA</span>{% endif %}
+            </div>
             {% endif %}
-            {% if s.actions_count > 0 %}
-            <a href="{% url 'inclusion_panel_actions' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Actions ({{ s.actions_count }})</a>
-            {% else %}
-            <span class="btn btn-sm btn-disabled" aria-disabled="true">Actions (0)</span>
-            {% endif %}
+        </div>
+        <div class="btn-row proto-btn-row">
+            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Referrals</a>
+            <a href="{% url 'inclusion_panel_actions' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Actions</a>
             <button type="button" class="btn btn-add btn-sm" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Referral</button>
         </div>
     </div>
