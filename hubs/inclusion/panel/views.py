@@ -388,6 +388,40 @@ def _sync_stale_running_panels():
         panel.save()
 
 
+def _discussion_last_activity_at(pr):
+    # Mirrors _panel_last_activity_at but scoped to a single discussion, not
+    # the whole meeting - a note added to this PanelReferral, or an Action
+    # raised during it (Action.origin_panel_referral exists specifically to
+    # attribute an action to the discussion it came from). Floored at
+    # discussion_started_at so a discussion with neither yet doesn't read as
+    # having been abandoned since the epoch.
+    candidates = [pr.discussion_started_at]
+    latest_note = pr.notes.order_by('-created_at').values_list('created_at', flat=True).first()
+    if latest_note:
+        candidates.append(latest_note)
+    latest_action = pr.raised_actions.order_by('-created_at').values_list('created_at', flat=True).first()
+    if latest_action:
+        candidates.append(latest_action)
+    return max(c for c in candidates if c is not None)
+
+
+def _sync_stale_discussion_timers():
+    # A single discussion left open when the chair moves on without clicking
+    # End Discussion keeps accruing wall-clock time toward that referral's
+    # duration stat, even though _sync_stale_running_panels only catches a
+    # whole abandoned meeting, not one stale discussion inside an otherwise
+    # active one. Same lazy recompute-on-page-load pattern, one level down -
+    # stops the timer (freezing whatever duration had genuinely accrued)
+    # once 30 minutes pass with no note or action against this specific
+    # discussion, rather than letting it keep counting silent time.
+    now = timezone.now()
+    for pr in PanelReferral.objects.filter(
+        discussion_status='pending', discussion_started_at__isnull=False, removed_at__isnull=True,
+    ):
+        if now - _discussion_last_activity_at(pr) > datetime.timedelta(minutes=30):
+            _stop_discussion_timer(pr)
+
+
 def _activity_display_time(dt):
     local_dt = timezone.localtime(dt)
     today = timezone.localdate()
@@ -735,6 +769,7 @@ def _my_actions_context(current_staff, is_panel_staff):
 def inclusion_panel_home(request):
     _sync_delayed_panels()
     _sync_stale_running_panels()
+    _sync_stale_discussion_timers()
     current_staff = _current_staff(request)
     is_panel_staff = _is_panel_staff(current_staff)
 
@@ -1956,6 +1991,7 @@ def _effective_chair_q(staff_id):
 def inclusion_panel_meetings(request):
     _sync_delayed_panels()
     _sync_stale_running_panels()
+    _sync_stale_discussion_timers()
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
     school_key = current_school_key(request)
@@ -2196,6 +2232,7 @@ def inclusion_panel_meeting_delete(request, panel_id):
 def inclusion_panel_meeting_setup(request, panel_id):
     _sync_delayed_panels()
     _sync_stale_running_panels()
+    _sync_stale_discussion_timers()
     panel = get_object_or_404(Panel, pk=panel_id)
 
     # 'closed' means fully handled - no outstanding action, no follow-up due
@@ -2430,6 +2467,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
 
 def inclusion_panel_meeting_agenda(request, panel_id):
     _sync_stale_running_panels()
+    _sync_stale_discussion_timers()
     panel = get_object_or_404(Panel, pk=panel_id)
     today = timezone.localdate()
 
@@ -2592,6 +2630,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
 
 
 def inclusion_panel_discussion(request, panel_referral_id):
+    _sync_stale_discussion_timers()
     panel_referral = get_object_or_404(
         PanelReferral.objects.select_related('referral__student', 'referral__raised_by', 'panel'),
         pk=panel_referral_id,
