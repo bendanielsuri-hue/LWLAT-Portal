@@ -405,15 +405,27 @@ def _discussion_last_activity_at(pr):
     return max(c for c in candidates if c is not None)
 
 
+def _discussion_too_short_to_count(pr):
+    # Under a minute with nothing recorded against it (no note, no action) -
+    # not enough evidence a real discussion happened, as opposed to an
+    # accidental click-through or a discussion that was opened and
+    # immediately abandoned. Checked against pr.duration, which the caller
+    # must have already finalised (added any still-running elapsed time) -
+    # this only looks at the stored total, it doesn't compute anything itself.
+    has_activity = pr.notes.exists() or pr.raised_actions.exists()
+    return not has_activity and (pr.duration or datetime.timedelta()) < datetime.timedelta(minutes=1)
+
+
 def _sync_stale_discussion_timers():
     # A single discussion left open when the chair moves on without clicking
     # End Discussion keeps accruing wall-clock time toward that referral's
     # duration stat, even though _sync_stale_running_panels only catches a
     # whole abandoned meeting, not one stale discussion inside an otherwise
     # active one. Same lazy recompute-on-page-load pattern, one level down -
-    # stops the timer (freezing whatever duration had genuinely accrued)
     # once 30 minutes pass with no note or action against this specific
-    # discussion, rather than letting it keep counting silent time.
+    # discussion, stop the timer and resolve its outcome immediately instead
+    # of leaving it stuck 'pending' until someone manually revisits it or
+    # the whole meeting eventually ends.
     now = timezone.now()
     for pr in PanelReferral.objects.filter(
         discussion_status='pending', discussion_started_at__isnull=False, removed_at__isnull=True,
@@ -431,7 +443,22 @@ def _sync_stale_discussion_timers():
         pr.duration = (pr.duration or datetime.timedelta()) + (last_activity - pr.discussion_started_at)
         pr.discussion_started_at = None
         pr.discussion_auto_stopped = True
+        if _discussion_too_short_to_count(pr):
+            pr.discussion_status = 'deferred'
+            pr.follow_up_date = None
+            pr.follow_up_status = ''
+        else:
+            # Real activity happened but the chair never got to answer "does
+            # this need a follow-up review" (that only happens via the
+            # explicit End Discussion dialog) - default to yes, since there's
+            # no way to confirm the discussion actually reached a resolution.
+            # A short, fixed interval rather than one of the longer presets:
+            # this is flagging genuine uncertainty, not a scheduled review.
+            pr.discussion_status = 'discussed'
+            pr.follow_up_status = 'incomplete'
+            pr.follow_up_date = timezone.localdate() + datetime.timedelta(days=7)
         pr.save()
+        _sync_referral_status(pr.referral)
 
 
 def _activity_display_time(dt):
@@ -2597,7 +2624,11 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         pr.stage, pr.stage_label = _panel_referral_stage(pr)
 
     pending = sorted(
-        (pr for pr in panel_referrals if pr.discussion_status == 'pending'),
+        # 'deferred' stays visible here too (not just 'pending') - it's still
+        # on this meeting's agenda and can be picked up properly if there's
+        # time left, rather than disappearing the moment it's too-short/
+        # no-activity deferred or auto-stopped-and-deferred.
+        (pr for pr in panel_referrals if pr.discussion_status in ('pending', 'deferred')),
         key=lambda pr: (pr.agenda_order, pr.id),
     )
     discussed = [pr for pr in panel_referrals if pr.discussion_status == 'discussed']
@@ -2664,13 +2695,22 @@ def inclusion_panel_discussion(request, panel_referral_id):
                 elapsed = timezone.now() - panel_referral.discussion_started_at
                 panel_referral.duration = (panel_referral.duration or datetime.timedelta()) + elapsed
                 panel_referral.discussion_started_at = None
-            panel_referral.discussion_status = 'discussed'
-            if request.POST.get('requires_followup') == 'yes':
-                panel_referral.follow_up_date = request.POST.get('follow_up_date') or None
-                panel_referral.follow_up_status = 'incomplete'
-            else:
+            if _discussion_too_short_to_count(panel_referral):
+                # Under a minute with nothing recorded reads as an accidental
+                # Discuss/End Discussion click-through rather than a real
+                # conversation - defer instead of asking a follow-up question
+                # about a discussion that didn't meaningfully happen.
+                panel_referral.discussion_status = 'deferred'
                 panel_referral.follow_up_date = None
                 panel_referral.follow_up_status = ''
+            else:
+                panel_referral.discussion_status = 'discussed'
+                if request.POST.get('requires_followup') == 'yes':
+                    panel_referral.follow_up_date = request.POST.get('follow_up_date') or None
+                    panel_referral.follow_up_status = 'incomplete'
+                else:
+                    panel_referral.follow_up_date = None
+                    panel_referral.follow_up_status = ''
             panel_referral.save()
             _sync_referral_status(referral)
             return redirect('inclusion_panel_meeting_agenda', panel_id=panel_referral.panel_id)
