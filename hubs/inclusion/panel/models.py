@@ -303,7 +303,13 @@ class PanelMember(models.Model):
 
 
 class PanelReferral(models.Model):
-    DISCUSSION_CHOICES = [('pending', 'Pending'), ('discussed', 'Discussed')]
+    # 'deferred' - the meeting ended (manually or via _sync_stale_running_panels'
+    # auto-end) while this referral was still 'pending'. The row is kept, not
+    # removed, so this panel's own history still shows it was queued but not
+    # reached - see _sync_referral_status/_panel_referral_stage in views.py,
+    # which both treat 'deferred' as non-blocking so the referral becomes
+    # pickable again for a future panel without needing removed_at.
+    DISCUSSION_CHOICES = [('pending', 'Pending'), ('discussed', 'Discussed'), ('deferred', 'Deferred')]
     FOLLOW_UP_CHOICES = [('incomplete', 'Incomplete'), ('complete', 'Complete')]
 
     panel = models.ForeignKey(Panel, on_delete=models.CASCADE, related_name='panel_referrals')

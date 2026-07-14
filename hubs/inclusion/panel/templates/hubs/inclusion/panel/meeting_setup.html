@@ -376,6 +376,7 @@
                     <div class="referral-row-grid">
                         <div class="referral-pills">
                             <span class="status-pill type-{% if pr.last_discussed_panel %}followup{% else %}new{% endif %}">{% if pr.last_discussed_panel %}{{ pr.review_label }}{% else %}New Referral{% endif %}</span>
+                            {% if pr.discussion_status == 'deferred' %}<span class="status-pill deferred">Deferred</span>{% endif %}
                         </div>
                         <div class="student-column">
                             <div class="student-thumb-row">
@@ -406,7 +407,7 @@
                     <div class="referral-details-actions">
                         {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices %}
                         <button type="button" class="btn btn-secondary btn-sm" data-view-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
-                        {% if pr.discussion_status != 'discussed' %}
+                        {% if pr.discussion_status != 'discussed' and pr.discussion_status != 'deferred' %}
                         <form method="post" class="row-action-form">
                             {% csrf_token %}
                             <input type="hidden" name="form_action" value="remove_referral_from_agenda">

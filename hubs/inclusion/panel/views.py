@@ -157,6 +157,8 @@ def _panel_referral_stage(pr):
         if pr.discussion_started_at:
             return 'discussing', 'Discussing'
         return 'assigned', 'Assigned to Panel'
+    if pr.discussion_status == 'deferred':
+        return 'deferred', 'Deferred'
     if pr.follow_up_status == 'incomplete':
         return 'requires_follow_up', 'Needs Review'
     return 'complete', 'Complete'
@@ -226,7 +228,12 @@ def _sync_referral_status(referral):
     # InclusionReferral.status reflects the aggregate state across every panel this
     # referral is currently attached to, since the same referral can be
     # picked up by more than one panel over time (e.g. a follow-up panel).
-    active_prs = list(referral.panel_referrals.filter(removed_at__isnull=True))
+    # 'deferred' rows are kept for this panel's own history (see
+    # PanelReferral.DISCUSSION_CHOICES) but never block status computation -
+    # a referral whose only remaining active rows are all deferred should
+    # read as available again (falls through to 'open' below), same as if
+    # it had no active PanelReferral at all.
+    active_prs = list(referral.panel_referrals.filter(removed_at__isnull=True).exclude(discussion_status='deferred'))
     stages = [_panel_referral_stage(pr)[0] for pr in active_prs]
     if not active_prs:
         new_status = 'open'
@@ -365,6 +372,13 @@ def _sync_stale_running_panels():
             continue
         for pr in panel.panel_referrals.filter(discussion_status='pending', discussion_started_at__isnull=False):
             _stop_discussion_timer(pr)
+        # Same deferral as a manual End Panel Meeting (see that action's own
+        # comment) - nothing left "Assigned to Panel" on a panel nobody's
+        # coming back to.
+        for pr in panel.panel_referrals.filter(discussion_status='pending', removed_at__isnull=True):
+            pr.discussion_status = 'deferred'
+            pr.save(update_fields=['discussion_status'])
+            _sync_referral_status(pr.referral)
         if panel.chair_follows_default:
             panel.chair_id = panel.effective_chair_id
             panel.chair_follows_default = False
@@ -2189,7 +2203,9 @@ def inclusion_panel_meeting_setup(request, panel_id):
     # below). A closed referral not currently on an active agenda must not
     # resurface as a "New Referral" - it isn't new, it's finished.
     unassigned_referrals = InclusionReferral.objects.select_related('student', 'raised_by').exclude(
-        pk__in=PanelReferral.objects.filter(removed_at__isnull=True).values_list('referral_id', flat=True)
+        pk__in=PanelReferral.objects.filter(removed_at__isnull=True)
+        .exclude(discussion_status='deferred')
+        .values_list('referral_id', flat=True)
     ).exclude(status='closed').prefetch_related('responses__question__category')
     if panel.panel_group_id and panel.panel_group.school_id:
         unassigned_referrals = unassigned_referrals.filter(student__school_id=panel.panel_group.school_id)
@@ -2241,11 +2257,13 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 return JsonResponse({'success': True, 'panel_referral_id': pr.id if pr else None})
         elif action == 'remove_referral_from_agenda':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
-            # Already-discussed referrals are a historical record of this
-            # meeting, not agenda composition - removing one here would
-            # silently drop it from the meeting's own discussed list. Only
-            # a still-pending referral can be taken back off the agenda.
-            if pr.discussion_status != 'discussed':
+            # Already-discussed or deferred referrals are a historical
+            # record of this meeting, not agenda composition - removing one
+            # here would silently drop it from the meeting's own history
+            # (and, for a deferred one, double up with the unassigned-pool
+            # availability that deferring it already granted). Only a still-
+            # pending referral can be taken back off the agenda.
+            if pr.discussion_status not in ('discussed', 'deferred'):
                 pr.removed_at = timezone.now()
                 pr.removed_by_id = request.POST.get('removed_by') or None
                 pr.save()
@@ -2479,6 +2497,16 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             panel.save()
             for pr in panel.panel_referrals.filter(discussion_status='pending', discussion_started_at__isnull=False):
                 _stop_discussion_timer(pr)
+            # Anything still pending (started-and-abandoned or never reached)
+            # didn't get discussed before the meeting ended - defer it back
+            # to the unassigned pool for a future panel rather than leaving
+            # it stuck showing "Assigned to Panel" on a panel that's now
+            # complete and can never be resumed. See
+            # PanelReferral.DISCUSSION_CHOICES for why this isn't just Remove.
+            for pr in panel.panel_referrals.filter(discussion_status='pending', removed_at__isnull=True):
+                pr.discussion_status = 'deferred'
+                pr.save(update_fields=['discussion_status'])
+                _sync_referral_status(pr.referral)
             return redirect('inclusion_panel_meetings')
         elif action == 'start_discussion':
             # The only place a discussion timer is allowed to start/resume -
