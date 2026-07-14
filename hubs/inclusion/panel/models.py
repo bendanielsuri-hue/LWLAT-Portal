@@ -237,6 +237,13 @@ class Panel(models.Model):
     panel_group = models.ForeignKey(PanelGroup, null=True, blank=True, on_delete=models.SET_NULL, related_name='panels')
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+    # Set by _sync_stale_running_panels (views.py) when a running meeting is
+    # force-completed for running 2x past this group's typical duration with
+    # no End Panel Meeting click - an abandoned meeting's elapsed time is an
+    # outlier, not a real data point about how long this group's meetings
+    # normally run, so _group_typical_duration excludes any panel with this
+    # set from its average. Never set by a manual End Panel Meeting.
+    auto_ended = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['date']

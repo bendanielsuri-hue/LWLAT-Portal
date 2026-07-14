@@ -305,6 +305,75 @@ def _sync_delayed_panels():
             panel.save(update_fields=['status'])
 
 
+def _group_typical_duration(panel_group):
+    # Average (ended_at - started_at) across this group's own completed
+    # meetings - the "is this meeting running unusually long" signal in
+    # _sync_stale_running_panels/inclusion_panel_meeting_agenda is relative
+    # to what's normal for this specific group, not a portal-wide guess.
+    # Falls back to a flat 2h estimate for a group with no completed-meeting
+    # history yet to average from.
+    fallback = datetime.timedelta(hours=2)
+    if panel_group is None:
+        return fallback
+    durations = [
+        p.ended_at - p.started_at
+        for p in Panel.objects.filter(
+            panel_group=panel_group, status='complete', auto_ended=False,
+            started_at__isnull=False, ended_at__isnull=False,
+        )
+    ]
+    if not durations:
+        return fallback
+    return sum(durations, datetime.timedelta()) / len(durations)
+
+
+def _panel_last_activity_at(panel):
+    # No dedicated "last touched" timestamp exists on Panel, so this derives
+    # one from the most recent thing that actually happened in the meeting:
+    # a note added on any of its discussions, or a member checking in/out.
+    # Falls back to started_at if neither has happened yet (a meeting
+    # started but never actually engaged with).
+    candidates = [panel.started_at]
+    latest_note = PanelReferralNote.objects.filter(
+        panel_referral__panel=panel
+    ).order_by('-created_at').values_list('created_at', flat=True).first()
+    if latest_note:
+        candidates.append(latest_note)
+    for field in ('checked_in_at', 'left_at'):
+        latest = PanelMember.objects.filter(panel=panel, **{f'{field}__isnull': False}) \
+            .order_by(f'-{field}').values_list(field, flat=True).first()
+        if latest:
+            candidates.append(latest)
+    return max(c for c in candidates if c is not None)
+
+
+def _sync_stale_running_panels():
+    # A running meeting with no scheduled end time can run forever if the
+    # chair forgets to click End Panel Meeting. There's no notification/
+    # background-job infrastructure anywhere in this app to proactively flag
+    # that, so this auto-completes a meeting once nothing has actually
+    # happened in it for 30 minutes (see _panel_last_activity_at) the next
+    # time any view that calls this happens to load - same lazy
+    # recompute-on-page-load pattern as _sync_delayed_panels above. The
+    # separate in-page warning (see inclusion_panel_meeting_agenda) fires
+    # earlier and independently, based on elapsed time vs. this group's
+    # typical duration rather than activity - it's a heads-up, this is the
+    # backstop for when nobody ever sees that heads-up.
+    now = timezone.now()
+    for panel in Panel.objects.filter(status='running', started_at__isnull=False):
+        if now - _panel_last_activity_at(panel) <= datetime.timedelta(minutes=30):
+            continue
+        for pr in panel.panel_referrals.filter(discussion_status='pending', discussion_started_at__isnull=False):
+            _stop_discussion_timer(pr)
+        if panel.chair_follows_default:
+            panel.chair_id = panel.effective_chair_id
+            panel.chair_follows_default = False
+        panel.status = 'complete'
+        panel.ended_at = now
+        panel.auto_ended = True
+        panel.save()
+
+
 def _activity_display_time(dt):
     local_dt = timezone.localtime(dt)
     today = timezone.localdate()
@@ -651,6 +720,7 @@ def _my_actions_context(current_staff, is_panel_staff):
 
 def inclusion_panel_home(request):
     _sync_delayed_panels()
+    _sync_stale_running_panels()
     current_staff = _current_staff(request)
     is_panel_staff = _is_panel_staff(current_staff)
 
@@ -1871,6 +1941,7 @@ def _effective_chair_q(staff_id):
 
 def inclusion_panel_meetings(request):
     _sync_delayed_panels()
+    _sync_stale_running_panels()
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
     school_key = current_school_key(request)
@@ -2110,6 +2181,7 @@ def inclusion_panel_meeting_delete(request, panel_id):
 
 def inclusion_panel_meeting_setup(request, panel_id):
     _sync_delayed_panels()
+    _sync_stale_running_panels()
     panel = get_object_or_404(Panel, pk=panel_id)
 
     # 'closed' means fully handled - no outstanding action, no follow-up due
@@ -2339,6 +2411,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
 
 
 def inclusion_panel_meeting_agenda(request, panel_id):
+    _sync_stale_running_panels()
     panel = get_object_or_404(Panel, pk=panel_id)
     today = timezone.localdate()
 
@@ -2461,6 +2534,17 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     )
     show_schedule_warning = panel.started_at is None and timezone.now() < scheduled_at
 
+    # Elapsed-time nudge - a running meeting well past this group's typical
+    # duration probably means the chair forgot to click End Panel Meeting.
+    # Distinct from _sync_stale_running_panels' auto-end above: that only
+    # force-completes at 2x typical (a much stronger "clearly abandoned"
+    # signal); this is the earlier, in-page-only warning at 1.5x, giving a
+    # chair who's still here a chance to notice and end it themselves.
+    is_running_long = False
+    if panel.status == 'running' and panel.started_at:
+        typical = _group_typical_duration(panel.panel_group)
+        is_running_long = (timezone.now() - panel.started_at) > typical * 1.5
+
     members = _panel_member_roster(panel)
 
     return render(request, 'hubs/inclusion/panel/meeting_agenda.html', {
@@ -2473,6 +2557,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'just_started': request.GET.get('just_started') == '1',
         'scheduled_at': scheduled_at,
         'show_schedule_warning': show_schedule_warning,
+        'is_running_long': is_running_long,
         'today': today,
         'priority_choices': InclusionReferral.PRIORITY_CHOICES,
     })
