@@ -418,8 +418,20 @@ def _sync_stale_discussion_timers():
     for pr in PanelReferral.objects.filter(
         discussion_status='pending', discussion_started_at__isnull=False, removed_at__isnull=True,
     ):
-        if now - _discussion_last_activity_at(pr) > datetime.timedelta(minutes=30):
-            _stop_discussion_timer(pr)
+        last_activity = _discussion_last_activity_at(pr)
+        if now - last_activity <= datetime.timedelta(minutes=30):
+            continue
+        # Deliberately not _stop_discussion_timer (which uses now() as the
+        # stop instant - correct for its other caller, an explicit action
+        # happening right now). The lazy check here might not run again for
+        # a long time after the 30-minute cutoff, and none of that extra gap
+        # was real discussion time either - stop at last_activity instead,
+        # so the counted duration reflects when the discussion actually went
+        # quiet, not whenever some unrelated page happened to load next.
+        pr.duration = (pr.duration or datetime.timedelta()) + (last_activity - pr.discussion_started_at)
+        pr.discussion_started_at = None
+        pr.discussion_auto_stopped = True
+        pr.save()
 
 
 def _activity_display_time(dt):
@@ -2562,6 +2574,11 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                     _stop_discussion_timer(other)
                 pr.discussion_status = 'pending'
                 pr.discussion_started_at = timezone.now()
+                # A fresh segment starts clean - discussion_auto_stopped
+                # should only ever describe the most recent segment, not
+                # linger from an earlier one that got auto-stopped before
+                # this resume.
+                pr.discussion_auto_stopped = False
                 pr.save()
                 _sync_referral_status(pr.referral)
             return redirect('inclusion_panel_discussion', panel_referral_id=pr.id)

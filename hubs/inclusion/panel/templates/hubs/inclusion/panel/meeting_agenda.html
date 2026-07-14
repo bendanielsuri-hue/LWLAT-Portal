@@ -137,6 +137,8 @@
                         <span class="status-pill {{ pr.stage }}">{{ pr.stage_label }}</span>
                         {% if pr.discussion_started_at %}
                         <span class="agenda-row-timer">Discussing for: <span class="discussion-timer discussion-timer-sm" data-started-at="{{ pr.discussion_started_at|date:'c' }}">00:00:00</span></span>
+                        {% elif pr.discussion_auto_stopped %}
+                        <span class="status-pill danger" title="This discussion's timer was auto-stopped after 30 minutes with no note or action against it">Timer auto-stopped</span>
                         {% endif %}
                         &middot; {% if pr.is_followup %}Review{% else %}New{% endif %}
                     </div>
@@ -182,7 +184,7 @@
                         <span class="status-pill {{ pr.stage }}">{{ pr.stage_label }}</span>
                         &middot; {% if pr.is_followup %}Review{% else %}New{% endif %}
                     </div>
-                    <div class="entity-meta">Time discussed: {{ pr.duration_display }}</div>
+                    <div class="entity-meta">Time discussed: {{ pr.duration_display }}{% if pr.discussion_auto_stopped %} <span class="status-pill danger" title="This discussion's timer was auto-stopped after 30 minutes with no note or action against it, so this duration is an estimate">Auto-stopped</span>{% endif %}</div>
                     <div class="entity-meta">Review due: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
                     {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices %}
                 </div>

@@ -320,6 +320,15 @@ class PanelReferral(models.Model):
     created_at = models.DateTimeField(null=True, blank=True, auto_now_add=True)
     discussion_status = models.CharField(max_length=20, choices=DISCUSSION_CHOICES, default='pending')
     duration = models.DurationField(null=True, blank=True)
+    # Set by _sync_stale_discussion_timers (views.py) when this discussion's
+    # timer is auto-stopped for going 30 minutes with no note/action against
+    # it - duration is computed up to the last real activity, not the moment
+    # the lazy check happened to run, so this flags that the stop point (and
+    # therefore the counted duration) is an estimate, not a genuine End
+    # Discussion click. Reset to False whenever a fresh discussion_started_at
+    # begins (see start_discussion), so it only ever describes the most
+    # recent segment, not a stale flag from an earlier one.
+    discussion_auto_stopped = models.BooleanField(default=False)
     follow_up_date = models.DateField(null=True, blank=True)
     follow_up_status = models.CharField(max_length=20, choices=FOLLOW_UP_CHOICES, blank=True)
     # Manual agenda position — set by drag-and-drop on the
