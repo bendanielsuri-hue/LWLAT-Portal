@@ -222,9 +222,6 @@ class Student(models.Model):
         ('sensory', 'Sensory and/or Physical'),
     ]
     send_need = models.CharField(max_length=20, choices=SEND_NEED_CHOICES, blank=True)
-    attendance_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    behaviour_summary = models.TextField(blank=True)
-    exclusions_count = models.PositiveSmallIntegerField(default=0)
     date_of_arrival = models.DateField(null=True, blank=True)
     year_arrived = models.CharField(max_length=10, blank=True)
 
@@ -233,6 +230,83 @@ class Student(models.Model):
 
     def __str__(self):
         return f'{self.last_name}, {self.first_name}'
+
+
+# The stored source of truth for a student's attendance record - an AM and a
+# PM mark per day, matching how UK schools actually take a register twice
+# daily. Any percentage/weekly/termly view is always a derived rollup
+# computed from these at query time (see core/student_history.py), never
+# stored on Student directly - see
+# docs/adr/0007-student-history-tables-not-summary-fields.md for why.
+class AttendanceDay(models.Model):
+    SESSION_CHOICES = [
+        ('present', 'Present'),
+        ('absent_unauthorised', 'Absent (Unauthorised)'),
+        ('absent_authorised', 'Absent (Authorised)'),
+        ('late', 'Late'),
+    ]
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendance_days')
+    date = models.DateField()
+    am_status = models.CharField(max_length=20, choices=SESSION_CHOICES, default='present')
+    pm_status = models.CharField(max_length=20, choices=SESSION_CHOICES, default='present')
+
+    class Meta:
+        ordering = ['-date']
+        unique_together = [('student', 'date')]
+
+    def __str__(self):
+        return f'{self.student} — {self.date}'
+
+
+# One row per logged behaviour event - the behaviour picture shown anywhere
+# in the app (a summary, a trend) is always derived from this log, never a
+# standalone freeform summary field. category is a fixed preset set (not an
+# admin-configurable model like ActionCategory) since it doesn't vary
+# per-school the way Action's categories do.
+class BehaviourIncident(models.Model):
+    CATEGORY_CHOICES = [
+        ('disruption', 'Disruption'),
+        ('aggression', 'Aggression'),
+        ('defiance', 'Defiance'),
+        ('other', 'Other'),
+    ]
+    SEVERITY_CHOICES = [('low', 'Low'), ('medium', 'Medium'), ('high', 'High')]
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='behaviour_incidents')
+    date = models.DateField()
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default='low')
+    logged_by = models.ForeignKey(Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        ordering = ['-date']
+
+    def __str__(self):
+        return f'{self.student} — {self.get_category_display()} ({self.date})'
+
+
+# One row per logged exclusion - exclusions_count shown anywhere in the app
+# is always a derived count of these records, never its own stored counter.
+class Exclusion(models.Model):
+    TYPE_CHOICES = [
+        ('fixed_term', 'Fixed-term'),
+        ('permanent', 'Permanent'),
+        ('internal', 'Internal'),
+    ]
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='exclusions')
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)  # blank/null = permanent
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f'{self.student} — {self.get_type_display()} ({self.start_date})'
 
 
 class AcademicYear(models.Model):

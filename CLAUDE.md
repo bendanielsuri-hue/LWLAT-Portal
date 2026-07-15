@@ -47,6 +47,7 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file 
   .venv\Scripts\python.exe manage.py seed_benjamin_admin
   .venv\Scripts\python.exe manage.py seed_modules
   .venv\Scripts\python.exe manage.py seed_staff_groups
+  .venv\Scripts\python.exe manage.py seed_student_history
   ```
   Inclusion Panel has its own additional seed commands — see `hubs/inclusion/CLAUDE.md`.
   - `seed_dummy_data` (in `core/management/commands/`) — 10 Staff + 30 Student rows.
@@ -54,6 +55,7 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file 
   - `seed_benjamin_admin` (in `hubs/inclusion/management/commands/`) — must run after `seed_dummy_data`. Sets `is_mat_staff=True` and `is_developer=True` on Benjamin Suri and clears his school FK (MAT-wide, not tied to a school). `is_developer` is what makes him the one seeded user who can see the Portal Admin hub.
   - `seed_modules` (in `core/management/commands/`) — no dependency on the other seed commands, can run any time/order. Seeds the `Module` rollout-status table (one row per hub + per leaf page, see "Module rollout status" below). Reruns are idempotent on `key` and resync `name`/`parent` but never touch `status`/`pilot_schools` — those are an admin's deliberate decision, not seed data.
   - `seed_staff_groups` (in `core/management/commands/`) — must run after `seed_dummy_data`/`seed_schools`. Seeds `core.StaffGroup` rows a task/action can be assigned to instead of one individual: a SENCo Team per school (reusing the existing SENDCo assignment), Head of Year N per school/year group (created with no members — no data models who actually holds that role yet), and one MAT-wide Careers Team.
+  - `seed_student_history` (in `core/management/commands/`) — must run after `seed_dummy_data`/`seed_schools`. Seeds `AttendanceDay`/`BehaviourIncident`/`Exclusion` rows (see `core/CONTEXT.md` and [ADR 0007](docs/adr/0007-student-history-tables-not-summary-fields.md)) — the real per-record history behind `core.student_history`'s derived percentage/summary/count helpers, replacing the old `Student.attendance_pct`/`behaviour_summary`/`exclusions_count` scalar fields.
 
 ### Sidebar "current user" identity
 

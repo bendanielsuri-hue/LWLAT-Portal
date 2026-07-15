@@ -1,8 +1,8 @@
 from django.contrib import admin
 
 from .models import (
-    AcademicYear, CategorySettings, MatSettings, Module, Referral, School, Staff, StaffGroup, StaffGroupMember,
-    Student, Term,
+    AcademicYear, AttendanceDay, BehaviourIncident, CategorySettings, Exclusion, MatSettings, Module, Referral,
+    School, Staff, StaffGroup, StaffGroupMember, Student, Term,
 )
 
 
@@ -48,6 +48,27 @@ class StudentAdmin(admin.ModelAdmin):
     )
     list_filter = ('year_group', 'reg_form', 'is_pp', 'is_eal', 'is_lac', 'is_young_carer')
     search_fields = ('upn', 'last_name', 'first_name')
+
+
+@admin.register(AttendanceDay)
+class AttendanceDayAdmin(admin.ModelAdmin):
+    list_display = ('student', 'date', 'am_status', 'pm_status')
+    list_filter = ('am_status', 'pm_status')
+    search_fields = ('student__last_name', 'student__first_name', 'student__upn')
+
+
+@admin.register(BehaviourIncident)
+class BehaviourIncidentAdmin(admin.ModelAdmin):
+    list_display = ('student', 'date', 'category', 'severity', 'logged_by')
+    list_filter = ('category', 'severity')
+    search_fields = ('student__last_name', 'student__first_name', 'student__upn')
+
+
+@admin.register(Exclusion)
+class ExclusionAdmin(admin.ModelAdmin):
+    list_display = ('student', 'start_date', 'end_date', 'type')
+    list_filter = ('type',)
+    search_fields = ('student__last_name', 'student__first_name', 'student__upn')
 
 
 class StaffGroupMemberInline(admin.TabularInline):

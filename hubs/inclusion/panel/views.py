@@ -18,6 +18,7 @@ from core.identity import (
 )
 from core.models import AcademicYear, Referral as CoreReferral, School, Staff, StaffGroup, Student
 from core.modules import filter_by_module, module_map
+from core.student_history import attendance_percentage, behaviour_summary, exclusion_count
 from core.term_dates import next_half_term, next_term
 
 from .models import (
@@ -3003,6 +3004,11 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'panel_referral': panel_referral,
         'referral': referral,
         'student': referral.student,
+        # Derived, never stored on Student directly - see
+        # docs/adr/0007-student-history-tables-not-summary-fields.md.
+        'attendance_percentage': attendance_percentage(referral.student),
+        'behaviour_summary': behaviour_summary(referral.student),
+        'exclusion_count': exclusion_count(referral.student),
         'response_groups': _response_groups(referral),
         'previous_referrals': previous_referrals,
         'actions': actions,
