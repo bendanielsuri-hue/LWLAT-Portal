@@ -2248,6 +2248,10 @@ def inclusion_panel_meetings(request):
         'status_filter': status_filter,
         'my_meetings_filter': my_meetings_filter,
         'active_filter_count': active_filter_count,
+        # New Panel Meeting is hidden entirely (not disabled) for staff in
+        # zero active Panel Groups - same omission convention as
+        # Start/Continue/Edit/Delete's can_manage above (#69).
+        'can_create_meeting': bool(my_group_ids),
     }
     template = 'hubs/inclusion/panel/_meetings_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/meetings.html'
     return render(request, template, context)
@@ -2296,25 +2300,50 @@ def inclusion_panel_meeting_new(request, panel_id=None):
     # existing Panel has no school of its own (only via panel.panel_group.
     # school, itself nullable), so editing one never shows or sets it
     # directly, same as before the two dialogs were merged.
+    current_staff = _current_staff(request)
+    panel_groups = PanelGroup.objects.filter(is_active=True).select_related('school')
     schools = selected_school_id = school_locked = None
     if panel is None:
+        # Create mode is gated to the user's own groups (#69) - the trigger
+        # that opens this form is already hidden for anyone with none (see
+        # inclusion_panel_meetings' can_create_meeting), but the form itself
+        # only ever offers groups/schools this user could plausibly need,
+        # rather than every active group in the system.
+        panel_groups = list(panel_groups.filter(
+            members__staff=current_staff, members__is_active=True,
+        ).distinct()) if current_staff else []
+        my_school_ids = {g.school_id for g in panel_groups if g.school_id}
+        has_mat_wide_group = any(g.school_id is None for g in panel_groups)
+
         school_key = current_school_key(request)
         if school_key in (None, '', 'all'):
-            schools = School.objects.filter(is_active=True).order_by('name')
+            sidebar_schools = School.objects.filter(is_active=True, pk__in=my_school_ids)
         elif school_key in ('primary', 'secondary'):
-            schools = School.objects.filter(is_active=True, category=school_key.capitalize())
+            sidebar_schools = School.objects.filter(is_active=True, pk__in=my_school_ids, category=school_key.capitalize())
         else:
-            schools = School.objects.filter(is_active=True, pk=school_key)
-        selected_school = schools.first() if schools.count() == 1 else None
-        selected_school_id = selected_school.id if selected_school else ''
+            sidebar_schools = School.objects.filter(is_active=True, pk__in=my_school_ids, pk=school_key)
+
+        # A MAT-wide group (no school of its own) isn't "from a different
+        # school" the way another school's group is, so it's never excluded
+        # by the sidebar's current school-switcher scope - only real schools
+        # narrow against it. Rendered as a synthetic 'none'-valued option
+        # alongside the real ones so School->Panel Group filtering
+        # (applyGroupFilter in panel.js) has something to match against.
+        school_options = [{'id': s.id, 'name': s.name} for s in sidebar_schools.order_by('name')]
+        if has_mat_wide_group:
+            school_options.append({'id': 'none', 'name': 'MAT-wide'})
+        schools = school_options
+
+        selected_school = schools[0] if len(schools) == 1 else None
+        selected_school_id = selected_school['id'] if selected_school else ''
         school_locked = selected_school is not None
 
     return render(request, 'hubs/inclusion/panel/_panel_meeting_form_modal.html', {
         **_panel_base_context(request),
         'panel': panel,
-        'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school'),
+        'panel_groups': panel_groups,
         'today': timezone.localdate(),
-        'current_staff': _current_staff(request),
+        'current_staff': current_staff,
         'schools': schools,
         'selected_school_id': selected_school_id,
         'school_locked': school_locked,

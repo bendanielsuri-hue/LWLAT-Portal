@@ -1017,7 +1017,10 @@ window.setFadeHidden = function (el, hide) {
     //     outside any dialog).
     function resolveCreateGroupSchoolId(select, hostDialog) {
         var hostSchoolSelect = hostDialog && hostDialog.querySelector('[data-panel-school-select]');
-        if (hostSchoolSelect && hostSchoolSelect.value) return hostSchoolSelect.value;
+        // 'none' is the synthetic "MAT-wide" School option (#69) - it isn't
+        // a real School row to preselect against, so fall through to the
+        // next signal instead of forwarding it as a school id.
+        if (hostSchoolSelect && hostSchoolSelect.value && hostSchoolSelect.value !== 'none') return hostSchoolSelect.value;
 
         if (select && select.value) {
             var current = select.options[select.selectedIndex];
@@ -1363,13 +1366,20 @@ window.setFadeHidden = function (el, hide) {
         var groupSelect = dialog.querySelector('#new-panel-group');
         var schoolSelect = dialog.querySelector('[data-panel-school-select]');
         if (!groupSelect) return;
-        var schoolId = schoolSelect ? schoolSelect.value : '';
+        // No School select in the DOM at all (edit mode, see
+        // _panel_meeting_form_modal.html) means no school-based filtering
+        // applies - every group option stays visible. That's distinct from
+        // an explicit "MAT-wide" choice (value 'none'), which narrows to
+        // just the school-less groups rather than showing everything.
+        var schoolId = schoolSelect ? schoolSelect.value : null;
         var placeholder = groupSelect.querySelector('option[value=""]');
         var previousValue = groupSelect.value;
         groupSelect.innerHTML = '';
         if (placeholder) groupSelect.appendChild(placeholder);
         var visible = allGroupOptions.filter(function (opt) {
-            return !schoolId || opt.dataset.school === schoolId;
+            if (schoolId === null) return true;
+            if (schoolId === 'none') return !opt.dataset.school;
+            return opt.dataset.school === schoolId;
         });
         visible.forEach(function (opt) { groupSelect.appendChild(opt); });
         if (visible.some(function (opt) { return opt.value === previousValue; })) {
