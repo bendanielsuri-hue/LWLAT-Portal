@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=163">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=164">
 {% endblock %}
 
 
@@ -225,7 +225,31 @@
                         </div>
                         <div class="referral-details">
                             <div class="entity-meta">Time discussed: {{ pr.duration_display }}{% if pr.discussion_auto_stopped %} <span class="status-pill danger" title="This discussion's timer was auto-stopped after 30 minutes with no note or action against it, so this duration is an estimate">Auto-stopped</span>{% endif %}</div>
+                            {% if pr.follow_up_status == 'incomplete' %}
+                            <div class="entity-meta review-date-controls">
+                                <span>Review due:</span>
+                                <form method="post" class="review-date-mini-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="form_action" value="update_review_date">
+                                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                                    <input type="date" name="follow_up_date" value="{{ pr.follow_up_date|date:'Y-m-d' }}" aria-label="Review date" onchange="this.form.requestSubmit()">
+                                </form>
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="form_action" value="resolve_followup">
+                                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                                    <button type="submit" class="btn btn-add btn-sm">Resolve</button>
+                                </form>
+                                <form method="post" onsubmit="return confirm('Cancel this follow-up? It will no longer need review.');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="form_action" value="cancel_followup">
+                                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                                    <button type="submit" class="btn btn-secondary btn-delete btn-sm">Cancel</button>
+                                </form>
+                            </div>
+                            {% else %}
                             <div class="entity-meta">Review due: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="referral-details-actions">

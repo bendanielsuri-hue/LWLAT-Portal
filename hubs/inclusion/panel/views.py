@@ -2543,6 +2543,31 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             if priority == '' or priority in dict(InclusionReferral.PRIORITY_CHOICES):
                 referral.priority = priority
                 referral.save()
+        elif action == 'update_review_date':
+            pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
+            if pr.follow_up_status == 'incomplete':
+                raw_date = request.POST.get('follow_up_date')
+                try:
+                    pr.follow_up_date = datetime.date.fromisoformat(raw_date) if raw_date else None
+                except ValueError:
+                    pass
+                else:
+                    pr.save(update_fields=['follow_up_date'])
+                    _sync_referral_status(pr.referral)
+        elif action == 'resolve_followup':
+            # Marks the review itself as done - follow_up_date is kept as the
+            # historical record of when it was due, distinct from
+            # cancel_followup below (no review was ever needed).
+            pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
+            pr.follow_up_status = 'complete'
+            pr.save(update_fields=['follow_up_status'])
+            _sync_referral_status(pr.referral)
+        elif action == 'cancel_followup':
+            pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
+            pr.follow_up_date = None
+            pr.follow_up_status = ''
+            pr.save(update_fields=['follow_up_date', 'follow_up_status'])
+            _sync_referral_status(pr.referral)
         elif action == 'reorder_agenda':
             ordered_ids = request.POST.getlist('panel_referral_id')
             referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
