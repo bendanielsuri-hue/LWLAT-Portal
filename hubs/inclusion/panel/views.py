@@ -290,18 +290,26 @@ def _sync_referral_status(referral):
 
 
 def _due_followups(panel, as_of=None):
-    # Scoped strictly to the panel's own group so a follow-up never surfaces
-    # in a different group's meeting. Ungrouped panels see nothing due.
+    # Scoped to the referral's student's current school (#70), not the one
+    # group that originally discussed it - any active Panel Group at that
+    # school may pick up a due follow-up, matching how the unassigned pool
+    # (see unassigned_referrals below) already works. Nothing here is frozen
+    # at discussion time, so a student who transfers schools carries their
+    # due follow-up to the new school with them for free. A MAT-wide group
+    # (school_id None) or an ungrouped panel has no single school to scope
+    # by, so - same as before - it sees nothing due; a real MAT-wide
+    # follow-up flow needs its own design once there's an actual MAT Meeting
+    # use case, not guessed at here.
     # as_of defaults to today (live Agenda page); Panel Agenda Setup passes a
     # forward-looking date since setup happens ahead of the meeting.
-    if panel.panel_group_id is None:
+    if panel.panel_group_id is None or panel.panel_group.school_id is None:
         return PanelReferral.objects.none()
     return PanelReferral.objects.filter(
         follow_up_status='incomplete',
         follow_up_date__lte=as_of or timezone.localdate(),
         removed_at__isnull=True,
-        panel__panel_group_id=panel.panel_group_id,
-    ).select_related('referral__student', 'referral__raised_by', 'panel')
+        referral__student__school_id=panel.panel_group.school_id,
+    ).select_related('referral__student', 'referral__raised_by', 'panel__panel_group').order_by('-panel__date')
 
 
 def _sync_delayed_panels():
@@ -2396,9 +2404,23 @@ def inclusion_panel_meeting_setup(request, panel_id):
     ).prefetch_related('referral__responses__question__category').order_by('agenda_order', 'id')
 
     agenda_student_ids = [a.referral.student_id for a in agenda]
-    followups_due = _due_followups(
+    followups_due = list(_due_followups(
         panel, as_of=panel.date + datetime.timedelta(days=7),
-    ).exclude(referral__student_id__in=agenda_student_ids)
+    ).exclude(referral__student_id__in=agenda_student_ids))
+    # A referral can now surface a due follow-up from more than one Panel
+    # Group at the same school (previously impossible when this was locked
+    # to a single group's own history, see #70) - already ordered by
+    # -panel__date, so keeping only the first occurrence per referral keeps
+    # the most recently discussed one and Reviews Due never lists the same
+    # referral twice.
+    seen_followup_referral_ids = set()
+    deduped_followups_due = []
+    for fpr in followups_due:
+        if fpr.referral_id in seen_followup_referral_ids:
+            continue
+        seen_followup_referral_ids.add(fpr.referral_id)
+        deduped_followups_due.append(fpr)
+    followups_due = deduped_followups_due
 
     if request.method == 'POST':
         action = request.POST.get('form_action')
@@ -2497,7 +2519,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
         {
             'referral': referral, 'origin': 'new',
             'primary_concern_category': referral.primary_concern_category,
-            'follow_up_date': None, 'last_discussed': None,
+            'follow_up_date': None, 'last_discussed': None, 'last_discussed_group': None,
             'actions_total': None, 'actions_complete': None,
         }
         for referral in unassigned_referrals
@@ -2521,6 +2543,15 @@ def inclusion_panel_meeting_setup(request, panel_id):
             'follow_up_overdue': bool(fpr.follow_up_date and fpr.follow_up_date < today),
             'review_label': _review_label(discussed_count),
             'actions_total': actions_total, 'actions_complete': status_counts['complete'],
+            # Only set when it's a *different* group than the one composing
+            # this agenda - a follow-up can now be picked up by any group at
+            # the student's school (#70), so the chair needs to know it has
+            # history elsewhere before walking in cold.
+            'last_discussed_group': (
+                fpr.panel.panel_group.name
+                if fpr.panel.panel_group_id and fpr.panel.panel_group_id != panel.panel_group_id
+                else None
+            ),
         })
 
     referral_selection_entries = new_entries + followup_entries
