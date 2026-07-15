@@ -23,6 +23,13 @@ One GitHub Project (v2) per App — `Hub: <Name>` (e.g. `Hub: Staff`, `Hub: Incl
 - New issue → add it to the matching Project: `gh project item-add <project-number> --owner bendanielsuri-hue --url <issue-url>`. Look up the project number with `gh project list --owner bendanielsuri-hue` (don't hardcode numbers here — they can change).
 - No per-hub-page Projects — a page only earns its own wayfinder map (inside its hub's existing Project) once it has enough real, ongoing work to justify one. Most hub pages today are single hardcoded placeholders with nothing yet to track.
 
+## Milestones (rollout stage)
+
+Five shared milestones, applied to *any* issue regardless of app: `Planning` → `In Development` → `One-School Pilot` → `Multi-School Rollout` → `General Availability`. This is a different axis than Projects — Milestone answers "what stage," Project answers "which app" — so don't create one milestone per app/stage combination; that duplicates the per-app Project split and multiplies milestones as apps get added.
+
+- Milestone reflects genuine current state, not aspiration — the whole app is still local-dev-only (gitignored `db.sqlite3`, seeded dummy data, no auth), so nothing is actually in `One-School Pilot` or beyond yet even though Inclusion Panel's `Module.status` is seeded `live`. Don't confuse a hub's in-app `Module.status` (controls nav/menu visibility) with its Milestone (tracks the engineering work itself) — they're related but not the same thing and can legitimately disagree.
+- New issue → set its milestone to match the app's current overall stage: `gh issue edit <n> --milestone "<name>"`.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
