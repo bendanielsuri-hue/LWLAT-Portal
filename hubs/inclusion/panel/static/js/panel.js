@@ -2745,12 +2745,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
     function renumber(zone) {
         var rows = rowsIn(zone);
         rows.forEach(function (row, index) {
-            // Two different partials render an order number/button group:
-            // the older _agenda_order_controls.html (.agenda-order-number,
-            // two .agenda-order-arrow-btn) and the newer Panel Agenda Setup rail
-            // (.agenda-order-rail-number, three .agenda-order-btn with a
-            // Remove button in between). Cover both.
-            var numberEl = row.querySelector('.agenda-order-number, .agenda-order-rail-number');
+            var numberEl = row.querySelector('.agenda-order-rail-number');
             if (numberEl) numberEl.textContent = index + 1;
             // The up/down buttons' disabled state is only ever set
             // server-side, at initial render, based on forloop.first/
@@ -2760,8 +2755,8 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
             // now be enabled (and vice versa) until the next full page load -
             // e.g. moving the first item down used to leave its up arrow
             // disabled forever. Selected by their hidden `direction` input
-            // rather than position, since the newer rail's middle button is
-            // Remove, not Down.
+            // rather than position, since the rail's middle button (Setup's
+            // agenda card) is Remove, not Down.
             var upBtn = row.querySelector('form:has(input[name="direction"][value="up"]) button');
             var downBtn = row.querySelector('form:has(input[name="direction"][value="down"]) button');
             if (upBtn) upBtn.disabled = index === 0;
