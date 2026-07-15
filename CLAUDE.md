@@ -106,6 +106,10 @@ Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-f
 
 Per-app `CONTEXT.md` files created lazily alongside each app's own `CLAUDE.md`; single shared `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Grilling sessions
+
+Always ask each question via the AskUserQuestion widget, not as inline plain-text prose — even for the first question opening the session.
+
 ## Architecture decisions
 
 Hard-to-reverse design decisions with non-obvious rationale are recorded in `docs/adr/` as they come up — see the existing ADRs there for the format. Not every decision needs one; see `docs/adr/` only when a future reader would plausibly ask "why did we do it this way?"
