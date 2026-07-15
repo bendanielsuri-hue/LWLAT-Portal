@@ -15,6 +15,14 @@ Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all op
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone. This repo's remote is `bendanielsuri-hue/LWLAT-Portal`.
 
+## Projects (roadmap boards)
+
+One GitHub Project (v2) per App — `Hub: <Name>` (e.g. `Hub: Staff`, `Hub: Inclusion — Panel`) or `Portal-wide` for cross-cutting work — each linked to this repo. Every issue lives in exactly one Project, matching the app it's actually about. A single shared cross-app board was tried first and rejected — one repo/one dev made the fragmentation of per-app boards worth it once GitHub's own "filter by project" surfaces per issue stopped being useful with everything piled into one board.
+
+- Every hub gets a lightweight wayfinder-map issue as its Project's "home" (see Wayfinding operations below) — created once, holds Destination/Notes/Decisions-so-far/Fog, accumulates decisions/ideas over time rather than being a fixed spec. Inclusion Panel's predates this setup (#22); the rest were created as placeholders since most hubs are still hardcoded-only.
+- New issue → add it to the matching Project: `gh project item-add <project-number> --owner bendanielsuri-hue --url <issue-url>`. Look up the project number with `gh project list --owner bendanielsuri-hue` (don't hardcode numbers here — they can change).
+- No per-hub-page Projects — a page only earns its own wayfinder map (inside its hub's existing Project) once it has enough real, ongoing work to justify one. Most hub pages today are single hardcoded placeholders with nothing yet to track.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_

@@ -114,7 +114,7 @@ See [DesignLanguage.md](DesignLanguage.md) for the portal-wide visual design lan
 
 ### Issue tracker
 
-GitHub Issues on `bendanielsuri-hue/LWLAT-Portal` (uses the `gh` CLI — not yet installed on this machine). See `docs/agents/issue-tracker.md`.
+GitHub Issues (plus per-App Projects/roadmap boards) on `bendanielsuri-hue/LWLAT-Portal`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
