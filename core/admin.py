@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CategorySettings, MatSettings, Module, Referral, School, Staff, Student
+from .models import AcademicYear, CategorySettings, MatSettings, Module, Referral, School, Staff, Student, Term
 
 
 @admin.register(Staff)
@@ -51,3 +51,14 @@ class StudentAdmin(admin.ModelAdmin):
 class ReferralAdmin(admin.ModelAdmin):
     list_display = ('referral_type', 'student', 'status', 'date_referred', 'raised_by')
     list_filter = ('referral_type', 'status')
+
+
+@admin.register(AcademicYear)
+class AcademicYearAdmin(admin.ModelAdmin):
+    list_display = ('label', 'start_date', 'end_date')
+
+
+@admin.register(Term)
+class TermAdmin(admin.ModelAdmin):
+    list_display = ('name', 'academic_year', 'school', 'start_date', 'end_date', 'half_term_start', 'half_term_end')
+    list_filter = ('name', 'academic_year', 'school')

@@ -8,6 +8,8 @@
 # Field names below are the contract every hub view should code against, so
 # none of that needs to ripple out into hubs/*/views.py.
 
+import datetime
+
 from django.db import models
 
 # Reused by School/MatSettings/CategorySettings as the only colours available for
@@ -200,6 +202,91 @@ class Student(models.Model):
         return f'{self.last_name}, {self.first_name}'
 
 
+class AcademicYear(models.Model):
+    # Keyed on start_date (not a bare start_year int) so a year's actual
+    # first day is a real, queryable fact rather than an assumed Sept 1 -
+    # school years don't all start on the same calendar day (see the two
+    # sample term-dates sheets this model was designed against - see
+    # docs/adr/0008-academic-year-term-model-shape.md).
+    start_date = models.DateField(unique=True)
+    end_date = models.DateField()
+    # Auto-derived from start_date on save, not user-editable - see save().
+    label = models.CharField(max_length=10, editable=False)
+
+    class Meta:
+        ordering = ['-start_date']
+
+    def save(self, *args, **kwargs):
+        self.label = f'{self.start_date.year}/{str(self.start_date.year + 1)[-2:]}'
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.label
+
+    @classmethod
+    def for_date(cls, d):
+        # Latest year that's already started as of `d`, not a strict
+        # start_date<=d<=end_date containment check - a date can legitimately
+        # fall in the gap between one year's end_date and the next year's
+        # start_date (e.g. a summer-holiday referral), and it belongs to the
+        # year that's still "current" until the next one actually begins, not
+        # a mismatched synthesized row for that gap (see docs/adr/0008).
+        year = cls.objects.filter(start_date__lte=d).order_by('-start_date').first()
+        if year:
+            return year
+        # No seeded year starts before `d` at all (e.g. a historic date older
+        # than seed_term_dates' range) - fall back to the conventional
+        # Sept-Aug boundary the old ad-hoc _academic_year_key/_academic_year_
+        # label helpers (hubs/inclusion/panel/views.py) used to encode.
+        start_year = d.year if d.month >= 9 else d.year - 1
+        year, _ = cls.objects.get_or_create(
+            start_date=datetime.date(start_year, 9, 1),
+            defaults={'end_date': datetime.date(start_year + 1, 8, 31)},
+        )
+        return year
+
+
+class Term(models.Model):
+    TERM_AUTUMN = 'autumn'
+    TERM_SPRING = 'spring'
+    TERM_SUMMER = 'summer'
+    TERM_CHOICES = [
+        (TERM_AUTUMN, 'Autumn'),
+        (TERM_SPRING, 'Spring'),
+        (TERM_SUMMER, 'Summer'),
+    ]
+
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='terms')
+    name = models.CharField(max_length=10, choices=TERM_CHOICES)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # The one internal break within a term (e.g. late Oct) - not a separate
+    # Term row, since it's not its own bounded academic period with a name
+    # of its own. Nullable since not every term necessarily has one recorded.
+    half_term_start = models.DateField(null=True, blank=True)
+    half_term_end = models.DateField(null=True, blank=True)
+    # Holiday periods between terms are deliberately NOT stored here - they're
+    # just the gap between one Term's end_date and the next Term's start_date
+    # (or next year's Autumn Term, for the summer holidays). Storing them
+    # explicitly would duplicate that gap and can't cleanly represent the
+    # summer holidays' open-ended end (see docs/adr/0008).
+    # Null = MAT-wide (applies to every school); set = this school's own
+    # calendar overrides the MAT-wide row for the same academic_year/name.
+    # Mirrors the School -> MAT tiered-resolution pattern already used by
+    # core.portal_settings.resolve_portal_settings.
+    school = models.ForeignKey(
+        School, null=True, blank=True, on_delete=models.CASCADE, related_name='terms',
+    )
+
+    class Meta:
+        ordering = ['start_date']
+        unique_together = [('academic_year', 'name', 'school')]
+
+    def __str__(self):
+        scope = self.school.name if self.school_id else 'MAT-wide'
+        return f'{self.get_name_display()} {self.academic_year} ({scope})'
+
+
 class Referral(models.Model):
     # Extensible by adding new choices later — no separate lookup table, following
     # the same convention as Student.sen_status / School.category / Module.status.
@@ -229,9 +316,25 @@ class Referral(models.Model):
     date_referred = models.DateField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Auto-derived from created_at, not user-editable - see save(). created_at
+    # is only assigned by Django's auto_now_add machinery inside super().save()
+    # itself, so it isn't available to derive from until after that first
+    # save() call - hence the second, field-scoped save() below rather than
+    # computing this up front like Panel.academic_year does from its own
+    # plain (non-auto_now_add) `date` field.
+    academic_year = models.ForeignKey(
+        AcademicYear, null=True, blank=True, editable=False, on_delete=models.SET_NULL, related_name='referrals',
+    )
 
     class Meta:
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new:
+            self.academic_year = AcademicYear.for_date(self.created_at.date())
+            super().save(update_fields=['academic_year'])
 
     def __str__(self):
         return f'{self.get_referral_type_display()} referral #{self.pk} - {self.student}'

@@ -16,8 +16,9 @@ from core.identity import (
     staff_queryset_for_school_key,
     student_queryset_for_school_key,
 )
-from core.models import Referral as CoreReferral, School, Staff, Student
+from core.models import AcademicYear, Referral as CoreReferral, School, Staff, Student
 from core.modules import filter_by_module, module_map
+from core.term_dates import next_half_term, next_term
 
 from .models import (
     Action,
@@ -2008,14 +2009,18 @@ def _format_duration(td):
 
 
 def _academic_year_key(d):
-    # Sept-Aug academic year, keyed by its start calendar year (e.g. a date
-    # in Sept 2025-Aug 2026 both key to 2025) - no academic-year concept
-    # exists anywhere else in the codebase, so this is deliberately the only
-    # place that boundary is defined.
-    return d.year if d.month >= 9 else d.year - 1
+    # Thin wrapper around the real core.AcademicYear.for_date() (issue #14) -
+    # kept so this view's existing call sites (start-year ints, not FK
+    # instances) don't need touching yet. A real AcademicYear's start_date
+    # can fall in August rather than a hardcoded Sept 1 (see
+    # docs/adr/0008-academic-year-term-model-shape.md), but start_date.year
+    # is still the same calendar year the old Sept-Aug boundary keyed on.
+    # Full switch-over of this view to the FK directly is issue #17.
+    return AcademicYear.for_date(d).start_date.year
 
 
 def _academic_year_label(start_year):
+    # Thin wrapper - matches the format core.AcademicYear.save() derives.
     return f'{start_year}/{str(start_year + 1)[-2:]}'
 
 
@@ -2800,6 +2805,8 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'is_panel_staff': is_panel_staff,
         'panel_notes': panel_referral.notes.select_related('author'),
         'staff_list': Staff.objects.filter(is_active=True),
+        'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),
+        'next_term_date': next_term(referral.student.school, timezone.localdate()),
     }
     if is_panel_staff:
         context['notes'] = referral.student.notes.select_related('author')

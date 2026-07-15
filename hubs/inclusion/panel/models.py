@@ -2,6 +2,8 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from core.models import AcademicYear
+
 
 class ReferralCategory(models.Model):
     name = models.CharField(max_length=100)
@@ -244,10 +246,21 @@ class Panel(models.Model):
     # normally run, so _group_typical_duration excludes any panel with this
     # set from its average. Never set by a manual End Panel Meeting.
     auto_ended = models.BooleanField(default=False)
+    # Auto-derived from `date` on every save, not user-editable - so a
+    # rescheduled panel (see update_details) always reflects its current
+    # date, unlike Referral/Action below whose derivation date is an
+    # auto_now_add timestamp that never changes after creation.
+    academic_year = models.ForeignKey(
+        AcademicYear, null=True, blank=True, editable=False, on_delete=models.SET_NULL, related_name='panels',
+    )
 
     class Meta:
         ordering = ['date']
         db_table = 'inclusion_panel'
+
+    def save(self, *args, **kwargs):
+        self.academic_year = AcademicYear.for_date(self.date)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'Panel {self.date}'
@@ -417,10 +430,23 @@ class Action(models.Model):
     origin_panel_referral = models.ForeignKey(
         'PanelReferral', null=True, blank=True, on_delete=models.SET_NULL, related_name='raised_actions',
     )
+    # Auto-derived from created_at, not user-editable - see save(). Stays
+    # null for the same pre-existing rows created_at itself can't be
+    # backfilled for (see created_at's own comment above).
+    academic_year = models.ForeignKey(
+        AcademicYear, null=True, blank=True, editable=False, on_delete=models.SET_NULL, related_name='actions',
+    )
 
     class Meta:
         ordering = ['due_date']
         db_table = 'inclusion_action'
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new and self.created_at:
+            self.academic_year = AcademicYear.for_date(self.created_at.date())
+            super().save(update_fields=['academic_year'])
 
     def __str__(self):
         return f'Action #{self.pk} - {self.referral}'

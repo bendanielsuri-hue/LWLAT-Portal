@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=164">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=166">
 {% endblock %}
 
 
@@ -93,13 +93,20 @@
                     <option value="7">1 Week</option>
                     <option value="14">2 Weeks</option>
                     <option value="30">1 Month</option>
-                    <option value="42">6 Weeks</option>
+                    {% if next_half_term_date and next_half_term_date != next_term_date %}
+                    <option value="{{ next_half_term_date|date:'Y-m-d' }}">Next Half Term ({{ next_half_term_date|date:'d/m/Y' }})</option>
+                    {% endif %}
+                    {% if next_term_date %}
+                    <option value="{{ next_term_date|date:'Y-m-d' }}">Next Term ({{ next_term_date|date:'d/m/Y' }})</option>
+                    {% endif %}
                     <option value="other">Other</option>
                 </select>
             </div>
-            <div class="field-group" id="follow-up-date-custom-group" hidden>
-                <label for="follow-up-date-custom">Review Date</label>
-                <input type="date" id="follow-up-date-custom">
+            <div class="ui-fused-field-group" id="follow-up-date-custom-group" hidden>
+                <span class="ui-fused-field">
+                    <label class="ui-fused-field-label" for="follow-up-date-custom">Review Date</label>
+                    <input type="date" id="follow-up-date-custom">
+                </span>
             </div>
             <input type="hidden" name="follow_up_date" id="follow-up-date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
             <div class="btn-row">
@@ -387,14 +394,19 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
     intervalSelect.addEventListener('change', function () {
-        var isOther = intervalSelect.value === 'other';
+        var val = intervalSelect.value;
+        var isOther = val === 'other';
         customDateGroup.hidden = !isOther;
         if (isOther) {
             dateInput.value = customDateInput.value;
-        } else if (intervalSelect.value) {
-            dateInput.value = todayPlusDays(parseInt(intervalSelect.value, 10));
-        } else {
+        } else if (!val) {
             dateInput.value = '';
+        } else if (/^\d+$/.test(val)) {
+            dateInput.value = todayPlusDays(parseInt(val, 10));
+        } else {
+            // Next Half Term/Next Term options carry an already-computed
+            // ISO date (server-side, from core.term_dates) as their value.
+            dateInput.value = val;
         }
         updateConfirmState();
     });

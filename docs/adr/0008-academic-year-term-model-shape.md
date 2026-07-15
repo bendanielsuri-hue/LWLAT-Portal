@@ -1,0 +1,13 @@
+# AcademicYear/Term store real dates, not a computed Sept-Aug convention
+
+`core.AcademicYear` (`start_date`, `end_date`, an auto-derived `label` e.g. "2025/26") and `core.Term` (FK to `AcademicYear`; `name` choices Autumn/Spring/Summer; `start_date`/`end_date`; nullable `half_term_start`/`half_term_end`; nullable `school` FK, null = MAT-wide) replace what would otherwise have been a throwaway `_academic_year_key`/`_academic_year_label`-style helper hardcoding a Sept 1 - Aug 31 boundary. A school's real year doesn't start on a fixed calendar date (the two sample term-dates sheets this was built against start on 26 Aug and 25 Aug in consecutive years) and end-of-year term boundaries vary too, so `start_date`/`end_date` are genuine stored facts, not computed from a year number.
+
+Two things are deliberately *not* modelled here: holiday periods (Winter/Easter/Summer) are the gap between one `Term`'s `end_date` and the next `Term`'s `start_date` (or next year's Autumn `Term`, for summer) rather than their own stored fields — storing them explicitly would duplicate that gap and can't cleanly represent the summer holidays' open-ended end (the sample sheet lists a start but no end, since it just runs until the next year's first day). INSET days and bank holidays (single dates closed to students, occurring *within* a term rather than bounding it) get no model at all yet — nothing in this ticket's own motivation (Next Half Term/Next Term follow-up presets, see the wayfinder map issue this is part of) needs them, and adding an unused table now would be speculative.
+
+`Term.school` mirrors the tiered School → MAT resolution shape already used by `core.portal_settings.resolve_portal_settings` (a school's own `Term` row for a given year/name overrides the MAT-wide one) rather than introducing a new resolution pattern.
+
+## Considered options
+
+- **Computed Sept-Aug boundary, no stored calendar** (the original, narrower ticket scope): rejected once real term-dates sheets showed years starting on different August dates in different years — a fixed month/day boundary would silently misclassify the last week of August depending on the year.
+- **Store holiday date ranges as their own fields**: rejected — duplicates data already implied by adjacent `Term` rows, and the summer holiday's open-ended end date (no listed end, just "until next year starts") doesn't fit a fixed `end_date` field without an awkward null-means-open-ended special case.
+- **6 Term rows per year (Autumn 1/Autumn 2 etc., split at half term)**: rejected — the source sheets consistently organise the year as 3 named terms each containing one internal half-term break, not 6 independently-named periods.
