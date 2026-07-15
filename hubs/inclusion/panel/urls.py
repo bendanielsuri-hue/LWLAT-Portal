@@ -17,6 +17,7 @@ urlpatterns = [
     path('actions/', views.inclusion_panel_actions, name='inclusion_panel_actions'),
     path('actions/<int:action_id>/status/', views.inclusion_panel_action_set_status, name='inclusion_panel_action_set_status'),
     path('actions/<int:action_id>/edit/', views.inclusion_panel_action_edit, name='inclusion_panel_action_edit'),
+    path('actions/<int:action_id>/inline-update/', views.inclusion_panel_action_inline_update, name='inclusion_panel_action_inline_update'),
 
     path('escalations/', views.inclusion_panel_escalations, name='inclusion_panel_escalations'),
     path('escalations/<int:escalation_id>/resolve/', views.inclusion_panel_escalation_resolve, name='inclusion_panel_escalation_resolve'),

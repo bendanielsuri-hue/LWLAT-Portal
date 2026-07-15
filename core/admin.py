@@ -1,6 +1,9 @@
 from django.contrib import admin
 
-from .models import AcademicYear, CategorySettings, MatSettings, Module, Referral, School, Staff, Student, Term
+from .models import (
+    AcademicYear, CategorySettings, MatSettings, Module, Referral, School, Staff, StaffGroup, StaffGroupMember,
+    Student, Term,
+)
 
 
 @admin.register(Staff)
@@ -45,6 +48,19 @@ class StudentAdmin(admin.ModelAdmin):
     )
     list_filter = ('year_group', 'reg_form', 'is_pp', 'is_eal', 'is_lac', 'is_young_carer')
     search_fields = ('upn', 'last_name', 'first_name')
+
+
+class StaffGroupMemberInline(admin.TabularInline):
+    model = StaffGroupMember
+    extra = 1
+
+
+@admin.register(StaffGroup)
+class StaffGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'school', 'year_group', 'is_active')
+    list_filter = ('school', 'year_group', 'is_active')
+    search_fields = ('name',)
+    inlines = [StaffGroupMemberInline]
 
 
 @admin.register(Referral)

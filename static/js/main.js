@@ -1362,7 +1362,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // the per-context caps (.ui-fused-field/.filter-field/generic).
             trigger.style.minWidth = resolveTriggerMinWidth(selectEl, trigger);
             panel.innerHTML = '';
-            Array.prototype.forEach.call(selectEl.options, function (opt) {
+            function appendOption(opt) {
                 var row = document.createElement('div');
                 row.className = 'ui-option' + (opt.selected ? ' selected' : '') + (opt.dataset.muted === '1' ? ' muted' : '') + (isPriority ? ' priority-' + opt.value : '');
                 row.textContent = opt.textContent;
@@ -1374,6 +1374,21 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                     closeAllUiPopovers();
                 });
                 panel.appendChild(row);
+            }
+            // Walk the select's own direct children (not the flat .options
+            // collection) so an <optgroup>'s label renders as a heading in
+            // the popover instead of silently vanishing - the native select
+            // always had this structure, the popover just never showed it.
+            Array.prototype.forEach.call(selectEl.children, function (child) {
+                if (child.tagName === 'OPTGROUP') {
+                    var heading = document.createElement('div');
+                    heading.className = 'ui-option-group-label';
+                    heading.textContent = child.label;
+                    panel.appendChild(heading);
+                    Array.prototype.forEach.call(child.children, appendOption);
+                } else {
+                    appendOption(child);
+                }
             });
         }
 

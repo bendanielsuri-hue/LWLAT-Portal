@@ -574,8 +574,12 @@
     flex-wrap: wrap;
     align-items: flex-start;
 }
-/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
-.setup-col, .discussion-col {
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card).
+   .discussion-toolbar-card shares this chrome (see #56 - Meeting Notes/
+   Discussion Controls cards above .discussion-columns) but not
+   .discussion-col's own tall scrolling-column treatment below, which is
+   sized for the viewport-height detail cards, not a toolbar-sized card. */
+.setup-col, .discussion-col, .discussion-toolbar-card {
     flex: 1 1 280px;
     min-width: 260px;
     background: var(--bg-surface);
@@ -586,10 +590,30 @@
 }
 
 /* Panel Discussion's cards (Student Details, Referral Details, etc.) scroll
-   internally past viewport height instead of growing the whole page. */
+   internally past viewport height instead of growing the whole page. Same
+   "Card-internal scroll with a fixed header" split as .setup-col-body
+   (DesignLanguage.md): the column itself is the flex column with a fixed
+   max-height (there's no .list-page-shell stretching it to an exact height
+   here, so max-height + overflow: hidden stands in for height + overflow:
+   hidden), its own <h2> is a non-scrolling flex-shrink: 0 sibling, and
+   .discussion-col-body is the flex: 1 1 auto; min-height: 0; overflow-y: auto
+   scrolling region - so the heading never scrolls away with the rest of
+   the card's content. */
 .discussion-col {
+    display: flex;
+    flex-direction: column;
     max-height: calc(100vh - 260px);
+    overflow: hidden;
+}
+.discussion-col > h2 {
+    flex-shrink: 0;
+}
+.discussion-col-body {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
+    margin: 0 calc(-1 * var(--space-lg));
+    padding: 0 var(--space-lg);
 }
 
 /* Panel Agenda Setup wraps its toolbar + card row in the standard .list-page-shell
@@ -647,12 +671,42 @@
    .setup-col-header since editing group membership is a rare, out-of-band
    action, not this card's everyday job (attendance-taking). */
 .setup-col-footer { flex-shrink: 0; display: flex; justify-content: flex-end; padding-top: var(--space-sm); }
-.setup-col h2, .discussion-col h2 { font-size: var(--font-xl); margin-bottom: var(--space-md); }
+.setup-col h2, .discussion-col h2, .discussion-toolbar-card h2 { font-size: var(--font-xl); margin-bottom: var(--space-md); }
 
 /* Panel Discussion cards (Student Details, Referral Details, Actions, DSL
-   Notes) read as profile-style summaries rather than left-aligned forms. */
-.discussion-col { text-align: center; }
+   Notes) read as profile-style summaries rather than left-aligned forms.
+   The toolbar cards above them (Meeting Notes/Discussion Controls) read the
+   same way for visual consistency across the whole page. */
+.discussion-col, .discussion-toolbar-card { text-align: center; }
 .setup-col h2 { text-align: center; }
+
+/* Panel Discussion's toolbar row (see #56): Meeting Notes takes the
+   available width, Discussion Controls is a narrow card beside it - same
+   flex-row/narrow-card pattern as .discussion-columns/.setup-col--narrow
+   below, just not part of that row itself since it sits above it.
+   align-items: flex-start (not stretch) - Discussion Controls keeps its own
+   fixed height regardless of Meeting Notes' own height changing as its
+   "Notes for this Discussion" <details> is expanded/collapsed. */
+.discussion-toolbar-row {
+    display: flex;
+    gap: var(--space-xl);
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-bottom: var(--space-lg);
+}
+.discussion-toolbar-card--controls {
+    flex: 0 1 240px;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.discussion-controls-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+}
 
 /* Heading sits in the true centre column regardless of the button's width
    (a flex justify-content: space-between/center would instead drift the
@@ -971,15 +1025,17 @@
 }
 .panel-toolbar-stats { display: flex; gap: var(--space-xl); font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; align-items: center; }
 
-/* Panel Discussion toolbar: a quick Add Note form takes the available width
-   on the left, a divider, then the timer + End Discussion stacked together
-   and right-aligned as one unit. The full notes history sits collapsed
+/* Inline hint next to a disabled toolbar action (currently: Start Meeting
+   before anyone's checked in - #60) - plain muted text, no icon/pill, since
+   the disabled button + its own title tooltip already carry the same
+   message for pointer users. */
+.toolbar-inline-hint { font-size: var(--font-xs); color: var(--text-secondary); }
+
+/* Panel Discussion's Meeting Notes card (see #56 - split out of the old
+   single cramped toolbar row into its own card, .discussion-toolbar-row
+   above): quick Add Note form, with the full notes history collapsed
    beneath via a plain native <details>. */
-.panel-toolbar-stacked { flex-direction: column; align-items: stretch; }
-.panel-toolbar-top { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
-.panel-toolbar-divider { width: 1px; align-self: stretch; background: var(--border-color); }
-.panel-toolbar-notes-form { display: flex; gap: var(--space-xs); align-items: stretch; flex: 1 1 200px; min-width: 0; }
-.panel-toolbar-actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-xs); }
+.panel-toolbar-notes-form { display: flex; gap: var(--space-xs); align-items: stretch; min-width: 0; text-align: left; }
 .panel-toolbar-timer { font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; }
 .panel-toolbar-notes-form textarea {
     flex: 1;
@@ -1011,9 +1067,39 @@
 .detail-stat-card summary { font-weight: 600; cursor: pointer; }
 .detail-stat-card .field-readonly { margin-top: var(--space-xs); }
 .detail-stat-card-header { display: flex; justify-content: center; align-items: center; gap: var(--space-sm); }
-.panel-notes-history { margin-top: var(--space-md); border-top: 1px solid var(--border-color); padding-top: var(--space-sm); }
+/* Overrides .discussion-toolbar-card's centred default (shared with
+   .discussion-col/.setup-col for the profile-style cards) - a note thread
+   reads left-aligned like any other chat/list content, not centred. */
+.panel-notes-history { margin-top: var(--space-md); border-top: 1px solid var(--border-color); padding-top: var(--space-sm); text-align: left; }
 .panel-notes-history summary { font-weight: 600; cursor: pointer; margin-bottom: var(--space-xs); }
-.panel-notes-history-list { max-height: 240px; overflow-y: auto; }
+
+/* Note-thread treatment (see #57): author-initial avatar + inline timestamp,
+   a divider between entries instead of a bordered box per note. Consecutive
+   entries from the same author collapse under one avatar/name header
+   ({% ifchanged %} in the template) chat-style, while every entry - grouped
+   or not - still gets its own divider and timestamp. */
+.note-thread { max-height: 240px; overflow-y: auto; }
+.note-thread-item { padding: var(--space-xs) 0; border-bottom: 1px solid var(--border-color); }
+.note-thread-item:last-child { border-bottom: none; }
+.note-thread-header { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-xxs); }
+.note-thread-avatar {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bg-well);
+    color: var(--text-secondary);
+    font-size: var(--font-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.note-thread-author { font-size: var(--font-sm); font-weight: 600; color: var(--text-primary); }
+.note-thread-body { padding-left: calc(24px + var(--space-xs)); }
+.note-thread-time { font-size: var(--font-2xs); color: var(--text-faint); }
+.note-thread-text { font-size: var(--font-base); color: var(--text-secondary); }
 
 /* Panel Agenda: members register + pending/discussed, all equal-width columns
    by default. .setup-col--narrow (its own flex: 0 1 240px rule, further
@@ -1026,6 +1112,17 @@
 .agenda-layout:has(.setup-col--narrow) { grid-template-columns: minmax(220px, 240px) repeat(auto-fit, minmax(280px, 1fr)); }
 .agenda-layout .agenda-section { min-width: 0; margin-bottom: 0; }
 .agenda-layout .members-register-col { min-width: 0; }
+
+/* Once the meeting is running (#60), the Members Register only needs to answer
+   "who's here" - single-line rows (no photo/expertise pill, see
+   meeting_agenda.html's panel.status == 'running' guards around those), so
+   the column itself narrows further, freeing width for Pending/Discussed.
+   Rule placed after the .setup-col--narrow one above so it wins on source
+   order - both classes are present together on this column. */
+.agenda-layout:has(.members-register-col--compact) { grid-template-columns: minmax(160px, 180px) repeat(auto-fit, minmax(280px, 1fr)); }
+.members-register-col--compact .entity-row { padding: var(--space-sm) var(--space-md); gap: var(--space-sm); }
+.members-register-col--compact .entity-title { font-size: var(--font-sm); }
+.members-register-col--compact .member-attendance-form { margin-top: var(--space-xxs); }
 /* Panel Agenda wraps toolbar + agenda-layout in the standard .list-page-shell
    (see meeting_setup.html's identical .list-page-shell .setup-columns rule
    above, and DesignLanguage.md "Card-internal scroll with a fixed header") -
@@ -1632,10 +1729,26 @@ textarea.referral-field-compact { min-height: 44px; resize: vertical; }
 }
 .discussion-thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
 
+/* Every field is directly inline-editable, no Edit button (see #51's
+   follow-up: fully inline editing won over Edit-as-modal after prototyping
+   both) - Category, Description, Assigned To, Due Date, Status, each its
+   own line (a denser spreadsheet-row layout was tried and read as too
+   cramped). .field-editable is the shared "this control saves itself"
+   chrome; each select's own selected-option text is the only label it
+   needs (aria-label covers screen readers - see the template). */
 .action-item { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-sm); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); }
-.action-item .desc { font-size: var(--font-base); margin-bottom: var(--space-xs); }
-.action-item .field-group { display: flex; justify-content: center; align-items: center; gap: var(--space-sm); margin-bottom: 0; }
-.action-item .field-group label { margin-bottom: 0; }
+.action-item > * { margin-bottom: var(--space-sm); }
+.action-item > *:last-child { margin-bottom: 0; }
+.action-item-desc.field-editable { display: block; width: 100%; resize: vertical; }
+.field-editable {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: var(--space-xs) var(--space-sm);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+}
 
 .set-action-card { border: 2px solid var(--accent-border); border-radius: var(--radius-lg); padding: var(--space-md); background: var(--bg-surface); box-shadow: var(--shadow-emphasis); }
 .set-action-card h3 { font-size: var(--font-md); margin-bottom: var(--space-sm); }

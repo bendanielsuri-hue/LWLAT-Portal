@@ -133,6 +133,39 @@ class Staff(models.Model):
         return f'{self.last_name}, {self.first_name}'
 
 
+class StaffGroup(models.Model):
+    # A named group of Staff a task/action can be assigned to instead of one
+    # individual - "SENCo Team", "Head of Year 9", "Careers Team". Deliberately
+    # not scoped to any one hub (core, not hubs.inclusion.panel) since this is
+    # a MAT-wide staffing concept other hubs can reuse later, same reasoning
+    # as core.Staff/core.Student themselves. Distinct from
+    # hubs.inclusion.panel.PanelGroup, which is semantically tied to running
+    # panel meetings, not general task assignment.
+    name = models.CharField(max_length=100)
+    school = models.ForeignKey(
+        School, null=True, blank=True, on_delete=models.SET_NULL, related_name='staff_groups'
+    )  # null = MAT-wide (e.g. Careers Team)
+    year_group = models.PositiveSmallIntegerField(null=True, blank=True)  # null = not year-specific
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['school', 'year_group', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+class StaffGroupMember(models.Model):
+    group = models.ForeignKey(StaffGroup, on_delete=models.CASCADE, related_name='members')
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='staff_group_memberships')
+
+    class Meta:
+        unique_together = [('group', 'staff')]
+
+    def __str__(self):
+        return f'{self.staff} in {self.group}'
+
+
 class Student(models.Model):
     upn = models.CharField(max_length=20, unique=True)  # Unique Pupil Number
     first_name = models.CharField(max_length=100)

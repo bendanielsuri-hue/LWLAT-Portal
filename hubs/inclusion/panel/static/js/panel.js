@@ -1473,6 +1473,210 @@ window.setFadeHidden = function (el, hide) {
     });
 })();
 
+// Add Action modal (see #51) - one dialog/fetch-fragment pair, same
+// convention as #panel-meeting-dialog above: openActionFormModal fetches
+// _action_form_modal.html (inclusion_panel_action_new) into the shared
+// #action-form-dialog shell (_base.html). Saving is a plain AJAX POST that
+// redirects the whole page back to wherever it opened from (Discussion
+// today, kept generic for other future callers) rather than swapping
+// anything in place - there's no in-place update to do since the new
+// Action's row belongs to a page this dialog doesn't own. Editing an
+// existing Action doesn't use this dialog at all - Panel Discussion edits
+// every field inline instead (see the delegated listeners further down);
+// this stays create-only.
+(function () {
+    var dialog = document.getElementById('action-form-dialog');
+    if (!dialog) return;
+
+    function closeModal() {
+        window.closeModalWithFadeOut(dialog);
+    }
+
+    // The category select's auto-assign-by-category behaviour can't be an
+    // inline <script> here - this fragment is injected via dialog.innerHTML,
+    // and a <script> tag inserted that way never executes. Reads the
+    // json_script data island the fragment renders instead (see
+    // _action_form_modal.html).
+    function wireAutoAssign() {
+        var category = dialog.querySelector('#action-modal-category');
+        var assignedTo = dialog.querySelector('#action-modal-assigned-to');
+        var dataEl = dialog.querySelector('[data-action-modal-auto-assign]');
+        if (!category || !assignedTo || !dataEl) return;
+        var autoAssignByCategory = JSON.parse(dataEl.textContent);
+        category.addEventListener('change', function () {
+            var staffId = autoAssignByCategory[category.value];
+            if (staffId) {
+                assignedTo.value = String(staffId);
+                if (assignedTo._uiSelect) assignedTo._uiSelect.refresh();
+            }
+        });
+    }
+
+    // Due Date is a "1 Week/2 Weeks/1 Month/Next Half Term/Next Term/Other"
+    // preset select, not a raw date field shown unconditionally - "Other"
+    // reveals the real #action-modal-due-date picker instead. Resolves
+    // straight into that field (the one actually named due_date) since this
+    // modal has one explicit Save button, not per-field autosave to race
+    // with the picker widget's own change event.
+    function wireDueDatePreset() {
+        var intervalSelect = dialog.querySelector('[data-modal-due-date-interval]');
+        var customWrap = dialog.querySelector('[data-modal-due-date-custom-wrap]');
+        var customInput = dialog.querySelector('#action-modal-due-date');
+        if (!intervalSelect || !customWrap || !customInput) return;
+        intervalSelect.addEventListener('change', function () {
+            var value = intervalSelect.value;
+            if (value === 'other') {
+                customWrap.hidden = false;
+                return;
+            }
+            customWrap.hidden = true;
+            if (/^\d+$/.test(value)) {
+                var d = new Date();
+                d.setDate(d.getDate() + parseInt(value, 10));
+                customInput.value = d.toISOString().slice(0, 10);
+            } else {
+                customInput.value = value; // '' or an ISO date
+            }
+            if (customInput._uiDate) customInput._uiDate.refresh();
+        });
+    }
+
+    window.openActionFormModal = function (referralId, panelReferralId) {
+        var params = new URLSearchParams();
+        if (panelReferralId) params.set('panel_referral', panelReferralId);
+        params.set('next', window.location.pathname);
+        var url = '/inclusion/panel/referrals/' + encodeURIComponent(referralId) + '/actions/new/?' + params.toString();
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.text(); })
+            .then(function (html) {
+                dialog.innerHTML = html;
+                wireAutoAssign();
+                wireDueDatePreset();
+                window.enhanceFormControls(dialog);
+                dialog.showModal();
+                requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+            });
+    };
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-add-action-trigger]')) {
+            var trigger = e.target.closest('[data-add-action-trigger]');
+            window.openActionFormModal(trigger.dataset.referralId, trigger.dataset.panelReferralId);
+            return;
+        }
+        if (e.target.closest('[data-modal-close]') && e.target.closest('#action-form-dialog')) {
+            closeModal();
+        }
+    });
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog) closeModal();
+    });
+
+    dialog.addEventListener('submit', function (e) {
+        var form = e.target.closest('[data-action-modal-form]');
+        if (!form) return;
+        e.preventDefault();
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form),
+        }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    window.location = data.redirect;
+                }
+            });
+    });
+})();
+
+// Panel Discussion's Actions column (see #51) - no Edit button, every field
+// on an action row autosaves in place instead. One <form data-inline-action-
+// form> per row; delegated 'change'/'focusout'/'submit' listeners on the
+// card handle every row without re-wiring after each swap, since a fresh row
+// fragment replaces the whole form on every save.
+(function () {
+    var actionsList = document.querySelector('[data-actions-list]');
+    if (!actionsList) return;
+
+    function submitInlineForm(form, submitter) {
+        fetch(form.dataset.actionUrl, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form, submitter),
+        }).then(function (res) { return res.text(); })
+            .then(function (html) {
+                var wrapper = document.createElement('div');
+                wrapper.innerHTML = html.trim();
+                var freshForm = wrapper.firstElementChild;
+                if (freshForm) {
+                    form.replaceWith(freshForm);
+                    window.enhanceFormControls(freshForm);
+                }
+            });
+    }
+
+    actionsList.addEventListener('change', function (e) {
+        var form = e.target.closest('[data-inline-action-form]');
+        if (!form) return;
+
+        // Due Date is a "1 Week/2 Weeks/1 Month/Next Half Term/Next Term/
+        // Other" preset select (same shape as End Discussion's own
+        // follow-up date), not a raw date field - "Other" reveals a real
+        // date picker for a custom date instead. Both resolve down into one
+        // hidden [data-due-date-final] input, the only one actually named
+        // due_date, so the server side stays a plain "parse this ISO date
+        // or clear it" - see inclusion_panel_action_inline_update.
+        if (e.target.matches('[data-due-date-interval]')) {
+            var customWrap = form.querySelector('[data-due-date-custom-wrap]');
+            var customInput = form.querySelector('[data-due-date-custom]');
+            var hidden = form.querySelector('[data-due-date-final]');
+            var value = e.target.value;
+            if (value === 'other') {
+                customWrap.hidden = false;
+                hidden.value = customInput.value;
+            } else {
+                customWrap.hidden = true;
+                if (/^\d+$/.test(value)) {
+                    var d = new Date();
+                    d.setDate(d.getDate() + parseInt(value, 10));
+                    hidden.value = d.toISOString().slice(0, 10);
+                } else {
+                    hidden.value = value; // '' (No due date) or an ISO date (Next Half/Full Term)
+                }
+            }
+            submitInlineForm(form);
+            return;
+        }
+        if (e.target.matches('[data-due-date-custom]')) {
+            form.querySelector('[data-due-date-final]').value = e.target.value;
+            submitInlineForm(form);
+            return;
+        }
+        if (e.target.matches('select')) submitInlineForm(form);
+    });
+    // 'blur' doesn't bubble - 'focusout' is its bubbling equivalent, needed
+    // here since this is one delegated listener on the whole card rather
+    // than one per textarea. defaultValue reflects the textarea's initial
+    // rendered content, so this only fires when the text actually changed,
+    // not on every tab-through.
+    actionsList.addEventListener('focusout', function (e) {
+        var form = e.target.closest('[data-inline-action-form]');
+        if (!form) return;
+        if (e.target.matches('textarea') && e.target.value !== e.target.defaultValue) submitInlineForm(form);
+    });
+    // Status is a segmented control of real submit buttons (see
+    // _discussion_action_item.html) - intercept the row's own 'submit' so
+    // clicking one autosaves like every other field here instead of a real
+    // page navigation.
+    actionsList.addEventListener('submit', function (e) {
+        var form = e.target.closest('[data-inline-action-form]');
+        if (!form) return;
+        e.preventDefault();
+        submitInlineForm(form, e.submitter);
+    });
+})();
+
 // Shared "staff source + search" member picker, used by the meeting "Add
 // Member" dialog and the Panel Group "Add Member" form. Several instances
 // can exist on one page (one per panel group), so everything is scoped via

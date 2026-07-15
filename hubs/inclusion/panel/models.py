@@ -371,7 +371,7 @@ class PanelReferralNote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['created_at']
         db_table = 'inclusion_panelreferralnote'
 
     def __str__(self):
@@ -413,6 +413,17 @@ class Action(models.Model):
     referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='actions')
     category = models.ForeignKey(ActionCategory, null=True, blank=True, on_delete=models.SET_NULL)
     assigned_to = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
+    # Either assigned_to (an individual) or assigned_to_group (a
+    # core.StaffGroup - "SENCo Team", "Head of Year 9", etc.), exactly one
+    # set at a time - same either/or FK pattern as PanelGroupMember's own
+    # staff/external_contact split. assigned_to itself is not renamed to
+    # assigned_to_staff yet - that's a wider rename across every existing
+    # caller (Actions list, action_form.html, seed_referral_actions, ...),
+    # deferred until the Panel Discussion Actions row redesign this supports
+    # is actually confirmed (see /prototype, ?variant=b).
+    assigned_to_group = models.ForeignKey(
+        'core.StaffGroup', null=True, blank=True, on_delete=models.SET_NULL, related_name='+'
+    )
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='incomplete')
     completed_at = models.DateTimeField(null=True, blank=True)

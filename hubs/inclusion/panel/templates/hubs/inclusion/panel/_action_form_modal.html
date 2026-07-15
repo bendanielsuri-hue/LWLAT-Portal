@@ -1,0 +1,81 @@
+<div class="modal-header">
+    <h2>Add Action</h2>
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+</div>
+<div class="modal-body">
+    <form method="post" action="{% url 'inclusion_panel_action_new' referral.id %}" class="ui-fused-field-group" data-action-modal-form>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% if panel_referral_id %}<input type="hidden" name="panel_referral" value="{{ panel_referral_id }}">{% endif %}
+
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="action-modal-category">Category</label>
+            <select id="action-modal-category" name="category">
+                <option value="">No category</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </span>
+
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="action-modal-assigned-to">Assigned To</label>
+            <select id="action-modal-assigned-to" name="assigned_to">
+                <option value="">Unassigned</option>
+                {% for staff in staff_list %}
+                <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
+                {% endfor %}
+            </select>
+        </span>
+
+        {% comment %}
+        "1 Week/2 Weeks/1 Month/Next Half Term/Next Term/Other" preset, same
+        shape as Panel Discussion's own inline row and End Discussion's
+        follow-up date - "Other" reveals the real date field instead of
+        showing one unconditionally, since a stored date can't be
+        reverse-mapped onto a preset in general. wireDueDatePreset() in
+        panel.js resolves a preset pick straight into #action-modal-due-date
+        (the one actually named due_date) rather than a separate hidden
+        field, since this modal has no autosave to worry about racing with
+        the picker widget's own change event - see openActionFormModal.
+        {% endcomment %}
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="action-modal-due-date-interval">Due Date</label>
+            <select id="action-modal-due-date-interval" data-modal-due-date-interval>
+                <option value="" selected>No due date</option>
+                <option value="7">Due in 1 Week</option>
+                <option value="14">Due in 2 Weeks</option>
+                <option value="30">Due in 1 Month</option>
+                {% if next_half_term_date and next_half_term_date != next_term_date %}
+                <option value="{{ next_half_term_date|date:'Y-m-d' }}">Next Half Term ({{ next_half_term_date|date:'d/m/Y' }})</option>
+                {% endif %}
+                {% if next_term_date %}
+                <option value="{{ next_term_date|date:'Y-m-d' }}">Next Term ({{ next_term_date|date:'d/m/Y' }})</option>
+                {% endif %}
+                <option value="other">Other</option>
+            </select>
+        </span>
+        <span class="ui-fused-field" data-modal-due-date-custom-wrap hidden>
+            <label class="ui-fused-field-label" for="action-modal-due-date">Custom Date</label>
+            <input type="date" id="action-modal-due-date" name="due_date">
+        </span>
+
+        <div class="field-group">
+            <label for="action-modal-note">Description</label>
+            <textarea id="action-modal-note" name="note"></textarea>
+        </div>
+
+        <div class="btn-row">
+            <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+            <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Action</button>
+        </div>
+    </form>
+</div>
+{% comment %}
+json_script data island, not an inline <script> - this fragment is injected
+via dialog.innerHTML (see openActionFormModal in panel.js), and a <script>
+tag inserted that way never executes. wireAutoAssign() in panel.js reads
+this once the fragment lands instead, same convention as
+_panel_group_form_modal.html's existing-panel-groups.
+{% endcomment %}
+{{ auto_assign_by_category|json_script:"action-modal-auto-assign" }}

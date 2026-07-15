@@ -16,7 +16,7 @@ from core.identity import (
     staff_queryset_for_school_key,
     student_queryset_for_school_key,
 )
-from core.models import AcademicYear, Referral as CoreReferral, School, Staff, Student
+from core.models import AcademicYear, Referral as CoreReferral, School, Staff, StaffGroup, Student
 from core.modules import filter_by_module, module_map
 from core.term_dates import next_half_term, next_term
 
@@ -36,7 +36,6 @@ from .models import (
     ReferralCategory,
     ReferralQuestion,
     ReferralResponse,
-    StudentNote,
 )
 
 PANEL_MENU = [
@@ -201,6 +200,16 @@ def _panel_member_roster(panel):
         gm.checked_in_at = pm.checked_in_at if pm else None
         gm.left_at = pm.left_at if pm else None
     return members
+
+
+def _panel_has_checked_in_member(panel):
+    # The precondition for start_meeting: at least one active PanelGroupMember
+    # has checked in (checked_in_at set) via the existing check-in toggle.
+    # Not "every member" - one is enough to start; the roster fills in as
+    # more members arrive.
+    return PanelMember.objects.filter(
+        panel=panel, checked_in_at__isnull=False, panel_group_member__is_active=True,
+    ).exists()
 
 
 def _next_agenda_order(panel):
@@ -1734,6 +1743,14 @@ def inclusion_panel_actions(request):
 
 
 def inclusion_panel_action_new(request, referral_id):
+    # Add Action is a modal (see #51) - this is now the only caller of
+    # _action_form_modal.html, fetched into Discussion's shared
+    # #action-form-dialog shell (see openActionFormModal in panel.js), same
+    # fetch-fragment-into-a-page-level-<dialog> convention as
+    # inclusion_panel_meeting_new/_panel_meeting_form_modal.html. Kept as its
+    # own view/URL (rather than folded into the dialog's JS) so it stays
+    # reusable from other entry points later, even though Discussion is the
+    # only consumer today.
     referral = get_object_or_404(InclusionReferral, pk=referral_id)
     categories = visible_categories_for(_current_staff(request))
     auto_assign_by_category = {
@@ -1760,16 +1777,21 @@ def inclusion_panel_action_new(request, referral_id):
             origin_panel_referral_id=origin_panel_referral_id,
             created_by=_current_staff(request),
         )
-        return redirect(_safe_next(request, '/inclusion/panel/actions/'))
+        redirect_url = _safe_next(request, '/inclusion/panel/actions/')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'redirect': redirect_url})
+        return redirect(redirect_url)
 
-    return render(request, 'hubs/inclusion/panel/action_form.html', {
+    return render(request, 'hubs/inclusion/panel/_action_form_modal.html', {
         **_panel_base_context(request),
         'referral': referral,
         'categories': categories,
         'staff_list': staff_queryset_for_school_key(current_school_key(request)),
-        'auto_assign_json': json.dumps(auto_assign_by_category),
+        'auto_assign_by_category': auto_assign_by_category,
         'next': request.GET.get('next', ''),
         'panel_referral_id': origin_panel_referral_id,
+        'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),
+        'next_term_date': next_term(referral.student.school, timezone.localdate()),
     })
 
 
@@ -2288,18 +2310,14 @@ def inclusion_panel_meeting_new(request, panel_id=None):
 
 
 def inclusion_panel_meeting_start(request, panel_id):
+    # Attendance is step one of actually starting a meeting (checked via the
+    # start_meeting action on inclusion_panel_meeting_agenda) - this view no
+    # longer flips the panel to running itself. The Meetings list's Start/
+    # Continue button and Home's Next Panel preview both just land here to
+    # load the Panel Agenda page, where the real (attendance-gated) Start
+    # Meeting control lives.
     panel = get_object_or_404(Panel, pk=panel_id)
-    if request.method == 'POST':
-        agenda_url = reverse('inclusion_panel_meeting_agenda', args=[panel.id])
-        if panel.date == timezone.localdate():
-            just_started = panel.started_at is None
-            if just_started:
-                panel.started_at = timezone.now()
-                panel.status = 'running'
-                panel.save()
-            return redirect(f'{agenda_url}?just_started=1' if just_started else agenda_url)
-        return redirect(f'{agenda_url}?not_today=1')
-    return redirect('inclusion_panel_meetings')
+    return redirect('inclusion_panel_meeting_agenda', panel_id=panel.id)
 
 
 def inclusion_panel_meeting_delete(request, panel_id):
@@ -2559,13 +2577,24 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     if request.method == 'POST':
         action = request.POST.get('form_action')
         if action == 'start_meeting':
-            if panel.started_at is None:
+            if panel.started_at is None and _panel_has_checked_in_member(panel):
                 now = timezone.now()
                 panel.started_at = now
                 panel.date = timezone.localdate(now)
                 panel.time = timezone.localtime(now).time()
                 panel.status = 'running'
                 panel.save()
+        elif action == 'reschedule_to_now':
+            # The schedule-warning dialog's "not due yet" escape hatch - moves
+            # the scheduled date/time to now without starting the meeting.
+            # Attendance is still step one (see start_meeting above), so this
+            # only ever brings the chair back to the agenda page to check
+            # members in before the real Start Meeting button unlocks.
+            if panel.started_at is None:
+                now = timezone.now()
+                panel.date = timezone.localdate(now)
+                panel.time = timezone.localtime(now).time()
+                panel.save(update_fields=['date', 'time'])
         elif action == 'check_in':
             gm = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group_id=panel.panel_group_id)
             PanelMember.objects.update_or_create(
@@ -2748,7 +2777,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'discussed': discussed,
         'progress_pct': progress_pct,
         'members': members,
-        'just_started': request.GET.get('just_started') == '1',
+        'has_checked_in_member': _panel_has_checked_in_member(panel),
         'scheduled_at': scheduled_at,
         'show_schedule_warning': show_schedule_warning,
         'is_running_long': is_running_long,
@@ -2802,18 +2831,6 @@ def inclusion_panel_discussion(request, panel_referral_id):
                     author_id=request.POST.get('author') or None,
                     body=body,
                 )
-        elif action == 'add_note' and is_panel_staff:
-            body = request.POST.get('body', '').strip()
-            if body:
-                StudentNote.objects.create(
-                    student=referral.student,
-                    author_id=request.POST.get('author') or None,
-                    body=body,
-                )
-        elif action == 'edit_note' and is_panel_staff:
-            note = get_object_or_404(StudentNote, pk=request.POST.get('note_id'), student=referral.student)
-            note.body = request.POST.get('body', note.body)
-            note.save()
         return redirect('inclusion_panel_discussion', panel_referral_id=panel_referral.id)
 
     # Pure display - starting/resuming the discussion timer happens only via
@@ -2843,19 +2860,32 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'response_groups': _response_groups(referral),
         'previous_referrals': previous_referrals,
         'actions': actions,
-        'is_panel_staff': is_panel_staff,
+        'categories': visible_categories_for(current_staff),
+        'staff_list': staff_queryset_for_school_key(current_school_key(request)),
+        # Scoped to what's actually relevant to this referral's student -
+        # MAT-wide groups (Careers Team) or this student's own school, and
+        # either not year-specific or matching this student's year group -
+        # not every Head of Year group portal-wide.
+        'staff_groups': StaffGroup.objects.filter(
+            Q(school__isnull=True) | Q(school=referral.student.school),
+            is_active=True,
+        ).filter(
+            Q(year_group__isnull=True) | Q(year_group=referral.student.year_group)
+        ),
         'panel_notes': panel_referral.notes.select_related('author'),
-        'staff_list': Staff.objects.filter(is_active=True),
         'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),
         'next_term_date': next_term(referral.student.school, timezone.localdate()),
     }
-    if is_panel_staff:
-        context['notes'] = referral.student.notes.select_related('author')
 
     return render(request, 'hubs/inclusion/panel/discussion.html', context)
 
 
 def inclusion_panel_action_edit(request, action_id):
+    # The standalone Actions list page's own "Edit Action" link - a full
+    # page, unchanged. Panel Discussion no longer edits Actions this way at
+    # all (see #51's follow-up: fully inline editing won over Edit-as-modal
+    # after prototyping both - inclusion_panel_action_inline_update handles
+    # every field change there instead).
     action = get_object_or_404(Action.objects.select_related('referral__student'), pk=action_id)
     is_panel_staff = _is_panel_staff(_current_staff(request))
     if not is_panel_staff and action.category_id and action.category.is_sensitive:
@@ -2886,11 +2916,73 @@ def inclusion_panel_action_edit(request, action_id):
 
     return render(request, 'hubs/inclusion/panel/action_form.html', {
         **_panel_base_context(request),
-        'is_edit': True,
         'action': action,
         'referral': action.referral,
         'categories': categories,
         'staff_list': Staff.objects.filter(is_active=True),
         'auto_assign_json': json.dumps(auto_assign_by_category),
         'next': request.GET.get('next', ''),
+        'next_half_term_date': next_half_term(action.referral.student.school, timezone.localdate()),
+        'next_term_date': next_term(action.referral.student.school, timezone.localdate()),
+    })
+
+
+def inclusion_panel_action_inline_update(request, action_id):
+    # Panel Discussion's Actions column has no Edit button - every field
+    # (Category, Description, Assigned To, Due Date, Status) is directly
+    # inline-editable instead, autosaving one <form data-inline-action-form>
+    # per row on change/blur (see the delegated listeners in panel.js and
+    # #51's follow-up: fully inline editing won over Edit-as-modal after
+    # prototyping both). Returns just that one row's fragment so the row can
+    # be swapped in place without touching any other row mid-edit.
+    action = get_object_or_404(
+        Action.objects.select_related('category', 'assigned_to', 'assigned_to_group', 'referral__student'),
+        pk=action_id,
+    )
+    current_staff = _current_staff(request)
+    categories = visible_categories_for(current_staff)
+    student = action.referral.student
+
+    if request.method == 'POST':
+        category_id = request.POST.get('category') or None
+        if category_id and not categories.filter(pk=category_id).exists():
+            category_id = None
+        action.category_id = category_id
+        # Assigned To is one merged dropdown (see
+        # _discussion_action_item.html) covering either an individual Staff
+        # member or a StaffGroup - 'staff:<id>'/'group:<id>' tells the two
+        # apart, same either/or as the assigned_to/assigned_to_group fields
+        # themselves.
+        assigned_to_value = request.POST.get('assigned_to', '')
+        if assigned_to_value.startswith('staff:'):
+            action.assigned_to_id = assigned_to_value.split(':', 1)[1]
+            action.assigned_to_group_id = None
+        elif assigned_to_value.startswith('group:'):
+            action.assigned_to_group_id = assigned_to_value.split(':', 1)[1]
+            action.assigned_to_id = None
+        else:
+            action.assigned_to_id = None
+            action.assigned_to_group_id = None
+        action.note = request.POST.get('note', '')
+        # The interval-select/custom-date-picker split (see
+        # _discussion_action_item.html) resolves client-side into one hidden
+        # due_date input, so this side just parses a plain ISO date or
+        # clears it - same as the original raw date field.
+        due_date_value = request.POST.get('due_date', '')
+        action.due_date = datetime.date.fromisoformat(due_date_value) if due_date_value else None
+        new_status = request.POST.get('status', action.status)
+        if new_status != action.status:
+            action.completed_at = timezone.now() if new_status == 'complete' else None
+        action.status = new_status
+        action.save()
+
+    return render(request, 'hubs/inclusion/panel/_discussion_action_item.html', {
+        'action': action,
+        'categories': categories,
+        'staff_list': staff_queryset_for_school_key(current_school_key(request)),
+        'staff_groups': StaffGroup.objects.filter(
+            Q(school__isnull=True) | Q(school=student.school), is_active=True,
+        ).filter(Q(year_group__isnull=True) | Q(year_group=student.year_group)),
+        'next_half_term_date': next_half_term(student.school, timezone.localdate()),
+        'next_term_date': next_term(student.school, timezone.localdate()),
     })

@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=166">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=180">
 {% endblock %}
 
 
@@ -28,16 +28,11 @@
 
 {% block page_subtitle %}<p class="page-subtitle">{{ student.first_name }} {{ student.last_name }} — referred {{ referral.created_at|date:"d/m/Y" }}</p>{% endblock %}
 
-{% block key_actions_extra %}
-<div class="key-actions-row key-actions-row--page">
-    <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
-</div>
-{% endblock %}
-
 {% block content %}
 
-<div class="panel-toolbar panel-toolbar-stacked">
-    <div class="panel-toolbar-top">
+<div class="discussion-toolbar-row">
+    <div class="discussion-toolbar-card">
+        <h2>Meeting Notes</h2>
         <form method="post" class="panel-toolbar-notes-form">
             {% csrf_token %}
             <input type="hidden" name="form_action" value="add_panel_note">
@@ -45,28 +40,42 @@
             <textarea name="body" placeholder="Add a panel note..." rows="1"></textarea>
             <button type="submit" class="btn btn-add">Add Note</button>
         </form>
-        <div class="panel-toolbar-divider"></div>
-        <div class="panel-toolbar-actions">
+
+        {% if panel_notes %}
+        <details class="panel-notes-history">
+            <summary>Notes for this Discussion ({{ panel_notes|length }})</summary>
+            <div class="note-thread">
+                {% for note in panel_notes %}
+                <div class="note-thread-item">
+                    {% ifchanged note.author_id %}
+                    <div class="note-thread-header">
+                        <span class="note-thread-avatar">{% if note.author %}{{ note.author.first_name|slice:":1" }}{{ note.author.last_name|slice:":1" }}{% else %}?{% endif %}</span>
+                        <span class="note-thread-author">{{ note.author|default:"Unknown" }}</span>
+                    </div>
+                    {% endifchanged %}
+                    <div class="note-thread-body">
+                        <span class="note-thread-time">{{ note.created_at|date:"d/m/Y H:i" }}</span>
+                        <div class="note-thread-text">{{ note.body|linebreaksbr }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+
+    <div class="discussion-toolbar-card discussion-toolbar-card--controls">
+        <h2>Discussion Controls</h2>
+        <div class="discussion-controls-body">
             {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
             <span class="panel-toolbar-timer">Discussing for: <span class="discussion-timer" id="discussion-timer">00:00:00</span></span>
             {% endif %}
-            <button type="button" class="btn btn-secondary" data-open-end-discussion>End Discussion</button>
+            <div class="btn-row btn-row-stacked">
+                <button type="button" class="btn btn-primary" data-open-end-discussion>End Discussion</button>
+                <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-secondary"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
+            </div>
         </div>
     </div>
-
-    {% if panel_notes %}
-    <details class="panel-notes-history">
-        <summary>All Meeting Notes ({{ panel_notes|length }})</summary>
-        <div class="panel-notes-history-list">
-            {% for note in panel_notes %}
-            <div class="field-group">
-                <span class="field-source">{{ note.author|default:"Unknown" }} &middot; {{ note.created_at|date:"d/m/Y H:i" }}</span>
-                <div class="field-readonly note-display">{{ note.body|linebreaksbr }}</div>
-            </div>
-            {% endfor %}
-        </div>
-    </details>
-    {% endif %}
 </div>
 
 <dialog id="end-discussion-dialog" class="modal-dialog">
@@ -133,6 +142,7 @@
 <div class="discussion-columns">
     <div class="discussion-col">
         <h2>Student Details</h2>
+        <div class="discussion-col-body">
         <div class="discussion-profile-header">
             <div class="discussion-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
             <div class="discussion-profile-stack">
@@ -193,10 +203,12 @@
                 <button type="button" class="btn btn-helper btn-sm">More Details</button>
             </div>
         </div>
+        </div>
     </div>
 
     <div class="discussion-col">
         <h2>Referral Details</h2>
+        <div class="discussion-col-body">
         <div class="panel-details-row">
             <div class="field-group">
                 <label>Referred By</label>
@@ -235,89 +247,23 @@
         </details>
         {% endfor %}
         {% endif %}
+        </div>
     </div>
 
     <div class="discussion-col">
         <h2>Actions</h2>
+        <div class="discussion-col-body" data-actions-list>
         {% for action in actions %}
-        <div class="action-item">
-            <div class="desc">{{ action.note }}</div>
-            <div class="field-group">
-                <label>Assigned To</label>
-                <div class="field-readonly">{{ action.assigned_to|default:"Unassigned" }}</div>
-                <span class="status-pill{% if action.status == 'complete' %} complete{% else %} incomplete{% endif %}">{{ action.get_status_display }}</span>
-            </div>
-            <div class="field-group">
-                <label>Due Date</label>
-                <div class="field-readonly">{{ action.due_date|date:"d/m/Y"|default:"—" }}</div>
-            </div>
-            <a href="{% url 'inclusion_panel_action_edit' action.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</a>
-        </div>
+        {% include 'hubs/inclusion/panel/_discussion_action_item.html' %}
         {% empty %}
         <p class="empty-note">No actions yet.</p>
         {% endfor %}
-
-        <a href="{% url 'inclusion_panel_action_new' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}&panel_referral={{ panel_referral.id }}" class="btn btn-add"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Action</a>
-    </div>
-
-    {% if is_panel_staff %}
-    <div class="discussion-col">
-        <h2>DSL Notes</h2>
-        {% for note in notes %}
-        <div class="field-group" id="note-{{ note.id }}">
-            <span class="field-source">{{ note.author|default:"Unknown" }} &middot; {{ note.created_at|date:"d/m/Y H:i" }}</span>
-            <div class="field-readonly note-display">{{ note.body|linebreaksbr }}</div>
-            <button type="button" class="btn btn-sm note-edit-toggle" data-note-id="{{ note.id }}">Edit</button>
-            <form method="post" class="note-edit-form" data-note-id="{{ note.id }}" hidden>
-                {% csrf_token %}
-                <input type="hidden" name="form_action" value="edit_note">
-                <input type="hidden" name="note_id" value="{{ note.id }}">
-                <textarea name="body">{{ note.body }}</textarea>
-                <button type="submit" class="btn btn-primary btn-sm">Save</button>
-            </form>
         </div>
-        {% empty %}
-        <p class="empty-note">No DSL notes yet.</p>
-        {% endfor %}
-
-        <form method="post" class="field-group">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="add_note">
-            <label for="note-author">Author</label>
-            <select id="note-author" name="author">
-                <option value="">Select yourself…</option>
-                {% for staff in staff_list %}
-                <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-                {% endfor %}
-            </select>
-            <label for="note-body">New Note</label>
-            <textarea id="note-body" name="body" placeholder="Add a DSL note..."></textarea>
-            <button type="submit" class="btn btn-add btn-sm">Add Note</button>
-        </form>
+        <div class="setup-col-footer">
+            <button type="button" class="btn btn-add" data-add-action-trigger data-referral-id="{{ referral.id }}" data-panel-referral-id="{{ panel_referral.id }}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Action</button>
+        </div>
     </div>
-    {% endif %}
 </div>
-
-{% if is_panel_staff %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // No login system exists yet, so "who am I" is just remembered per-browser —
-    // same pattern as the theme/colour prefs in main.js.
-    var ME_STORAGE_KEY = 'inclusion-current-staff-id';
-    var authorSelect = document.getElementById('note-author');
-    if (authorSelect) {
-        try { authorSelect.value = localStorage.getItem(ME_STORAGE_KEY) || ''; } catch (e) { }
-    }
-    document.querySelectorAll('.note-edit-toggle').forEach(function (button) {
-        button.addEventListener('click', function () {
-            var noteId = button.dataset.noteId;
-            var form = document.querySelector('.note-edit-form[data-note-id="' + noteId + '"]');
-            if (form) form.hidden = !form.hidden;
-        });
-    });
-});
-</script>
-{% endif %}
 
 {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
 <script>

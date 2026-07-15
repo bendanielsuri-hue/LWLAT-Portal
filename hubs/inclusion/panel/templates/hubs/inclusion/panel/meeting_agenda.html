@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=166">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=180">
 {% endblock %}
 
 
@@ -34,13 +34,13 @@
         <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
-        <p>This panel meeting is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Would you like to start the meeting now?</p>
+        <p>This panel meeting is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Reschedule it to now?</p>
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>View Agenda Only</button>
             <form method="post" style="display:inline">
                 {% csrf_token %}
-                <input type="hidden" name="form_action" value="start_meeting">
-                <button type="submit" class="btn btn-secondary btn-sm">Start Meeting</button>
+                <input type="hidden" name="form_action" value="reschedule_to_now">
+                <button type="submit" class="btn btn-primary btn-sm">Reschedule</button>
             </form>
         </div>
     </div>
@@ -57,16 +57,25 @@
         {% if is_running_long %}<span class="status-pill danger" title="This meeting has been running well past this group's typical length — consider ending it if it's finished">Running long</span>{% endif %}
     </div>
     <div class="btn-row">
+        {% if panel.started_at %}
         <form method="post" onsubmit="return confirm('End this panel meeting? Any active discussion timers will stop.');">
             {% csrf_token %}
             <input type="hidden" name="form_action" value="end_panel_meeting">
             <button type="submit" class="btn btn-secondary">End Panel Meeting</button>
         </form>
+        {% else %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="start_meeting">
+            <button type="submit" class="btn btn-secondary" {% if not has_checked_in_member %}disabled title="Check in at least one member first"{% endif %}><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
+        </form>
+        {% if not has_checked_in_member %}<span class="toolbar-inline-hint">Check in at least one member first</span>{% endif %}
+        {% endif %}
     </div>
 </div>
 
 <div class="agenda-layout">
-    <div class="members-register-col setup-col setup-col--narrow">
+    <div class="members-register-col setup-col setup-col--narrow{% if panel.status == 'running' %} members-register-col--compact{% endif %}">
         <div class="setup-col-header">
             <h2>Panel Members Register</h2>
         </div>
@@ -74,6 +83,7 @@
         <div class="entity-list" data-panel-members-list>
             {% for member in members %}
             <div class="entity-row selectable">
+                {% if panel.status != 'running' %}
                 <div class="entity-thumb">
                     {% if member.staff and member.staff.photo %}
                     <img src="{{ member.staff.photo.url }}" alt="">
@@ -81,8 +91,10 @@
                     {% include 'icons/avatar_placeholder_svg.html' %}
                     {% endif %}
                 </div>
+                {% endif %}
                 <div class="entity-body">
                     <div class="entity-title">{% if member.staff %}{{ member.staff }}{% else %}{{ member.external_contact }}{% endif %}</div>
+                    {% if panel.status != 'running' %}
                     <div class="entity-meta">
                         {% if member.expertise %}<span class="status-pill">{{ member.expertise.name }}</span>{% endif %}
                         {% if member.left_at %}<span class="status-pill type-external">Left</span>
@@ -91,11 +103,12 @@
                     {% if member.checked_in_at %}
                     <div class="entity-meta">Joined {{ member.checked_in_at|time:"H:i" }}{% if member.left_at %} &middot; Left {{ member.left_at|time:"H:i" }}{% endif %}</div>
                     {% endif %}
+                    {% endif %}
                     {% if panel.status != 'complete' %}
                     <form method="post" class="member-attendance-form">
                         {% csrf_token %}
                         <input type="hidden" name="member_id" value="{{ member.id }}">
-                        <span class="toggle-label">Attendance</span>
+                        {% if panel.status != 'running' %}<span class="toggle-label">Attendance</span>{% endif %}
                         {% if member.checked_in_at and not member.left_at %}
                         <input type="hidden" name="form_action" value="mark_left">
                         <button type="submit" class="toggle-pill on" aria-pressed="true" aria-label="In attendance — click to mark left"><span class="toggle-knob"></span></button>

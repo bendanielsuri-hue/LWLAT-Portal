@@ -1,10 +1,10 @@
 {% extends 'hubs/inclusion/panel/_base.html' %}
 {% load static %}
 
-{% block title %}{% if is_edit %}Edit Action{% else %}New Action{% endif %}{% endblock %}
+{% block title %}Edit Action{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=166">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=180">
 {% endblock %}
 
 
@@ -13,10 +13,10 @@
 	<span class="sep">></span>
 	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
 	<span class="sep">></span>
-	<span>{% if is_edit %}Edit Action{% else %}New Action{% endif %}</span>
+	<span>Edit Action</span>
 {% endblock %}
 
-{% block page_title %}{% if is_edit %}Edit Action{% else %}New Action{% endif %}{% endblock %}
+{% block page_title %}Edit Action{% endblock %}
 
 {% block content %}
 <p>For {{ referral.student }}</p>
@@ -24,14 +24,13 @@
 <form method="post" id="action-form">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
-    {% if panel_referral_id %}<input type="hidden" name="panel_referral" value="{{ panel_referral_id }}">{% endif %}
 
     <div class="field-group">
         <label for="category">Category</label>
         <select id="category" name="category">
             <option value="">No category</option>
             {% for c in categories %}
-            <option value="{{ c.id }}" {% if is_edit and action.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            <option value="{{ c.id }}" {% if action.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -41,17 +40,39 @@
         <select id="assigned_to" name="assigned_to">
             <option value="">Unassigned</option>
             {% for staff in staff_list %}
-            <option value="{{ staff.id }}" {% if is_edit and action.assigned_to_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
+            <option value="{{ staff.id }}" {% if action.assigned_to_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
             {% endfor %}
         </select>
     </div>
 
+    {% comment %}
+    "1 Week/2 Weeks/1 Month/Next Half Term/Next Term/Other" preset, same
+    shape as Panel Discussion's Actions row and End Discussion's own
+    follow-up date - "Other" reveals the real date field below instead of
+    showing one unconditionally, since a stored date can't be reverse-mapped
+    onto a preset in general.
+    {% endcomment %}
     <div class="field-group">
-        <label for="due_date">Due Date</label>
-        <input type="date" id="due_date" name="due_date" value="{% if is_edit %}{{ action.due_date|date:'Y-m-d' }}{% endif %}">
+        <label for="due-date-interval">Due Date</label>
+        <select id="due-date-interval">
+            <option value="" {% if not action.due_date %}selected{% endif %}>No due date</option>
+            <option value="7">Due in 1 Week</option>
+            <option value="14">Due in 2 Weeks</option>
+            <option value="30">Due in 1 Month</option>
+            {% if next_half_term_date and next_half_term_date != next_term_date %}
+            <option value="{{ next_half_term_date|date:'Y-m-d' }}">Next Half Term ({{ next_half_term_date|date:'d/m/Y' }})</option>
+            {% endif %}
+            {% if next_term_date %}
+            <option value="{{ next_term_date|date:'Y-m-d' }}">Next Term ({{ next_term_date|date:'d/m/Y' }})</option>
+            {% endif %}
+            <option value="other" {% if action.due_date %}selected{% endif %}>Other</option>
+        </select>
+    </div>
+    <div class="field-group" id="due-date-custom-group" {% if not action.due_date %}hidden{% endif %}>
+        <label for="due_date">Custom Date</label>
+        <input type="date" id="due_date" name="due_date" value="{{ action.due_date|date:'Y-m-d' }}">
     </div>
 
-    {% if is_edit %}
     <div class="field-group">
         <label for="status">Status</label>
         <select id="status" name="status" class="ui-select--center">
@@ -60,14 +81,13 @@
             <option value="not_needed" {% if action.status == 'not_needed' %}selected{% endif %}>Not Required</option>
         </select>
     </div>
-    {% endif %}
 
     <div class="field-group">
-        <label for="note">Note</label>
-        <textarea id="note" name="note">{% if is_edit %}{{ action.note }}{% endif %}</textarea>
+        <label for="note">Description</label>
+        <textarea id="note" name="note">{{ action.note }}</textarea>
     </div>
 
-    <button type="submit" class="btn btn-primary">{% if is_edit %}Save Changes{% else %}Save Action{% endif %}</button>
+    <button type="submit" class="btn btn-primary">Save Changes</button>
 </form>
 
 <script>
@@ -79,6 +99,27 @@ document.addEventListener('DOMContentLoaded', function () {
     category.addEventListener('change', function () {
         var staffId = autoAssignByCategory[category.value];
         if (staffId) assignedTo.value = String(staffId);
+    });
+
+    var dueDateInterval = document.getElementById('due-date-interval');
+    var dueDateCustomGroup = document.getElementById('due-date-custom-group');
+    var dueDateCustom = document.getElementById('due_date');
+    dueDateInterval.addEventListener('change', function () {
+        var value = dueDateInterval.value;
+        if (value === 'other') {
+            dueDateCustomGroup.hidden = false;
+        } else {
+            dueDateCustomGroup.hidden = true;
+            if (/^\d+$/.test(value)) {
+                var d = new Date();
+                d.setDate(d.getDate() + parseInt(value, 10));
+                dueDateCustom.value = d.toISOString().slice(0, 10);
+                if (dueDateCustom._uiDate) dueDateCustom._uiDate.refresh();
+            } else {
+                dueDateCustom.value = value; // '' or an ISO date
+                if (dueDateCustom._uiDate) dueDateCustom._uiDate.refresh();
+            }
+        }
     });
 });
 </script>
