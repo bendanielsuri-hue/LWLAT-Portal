@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=162">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=163">
 {% endblock %}
 
 
@@ -66,15 +66,14 @@
 </div>
 
 <div class="agenda-layout">
-    <div class="members-register-col setup-col">
+    <div class="members-register-col setup-col setup-col--narrow">
         <div class="setup-col-header">
             <h2>Panel Members Register</h2>
-            <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ panel.panel_group_id|default:'' }}" {% if not panel.panel_group_id %}disabled title="Assign a Panel Group first"{% endif %}><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Manage Members</button>
         </div>
         <div class="setup-col-body">
         <div class="entity-list" data-panel-members-list>
             {% for member in members %}
-            <div class="entity-row">
+            <div class="entity-row selectable">
                 <div class="entity-thumb">
                     {% if member.staff and member.staff.photo %}
                     <img src="{{ member.staff.photo.url }}" alt="">
@@ -112,10 +111,13 @@
             <p class="empty-note">
                 {% if not panel.panel_group_id %}No Panel Group assigned yet.
                 {% elif panel.status == 'complete' %}No members checked in.
-                {% else %}No members in this Panel Group yet — add some from "Manage Members".{% endif %}
+                {% else %}No members in this Panel Group yet — add some from "Edit Group Membership".{% endif %}
             </p>
             {% endfor %}
         </div>
+        </div>
+        <div class="setup-col-footer">
+            <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ panel.panel_group_id|default:'' }}" {% if not panel.panel_group_id %}disabled title="Assign a Panel Group first"{% endif %}><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Group Membership</button>
         </div>
     </div>
 

@@ -622,6 +622,14 @@
     margin: 0 calc(-1 * var(--space-lg));
     padding: 0 var(--space-lg);
 }
+/* Panel Agenda's Members Register: a persistent action slot pinned below the
+   scrolling member list, same fixed-footer extension of the header/body
+   split as #panel-group-dialog's own .panel-group-modal-footer (see
+   DesignLanguage.md's "Card-internal scroll with a fixed header") - stays
+   reachable without scrolling down past a long member list, and out of
+   .setup-col-header since editing group membership is a rare, out-of-band
+   action, not this card's everyday job (attendance-taking). */
+.setup-col-footer { flex-shrink: 0; display: flex; justify-content: flex-end; padding-top: var(--space-sm); }
 .setup-col h2, .discussion-col h2 { font-size: var(--font-xl); margin-bottom: var(--space-md); }
 
 /* Panel Discussion cards (Student Details, Referral Details, Actions, DSL
@@ -990,8 +998,15 @@
 .panel-notes-history summary { font-weight: 600; cursor: pointer; margin-bottom: var(--space-xs); }
 .panel-notes-history-list { max-height: 240px; overflow-y: auto; }
 
-/* Panel Agenda: members register + pending/discussed, all equal-width columns */
+/* Panel Agenda: members register + pending/discussed, all equal-width columns
+   by default. .setup-col--narrow (its own flex: 0 1 240px rule, further
+   below, is for .setup-columns' flex layout elsewhere and has no effect
+   here) instead narrows the grid's own first track via :has() below - the
+   Members Register card no longer needs to match Pending/Discussed's width
+   now that "Manage Members" has moved out of its header into a footer slot
+   (see .setup-col-footer), leaving it with far less to show per row. */
 .agenda-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-xl); align-items: start; }
+.agenda-layout:has(.setup-col--narrow) { grid-template-columns: minmax(220px, 240px) repeat(auto-fit, minmax(280px, 1fr)); }
 .agenda-layout .agenda-section { min-width: 0; margin-bottom: 0; }
 .agenda-layout .members-register-col { min-width: 0; }
 /* Panel Agenda wraps toolbar + agenda-layout in the standard .list-page-shell
