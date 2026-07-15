@@ -185,24 +185,50 @@
             </div>
         </div>
 
-        <div class="detail-stat-card">
-            <div class="detail-stat-card-header">
-                <strong>Attendance: {{ attendance_percentage|default:"—" }}{% if attendance_percentage %}%{% endif %}</strong>
-                <button type="button" class="btn btn-helper btn-sm">More Details</button>
-            </div>
-        </div>
-        <div class="detail-stat-card">
-            <div class="detail-stat-card-header">
-                <strong>Behaviour Summary: {{ behaviour_summary }}</strong>
-                <button type="button" class="btn btn-helper btn-sm">More Details</button>
-            </div>
-        </div>
-        <div class="detail-stat-card">
-            <div class="detail-stat-card-header">
-                <strong>Exclusions: {{ exclusion_count }}</strong>
-                <button type="button" class="btn btn-helper btn-sm">More Details</button>
-            </div>
-        </div>
+        <details class="detail-stat-card">
+            <summary>
+                <div class="detail-stat-card-header">
+                    <strong>Attendance: {{ attendance_percentage|default:"—" }}{% if attendance_percentage %}%{% endif %}</strong>
+                </div>
+            </summary>
+            {% if attendance_days %}
+            {% for day in attendance_days %}
+            <div class="entity-meta">{{ day.date|date:"d/m/Y" }} — AM: {{ day.get_am_status_display }}, PM: {{ day.get_pm_status_display }}</div>
+            {% endfor %}
+            {% else %}
+            <p class="empty-note">No attendance recorded.</p>
+            {% endif %}
+        </details>
+        <details class="detail-stat-card">
+            <summary>
+                <div class="detail-stat-card-header">
+                    <strong>Behaviour Summary: {{ behaviour_summary }}</strong>
+                </div>
+            </summary>
+            {% if behaviour_incidents %}
+            {% for incident in behaviour_incidents %}
+            <div class="entity-meta">{{ incident.date|date:"d/m/Y" }} — {{ incident.get_category_display }} ({{ incident.get_severity_display }}){% if incident.logged_by %}, logged by {{ incident.logged_by }}{% endif %}</div>
+            {% if incident.description %}<div class="field-readonly">{{ incident.description }}</div>{% endif %}
+            {% endfor %}
+            {% else %}
+            <p class="empty-note">No behaviour incidents logged.</p>
+            {% endif %}
+        </details>
+        <details class="detail-stat-card">
+            <summary>
+                <div class="detail-stat-card-header">
+                    <strong>Exclusions: {{ exclusion_count }}</strong>
+                </div>
+            </summary>
+            {% if exclusions %}
+            {% for exclusion in exclusions %}
+            <div class="entity-meta">{{ exclusion.start_date|date:"d/m/Y" }} — {% if exclusion.end_date %}to {{ exclusion.end_date|date:"d/m/Y" }}{% else %}Permanent{% endif %} ({{ exclusion.get_type_display }})</div>
+            {% if exclusion.reason %}<div class="field-readonly">{{ exclusion.reason }}</div>{% endif %}
+            {% endfor %}
+            {% else %}
+            <p class="empty-note">No exclusions recorded.</p>
+            {% endif %}
+        </details>
         </div>
     </div>
 

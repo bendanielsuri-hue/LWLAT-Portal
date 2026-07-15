@@ -3005,10 +3005,17 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'referral': referral,
         'student': referral.student,
         # Derived, never stored on Student directly - see
-        # docs/adr/0007-student-history-tables-not-summary-fields.md.
+        # docs/adr/0007-student-history-tables-not-summary-fields.md. The
+        # full record lists (not just the counts above) back Student
+        # Details' "More Details" disclosures (#30) - no windowing, since
+        # Behaviour/Exclusions are naturally sparse and Attendance is
+        # capped by how much history actually exists to show.
         'attendance_percentage': attendance_percentage(referral.student),
         'behaviour_summary': behaviour_summary(referral.student),
         'exclusion_count': exclusion_count(referral.student),
+        'attendance_days': referral.student.attendance_days.all(),
+        'behaviour_incidents': referral.student.behaviour_incidents.select_related('logged_by').all(),
+        'exclusions': referral.student.exclusions.all(),
         'response_groups': _response_groups(referral),
         'previous_referrals': previous_referrals,
         'actions': actions,
