@@ -86,6 +86,15 @@ Actions.
             {% endfor %}
         </select>
     </div>
+    <div class="filter-field{% if academic_year_filter %} filter-field--active{% endif %}">
+        <label for="academic-year-filter">Academic Year</label>
+        <select id="academic-year-filter" name="academic_year">
+            <option value="">All Years</option>
+            {% for year, label in academic_year_choices %}
+            <option value="{{ year }}" {% if academic_year_filter == year|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
 
     <div class="filter-secondary-fields" hidden>
         <span class="filter-divider"></span>
@@ -122,7 +131,13 @@ Actions.
             <span class="more-filters-toggle-icon">{% include 'icons/arrow_down_svg.html' %}</span>
             More filters
         </button>
-        <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+        {% comment %}
+        academic_year= explicit (not just omitted) so Clear Filters truly
+        clears the year too, instead of the "no param" default re-applying
+        the current academic year right back (see inclusion_panel_referrals'
+        academic_year_param).
+        {% endcomment %}
+        <a href="{% url 'inclusion_panel_referrals' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
     </div>
 </form>
 

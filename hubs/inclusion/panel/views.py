@@ -1088,12 +1088,34 @@ def inclusion_panel_referrals(request):
     priority_filter = request.GET.get('priority') or ''
     panel_group_filter = request.GET.get('panel_group') or ''
     overdue_actions_filter = request.GET.get('overdue_actions') == '1'
+    # No `or ''` here - absence of the param entirely (first load) is
+    # distinguished from an explicit "All Years" selection, same convention
+    # as inclusion_panel_meetings' academic_year_filter.
+    academic_year_param = request.GET.get('academic_year')
+    academic_year_filter = academic_year_param or ''
+
+    academic_years_present = {
+        ay.id: ay for ay in AcademicYear.objects.filter(
+            referrals__inclusion_detail__student__in=scoped_students,
+        ).distinct()
+    }
+    academic_year_choices = [
+        (ay.id, ay.label)
+        for ay in sorted(academic_years_present.values(), key=lambda ay: ay.start_date, reverse=True)
+    ]
+    current_academic_year = AcademicYear.for_date(today).id
+    if academic_year_param is None and current_academic_year in academic_years_present:
+        academic_year_filter = str(current_academic_year)
+    if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
+        academic_year_filter = ''
 
     referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related(
-        'student', 'student__school', 'raised_by',
+        'student', 'student__school', 'raised_by', 'referral',
     ).prefetch_related(
         'responses__question', 'panel_referrals__panel__panel_group',
     )
+    if academic_year_filter:
+        referrals_qs = referrals_qs.filter(referral__academic_year_id=academic_year_filter)
     if name_filter:
         referrals_qs = referrals_qs.filter(
             Q(student__first_name__icontains=name_filter) | Q(student__last_name__icontains=name_filter)
@@ -1174,7 +1196,7 @@ def inclusion_panel_referrals(request):
     active_filter_count = sum(
         1 for v in (
             name_filter, status_filter, stage_filter, raised_by_filter, concern_filter,
-            priority_filter, panel_group_filter, overdue_actions_filter,
+            priority_filter, panel_group_filter, overdue_actions_filter, academic_year_filter,
         ) if v
     )
 
@@ -1198,6 +1220,8 @@ def inclusion_panel_referrals(request):
         'stage_filter': stage_filter,
         'stage_choices': stage_choices,
         'raised_by_filter': raised_by_filter,
+        'academic_year_filter': academic_year_filter,
+        'academic_year_choices': academic_year_choices,
         'concern_filter': concern_filter,
         'concern_choices': concern_question.choice_list() if concern_question else [],
         'priority_filter': priority_filter,
@@ -1595,6 +1619,11 @@ def inclusion_panel_actions(request):
     # Due Date consolidates the old separate Overdue Only/Due This Week
     # toggles into one dropdown with a few more tiers (issue #13).
     due_filter = request.GET.get('due') or ''
+    # No `or ''` here - absence of the param entirely (first load) is
+    # distinguished from an explicit "All Years" selection, same convention
+    # as inclusion_panel_meetings' academic_year_filter.
+    academic_year_param = request.GET.get('academic_year')
+    academic_year_filter = academic_year_param or ''
 
     scoped_students = student_queryset_for_school_key(school_key)
     actions_qs = Action.objects.filter(referral__student__in=scoped_students).select_related(
@@ -1602,6 +1631,21 @@ def inclusion_panel_actions(request):
     )
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
+
+    academic_years_present = {
+        ay.id: ay for ay in AcademicYear.objects.filter(actions__in=actions_qs).distinct()
+    }
+    academic_year_choices = [
+        (ay.id, ay.label)
+        for ay in sorted(academic_years_present.values(), key=lambda ay: ay.start_date, reverse=True)
+    ]
+    current_academic_year = AcademicYear.for_date(today).id
+    if academic_year_param is None and current_academic_year in academic_years_present:
+        academic_year_filter = str(current_academic_year)
+    if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
+        academic_year_filter = ''
+    if academic_year_filter:
+        actions_qs = actions_qs.filter(academic_year_id=academic_year_filter)
 
     if name_filter:
         actions_qs = actions_qs.filter(referral__student_id=name_filter)
@@ -1633,7 +1677,9 @@ def inclusion_panel_actions(request):
         action.days_overdue = (today - action.due_date).days if action.is_overdue else 0
 
     active_filter_count = sum(
-        1 for v in (name_filter, category_filter, assigned_filter, status_filter, due_filter) if v
+        1 for v in (
+            name_filter, category_filter, assigned_filter, status_filter, due_filter, academic_year_filter,
+        ) if v
     )
 
     col_widths = {
@@ -1674,6 +1720,8 @@ def inclusion_panel_actions(request):
         'assigned_filter': assigned_filter,
         'status_filter': status_filter,
         'due_filter': due_filter,
+        'academic_year_filter': academic_year_filter,
+        'academic_year_choices': academic_year_choices,
         'active_filter_count': active_filter_count,
         'actions_count': len(actions),
         'students_count': len({a.referral.student_id for a in actions}),
@@ -2008,22 +2056,6 @@ def _format_duration(td):
     return f'{minutes}m'
 
 
-def _academic_year_key(d):
-    # Thin wrapper around the real core.AcademicYear.for_date() (issue #14) -
-    # kept so this view's existing call sites (start-year ints, not FK
-    # instances) don't need touching yet. A real AcademicYear's start_date
-    # can fall in August rather than a hardcoded Sept 1 (see
-    # docs/adr/0008-academic-year-term-model-shape.md), but start_date.year
-    # is still the same calendar year the old Sept-Aug boundary keyed on.
-    # Full switch-over of this view to the FK directly is issue #17.
-    return AcademicYear.for_date(d).start_date.year
-
-
-def _academic_year_label(start_year):
-    # Thin wrapper - matches the format core.AcademicYear.save() derives.
-    return f'{start_year}/{str(start_year + 1)[-2:]}'
-
-
 def _effective_chair_q(staff_id):
     # Mirrors Panel.effective_chair_id as a queryset filter: chair_id when
     # not following the group default, panel_group.default_chair_id when it is.
@@ -2044,7 +2076,13 @@ def inclusion_panel_meetings(request):
 
     panel_group_filter = request.GET.get('panel_group') or ''
     chair_filter = request.GET.get('chair') or ''
-    academic_year_filter = request.GET.get('academic_year') or ''
+    # No `or ''` here (unlike the other filters) - the absence of the param
+    # entirely (first load) is distinguished from an explicit empty
+    # selection ("All Years", submitted by the filter-bar <form> as
+    # `academic_year=`) so first load can default to the current year while
+    # a deliberate "All Years" choice still sticks on every later request.
+    academic_year_param = request.GET.get('academic_year')
+    academic_year_filter = academic_year_param or ''
     status_filter = request.GET.get('status') or ''
     my_meetings_filter = request.GET.get('my_meetings') == '1' and current_staff is not None
 
@@ -2052,21 +2090,25 @@ def inclusion_panel_meetings(request):
     # below are applied, same convention as inclusion_hub's year_group_choices -
     # so Panel Group/Chair/Academic Year don't shrink each other's dropdowns.
     base_panels = _panels_for_school_key(
-        Panel.objects.select_related('chair', 'panel_group__default_chair'),
+        Panel.objects.select_related('chair', 'panel_group__default_chair', 'academic_year'),
         school_key,
     )
     chairs_by_id = {}
-    academic_years_present = set()
+    academic_years_present = {}
     for panel in base_panels:
         chair = panel.effective_chair
         if chair:
             chairs_by_id[chair.id] = chair
-        academic_years_present.add(_academic_year_key(panel.date))
+        if panel.academic_year_id:
+            academic_years_present[panel.academic_year_id] = panel.academic_year
     chair_choices = sorted(chairs_by_id.values(), key=lambda s: (s.last_name, s.first_name))
     academic_year_choices = [
-        (year, _academic_year_label(year)) for year in sorted(academic_years_present, reverse=True)
+        (ay.id, ay.label)
+        for ay in sorted(academic_years_present.values(), key=lambda ay: ay.start_date, reverse=True)
     ]
-    current_academic_year = _academic_year_key(today)
+    current_academic_year = AcademicYear.for_date(today).id
+    if academic_year_param is None and current_academic_year in academic_years_present:
+        academic_year_filter = str(current_academic_year)
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
         academic_year_filter = ''
 
@@ -2081,8 +2123,7 @@ def inclusion_panel_meetings(request):
     if chair_filter:
         panels = panels.filter(_effective_chair_q(chair_filter))
     if academic_year_filter:
-        start, end = datetime.date(int(academic_year_filter), 9, 1), datetime.date(int(academic_year_filter) + 1, 8, 31)
-        panels = panels.filter(date__gte=start, date__lte=end)
+        panels = panels.filter(academic_year_id=academic_year_filter)
     if status_filter:
         panels = panels.filter(status=status_filter)
     if my_meetings_filter:

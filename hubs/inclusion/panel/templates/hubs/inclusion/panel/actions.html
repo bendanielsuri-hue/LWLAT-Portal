@@ -81,7 +81,21 @@ needed, unlike Students/Referrals.
             <option value="no_due_date" {% if due_filter == 'no_due_date' %}selected{% endif %}>No Due Date</option>
         </select>
     </div>
-    <a href="{% url 'inclusion_panel_actions' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    <div class="filter-field{% if academic_year_filter %} filter-field--active{% endif %}">
+        <label for="academic-year-filter">Academic Year</label>
+        <select id="academic-year-filter" name="academic_year">
+            <option value="">All Years</option>
+            {% for year, label in academic_year_choices %}
+            <option value="{{ year }}" {% if academic_year_filter == year|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% comment %}
+    academic_year= explicit (not just omitted) so Clear Filters truly clears
+    the year too, instead of the "no param" default re-applying the current
+    academic year right back (see inclusion_panel_actions' academic_year_param).
+    {% endcomment %}
+    <a href="{% url 'inclusion_panel_actions' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
 </form>
 
 <div id="actions-filtered-content">
