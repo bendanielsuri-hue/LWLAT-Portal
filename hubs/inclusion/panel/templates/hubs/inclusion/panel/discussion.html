@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=181">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=182">
 {% endblock %}
 
 
@@ -235,25 +235,27 @@
     <div class="discussion-col">
         <h2>Referral Details</h2>
         <div class="discussion-col-body">
-        <div class="panel-details-row">
-            <div class="field-group">
-                <label>Referred By</label>
-                <div class="field-readonly">{{ referral.raised_by|default:"—" }}</div>
+        <dl class="qa-definition-list">
+            <div class="qa-definition-row">
+                <dt>Referred By</dt>
+                <dd>{{ referral.raised_by|default:"—" }}</dd>
             </div>
-            <div class="field-group">
-                <label>Referral Date</label>
-                <div class="field-readonly">{{ referral.created_at|date:"d/m/Y" }}</div>
+            <div class="qa-definition-row">
+                <dt>Referral Date</dt>
+                <dd>{{ referral.created_at|date:"d/m/Y" }}</dd>
             </div>
-        </div>
+        </dl>
 
         {% for group in response_groups %}
-        {% if group.category %}<h3>{{ group.category.name }}</h3>{% endif %}
-        {% for row in group.rows %}
-        <div class="field-group">
-            <label>{{ row.question.label }}</label>
-            <div class="field-readonly">{{ row.answer|default:"—" }}</div>
-        </div>
-        {% endfor %}
+        {% if group.category and group.category.name != 'Concern' %}<h3 class="qa-category">{{ group.category.name }}</h3>{% endif %}
+        <dl class="qa-definition-list">
+            {% for row in group.rows %}
+            <div class="qa-definition-row">
+                <dt>{{ row.question.label }}</dt>
+                <dd>{{ row.answer|default:"—" }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
         {% endfor %}
 
         {% if previous_referrals %}
