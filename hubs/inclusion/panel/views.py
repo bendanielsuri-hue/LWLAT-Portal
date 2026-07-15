@@ -1429,6 +1429,58 @@ def _referral_detail_context(referral, current_staff):
     }
 
 
+def _discussion_summary_context(pr):
+    # The reusable "Discussion Summary" component (#44) - everything about
+    # one specific discussion (one PanelReferral), not a referral's whole
+    # history (that's Referral Details' own unscoped "Panel Meetings"
+    # section, built by _referral_detail_context above). Shared between
+    # Panel Agenda's Discussed rows and Previous Referrals' expanded
+    # disclosure (#50).
+    if pr.duration:
+        total_seconds = int(pr.duration.total_seconds())
+        h, rem = divmod(total_seconds, 3600)
+        m, s = divmod(rem, 60)
+        duration_display = f'{h}:{m:02d}:{s:02d}'
+    else:
+        duration_display = None
+
+    notes = list(pr.notes.select_related('author'))
+    # Distinct in first-appearance order - who actually wrote this
+    # discussion up, separate from Chair (who was accountable for it,
+    # whether or not they personally typed anything).
+    note_authors = []
+    seen_author_ids = set()
+    for note in notes:
+        if note.author_id and note.author_id not in seen_author_ids:
+            seen_author_ids.add(note.author_id)
+            note_authors.append(note.author)
+
+    actions = list(
+        Action.objects.filter(origin_panel_referral=pr).select_related('category', 'assigned_to')
+    )
+    today = timezone.localdate()
+    for action in actions:
+        action.is_overdue = action.status == 'incomplete' and action.due_date and action.due_date < today
+
+    return {
+        'pr': pr,
+        'duration_display': duration_display,
+        'notes': notes,
+        'note_authors': note_authors,
+        'actions': actions,
+    }
+
+
+def inclusion_panel_discussion_summary(request, panel_referral_id):
+    pr = get_object_or_404(
+        PanelReferral.objects.select_related('panel__panel_group', 'panel__chair', 'referral__student'),
+        pk=panel_referral_id,
+    )
+    return render(request, 'hubs/inclusion/panel/_discussion_summary_modal.html', {
+        'ds': _discussion_summary_context(pr),
+    })
+
+
 def inclusion_panel_referral_edit(request, referral_id):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     referral = get_object_or_404(InclusionReferral.objects.select_related('student', 'raised_by'), pk=referral_id)

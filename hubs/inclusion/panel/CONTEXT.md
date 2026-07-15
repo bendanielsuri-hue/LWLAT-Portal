@@ -35,6 +35,10 @@ _Avoid_: Agenda item (used in UI copy; PanelReferral is the model name)
 **Discussion stage**:
 The four-way simplified view of a single PanelReferral's state, returned by `_panel_referral_stage()`: `discussing` (live now), `assigned` (queued, not yet reached), `requires_follow_up` (discussed, follow-up still open), `complete` (discussed, no follow-up needed). Distinct from Referral status — this is scoped to one PanelReferral, not the Referral's overall lifecycle.
 
+**Discussion Summary**:
+The reusable component (`_discussion_summary_context()`/`_discussion_summary_content.html`, [#44](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/44)) summarising one specific discussion — one PanelReferral — in full: Panel Group, duration, Chair, distinct `PanelReferralNote` authors, the actions raised during it (`Action.origin_panel_referral`), and its full note thread. Never aggregates across a referral's whole discussion history — a caller wanting "discussed N times" computes that separately and passes it alongside. Distinct from **Panel Meetings** (the unscoped list of *every* past discussion shown inside the Referral Details modal, `_referral_detail_context()`) — Panel Meetings is a history index with counts and a "View Discussion Page" link per row; Discussion Summary is the full, single-discussion detail reachable without leaving the page it's opened from.
+_Avoid_: Panel History (older name for the Panel Meetings section above; don't conflate the two components)
+
 **Action**:
 A task arising from a discussed referral, with its own status (`incomplete`/`complete`, default `incomplete`) and category. `ActionCategory.is_sensitive` hides an action from staff who aren't panel members (`_is_panel_staff`).
 _Avoid_: Task, follow-up (follow-up is a Referral/PanelReferral scheduling concept, not an Action)

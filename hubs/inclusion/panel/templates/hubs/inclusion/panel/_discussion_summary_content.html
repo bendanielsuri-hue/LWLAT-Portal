@@ -1,0 +1,72 @@
+{% comment %}
+Reusable "Discussion Summary" content (#44) - everything about one specific
+discussion (one PanelReferral), built from _discussion_summary_context(pr)
+(views.py). Embeddable directly inline (e.g. inside Previous Referrals'
+<details>, #50) or wrapped in a modal (see _discussion_summary_modal.html,
+Panel Agenda's Discussed rows) - this fragment has no modal chrome of its
+own so it works either way.
+{% endcomment %}
+<div class="referral-history-grid">
+    <div class="referral-history-details">
+        <div class="entity-meta">Panel Group: {{ ds.pr.panel.panel_group.name|default:"—" }}</div>
+        <div class="entity-meta">Duration: {{ ds.duration_display|default:"—" }}</div>
+    </div>
+    <div class="referral-history-side">
+        <div class="entity-meta">Chair: {{ ds.pr.panel.effective_chair|default:"—" }}</div>
+        <div class="entity-meta">Note Authors: {% if ds.note_authors %}{% for author in ds.note_authors %}{{ author }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}—{% endif %}</div>
+    </div>
+</div>
+
+<div class="referral-flat-section">
+    <h5 class="referral-section-title">Actions Raised ({{ ds.actions|length }})</h5>
+    {% if ds.actions %}
+    <div class="action-row-list">
+        {% for action in ds.actions %}
+        <div class="action-row action-row--divided">
+            <div class="action-row-heading">
+                <span class="referral-row-title">{{ action.category|default:"No category" }}</span>
+                {% if action.is_overdue %}<span class="status-pill danger">Overdue</span>{% endif %}
+                <span class="status-pill{% if action.status == 'complete' %} complete{% elif action.status == 'not_needed' %} not_needed{% else %} incomplete{% endif %}">{{ action.get_status_display }}</span>
+            </div>
+            <div class="action-row-grid">
+                <div class="action-row-details">
+                    <div class="entity-meta">Assigned: {{ action.assigned_to|default:"Unassigned" }}</div>
+                    <div class="entity-meta">Due: {{ action.due_date|default:"—" }}</div>
+                </div>
+                <div class="action-row-side">
+                    <div class="action-row-description">
+                        {% if action.note %}{{ action.note }}{% else %}<span class="empty-note">No description.</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-note">No actions raised in this discussion.</p>
+    {% endif %}
+</div>
+
+{% if ds.notes %}
+<details class="referral-flat-section">
+    <summary class="referral-section-title">Meeting Notes ({{ ds.notes|length }})</summary>
+    <div class="note-thread">
+        {% for note in ds.notes %}
+        <div class="note-thread-item">
+            {% ifchanged note.author_id %}
+            <div class="note-thread-header">
+                <span class="note-thread-avatar">{% if note.author %}{{ note.author.first_name|slice:":1" }}{{ note.author.last_name|slice:":1" }}{% else %}?{% endif %}</span>
+                <span class="note-thread-author">{{ note.author|default:"Unknown" }}</span>
+            </div>
+            {% endifchanged %}
+            <div class="note-thread-body">
+                <span class="note-thread-time">{{ note.created_at|date:"d/m/Y H:i" }}</span>
+                <div class="note-thread-text">{{ note.body|linebreaksbr }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</details>
+{% else %}
+<p class="empty-note">No meeting notes recorded.</p>
+{% endif %}
