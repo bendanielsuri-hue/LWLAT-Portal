@@ -2636,6 +2636,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             return redirect('inclusion_panel_discussion', panel_referral_id=pr.id)
         return redirect('inclusion_panel_meeting_agenda', panel_id=panel.id)
 
+    current_staff = _current_staff(request)
     panel_referrals = list(
         panel.panel_referrals.filter(removed_at__isnull=True).select_related('referral__student')
     )
@@ -2647,6 +2648,14 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     for pr in panel_referrals:
         pr.is_followup = referral_counts.get(pr.referral.student_id, 0) > 1
         pr.stage, pr.stage_label = _panel_referral_stage(pr)
+        # "X of Y actions complete" (Pending and Discussed columns alike) -
+        # same visible_actions_for-filtered count Panel Agenda Setup's own
+        # agenda card shows for a follow-up referral, wired up here since
+        # this view never annotated either field despite the template
+        # expecting them.
+        status_counts = Counter(visible_actions_for(current_staff, pr.referral.actions.all()).values_list('status', flat=True))
+        pr.actions_total = status_counts['complete'] + status_counts['incomplete']
+        pr.actions_complete = status_counts['complete']
 
     pending = sorted(
         # 'deferred' stays visible here too (not just 'pending') - it's still
