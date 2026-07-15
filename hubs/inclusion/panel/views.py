@@ -177,7 +177,7 @@ def _panel_member_roster(panel):
 
     if panel.status == 'complete':
         attendance = PanelMember.objects.filter(panel=panel, checked_in_at__isnull=False).select_related(
-            'panel_group_member__staff', 'panel_group_member__external_contact', 'panel_group_member__expertise'
+            'panel_group_member__staff__school', 'panel_group_member__external_contact', 'panel_group_member__expertise'
         )
         members = []
         for pm in attendance:
@@ -185,31 +185,35 @@ def _panel_member_roster(panel):
             gm.checked_in_at = pm.checked_in_at
             gm.left_at = pm.left_at
             members.append(gm)
-        return members
+    else:
+        members = list(
+            panel.panel_group.members.filter(is_active=True)
+            .select_related('staff__school', 'external_contact', 'expertise')
+        )
+        attendance_by_member_id = {
+            pm.panel_group_member_id: pm
+            for pm in PanelMember.objects.filter(panel=panel, panel_group_member__in=members)
+        }
+        for gm in members:
+            pm = attendance_by_member_id.get(gm.id)
+            gm.checked_in_at = pm.checked_in_at if pm else None
+            gm.left_at = pm.left_at if pm else None
 
-    members = list(
-        panel.panel_group.members.filter(is_active=True)
-        .select_related('staff', 'external_contact', 'expertise')
-    )
-    attendance_by_member_id = {
-        pm.panel_group_member_id: pm
-        for pm in PanelMember.objects.filter(panel=panel, panel_group_member__in=members)
-    }
     for gm in members:
-        pm = attendance_by_member_id.get(gm.id)
-        gm.checked_in_at = pm.checked_in_at if pm else None
-        gm.left_at = pm.left_at if pm else None
+        gm.member_type = ('MAT' if gm.staff.is_mat_staff else 'School') if gm.staff_id else 'External'
     return members
 
 
-def _panel_has_checked_in_member(panel):
-    # The precondition for start_meeting: at least one active PanelGroupMember
-    # has checked in (checked_in_at set) via the existing check-in toggle.
-    # Not "every member" - one is enough to start; the roster fills in as
-    # more members arrive.
-    return PanelMember.objects.filter(
-        panel=panel, checked_in_at__isnull=False, panel_group_member__is_active=True,
-    ).exists()
+def _is_group_member(staff, panel):
+    # The precondition for start_meeting (#60 + the attendance-stage
+    # follow-up): only someone who is themself an active member of this
+    # panel's group can start it - and since clicking Start auto-checks
+    # them in (see start_meeting below), this alone is the whole gate.
+    # There's no separate "at least one checked in" check anymore because
+    # a successful click always produces one.
+    if staff is None or not panel.panel_group_id:
+        return False
+    return PanelGroupMember.objects.filter(panel_group_id=panel.panel_group_id, staff=staff, is_active=True).exists()
 
 
 def _next_agenda_order(panel):
@@ -894,6 +898,7 @@ def inclusion_panel_home(request):
             ),
             'is_today': next_panel.date == today,
             'is_running': next_panel.status == 'running',
+            'can_manage': _is_group_member(current_staff, next_panel),
         }
 
     return render(request, 'hubs/inclusion/panel/home.html', {
@@ -2107,6 +2112,12 @@ def inclusion_panel_meetings(request):
     academic_year_filter = academic_year_param or ''
     status_filter = request.GET.get('status') or ''
     my_meetings_filter = request.GET.get('my_meetings') == '1' and current_staff is not None
+    # Computed once, reused both by the My Meetings filter below and by each
+    # card's can_manage flag - same "must be an active member of *this*
+    # panel's own group" gate the live Agenda page's Start Meeting uses.
+    my_group_ids = set(
+        PanelGroupMember.objects.filter(staff=current_staff, is_active=True).values_list('panel_group_id', flat=True)
+    ) if current_staff else set()
 
     # Option lists computed from the school-scoped set, before the filters
     # below are applied, same convention as inclusion_hub's year_group_choices -
@@ -2149,9 +2160,6 @@ def inclusion_panel_meetings(request):
     if status_filter:
         panels = panels.filter(status=status_filter)
     if my_meetings_filter:
-        my_group_ids = PanelGroupMember.objects.filter(
-            staff=current_staff, is_active=True,
-        ).values_list('panel_group_id', flat=True)
         panels = panels.filter(_effective_chair_q(current_staff.id) | Q(panel_group_id__in=my_group_ids))
 
     # Batched once for every referral appearing on any panel in this list
@@ -2206,6 +2214,10 @@ def inclusion_panel_meetings(request):
             'review_count': review_count,
             'priority_counts': priority_counts,
             'duration_display': duration_display,
+            # Start/Continue Meeting, Edit Agenda, Delete are all only for
+            # this panel's own group members - matches the live Agenda
+            # page's can_start_meeting gate. Everyone else gets View Agenda.
+            'can_manage': panel.panel_group_id is not None and panel.panel_group_id in my_group_ids,
         }
         meetings.append(entry)
         (past_meetings if panel.status == 'complete' else upcoming_meetings).append(entry)
@@ -2577,8 +2589,18 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     if request.method == 'POST':
         action = request.POST.get('form_action')
         if action == 'start_meeting':
-            if panel.started_at is None and _panel_has_checked_in_member(panel):
+            starter = _current_staff(request)
+            # Checked against panel.status, not just started_at is None -
+            # some seeded historical panels are created directly as
+            # 'complete' without ever populating started_at/ended_at, and
+            # status is the authoritative field for "can this be (re)started".
+            if panel.status not in ('running', 'complete') and _is_group_member(starter, panel):
+                starter_gm = PanelGroupMember.objects.get(panel_group_id=panel.panel_group_id, staff=starter, is_active=True)
                 now = timezone.now()
+                PanelMember.objects.update_or_create(
+                    panel=panel, panel_group_member=starter_gm,
+                    defaults={'checked_in_at': now, 'left_at': None},
+                )
                 panel.started_at = now
                 panel.date = timezone.localdate(now)
                 panel.time = timezone.localtime(now).time()
@@ -2590,7 +2612,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             # Attendance is still step one (see start_meeting above), so this
             # only ever brings the chair back to the agenda page to check
             # members in before the real Start Meeting button unlocks.
-            if panel.started_at is None:
+            if panel.status not in ('running', 'complete'):
                 now = timezone.now()
                 panel.date = timezone.localdate(now)
                 panel.time = timezone.localtime(now).time()
@@ -2755,7 +2777,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     scheduled_at = timezone.make_aware(
         datetime.datetime.combine(panel.date, panel.time or datetime.time.min)
     )
-    show_schedule_warning = panel.started_at is None and timezone.now() < scheduled_at
+    show_schedule_warning = panel.status not in ('running', 'complete') and timezone.now() < scheduled_at
 
     # Elapsed-time nudge - a running meeting well past this group's typical
     # duration probably means the chair forgot to click End Panel Meeting.
@@ -2769,6 +2791,14 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         is_running_long = (timezone.now() - panel.started_at) > typical * 1.5
 
     members = _panel_member_roster(panel)
+    checked_in_count = sum(1 for m in members if m.checked_in_at)
+    members_in_attendance = [m for m in members if m.checked_in_at and not m.left_at]
+    members_not_in_attendance = [m for m in members if not (m.checked_in_at and not m.left_at)]
+    # status, not started_at is None - some seeded historical panels are
+    # 'complete' without ever populating started_at/ended_at (see
+    # start_meeting above), so status is the only reliable "hasn't started
+    # yet" signal.
+    is_pre_start = panel.status not in ('running', 'complete')
 
     return render(request, 'hubs/inclusion/panel/meeting_agenda.html', {
         **_panel_base_context(request),
@@ -2777,7 +2807,11 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'discussed': discussed,
         'progress_pct': progress_pct,
         'members': members,
-        'has_checked_in_member': _panel_has_checked_in_member(panel),
+        'checked_in_count': checked_in_count,
+        'members_in_attendance': members_in_attendance,
+        'members_not_in_attendance': members_not_in_attendance,
+        'is_pre_start': is_pre_start,
+        'can_start_meeting': is_pre_start and _is_group_member(_current_staff(request), panel),
         'scheduled_at': scheduled_at,
         'show_schedule_warning': show_schedule_warning,
         'is_running_long': is_running_long,

@@ -47,7 +47,7 @@
             {% if m.panel.status == 'complete' %}
             <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true" title="Coming soon"><span class="btn-icon">{% include 'icons/document_svg.html' %}</span> Summary</span>
             <a href="{% url 'inclusion_panel_meeting_agenda' m.panel.id %}" class="btn btn-tertiary btn-sm">View Meeting</a>
-            {% else %}
+            {% elif m.can_manage %}
             <form method="post" action="{% url 'inclusion_panel_meeting_start' m.panel.id %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> {% if m.panel.started_at %}Continue Meeting{% else %}Start Meeting{% endif %}</button>
@@ -59,6 +59,8 @@
                 <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
             </form>
             {% endif %}
+            {% else %}
+            <a href="{% url 'inclusion_panel_meeting_agenda' m.panel.id %}" class="btn btn-tertiary btn-sm">View Agenda</a>
             {% endif %}
         </div>
     </div>

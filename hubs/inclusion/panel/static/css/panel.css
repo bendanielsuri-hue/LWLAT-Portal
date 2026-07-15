@@ -1025,12 +1025,6 @@
 }
 .panel-toolbar-stats { display: flex; gap: var(--space-xl); font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; align-items: center; }
 
-/* Inline hint next to a disabled toolbar action (currently: Start Meeting
-   before anyone's checked in - #60) - plain muted text, no icon/pill, since
-   the disabled button + its own title tooltip already carry the same
-   message for pointer users. */
-.toolbar-inline-hint { font-size: var(--font-xs); color: var(--text-secondary); }
-
 /* Panel Discussion's Meeting Notes card (see #56 - split out of the old
    single cramped toolbar row into its own card, .discussion-toolbar-row
    above): quick Add Note form, with the full notes history collapsed
@@ -1123,6 +1117,17 @@
 .members-register-col--compact .entity-row { padding: var(--space-sm) var(--space-md); gap: var(--space-sm); }
 .members-register-col--compact .entity-title { font-size: var(--font-sm); }
 .members-register-col--compact .member-attendance-form { margin-top: var(--space-xxs); }
+/* Running-state Members Register splits into In Attendance / Not In
+   Attendance groups - a plain sub-heading between the two, same weight/size
+   as the rest of the compact register's already-shrunk type. */
+.members-group-heading { font-size: var(--font-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-tertiary); margin: var(--space-sm) 0 var(--space-xs); }
+.members-group-heading:first-child { margin-top: 0; }
+
+/* Pre-start Members Register column - attendance is only ever set inside
+   the attendance-dialog (see #attendance-dialog above), so this column is
+   read-only here: a plain count, and (for whoever can start the meeting) a
+   button that reopens the same dialog. */
+.members-register-placeholder { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 600; margin: 0 0 var(--space-sm); }
 /* Panel Agenda wraps toolbar + agenda-layout in the standard .list-page-shell
    (see meeting_setup.html's identical .list-page-shell .setup-columns rule
    above, and DesignLanguage.md "Card-internal scroll with a fixed header") -
@@ -2038,6 +2043,75 @@ dialog.modal-dialog .modal-close {
 dialog.modal-dialog .modal-close:hover { color: var(--text-primary); }
 dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--space-md); }
 #requires-followup-row { justify-content: flex-start; margin-top: 0; }
+
+/* Group Member Attendance dialog (#60's attendance-stage follow-up) - wider
+   than the standard 560px modal.modal-dialog shell so a row of member cards
+   has room to breathe, and its own header carries a subtitle (the Panel
+   Group's name) beneath the title/close row, unlike every other modal's
+   flat single-row header. */
+.modal-dialog--wide { width: min(820px, 92vw); }
+#attendance-dialog .modal-header { flex-direction: column; align-items: stretch; gap: var(--space-xxs); }
+.modal-header-row { display: flex; align-items: center; justify-content: space-between; }
+.modal-subtitle { font-size: var(--font-sm); color: var(--text-secondary); margin: 0; }
+.modal-divider { border: none; border-top: 1px solid var(--border-color); margin: var(--space-md) 0; }
+.attendance-dialog-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); margin-top: var(--space-md); }
+.attendance-dialog-footer .btn-row { margin-top: 0; }
+.attendance-summary { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 600; }
+.attendance-summary strong { color: var(--text-primary); }
+
+/* Attendance-dialog member cards (B1b) - photo, an affiliation strip
+   (school logo+name / "MAT-wide" / "External"), name, Chair/expertise
+   pills, and the check-in toggle. card-row's default align-items: stretch
+   makes every card match the tallest sibling's height; .card-toggle-slot's
+   margin-top: auto then pins the toggle to that same bottom edge regardless
+   of how many pills a given card has above it, so it never jumps position
+   card to card. */
+.member-card-row { display: flex; gap: var(--space-md); overflow-x: auto; padding: var(--space-sm) var(--space-xxs) var(--space-md); }
+.member-card {
+    flex: 0 0 168px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-well);
+    overflow: hidden;
+    text-align: center;
+}
+.member-card[data-present="true"] { border-color: var(--accent-border); background: var(--primary-light); }
+/* Hover: name weight only, nothing else - no background/transform/transition,
+   matching .selectable:hover .entity-title's own hover treatment elsewhere. */
+.member-card:hover .card-name { font-weight: 800; }
+.member-card .photo-avatar, .member-card .no-photo-avatar { width: 168px; height: 106px; flex-shrink: 0; object-fit: cover; }
+.member-card .no-photo-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-well);
+    border-bottom: 1px dashed var(--border-strong);
+    color: var(--text-faint);
+}
+.member-card .no-photo-avatar svg { width: 40%; height: 40%; }
+.member-card .affiliation-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xxs);
+    padding: var(--space-xxs) var(--space-sm);
+    font-size: var(--font-2xs);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    background: var(--bg-surface-alt);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+.member-card[data-present="true"] .affiliation-strip { background: color-mix(in srgb, var(--primary-light) 55%, var(--bg-surface-alt)); }
+.member-card .mini-badge { width: 14px; height: 14px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }
+.member-card .mini-badge svg { width: 100%; height: 100%; }
+.member-card .card-info { padding: var(--space-sm); display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); flex: 1; min-height: 0; }
+.member-card .card-name { font-weight: 700; font-size: var(--font-lg); line-height: 1.25; }
+.member-card .card-role { font-size: var(--font-sm); color: var(--text-secondary); }
+.member-card .card-pill-row { display: flex; gap: var(--space-xxs); flex-wrap: wrap; justify-content: center; }
+.member-card .card-toggle-slot { margin-top: auto; padding-top: var(--space-xs); }
 
 /* Panel Group modal — single column, shared 560px shell like every other
    modal. Name/Chair form a plain non-scrolling header (flex-shrink: 0);

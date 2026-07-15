@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=180">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=181">
 {% endblock %}
 
 
@@ -28,23 +28,48 @@
 
 {% block content %}
 
-<dialog id="schedule-warning-dialog" class="modal-dialog">
+{% if can_start_meeting %}
+<dialog id="attendance-dialog" class="modal-dialog modal-dialog--wide">
     <div class="modal-header">
-        <h2>Panel Meeting not yet due</h2>
-        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+        <div class="modal-header-row">
+            <h2>Group Member Attendance</h2>
+            <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+        </div>
+        <p class="modal-subtitle">{{ panel.panel_group.name }}</p>
     </div>
     <div class="modal-body">
+        {% if show_schedule_warning %}
         <p>This panel meeting is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Reschedule it to now?</p>
         <div class="btn-row">
-            <button type="button" class="btn btn-sm" data-modal-close>View Agenda Only</button>
             <form method="post" style="display:inline">
                 {% csrf_token %}
                 <input type="hidden" name="form_action" value="reschedule_to_now">
                 <button type="submit" class="btn btn-primary btn-sm">Reschedule</button>
             </form>
         </div>
+        <hr class="modal-divider">
+        {% endif %}
+        <div class="member-card-row" data-panel-members-list="dialog">
+            {% for member in members %}
+            {% include 'hubs/inclusion/panel/_panel_agenda_member_card.html' with member=member %}
+            {% empty %}
+            <p class="empty-note">No members in this Panel Group yet — add some from "Edit Group Membership".</p>
+            {% endfor %}
+        </div>
+        <div class="attendance-dialog-footer">
+            <span class="attendance-summary"><strong>{{ checked_in_count }}</strong> of {{ members|length }} checked in</span>
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm" data-modal-close>View Agenda</button>
+                <form method="post" style="display:inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_action" value="start_meeting">
+                    <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
+                </form>
+            </div>
+        </div>
     </div>
 </dialog>
+{% endif %}
 
 <div class="list-page-shell">
 
@@ -57,19 +82,14 @@
         {% if is_running_long %}<span class="status-pill danger" title="This meeting has been running well past this group's typical length — consider ending it if it's finished">Running long</span>{% endif %}
     </div>
     <div class="btn-row">
-        {% if panel.started_at %}
+        {% if panel.status == 'running' %}
         <form method="post" onsubmit="return confirm('End this panel meeting? Any active discussion timers will stop.');">
             {% csrf_token %}
             <input type="hidden" name="form_action" value="end_panel_meeting">
             <button type="submit" class="btn btn-secondary">End Panel Meeting</button>
         </form>
-        {% else %}
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="start_meeting">
-            <button type="submit" class="btn btn-secondary" {% if not has_checked_in_member %}disabled title="Check in at least one member first"{% endif %}><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
-        </form>
-        {% if not has_checked_in_member %}<span class="toolbar-inline-hint">Check in at least one member first</span>{% endif %}
+        {% elif can_start_meeting %}
+        <button type="button" class="btn btn-secondary" data-open-attendance-trigger><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
         {% endif %}
     </div>
 </div>
@@ -80,54 +100,35 @@
             <h2>Panel Members Register</h2>
         </div>
         <div class="setup-col-body">
-        <div class="entity-list" data-panel-members-list>
-            {% for member in members %}
-            <div class="entity-row selectable">
-                {% if panel.status != 'running' %}
-                <div class="entity-thumb">
-                    {% if member.staff and member.staff.photo %}
-                    <img src="{{ member.staff.photo.url }}" alt="">
-                    {% else %}
-                    {% include 'icons/avatar_placeholder_svg.html' %}
-                    {% endif %}
-                </div>
-                {% endif %}
-                <div class="entity-body">
-                    <div class="entity-title">{% if member.staff %}{{ member.staff }}{% else %}{{ member.external_contact }}{% endif %}</div>
-                    {% if panel.status != 'running' %}
-                    <div class="entity-meta">
-                        {% if member.expertise %}<span class="status-pill">{{ member.expertise.name }}</span>{% endif %}
-                        {% if member.left_at %}<span class="status-pill type-external">Left</span>
-                        {% elif member.checked_in_at %}<span class="status-pill type-chair">Present</span>{% endif %}
-                    </div>
-                    {% if member.checked_in_at %}
-                    <div class="entity-meta">Joined {{ member.checked_in_at|time:"H:i" }}{% if member.left_at %} &middot; Left {{ member.left_at|time:"H:i" }}{% endif %}</div>
-                    {% endif %}
-                    {% endif %}
-                    {% if panel.status != 'complete' %}
-                    <form method="post" class="member-attendance-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="member_id" value="{{ member.id }}">
-                        {% if panel.status != 'running' %}<span class="toggle-label">Attendance</span>{% endif %}
-                        {% if member.checked_in_at and not member.left_at %}
-                        <input type="hidden" name="form_action" value="mark_left">
-                        <button type="submit" class="toggle-pill on" aria-pressed="true" aria-label="In attendance — click to mark left"><span class="toggle-knob"></span></button>
-                        {% else %}
-                        <input type="hidden" name="form_action" value="check_in">
-                        <button type="submit" class="toggle-pill" aria-pressed="false" aria-label="Not in attendance — click to mark in attendance"><span class="toggle-knob"></span></button>
-                        {% endif %}
-                    </form>
-                    {% endif %}
-                </div>
-            </div>
+        {% if is_pre_start %}
+        <p class="members-register-placeholder">{{ checked_in_count }} of {{ members|length }} checked in</p>
+        {% if can_start_meeting %}
+        <button type="button" class="btn btn-secondary btn-sm" data-open-attendance-trigger><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Take Attendance</button>
+        {% endif %}
+        {% elif panel.status == 'running' %}
+        <div class="entity-list" data-panel-members-list="sidebar">
+            <h3 class="members-group-heading">In Attendance</h3>
+            {% for member in members_in_attendance %}
+            {% include 'hubs/inclusion/panel/_panel_agenda_member_row.html' with member=member mode='compact' %}
             {% empty %}
-            <p class="empty-note">
-                {% if not panel.panel_group_id %}No Panel Group assigned yet.
-                {% elif panel.status == 'complete' %}No members checked in.
-                {% else %}No members in this Panel Group yet — add some from "Edit Group Membership".{% endif %}
-            </p>
+            <p class="empty-note">No one checked in yet.</p>
+            {% endfor %}
+            <h3 class="members-group-heading">Not In Attendance</h3>
+            {% for member in members_not_in_attendance %}
+            {% include 'hubs/inclusion/panel/_panel_agenda_member_row.html' with member=member mode='compact' %}
+            {% empty %}
+            <p class="empty-note">Everyone's checked in.</p>
             {% endfor %}
         </div>
+        {% else %}
+        <div class="entity-list" data-panel-members-list="sidebar">
+            {% for member in members %}
+            {% include 'hubs/inclusion/panel/_panel_agenda_member_row.html' with member=member mode='readonly' %}
+            {% empty %}
+            <p class="empty-note">No members checked in.</p>
+            {% endfor %}
+        </div>
+        {% endif %}
         </div>
         <div class="setup-col-footer">
             <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ panel.panel_group_id|default:'' }}" {% if not panel.panel_group_id %}disabled title="Assign a Panel Group first"{% endif %}><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Group Membership</button>
@@ -315,9 +316,14 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (res) { return res.text(); })
             .then(function (html) {
                 var doc = new DOMParser().parseFromString(html, 'text/html');
-                var freshList = doc.querySelector('[data-panel-members-list]');
-                var oldList = document.querySelector('[data-panel-members-list]');
-                if (freshList && oldList) oldList.replaceWith(freshList);
+                // Two independent lists now (the attendance-dialog's full roster and
+                // the sidebar's compact/readonly one) - refresh whichever are present
+                // by matching their data-panel-members-list value, not just the first.
+                document.querySelectorAll('[data-panel-members-list]').forEach(function (oldList) {
+                    var key = oldList.getAttribute('data-panel-members-list');
+                    var freshList = doc.querySelector('[data-panel-members-list="' + key + '"]');
+                    if (freshList) oldList.replaceWith(freshList);
+                });
             });
     });
 });
@@ -362,20 +368,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var warningDialog = document.getElementById('schedule-warning-dialog');
-    if (!warningDialog) return;
+    // The attendance-dialog only exists in the DOM at all when can_start_meeting
+    // is true (see meeting_agenda.html), which already implies the panel is
+    // pre-start - everyone else sees no trigger and no way to open it, and
+    // there's nothing to auto-open for. Auto-opens on every load, same as
+    // the old schedule-warning-dialog it replaced; "View Agenda" or the
+    // backdrop dismisses it, and the toolbar/sidebar triggers reopen it.
+    var dialog = document.getElementById('attendance-dialog');
+    if (!dialog) return;
 
-    function closeWarningDialog() {
-        window.closeModalWithFadeOut(warningDialog);
+    function openDialog() {
+        dialog.showModal();
+        requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+    }
+    function closeDialog() {
+        window.closeModalWithFadeOut(dialog);
     }
 
-    if ({{ show_schedule_warning|yesno:"true,false" }}) {
-        warningDialog.showModal();
-        requestAnimationFrame(function () { warningDialog.classList.add('is-open'); });
-    }
-    warningDialog.addEventListener('click', function (e) {
-        if (e.target.closest('[data-modal-close]') || e.target === warningDialog) {
-            closeWarningDialog();
+    openDialog();
+    document.querySelectorAll('[data-open-attendance-trigger]').forEach(function (trigger) {
+        trigger.addEventListener('click', openDialog);
+    });
+    dialog.addEventListener('click', function (e) {
+        if (e.target.closest('[data-modal-close]') || e.target === dialog) {
+            closeDialog();
         }
     });
 });
