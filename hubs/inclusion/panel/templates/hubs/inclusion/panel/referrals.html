@@ -4,7 +4,7 @@
 {% block title %}Referrals{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=164">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=166">
 {% endblock %}
 
 
@@ -40,23 +40,19 @@ Actions.
         <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
     </div>
     <div class="filter-field{% if status_filter %} filter-field--active{% endif %}">
-        <label>Status</label>
+        <label for="status-filter">Status</label>
         {% comment %}
-        3 static options - .ui-segmented per DesignLanguage.md's "Segmented
-        control" rule, not a hidden <select>. Same hidden-input + real
-        <button> + JS pattern as the toggle-pill fields on this same page
-        (Overdue Actions etc.) - a hidden radio isn't keyboard-focusable on
-        its own, so the actual interactive/focusable element is the
-        visible button, not the input.
+        Filter bars default to a dropdown even for <=3 static options -
+        horizontal space in a filter bar is at a premium (see
+        DesignLanguage.md's filter-bar exception to the segmented-control
+        rule). Segmented remains the default everywhere else (row-level
+        controls, detail views, etc.).
         {% endcomment %}
-        <div class="ui-segmented" data-status-segmented>
-            <input type="radio" name="status" value="" id="status-all" hidden {% if not status_filter %}checked{% endif %}>
-            <input type="radio" name="status" value="active" id="status-active" hidden {% if status_filter == 'active' %}checked{% endif %}>
-            <input type="radio" name="status" value="closed" id="status-closed" hidden {% if status_filter == 'closed' %}checked{% endif %}>
-            <button type="button" class="ui-segmented-option{% if not status_filter %} active{% endif %}" data-status-value="">All</button>
-            <button type="button" class="ui-segmented-option{% if status_filter == 'active' %} active{% endif %}" data-status-value="active">Active</button>
-            <button type="button" class="ui-segmented-option{% if status_filter == 'closed' %} active{% endif %}" data-status-value="closed">Closed</button>
-        </div>
+        <select id="status-filter" name="status">
+            <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+            <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Closed</option>
+        </select>
     </div>
     <div class="filter-field{% if stage_filter %} filter-field--active{% endif %}">
         <label for="stage-filter">Panel Stage</label>
@@ -141,7 +137,7 @@ Actions.
     </div>
 </form>
 
-<div id="referrals-filtered-content">
+<div id="referrals-filtered-content" class="filtered-content">
     {% include 'hubs/inclusion/panel/_referrals_filtered_content.html' %}
 </div>
 </div>
@@ -165,26 +161,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     setupToggle(overdueActionsToggle, overdueActionsInput);
-
-    // Status .ui-segmented control - clicking a button checks its paired
-    // hidden radio and dispatches change, same wiring shape as the
-    // toggle-pill fields above (the hidden inputs aren't keyboard-
-    // focusable themselves, so the buttons are the real interactive
-    // element; .active is toggled in JS to mirror whichever radio is
-    // actually checked).
-    var statusSegmented = document.querySelector('[data-status-segmented]');
-    if (statusSegmented) {
-        statusSegmented.querySelectorAll('.ui-segmented-option').forEach(function (button) {
-            button.addEventListener('click', function () {
-                var input = statusSegmented.querySelector('#status-' + (button.dataset.statusValue || 'all'));
-                if (!input) return;
-                statusSegmented.querySelectorAll('.ui-segmented-option').forEach(function (b) { b.classList.remove('active'); });
-                button.classList.add('active');
-                input.checked = true;
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-        });
-    }
 
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
 

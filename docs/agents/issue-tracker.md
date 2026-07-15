@@ -2,7 +2,7 @@
 
 Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
-**Note:** `gh` is not currently installed on this machine. Install it before running skills that publish to the tracker — until then, treat "publish to the issue tracker" as blocked and say so rather than silently falling back to a local file.
+`gh` is installed at `C:\Program Files\GitHub CLI\gh.exe` and authenticated as `bendanielsuri-hue`. It's on the Windows Machine PATH, but a Bash/PowerShell session started before install (or before a PATH refresh) may not see it — if `gh` isn't found, don't treat the tracker as unconfigured; first retry with `export PATH="$PATH:/c/Program Files/GitHub CLI"` (Bash) or open a fresh terminal, then fall back to local markdown only if it's still missing after that.
 
 ## Conventions
 

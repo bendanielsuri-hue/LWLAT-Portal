@@ -10,33 +10,13 @@ Scalability is a top priority for this project going forward. When adding or cha
 
 ## Layout
 
-```
-manage.py
-db.sqlite3                  # SQLite, gitignored — not tracked, see "Database / seed data" below
-mysite/                      # Django project config (settings.py, urls.py, wsgi.py, asgi.py)
-mat/                         # Portal home — mat.views.mat_home renders the 7-hub landing page
-core/                        # Shared ORM models used across hubs (Staff, Student, School)
-hubs/                        # Package containing one Django app per hub
-templates/                   # Shared/global templates
-static/                      # Shared CSS/JS/icons
-```
+Top-level: `manage.py`, `db.sqlite3` (gitignored, see "Database / seed data" below), `mysite/` (project config), `mat/` (portal home), `core/` (shared ORM models), `hubs/` (one Django app per hub), `templates/` (shared/global), `static/` (shared CSS/JS/icons). Derivable from the repo tree — not reproduced here.
 
 ## Hubs = Django apps
 
 Each hub lives at `hubs/<name>/` with its own `apps.py`, `urls.py`, `views.py`, and `templates/hubs/<name>/`. There are no Hub database models — "hub" is purely a URL/app/template grouping convention. Hubs are NOT nested in a parent-child DB relationship; each is a standalone app. See [docs/adr/0004-hubs-as-url-convention-not-db-model.md](docs/adr/0004-hubs-as-url-convention-not-db-model.md) for why.
 
-Root URLs (`mysite/urls.py`) mount each hub at its own prefix:
-
-| Hub | Mount | App | Notes |
-|---|---|---|---|
-| Staff | `/staff/` | `hubs.staff` | dashboard, timetable, directory, absence, payslips, CPD, calendar, school map |
-| Student | `/student/` | `hubs.student` | dashboard, profile, progress tracker, feedback, standards/equipment, pastoral tracker |
-| Operations | `/services/` | `hubs.services` | cover, duty rotas, assembly, admissions, events, ops dashboard, exams |
-| Registers | `/registers/` | `hubs.registers` | clubs, isolation room, reset room, interventions |
-| SEND & Provision | `/inclusion/` | `hubs.inclusion` | provision strategies, diagnosis tracker, + nested **Inclusion Panel** sub-area at `/inclusion/panel/...` (students, referrals, actions, meetings, meeting setup/agenda/discussion) — has its own `PANEL_MENU`/`PANEL_BASE_CONTEXT` and a "back to hub" link up one level |
-| Careers | `/careers/` | `hubs.careers` | skeleton only, no features yet |
-| Resources | `/resources/` | `hubs.resources` | asset register, room bookings |
-| Portal Admin | `/portal-admin/` | `hubs.portaladmin` | developer-only console — see "Module rollout status" and "Tiered portal settings" below |
+Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file for the current list of mounts and apps. One non-obvious grouping worth flagging: SEND & Provision (`/inclusion/`, `hubs.inclusion`) nests the **Inclusion Panel** sub-area at `/inclusion/panel/...` (students, referrals, actions, meetings, meeting setup/agenda/discussion) with its own `PANEL_MENU`/`PANEL_BASE_CONTEXT` and a "back to hub" link up one level. Portal Admin (`/portal-admin/`, `hubs.portaladmin`) is a developer-only console — see "Module rollout status" and "Tiered portal settings" below.
 
 ## View pattern
 
@@ -108,7 +88,7 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix:
 
 ## Design Language
 
-See [DesignLanguage.md](DesignLanguage.md) for the portal-wide visual design language (colour, layout, typography, spacing, cards, navigation, table/list, button, pill/badge patterns, naming conventions) and [InteractionLanguage.md](InteractionLanguage.md) for hover/focus/motion rules — both extracted from the Inclusion Panel (the most complete, stable UI in the codebase). All future hub pages should follow these rules. Hub-specific implementation detail that isn't portal-wide (e.g. Panel's own status pill modifiers, meeting-card anatomy) lives in that hub's own `DesignLanguage.md` alongside its `CLAUDE.md` — see `hubs/inclusion/panel/DesignLanguage.md`.
+See [DesignLanguage.md](DesignLanguage.md) for the portal-wide visual design language (colour, layout, typography, spacing, cards, navigation, table/list, button, pill/badge patterns, naming conventions) and [InteractionLanguage.md](InteractionLanguage.md) for hover/focus/motion rules — both extracted from the Inclusion Panel (the most complete, stable UI in the codebase) but written generic, portal-wide. All future hub pages should follow these rules. Hub-specific implementation detail (e.g. Panel's own status pill modifiers, meeting-card anatomy, JS function references) lives in that hub's own `DesignLanguage.md`/`InteractionLanguage.md` alongside its `CLAUDE.md` — see `hubs/inclusion/panel/DesignLanguage.md` and `hubs/inclusion/panel/InteractionLanguage.md`. See [docs/agents/doc-conventions.md](docs/agents/doc-conventions.md) for the length/content rules governing this split.
 
 ## Agent skills
 

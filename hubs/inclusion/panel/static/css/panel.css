@@ -15,7 +15,7 @@
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
     padding: var(--space-lg);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--card-shadow);
 }
 
 /* Inside the .list-page-shell (Panel Home): the columns/cards fill the space
@@ -385,7 +385,7 @@
    top-level cards stacked directly in the page shell, not children of one
    big card - so the gap here is the portal-wide --space-md card-to-card
    spacing, not the tighter --space-sm previously used for nested rows. */
-.meeting-list { display: flex; flex-direction: column; gap: var(--space-md); }
+.meeting-list { display: flex; flex-direction: column; }
 /* The "Next Panel" heading is a full-width banner above the column row,
    not inside the name column — so it never affects that row's height and
    the divider lines/vertical centring across columns stay identical whether
@@ -410,20 +410,17 @@
    breakdown sits under a divider. Actions are a right-hand column,
    vertically centred against the whole card. */
 .meeting-card {
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    padding: var(--space-sm) var(--space-md);
-    background: var(--meeting-card-bg, var(--bg-nested));
-    box-shadow: var(--shadow-sm);
+    padding: var(--space-md) var(--space-lg);
     display: flex;
     align-items: stretch;
     gap: var(--space-md);
+    border-bottom: 1px solid var(--border-color);
 }
-.meeting-card:hover, .meeting-card.chosen { background: var(--meeting-card-hover-bg); }
-.meeting-card:hover h3, .meeting-card.chosen h3 { font-weight: 700; }
-.meeting-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border-strong); }
-.meeting-card.chosen { box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong); }
-.meeting-card.chosen:hover { box-shadow: var(--shadow-sm), inset 3px 0 0 var(--border-strong), inset 0 0 0 1px var(--border-strong); }
+.meeting-card:last-child { border-bottom: none; }
+.meeting-card:hover { background: var(--row-hover-bg); }
+.meeting-card:hover h3 { font-weight: 700; }
+.meeting-card.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
+.meeting-card.chosen h3 { font-weight: 700; }
 
 .meeting-card-body { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; gap: 6px; }
 .meeting-card-title-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: nowrap; min-width: 0; }
@@ -499,6 +496,14 @@
 .entity-list[data-selectable] > .entity-row { align-items: stretch; }
 .entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
 .row-btn-row-stacked { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-xs); }
+.row-btn-row-stacked > .action-row-buttons { align-self: flex-end; }
+
+/* Action status segmented control (Actions list row) - each state gets its own
+   semantic active color instead of the generic .ui-segmented-option.active
+   primary tint, so Complete/Incomplete/Not Required read at a glance. */
+.ui-segmented--action-status .ui-segmented-option[value="complete"].active { background: var(--color-positive-bg); color: var(--color-positive); }
+.ui-segmented--action-status .ui-segmented-option[value="incomplete"].active { background: var(--color-negative-bg); color: var(--color-negative); }
+.ui-segmented--action-status .ui-segmented-option[value="not_needed"].active { background: color-mix(in srgb, var(--color-neutral) 20%, var(--bg-well)); color: var(--color-neutral); }
 
 /* ==================== Shared progressive-disclosure filter bar (Students/Referrals) ====================
    Primary filter fields stay inline; candidate/secondary filters sit
@@ -533,22 +538,34 @@
 .more-filters-toggle[aria-expanded="true"] .more-filters-toggle-icon { transform: rotate(180deg); }
 
 /* ==================== Panel Meetings ====================
-   Filters are their own standalone card (plain .filter-bar, not nested in
-   .list-card) - New Panel Meeting used to live at the end of that bar, but
-   felt wrong sitting inside a card that's now purely about filtering, so it
+   New Panel Meeting used to live at the end of the filter bar, but felt
+   wrong sitting inside a card that's now purely about filtering, so it
    moved to key_actions_extra (see meetings.html/_base.html) instead, in the
    page header alongside Search/Referral like every other panel page's main
    action (see grilling session 2026-07-12).
 
-   Meeting cards are de-nested (issue #6) - no wrapping .list-card any
-   more, .meeting-card is an independent top-level card, stacked directly
-   in .list-page-shell. #meetings-filtered-content (renamed .meetings-scroll
+   Meeting rows were originally de-nested (issue #6) into independent
+   floating .meeting-card cards; restyled back into one shared bordered
+   list surface (issue #16) so they read as rows like Students/Referrals/
+   Actions' .entity-row, wrapped in the same .list-card as those pages
+   (filter bar + list read as one card, no gap between them) - .list-card's
+   own rules already give the filter bar its flush-top/bordered-bottom
+   treatment for free. #meetings-filtered-content (renamed .meetings-scroll
    in the markup) is the part that's re-fetched on every filter change (see
-   data-ajax-target on the form) and is now itself the scrolling body the
-   fixed-height shell measures against - flex:1/min-height:0/overflow-y:auto
-   directly on it, same as .list-card's own direct-child scroll behaviour
-   on every other list page, just without the extra card wrapper. */
-.meetings-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-md) var(--space-xl); }
+   data-ajax-target on the form) and is the scrolling body the fixed-height
+   shell measures against - same .list-card .entity-list role on every other
+   list page. It deliberately carries no border/radius/background of its
+   own: combining an element's own border-radius with its own overflow-y:
+   auto renders a square notch where the scrollbar meets the rounded corner
+   on some browsers, so (as with .entity-list) the rounding lives on the
+   non-scrolling .list-card wrapper instead and this only handles the
+   scroll/flex sizing. */
+.meetings-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
 
 /* Multi-column setup/discussion layouts */
 .setup-columns, .discussion-columns {

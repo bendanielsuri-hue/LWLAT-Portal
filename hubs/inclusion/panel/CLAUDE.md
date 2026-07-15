@@ -2,7 +2,7 @@
 
 Nested Django app at `hubs/inclusion/panel/`. Mounted via `hubs/inclusion/urls.py` at `/inclusion/panel/`. App label: `panel`.
 
-See [CONTEXT.md](CONTEXT.md) for the domain glossary (Referral vs PanelReferral, Panel vs PanelGroup, discussion stages, etc.) and [DesignLanguage.md](DesignLanguage.md) for Panel-specific visual patterns (status pill modifiers, meeting-card anatomy) — portal-wide design/interaction rules live at the repo root.
+See [CONTEXT.md](CONTEXT.md) for the domain glossary (Referral vs PanelReferral, Panel vs PanelGroup, discussion stages, etc.), [DesignLanguage.md](DesignLanguage.md) for Panel-specific visual patterns (status pill modifiers, meeting-card anatomy), and [InteractionLanguage.md](InteractionLanguage.md) for Panel-specific motion/JS implementation — portal-wide design/interaction rules live at the repo root.
 
 All DB tables keep their original `inclusion_*` names (set via `Meta.db_table` on every model) so no data migration was needed when the app was extracted.
 

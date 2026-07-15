@@ -590,8 +590,12 @@ main {
 .main-inner {
     min-width: 0;
     max-width: 1600px;
+    height: 100%;
     margin: 0 auto;
     padding: var(--space-2xl);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 /* Sticky page header (breadcrumbs/actions) and home screen title+search row. */
@@ -722,6 +726,8 @@ a { color: inherit; }
 .list-page-shell {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -742,6 +748,20 @@ a { color: inherit; }
     border-radius: var(--radius-lg);
     overflow: hidden;
 }
+/* Students/Referrals/Actions each AJAX-swap their row list inside a plain
+   wrapper div (data-ajax-target's target, id="<page>-filtered-content") that
+   sits between .list-card and .entity-list. That div needs to be a flex
+   container itself, or .entity-list's flex:1;min-height:0 below has no
+   flex context to size against - the wrapper (and .entity-list inside it)
+   would just grow to fit every row instead of being bounded and scrolling
+   internally, and .list-card's own overflow:hidden would silently clip
+   whatever doesn't fit instead of it being reachable via any scrollbar. */
+.list-card .filtered-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
 .list-card .filter-bar {
     position: static;
     flex-shrink: 0;
@@ -758,9 +778,12 @@ a { color: inherit; }
     min-height: 0;
     overflow-y: auto;
     border: none;
-    /* No bottom radius here any more (issue #7) - .stats-strip now follows
-       as the card's true last child, so the bottom corners belong to it
-       instead (see .list-card .stats-strip below). */
+    /* No radius here at all - .list-card's own border-radius + overflow:
+       hidden already gives the whole card its rounded corners; leaving
+       .entity-list's own base border-radius (cards.css) in place clips a
+       chosen/hovered row's own background fill into an unwanted rounded
+       notch at the top of the list, right below the filter bar. */
+    border-radius: 0;
 }
 /* .stats-strip now lives inside .list-card (issue #7), following
    .entity-list as the card's own footer rather than sitting outside the

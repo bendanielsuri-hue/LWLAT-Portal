@@ -4,9 +4,17 @@ Panel-specific visual patterns — implementation detail tied to `panel.css` and
 
 ---
 
+## Flat section (`.referral-flat-section`)
+
+When several always-visible sections already sit inside one outer bordered container (e.g. a modal body whose only bordered card is a decision-strip summary), Panel skips the border/background on each inner section rather than nesting a card per section — a bordered card per section there reads as cards nested inside the modal's own card. Sections aren't separated by their own border; instead `.referral-flat-section + .referral-flat-section` gets a `border-top` (the first section skips it, since it already sits directly below the decision strip's own border) — a single horizontal rule marking the boundary *between* sections, distinct from the finer divider each section's own last row already carries. One flat section may still be a native `<details>` when it's the one lower-priority, high-volume section in the group that's fine collapsed by default (e.g. Notes) — every other flat section in the group stays permanently open.
+
+This is Panel's own convention where it came up (the referral decision/edit modals), not a portal-wide rule — root DesignLanguage.md deliberately leaves "nested card vs. flat section" as a per-app call.
+
+---
+
 ## Meeting card (`.meeting-card`)
 
-Uses `--bg-nested` (one level deeper than surface), `border-radius: var(--radius-lg)` (one step smaller than container), `box-shadow: var(--shadow-sm)`. Hover/chosen: see "Hover and chosen on a selectable card" in InteractionLanguage.md — unlike row/list selectables, this one stays off `--primary`/`--accent-border` entirely.
+Styled as a row (`border-bottom: 1px solid var(--border-color)`, no own border/radius/shadow), stacked directly in `.list-card` alongside Students/Referrals/Actions' `.entity-row` — not a standalone floating card despite the class name. Hover/chosen: see "Hover on a selectable row" / "Chosen / selected state on a row" in root InteractionLanguage.md, same as any other list row.
 
 The "Next Panel" heading (`.next-panel-label`, see below), when present, is a full-width banner directly inside `.meeting-card` — deliberately *outside* the column row (`.meeting-card-row`) below it, so it adds height above the row without ever affecting that row's own height, its vertical centring, or its divider lines. Whether or not a given card is flagged "next", every `.meeting-card-row` looks identical in cross-section.
 
@@ -50,3 +58,28 @@ One shared dialog and template serve both "Create Panel Meeting" (`panelId` omit
 **Persistent footer slot swaps between "Add Member" and "Back"** (`.panel-group-modal-footer`, `data-panel-group-footer`). The modal's `data-members-list-view`/`data-members-add-view` panels (Active/Inactive Members tabs vs. the member picker form) share one non-scrolling footer row pinned below `.panel-group-modal-scroll`, same fixed-header/scrolling-body split `dialog.modal-dialog` already uses generically (root DesignLanguage.md's "Card-internal scroll with a fixed header") extended to a fixed *footer* — the button itself swaps (`+ Add Member` in the list view, `← Back` in the add view) rather than each view rendering its own trailing button inline. Toggling between the two swaps the footer's own button label/handler alongside the existing `data-members-mode-toggle`/`data-members-back-btn` show/hide of the two view panels, wrapped in `animateModalHeightChange` like every other in-place content swap in this modal (see InteractionLanguage.md's "Modal content swap"). Kept out of the scrolling area specifically so it's reachable without scrolling down past a long member list or a tall picker — see root DesignLanguage.md's Anti-pattern #17 for why the "Add Member" trigger no longer lives beside the Active/Inactive tabs instead.
 
 **Group Name is Left Fused** (`.ui-fused-field`, label beside the text input), not a plain `.field-group` — it has the full width of the modal header to work with, so it follows the portal-wide "prefer fused, Left Fused when width allows" default (root DesignLanguage.md's Form control patterns) same as the Default Chair field beside it.
+
+---
+
+## Filter bar (Referral/Actions dashboards)
+
+Implements the portal-wide two-layer filter bar pattern (root DesignLanguage.md's Layout patterns) — mechanics are commented inline at each function, referenced here rather than restated:
+
+- AJAX enhancement wiring: `setupAjaxFilterBars()` in `static/js/main.js`.
+- Active-filter count badge + highlight: `window.wireFilterBarActiveState()` in `panel.js` — call once per filter bar, invoke the returned `refresh()` on every relevant `change`.
+- Cascading/dependent options (e.g. Reg Group scoped by Year Group): pass a `{parent_value: [child_options]}` JSON map (`reg_groups_by_year_json` in `hubs/inclusion/views.py::inclusion_hub`, same shape as `forms_by_year_json` in `hubs/inclusion/panel/views.py::inclusion_panel_students`) and rebuild the dependent `<select>`'s options on the parent's `change`. Call `selectEl._uiSelect.refresh()` afterward if the `<select>` has been enhanced by `enhanceFormControls()` — its popover caches options at enhance time.
+- Default student-scoped filter set (any dashboard showing attendance/behaviour/achievement/SEND-type data): Year Group, Reg Group, Pupil Premium, Ethnicity, More Able, Gender, SEN Code, Prior Attainment Band — `core.models.Student`'s `year_group`/`reg_form`/`is_pp`/`ethnicity`/`is_more_able`/`gender`/`sen_status`/`prior_attainment_band`.
+
+---
+
+## Segmented control example (member-picker staff source)
+
+`hubs/inclusion/panel/templates/hubs/inclusion/panel/_member_picker.html`'s `<School> Staff` / `All MAT Staff` / `External` control is the one case where a segmented control fuses into its neighbouring field (`.member-picker-controls`, `panel.css`) — one shared outer border, no radius seam, single divider where they meet. This is an exception to the segmented control's usual standalone bordered box (root DesignLanguage.md's Form control patterns) — reserve it for a segmented control acting as a search filter's mode switch immediately above that search box, not as a general pattern.
+
+---
+
+## Tab row examples
+
+- Panel Home cards: `flex-wrap: nowrap; overflow: hidden`, overflow handled by the `.tab-row-more` dropdown (`style.css`).
+- Status-filter tab rows (Panel Home's My Actions, Panel Meetings' All/Draft/Ready/Live/Delayed/Completed): filtering is plain JS matching a `data-status`/`data-*-tab` attribute per row against the clicked tab (`setupTabs()` in `home.html`, inline script in `meetings.html`) — no server round-trip. Panel Home's own live-updating tabs (My Actions/My Referrals) collapse zero-count tabs via CSS so JS can animate the crossing (see InteractionLanguage.md's "Status-filter tab entering/leaving"); Panel Meetings' tabs navigate/reload on every action, so they use the simpler `{% if count %}` omission instead — nothing to animate a transition into.
+- Sticky-above-scroll instances: `.setup-col-body .tab-row` (Referral Selection), `#panel-group-dialog [data-members-list-view] > .tab-row` (Edit Panel Group's Active/Inactive tabs).
