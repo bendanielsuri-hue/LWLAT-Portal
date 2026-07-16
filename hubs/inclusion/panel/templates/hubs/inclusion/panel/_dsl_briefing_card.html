@@ -17,27 +17,28 @@ script) rather than a full-page reload - the response is this same fragment
 re-rendered, swapped in wholesale.
 {% endcomment %}
 <div class="safeguarding-briefing-card safeguarding-briefing-card--scrollable">
-    <div class="safeguarding-briefing-header">
+    <div class="safeguarding-briefing-header safeguarding-briefing-header--panel">
         <div>
-            <strong>{{ row.student.first_name }} {{ row.student.last_name }}</strong>
-            <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</div>
+            <h2>{{ row.student.first_name }} {{ row.student.last_name }}</h2>
+            <h3 class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</h3>
         </div>
-    </div>
-
-    {% comment %}
-    Ready for Panel promoted from a small inline toggle-pill to a full-width
-    coloured banner (#84) - needed more visual prominence than the old
-    header-corner treatment.
-    {% endcomment %}
-    <div class="safeguarding-ready-banner{% if row.panel_referral.briefing_ready %} is-ready{% endif %}">
-        <span class="safeguarding-ready-banner-label">{% if row.panel_referral.briefing_ready %}Ready for Panel{% else %}Not ready for Panel yet{% endif %}</span>
-        {% if can_edit_briefing %}
-        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="toggle_ready">
-            <button type="submit" class="toggle-pill toggle-pill--lg{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
-        </form>
-        {% endif %}
+        {% comment %}
+        Ready for Panel: a coloured pill+toggle on the header's right side
+        (#84) - was a small inline toggle-pill in the header, then a
+        full-width banner below it; moved back into the header row once
+        that felt like its own separate section rather than a fact about
+        this student/panel pairing.
+        {% endcomment %}
+        <div class="safeguarding-ready-banner{% if row.panel_referral.briefing_ready %} is-ready{% endif %}">
+            <span class="safeguarding-ready-banner-label">{% if row.panel_referral.briefing_ready %}Ready for Panel{% else %}Not ready for Panel yet{% endif %}</span>
+            {% if can_edit_briefing %}
+            <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="toggle_ready">
+                <button type="submit" class="toggle-pill toggle-pill--lg{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
+            </form>
+            {% endif %}
+        </div>
     </div>
 
     <div class="safeguarding-briefing-notes">
@@ -46,22 +47,20 @@ re-rendered, swapped in wholesale.
         <div class="referral-flat-section-body" style="margin-top: 0;">
             {% for note in row.notes %}
             <div class="referral-history-entry" data-note-entry>
-                <div data-note-display>
-                    <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }}</div>
-                    <div class="field-readonly">{{ note.text }}</div>
+                <div data-note-display class="safeguarding-note-row">
+                    <div class="safeguarding-note-row-main">
+                        <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }}</div>
+                        <div class="safeguarding-note-text">{{ note.text }}</div>
+                    </div>
                     {% if can_edit_briefing %}
-                    <div class="note-actions" style="margin-top: var(--space-xxs); display: flex; gap: var(--space-xs);">
-                        <button type="button" class="btn btn-sm btn-secondary" data-note-edit-toggle>Edit</button>
-                        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Delete this note? It stays in History but stops showing as active.');" class="safeguarding-note-form" style="display: inline-flex; gap: var(--space-xxs); align-items: center;">
+                    <div class="note-actions">
+                        <button type="button" class="btn btn-sm btn-secondary btn-edit" data-note-edit-toggle><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
+                        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Remove this note?');" class="safeguarding-note-form">
                             {% csrf_token %}
                             <input type="hidden" name="form_action" value="delete">
                             <input type="hidden" name="note_id" value="{{ note.id }}">
-                            <select name="retirement_reason" required>
-                                {% for value, label in retirement_reason_choices %}
-                                <option value="{{ value }}">{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="btn btn-sm btn-secondary">Delete</button>
+                            <input type="hidden" name="retirement_reason" value="no_longer_relevant">
+                            <button type="submit" class="btn btn-sm btn-secondary btn-delete"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Remove</button>
                         </form>
                     </div>
                     {% endif %}
@@ -86,22 +85,41 @@ re-rendered, swapped in wholesale.
         {% endif %}
 
         {% if row.history %}
-        <div class="safeguarding-briefing-history">
-            <div class="referral-section-title referral-section-title--sm">History</div>
+        <details class="safeguarding-briefing-history">
+            <summary class="referral-section-title referral-section-title--sm">Inactive ({{ row.history|length }})</summary>
             {% for note in row.history %}
-            <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }} &middot; deleted {{ note.retired_at|date:"d/m/Y" }} ({{ note.get_retirement_reason_display }}){% if note.retirement_note %} &middot; {{ note.retirement_note }}{% endif %}</div>
-            <div class="field-readonly">{{ note.text }}</div>
+            <div class="referral-history-entry" data-note-entry>
+                <div class="safeguarding-note-row">
+                    <div class="safeguarding-note-row-main">
+                        <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }} &middot; removed {{ note.retired_at|date:"d/m/Y" }}</div>
+                        <div class="safeguarding-note-text">{{ note.text }}</div>
+                    </div>
+                    {% if can_edit_briefing %}
+                    <div class="note-actions">
+                        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-note-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="form_action" value="reactivate">
+                            <input type="hidden" name="note_id" value="{{ note.id }}">
+                            <button type="submit" class="btn btn-sm btn-secondary btn-edit">Reactivate</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
             {% endfor %}
-        </div>
+        </details>
         {% endif %}
     </div>
 
     {% if can_edit_briefing %}
-    <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form sticky">
-        {% csrf_token %}
-        <input type="hidden" name="form_action" value="add">
-        <input type="text" name="text" maxlength="150" placeholder="Add Safeguarding note..." required>
-        <button type="submit" class="btn btn-add btn-sm">Add Note</button>
-    </form>
+    <div class="safeguarding-note-composer">
+        <label for="dsl-add-note-{{ row.panel_referral.id }}" class="safeguarding-note-composer-label">Add Note</label>
+        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add">
+            <input type="text" id="dsl-add-note-{{ row.panel_referral.id }}" name="text" maxlength="150" placeholder="Write a new safeguarding note..." required>
+            <button type="submit" class="btn btn-add btn-sm">Add Note</button>
+        </form>
+    </div>
     {% endif %}
 </div>

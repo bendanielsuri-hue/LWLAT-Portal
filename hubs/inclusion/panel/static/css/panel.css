@@ -1199,10 +1199,24 @@
     font-family: inherit;
     resize: vertical;
 }
-/* Safeguarding Briefings screen's composer (#71/#74): pins the Add Note
-   row to the bottom of the card's scrollable note thread, chat-style,
-   rather than scrolling away with the rest of the card's content. */
-.safeguarding-briefing-form.sticky { position: sticky; bottom: 0; margin-top: var(--space-md); padding-top: var(--space-sm); background: var(--bg-surface); border-top: 1px solid var(--border-color); }
+/* Add Note composer (#84) - its own labelled, bordered container rather
+   than a bare inline form, made prominent as the primary action on this
+   screen; sticky to the bottom of the scrollable note thread (chat-style)
+   rather than scrolling away with the rest of the card's content.
+   --bg-well, not --bg-surface-alt: this is chrome around the editable
+   field (like a filter bar), not the field itself - the actual
+   <input type="text"> inside keeps --bg-surface-alt (see rule above). */
+.safeguarding-note-composer {
+    position: sticky;
+    bottom: 0;
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg-well);
+}
+.safeguarding-note-composer-label { display: block; font-weight: 700; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: var(--space-xs); }
+.safeguarding-note-composer .safeguarding-briefing-form { margin-top: 0; }
 /* One-line-per-note list (#77-#81) - SafeguardingNote.text is a single
    short statement, not a paragraph, so notes read as a plain bulleted
    list rather than the old field-readonly paragraph blocks. */
@@ -1236,6 +1250,43 @@
 .referral-section-title--sm { font-size: var(--font-md); margin-bottom: var(--space-xs); }
 .safeguarding-ready-toggle { gap: var(--space-xs); }
 
+/* Detail pane's own header (#84) - student name/panel meta reads as a real
+   header now (larger name, bottom border), Ready for Panel sits on the
+   header's right side rather than as a first-class section of its own. */
+.safeguarding-briefing-header--panel {
+    align-items: center;
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border-strong);
+}
+.safeguarding-briefing-header--panel h2 { font-size: var(--font-xl); margin: 0; }
+.safeguarding-briefing-header--panel h3.entity-meta { font-weight: 400; margin: var(--space-xxs) 0 0; }
+
+/* Note row hover (#84) - same immediate, no-transition feedback as
+   .selectable:hover elsewhere (cards.css), scoped to this card only since
+   .referral-history-entry is a shared class used well beyond Safeguarding
+   Notes. Negative horizontal margin lets the hover fill bleed to the
+   card's own edges instead of stopping at the text's own width. */
+.safeguarding-briefing-notes .referral-history-entry {
+    padding: var(--space-xs) var(--space-sm);
+    margin: 0 calc(var(--space-sm) * -1);
+    border-radius: var(--radius-sm);
+}
+.safeguarding-briefing-notes .referral-history-entry:hover { background: var(--row-hover-bg); }
+
+/* Note row (#84): note text left, Edit/Delete right, on the same line as
+   the note rather than stacked below it. */
+.safeguarding-note-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
+.safeguarding-note-row-main { flex: 1 1 auto; min-width: 0; }
+.safeguarding-note-row .note-actions { flex-shrink: 0; display: flex; gap: var(--space-xs); }
+/* A note's text is never editable in place - display mode should read as
+   plain text, not a boxed field that looks like an input (.field-readonly's
+   dashed border/bg-surface-alt reads like an editable form despite nothing
+   here being editable - same problem #49 already fixed on Referral Details,
+   see qa-definition-row above). Edit mode already uses a real
+   <input type="text"> (genuinely editable), so the display/edit toggle now
+   visibly matches which one it actually is. */
+.safeguarding-note-text { color: var(--text-primary); font-size: var(--font-base); }
+
 /* Ready for Panel promoted to a full-width banner (#84) - was a small
    inline toggle-pill in the header, needed more visual prominence. */
 .safeguarding-ready-banner {
@@ -1243,7 +1294,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-sm);
-    margin-bottom: var(--space-sm);
+    flex-shrink: 0;
     padding: var(--space-xs) var(--space-md);
     border-radius: var(--radius-md);
     background: var(--badge-bg);
@@ -1257,10 +1308,7 @@
 
 /* Safeguarding Notes screen (#84) - single merged card: vertical student
    list left, note detail right. .dsl-briefing-detail-col is the one
-   scrolling region (see .safeguarding-briefing-card--scrollable above); the
-   inset accent bar is the same treatment .entity-row.chosen already uses
-   (cards.css), reused here so the detail pane visibly reads as that chosen
-   row's own content rather than a separate, unrelated pane. */
+   scrolling region (see .safeguarding-briefing-card--scrollable above). */
 .dsl-briefing-shell-split { display: flex; flex: 1; min-height: 0; }
 .dsl-briefing-shell-split .dsl-briefing-list-col { flex: 0 0 320px; overflow-y: auto; }
 .dsl-briefing-shell-split .dsl-briefing-detail-col {
@@ -1268,6 +1316,9 @@
     overflow-y: auto;
     padding: var(--space-md) var(--space-lg);
     min-width: 0;
+    /* Same inset accent bar .entity-row.chosen already uses (cards.css) -
+       reused here (prototyped as connector option 1 of 3) so the detail
+       pane visibly reads as that chosen row's own content. */
     box-shadow: inset 3px 0 0 var(--accent-border);
 }
 /* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */

@@ -3256,6 +3256,18 @@ def inclusion_panel_action_inline_update(request, action_id):
     })
 
 
+def _note_origin_created_at(note, notes_by_id):
+    # An edit (supersede()) creates a new row with a fresh created_at, which
+    # would otherwise jump an edited note to the top of the Active list
+    # (Meta.ordering is -created_at) - reads as the note "duplicating and
+    # moving" rather than being edited in place (#84). Walking the
+    # supersedes chain back to its origin keeps an edited note anchored to
+    # where its first version was created instead.
+    while note.supersedes_id and note.supersedes_id in notes_by_id:
+        note = notes_by_id[note.supersedes_id]
+    return note.created_at
+
+
 def _dsl_briefing_rows(request):
     # Shared by inclusion_panel_dsl_briefings and inclusion_panel_dsl_briefing_notes
     # (the latter needs it to re-render the right-pane card after a mutation).
@@ -3285,14 +3297,19 @@ def _dsl_briefing_rows(request):
         student = pr.referral.student
         if student.id not in student_notes_cache:
             all_notes = list(student.safeguarding_notes.select_related('author', 'retired_by'))
+            notes_by_id = {n.id: n for n in all_notes}
             # History is Delete only - a superseded (i.e. edited-away) note's
             # prior text never shows on screen anywhere, per #83.
             retired_visible = [
                 n for n in all_notes
                 if n.retired_at is not None and n.retirement_reason != SafeguardingNote.RETIREMENT_REASON_SUPERSEDED
             ]
+            active_notes = sorted(
+                (n for n in all_notes if n.retired_at is None),
+                key=lambda n: _note_origin_created_at(n, notes_by_id), reverse=True,
+            )
             student_notes_cache[student.id] = (
-                [n for n in all_notes if n.retired_at is None],
+                active_notes,
                 sorted(retired_visible, key=lambda n: n.retired_at, reverse=True),
             )
         notes, history = student_notes_cache[student.id]
@@ -3309,13 +3326,11 @@ def _dsl_briefing_rows(request):
 
 def _dsl_briefing_extra_context(request):
     # Shared by the full-page render and the AJAX card-fragment re-render
-    # below, so both stay in lockstep on who can write and which reasons the
-    # Delete dropdown offers.
+    # below, so both stay in lockstep on who can write.
     current_staff = _current_staff(request)
     is_dsl = bool(current_staff and current_staff.is_dsl)
     return {
         'is_dsl': is_dsl,
-        'retirement_reason_choices': SafeguardingNote.manual_retirement_choices(),
         # Notes are never gated on the panel's own status any more (#78 - no
         # hard delete, no "still drafting" exception left to hang that on).
         'can_edit_briefing': is_dsl,
@@ -3353,14 +3368,24 @@ def _active_student_note(student, note_id):
     return SafeguardingNote.objects.filter(pk=note_id, student=student, retired_at__isnull=True).first()
 
 
+def _reactivatable_student_note(student, note_id):
+    # Only a manually-deleted note can be reactivated - a superseded one
+    # already has a live successor and never shows an Inactive-list button
+    # for this in the first place (see SafeguardingNote.reactivate()).
+    return SafeguardingNote.objects.filter(
+        pk=note_id, student=student, retired_at__isnull=False,
+    ).exclude(retirement_reason=SafeguardingNote.RETIREMENT_REASON_SUPERSEDED).first()
+
+
 def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
-    # Add/edit(=supersede)/delete(=retire) a note in this student's
-    # SafeguardingNote list, and toggle this (student, panel) pair's
-    # briefing_ready flag. Gated on is_dsl only - see SafeguardingNote's
-    # docstring/#78 for why the old "still drafting, panel not complete"
-    # exception no longer applies. "Delete" in the UI is still the model's
-    # existing soft retire() (#78's no-hard-delete guarantee is unchanged by
-    # #83) - only the label, and what History shows, changed.
+    # Add/edit(=supersede)/delete(=retire)/reactivate a note in this
+    # student's SafeguardingNote list, and toggle this (student, panel)
+    # pair's briefing_ready flag. Gated on is_dsl only - see
+    # SafeguardingNote's docstring/#78 for why the old "still drafting,
+    # panel not complete" exception no longer applies. "Delete" in the UI
+    # is still the model's existing soft retire() (#78's no-hard-delete
+    # guarantee is unchanged by #83) - only the label, and what History/
+    # Inactive shows, changed.
     panel_referral = get_object_or_404(PanelReferral.objects.select_related('referral__student', 'panel'), pk=panel_referral_id)
     current_staff = _current_staff(request)
     if request.method == 'POST' and current_staff and current_staff.is_dsl:
@@ -3381,6 +3406,10 @@ def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
             valid_reasons = dict(SafeguardingNote.manual_retirement_choices())
             if note and reason in valid_reasons:
                 note.retire(current_staff, reason, request.POST.get('retirement_note', '').strip())
+        elif form_action == 'reactivate':
+            note = _reactivatable_student_note(student, request.POST.get('note_id'))
+            if note:
+                note.reactivate(current_staff)
         elif form_action == 'toggle_ready':
             panel_referral.briefing_ready = not panel_referral.briefing_ready
             panel_referral.save(update_fields=['briefing_ready'])

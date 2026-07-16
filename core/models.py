@@ -497,6 +497,12 @@ class SafeguardingNote(models.Model):
     retirement_reason = models.CharField(max_length=20, choices=RETIREMENT_REASON_CHOICES, blank=True)
     retirement_note = models.TextField(blank=True)
 
+    # Recorded, not surfaced in the UI (#84) - who undid a manual retire()
+    # and when, kept for the audit trail alongside retired_at/retired_by
+    # rather than overwriting them (reactivate() clears those instead).
+    reactivated_at = models.DateTimeField(null=True, blank=True)
+    reactivated_by = models.ForeignKey(Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
     class Meta:
         ordering = ['-created_at']
 
@@ -533,3 +539,24 @@ class SafeguardingNote(models.Model):
         self.retirement_reason = reason
         self.retirement_note = retirement_note
         self.save(update_fields=['retired_at', 'retired_by', 'retirement_reason', 'retirement_note'])
+
+    def reactivate(self, reactivated_by):
+        # Undoes a manual retire() (#84) - moves a note back from Inactive
+        # to Active. Deliberately not offered for a supersede()'d note (the
+        # UI never surfaces one to reactivate in the first place - see
+        # _dsl_briefing_rows's History filter) since its successor already
+        # exists; reactivating it would leave two active notes standing in
+        # for what was one edit. reactivated_at/reactivated_by are recorded
+        # for the audit trail but not shown in the UI - retired_at/
+        # retired_by/etc. are cleared rather than overwritten by these, so
+        # a later re-retirement doesn't need to remember two prior mutations.
+        self.retired_at = None
+        self.retired_by = None
+        self.retirement_reason = ''
+        self.retirement_note = ''
+        self.reactivated_at = timezone.now()
+        self.reactivated_by = reactivated_by
+        self.save(update_fields=[
+            'retired_at', 'retired_by', 'retirement_reason', 'retirement_note',
+            'reactivated_at', 'reactivated_by',
+        ])
