@@ -16,7 +16,7 @@ from core.identity import (
     staff_queryset_for_school_key,
     student_queryset_for_school_key,
 )
-from core.models import AcademicYear, Referral as CoreReferral, School, Staff, StaffGroup, Student
+from core.models import AcademicYear, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student
 from core.modules import filter_by_module, module_map
 from core.student_history import attendance_percentage, behaviour_summary, exclusion_count
 from core.term_dates import next_half_term, next_term
@@ -37,7 +37,6 @@ from .models import (
     ReferralCategory,
     ReferralQuestion,
     ReferralResponse,
-    SafeguardingBriefing,
 )
 
 PANEL_MENU = [
@@ -113,13 +112,15 @@ def visible_actions_for(staff, actions):
 
 
 def visible_briefings_for(staff, student):
-    # SafeguardingBriefing is safeguarding-sensitive (#52) - single owner for
+    # SafeguardingNote is safeguarding-sensitive (#52) - single owner for
     # "who can see a student's briefings," same reasoning as
     # visible_actions_for/visible_categories_for above, so Referral Details'
-    # modal and Panel Discussion can't drift apart on this gate.
+    # modal and Panel Discussion can't drift apart on this gate. Active
+    # notes only (retired_at is null) - retired history isn't shown outside
+    # the DSL Briefings screen itself.
     if not _is_panel_staff(staff):
-        return SafeguardingBriefing.objects.none()
-    return student.safeguarding_briefings.select_related('author', 'panel__panel_group')
+        return SafeguardingNote.objects.none()
+    return student.safeguarding_notes.filter(retired_at__isnull=True).select_related('author')
 
 
 def _is_referral_unassigned(referral):
@@ -1440,7 +1441,7 @@ def _referral_detail_context(referral, current_staff):
     if stage_key == 'requires_follow_up':
         stage_label = _review_label(discussion_count)
 
-    safeguarding_briefings = visible_briefings_for(current_staff, referral.student)
+    safeguarding_notes = visible_briefings_for(current_staff, referral.student)
 
     return {
         'discussions': discussions,
@@ -1453,7 +1454,7 @@ def _referral_detail_context(referral, current_staff):
         'actions_total': actions_total,
         'actions_complete': actions_complete,
         'actions_overdue': actions_overdue,
-        'safeguarding_briefings': safeguarding_briefings,
+        'safeguarding_notes': safeguarding_notes,
         # Nothing worth a decision-strip card when the referral has never
         # reached a panel and has no actions raised yet either - Django's
         # {% if %} has no parenthesised grouping, so this is computed here
@@ -3019,19 +3020,19 @@ def inclusion_panel_discussion(request, panel_referral_id):
                     author_id=request.POST.get('author') or None,
                     body=body,
                 )
-        elif action == 'add_safeguarding_briefing':
+        elif action == 'add_safeguarding_note':
             # Writing is gated to is_dsl (visibility-only, like every other
             # role gate in this app - see core.models.Staff.is_dsl); reading
             # stays at the coarser is_panel_staff level everywhere else this
-            # displays. panel=panel_referral.panel records this as prepared
-            # for the meeting this discussion is actually happening in.
-            body = request.POST.get('body', '').strip()
-            if body and current_staff and current_staff.is_dsl:
-                SafeguardingBriefing.objects.create(
+            # displays. No panel link (SafeguardingNote is student-scoped
+            # only, see #77-#81) - readiness for *this* meeting is tracked
+            # separately via PanelReferral.briefing_ready.
+            text = request.POST.get('text', '').strip()[:150]
+            if text and current_staff and current_staff.is_dsl:
+                SafeguardingNote.objects.create(
                     student=referral.student,
                     author=current_staff,
-                    panel=panel_referral.panel,
-                    body=body,
+                    text=text,
                 )
         return redirect('inclusion_panel_discussion', panel_referral_id=panel_referral.id)
 
@@ -3081,23 +3082,22 @@ def inclusion_panel_discussion(request, panel_referral_id):
     if not is_panel_staff:
         actions = actions.exclude(category__is_sensitive=True)
 
-    # Safeguarding Briefing (#52) - most recent shown prominently, the rest
-    # fold into history rather than being edited or deleted - see
-    # SafeguardingBriefing's own docstring for why.
-    safeguarding_briefings = list(visible_briefings_for(current_staff, referral.student))
-    latest_briefing = safeguarding_briefings[0] if safeguarding_briefings else None
-    older_briefings = safeguarding_briefings[1:]
+    # Safeguarding Note (#52, decoupled #77-#81) - the student's whole
+    # active note list, most recent first (Meta.ordering) - no more
+    # "prepared for this meeting" split, since notes carry no panel FK at
+    # all now.
+    safeguarding_notes = list(visible_briefings_for(current_staff, referral.student))
     # The auto-pop modal (mirrors ADR 0009's pre-start attendance modal)
     # only fires on the actual start-of-discussion navigation
     # (?discussion_started=1, set by the start_discussion redirect above,
     # not derivable from discussion_started_at alone since a GET must never
-    # mutate it) and only for a briefing prepared for *this* meeting - an
-    # older one from an unrelated past meeting stays in the history list
-    # below instead of resurfacing as if it were current.
+    # mutate it). Old rule was "no note prepared for this specific meeting"
+    # - not representable once notes have no panel FK, so this collapses to
+    # the only signal still scoped to (student, panel): briefing_ready
+    # itself (kept on PanelReferral, unchanged - see #79).
     show_safeguarding_modal = (
         request.GET.get('discussion_started') == '1'
-        and latest_briefing is not None
-        and latest_briefing.panel_id == panel_referral.panel_id
+        and not panel_referral.briefing_ready
     )
 
     context = {
@@ -3119,8 +3119,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'exclusions': referral.student.exclusions.all(),
         'is_panel_staff': is_panel_staff,
         'is_dsl': bool(current_staff and current_staff.is_dsl),
-        'latest_briefing': latest_briefing,
-        'older_briefings': older_briefings,
+        'safeguarding_notes': safeguarding_notes,
         'show_safeguarding_modal': show_safeguarding_modal,
         'response_groups': _response_groups(referral),
         'previous_referrals': previous_referrals,
@@ -3256,10 +3255,11 @@ def inclusion_panel_action_inline_update(request, action_id):
 def _dsl_briefing_rows(request):
     # Shared by inclusion_panel_dsl_briefings and inclusion_panel_dsl_briefing_notes
     # (the latter needs it to re-render the right-pane card after a mutation).
-    # One row per student+upcoming-panel pair; 'notes' is this panel's own
-    # thread (editable/deletable while the panel hasn't happened yet),
-    # 'other_briefings' is every other panel's briefing for the same student
-    # (read-only history — see #71/#74 decision).
+    # One row per student+upcoming-panel pair (unchanged); 'notes' is now the
+    # student's whole active SafeguardingNote list (no panel FK to filter by
+    # any more, see #77-#81) — every row for the same student shows the same
+    # notes. 'history' is that student's retired notes, most-recently-retired
+    # first, replacing the old per-panel 'other_briefings' split.
     today = timezone.localdate()
     school_key = current_school_key(request)
     scoped_students = student_queryset_for_school_key(school_key)
@@ -3280,18 +3280,19 @@ def _dsl_briefing_rows(request):
     for pr in panel_referrals:
         student = pr.referral.student
         if student.id not in student_notes_cache:
-            student_notes_cache[student.id] = list(
-                student.safeguarding_briefings.select_related('author').order_by('created_at')
+            all_notes = list(student.safeguarding_notes.select_related('author', 'retired_by'))
+            student_notes_cache[student.id] = (
+                [n for n in all_notes if n.retired_at is None],
+                sorted((n for n in all_notes if n.retired_at is not None), key=lambda n: n.retired_at, reverse=True),
             )
-        briefings = student_notes_cache[student.id]
-        notes = [b for b in briefings if b.panel_id == pr.panel_id]
+        notes, history = student_notes_cache[student.id]
         rows.append({
             'panel_referral': pr,
             'panel': pr.panel,
             'student': student,
             'notes': notes,
             'has_briefing': bool(notes),
-            'other_briefings': [b for b in briefings if b.panel_id != pr.panel_id],
+            'history': history,
         })
     return rows
 
@@ -3302,7 +3303,7 @@ def inclusion_panel_dsl_briefings(request):
     # briefing notes thread inline on the right - no modal. Reachable by URL
     # regardless of role (matches "no URL-level enforcement" elsewhere in
     # this app) - the DSL-only-ness is a visibility gate on the sidebar entry
-    # (_panel_base_context) and on the write/edit/delete actions themselves,
+    # (_panel_base_context) and on the write/edit/retire actions themselves,
     # not a hard page redirect.
     current_staff = _current_staff(request)
     rows = _dsl_briefing_rows(request)
@@ -3327,53 +3328,39 @@ def inclusion_panel_dsl_briefings(request):
         'selected_row': selected_row,
         'editing_note_id': editing_note_id,
         'is_dsl': is_dsl,
-        # Computed once here rather than re-checked per note/composer/toggle
-        # in the template - the current meeting's notes are only mutable
-        # while it hasn't happened yet, see inclusion_panel_dsl_briefing_notes.
-        'can_edit_briefing': bool(is_dsl and selected_row and selected_row['panel'].status != 'complete'),
+        'retirement_reason_choices': SafeguardingNote.RETIREMENT_REASON_CHOICES[1:],  # exclude 'superseded' - automatic only
+        # Notes are never gated on the panel's own status any more (#78 - no
+        # hard delete, no "still drafting" exception left to hang that on).
+        'can_edit_briefing': is_dsl,
     }
     return render(request, 'hubs/inclusion/panel/dsl_briefings.html', context)
 
 
 def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
-    # Add/edit/delete a note in the CURRENT panel's thread, and toggle this
-    # (student, panel) pair's briefing_ready flag - a deliberate narrow
-    # exception to SafeguardingBriefing's append-only design (see model
-    # docstring, #52/CONTEXT.md): a note is still being drafted ahead of a
-    # meeting that hasn't happened yet, unlike a past meeting's briefing,
-    # which stays a fixed historical record. Both the is_dsl check and the
-    # panel.status != 'complete' check are enforced here server-side, not
-    # just hidden client-side.
+    # Add/edit(=supersede)/retire a note in this student's SafeguardingNote
+    # list, and toggle this (student, panel) pair's briefing_ready flag.
+    # Gated on is_dsl only - see SafeguardingNote's docstring/#78 for why the
+    # old "still drafting, panel not complete" exception no longer applies.
     panel_referral = get_object_or_404(PanelReferral.objects.select_related('referral__student', 'panel'), pk=panel_referral_id)
     current_staff = _current_staff(request)
-    if (
-        request.method == 'POST'
-        and current_staff and current_staff.is_dsl
-        and panel_referral.panel.status != 'complete'
-    ):
+    if request.method == 'POST' and current_staff and current_staff.is_dsl:
+        student = panel_referral.referral.student
         form_action = request.POST.get('form_action')
         if form_action == 'add':
-            body = request.POST.get('body', '').strip()
-            if body:
-                SafeguardingBriefing.objects.create(
-                    student=panel_referral.referral.student,
-                    author=current_staff,
-                    panel=panel_referral.panel,
-                    body=body,
-                )
-        elif form_action in ('edit', 'delete'):
-            note = SafeguardingBriefing.objects.filter(
-                pk=request.POST.get('note_id'),
-                student=panel_referral.referral.student,
-                panel=panel_referral.panel,
-            ).first()
-            if note and form_action == 'edit':
-                body = request.POST.get('body', '').strip()
-                if body:
-                    note.body = body
-                    note.save(update_fields=['body'])
-            elif note and form_action == 'delete':
-                note.delete()
+            text = request.POST.get('text', '').strip()[:150]
+            if text:
+                SafeguardingNote.objects.create(student=student, author=current_staff, text=text)
+        elif form_action == 'edit':
+            note = SafeguardingNote.objects.filter(pk=request.POST.get('note_id'), student=student, retired_at__isnull=True).first()
+            text = request.POST.get('text', '').strip()[:150]
+            if note and text:
+                note.supersede(current_staff, text)
+        elif form_action == 'retire':
+            note = SafeguardingNote.objects.filter(pk=request.POST.get('note_id'), student=student, retired_at__isnull=True).first()
+            reason = request.POST.get('retirement_reason')
+            valid_reasons = dict(SafeguardingNote.RETIREMENT_REASON_CHOICES[1:])  # exclude 'superseded' - automatic only
+            if note and reason in valid_reasons:
+                note.retire(current_staff, reason, request.POST.get('retirement_note', '').strip())
         elif form_action == 'toggle_ready':
             panel_referral.briefing_ready = not panel_referral.briefing_ready
             panel_referral.save(update_fields=['briefing_ready'])

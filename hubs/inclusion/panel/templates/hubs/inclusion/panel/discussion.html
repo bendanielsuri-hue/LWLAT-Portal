@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=186">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=187">
 {% endblock %}
 
 
@@ -142,12 +142,19 @@
 {% if show_safeguarding_modal %}
 <dialog id="safeguarding-briefing-dialog" class="modal-dialog">
     <div class="modal-header">
-        <h2>Safeguarding Briefing</h2>
+        <h2>Safeguarding Notes</h2>
         <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
-        <div class="entity-meta">{{ latest_briefing.created_at|date:"d/m/Y" }} &middot; {{ latest_briefing.author|default:"Unknown" }} &middot; for today's meeting</div>
-        <div class="field-readonly">{{ latest_briefing.body|linebreaksbr }}</div>
+        {% if safeguarding_notes %}
+        <ul class="safeguarding-briefing-list">
+            {% for note in safeguarding_notes %}
+            <li>{{ note.text }} <span class="entity-meta">&middot; {{ note.created_at|date:"d/m/Y" }} &middot; {{ note.author|default:"Unknown" }}</span></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-note">No safeguarding notes recorded yet.</p>
+        {% endif %}
     </div>
 </dialog>
 {% endif %}
@@ -201,31 +208,24 @@
         {% if is_panel_staff %}
         <div class="safeguarding-briefing-card">
             <div class="safeguarding-briefing-header">
-                <strong>Safeguarding Briefing</strong>
-                {% if latest_briefing %}<span class="entity-meta">{{ latest_briefing.created_at|date:"d/m/Y" }} &middot; {{ latest_briefing.author|default:"Unknown" }}</span>{% endif %}
+                <strong>Safeguarding Notes</strong>
             </div>
-            {% if latest_briefing %}
-            <div class="field-readonly">{{ latest_briefing.body|linebreaksbr }}</div>
-            {% else %}
-            <p class="empty-note">No safeguarding briefing recorded yet.</p>
-            {% endif %}
-
-            {% if older_briefings %}
-            <details class="safeguarding-briefing-history">
-                <summary>Earlier briefings ({{ older_briefings|length }})</summary>
-                {% for briefing in older_briefings %}
-                <div class="entity-meta">{{ briefing.created_at|date:"d/m/Y" }} &middot; {{ briefing.author|default:"Unknown" }}{% if briefing.panel %} &middot; for {{ briefing.panel.date|date:"d/m/Y" }}{% endif %}</div>
-                <div class="field-readonly">{{ briefing.body|linebreaksbr }}</div>
+            {% if safeguarding_notes %}
+            <ul class="safeguarding-briefing-list">
+                {% for note in safeguarding_notes %}
+                <li>{{ note.text }} <span class="entity-meta">&middot; {{ note.created_at|date:"d/m/Y" }} &middot; {{ note.author|default:"Unknown" }}</span></li>
                 {% endfor %}
-            </details>
+            </ul>
+            {% else %}
+            <p class="empty-note">No safeguarding notes recorded yet.</p>
             {% endif %}
 
             {% if is_dsl %}
             <form method="post" class="safeguarding-briefing-form">
                 {% csrf_token %}
-                <input type="hidden" name="form_action" value="add_safeguarding_briefing">
-                <textarea name="body" placeholder="Add a safeguarding briefing..." rows="2"></textarea>
-                <button type="submit" class="btn btn-add btn-sm">Add Briefing</button>
+                <input type="hidden" name="form_action" value="add_safeguarding_note">
+                <input type="text" name="text" maxlength="150" placeholder="Add a safeguarding note...">
+                <button type="submit" class="btn btn-add btn-sm">Add Note</button>
             </form>
             {% endif %}
         </div>

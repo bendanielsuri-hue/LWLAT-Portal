@@ -1,13 +1,14 @@
 {% comment %}
-Safeguarding Briefing card (#71/#74) - one linked card, not a read-only
-display plus a separate edit-notes container: the history and the composer
-are the same feature. Only the CURRENT meeting's notes are editable/
-deletable (a deliberate narrow exception to SafeguardingBriefing's
-append-only design, see inclusion_panel_dsl_briefing_notes) - "Previous
-Briefings" below stays a fixed historical record with no such controls.
-Write actions (Ready toggle, Edit/Delete, Add note) are hidden entirely for
-a non-DSL viewer and once the panel is complete, matching this app's usual
-visibility-only gating (no server enforcement bypass either - see the view).
+Safeguarding Notes card (#71/#74, decoupled #77-#81) - one linked card, not a
+read-only display plus a separate edit-notes container: the history and the
+composer are the same feature. Notes are student-scoped (core.SafeguardingNote,
+no panel FK) - every row for the same student shows the same active list.
+"Edit" never mutates a note in place - it creates a new one that supersedes
+the old (see SafeguardingNote.supersede); "Retire" is the one in-place
+mutation, for a note that's no longer current with no successor. Write
+actions (Ready toggle, Edit/Retire, Add note) are hidden entirely for a
+non-DSL viewer, matching this app's usual visibility-only gating (no server
+enforcement bypass either - see the view).
 {% endcomment %}
 <div class="safeguarding-briefing-card safeguarding-briefing-card--scrollable">
     <div class="safeguarding-briefing-header">
@@ -30,7 +31,7 @@ visibility-only gating (no server enforcement bypass either - see the view).
     </div>
 
     <div class="safeguarding-briefing-notes">
-        <div class="referral-section-title referral-section-title--sm">Notes for this meeting</div>
+        <div class="referral-section-title referral-section-title--sm">Active Notes</div>
         {% if row.notes %}
         <div class="referral-flat-section-body" style="margin-top: 0;">
             {% for note in row.notes %}
@@ -40,7 +41,7 @@ visibility-only gating (no server enforcement bypass either - see the view).
                     {% csrf_token %}
                     <input type="hidden" name="form_action" value="edit">
                     <input type="hidden" name="note_id" value="{{ note.id }}">
-                    <textarea name="body" rows="3" required>{{ note.body }}</textarea>
+                    <input type="text" name="text" maxlength="150" value="{{ note.text }}" required>
                     <div class="btn-row">
                         <a href="?panel_referral={{ row.panel_referral.id }}" class="btn btn-sm">Cancel</a>
                         <button type="submit" class="btn btn-add btn-sm">Save</button>
@@ -48,15 +49,20 @@ visibility-only gating (no server enforcement bypass either - see the view).
                 </form>
                 {% else %}
                 <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }}</div>
-                <div class="field-readonly">{{ note.body|linebreaksbr }}</div>
+                <div class="field-readonly">{{ note.text }}</div>
                 {% if can_edit_briefing %}
                 <div class="note-actions" style="margin-top: var(--space-xxs); display: flex; gap: var(--space-xs);">
                     <a href="?panel_referral={{ row.panel_referral.id }}&edit_note={{ note.id }}" class="btn btn-sm btn-secondary">Edit</a>
-                    <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Delete this note? This cannot be undone.');" style="display: inline;">
+                    <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Retire this note? It stays in history but stops showing as active.');" class="safeguarding-retire-form" style="display: inline-flex; gap: var(--space-xxs); align-items: center;">
                         {% csrf_token %}
-                        <input type="hidden" name="form_action" value="delete">
+                        <input type="hidden" name="form_action" value="retire">
                         <input type="hidden" name="note_id" value="{{ note.id }}">
-                        <button type="submit" class="btn btn-sm btn-secondary">Delete</button>
+                        <select name="retirement_reason" required>
+                            {% for value, label in retirement_reason_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-secondary">Retire</button>
                     </form>
                 </div>
                 {% endif %}
@@ -65,15 +71,15 @@ visibility-only gating (no server enforcement bypass either - see the view).
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-note">No notes recorded yet for this meeting.</p>
+        <p class="empty-note">No active safeguarding notes for this student.</p>
         {% endif %}
 
-        {% if row.other_briefings %}
+        {% if row.history %}
         <div class="safeguarding-briefing-history" style="margin-top: var(--space-lg);">
-            <div class="referral-section-title referral-section-title--sm">Previous Briefings</div>
-            {% for briefing in row.other_briefings %}
-            <div class="entity-meta"><strong>{{ briefing.author|default:"Unknown" }}</strong> &middot; {{ briefing.created_at|date:"d/m/Y" }}{% if briefing.panel %} &middot; for {{ briefing.panel.date|date:"d/m/Y" }} meeting{% endif %}</div>
-            <div class="field-readonly">{{ briefing.body|linebreaksbr }}</div>
+            <div class="referral-section-title referral-section-title--sm">History</div>
+            {% for note in row.history %}
+            <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }} &middot; retired {{ note.retired_at|date:"d/m/Y" }} ({{ note.get_retirement_reason_display }}){% if note.retirement_note %} &middot; {{ note.retirement_note }}{% endif %}</div>
+            <div class="field-readonly">{{ note.text }}</div>
             {% endfor %}
         </div>
         {% endif %}
@@ -83,7 +89,7 @@ visibility-only gating (no server enforcement bypass either - see the view).
     <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-briefing-form sticky">
         {% csrf_token %}
         <input type="hidden" name="form_action" value="add">
-        <input type="text" name="body" placeholder="Add Safeguarding note..." required>
+        <input type="text" name="text" maxlength="150" placeholder="Add Safeguarding note..." required>
         <button type="submit" class="btn btn-add btn-sm">Send</button>
     </form>
     {% endif %}

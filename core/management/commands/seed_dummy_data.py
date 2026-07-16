@@ -115,10 +115,10 @@ class Command(BaseCommand):
                     'department': department,
                     # SENDCo is the closest real-world overlap this dummy
                     # data has with a Designated Safeguarding Lead - gates
-                    # who can write a hubs.inclusion.panel.SafeguardingBriefing
-                    # (see #52 grilling). Benjamin Suri also gets is_dsl, set
-                    # separately by seed_benjamin_admin alongside his other
-                    # role flags.
+                    # who can write a core.models.SafeguardingNote (see
+                    # #52 grilling, #77-#81 for the model's relocation to
+                    # core). Benjamin Suri also gets is_dsl, set separately
+                    # by seed_benjamin_admin alongside his other role flags.
                     'is_dsl': job_title == 'SENDCo',
                 },
             )

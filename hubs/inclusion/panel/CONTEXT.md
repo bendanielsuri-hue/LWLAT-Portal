@@ -46,13 +46,13 @@ _Avoid_: Task, follow-up (follow-up is a Referral/PanelReferral scheduling conce
 **Escalation**:
 A referral flagged for attention beyond the normal panel process, with its own open/resolved status and resolution tracking — separate from the Referral's own status field.
 
-**Safeguarding Briefing**:
-A Designated Safeguarding Lead's short, pre-meeting summary of a student's safeguarding context ([#52](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/52)) — tied to the `Student`, not any one `Referral`, since it spans whatever referral happens to be on today's agenda. Optionally records which `Panel` it was prepared for; Panel Discussion's auto-pop modal only fires for a briefing prepared for the meeting actually being discussed, never a stale one from an unrelated past meeting. Append-only — a new circumstance is a fresh entry, never a silent edit to an existing one. Read gated to `_is_panel_staff`; writing gated further, to `Staff.is_dsl`. Replaces the old DSL Notes/`StudentNote` (edit-in-place, no meeting link), removed pending this redesign.
-_Avoid_: DSL Notes, Notes (the older, less precise name for this feature)
+**Safeguarding Note** (`core.models.SafeguardingNote`):
+A Designated Safeguarding Lead's atomic, one-line safeguarding statement about a student ([#52](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/52), decoupled to `core` and made student-only in [#77-#81](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/77)) — no link to any `Panel`/`Referral` at all, since a student's safeguarding context spans whatever's on today's agenda and the model is meant to be readable by hubs beyond Panel. "Editing" a note never mutates it — it creates a new active row with `supersedes` pointing at the note it replaces, auto-retiring the predecessor. The one in-place mutation is manual retirement (no successor): sets `retired_at`/`retired_by`/`retirement_reason`/optional `retirement_note`. No hard delete, ever. Read gated to `_is_panel_staff`; writing (add/edit/retire) gated further, to `Staff.is_dsl`. Meeting-readiness stays a separate fact — see `PanelReferral` above, deliberately *not* decoupled alongside the note itself (#79). The "Safeguarding Briefings" screen/menu name is unchanged — only the underlying atomic record is called a Note. Replaces `hubs.inclusion.panel.SafeguardingBriefing`, which replaced the old DSL Notes/`StudentNote` (edit-in-place, no meeting link).
+_Avoid_: Safeguarding Briefing (the pre-#77 model name — still fine as the screen/feature name, not the record), DSL Notes, Notes
 
 **Chair**:
 The staff member leading a specific `Panel` meeting. Set explicitly, or falls back to the `PanelGroup`'s `default_chair` when a group is assigned with no chair specified. Vacated automatically if that staff member is deactivated from the `PanelGroup` while any of the group's panels (other than completed ones) point to them as chair.
 
 ## Panel-staff role check
 
-`_is_panel_staff(staff)` — whether a staff member is on *any* `PanelGroup` (`PanelGroupMember` exists for them). Not a formal auth role, just a lightweight visibility gate for sensitive Actions/Safeguarding Briefings. See `hubs/inclusion/panel/CLAUDE.md` for the technical implementation.
+`_is_panel_staff(staff)` — whether a staff member is on *any* `PanelGroup` (`PanelGroupMember` exists for them). Not a formal auth role, just a lightweight visibility gate for sensitive Actions/Safeguarding Notes. See `hubs/inclusion/panel/CLAUDE.md` for the technical implementation.

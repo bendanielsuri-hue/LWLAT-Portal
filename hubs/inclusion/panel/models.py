@@ -125,42 +125,6 @@ class ReferralResponse(models.Model):
         return f'{self.question}: {self.answer[:30]}'
 
 
-class SafeguardingBriefing(models.Model):
-    # A DSL's pre-meeting safeguarding summary for a student - deliberately
-    # tied to the student (not a specific InclusionReferral), since a
-    # student's safeguarding context spans whichever referral happens to be
-    # on today's agenda. `panel` records which meeting it was prepared for
-    # (optional - a briefing could in principle be written outside that
-    # workflow), and drives Discussion's auto-pop modal: it only fires for a
-    # briefing whose `panel` matches the meeting actually being discussed,
-    # never a stale one from an unrelated past meeting (see #52 grilling).
-    # Append-only by design, same convention as PanelReferralNote - a new
-    # circumstance gets a fresh entry, never a silent edit to an existing
-    # one, so the record stays auditable. Replaces the old StudentNote
-    # (edit-in-place, no meeting link), which this app never actually used
-    # again after DSL Notes was pulled from discussion.html pending this
-    # redesign.
-    # Narrow exception (#71/#74): a row still scoped to a panel that hasn't
-    # happened yet (panel.status != 'complete') can be edited/deleted from
-    # the Safeguarding Briefings screen - it's still being drafted, not yet
-    # a historical record. Once that panel completes, the row is fixed like
-    # any other - see inclusion_panel_dsl_briefing_notes in views.py.
-    student = models.ForeignKey('core.Student', on_delete=models.CASCADE, related_name='safeguarding_briefings')
-    author = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
-    panel = models.ForeignKey(
-        'Panel', null=True, blank=True, on_delete=models.SET_NULL, related_name='safeguarding_briefings',
-    )
-    body = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-        db_table = 'inclusion_safeguardingbriefing'
-
-    def __str__(self):
-        return f'Safeguarding briefing for {self.student} ({self.created_at:%Y-%m-%d})'
-
-
 class ExpertiseQuerySet(models.QuerySet):
     def visible_for_school(self, school_id):
         return self.filter(is_active=True).filter(Q(school__isnull=True) | Q(school_id=school_id))
@@ -376,12 +340,15 @@ class PanelReferral(models.Model):
     )
     # Set by a DSL on the Safeguarding Briefings screen (#71/#74) once this
     # student's briefing for this specific panel is complete - lives here
-    # (not on SafeguardingBriefing) because readiness is a per-(student,
+    # (not on core.SafeguardingNote) because readiness is a per-(student,
     # panel) fact, exactly PanelReferral's own identity, not a property of
-    # any one note in the thread. No downstream consumer reads it yet
-    # (e.g. Panel Agenda has no "briefing ready" indicator - out of scope,
-    # see #71) - it's surfaced only on the Safeguarding Briefings screen
-    # itself for now.
+    # any one note. Deliberately kept here rather than decoupled alongside
+    # SafeguardingNote itself (#79) - Referral is one-per-student today, so
+    # this already behaves like a (student, panel) fact in practice. No
+    # downstream consumer reads it yet (e.g. Panel Agenda has no "briefing
+    # ready" indicator - out of scope, see #71) beyond driving Discussion's
+    # auto-pop modal (see SafeguardingNote docstring) - it's surfaced on the
+    # Safeguarding Briefings screen and Discussion for now.
     briefing_ready = models.BooleanField(default=False)
 
     class Meta:

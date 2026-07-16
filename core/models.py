@@ -11,6 +11,7 @@
 import datetime
 
 from django.db import models
+from django.utils import timezone
 
 # Reused by School/MatSettings/CategorySettings as the only colours available for
 # the per-school accent override, matching the personal "Primary colour" picker's
@@ -124,12 +125,11 @@ class Staff(models.Model):
     is_active = models.BooleanField(default=True)
     is_mat_staff = models.BooleanField(default=False)
     is_developer = models.BooleanField(default=False)
-    # Designated Safeguarding Lead - gates who can write a Safeguarding
-    # Briefing (hubs.inclusion.panel.models.SafeguardingBriefing), the same
-    # visibility-only, no-server-enforcement convention as every other role
-    # flag on this model (see root CLAUDE.md "No auth/permissions enforced
-    # yet"). Any panel staff can still read a briefing - only writing it is
-    # gated to is_dsl.
+    # Designated Safeguarding Lead - gates who can write a SafeguardingNote
+    # (below), the same visibility-only, no-server-enforcement convention as
+    # every other role flag on this model (see root CLAUDE.md "No
+    # auth/permissions enforced yet"). Any panel staff can still read a
+    # note - only writing it is gated to is_dsl.
     is_dsl = models.BooleanField(default=False)
     photo = models.ImageField(upload_to='staff_photos/', blank=True, null=True)
 
@@ -452,3 +452,73 @@ class Referral(models.Model):
 
     def __str__(self):
         return f'{self.get_referral_type_display()} referral #{self.pk} - {self.student}'
+
+
+class SafeguardingNote(models.Model):
+    # A DSL's atomic, one-line safeguarding statement about a student -
+    # student-scoped only, no link to any Panel/Referral. Relocated to core
+    # and decoupled from hubs.inclusion.panel (see #77-#81) so a second
+    # consuming hub can read it without a panel-scoped model in the way.
+    # Replaces hubs.inclusion.panel.SafeguardingBriefing. Fully append-only
+    # except one narrow in-place mutation (manual retirement, below) - there
+    # is no hard delete.
+    #
+    # "Editing" a note never mutates it - it creates a new active row with
+    # `supersedes` pointing at the note it replaces, which auto-retires the
+    # predecessor (retired_at/retired_by/retirement_reason='superseded').
+    # `supersedes` is unique, so the chain is strictly linear, though
+    # unbounded in depth - a note that itself superseded something can later
+    # be superseded again.
+    RETIREMENT_REASON_SUPERSEDED = 'superseded'
+    RETIREMENT_REASON_RESOLVED = 'resolved'
+    RETIREMENT_REASON_NO_LONGER_RELEVANT = 'no_longer_relevant'
+    RETIREMENT_REASON_ENTERED_IN_ERROR = 'entered_in_error'
+    RETIREMENT_REASON_CHOICES = [
+        (RETIREMENT_REASON_SUPERSEDED, 'Superseded by a newer note'),
+        (RETIREMENT_REASON_RESOLVED, 'Resolved'),
+        (RETIREMENT_REASON_NO_LONGER_RELEVANT, 'No longer relevant'),
+        (RETIREMENT_REASON_ENTERED_IN_ERROR, 'Entered in error'),
+    ]
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='safeguarding_notes')
+    author = models.ForeignKey(Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    text = models.CharField(max_length=150)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    supersedes = models.OneToOneField(
+        'self', null=True, blank=True, on_delete=models.SET_NULL, related_name='superseded_by',
+    )
+
+    # Active note == retired_at is null - no separate status field. Set
+    # automatically (supersession, see above) or manually (retirement below,
+    # the one field set this model ever mutates in place).
+    retired_at = models.DateTimeField(null=True, blank=True)
+    retired_by = models.ForeignKey(Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    retirement_reason = models.CharField(max_length=20, choices=RETIREMENT_REASON_CHOICES, blank=True)
+    retirement_note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Safeguarding note for {self.student} ({self.created_at:%Y-%m-%d})'
+
+    def supersede(self, author, text):
+        # "Editing" a note - see class docstring. Single owner for this so
+        # every caller (Discussion, DSL Briefings) gets the same
+        # create-new-row-and-auto-retire-predecessor behaviour.
+        new_note = SafeguardingNote.objects.create(
+            student=self.student, author=author, text=text[:150], supersedes=self,
+        )
+        self.retired_at = timezone.now()
+        self.retired_by = author
+        self.retirement_reason = self.RETIREMENT_REASON_SUPERSEDED
+        self.save(update_fields=['retired_at', 'retired_by', 'retirement_reason'])
+        return new_note
+
+    def retire(self, retired_by, reason, retirement_note=''):
+        self.retired_at = timezone.now()
+        self.retired_by = retired_by
+        self.retirement_reason = reason
+        self.retirement_note = retirement_note
+        self.save(update_fields=['retired_at', 'retired_by', 'retirement_reason', 'retirement_note'])

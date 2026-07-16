@@ -12,7 +12,8 @@ All DB tables keep their original `inclusion_*` names (set via `Meta.db_table` o
 - `ReferralCategory` / `ReferralQuestion` / `ReferralResponse` — questionnaire structure and answers
 - `Referral` — one referral per student (`status`: open / assigned / discussing / review_scheduled / awaiting_review / overdue_review / closed, aggregated by `_sync_referral_status`. `assigned`/`discussing` = genuinely on a panel's live agenda right now (same words as `_panel_referral_stage`'s stage_key). The other three cover "discussed before, follow-up due, not on any current agenda" tiered by days until the follow-up's due date: `review_scheduled` (>7 days away), `awaiting_review` (within 7 days either side), `overdue_review` (>7 days past))
 - `Action` / `ActionCategory` — tasks arising from referrals; `ActionCategory.is_sensitive` controls visibility for non-panel staff
-- `SafeguardingBriefing` — a DSL's append-only, pre-meeting safeguarding summary for a student, optionally tied to the `Panel` it was prepared for (see CONTEXT.md)
+
+Safeguarding notes now live in `core.models.SafeguardingNote`, not here — see this app's own CONTEXT.md and `core/CONTEXT.md`. Decoupled from Panel entirely (#77-#81); only `PanelReferral.briefing_ready` below stays panel-side.
 
 **Panel meeting structure:**
 - `PanelGroup` — staff group scoped to a `School` (nullable); holds `default_chair`
@@ -21,19 +22,19 @@ All DB tables keep their original `inclusion_*` names (set via `Meta.db_table` o
 - `ExternalContact` — guest speakers / external professionals who aren't `Staff`
 - `Panel` — a meeting session (`date`, `time`, `chair`, `status`, `panel_group`, `started_at`)
 - `PanelMember` — per-meeting *attendance* only (`checked_in_at`/`left_at` against a `PanelGroupMember`), not a roster — see `_panel_member_roster()` below and [docs/adr/0005-merge-panel-membership-into-panelgroupmember.md](../../../docs/adr/0005-merge-panel-membership-into-panelgroupmember.md)
-- `PanelReferral` — links a `Referral` to a `Panel`; tracks `discussion_status`, timing, follow-up. `briefing_ready` (bool, default `False`) is a DSL's own "briefing done" mark for this (student, panel) pair, set from the Safeguarding Briefings screen — see #71/#74
+- `PanelReferral` — links a `Referral` to a `Panel`; tracks `discussion_status`, timing, follow-up. `briefing_ready` (bool, default `False`) is a DSL's own "briefing done" mark for this (student, panel) pair, set from the Safeguarding Briefings screen — see #71/#74. Deliberately kept here, not decoupled alongside `SafeguardingNote` (#79)
 - `PanelReferralNote` — add-only thread notes during discussion (never edited)
 - `Escalation` — escalated referral with resolution tracking
 
 ## Key helpers (`views.py`)
 
-- `_is_panel_staff(staff)` — lightweight role check: `PanelGroupMember.objects.filter(staff=staff).exists()`. Controls sensitive `ActionCategory` visibility and `SafeguardingBriefing` read access (writing is gated further, to `core.models.Staff.is_dsl`). No real auth yet.
+- `_is_panel_staff(staff)` — lightweight role check: `PanelGroupMember.objects.filter(staff=staff).exists()`. Controls sensitive `ActionCategory` visibility and `SafeguardingNote` read access (writing is gated further, to `core.models.Staff.is_dsl`). No real auth yet.
 - `visible_categories_for(staff, categories=None)` / `visible_actions_for(staff, actions)` — single owner for "hide `is_sensitive` categories/actions from non-panel staff". Every view touching `ActionCategory`/`Action` querysets for display should filter through these instead of re-deriving `_is_panel_staff(...)` and excluding inline.
 - `_sync_referral_status(referral)` — recalculates `Referral.status` from active `PanelReferral` states. Call after any PanelReferral add/remove/discuss.
 - `_due_followups(panel, as_of)` — scoped to the referral's student's current school (any active Panel Group there, not just the one that originally discussed it — see [#70](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/70)), matching `unassigned_referrals`' own school-level scoping; a MAT-wide group or an ungrouped panel sees nothing due. Pulling follow-ups onto the agenda is only done from Panel Agenda Setup (`inclusion_panel_meeting_setup`'s "Reviews Due" tab, `add_followup_to_agenda` action) — the live Panel Agenda page has no agenda-composition UI of its own, it's for running a meeting whose agenda was already decided.
 - `_panel_referral_stage(pr)` — returns `(stage_key, label)` for a single PanelReferral: `discussing` / `assigned` / `requires_follow_up` / `complete`.
 - `_panel_member_roster(panel)` — "who's on this panel," used by both Panel Agenda Setup and the live Panel Agenda page. Reads the live `PanelGroupMember` roster for any non-`complete` panel; for a `complete` panel, reads only members with a `PanelMember` row (i.e. who actually checked in) instead, so a finished meeting's attendance record doesn't change if the group's membership changes later.
-- `_dsl_briefing_rows(request)` — one row per student+upcoming-(non-`complete`)-panel pair, MAT-wide/school-switcher scoped (same convention as `_due_followups`), backing the Safeguarding Briefings screen. `row.notes` is that specific panel's own `SafeguardingBriefing` thread (mutable while the panel hasn't happened); `row.other_briefings` is every other panel's briefing for the same student (read-only history).
+- `_dsl_briefing_rows(request)` — one row per student+upcoming-panel pair, MAT-wide/school-switcher scoped (same convention as `_due_followups`), backing the Safeguarding Briefings screen. `row.notes` is that student's whole active `core.models.SafeguardingNote` list (no panel filter — every row for the same student shows the same notes, see #77-#81); `row.history` is that student's retired notes, most-recently-retired first.
 
 ## Constants
 

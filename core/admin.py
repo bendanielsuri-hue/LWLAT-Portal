@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import (
     AcademicYear, AttendanceDay, BehaviourIncident, CategorySettings, Exclusion, MatSettings, Module, Referral,
-    School, Staff, StaffGroup, StaffGroupMember, Student, Term,
+    SafeguardingNote, School, Staff, StaffGroup, StaffGroupMember, Student, Term,
 )
 
 
@@ -88,6 +88,13 @@ class StaffGroupAdmin(admin.ModelAdmin):
 class ReferralAdmin(admin.ModelAdmin):
     list_display = ('referral_type', 'student', 'status', 'date_referred', 'raised_by')
     list_filter = ('referral_type', 'status')
+
+
+@admin.register(SafeguardingNote)
+class SafeguardingNoteAdmin(admin.ModelAdmin):
+    list_display = ('student', 'text', 'author', 'created_at', 'retired_at', 'retirement_reason')
+    list_filter = ('retirement_reason',)
+    search_fields = ('student__last_name', 'student__first_name', 'student__upn', 'text')
 
 
 @admin.register(AcademicYear)
