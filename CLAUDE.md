@@ -36,6 +36,7 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file 
 ## Database / seed data
 
 - `db.sqlite3` is gitignored — **not** committed/shared between machines. Each person has their own local copy, created by running migrations.
+- No production deployment exists yet, so every row in every table is dummy/seed/hand-created data. When a schema change would otherwise need a backfill/migration of *existing rows* onto a new shape, prefer dropping and reseeding over writing preservation logic — there's no real data to lose (see #80/[decoupled SafeguardingNote](hubs/inclusion/panel/CONTEXT.md) for a concrete instance of this call). Revisit this default once a real deployment exists.
 - After cloning or pulling, always run migrations first:
   ```
   .venv\Scripts\python.exe manage.py migrate
