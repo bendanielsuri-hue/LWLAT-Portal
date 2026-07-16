@@ -21,6 +21,11 @@ class Command(BaseCommand):
         if not benjamin.is_developer:
             benjamin.is_developer = True
             changed.append('is_developer')
+        # So the default test identity can immediately try writing a
+        # Safeguarding Briefing (#52) without switching to a seeded SENDCo.
+        if not benjamin.is_dsl:
+            benjamin.is_dsl = True
+            changed.append('is_dsl')
         if benjamin.school is not None:
             benjamin.school = None
             changed.append('school')
@@ -30,5 +35,5 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f'{benjamin}: is_mat_staff={benjamin.is_mat_staff}, '
-            f'is_developer={benjamin.is_developer}, school={benjamin.school}.'
+            f'is_developer={benjamin.is_developer}, is_dsl={benjamin.is_dsl}, school={benjamin.school}.'
         ))

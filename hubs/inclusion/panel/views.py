@@ -37,6 +37,7 @@ from .models import (
     ReferralCategory,
     ReferralQuestion,
     ReferralResponse,
+    SafeguardingBriefing,
 )
 
 PANEL_MENU = [
@@ -96,6 +97,16 @@ def visible_actions_for(staff, actions):
     if _is_panel_staff(staff):
         return actions
     return actions.exclude(category__is_sensitive=True)
+
+
+def visible_briefings_for(staff, student):
+    # SafeguardingBriefing is safeguarding-sensitive (#52) - single owner for
+    # "who can see a student's briefings," same reasoning as
+    # visible_actions_for/visible_categories_for above, so Referral Details'
+    # modal and Panel Discussion can't drift apart on this gate.
+    if not _is_panel_staff(staff):
+        return SafeguardingBriefing.objects.none()
+    return student.safeguarding_briefings.select_related('author', 'panel__panel_group')
 
 
 def _is_referral_unassigned(referral):
@@ -1408,7 +1419,7 @@ def _referral_detail_context(referral, current_staff):
     if stage_key == 'requires_follow_up':
         stage_label = _review_label(discussion_count)
 
-    student_notes = referral.student.notes.select_related('author').all()
+    safeguarding_briefings = visible_briefings_for(current_staff, referral.student)
 
     return {
         'discussions': discussions,
@@ -1421,7 +1432,7 @@ def _referral_detail_context(referral, current_staff):
         'actions_total': actions_total,
         'actions_complete': actions_complete,
         'actions_overdue': actions_overdue,
-        'student_notes': student_notes,
+        'safeguarding_briefings': safeguarding_briefings,
         # Nothing worth a decision-strip card when the referral has never
         # reached a panel and has no actions raised yet either - Django's
         # {% if %} has no parenthesised grouping, so this is computed here
@@ -2843,6 +2854,15 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                 pr.discussion_auto_stopped = False
                 pr.save()
                 _sync_referral_status(pr.referral)
+                # Query-string flag, not new state - tells the Discussion
+                # page this load is the actual start-of-discussion moment,
+                # so it (and only it) may auto-pop the Safeguarding
+                # Briefing modal. A GET (refresh, browser back/forward)
+                # must never mutate discussion_started_at, so this can't be
+                # derived from that field alone.
+                return redirect(
+                    reverse('inclusion_panel_discussion', kwargs={'panel_referral_id': pr.id}) + '?discussion_started=1'
+                )
             return redirect('inclusion_panel_discussion', panel_referral_id=pr.id)
         return redirect('inclusion_panel_meeting_agenda', panel_id=panel.id)
 
@@ -2978,6 +2998,20 @@ def inclusion_panel_discussion(request, panel_referral_id):
                     author_id=request.POST.get('author') or None,
                     body=body,
                 )
+        elif action == 'add_safeguarding_briefing':
+            # Writing is gated to is_dsl (visibility-only, like every other
+            # role gate in this app - see core.models.Staff.is_dsl); reading
+            # stays at the coarser is_panel_staff level everywhere else this
+            # displays. panel=panel_referral.panel records this as prepared
+            # for the meeting this discussion is actually happening in.
+            body = request.POST.get('body', '').strip()
+            if body and current_staff and current_staff.is_dsl:
+                SafeguardingBriefing.objects.create(
+                    student=referral.student,
+                    author=current_staff,
+                    panel=panel_referral.panel,
+                    body=body,
+                )
         return redirect('inclusion_panel_discussion', panel_referral_id=panel_referral.id)
 
     # Pure display - starting/resuming the discussion timer happens only via
@@ -3026,6 +3060,25 @@ def inclusion_panel_discussion(request, panel_referral_id):
     if not is_panel_staff:
         actions = actions.exclude(category__is_sensitive=True)
 
+    # Safeguarding Briefing (#52) - most recent shown prominently, the rest
+    # fold into history rather than being edited or deleted - see
+    # SafeguardingBriefing's own docstring for why.
+    safeguarding_briefings = list(visible_briefings_for(current_staff, referral.student))
+    latest_briefing = safeguarding_briefings[0] if safeguarding_briefings else None
+    older_briefings = safeguarding_briefings[1:]
+    # The auto-pop modal (mirrors ADR 0009's pre-start attendance modal)
+    # only fires on the actual start-of-discussion navigation
+    # (?discussion_started=1, set by the start_discussion redirect above,
+    # not derivable from discussion_started_at alone since a GET must never
+    # mutate it) and only for a briefing prepared for *this* meeting - an
+    # older one from an unrelated past meeting stays in the history list
+    # below instead of resurfacing as if it were current.
+    show_safeguarding_modal = (
+        request.GET.get('discussion_started') == '1'
+        and latest_briefing is not None
+        and latest_briefing.panel_id == panel_referral.panel_id
+    )
+
     context = {
         **_panel_base_context(request),
         'panel_referral': panel_referral,
@@ -3043,6 +3096,11 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'attendance_days': referral.student.attendance_days.all(),
         'behaviour_incidents': referral.student.behaviour_incidents.select_related('logged_by').all(),
         'exclusions': referral.student.exclusions.all(),
+        'is_panel_staff': is_panel_staff,
+        'is_dsl': bool(current_staff and current_staff.is_dsl),
+        'latest_briefing': latest_briefing,
+        'older_briefings': older_briefings,
+        'show_safeguarding_modal': show_safeguarding_modal,
         'response_groups': _response_groups(referral),
         'previous_referrals': previous_referrals,
         'actions': actions,

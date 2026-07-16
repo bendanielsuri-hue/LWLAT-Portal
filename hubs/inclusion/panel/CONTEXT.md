@@ -46,9 +46,13 @@ _Avoid_: Task, follow-up (follow-up is a Referral/PanelReferral scheduling conce
 **Escalation**:
 A referral flagged for attention beyond the normal panel process, with its own open/resolved status and resolution tracking — separate from the Referral's own status field.
 
+**Safeguarding Briefing**:
+A Designated Safeguarding Lead's short, pre-meeting summary of a student's safeguarding context ([#52](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/52)) — tied to the `Student`, not any one `Referral`, since it spans whatever referral happens to be on today's agenda. Optionally records which `Panel` it was prepared for; Panel Discussion's auto-pop modal only fires for a briefing prepared for the meeting actually being discussed, never a stale one from an unrelated past meeting. Append-only — a new circumstance is a fresh entry, never a silent edit to an existing one. Read gated to `_is_panel_staff`; writing gated further, to `Staff.is_dsl`. Replaces the old DSL Notes/`StudentNote` (edit-in-place, no meeting link), removed pending this redesign.
+_Avoid_: DSL Notes, Notes (the older, less precise name for this feature)
+
 **Chair**:
 The staff member leading a specific `Panel` meeting. Set explicitly, or falls back to the `PanelGroup`'s `default_chair` when a group is assigned with no chair specified. Vacated automatically if that staff member is deactivated from the `PanelGroup` while any of the group's panels (other than completed ones) point to them as chair.
 
 ## Panel-staff role check
 
-`_is_panel_staff(staff)` — whether a staff member is on *any* `PanelGroup` (`PanelGroupMember` exists for them). Not a formal auth role, just a lightweight visibility gate for sensitive Actions/StudentNotes. See `hubs/inclusion/panel/CLAUDE.md` for the technical implementation.
+`_is_panel_staff(staff)` — whether a staff member is on *any* `PanelGroup` (`PanelGroupMember` exists for them). Not a formal auth role, just a lightweight visibility gate for sensitive Actions/Safeguarding Briefings. See `hubs/inclusion/panel/CLAUDE.md` for the technical implementation.

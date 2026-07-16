@@ -125,19 +125,35 @@ class ReferralResponse(models.Model):
         return f'{self.question}: {self.answer[:30]}'
 
 
-class StudentNote(models.Model):
-    student = models.ForeignKey('core.Student', on_delete=models.CASCADE, related_name='notes')
+class SafeguardingBriefing(models.Model):
+    # A DSL's pre-meeting safeguarding summary for a student - deliberately
+    # tied to the student (not a specific InclusionReferral), since a
+    # student's safeguarding context spans whichever referral happens to be
+    # on today's agenda. `panel` records which meeting it was prepared for
+    # (optional - a briefing could in principle be written outside that
+    # workflow), and drives Discussion's auto-pop modal: it only fires for a
+    # briefing whose `panel` matches the meeting actually being discussed,
+    # never a stale one from an unrelated past meeting (see #52 grilling).
+    # Append-only by design, same convention as PanelReferralNote - a new
+    # circumstance gets a fresh entry, never a silent edit to an existing
+    # one, so the record stays auditable. Replaces the old StudentNote
+    # (edit-in-place, no meeting link), which this app never actually used
+    # again after DSL Notes was pulled from discussion.html pending this
+    # redesign.
+    student = models.ForeignKey('core.Student', on_delete=models.CASCADE, related_name='safeguarding_briefings')
     author = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
+    panel = models.ForeignKey(
+        'Panel', null=True, blank=True, on_delete=models.SET_NULL, related_name='safeguarding_briefings',
+    )
     body = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
-        db_table = 'inclusion_studentnote'
+        db_table = 'inclusion_safeguardingbriefing'
 
     def __str__(self):
-        return f'Note on {self.student} ({self.created_at:%Y-%m-%d})'
+        return f'Safeguarding briefing for {self.student} ({self.created_at:%Y-%m-%d})'
 
 
 class ExpertiseQuerySet(models.QuerySet):

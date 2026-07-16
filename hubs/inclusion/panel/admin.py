@@ -14,7 +14,7 @@ from .models import (
     ReferralCategory,
     ReferralQuestion,
     ReferralResponse,
-    StudentNote,
+    SafeguardingBriefing,
 )
 
 admin.site.register(ReferralCategory)
@@ -28,6 +28,6 @@ admin.site.register(PanelReferralNote)
 admin.site.register(ActionCategory)
 admin.site.register(Action)
 admin.site.register(Escalation)
-admin.site.register(StudentNote)
+admin.site.register(SafeguardingBriefing)
 admin.site.register(Expertise)
 admin.site.register(ExternalContact)

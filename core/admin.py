@@ -10,7 +10,7 @@ from .models import (
 class StaffAdmin(admin.ModelAdmin):
     list_display = (
         'staff_code', 'last_name', 'first_name', 'job_title', 'department', 'is_active',
-        'is_mat_staff', 'is_developer',
+        'is_mat_staff', 'is_developer', 'is_dsl',
     )
     search_fields = ('staff_code', 'last_name', 'first_name', 'email')
 

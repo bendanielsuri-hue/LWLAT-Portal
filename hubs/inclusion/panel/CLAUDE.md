@@ -12,7 +12,7 @@ All DB tables keep their original `inclusion_*` names (set via `Meta.db_table` o
 - `ReferralCategory` / `ReferralQuestion` / `ReferralResponse` — questionnaire structure and answers
 - `Referral` — one referral per student (`status`: open / assigned / discussing / review_scheduled / awaiting_review / overdue_review / closed, aggregated by `_sync_referral_status`. `assigned`/`discussing` = genuinely on a panel's live agenda right now (same words as `_panel_referral_stage`'s stage_key). The other three cover "discussed before, follow-up due, not on any current agenda" tiered by days until the follow-up's due date: `review_scheduled` (>7 days away), `awaiting_review` (within 7 days either side), `overdue_review` (>7 days past))
 - `Action` / `ActionCategory` — tasks arising from referrals; `ActionCategory.is_sensitive` controls visibility for non-panel staff
-- `StudentNote` — add/edit-only notes on students, written in panel discussion
+- `SafeguardingBriefing` — a DSL's append-only, pre-meeting safeguarding summary for a student, optionally tied to the `Panel` it was prepared for (see CONTEXT.md)
 
 **Panel meeting structure:**
 - `PanelGroup` — staff group scoped to a `School` (nullable); holds `default_chair`
@@ -27,7 +27,7 @@ All DB tables keep their original `inclusion_*` names (set via `Meta.db_table` o
 
 ## Key helpers (`views.py`)
 
-- `_is_panel_staff(staff)` — lightweight role check: `PanelGroupMember.objects.filter(staff=staff).exists()`. Controls sensitive `ActionCategory` visibility and `StudentNote` write access. No real auth yet.
+- `_is_panel_staff(staff)` — lightweight role check: `PanelGroupMember.objects.filter(staff=staff).exists()`. Controls sensitive `ActionCategory` visibility and `SafeguardingBriefing` read access (writing is gated further, to `core.models.Staff.is_dsl`). No real auth yet.
 - `visible_categories_for(staff, categories=None)` / `visible_actions_for(staff, actions)` — single owner for "hide `is_sensitive` categories/actions from non-panel staff". Every view touching `ActionCategory`/`Action` querysets for display should filter through these instead of re-deriving `_is_panel_staff(...)` and excluding inline.
 - `_sync_referral_status(referral)` — recalculates `Referral.status` from active `PanelReferral` states. Call after any PanelReferral add/remove/discuss.
 - `_due_followups(panel, as_of)` — scoped to the referral's student's current school (any active Panel Group there, not just the one that originally discussed it — see [#70](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/70)), matching `unassigned_referrals`' own school-level scoping; a MAT-wide group or an ungrouped panel sees nothing due. Pulling follow-ups onto the agenda is only done from Panel Agenda Setup (`inclusion_panel_meeting_setup`'s "Reviews Due" tab, `add_followup_to_agenda` action) — the live Panel Agenda page has no agenda-composition UI of its own, it's for running a meeting whose agenda was already decided.

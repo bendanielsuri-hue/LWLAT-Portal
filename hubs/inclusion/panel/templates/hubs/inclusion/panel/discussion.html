@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=184">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=185">
 {% endblock %}
 
 
@@ -139,6 +139,19 @@
     </div>
 </dialog>
 
+{% if show_safeguarding_modal %}
+<dialog id="safeguarding-briefing-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2>Safeguarding Briefing</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+        <div class="entity-meta">{{ latest_briefing.created_at|date:"d/m/Y" }} &middot; {{ latest_briefing.author|default:"Unknown" }} &middot; for today's meeting</div>
+        <div class="field-readonly">{{ latest_briefing.body|linebreaksbr }}</div>
+    </div>
+</dialog>
+{% endif %}
+
 <div class="discussion-columns">
     <div class="discussion-col">
         <h2>Student Details</h2>
@@ -184,6 +197,39 @@
                 </div>
             </div>
         </div>
+
+        {% if is_panel_staff %}
+        <div class="safeguarding-briefing-card">
+            <div class="safeguarding-briefing-header">
+                <strong>Safeguarding Briefing</strong>
+                {% if latest_briefing %}<span class="entity-meta">{{ latest_briefing.created_at|date:"d/m/Y" }} &middot; {{ latest_briefing.author|default:"Unknown" }}</span>{% endif %}
+            </div>
+            {% if latest_briefing %}
+            <div class="field-readonly">{{ latest_briefing.body|linebreaksbr }}</div>
+            {% else %}
+            <p class="empty-note">No safeguarding briefing recorded yet.</p>
+            {% endif %}
+
+            {% if older_briefings %}
+            <details class="safeguarding-briefing-history">
+                <summary>Earlier briefings ({{ older_briefings|length }})</summary>
+                {% for briefing in older_briefings %}
+                <div class="entity-meta">{{ briefing.created_at|date:"d/m/Y" }} &middot; {{ briefing.author|default:"Unknown" }}{% if briefing.panel %} &middot; for {{ briefing.panel.date|date:"d/m/Y" }}{% endif %}</div>
+                <div class="field-readonly">{{ briefing.body|linebreaksbr }}</div>
+                {% endfor %}
+            </details>
+            {% endif %}
+
+            {% if is_dsl %}
+            <form method="post" class="safeguarding-briefing-form">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="add_safeguarding_briefing">
+                <textarea name="body" placeholder="Add a safeguarding briefing..." rows="2"></textarea>
+                <button type="submit" class="btn btn-add btn-sm">Add Briefing</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <details class="detail-stat-card">
             <summary>
@@ -330,6 +376,38 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     tick();
     setInterval(tick, 1000);
+});
+</script>
+{% endif %}
+
+{% if show_safeguarding_modal %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Only rendered at all when the view has already decided this load is
+    // the actual start-of-discussion moment for today's specific meeting
+    // (see inclusion_panel_discussion's show_safeguarding_modal) - same
+    // auto-open convention as meeting_agenda.html's attendance-dialog.
+    var dialog = document.getElementById('safeguarding-briefing-dialog');
+    if (!dialog) return;
+
+    dialog.showModal();
+    requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog || e.target.closest('[data-modal-close]')) {
+            window.closeModalWithFadeOut(dialog);
+        }
+    });
+
+    // Strip ?discussion_started=1 from the address bar so a later refresh
+    // of this same page (which resends whatever query string is in the
+    // URL) doesn't re-pop the modal - only the original start_discussion
+    // redirect should ever trigger it.
+    if (window.history && window.history.replaceState) {
+        var url = new URL(window.location.href);
+        url.searchParams.delete('discussion_started');
+        window.history.replaceState(null, '', url);
+    }
 });
 </script>
 {% endif %}

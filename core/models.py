@@ -124,6 +124,13 @@ class Staff(models.Model):
     is_active = models.BooleanField(default=True)
     is_mat_staff = models.BooleanField(default=False)
     is_developer = models.BooleanField(default=False)
+    # Designated Safeguarding Lead - gates who can write a Safeguarding
+    # Briefing (hubs.inclusion.panel.models.SafeguardingBriefing), the same
+    # visibility-only, no-server-enforcement convention as every other role
+    # flag on this model (see root CLAUDE.md "No auth/permissions enforced
+    # yet"). Any panel staff can still read a briefing - only writing it is
+    # gated to is_dsl.
+    is_dsl = models.BooleanField(default=False)
     photo = models.ImageField(upload_to='staff_photos/', blank=True, null=True)
 
     class Meta:
