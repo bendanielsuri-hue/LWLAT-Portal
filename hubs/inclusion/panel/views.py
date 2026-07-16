@@ -3,7 +3,7 @@ import json
 from collections import Counter
 from urllib.parse import quote
 
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -2990,10 +2990,37 @@ def inclusion_panel_discussion(request, panel_referral_id):
     previous_referrals = list(
         InclusionReferral.objects.filter(student=referral.student)
         .exclude(pk=referral.pk)
-        .prefetch_related('responses__question__category')
+        .prefetch_related(
+            'responses__question__category',
+            Prefetch(
+                'panel_referrals',
+                queryset=PanelReferral.objects.select_related('panel__panel_group', 'panel__chair'),
+            ),
+        )
     )
     for prev in previous_referrals:
         prev.response_groups = _response_groups(prev)
+        # One-line topic for the collapsed summary (#50) - the headline
+        # category the referrer picked, not a free-text summary (there
+        # isn't one). Read off the already-prefetched responses instead of
+        # a fresh query.
+        prev.topic = next(
+            (r.answer for r in prev.responses.all() if r.question.label == 'Main Concern Category'),
+            None,
+        )
+        # Each past discussion of this referral, most recent first, using
+        # the same reusable Discussion Summary component (#44) Panel
+        # Agenda's Discussed rows use - "discussed N times" is this
+        # caller's own count, per #44's decision that aggregation across a
+        # referral's history is never the component's own job.
+        prev.discussions = [
+            _discussion_summary_context(pr)
+            for pr in sorted(
+                (pr for pr in prev.panel_referrals.all() if pr.discussion_status == 'discussed'),
+                key=lambda pr: pr.created_at or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                reverse=True,
+            )
+        ]
 
     actions = referral.actions.select_related('assigned_to', 'category')
     if not is_panel_staff:

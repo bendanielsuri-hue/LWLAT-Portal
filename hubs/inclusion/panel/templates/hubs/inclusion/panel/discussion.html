@@ -4,7 +4,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=183">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=184">
 {% endblock %}
 
 
@@ -267,17 +267,33 @@
         {% if previous_referrals %}
         <h3>Previous Referrals</h3>
         {% for prev in previous_referrals %}
-        <details>
-            <summary>Referral #{{ prev.id }} — {{ prev.created_at|date:"d/m/Y" }} ({{ prev.get_status_display }})</summary>
+        <details class="qa-prev-referral">
+            <summary class="qa-prev-summary">
+                <span>Referral #{{ prev.id }} — {{ prev.created_at|date:"d/m/Y" }}</span>
+                <span class="status-pill {{ prev.status }}">{{ prev.get_status_display }}</span>
+                {% if prev.topic %}<span class="qa-prev-topic">{{ prev.topic }}</span>{% endif %}
+            </summary>
             {% for group in prev.response_groups %}
-            {% if group.category %}<h4>{{ group.category.name }}</h4>{% endif %}
-            {% for row in group.rows %}
-            <div class="field-group">
-                <label>{{ row.question.label }}</label>
-                <div class="field-readonly">{{ row.answer|default:"—" }}</div>
-            </div>
+            {% if group.category and group.category.name != 'Concern' %}<h4 class="qa-category">{{ group.category.name }}</h4>{% endif %}
+            <dl class="qa-definition-list">
+                {% for row in group.rows %}
+                <div class="qa-definition-row">
+                    <dt>{{ row.question.label }}</dt>
+                    <dd>{{ row.answer|default:"—" }}</dd>
+                </div>
+                {% endfor %}
+            </dl>
             {% endfor %}
+
+            {% if prev.discussions %}
+            <h4 class="qa-category">Discussed {{ prev.discussions|length }} time{{ prev.discussions|length|pluralize }}</h4>
+            {% for ds in prev.discussions %}
+            <details class="qa-prev-discussion">
+                <summary>{{ ds.pr.panel.date|date:"d/m/Y" }} — {{ ds.pr.panel.panel_group.name|default:"—" }}</summary>
+                {% include 'hubs/inclusion/panel/_discussion_summary_content.html' %}
+            </details>
             {% endfor %}
+            {% endif %}
         </details>
         {% endfor %}
         {% endif %}
