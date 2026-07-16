@@ -9,17 +9,17 @@ Write actions (Ready toggle, Edit/Delete, Add note) are hidden entirely for
 a non-DSL viewer and once the panel is complete, matching this app's usual
 visibility-only gating (no server enforcement bypass either - see the view).
 {% endcomment %}
-<div class="safeguarding-briefing-card" style="display: flex; flex-direction: column; max-height: 560px;">
-    <div class="safeguarding-briefing-header" style="align-items: flex-start;">
+<div class="safeguarding-briefing-card safeguarding-briefing-card--scrollable">
+    <div class="safeguarding-briefing-header">
         <div>
             <strong>{{ row.student.first_name }} {{ row.student.last_name }}</strong>
             <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</div>
         </div>
-        {% if is_dsl and row.panel.status != 'complete' %}
+        {% if can_edit_briefing %}
         <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
             {% csrf_token %}
             <input type="hidden" name="form_action" value="toggle_ready">
-            <div class="filter-toggle-wrap" style="align-items: center; gap: var(--space-xs);">
+            <div class="filter-toggle-wrap safeguarding-ready-toggle">
                 <span class="entity-meta" style="font-weight: 600;">Ready for Panel</span>
                 <button type="submit" class="toggle-pill{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
             </div>
@@ -29,13 +29,13 @@ visibility-only gating (no server enforcement bypass either - see the view).
         {% endif %}
     </div>
 
-    <div style="flex: 1 1 auto; overflow-y: auto;">
-        <div class="referral-section-title" style="font-size: var(--font-md); margin-bottom: var(--space-xs);">Notes for this meeting</div>
+    <div class="safeguarding-briefing-notes">
+        <div class="referral-section-title referral-section-title--sm">Notes for this meeting</div>
         {% if row.notes %}
         <div class="referral-flat-section-body" style="margin-top: 0;">
             {% for note in row.notes %}
             <div class="referral-history-entry">
-                {% if is_dsl and editing_note_id == note.id|stringformat:"s" %}
+                {% if is_dsl and editing_note_id == note.id %}
                 <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
                     {% csrf_token %}
                     <input type="hidden" name="form_action" value="edit">
@@ -49,7 +49,7 @@ visibility-only gating (no server enforcement bypass either - see the view).
                 {% else %}
                 <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }}</div>
                 <div class="field-readonly">{{ note.body|linebreaksbr }}</div>
-                {% if is_dsl and row.panel.status != 'complete' %}
+                {% if can_edit_briefing %}
                 <div class="note-actions" style="margin-top: var(--space-xxs); display: flex; gap: var(--space-xs);">
                     <a href="?panel_referral={{ row.panel_referral.id }}&edit_note={{ note.id }}" class="btn btn-sm btn-secondary">Edit</a>
                     <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Delete this note? This cannot be undone.');" style="display: inline;">
@@ -70,7 +70,7 @@ visibility-only gating (no server enforcement bypass either - see the view).
 
         {% if row.other_briefings %}
         <div class="safeguarding-briefing-history" style="margin-top: var(--space-lg);">
-            <div class="referral-section-title" style="font-size: var(--font-md);">Previous Briefings</div>
+            <div class="referral-section-title referral-section-title--sm">Previous Briefings</div>
             {% for briefing in row.other_briefings %}
             <div class="entity-meta"><strong>{{ briefing.author|default:"Unknown" }}</strong> &middot; {{ briefing.created_at|date:"d/m/Y" }}{% if briefing.panel %} &middot; for {{ briefing.panel.date|date:"d/m/Y" }} meeting{% endif %}</div>
             <div class="field-readonly">{{ briefing.body|linebreaksbr }}</div>
@@ -79,11 +79,11 @@ visibility-only gating (no server enforcement bypass either - see the view).
         {% endif %}
     </div>
 
-    {% if is_dsl and row.panel.status != 'complete' %}
+    {% if can_edit_briefing %}
     <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-briefing-form sticky">
         {% csrf_token %}
         <input type="hidden" name="form_action" value="add">
-        <input type="text" name="body" placeholder="Add Safeguarding note..." style="flex: 1; min-width: 0;" required>
+        <input type="text" name="body" placeholder="Add Safeguarding note..." required>
         <button type="submit" class="btn btn-add btn-sm">Send</button>
     </form>
     {% endif %}

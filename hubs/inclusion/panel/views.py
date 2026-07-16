@@ -3312,6 +3312,12 @@ def inclusion_panel_dsl_briefings(request):
 
     selected_id = request.GET.get('panel_referral')
     selected_row = next((r for r in rows if str(r['panel_referral'].id) == selected_id), None) if selected_id else None
+    is_dsl = bool(current_staff and current_staff.is_dsl)
+
+    try:
+        editing_note_id = int(request.GET.get('edit_note', ''))
+    except ValueError:
+        editing_note_id = None
 
     context = {
         **_panel_base_context(request),
@@ -3319,8 +3325,12 @@ def inclusion_panel_dsl_briefings(request):
         'needs_briefing_count': needs_briefing_count,
         'panel_group_choices': panel_group_choices,
         'selected_row': selected_row,
-        'editing_note_id': request.GET.get('edit_note'),
-        'is_dsl': bool(current_staff and current_staff.is_dsl),
+        'editing_note_id': editing_note_id,
+        'is_dsl': is_dsl,
+        # Computed once here rather than re-checked per note/composer/toggle
+        # in the template - the current meeting's notes are only mutable
+        # while it hasn't happened yet, see inclusion_panel_dsl_briefing_notes.
+        'can_edit_briefing': bool(is_dsl and selected_row and selected_row['panel'].status != 'complete'),
     }
     return render(request, 'hubs/inclusion/panel/dsl_briefings.html', context)
 
