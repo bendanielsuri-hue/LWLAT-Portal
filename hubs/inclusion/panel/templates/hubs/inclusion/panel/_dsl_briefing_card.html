@@ -1,0 +1,90 @@
+{% comment %}
+Safeguarding Briefing card (#71/#74) - one linked card, not a read-only
+display plus a separate edit-notes container: the history and the composer
+are the same feature. Only the CURRENT meeting's notes are editable/
+deletable (a deliberate narrow exception to SafeguardingBriefing's
+append-only design, see inclusion_panel_dsl_briefing_notes) - "Previous
+Briefings" below stays a fixed historical record with no such controls.
+Write actions (Ready toggle, Edit/Delete, Add note) are hidden entirely for
+a non-DSL viewer and once the panel is complete, matching this app's usual
+visibility-only gating (no server enforcement bypass either - see the view).
+{% endcomment %}
+<div class="safeguarding-briefing-card" style="display: flex; flex-direction: column; max-height: 560px;">
+    <div class="safeguarding-briefing-header" style="align-items: flex-start;">
+        <div>
+            <strong>{{ row.student.first_name }} {{ row.student.last_name }}</strong>
+            <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</div>
+        </div>
+        {% if is_dsl and row.panel.status != 'complete' %}
+        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="toggle_ready">
+            <div class="filter-toggle-wrap" style="align-items: center; gap: var(--space-xs);">
+                <span class="entity-meta" style="font-weight: 600;">Ready for Panel</span>
+                <button type="submit" class="toggle-pill{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
+            </div>
+        </form>
+        {% elif row.panel_referral.briefing_ready %}
+        <span class="status-pill complete">Ready for Panel</span>
+        {% endif %}
+    </div>
+
+    <div style="flex: 1 1 auto; overflow-y: auto;">
+        <div class="referral-section-title" style="font-size: var(--font-md); margin-bottom: var(--space-xs);">Notes for this meeting</div>
+        {% if row.notes %}
+        <div class="referral-flat-section-body" style="margin-top: 0;">
+            {% for note in row.notes %}
+            <div class="referral-history-entry">
+                {% if is_dsl and editing_note_id == note.id|stringformat:"s" %}
+                <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_action" value="edit">
+                    <input type="hidden" name="note_id" value="{{ note.id }}">
+                    <textarea name="body" rows="3" required>{{ note.body }}</textarea>
+                    <div class="btn-row">
+                        <a href="?panel_referral={{ row.panel_referral.id }}" class="btn btn-sm">Cancel</a>
+                        <button type="submit" class="btn btn-add btn-sm">Save</button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }}</div>
+                <div class="field-readonly">{{ note.body|linebreaksbr }}</div>
+                {% if is_dsl and row.panel.status != 'complete' %}
+                <div class="note-actions" style="margin-top: var(--space-xxs); display: flex; gap: var(--space-xs);">
+                    <a href="?panel_referral={{ row.panel_referral.id }}&edit_note={{ note.id }}" class="btn btn-sm btn-secondary">Edit</a>
+                    <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Delete this note? This cannot be undone.');" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="delete">
+                        <input type="hidden" name="note_id" value="{{ note.id }}">
+                        <button type="submit" class="btn btn-sm btn-secondary">Delete</button>
+                    </form>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-note">No notes recorded yet for this meeting.</p>
+        {% endif %}
+
+        {% if row.other_briefings %}
+        <div class="safeguarding-briefing-history" style="margin-top: var(--space-lg);">
+            <div class="referral-section-title" style="font-size: var(--font-md);">Previous Briefings</div>
+            {% for briefing in row.other_briefings %}
+            <div class="entity-meta"><strong>{{ briefing.author|default:"Unknown" }}</strong> &middot; {{ briefing.created_at|date:"d/m/Y" }}{% if briefing.panel %} &middot; for {{ briefing.panel.date|date:"d/m/Y" }} meeting{% endif %}</div>
+            <div class="field-readonly">{{ briefing.body|linebreaksbr }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if is_dsl and row.panel.status != 'complete' %}
+    <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-briefing-form sticky">
+        {% csrf_token %}
+        <input type="hidden" name="form_action" value="add">
+        <input type="text" name="body" placeholder="Add Safeguarding note..." style="flex: 1; min-width: 0;" required>
+        <button type="submit" class="btn btn-add btn-sm">Send</button>
+    </form>
+    {% endif %}
+</div>

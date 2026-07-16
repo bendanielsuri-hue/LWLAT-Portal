@@ -57,8 +57,21 @@ def _local_menu(request):
 
 def _panel_base_context(request):
     # Shared sidebar context for every page inside the Inclusion Panel sub-app.
+    # "Safeguarding Briefings" is appended here (not a PANEL_MENU entry)
+    # because its visibility gate is Staff.is_dsl directly, not the Module
+    # system every other entry uses via filter_by_module - a DSL may hold no
+    # Panel Group seat at all, so it can't ride the usual module-key gate
+    # (see #71 grilling).
+    local_menu = _local_menu(request)
+    current_staff = _current_staff(request)
+    if current_staff and current_staff.is_dsl:
+        local_menu = local_menu + [{
+            'name': 'Safeguarding Briefings',
+            'url': '/inclusion/panel/briefings/',
+            'icon': 'icons/shield_check_svg.html',
+        }]
     return {
-        'local_menu': _local_menu(request),
+        'local_menu': local_menu,
         'hub_title': 'Inclusion Panel',
         'back_to_hub_url': '/inclusion/',
         'back_to_hub_label': 'SEND & Provision',
@@ -897,6 +910,11 @@ def inclusion_panel_home(request):
         student__in=scoped_students, status='open',
     ).count()
 
+    is_dsl = bool(current_staff and current_staff.is_dsl)
+    needs_briefing_count = (
+        sum(1 for r in _dsl_briefing_rows(request) if not r['has_briefing']) if is_dsl else 0
+    )
+
     next_panel = _panels_for_school_key(
         Panel.objects.exclude(status__in=['complete', 'delayed']).select_related('panel_group__school').order_by('date'),
         school_key,
@@ -943,6 +961,9 @@ def inclusion_panel_home(request):
         'followups_due_count_accent': 'positive' if followups_due_count == 0 else 'negative',
         'unassigned_referrals_count': unassigned_referrals_count,
         'unassigned_referrals_count_accent': 'positive' if unassigned_referrals_count == 0 else 'warning',
+        'is_dsl': is_dsl,
+        'needs_briefing_count': needs_briefing_count,
+        'needs_briefing_count_accent': 'positive' if needs_briefing_count == 0 else 'warning',
         'next_panel_preview': next_panel_preview,
         'recent_activity': _recent_activity(scoped_students, school_key),
     })
@@ -3230,3 +3251,120 @@ def inclusion_panel_action_inline_update(request, action_id):
         'next_half_term_date': next_half_term(student.school, timezone.localdate()),
         'next_term_date': next_term(student.school, timezone.localdate()),
     })
+
+
+def _dsl_briefing_rows(request):
+    # Shared by inclusion_panel_dsl_briefings and inclusion_panel_dsl_briefing_notes
+    # (the latter needs it to re-render the right-pane card after a mutation).
+    # One row per student+upcoming-panel pair; 'notes' is this panel's own
+    # thread (editable/deletable while the panel hasn't happened yet),
+    # 'other_briefings' is every other panel's briefing for the same student
+    # (read-only history — see #71/#74 decision).
+    today = timezone.localdate()
+    school_key = current_school_key(request)
+    scoped_students = student_queryset_for_school_key(school_key)
+
+    panel_referrals = list(
+        PanelReferral.objects.filter(
+            panel__status__in=['draft', 'ready', 'running', 'delayed'],
+            panel__date__gte=today,
+            removed_at__isnull=True,
+            referral__student__in=scoped_students,
+        )
+        .select_related('referral__student__school', 'panel__panel_group')
+        .order_by('panel__date', 'panel__time')
+    )
+
+    student_notes_cache = {}
+    rows = []
+    for pr in panel_referrals:
+        student = pr.referral.student
+        if student.id not in student_notes_cache:
+            student_notes_cache[student.id] = list(
+                student.safeguarding_briefings.select_related('author').order_by('created_at')
+            )
+        briefings = student_notes_cache[student.id]
+        notes = [b for b in briefings if b.panel_id == pr.panel_id]
+        rows.append({
+            'panel_referral': pr,
+            'panel': pr.panel,
+            'student': student,
+            'notes': notes,
+            'has_briefing': bool(notes),
+            'other_briefings': [b for b in briefings if b.panel_id != pr.panel_id],
+        })
+    return rows
+
+
+def inclusion_panel_dsl_briefings(request):
+    # DSL-only screen (LWLAT-Portal#71/#74): students on upcoming panels,
+    # left column, MAT-wide/school-switcher scoped; selected student's
+    # briefing notes thread inline on the right - no modal. Reachable by URL
+    # regardless of role (matches "no URL-level enforcement" elsewhere in
+    # this app) - the DSL-only-ness is a visibility gate on the sidebar entry
+    # (_panel_base_context) and on the write/edit/delete actions themselves,
+    # not a hard page redirect.
+    current_staff = _current_staff(request)
+    rows = _dsl_briefing_rows(request)
+
+    needs_briefing_count = sum(1 for r in rows if not r['has_briefing'])
+    panel_group_choices = sorted({row['panel'].panel_group.name for row in rows if row['panel'].panel_group_id})
+
+    selected_id = request.GET.get('panel_referral')
+    selected_row = next((r for r in rows if str(r['panel_referral'].id) == selected_id), None) if selected_id else None
+
+    context = {
+        **_panel_base_context(request),
+        'rows': rows,
+        'needs_briefing_count': needs_briefing_count,
+        'panel_group_choices': panel_group_choices,
+        'selected_row': selected_row,
+        'editing_note_id': request.GET.get('edit_note'),
+        'is_dsl': bool(current_staff and current_staff.is_dsl),
+    }
+    return render(request, 'hubs/inclusion/panel/dsl_briefings.html', context)
+
+
+def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
+    # Add/edit/delete a note in the CURRENT panel's thread, and toggle this
+    # (student, panel) pair's briefing_ready flag - a deliberate narrow
+    # exception to SafeguardingBriefing's append-only design (see model
+    # docstring, #52/CONTEXT.md): a note is still being drafted ahead of a
+    # meeting that hasn't happened yet, unlike a past meeting's briefing,
+    # which stays a fixed historical record. Both the is_dsl check and the
+    # panel.status != 'complete' check are enforced here server-side, not
+    # just hidden client-side.
+    panel_referral = get_object_or_404(PanelReferral.objects.select_related('referral__student', 'panel'), pk=panel_referral_id)
+    current_staff = _current_staff(request)
+    if (
+        request.method == 'POST'
+        and current_staff and current_staff.is_dsl
+        and panel_referral.panel.status != 'complete'
+    ):
+        form_action = request.POST.get('form_action')
+        if form_action == 'add':
+            body = request.POST.get('body', '').strip()
+            if body:
+                SafeguardingBriefing.objects.create(
+                    student=panel_referral.referral.student,
+                    author=current_staff,
+                    panel=panel_referral.panel,
+                    body=body,
+                )
+        elif form_action in ('edit', 'delete'):
+            note = SafeguardingBriefing.objects.filter(
+                pk=request.POST.get('note_id'),
+                student=panel_referral.referral.student,
+                panel=panel_referral.panel,
+            ).first()
+            if note and form_action == 'edit':
+                body = request.POST.get('body', '').strip()
+                if body:
+                    note.body = body
+                    note.save(update_fields=['body'])
+            elif note and form_action == 'delete':
+                note.delete()
+        elif form_action == 'toggle_ready':
+            panel_referral.briefing_ready = not panel_referral.briefing_ready
+            panel_referral.save(update_fields=['briefing_ready'])
+    return redirect(f"{reverse('inclusion_panel_dsl_briefings')}?panel_referral={panel_referral.id}")

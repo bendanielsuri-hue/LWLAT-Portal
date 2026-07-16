@@ -140,6 +140,11 @@ class SafeguardingBriefing(models.Model):
     # (edit-in-place, no meeting link), which this app never actually used
     # again after DSL Notes was pulled from discussion.html pending this
     # redesign.
+    # Narrow exception (#71/#74): a row still scoped to a panel that hasn't
+    # happened yet (panel.status != 'complete') can be edited/deleted from
+    # the Safeguarding Briefings screen - it's still being drafted, not yet
+    # a historical record. Once that panel completes, the row is fixed like
+    # any other - see inclusion_panel_dsl_briefing_notes in views.py.
     student = models.ForeignKey('core.Student', on_delete=models.CASCADE, related_name='safeguarding_briefings')
     author = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
     panel = models.ForeignKey(
@@ -369,6 +374,15 @@ class PanelReferral(models.Model):
     removed_by = models.ForeignKey(
         'core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+'
     )
+    # Set by a DSL on the Safeguarding Briefings screen (#71/#74) once this
+    # student's briefing for this specific panel is complete - lives here
+    # (not on SafeguardingBriefing) because readiness is a per-(student,
+    # panel) fact, exactly PanelReferral's own identity, not a property of
+    # any one note in the thread. No downstream consumer reads it yet
+    # (e.g. Panel Agenda has no "briefing ready" indicator - out of scope,
+    # see #71) - it's surfaced only on the Safeguarding Briefings screen
+    # itself for now.
+    briefing_ready = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [('panel', 'referral')]
