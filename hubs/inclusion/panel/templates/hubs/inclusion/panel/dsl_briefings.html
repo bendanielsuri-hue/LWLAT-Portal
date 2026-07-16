@@ -1,10 +1,10 @@
 {% extends 'hubs/inclusion/panel/_base.html' %}
 {% load static %}
 
-{% block title %}Safeguarding Briefings{% endblock %}
+{% block title %}Safeguarding Notes{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=187">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=188">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -12,18 +12,25 @@
 	<span class="sep">></span>
 	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
 	<span class="sep">></span>
-	<span>Safeguarding Briefings</span>
+	<span>Safeguarding Notes</span>
 {% endblock %}
 
-{% block page_title %}Safeguarding Briefings{% endblock %}
+{% block page_title %}Safeguarding Notes{% endblock %}
 
 {% block content %}
 {% if not is_dsl %}
-<p class="empty-note">This page isn't normally reachable from your sidebar (Safeguarding Briefings is DSL-only), but stays open by direct URL like every other page in this app.</p>
+<p class="empty-note">This page isn't normally reachable from your sidebar (Safeguarding Notes is DSL-only), but stays open by direct URL like every other page in this app.</p>
 {% endif %}
 
-<div class="list-page-shell dsl-briefings-shell">
-    <div class="list-card list-card--narrow">
+{% comment %}
+Single merged card (#84, prototyped as variant A - see wayfinder #82's
+Decisions so far for the throwaway branch with the other two variants):
+filter bar spans the whole card, vertical student list left, note detail
+right, both inside one .list-card instead of two.
+{% endcomment %}
+
+<div class="list-page-shell">
+    <div class="list-card">
         <div class="filter-bar" id="dsl-filter-bar">
             <div class="filter-field">
                 <label>Needs briefing only</label>
@@ -42,39 +49,37 @@
                 </select>
             </div>
         </div>
-        <div class="filtered-content">
-        <div class="entity-list" data-selectable="single">
-            {% for row in rows %}
-            <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
-               href="?panel_referral={{ row.panel_referral.id }}"
-               data-dsl-briefed="{{ row.has_briefing|yesno:'1,0' }}"
-               data-dsl-group="{{ row.panel.panel_group.name|default:'' }}">
-                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-                <div class="entity-body">
-                    <div class="row-title-row">
-                        <div class="entity-title">{{ row.student.first_name }} {{ row.student.last_name }}</div>
-                        {% if row.has_briefing %}
-                        <span class="status-pill complete">Briefed</span>
-                        {% else %}
-                        <span class="status-pill open">Needs briefing</span>
-                        {% endif %}
+        <div class="dsl-briefing-shell-split">
+            <div class="entity-list dsl-briefing-list-col" data-selectable="single">
+                {% for row in rows %}
+                <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
+                   href="?panel_referral={{ row.panel_referral.id }}"
+                   data-dsl-briefed="{{ row.has_briefing|yesno:'1,0' }}"
+                   data-dsl-group="{{ row.panel.panel_group.name|default:'' }}">
+                    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                    <div class="entity-body">
+                        <div class="row-title-row">
+                            <div class="entity-title">{{ row.student.first_name }} {{ row.student.last_name }}</div>
+                            {% if row.has_briefing %}
+                            <span class="status-pill complete">Briefed</span>
+                            {% else %}
+                            <span class="status-pill open">Needs briefing</span>
+                            {% endif %}
+                        </div>
+                        <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"D d M" }}</div>
                     </div>
-                    <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"D d M" }}</div>
-                </div>
-            </a>
-            {% empty %}
-            <p class="empty-note">No students on any upcoming panel.</p>
-            {% endfor %}
-        </div>
-        </div>
-    </div>
-    <div class="list-card list-card--detail">
-        <div class="filtered-content" id="dsl-briefing-detail">
-            {% if selected_row %}
-            {% include 'hubs/inclusion/panel/_dsl_briefing_card.html' with row=selected_row %}
-            {% else %}
-            <p class="empty-note">Select a student on the left to view or write their safeguarding briefing.</p>
-            {% endif %}
+                </a>
+                {% empty %}
+                <p class="empty-note">No students on any upcoming panel.</p>
+                {% endfor %}
+            </div>
+            <div class="dsl-briefing-detail-col" id="dsl-briefing-detail">
+                {% if selected_row %}
+                {% include 'hubs/inclusion/panel/_dsl_briefing_card.html' with row=selected_row %}
+                {% else %}
+                <p class="empty-note">Select a student on the left to view or write their safeguarding note.</p>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>
