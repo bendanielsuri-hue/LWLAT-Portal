@@ -111,7 +111,7 @@ def visible_actions_for(staff, actions):
     return actions.exclude(category__is_sensitive=True)
 
 
-def visible_briefings_for(staff, student):
+def visible_notes_for(staff, student):
     # SafeguardingNote is safeguarding-sensitive (#52) - single owner for
     # "who can see a student's briefings," same reasoning as
     # visible_actions_for/visible_categories_for above, so Referral Details'
@@ -1441,7 +1441,7 @@ def _referral_detail_context(referral, current_staff):
     if stage_key == 'requires_follow_up':
         stage_label = _review_label(discussion_count)
 
-    safeguarding_notes = visible_briefings_for(current_staff, referral.student)
+    safeguarding_notes = visible_notes_for(current_staff, referral.student)
 
     return {
         'discussions': discussions,
@@ -3027,7 +3027,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
             # displays. No panel link (SafeguardingNote is student-scoped
             # only, see #77-#81) - readiness for *this* meeting is tracked
             # separately via PanelReferral.briefing_ready.
-            text = request.POST.get('text', '').strip()[:150]
+            text = request.POST.get('text', '').strip()
             if text and current_staff and current_staff.is_dsl:
                 SafeguardingNote.objects.create(
                     student=referral.student,
@@ -3086,7 +3086,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
     # active note list, most recent first (Meta.ordering) - no more
     # "prepared for this meeting" split, since notes carry no panel FK at
     # all now.
-    safeguarding_notes = list(visible_briefings_for(current_staff, referral.student))
+    safeguarding_notes = list(visible_notes_for(current_staff, referral.student))
     # The auto-pop modal (mirrors ADR 0009's pre-start attendance modal)
     # only fires on the actual start-of-discussion navigation
     # (?discussion_started=1, set by the start_discussion redirect above,
@@ -3328,12 +3328,16 @@ def inclusion_panel_dsl_briefings(request):
         'selected_row': selected_row,
         'editing_note_id': editing_note_id,
         'is_dsl': is_dsl,
-        'retirement_reason_choices': SafeguardingNote.RETIREMENT_REASON_CHOICES[1:],  # exclude 'superseded' - automatic only
+        'retirement_reason_choices': SafeguardingNote.manual_retirement_choices(),
         # Notes are never gated on the panel's own status any more (#78 - no
         # hard delete, no "still drafting" exception left to hang that on).
         'can_edit_briefing': is_dsl,
     }
     return render(request, 'hubs/inclusion/panel/dsl_briefings.html', context)
+
+
+def _active_student_note(student, note_id):
+    return SafeguardingNote.objects.filter(pk=note_id, student=student, retired_at__isnull=True).first()
 
 
 def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
@@ -3347,18 +3351,18 @@ def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
         student = panel_referral.referral.student
         form_action = request.POST.get('form_action')
         if form_action == 'add':
-            text = request.POST.get('text', '').strip()[:150]
+            text = request.POST.get('text', '').strip()
             if text:
                 SafeguardingNote.objects.create(student=student, author=current_staff, text=text)
         elif form_action == 'edit':
-            note = SafeguardingNote.objects.filter(pk=request.POST.get('note_id'), student=student, retired_at__isnull=True).first()
-            text = request.POST.get('text', '').strip()[:150]
+            note = _active_student_note(student, request.POST.get('note_id'))
+            text = request.POST.get('text', '').strip()
             if note and text:
                 note.supersede(current_staff, text)
         elif form_action == 'retire':
-            note = SafeguardingNote.objects.filter(pk=request.POST.get('note_id'), student=student, retired_at__isnull=True).first()
+            note = _active_student_note(student, request.POST.get('note_id'))
             reason = request.POST.get('retirement_reason')
-            valid_reasons = dict(SafeguardingNote.RETIREMENT_REASON_CHOICES[1:])  # exclude 'superseded' - automatic only
+            valid_reasons = dict(SafeguardingNote.manual_retirement_choices())
             if note and reason in valid_reasons:
                 note.retire(current_staff, reason, request.POST.get('retirement_note', '').strip())
         elif form_action == 'toggle_ready':

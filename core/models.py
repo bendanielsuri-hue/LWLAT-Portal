@@ -503,13 +503,24 @@ class SafeguardingNote(models.Model):
     def __str__(self):
         return f'Safeguarding note for {self.student} ({self.created_at:%Y-%m-%d})'
 
+    @classmethod
+    def manual_retirement_choices(cls):
+        # Every RETIREMENT_REASON_CHOICES entry a caller can pick when
+        # retiring manually - excludes 'superseded', which is only ever set
+        # automatically by supersede() below, never chosen by a form.
+        return [c for c in cls.RETIREMENT_REASON_CHOICES if c[0] != cls.RETIREMENT_REASON_SUPERSEDED]
+
+    def save(self, *args, **kwargs):
+        # Single place enforcing the one-line/150-char constraint (#78),
+        # rather than every caller remembering to slice before create()/save().
+        self.text = self.text[:150]
+        super().save(*args, **kwargs)
+
     def supersede(self, author, text):
         # "Editing" a note - see class docstring. Single owner for this so
         # every caller (Discussion, DSL Briefings) gets the same
         # create-new-row-and-auto-retire-predecessor behaviour.
-        new_note = SafeguardingNote.objects.create(
-            student=self.student, author=author, text=text[:150], supersedes=self,
-        )
+        new_note = SafeguardingNote.objects.create(student=self.student, author=author, text=text, supersedes=self)
         self.retired_at = timezone.now()
         self.retired_by = author
         self.retirement_reason = self.RETIREMENT_REASON_SUPERSEDED
