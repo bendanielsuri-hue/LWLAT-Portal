@@ -1003,12 +1003,15 @@
 /* Condensed read-only Q&A (Referral Details) - a definition list instead of
    the boxed field-group/field-readonly treatment above, which read like an
    editable form despite nothing here being editable (#49, prototyped on
-   prototype/49-condensed-referral-details). */
+   prototype/49-condensed-referral-details). Row grid/border technique
+   matches the "Key-fact row" pattern DesignLanguage.md already documents
+   and .referral-decision-strip .summary-line already implements - same
+   minmax(160px, 200px) 1fr columns, border via the sibling selector
+   (never a trailing border after the last row) rather than border-bottom
+   on every row. */
 .qa-category {
-    font-size: var(--font-base);
+    font-size: var(--font-md);
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
     color: var(--text-primary);
     margin: var(--space-lg) 0 var(--space-sm);
 }
@@ -1017,13 +1020,17 @@
 }
 .qa-definition-row {
     display: grid;
-    grid-template-columns: minmax(120px, 40%) 1fr;
-    gap: var(--space-md);
+    grid-template-columns: minmax(160px, 200px) 1fr;
+    column-gap: var(--space-md);
+    align-items: baseline;
     padding: var(--space-xs) 0;
-    border-bottom: 1px solid var(--border-color);
+}
+.qa-definition-row + .qa-definition-row {
+    border-top: 1px solid var(--border-color);
 }
 .qa-definition-row dt {
-    color: var(--text-faint);
+    color: var(--text-secondary);
+    font-weight: 600;
     font-size: var(--font-sm);
 }
 .qa-definition-row dd {
