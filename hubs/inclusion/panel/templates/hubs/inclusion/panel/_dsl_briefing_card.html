@@ -22,21 +22,28 @@ re-rendered, swapped in wholesale.
             <strong>{{ row.student.first_name }} {{ row.student.last_name }}</strong>
             <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</div>
         </div>
+    </div>
+
+    {% comment %}
+    PROTOTYPE (wayfinder #84) - Ready for Panel promoted from a small inline
+    toggle-pill to a full-width coloured banner, per the ticket's "needs more
+    visual prominence" ask. Shared across all three layout variants below -
+    this isn't itself one of the variants being judged, it's a settled
+    baseline improvement each variant shows.
+    {% endcomment %}
+    <div class="safeguarding-ready-banner{% if row.panel_referral.briefing_ready %} is-ready{% endif %}">
+        <span class="safeguarding-ready-banner-label">{% if row.panel_referral.briefing_ready %}Ready for Panel{% else %}Not ready for Panel yet{% endif %}</span>
         {% if can_edit_briefing %}
         <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
             {% csrf_token %}
             <input type="hidden" name="form_action" value="toggle_ready">
-            <div class="filter-toggle-wrap safeguarding-ready-toggle">
-                <span class="entity-meta" style="font-weight: 600;">Ready for Panel</span>
-                <button type="submit" class="toggle-pill{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
-            </div>
+            <button type="submit" class="toggle-pill toggle-pill--lg{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
         </form>
-        {% elif row.panel_referral.briefing_ready %}
-        <span class="status-pill complete">Ready for Panel</span>
         {% endif %}
     </div>
 
-    <div class="safeguarding-briefing-notes">
+    <div class="safeguarding-briefing-notes{% if ui_variant == 'c' %} safeguarding-briefing-notes--split{% endif %}">
+        <div class="safeguarding-briefing-notes-active">
         <div class="referral-section-title referral-section-title--sm">Active Notes</div>
         {% if row.notes %}
         <div class="referral-flat-section-body" style="margin-top: 0;">
@@ -80,9 +87,10 @@ re-rendered, swapped in wholesale.
         {% else %}
         <p class="empty-note">No active safeguarding notes for this student.</p>
         {% endif %}
+        </div>
 
         {% if row.history %}
-        <div class="safeguarding-briefing-history" style="margin-top: var(--space-lg);">
+        <div class="safeguarding-briefing-history{% if ui_variant == 'c' %} safeguarding-briefing-notes-history{% endif %}">
             <div class="referral-section-title referral-section-title--sm">History</div>
             {% for note in row.history %}
             <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }} &middot; deleted {{ note.retired_at|date:"d/m/Y" }} ({{ note.get_retirement_reason_display }}){% if note.retirement_note %} &middot; {{ note.retirement_note }}{% endif %}</div>
@@ -97,7 +105,7 @@ re-rendered, swapped in wholesale.
         {% csrf_token %}
         <input type="hidden" name="form_action" value="add">
         <input type="text" name="text" maxlength="150" placeholder="Add Safeguarding note..." required>
-        <button type="submit" class="btn btn-add btn-sm">Send</button>
+        <button type="submit" class="btn btn-add btn-sm">Add Note</button>
     </form>
     {% endif %}
 </div>

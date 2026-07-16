@@ -56,16 +56,20 @@ def _local_menu(request):
 
 def _panel_base_context(request):
     # Shared sidebar context for every page inside the Inclusion Panel sub-app.
-    # "Safeguarding Briefings" is appended here (not a PANEL_MENU entry)
-    # because its visibility gate is Staff.is_dsl directly, not the Module
-    # system every other entry uses via filter_by_module - a DSL may hold no
-    # Panel Group seat at all, so it can't ride the usual module-key gate
-    # (see #71 grilling).
+    # "Safeguarding Notes" is appended here (not a PANEL_MENU entry) because
+    # its visibility gate is Staff.is_dsl directly, not the Module system
+    # every other entry uses via filter_by_module - a DSL may hold no Panel
+    # Group seat at all, so it can't ride the usual module-key gate (see #71
+    # grilling). Renamed from "Safeguarding Briefings" alongside the page
+    # itself (#84) - this is a hardcoded string, not Module.name-driven, so
+    # the rename is this one line; the URL path/name stay
+    # inclusion_panel_dsl_briefings/briefings/ unchanged (not asked for, and
+    # a URL rename is a bigger, separate call).
     local_menu = _local_menu(request)
     current_staff = _current_staff(request)
     if current_staff and current_staff.is_dsl:
         local_menu = local_menu + [{
-            'name': 'Safeguarding Briefings',
+            'name': 'Safeguarding Notes',
             'url': '/inclusion/panel/briefings/',
             'icon': 'icons/shield_check_svg.html',
         }]
@@ -3315,6 +3319,8 @@ def _dsl_briefing_extra_context(request):
         # Notes are never gated on the panel's own status any more (#78 - no
         # hard delete, no "still drafting" exception left to hang that on).
         'can_edit_briefing': is_dsl,
+        # PROTOTYPE (wayfinder #84) - see inclusion_panel_dsl_briefings.
+        'ui_variant': request.GET.get('variant', 'a'),
     }
 
 

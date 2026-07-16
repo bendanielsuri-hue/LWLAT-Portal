@@ -1216,11 +1216,117 @@
 .dsl-briefings-shell .list-card--narrow { flex: 0 0 380px; }
 .dsl-briefings-shell .list-card--detail { flex: 1 1 auto; }
 .dsl-briefings-shell .list-card--detail .filtered-content { padding: var(--space-lg); }
-.safeguarding-briefing-card--scrollable { display: flex; flex-direction: column; max-height: 560px; }
+/* On the Safeguarding Notes screen (#84) this sits inside
+   .dsl-briefing-detail-col, which is already the card - the boxed
+   border/background/max-height/scroll below is only right for
+   discussion.html's standalone use of .safeguarding-briefing-card (a real
+   floating card there). Un-boxing it here avoids a "card inside a card"
+   look; .dsl-briefing-detail-col itself is the one scrolling region now. */
+.safeguarding-briefing-card--scrollable {
+    display: flex;
+    flex-direction: column;
+    max-height: none;
+    border: none;
+    background: none;
+    padding: 0;
+    margin-bottom: 0;
+}
 .safeguarding-briefing-card--scrollable .safeguarding-briefing-header { align-items: flex-start; }
-.safeguarding-briefing-notes { flex: 1 1 auto; overflow-y: auto; }
+.safeguarding-briefing-notes { flex: 1 1 auto; }
 .referral-section-title--sm { font-size: var(--font-md); margin-bottom: var(--space-xs); }
 .safeguarding-ready-toggle { gap: var(--space-xs); }
+
+/* PROTOTYPE (wayfinder #84) - Ready for Panel promoted to a full-width
+   banner (was a small inline toggle-pill in the header) - shared across
+   every layout variant below, not itself one of the variants. */
+.safeguarding-ready-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--badge-bg);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+.safeguarding-ready-banner.is-ready { background: var(--color-positive-bg); color: var(--color-positive); }
+.toggle-pill--lg { width: 56px; height: 30px; }
+.toggle-pill--lg .toggle-knob { width: 24px; height: 24px; }
+.toggle-pill--lg.on .toggle-knob { transform: translateX(26px); }
+
+/* PROTOTYPE (wayfinder #84) - variant C only: Active Notes/History side by
+   side instead of stacked. */
+.safeguarding-briefing-notes--split { display: flex; gap: var(--space-lg); align-items: flex-start; }
+.safeguarding-briefing-notes--split .safeguarding-briefing-notes-active { flex: 1 1 0; min-width: 0; }
+.safeguarding-briefing-notes--split .safeguarding-briefing-notes-history {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-top: 0;
+    padding-left: var(--space-lg);
+    border-top: none;
+    border-left: 1px solid var(--border-color);
+}
+
+/* PROTOTYPE (wayfinder #84) - three single-card layout variants for
+   dsl_briefings.html, switchable via ?variant=a|b|c. Strip the losers once
+   one is picked (see dsl_briefings.html's own PROTOTYPE comment). */
+.dsl-briefing-shell-split { display: flex; flex: 1; min-height: 0; }
+.dsl-briefing-shell-split .dsl-briefing-list-col {
+    flex: 0 0 340px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border-strong);
+}
+.dsl-briefing-shell-split .dsl-briefing-detail-col { flex: 1 1 auto; overflow-y: auto; padding: var(--space-lg); min-width: 0; }
+/* Variant B: student picker is a horizontal chip strip instead of a
+   vertical list; detail pane takes the full card width below it. */
+.dsl-briefing-chip-strip {
+    display: flex;
+    gap: var(--space-xs);
+    overflow-x: auto;
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-strong);
+    flex-shrink: 0;
+}
+.dsl-briefing-chip {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    text-decoration: none;
+    min-width: 140px;
+}
+.dsl-briefing-chip.chosen { background: var(--primary-light); border-color: var(--accent-border); }
+.dsl-briefing-chip .entity-title { font-size: var(--font-sm); font-weight: 700; }
+.dsl-briefing-chip .status-pill { align-self: flex-start; }
+.dsl-briefing-detail-col--full { padding: var(--space-lg); overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+
+/* PROTOTYPE switcher bar (wayfinder #84) - never ships, dropped once a
+   variant is picked. */
+.prototype-variant-switcher {
+    position: fixed;
+    bottom: var(--space-lg);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-pill);
+    background: var(--text-primary);
+    color: var(--bg-surface);
+    box-shadow: var(--shadow-lg, 0 4px 16px rgba(0,0,0,0.3));
+    z-index: 1000;
+    font-size: var(--font-sm);
+}
+.prototype-variant-switcher a { color: inherit; text-decoration: none; font-weight: 700; padding: 0 var(--space-xs); }
+.prototype-variant-switcher span { opacity: 0.85; }
 /* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
 .detail-stat-card { border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); }
 .detail-stat-card summary { font-weight: 600; cursor: pointer; }

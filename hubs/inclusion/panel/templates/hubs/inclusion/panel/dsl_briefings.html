@@ -1,10 +1,10 @@
 {% extends 'hubs/inclusion/panel/_base.html' %}
 {% load static %}
 
-{% block title %}Safeguarding Briefings{% endblock %}
+{% block title %}Safeguarding Notes{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=187">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=188">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -12,18 +12,26 @@
 	<span class="sep">></span>
 	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
 	<span class="sep">></span>
-	<span>Safeguarding Briefings</span>
+	<span>Safeguarding Notes</span>
 {% endblock %}
 
-{% block page_title %}Safeguarding Briefings{% endblock %}
+{% block page_title %}Safeguarding Notes{% endblock %}
 
 {% block content %}
 {% if not is_dsl %}
-<p class="empty-note">This page isn't normally reachable from your sidebar (Safeguarding Briefings is DSL-only), but stays open by direct URL like every other page in this app.</p>
+<p class="empty-note">This page isn't normally reachable from your sidebar (Safeguarding Notes is DSL-only), but stays open by direct URL like every other page in this app.</p>
 {% endif %}
 
-<div class="list-page-shell dsl-briefings-shell">
-    <div class="list-card list-card--narrow">
+{% comment %}
+PROTOTYPE (wayfinder #84) - three single-card layout variants, switchable
+via ?variant=a|b|c (preserves panel_referral). Fold the winner in, dropping
+the other two blocks and this comment, once one is picked.
+{% endcomment %}
+
+<div class="list-page-shell">
+{% if ui_variant == 'b' %}
+    {# Variant B - horizontal chip-strip picker on top, full-width detail below. #}
+    <div class="list-card">
         <div class="filter-bar" id="dsl-filter-bar">
             <div class="filter-field">
                 <label>Needs briefing only</label>
@@ -42,41 +50,92 @@
                 </select>
             </div>
         </div>
-        <div class="filtered-content">
-        <div class="entity-list" data-selectable="single">
+        <div class="dsl-briefing-chip-strip" data-selectable="single">
             {% for row in rows %}
-            <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
-               href="?panel_referral={{ row.panel_referral.id }}"
+            <a class="dsl-briefing-chip selectable entity-row{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
+               href="?panel_referral={{ row.panel_referral.id }}&variant=b"
                data-dsl-briefed="{{ row.has_briefing|yesno:'1,0' }}"
                data-dsl-group="{{ row.panel.panel_group.name|default:'' }}">
-                <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-                <div class="entity-body">
-                    <div class="row-title-row">
-                        <div class="entity-title">{{ row.student.first_name }} {{ row.student.last_name }}</div>
-                        {% if row.has_briefing %}
-                        <span class="status-pill complete">Briefed</span>
-                        {% else %}
-                        <span class="status-pill open">Needs briefing</span>
-                        {% endif %}
-                    </div>
-                    <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"D d M" }}</div>
-                </div>
+                <span class="entity-title">{{ row.student.first_name }} {{ row.student.last_name }}</span>
+                {% if row.has_briefing %}
+                <span class="status-pill complete">Briefed</span>
+                {% else %}
+                <span class="status-pill open">Needs briefing</span>
+                {% endif %}
             </a>
             {% empty %}
             <p class="empty-note">No students on any upcoming panel.</p>
             {% endfor %}
         </div>
-        </div>
-    </div>
-    <div class="list-card list-card--detail">
-        <div class="filtered-content" id="dsl-briefing-detail">
+        <div class="dsl-briefing-detail-col--full" id="dsl-briefing-detail">
             {% if selected_row %}
             {% include 'hubs/inclusion/panel/_dsl_briefing_card.html' with row=selected_row %}
             {% else %}
-            <p class="empty-note">Select a student on the left to view or write their safeguarding briefing.</p>
+            <p class="empty-note">Select a student above to view or write their safeguarding note.</p>
             {% endif %}
         </div>
     </div>
+{% else %}
+    {# Variant A (default) and C share the same shell - vertical list left, detail right; C additionally splits Active Notes/History side by side (see _dsl_briefing_card.html). #}
+    <div class="list-card">
+        <div class="filter-bar" id="dsl-filter-bar">
+            <div class="filter-field">
+                <label>Needs briefing only</label>
+                <div class="filter-toggle-wrap">
+                    <input type="checkbox" id="dsl-needs-toggle-input" hidden>
+                    <button type="button" id="dsl-needs-toggle" class="toggle-pill" aria-pressed="false" aria-label="Needs briefing only"><span class="toggle-knob"></span></button>
+                </div>
+            </div>
+            <div class="filter-field">
+                <label for="dsl-group-filter">Panel Group</label>
+                <select id="dsl-group-filter">
+                    <option value="">All</option>
+                    {% for g in panel_group_choices %}
+                    <option value="{{ g }}">{{ g }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="dsl-briefing-shell-split">
+            <div class="entity-list dsl-briefing-list-col" data-selectable="single">
+                {% for row in rows %}
+                <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
+                   href="?panel_referral={{ row.panel_referral.id }}&variant={{ ui_variant }}"
+                   data-dsl-briefed="{{ row.has_briefing|yesno:'1,0' }}"
+                   data-dsl-group="{{ row.panel.panel_group.name|default:'' }}">
+                    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                    <div class="entity-body">
+                        <div class="row-title-row">
+                            <div class="entity-title">{{ row.student.first_name }} {{ row.student.last_name }}</div>
+                            {% if row.has_briefing %}
+                            <span class="status-pill complete">Briefed</span>
+                            {% else %}
+                            <span class="status-pill open">Needs briefing</span>
+                            {% endif %}
+                        </div>
+                        <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"D d M" }}</div>
+                    </div>
+                </a>
+                {% empty %}
+                <p class="empty-note">No students on any upcoming panel.</p>
+                {% endfor %}
+            </div>
+            <div class="dsl-briefing-detail-col" id="dsl-briefing-detail">
+                {% if selected_row %}
+                {% include 'hubs/inclusion/panel/_dsl_briefing_card.html' with row=selected_row %}
+                {% else %}
+                <p class="empty-note">Select a student on the left to view or write their safeguarding note.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endif %}
+</div>
+
+<div class="prototype-variant-switcher" id="dsl-variant-switcher">
+    <a href="#" data-variant-nav="-1" aria-label="Previous variant">&larr;</a>
+    <span>Variant <strong id="dsl-variant-label">{{ ui_variant|upper }}</strong> - wayfinder #84</span>
+    <a href="#" data-variant-nav="1" aria-label="Next variant">&rarr;</a>
 </div>
 
 <script>
@@ -142,6 +201,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 .catch(function () { form.submit(); });
         });
     }
+
+    // PROTOTYPE switcher (wayfinder #84) - cycles ?variant=a|b|c, keeping
+    // panel_referral so the same student stays selected across variants.
+    // Drop this whole block once a variant is picked.
+    (function () {
+        var VARIANTS = ['a', 'b', 'c'];
+        var params = new URLSearchParams(window.location.search);
+        var current = VARIANTS.indexOf(params.get('variant') || 'a');
+        if (current === -1) current = 0;
+
+        function goTo(delta) {
+            var next = (current + delta + VARIANTS.length) % VARIANTS.length;
+            params.set('variant', VARIANTS[next]);
+            window.location.search = params.toString();
+        }
+
+        document.querySelectorAll('#dsl-variant-switcher [data-variant-nav]').forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                goTo(parseInt(link.dataset.variantNav, 10));
+            });
+        });
+
+        document.addEventListener('keydown', function (e) {
+            var tag = document.activeElement && document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (document.activeElement && document.activeElement.isContentEditable)) return;
+            if (e.key === 'ArrowLeft') goTo(-1);
+            if (e.key === 'ArrowRight') goTo(1);
+        });
+    })();
 });
 </script>
 {% endblock %}
