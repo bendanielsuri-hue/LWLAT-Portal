@@ -69,7 +69,7 @@
         </div>
     </div>
     <div class="list-card list-card--detail">
-        <div class="filtered-content">
+        <div class="filtered-content" id="dsl-briefing-detail">
             {% if selected_row %}
             {% include 'hubs/inclusion/panel/_dsl_briefing_card.html' with row=selected_row %}
             {% else %}
@@ -99,6 +99,48 @@ document.addEventListener('DOMContentLoaded', function () {
             applyDslFilters();
         });
         groupFilter.addEventListener('change', applyDslFilters);
+    }
+
+    // Add/Edit/Delete note (.safeguarding-note-form, see
+    // _dsl_briefing_card.html) submit via fetch instead of a full-page
+    // reload (#83) - the view returns the same card fragment re-rendered,
+    // swapped in wholesale. Delegated on the detail container itself (not
+    // the forms) since every submit replaces that container's contents,
+    // including the forms that were just submitted.
+    var detail = document.getElementById('dsl-briefing-detail');
+    if (detail) {
+        detail.addEventListener('click', function (e) {
+            var toggle = e.target.closest('[data-note-edit-toggle]');
+            if (!toggle) return;
+            var entry = toggle.closest('[data-note-entry]');
+            if (!entry) return;
+            var display = entry.querySelector('[data-note-display]');
+            var form = entry.querySelector('[data-note-edit-form]');
+            var editing = form.hidden;
+            display.hidden = editing;
+            form.hidden = !editing;
+        });
+
+        detail.addEventListener('submit', function (e) {
+            var form = e.target.closest('.safeguarding-note-form');
+            if (!form) return;
+            // A Delete form's onsubmit="return confirm(...)" already called
+            // preventDefault() if the user cancelled - respect that instead
+            // of firing the fetch anyway.
+            if (e.defaultPrevented) return;
+            e.preventDefault();
+            fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form),
+            })
+                .then(function (res) {
+                    if (!res.ok) throw new Error('Request failed: ' + res.status);
+                    return res.text();
+                })
+                .then(function (html) { detail.innerHTML = html; })
+                .catch(function () { form.submit(); });
+        });
     }
 });
 </script>

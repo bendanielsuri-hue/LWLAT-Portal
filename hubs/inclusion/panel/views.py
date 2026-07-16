@@ -3281,9 +3281,15 @@ def _dsl_briefing_rows(request):
         student = pr.referral.student
         if student.id not in student_notes_cache:
             all_notes = list(student.safeguarding_notes.select_related('author', 'retired_by'))
+            # History is Delete only - a superseded (i.e. edited-away) note's
+            # prior text never shows on screen anywhere, per #83.
+            retired_visible = [
+                n for n in all_notes
+                if n.retired_at is not None and n.retirement_reason != SafeguardingNote.RETIREMENT_REASON_SUPERSEDED
+            ]
             student_notes_cache[student.id] = (
                 [n for n in all_notes if n.retired_at is None],
-                sorted((n for n in all_notes if n.retired_at is not None), key=lambda n: n.retired_at, reverse=True),
+                sorted(retired_visible, key=lambda n: n.retired_at, reverse=True),
             )
         notes, history = student_notes_cache[student.id]
         rows.append({
@@ -3297,15 +3303,29 @@ def _dsl_briefing_rows(request):
     return rows
 
 
+def _dsl_briefing_extra_context(request):
+    # Shared by the full-page render and the AJAX card-fragment re-render
+    # below, so both stay in lockstep on who can write and which reasons the
+    # Delete dropdown offers.
+    current_staff = _current_staff(request)
+    is_dsl = bool(current_staff and current_staff.is_dsl)
+    return {
+        'is_dsl': is_dsl,
+        'retirement_reason_choices': SafeguardingNote.manual_retirement_choices(),
+        # Notes are never gated on the panel's own status any more (#78 - no
+        # hard delete, no "still drafting" exception left to hang that on).
+        'can_edit_briefing': is_dsl,
+    }
+
+
 def inclusion_panel_dsl_briefings(request):
     # DSL-only screen (LWLAT-Portal#71/#74): students on upcoming panels,
     # left column, MAT-wide/school-switcher scoped; selected student's
     # briefing notes thread inline on the right - no modal. Reachable by URL
     # regardless of role (matches "no URL-level enforcement" elsewhere in
     # this app) - the DSL-only-ness is a visibility gate on the sidebar entry
-    # (_panel_base_context) and on the write/edit/retire actions themselves,
+    # (_panel_base_context) and on the write/edit/delete actions themselves,
     # not a hard page redirect.
-    current_staff = _current_staff(request)
     rows = _dsl_briefing_rows(request)
 
     needs_briefing_count = sum(1 for r in rows if not r['has_briefing'])
@@ -3313,25 +3333,14 @@ def inclusion_panel_dsl_briefings(request):
 
     selected_id = request.GET.get('panel_referral')
     selected_row = next((r for r in rows if str(r['panel_referral'].id) == selected_id), None) if selected_id else None
-    is_dsl = bool(current_staff and current_staff.is_dsl)
-
-    try:
-        editing_note_id = int(request.GET.get('edit_note', ''))
-    except ValueError:
-        editing_note_id = None
 
     context = {
         **_panel_base_context(request),
+        **_dsl_briefing_extra_context(request),
         'rows': rows,
         'needs_briefing_count': needs_briefing_count,
         'panel_group_choices': panel_group_choices,
         'selected_row': selected_row,
-        'editing_note_id': editing_note_id,
-        'is_dsl': is_dsl,
-        'retirement_reason_choices': SafeguardingNote.manual_retirement_choices(),
-        # Notes are never gated on the panel's own status any more (#78 - no
-        # hard delete, no "still drafting" exception left to hang that on).
-        'can_edit_briefing': is_dsl,
     }
     return render(request, 'hubs/inclusion/panel/dsl_briefings.html', context)
 
@@ -3341,10 +3350,13 @@ def _active_student_note(student, note_id):
 
 
 def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
-    # Add/edit(=supersede)/retire a note in this student's SafeguardingNote
-    # list, and toggle this (student, panel) pair's briefing_ready flag.
-    # Gated on is_dsl only - see SafeguardingNote's docstring/#78 for why the
-    # old "still drafting, panel not complete" exception no longer applies.
+    # Add/edit(=supersede)/delete(=retire) a note in this student's
+    # SafeguardingNote list, and toggle this (student, panel) pair's
+    # briefing_ready flag. Gated on is_dsl only - see SafeguardingNote's
+    # docstring/#78 for why the old "still drafting, panel not complete"
+    # exception no longer applies. "Delete" in the UI is still the model's
+    # existing soft retire() (#78's no-hard-delete guarantee is unchanged by
+    # #83) - only the label, and what History shows, changed.
     panel_referral = get_object_or_404(PanelReferral.objects.select_related('referral__student', 'panel'), pk=panel_referral_id)
     current_staff = _current_staff(request)
     if request.method == 'POST' and current_staff and current_staff.is_dsl:
@@ -3359,7 +3371,7 @@ def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
             text = request.POST.get('text', '').strip()
             if note and text:
                 note.supersede(current_staff, text)
-        elif form_action == 'retire':
+        elif form_action == 'delete':
             note = _active_student_note(student, request.POST.get('note_id'))
             reason = request.POST.get('retirement_reason')
             valid_reasons = dict(SafeguardingNote.manual_retirement_choices())
@@ -3368,4 +3380,12 @@ def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
         elif form_action == 'toggle_ready':
             panel_referral.briefing_ready = not panel_referral.briefing_ready
             panel_referral.save(update_fields=['briefing_ready'])
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        rows = _dsl_briefing_rows(request)
+        row = next((r for r in rows if r['panel_referral'].id == panel_referral.id), None)
+        return render(request, 'hubs/inclusion/panel/_dsl_briefing_card.html', {
+            **_dsl_briefing_extra_context(request),
+            'row': row,
+        })
     return redirect(f"{reverse('inclusion_panel_dsl_briefings')}?panel_referral={panel_referral.id}")

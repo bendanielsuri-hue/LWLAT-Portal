@@ -1,14 +1,20 @@
 {% comment %}
-Safeguarding Notes card (#71/#74, decoupled #77-#81) - one linked card, not a
-read-only display plus a separate edit-notes container: the history and the
-composer are the same feature. Notes are student-scoped (core.SafeguardingNote,
-no panel FK) - every row for the same student shows the same active list.
-"Edit" never mutates a note in place - it creates a new one that supersedes
-the old (see SafeguardingNote.supersede); "Retire" is the one in-place
-mutation, for a note that's no longer current with no successor. Write
-actions (Ready toggle, Edit/Retire, Add note) are hidden entirely for a
-non-DSL viewer, matching this app's usual visibility-only gating (no server
-enforcement bypass either - see the view).
+Safeguarding Notes card (#71/#74, decoupled #77-#81, edit/delete model
+simplified #83) - one linked card, not a read-only display plus a separate
+edit-notes container: the history and the composer are the same feature.
+Notes are student-scoped (core.SafeguardingNote, no panel FK) - every row for
+the same student shows the same active list. "Edit" never mutates a note in
+place - it creates a new one that supersedes the old (see
+SafeguardingNote.supersede), and the note it replaced never appears anywhere
+on screen again - not even in History, which only ever shows notes a DSL
+explicitly deleted. "Delete" is a UI relabelling of the model's existing
+soft-retire() (#78's no-hard-delete guarantee is unchanged). Write actions
+(Ready toggle, Edit/Delete, Add note) are hidden entirely for a non-DSL
+viewer, matching this app's usual visibility-only gating (no server
+enforcement bypass either - see the view). Every write form below shares the
+`safeguarding-note-form` class, submitted via fetch (see dsl_briefings.html's
+script) rather than a full-page reload - the response is this same fragment
+re-rendered, swapped in wholesale.
 {% endcomment %}
 <div class="safeguarding-briefing-card safeguarding-briefing-card--scrollable">
     <div class="safeguarding-briefing-header">
@@ -35,37 +41,38 @@ enforcement bypass either - see the view).
         {% if row.notes %}
         <div class="referral-flat-section-body" style="margin-top: 0;">
             {% for note in row.notes %}
-            <div class="referral-history-entry">
-                {% if is_dsl and editing_note_id == note.id %}
-                <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
+            <div class="referral-history-entry" data-note-entry>
+                <div data-note-display>
+                    <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }}</div>
+                    <div class="field-readonly">{{ note.text }}</div>
+                    {% if can_edit_briefing %}
+                    <div class="note-actions" style="margin-top: var(--space-xxs); display: flex; gap: var(--space-xs);">
+                        <button type="button" class="btn btn-sm btn-secondary" data-note-edit-toggle>Edit</button>
+                        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Delete this note? It stays in History but stops showing as active.');" class="safeguarding-note-form" style="display: inline-flex; gap: var(--space-xxs); align-items: center;">
+                            {% csrf_token %}
+                            <input type="hidden" name="form_action" value="delete">
+                            <input type="hidden" name="note_id" value="{{ note.id }}">
+                            <select name="retirement_reason" required>
+                                {% for value, label in retirement_reason_choices %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-secondary">Delete</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if can_edit_briefing %}
+                <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-note-form" data-note-edit-form hidden>
                     {% csrf_token %}
                     <input type="hidden" name="form_action" value="edit">
                     <input type="hidden" name="note_id" value="{{ note.id }}">
                     <input type="text" name="text" maxlength="150" value="{{ note.text }}" required>
                     <div class="btn-row">
-                        <a href="?panel_referral={{ row.panel_referral.id }}" class="btn btn-sm">Cancel</a>
+                        <button type="button" class="btn btn-sm" data-note-edit-toggle>Cancel</button>
                         <button type="submit" class="btn btn-add btn-sm">Save</button>
                     </div>
                 </form>
-                {% else %}
-                <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }}</div>
-                <div class="field-readonly">{{ note.text }}</div>
-                {% if can_edit_briefing %}
-                <div class="note-actions" style="margin-top: var(--space-xxs); display: flex; gap: var(--space-xs);">
-                    <a href="?panel_referral={{ row.panel_referral.id }}&edit_note={{ note.id }}" class="btn btn-sm btn-secondary">Edit</a>
-                    <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Retire this note? It stays in history but stops showing as active.');" class="safeguarding-retire-form" style="display: inline-flex; gap: var(--space-xxs); align-items: center;">
-                        {% csrf_token %}
-                        <input type="hidden" name="form_action" value="retire">
-                        <input type="hidden" name="note_id" value="{{ note.id }}">
-                        <select name="retirement_reason" required>
-                            {% for value, label in retirement_reason_choices %}
-                            <option value="{{ value }}">{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                        <button type="submit" class="btn btn-sm btn-secondary">Retire</button>
-                    </form>
-                </div>
-                {% endif %}
                 {% endif %}
             </div>
             {% endfor %}
@@ -78,7 +85,7 @@ enforcement bypass either - see the view).
         <div class="safeguarding-briefing-history" style="margin-top: var(--space-lg);">
             <div class="referral-section-title referral-section-title--sm">History</div>
             {% for note in row.history %}
-            <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }} &middot; retired {{ note.retired_at|date:"d/m/Y" }} ({{ note.get_retirement_reason_display }}){% if note.retirement_note %} &middot; {{ note.retirement_note }}{% endif %}</div>
+            <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }} &middot; deleted {{ note.retired_at|date:"d/m/Y" }} ({{ note.get_retirement_reason_display }}){% if note.retirement_note %} &middot; {{ note.retirement_note }}{% endif %}</div>
             <div class="field-readonly">{{ note.text }}</div>
             {% endfor %}
         </div>
@@ -86,7 +93,7 @@ enforcement bypass either - see the view).
     </div>
 
     {% if can_edit_briefing %}
-    <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-briefing-form sticky">
+    <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form sticky">
         {% csrf_token %}
         <input type="hidden" name="form_action" value="add">
         <input type="text" name="text" maxlength="150" placeholder="Add Safeguarding note..." required>
