@@ -343,12 +343,19 @@ document.addEventListener('DOMContentLoaded', function () {
                         freshList.replaceWith(oldList);
                     });
                     detail.replaceChildren(template.content);
-                    // Flash the reactivated note green on its Active
-                    // Notes side too, once diffPatchRowList has grown it
-                    // in there - both ends of the move read as positive.
-                    if (formAction && formAction.value === 'reactivate' && noteIdField) {
-                        var grownRow = detail.querySelector('[data-active-notes-list] [data-note-id="' + noteIdField.value + '"]');
-                        flash(grownRow, 'added');
+                    // Flash the note on the list it just grew into too,
+                    // once diffPatchRowList has placed it there - both
+                    // ends of a move read the same way: Reactivate green
+                    // (History shrinking out, Active growing in), Delete
+                    // red (Active shrinking out, History growing in - a
+                    // soft-retire moves the row into History rather than
+                    // removing it outright, see SafeguardingNote.retire()).
+                    if (formAction && noteIdField) {
+                        if (formAction.value === 'reactivate') {
+                            flash(detail.querySelector('[data-active-notes-list] [data-note-id="' + noteIdField.value + '"]'), 'added');
+                        } else if (formAction.value === 'delete') {
+                            flash(detail.querySelector('[data-history-list] [data-note-id="' + noteIdField.value + '"]'), 'removed');
+                        }
                     }
                 })
                 .catch(function () { form.submit(); });
