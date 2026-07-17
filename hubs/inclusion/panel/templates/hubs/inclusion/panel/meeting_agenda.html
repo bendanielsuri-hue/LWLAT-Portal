@@ -4,7 +4,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=188">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=189">
 {% endblock %}
 
 
@@ -93,16 +93,18 @@
         <span>Students pending discussion: {{ pending|length }}</span>
         <span>Students discussed: {{ discussed|length }}</span>
         <span>Progress: {{ progress_pct }}%</span>
-        <span>Elapsed: <span class="discussion-timer" id="panel-timer">{% if panel.started_at %}00:00:00{% else %}—{% endif %}</span></span>
         {% if is_running_long %}<span class="status-pill danger" title="This meeting has been running well past this group's typical length — consider ending it if it's finished">Running long</span>{% endif %}
     </div>
     <div class="btn-row">
         {% if panel.status == 'running' %}
-        <form method="post" onsubmit="return confirm('End this panel meeting? Any active discussion timers will stop.');">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="end_panel_meeting">
-            <button type="submit" class="btn btn-secondary">End Panel Meeting</button>
-        </form>
+        <div class="panel-toolbar-timer-group">
+            <span class="panel-toolbar-timer">Elapsed: <span class="discussion-timer" id="panel-timer">{% if panel.started_at %}00:00:00{% else %}—{% endif %}</span></span>
+            <form method="post" onsubmit="return confirm('End this panel meeting? Any active discussion timers will stop.');">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="end_panel_meeting">
+                <button type="submit" class="btn btn-primary">End Panel Meeting</button>
+            </form>
+        </div>
         {% elif can_start_meeting %}
         <button type="button" class="btn btn-secondary" data-open-attendance-trigger><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
         {% endif %}
