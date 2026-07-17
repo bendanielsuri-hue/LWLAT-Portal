@@ -3359,6 +3359,15 @@ def inclusion_panel_safeguarding_notes(request):
     year_group_choices = sorted({row['student'].year_group for row in rows})
     house_choices = sorted({row['student'].house for row in rows if row['student'].house})
     reg_choices = sorted({row['student'].reg_form for row in rows if row['student'].reg_form})
+    # Reg narrows to the selected Year Group, same dependent-filter convention
+    # as students.html's forms_by_year.
+    reg_by_year = {
+        year: sorted({
+            row['student'].reg_form for row in rows
+            if row['student'].year_group == year and row['student'].reg_form
+        })
+        for year in year_group_choices
+    }
 
     selected_id = request.GET.get('panel_referral')
     selected_row = next((r for r in rows if str(r['panel_referral'].id) == selected_id), None) if selected_id else None
@@ -3372,6 +3381,7 @@ def inclusion_panel_safeguarding_notes(request):
         'year_group_choices': year_group_choices,
         'house_choices': house_choices,
         'reg_choices': reg_choices,
+        'reg_by_year_json': json.dumps(reg_by_year),
         'selected_row': selected_row,
     }
     return render(request, 'hubs/inclusion/panel/safeguarding_notes.html', context)

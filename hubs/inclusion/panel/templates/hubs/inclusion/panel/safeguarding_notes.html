@@ -32,6 +32,8 @@ right, both inside one .list-card instead of two.
 <div class="list-page-shell">
     <div class="list-card">
         <div class="filter-bar" id="dsl-filter-bar">
+            <div class="filter-fields-wrap">
+            <span class="filter-bar-label">Filters <span class="filter-bar-count filter-bar-count--empty">0</span></span>
             <div class="filter-field">
                 <label for="dsl-group-filter">Panel Group</label>
                 <select id="dsl-group-filter">
@@ -51,29 +53,40 @@ right, both inside one .list-card instead of two.
                 </select>
             </div>
             <div class="filter-field">
-                <label for="dsl-house-filter">House</label>
-                <select id="dsl-house-filter">
-                    <option value="">All</option>
-                    {% for h in house_choices %}
-                    <option value="{{ h }}">{{ h }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="filter-field">
-                <label for="dsl-reg-filter">Reg</label>
-                <select id="dsl-reg-filter">
-                    <option value="">All</option>
-                    {% for r in reg_choices %}
-                    <option value="{{ r }}">{{ r }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="filter-field">
                 <label>Needs briefing only</label>
                 <div class="filter-toggle-wrap">
                     <input type="checkbox" id="dsl-needs-toggle-input" hidden>
                     <button type="button" id="dsl-needs-toggle" class="toggle-pill" aria-pressed="false" aria-label="Needs briefing only"><span class="toggle-knob"></span></button>
                 </div>
+            </div>
+            <div class="filter-secondary-fields" hidden>
+                <span class="filter-divider"></span>
+                <div class="filter-field">
+                    <label for="dsl-house-filter">House</label>
+                    <select id="dsl-house-filter">
+                        <option value="">All</option>
+                        {% for h in house_choices %}
+                        <option value="{{ h }}">{{ h }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="dsl-reg-filter">Reg</label>
+                    <select id="dsl-reg-filter">
+                        <option value="">All</option>
+                        {% for r in reg_choices %}
+                        <option value="{{ r }}">{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            </div>
+            <div class="filter-actions-right">
+                <button type="button" class="btn btn-sm btn-secondary more-filters-toggle" data-more-filters aria-expanded="false">
+                    <span class="more-filters-toggle-icon">{% include 'icons/arrow_down_svg.html' %}</span>
+                    More filters
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary filter-bar-clear" data-clear-filters>Clear Filters</button>
             </div>
         </div>
         <div class="dsl-briefing-shell-split">
@@ -122,6 +135,27 @@ document.addEventListener('DOMContentLoaded', function () {
     var yearFilter = document.getElementById('dsl-year-filter');
     var houseFilter = document.getElementById('dsl-house-filter');
     var regFilter = document.getElementById('dsl-reg-filter');
+    var filterBar = document.getElementById('dsl-filter-bar');
+    var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+
+    // Reg narrows to the selected Year Group, same dependent-filter
+    // convention as students.html's forms_by_year/refreshRegOptions.
+    var regByYear = JSON.parse('{{ reg_by_year_json|escapejs }}');
+    var allRegs = Array.prototype.slice.call(regFilter.options).slice(1).map(function (o) { return o.value; });
+    function refreshRegOptions() {
+        var year = yearFilter.value;
+        var regs = year ? (regByYear[year] || []) : allRegs;
+        var previous = regFilter.value;
+        regFilter.innerHTML = '<option value="">All</option>';
+        regs.forEach(function (reg) {
+            var opt = document.createElement('option');
+            opt.value = reg;
+            opt.textContent = reg;
+            regFilter.appendChild(opt);
+        });
+        regFilter.value = regs.indexOf(previous) !== -1 ? previous : '';
+    }
+
     function applyDslFilters() {
         var needsOnly = needsToggle.classList.contains('on');
         var group = groupFilter.value;
@@ -136,6 +170,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var matchesReg = !reg || row.dataset.dslReg === reg;
             row.style.display = (matchesNeeds && matchesGroup && matchesYear && matchesHouse && matchesReg) ? '' : 'none';
         });
+        refreshFilterBarState();
     }
     if (needsToggle) {
         needsToggle.addEventListener('click', function () {
@@ -144,9 +179,35 @@ document.addEventListener('DOMContentLoaded', function () {
             applyDslFilters();
         });
         groupFilter.addEventListener('change', applyDslFilters);
-        yearFilter.addEventListener('change', applyDslFilters);
+        yearFilter.addEventListener('change', function () {
+            refreshRegOptions();
+            applyDslFilters();
+        });
         houseFilter.addEventListener('change', applyDslFilters);
         regFilter.addEventListener('change', applyDslFilters);
+    }
+
+    var moreFiltersBtn = filterBar.querySelector('[data-more-filters]');
+    var secondaryRow = filterBar.querySelector('.filter-secondary-fields');
+    if (moreFiltersBtn && secondaryRow) {
+        moreFiltersBtn.addEventListener('click', function () {
+            var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
+            secondaryRow.hidden = expanded;
+            moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
+        });
+    }
+
+    var clearFiltersBtn = filterBar.querySelector('[data-clear-filters]');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', function () {
+            groupFilter.value = '';
+            yearFilter.value = '';
+            houseFilter.value = '';
+            refreshRegOptions();
+            needsToggle.classList.remove('on');
+            needsToggle.setAttribute('aria-pressed', 'false');
+            applyDslFilters();
+        });
     }
 
     // Add/Edit/Delete note (.safeguarding-note-form, see
