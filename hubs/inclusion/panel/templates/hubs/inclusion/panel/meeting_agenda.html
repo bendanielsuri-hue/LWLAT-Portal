@@ -39,34 +39,49 @@
     </div>
     <div class="modal-body">
         {% if show_schedule_warning %}
-        <p>This panel meeting is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Reschedule it to now?</p>
-        <div class="btn-row">
-            <form method="post" style="display:inline">
-                {% csrf_token %}
-                <input type="hidden" name="form_action" value="reschedule_to_now">
-                <button type="submit" class="btn btn-primary btn-sm">Reschedule</button>
-            </form>
-        </div>
-        <hr class="modal-divider">
-        {% endif %}
-        <div class="member-card-row" data-panel-members-list="dialog">
-            {% for member in members %}
-            {% include 'hubs/inclusion/panel/_panel_agenda_member_card.html' with member=member %}
-            {% empty %}
-            <p class="empty-note">No members in this Panel Group yet — add some from "Edit Group Membership".</p>
-            {% endfor %}
-        </div>
-        <div class="attendance-dialog-footer">
-            <span class="attendance-summary"><strong>{{ checked_in_count }}</strong> of {{ members|length }} checked in</span>
+        {% comment %}
+        Reschedule-warning mode: the panel isn't due yet, so this is the only
+        thing the chair can act on - no member cards, no Start Meeting. The
+        "Reschedule" form below (reschedule_to_now) posts and redirects back
+        to this same page; since it moves the panel's date/time to now,
+        show_schedule_warning is false on the fresh render and the dialog's
+        own auto-open (see the script at the bottom of this template) lands
+        straight in attendance mode - that's what "advances into attendance
+        mode" below actually is, not a client-side stage swap.
+        {% endcomment %}
+        <div data-attendance-stage="reschedule">
+            <p>This panel meeting is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Reschedule it to now?</p>
             <div class="btn-row">
-                <button type="button" class="btn btn-sm" data-modal-close>View Agenda</button>
+                <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
                 <form method="post" style="display:inline">
                     {% csrf_token %}
-                    <input type="hidden" name="form_action" value="start_meeting">
-                    <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
+                    <input type="hidden" name="form_action" value="reschedule_to_now">
+                    <button type="submit" class="btn btn-primary btn-sm">Reschedule</button>
                 </form>
             </div>
         </div>
+        {% else %}
+        <div data-attendance-stage="attendance">
+            <div class="member-card-row" data-panel-members-list="dialog">
+                {% for member in members %}
+                {% include 'hubs/inclusion/panel/_panel_agenda_member_card.html' with member=member %}
+                {% empty %}
+                <p class="empty-note">No members in this Panel Group yet — add some from "Edit Group Membership".</p>
+                {% endfor %}
+            </div>
+            <div class="attendance-dialog-footer">
+                <span class="attendance-summary"><strong>{{ checked_in_count }}</strong> of {{ members|length }} checked in</span>
+                <div class="btn-row">
+                    <button type="button" class="btn btn-sm" data-modal-close>View Agenda</button>
+                    <form method="post" style="display:inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="start_meeting">
+                        <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </dialog>
 {% endif %}
