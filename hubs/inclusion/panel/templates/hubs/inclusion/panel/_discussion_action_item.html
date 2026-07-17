@@ -8,12 +8,26 @@ spreadsheet-row layout read as too cramped.
 <form method="post" class="action-item" data-inline-action-form data-action-url="{% url 'inclusion_panel_action_inline_update' action.id %}">
     {% csrf_token %}
 
-    <select name="category" class="field-editable" aria-label="Category">
-        <option value="">No category</option>
-        {% for c in categories %}
-        <option value="{{ c.id }}" {% if action.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-        {% endfor %}
-    </select>
+    {% comment %}
+    Real fused label (root DesignLanguage.md's Form control patterns), not a
+    bare aria-label (#97) - field-editable stays off the <select> itself:
+    once enhanceFormControls() (main.js) wraps it, the mirrored class would
+    otherwise land on the resulting .ui-select-trigger too and fight its own
+    chrome (its background shorthand wipes the trigger's chevron
+    background-image). The Description textarea below is never enhanced, so
+    it's still the one field that keeps field-editable as its own chrome.
+    {% endcomment %}
+    <div class="ui-fused-field-group">
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="action-category-{{ action.id }}">Category</label>
+            <select id="action-category-{{ action.id }}" name="category">
+                <option value="">No category</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}" {% if action.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </span>
+    </div>
 
     <textarea name="note" class="field-editable action-item-desc" rows="2" placeholder="Description...">{{ action.note }}</textarea>
 
@@ -25,45 +39,60 @@ spreadsheet-row layout read as too cramped.
     model). 'staff:<id>'/'group:<id>' tells the two apart server-side
     (inclusion_panel_action_inline_update).
     {% endcomment %}
-    <select name="assigned_to" class="field-editable" aria-label="Assigned To">
-        <option value="" {% if not action.assigned_to_id and not action.assigned_to_group_id %}selected{% endif %}>Unassigned</option>
-        <optgroup label="Groups">
-            {% for group in staff_groups %}
-            <option value="group:{{ group.id }}" {% if action.assigned_to_group_id == group.id %}selected{% endif %}>{{ group.name }}</option>
-            {% endfor %}
-        </optgroup>
-        <optgroup label="Staff">
-            {% for staff in staff_list %}
-            <option value="staff:{{ staff.id }}" {% if action.assigned_to_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
-            {% endfor %}
-        </optgroup>
-    </select>
+    <div class="ui-fused-field-group">
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="action-assigned-{{ action.id }}">Assigned To</label>
+            <select id="action-assigned-{{ action.id }}" name="assigned_to">
+                <option value="" {% if not action.assigned_to_id and not action.assigned_to_group_id %}selected{% endif %}>Unassigned</option>
+                <optgroup label="Groups">
+                    {% for group in staff_groups %}
+                    <option value="group:{{ group.id }}" {% if action.assigned_to_group_id == group.id %}selected{% endif %}>{{ group.name }}</option>
+                    {% endfor %}
+                </optgroup>
+                <optgroup label="Staff">
+                    {% for staff in staff_list %}
+                    <option value="staff:{{ staff.id }}" {% if action.assigned_to_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
+                    {% endfor %}
+                </optgroup>
+            </select>
+        </span>
+    </div>
 
     {% comment %}
     "1 Week/2 Weeks/1 Month/Next Half Term/Next Term/Other" preset - same
-    shape as End Discussion's own follow-up date. "Other" reveals a real
-    date picker (data-due-date-custom-wrap) for a custom date instead of
-    trying to reverse-map an existing date onto a preset, which stored dates
-    can't support in general. Both resolve into the one actual
-    [name=due_date] hidden input - see the [data-due-date-interval] change
-    handler in panel.js.
+    shape as End Discussion's own follow-up date, and the same fused
+    interval-select + revealed-custom-date pairing as the Add Action modal's
+    own Due Date field (_action_form_modal.html) - reused rather than
+    inventing a new one (#97). Both rows share one .ui-fused-field-group so
+    they read as a single Due Date component instead of two disconnected,
+    unlabelled pieces. "Other" reveals the real date picker for a custom
+    date instead of trying to reverse-map an existing date onto a preset,
+    which stored dates can't support in general. Both resolve into the one
+    actual [name=due_date] hidden input - see the [data-due-date-interval]
+    change handler in panel.js.
     {% endcomment %}
-    <select data-due-date-interval class="field-editable" aria-label="Due Date">
-        <option value="" {% if not action.due_date %}selected{% endif %}>No due date</option>
-        <option value="7">Due in 1 Week</option>
-        <option value="14">Due in 2 Weeks</option>
-        <option value="30">Due in 1 Month</option>
-        {% if next_half_term_date and next_half_term_date != next_term_date %}
-        <option value="{{ next_half_term_date|date:'Y-m-d' }}">Next Half Term ({{ next_half_term_date|date:'d/m/Y' }})</option>
-        {% endif %}
-        {% if next_term_date %}
-        <option value="{{ next_term_date|date:'Y-m-d' }}">Next Term ({{ next_term_date|date:'d/m/Y' }})</option>
-        {% endif %}
-        <option value="other" {% if action.due_date %}selected{% endif %}>Other</option>
-    </select>
-    <span data-due-date-custom-wrap {% if not action.due_date %}hidden{% endif %}>
-        <input type="date" data-due-date-custom class="field-editable" value="{{ action.due_date|date:'Y-m-d' }}" aria-label="Custom due date">
-    </span>
+    <div class="ui-fused-field-group">
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="action-due-interval-{{ action.id }}">Due Date</label>
+            <select id="action-due-interval-{{ action.id }}" data-due-date-interval>
+                <option value="" {% if not action.due_date %}selected{% endif %}>No due date</option>
+                <option value="7">Due in 1 Week</option>
+                <option value="14">Due in 2 Weeks</option>
+                <option value="30">Due in 1 Month</option>
+                {% if next_half_term_date and next_half_term_date != next_term_date %}
+                <option value="{{ next_half_term_date|date:'Y-m-d' }}">Next Half Term ({{ next_half_term_date|date:'d/m/Y' }})</option>
+                {% endif %}
+                {% if next_term_date %}
+                <option value="{{ next_term_date|date:'Y-m-d' }}">Next Term ({{ next_term_date|date:'d/m/Y' }})</option>
+                {% endif %}
+                <option value="other" {% if action.due_date %}selected{% endif %}>Other</option>
+            </select>
+        </span>
+        <span class="ui-fused-field" data-due-date-custom-wrap {% if not action.due_date %}hidden{% endif %}>
+            <label class="ui-fused-field-label" for="action-due-custom-{{ action.id }}">Custom Date</label>
+            <input type="date" id="action-due-custom-{{ action.id }}" data-due-date-custom value="{{ action.due_date|date:'Y-m-d' }}">
+        </span>
+    </div>
     <input type="hidden" name="due_date" data-due-date-final value="{{ action.due_date|date:'Y-m-d' }}">
 
     {% comment %}
