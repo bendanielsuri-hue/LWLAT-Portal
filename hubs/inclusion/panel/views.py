@@ -3359,6 +3359,11 @@ def inclusion_panel_safeguarding_notes(request):
     year_group_choices = sorted({row['student'].year_group for row in rows})
     house_choices = sorted({row['student'].house for row in rows if row['student'].house})
     reg_choices = sorted({row['student'].reg_form for row in rows if row['student'].reg_form})
+    # Fixed choice sets, not derived from the row set - same convention as
+    # students.html's gender_choices/sen_status_choices/ethnicity_choices.
+    gender_choices = Student.GENDER_CHOICES
+    sen_status_choices = Student.SEN_STATUS_CHOICES
+    ethnicity_choices = Student.ETHNICITY_CHOICES
     # Reg narrows to the selected Year Group, same dependent-filter convention
     # as students.html's forms_by_year.
     reg_by_year = {
@@ -3382,6 +3387,9 @@ def inclusion_panel_safeguarding_notes(request):
         'house_choices': house_choices,
         'reg_choices': reg_choices,
         'reg_by_year_json': json.dumps(reg_by_year),
+        'gender_choices': gender_choices,
+        'sen_status_choices': sen_status_choices,
+        'ethnicity_choices': ethnicity_choices,
         'selected_row': selected_row,
     }
     return render(request, 'hubs/inclusion/panel/safeguarding_notes.html', context)

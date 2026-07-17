@@ -53,6 +53,24 @@ right, both inside one .list-card instead of two.
                 </select>
             </div>
             <div class="filter-field">
+                <label for="dsl-house-filter">House</label>
+                <select id="dsl-house-filter">
+                    <option value="">All</option>
+                    {% for h in house_choices %}
+                    <option value="{{ h }}">{{ h }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="dsl-reg-filter">Reg</label>
+                <select id="dsl-reg-filter">
+                    <option value="">All</option>
+                    {% for r in reg_choices %}
+                    <option value="{{ r }}">{{ r }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
                 <label>Needs briefing only</label>
                 <div class="filter-toggle-wrap">
                     <input type="checkbox" id="dsl-needs-toggle-input" hidden>
@@ -62,22 +80,38 @@ right, both inside one .list-card instead of two.
             <div class="filter-secondary-fields" hidden>
                 <span class="filter-divider"></span>
                 <div class="filter-field">
-                    <label for="dsl-house-filter">House</label>
-                    <select id="dsl-house-filter">
+                    <label for="dsl-sen-status-filter">SEN Status</label>
+                    <select id="dsl-sen-status-filter">
                         <option value="">All</option>
-                        {% for h in house_choices %}
-                        <option value="{{ h }}">{{ h }}</option>
+                        {% for value, label in sen_status_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="filter-field">
-                    <label for="dsl-reg-filter">Reg</label>
-                    <select id="dsl-reg-filter">
+                    <label for="dsl-gender-filter">Gender</label>
+                    <select id="dsl-gender-filter">
                         <option value="">All</option>
-                        {% for r in reg_choices %}
-                        <option value="{{ r }}">{{ r }}</option>
+                        {% for value, label in gender_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}
                     </select>
+                </div>
+                <div class="filter-field">
+                    <label for="dsl-ethnicity-filter">Ethnicity</label>
+                    <select id="dsl-ethnicity-filter">
+                        <option value="">All</option>
+                        {% for value, label in ethnicity_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label>Pupil Premium</label>
+                    <div class="filter-toggle-wrap">
+                        <input type="checkbox" id="dsl-pp-toggle-input" hidden>
+                        <button type="button" id="dsl-pp-toggle" class="toggle-pill" aria-pressed="false" aria-label="Pupil Premium"><span class="toggle-knob"></span></button>
+                    </div>
                 </div>
             </div>
             </div>
@@ -98,7 +132,11 @@ right, both inside one .list-card instead of two.
                    data-dsl-group="{{ row.panel.panel_group.name|default:'' }}"
                    data-dsl-year="{{ row.student.year_group }}"
                    data-dsl-house="{{ row.student.house }}"
-                   data-dsl-reg="{{ row.student.reg_form }}">
+                   data-dsl-reg="{{ row.student.reg_form }}"
+                   data-dsl-sen="{{ row.student.sen_status }}"
+                   data-dsl-gender="{{ row.student.gender }}"
+                   data-dsl-ethnicity="{{ row.student.ethnicity }}"
+                   data-dsl-pp="{{ row.student.is_pp|yesno:'1,0' }}">
                     <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                     <div class="entity-body">
                         <div class="row-title-row">
@@ -135,6 +173,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var yearFilter = document.getElementById('dsl-year-filter');
     var houseFilter = document.getElementById('dsl-house-filter');
     var regFilter = document.getElementById('dsl-reg-filter');
+    var senFilter = document.getElementById('dsl-sen-status-filter');
+    var genderFilter = document.getElementById('dsl-gender-filter');
+    var ethnicityFilter = document.getElementById('dsl-ethnicity-filter');
+    var ppToggle = document.getElementById('dsl-pp-toggle');
     var filterBar = document.getElementById('dsl-filter-bar');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
 
@@ -158,17 +200,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function applyDslFilters() {
         var needsOnly = needsToggle.classList.contains('on');
+        var ppOnly = ppToggle.classList.contains('on');
         var group = groupFilter.value;
         var year = yearFilter.value;
         var house = houseFilter.value;
         var reg = regFilter.value;
+        var sen = senFilter.value;
+        var gender = genderFilter.value;
+        var ethnicity = ethnicityFilter.value;
         document.querySelectorAll('.entity-list [data-dsl-briefed]').forEach(function (row) {
             var matchesNeeds = !needsOnly || row.dataset.dslBriefed === '0';
+            var matchesPp = !ppOnly || row.dataset.dslPp === '1';
             var matchesGroup = !group || row.dataset.dslGroup === group;
             var matchesYear = !year || row.dataset.dslYear === year;
             var matchesHouse = !house || row.dataset.dslHouse === house;
             var matchesReg = !reg || row.dataset.dslReg === reg;
-            row.style.display = (matchesNeeds && matchesGroup && matchesYear && matchesHouse && matchesReg) ? '' : 'none';
+            var matchesSen = !sen || row.dataset.dslSen === sen;
+            var matchesGender = !gender || row.dataset.dslGender === gender;
+            var matchesEthnicity = !ethnicity || row.dataset.dslEthnicity === ethnicity;
+            row.style.display = (
+                matchesNeeds && matchesPp && matchesGroup && matchesYear && matchesHouse
+                && matchesReg && matchesSen && matchesGender && matchesEthnicity
+            ) ? '' : 'none';
         });
         refreshFilterBarState();
     }
@@ -178,6 +231,11 @@ document.addEventListener('DOMContentLoaded', function () {
             needsToggle.setAttribute('aria-pressed', needsToggle.classList.contains('on') ? 'true' : 'false');
             applyDslFilters();
         });
+        ppToggle.addEventListener('click', function () {
+            ppToggle.classList.toggle('on');
+            ppToggle.setAttribute('aria-pressed', ppToggle.classList.contains('on') ? 'true' : 'false');
+            applyDslFilters();
+        });
         groupFilter.addEventListener('change', applyDslFilters);
         yearFilter.addEventListener('change', function () {
             refreshRegOptions();
@@ -185,6 +243,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         houseFilter.addEventListener('change', applyDslFilters);
         regFilter.addEventListener('change', applyDslFilters);
+        senFilter.addEventListener('change', applyDslFilters);
+        genderFilter.addEventListener('change', applyDslFilters);
+        ethnicityFilter.addEventListener('change', applyDslFilters);
     }
 
     var moreFiltersBtn = filterBar.querySelector('[data-more-filters]');
@@ -203,9 +264,14 @@ document.addEventListener('DOMContentLoaded', function () {
             groupFilter.value = '';
             yearFilter.value = '';
             houseFilter.value = '';
+            senFilter.value = '';
+            genderFilter.value = '';
+            ethnicityFilter.value = '';
             refreshRegOptions();
             needsToggle.classList.remove('on');
             needsToggle.setAttribute('aria-pressed', 'false');
+            ppToggle.classList.remove('on');
+            ppToggle.setAttribute('aria-pressed', 'false');
             applyDslFilters();
         });
     }
