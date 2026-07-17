@@ -3275,14 +3275,22 @@ def _safeguarding_note_rows(request):
     # any more, see #77-#81) — every row for the same student shows the same
     # notes. 'history' is that student's retired notes, most-recently-retired
     # first, replacing the old per-panel 'other_briefings' split.
-    today = timezone.localdate()
+    #
+    # "Upcoming" is status alone (anything short of 'complete'), not a date
+    # filter - panel.date is the *original* scheduled date and never moves
+    # forward when a panel goes 'delayed' (see _sync_delayed_panels), so a
+    # panel__date__gte=today clause would exclude a delayed panel from the
+    # moment it's more than a day overdue, the exact case this screen most
+    # needs to surface (#86 bug report). _sync_delayed_panels() is called
+    # here rather than assumed fresh from another page's load, same as
+    # inclusion_panel_meetings.
+    _sync_delayed_panels()
     school_key = current_school_key(request)
     scoped_students = student_queryset_for_school_key(school_key)
 
     panel_referrals = list(
         PanelReferral.objects.filter(
             panel__status__in=['draft', 'ready', 'running', 'delayed'],
-            panel__date__gte=today,
             removed_at__isnull=True,
             referral__student__in=scoped_students,
         )
@@ -3348,6 +3356,7 @@ def inclusion_panel_safeguarding_notes(request):
 
     needs_briefing_count = sum(1 for r in rows if not r['has_briefing'])
     panel_group_choices = sorted({row['panel'].panel_group.name for row in rows if row['panel'].panel_group_id})
+    year_group_choices = sorted({row['student'].year_group for row in rows})
 
     selected_id = request.GET.get('panel_referral')
     selected_row = next((r for r in rows if str(r['panel_referral'].id) == selected_id), None) if selected_id else None
@@ -3358,6 +3367,7 @@ def inclusion_panel_safeguarding_notes(request):
         'rows': rows,
         'needs_briefing_count': needs_briefing_count,
         'panel_group_choices': panel_group_choices,
+        'year_group_choices': year_group_choices,
         'selected_row': selected_row,
     }
     return render(request, 'hubs/inclusion/panel/safeguarding_notes.html', context)

@@ -42,6 +42,15 @@ right, both inside one .list-card instead of two.
                 </select>
             </div>
             <div class="filter-field">
+                <label for="dsl-year-filter">Year Group</label>
+                <select id="dsl-year-filter" class="ui-select--center">
+                    <option value="">All</option>
+                    {% for y in year_group_choices %}
+                    <option value="{{ y }}">{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
                 <label>Needs briefing only</label>
                 <div class="filter-toggle-wrap">
                     <input type="checkbox" id="dsl-needs-toggle-input" hidden>
@@ -55,7 +64,8 @@ right, both inside one .list-card instead of two.
                 <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
                    href="?panel_referral={{ row.panel_referral.id }}"
                    data-dsl-briefed="{{ row.has_briefing|yesno:'1,0' }}"
-                   data-dsl-group="{{ row.panel.panel_group.name|default:'' }}">
+                   data-dsl-group="{{ row.panel.panel_group.name|default:'' }}"
+                   data-dsl-year="{{ row.student.year_group }}">
                     <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                     <div class="entity-body">
                         <div class="row-title-row">
@@ -75,7 +85,7 @@ right, both inside one .list-card instead of two.
             </div>
             <div class="dsl-briefing-detail-col" id="dsl-briefing-detail">
                 {% if selected_row %}
-                {% include 'hubs/inclusion/panel/_dsl_briefing_card.html' with row=selected_row %}
+                {% include 'hubs/inclusion/panel/_safeguarding_note_card.html' with row=selected_row %}
                 {% else %}
                 <p class="empty-note">Select a student on the left to view or write their safeguarding note.</p>
                 {% endif %}
@@ -88,13 +98,16 @@ right, both inside one .list-card instead of two.
 document.addEventListener('DOMContentLoaded', function () {
     var needsToggle = document.getElementById('dsl-needs-toggle');
     var groupFilter = document.getElementById('dsl-group-filter');
+    var yearFilter = document.getElementById('dsl-year-filter');
     function applyDslFilters() {
         var needsOnly = needsToggle.classList.contains('on');
         var group = groupFilter.value;
+        var year = yearFilter.value;
         document.querySelectorAll('.entity-list [data-dsl-briefed]').forEach(function (row) {
             var matchesNeeds = !needsOnly || row.dataset.dslBriefed === '0';
             var matchesGroup = !group || row.dataset.dslGroup === group;
-            row.style.display = (matchesNeeds && matchesGroup) ? '' : 'none';
+            var matchesYear = !year || row.dataset.dslYear === year;
+            row.style.display = (matchesNeeds && matchesGroup && matchesYear) ? '' : 'none';
         });
     }
     if (needsToggle) {
@@ -104,10 +117,11 @@ document.addEventListener('DOMContentLoaded', function () {
             applyDslFilters();
         });
         groupFilter.addEventListener('change', applyDslFilters);
+        yearFilter.addEventListener('change', applyDslFilters);
     }
 
     // Add/Edit/Delete note (.safeguarding-note-form, see
-    // _dsl_briefing_card.html) submit via fetch instead of a full-page
+    // _safeguarding_note_card.html) submit via fetch instead of a full-page
     // reload (#83) - the view returns the same card fragment re-rendered,
     // swapped in wholesale. Delegated on the detail container itself (not
     // the forms) since every submit replaces that container's contents,

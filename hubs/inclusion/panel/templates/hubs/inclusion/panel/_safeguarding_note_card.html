@@ -12,7 +12,7 @@ soft-retire() (#78's no-hard-delete guarantee is unchanged). Write actions
 (Ready toggle, Edit/Delete, Add note) are hidden entirely for a non-DSL
 viewer, matching this app's usual visibility-only gating (no server
 enforcement bypass either - see the view). Every write form below shares the
-`safeguarding-note-form` class, submitted via fetch (see dsl_briefings.html's
+`safeguarding-note-form` class, submitted via fetch (see safeguarding_notes.html's
 script) rather than a full-page reload - the response is this same fragment
 re-rendered, swapped in wholesale.
 {% endcomment %}
@@ -32,7 +32,7 @@ re-rendered, swapped in wholesale.
         <div class="safeguarding-ready-banner{% if row.panel_referral.briefing_ready %} is-ready{% endif %}">
             <span class="safeguarding-ready-banner-label">{% if row.panel_referral.briefing_ready %}Ready for Panel{% else %}Not ready for Panel yet{% endif %}</span>
             {% if can_edit_briefing %}
-            <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}">
+            <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}">
                 {% csrf_token %}
                 <input type="hidden" name="form_action" value="toggle_ready">
                 <button type="submit" class="toggle-pill toggle-pill--lg{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
@@ -55,7 +55,7 @@ re-rendered, swapped in wholesale.
                     {% if can_edit_briefing %}
                     <div class="note-actions">
                         <button type="button" class="btn btn-sm btn-secondary btn-edit" data-note-edit-toggle><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
-                        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" onsubmit="return confirm('Remove this note?');" class="safeguarding-note-form">
+                        <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" onsubmit="return confirm('Remove this note?');" class="safeguarding-note-form">
                             {% csrf_token %}
                             <input type="hidden" name="form_action" value="delete">
                             <input type="hidden" name="note_id" value="{{ note.id }}">
@@ -66,7 +66,7 @@ re-rendered, swapped in wholesale.
                     {% endif %}
                 </div>
                 {% if can_edit_briefing %}
-                <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-note-form" data-note-edit-form hidden>
+                <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" class="safeguarding-note-form" data-note-edit-form hidden>
                     {% csrf_token %}
                     <input type="hidden" name="form_action" value="edit">
                     <input type="hidden" name="note_id" value="{{ note.id }}">
@@ -96,7 +96,7 @@ re-rendered, swapped in wholesale.
                     </div>
                     {% if can_edit_briefing %}
                     <div class="note-actions">
-                        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-note-form">
+                        <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" class="safeguarding-note-form">
                             {% csrf_token %}
                             <input type="hidden" name="form_action" value="reactivate">
                             <input type="hidden" name="note_id" value="{{ note.id }}">
@@ -114,7 +114,7 @@ re-rendered, swapped in wholesale.
     {% if can_edit_briefing %}
     <div class="safeguarding-note-composer">
         <label for="dsl-add-note-{{ row.panel_referral.id }}" class="safeguarding-note-composer-label">Add Note</label>
-        <form method="post" action="{% url 'inclusion_panel_dsl_briefing_notes' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form">
+        <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form">
             {% csrf_token %}
             <input type="hidden" name="form_action" value="add">
             <input type="text" id="dsl-add-note-{{ row.panel_referral.id }}" name="text" maxlength="150" placeholder="Write a new safeguarding note..." required>
