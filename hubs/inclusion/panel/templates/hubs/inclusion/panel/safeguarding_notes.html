@@ -125,6 +125,7 @@ right, both inside one .list-card instead of two.
                 {% for row in rows %}
                 <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
                    href="?panel_referral={{ row.panel_referral.id }}"
+                   data-panel-referral-id="{{ row.panel_referral.id }}"
                    data-dsl-briefed="{{ row.has_briefing|yesno:'1,0' }}"
                    data-dsl-group="{{ row.panel.panel_group.name|default:'' }}"
                    data-dsl-year="{{ row.student.year_group }}"
@@ -138,15 +139,15 @@ right, both inside one .list-card instead of two.
                     <div class="entity-body">
                         <div class="row-title-row">
                             <div class="entity-title">{{ row.student.first_name }} {{ row.student.last_name }}</div>
-                            {% if row.has_briefing %}
-                            <span class="status-pill complete">Briefed</span>
+                            {% if row.panel_referral.briefing_ready %}
+                            <span class="status-pill complete" data-ready-pill>Ready for Panel</span>
                             {% else %}
-                            <span class="status-pill open">Needs briefing</span>
+                            <span class="status-pill open" data-ready-pill>Update Safeguarding Notes</span>
                             {% endif %}
                         </div>
                         <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"D d M" }}</div>
                         <div class="entity-meta">Year {{ row.student.year_group }}{% if row.student.house %} &middot; {{ row.student.house }}{% endif %}{% if row.student.reg_form %} &middot; {{ row.student.reg_form }}{% endif %}</div>
-                        <div class="entity-meta">{{ row.notes|length }} active note{{ row.notes|length|pluralize }} &middot; {{ row.history|length }} inactive note{{ row.history|length|pluralize }}</div>
+                        <div class="entity-meta" data-note-count-meta>{{ row.notes|length }} active note{{ row.notes|length|pluralize }} &middot; {{ row.history|length }} inactive note{{ row.history|length|pluralize }}</div>
                     </div>
                 </a>
                 {% empty %}
@@ -327,6 +328,37 @@ document.addEventListener('DOMContentLoaded', function () {
                     // the re-render instead of always coming back closed.
                     var template = document.createElement('template');
                     template.innerHTML = html;
+
+                    // The fetched fragment always reflects this row's full
+                    // current state regardless of which action triggered it
+                    // (toggle_ready/add/edit/delete/reactivate all re-render
+                    // from scratch server-side) - use it to bring the left-
+                    // side row's pill and note-count line back in sync too,
+                    // since that row otherwise never gets touched by this
+                    // handler (it only ever patched the detail column).
+                    var panelReferralMatch = form.action.match(/\/(\d+)\/notes\/$/);
+                    var leftRow = panelReferralMatch
+                        ? document.querySelector('[data-panel-referral-id="' + panelReferralMatch[1] + '"]')
+                        : null;
+                    if (leftRow) {
+                        var freshBanner = template.content.querySelector('.safeguarding-ready-banner');
+                        var pill = leftRow.querySelector('[data-ready-pill]');
+                        if (freshBanner && pill) {
+                            var isReady = freshBanner.classList.contains('is-ready');
+                            pill.textContent = isReady ? 'Ready for Panel' : 'Update Safeguarding Notes';
+                            pill.classList.toggle('complete', isReady);
+                            pill.classList.toggle('open', !isReady);
+                        }
+                        var activeCount = template.content.querySelectorAll('[data-active-notes-list] [data-note-id]').length;
+                        var historyCount = template.content.querySelectorAll('[data-history-list] [data-note-id]').length;
+                        var countMeta = leftRow.querySelector('[data-note-count-meta]');
+                        if (countMeta) {
+                            countMeta.textContent = activeCount + ' active note' + (activeCount === 1 ? '' : 's')
+                                + ' · ' + historyCount + ' inactive note' + (historyCount === 1 ? '' : 's');
+                        }
+                        leftRow.dataset.dslBriefed = activeCount > 0 ? '1' : '0';
+                    }
+
                     ['[data-active-notes-list]', '[data-history-list]'].forEach(function (sel) {
                         var freshList = template.content.querySelector(sel);
                         var oldList = detail.querySelector(sel);
