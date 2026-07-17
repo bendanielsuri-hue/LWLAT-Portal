@@ -20,7 +20,7 @@ re-rendered, swapped in wholesale.
     <div class="safeguarding-briefing-header safeguarding-briefing-header--panel">
         <div>
             <h2>{{ row.student.first_name }} {{ row.student.last_name }}</h2>
-            <h3 class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</h3>
+            <h3>{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</h3>
         </div>
         {% comment %}
         Ready for Panel: a coloured pill+toggle on the header's right side
@@ -40,6 +40,18 @@ re-rendered, swapped in wholesale.
             {% endif %}
         </div>
     </div>
+
+    {% if can_edit_briefing %}
+    <div class="safeguarding-note-composer">
+        <label for="dsl-add-note-{{ row.panel_referral.id }}" class="safeguarding-note-composer-label">Add Note</label>
+        <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add">
+            <input type="text" id="dsl-add-note-{{ row.panel_referral.id }}" name="text" maxlength="150" placeholder="Write a new safeguarding note..." required>
+            <button type="submit" class="btn btn-add btn-sm">Add Note</button>
+        </form>
+    </div>
+    {% endif %}
 
     <div class="safeguarding-briefing-notes">
         <div class="referral-section-title referral-section-title--sm">Active Notes</div>
@@ -110,16 +122,4 @@ re-rendered, swapped in wholesale.
         </details>
         {% endif %}
     </div>
-
-    {% if can_edit_briefing %}
-    <div class="safeguarding-note-composer">
-        <label for="dsl-add-note-{{ row.panel_referral.id }}" class="safeguarding-note-composer-label">Add Note</label>
-        <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="add">
-            <input type="text" id="dsl-add-note-{{ row.panel_referral.id }}" name="text" maxlength="150" placeholder="Write a new safeguarding note..." required>
-            <button type="submit" class="btn btn-add btn-sm">Add Note</button>
-        </form>
-    </div>
-    {% endif %}
 </div>
