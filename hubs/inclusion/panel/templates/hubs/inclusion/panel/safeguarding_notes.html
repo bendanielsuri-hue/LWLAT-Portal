@@ -308,7 +308,33 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (!res.ok) throw new Error('Request failed: ' + res.status);
                     return res.text();
                 })
-                .then(function (html) { detail.innerHTML = html; })
+                .then(function (html) {
+                    // Diff-patch the two row-list containers in place (same
+                    // technique as diffPatchRowList's other callers - see
+                    // panel.js) before the rest of the card gets a wholesale
+                    // swap below, so an add/delete/reactivate animates the
+                    // row grow-in/shrink-fade-out instead of snapping, and
+                    // the History <details>'s open/closed state survives
+                    // the re-render instead of always coming back closed.
+                    var template = document.createElement('template');
+                    template.innerHTML = html;
+                    ['[data-active-notes-list]', '[data-history-list]'].forEach(function (sel) {
+                        var freshList = template.content.querySelector(sel);
+                        var oldList = detail.querySelector(sel);
+                        if (!freshList || !oldList) return;
+                        // oldList is reused (not replaced) below, so its
+                        // .open state (and any in-flight row animation)
+                        // carries over for free - only .hidden needs an
+                        // explicit copy from the fresh render.
+                        diffPatchRowList(oldList, freshList, 'data-note-id');
+                        oldList.hidden = freshList.hidden;
+                        var freshSummary = freshList.querySelector('[data-history-summary]');
+                        var oldSummary = oldList.querySelector('[data-history-summary]');
+                        if (freshSummary && oldSummary) oldSummary.textContent = freshSummary.textContent;
+                        freshList.replaceWith(oldList);
+                    });
+                    detail.replaceChildren(template.content);
+                })
                 .catch(function () { form.submit(); });
         });
     }

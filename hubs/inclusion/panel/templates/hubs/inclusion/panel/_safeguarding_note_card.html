@@ -56,10 +56,16 @@ re-rendered, swapped in wholesale.
 
     <div class="safeguarding-briefing-notes">
         <div class="referral-section-title referral-section-title--sm">Active Notes</div>
-        {% if row.notes %}
-        <div class="referral-flat-section-body" style="margin-top: 0;">
+        {% comment %}
+        Always rendered, even when empty - a stable container the fetch
+        handler's diffPatchRowList() can key rows into/out of by
+        data-note-id, animating adds/removes/moves-between-lists instead of
+        a wholesale innerHTML swap (which also lost the History <details>'s
+        open state on every re-render - see safeguarding_notes.html).
+        {% endcomment %}
+        <div class="referral-flat-section-body" data-active-notes-list style="margin-top: 0;">
             {% for note in row.notes %}
-            <div class="referral-history-entry" data-note-entry>
+            <div class="referral-history-entry" data-note-entry data-note-id="{{ note.id }}">
                 <div data-note-display class="safeguarding-note-row">
                     <div class="safeguarding-note-row-main">
                         <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }}</div>
@@ -91,17 +97,21 @@ re-rendered, swapped in wholesale.
                 </form>
                 {% endif %}
             </div>
+            {% empty %}
+            <p class="empty-note">No active safeguarding notes for this student.</p>
             {% endfor %}
         </div>
-        {% else %}
-        <p class="empty-note">No active safeguarding notes for this student.</p>
-        {% endif %}
 
-        {% if row.history %}
-        <details class="safeguarding-briefing-history">
-            <summary class="referral-section-title referral-section-title--sm">Inactive ({{ row.history|length }})</summary>
+        {% comment %}
+        Always rendered (hidden when empty, not removed from the DOM) so
+        the fetch handler can preserve its open/closed state across a
+        re-render the same way it preserves row animations - toggling
+        `hidden` is a separate concern from patching what's inside it.
+        {% endcomment %}
+        <details class="safeguarding-briefing-history" data-history-list{% if not row.history %} hidden{% endif %}>
+            <summary class="referral-section-title referral-section-title--sm" data-history-summary>Inactive ({{ row.history|length }})</summary>
             {% for note in row.history %}
-            <div class="referral-history-entry" data-note-entry>
+            <div class="referral-history-entry" data-note-entry data-note-id="{{ note.id }}">
                 <div class="safeguarding-note-row">
                     <div class="safeguarding-note-row-main">
                         <div class="entity-meta"><strong>{{ note.author|default:"Unknown" }}</strong> &middot; {{ note.created_at|date:"d/m/Y" }} &middot; removed {{ note.retired_at|date:"d/m/Y" }}</div>
@@ -121,6 +131,5 @@ re-rendered, swapped in wholesale.
             </div>
             {% endfor %}
         </details>
-        {% endif %}
     </div>
 </div>
