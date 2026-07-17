@@ -161,7 +161,7 @@
         <div class="setup-col-body">
         <div class="entity-list entity-list--bleed" data-drop-zone="pending">
             {% for pr in pending %}
-            <div class="entity-row agenda-row" draggable="true" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
+            <div class="entity-row agenda-row selectable" draggable="true" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
                 <span class="drag-handle drag-handle-pattern" aria-hidden="true" title="Drag to reorder"></span>
                 <div class="agenda-order-rail">
                     <span class="agenda-order-rail-number">{{ forloop.counter }}</span>
@@ -185,23 +185,32 @@
                 <div class="agenda-content">
                     <div class="referral-row-grid">
                         <div class="referral-pills">
-                            <span class="status-pill {{ pr.stage }}">{{ pr.stage_label }}</span>
+                            <span class="status-pill type-{% if pr.last_discussed_panel %}followup{% else %}new{% endif %}">{% if pr.last_discussed_panel %}{{ pr.review_label }}{% else %}New Referral{% endif %}</span>
                         </div>
                         <div class="student-column">
                             <div class="student-thumb-row">
                                 <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                                 <div class="entity-body">
                                     <div class="entity-title">{{ pr.referral.student }}</div>
+                                    <div class="entity-meta">Year {{ pr.referral.student.year_group }}{% if pr.referral.student.reg_form %} &middot; {{ pr.referral.student.reg_form }}{% endif %}</div>
                                 </div>
                             </div>
                         </div>
                         <div class="referral-details">
+                            {% if pr.primary_concern_category %}<div class="entity-meta">Concern: {{ pr.primary_concern_category }}</div>{% endif %}
+                            {% if not pr.last_discussed_panel %}
+                            <div class="entity-meta">Referred By: {{ pr.referral.raised_by|default:"—" }}</div>
+                            <div class="entity-meta">Referral Date: {{ pr.referral.created_at|date:"d/m/Y" }}</div>
+                            {% endif %}
+                            {% if pr.last_discussed_panel %}
+                            <div class="entity-meta">Last Discussed: {{ pr.last_discussed_panel.date }}</div>
+                            {% if pr.follow_up_date %}<div class="entity-meta">Review Due: {{ pr.follow_up_date|date:"d/m/Y" }}{% if pr.follow_up_overdue %} <span class="status-pill danger">Overdue</span>{% endif %}</div>{% endif %}
+                            {% endif %}
                             {% if pr.discussion_started_at %}
                             <div class="entity-meta agenda-row-timer">Discussing for: <span class="discussion-timer discussion-timer-sm" data-started-at="{{ pr.discussion_started_at|date:'c' }}">00:00:00</span></div>
                             {% elif pr.discussion_auto_stopped %}
                             <div class="entity-meta"><span class="status-pill danger" title="This discussion's timer was auto-stopped after 30 minutes with no note or action against it">Timer auto-stopped</span></div>
                             {% endif %}
-                            <div class="entity-meta">{% if pr.is_followup %}Review{% else %}New{% endif %}</div>
                             {% if pr.actions_total %}
                             <div class="entity-meta actions-complete-row">
                                 <span>{{ pr.actions_complete }} of {{ pr.actions_total }} actions complete</span>
@@ -227,7 +236,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="form_action" value="unassign_referral">
                                 <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                                <button type="submit" class="btn btn-sm">Remove</button>
+                                <button type="submit" class="btn btn-secondary btn-delete btn-sm"><span class="btn-icon">{% include 'icons/remove_svg.html' %}</span> Remove</button>
                             </form>
                         </div>
                     </div>

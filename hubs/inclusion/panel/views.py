@@ -2920,6 +2920,25 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         (pr for pr in panel_referrals if pr.discussion_status in ('pending', 'deferred')),
         key=lambda pr: (pr.agenda_order, pr.id),
     )
+    # Same "has this referral been discussed before, and how many times" shape
+    # inclusion_panel_meeting_setup annotates its own agenda rows with, so the
+    # Pending row's pill/referral-details can render identically to Setup's -
+    # see #90.
+    last_discussed_by_referral = {}
+    discussed_counts_by_referral = Counter()
+    for prev in PanelReferral.objects.filter(
+        referral_id__in=[pr.referral_id for pr in pending], discussion_status='discussed',
+    ).exclude(panel_id=panel.id).select_related('panel').order_by('referral_id', '-panel__date'):
+        last_discussed_by_referral.setdefault(prev.referral_id, prev)
+        discussed_counts_by_referral[prev.referral_id] += 1
+    for pr in pending:
+        pr.primary_concern_category = _primary_concern_category(pr.referral)
+        prev_pr = last_discussed_by_referral.get(pr.referral_id)
+        pr.last_discussed_panel = prev_pr.panel if prev_pr else None
+        pr.follow_up_date = prev_pr.follow_up_date if prev_pr else None
+        pr.follow_up_overdue = bool(pr.follow_up_date and pr.follow_up_date < today)
+        pr.review_label = _review_label(discussed_counts_by_referral[pr.referral_id])
+
     discussed = [pr for pr in panel_referrals if pr.discussion_status == 'discussed']
     for pr in discussed:
         if pr.duration:
