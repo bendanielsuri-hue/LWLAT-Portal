@@ -294,11 +294,20 @@ document.addEventListener('DOMContentLoaded', function () {
         detail.addEventListener('submit', function (e) {
             var form = e.target.closest('.safeguarding-note-form');
             if (!form) return;
-            // A Delete form's onsubmit="return confirm(...)" already called
-            // preventDefault() if the user cancelled - respect that instead
-            // of firing the fetch anyway.
             if (e.defaultPrevented) return;
             e.preventDefault();
+            var formAction = form.querySelector('[name=form_action]');
+            var noteIdField = form.querySelector('[name=note_id]');
+            // Flash red/green (InteractionLanguage.md's colour-tint flash,
+            // reusing panel.js's flash()/agenda-flash-* convention) on the
+            // row about to shrink out, right as the request fires - Delete
+            // reads as a removal, Reactivate as a positive move rather than
+            // a removal even though it's leaving History the same way.
+            if (formAction && noteIdField) {
+                var targetRow = detail.querySelector('[data-note-id="' + noteIdField.value + '"]');
+                if (formAction.value === 'delete') flash(targetRow, 'removed');
+                else if (formAction.value === 'reactivate') flash(targetRow, 'added');
+            }
             fetch(form.action, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -334,6 +343,13 @@ document.addEventListener('DOMContentLoaded', function () {
                         freshList.replaceWith(oldList);
                     });
                     detail.replaceChildren(template.content);
+                    // Flash the reactivated note green on its Active
+                    // Notes side too, once diffPatchRowList has grown it
+                    // in there - both ends of the move read as positive.
+                    if (formAction && formAction.value === 'reactivate' && noteIdField) {
+                        var grownRow = detail.querySelector('[data-active-notes-list] [data-note-id="' + noteIdField.value + '"]');
+                        flash(grownRow, 'added');
+                    }
                 })
                 .catch(function () { form.submit(); });
         });
