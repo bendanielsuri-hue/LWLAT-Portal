@@ -544,7 +544,7 @@ class SafeguardingNote(models.Model):
         # Undoes a manual retire() (#84) - moves a note back from Inactive
         # to Active. Deliberately not offered for a supersede()'d note (the
         # UI never surfaces one to reactivate in the first place - see
-        # _dsl_briefing_rows's History filter) since its successor already
+        # _safeguarding_note_rows's History filter) since its successor already
         # exists; reactivating it would leave two active notes standing in
         # for what was one edit. reactivated_at/reactivated_by are recorded
         # for the audit trail but not shown in the UI - retired_at/

@@ -42,6 +42,6 @@ urlpatterns = [
     path('settings/expertise/quick-add/', views.inclusion_panel_expertise_quick_add, name='inclusion_panel_expertise_quick_add'),
     path('external-contacts/quick-add/', views.inclusion_panel_external_contact_quick_add, name='inclusion_panel_external_contact_quick_add'),
 
-    path('briefings/', views.inclusion_panel_dsl_briefings, name='inclusion_panel_dsl_briefings'),
-    path('briefings/<int:panel_referral_id>/notes/', views.inclusion_panel_dsl_briefing_notes, name='inclusion_panel_dsl_briefing_notes'),
+    path('safeguarding-notes/', views.inclusion_panel_safeguarding_notes, name='inclusion_panel_safeguarding_notes'),
+    path('safeguarding-notes/<int:panel_referral_id>/notes/', views.inclusion_panel_safeguarding_notes_mutate, name='inclusion_panel_safeguarding_notes_mutate'),
 ]

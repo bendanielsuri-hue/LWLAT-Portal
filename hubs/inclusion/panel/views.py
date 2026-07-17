@@ -62,15 +62,14 @@ def _panel_base_context(request):
     # Group seat at all, so it can't ride the usual module-key gate (see #71
     # grilling). Renamed from "Safeguarding Briefings" alongside the page
     # itself (#84) - this is a hardcoded string, not Module.name-driven, so
-    # the rename is this one line; the URL path/name stay
-    # inclusion_panel_dsl_briefings/briefings/ unchanged (not asked for, and
-    # a URL rename is a bigger, separate call).
+    # the rename was this one line; the URL path/name were renamed to match
+    # separately in #85.
     local_menu = _local_menu(request)
     current_staff = _current_staff(request)
     if current_staff and current_staff.is_dsl:
         local_menu = local_menu + [{
             'name': 'Safeguarding Notes',
-            'url': '/inclusion/panel/briefings/',
+            'url': '/inclusion/panel/safeguarding-notes/',
             'icon': 'icons/shield_check_svg.html',
         }]
     return {
@@ -917,7 +916,7 @@ def inclusion_panel_home(request):
 
     is_dsl = bool(current_staff and current_staff.is_dsl)
     needs_briefing_count = (
-        sum(1 for r in _dsl_briefing_rows(request) if not r['has_briefing']) if is_dsl else 0
+        sum(1 for r in _safeguarding_note_rows(request) if not r['has_briefing']) if is_dsl else 0
     )
 
     next_panel = _panels_for_school_key(
@@ -3268,8 +3267,8 @@ def _note_origin_created_at(note, notes_by_id):
     return note.created_at
 
 
-def _dsl_briefing_rows(request):
-    # Shared by inclusion_panel_dsl_briefings and inclusion_panel_dsl_briefing_notes
+def _safeguarding_note_rows(request):
+    # Shared by inclusion_panel_safeguarding_notes and inclusion_panel_safeguarding_notes_mutate
     # (the latter needs it to re-render the right-pane card after a mutation).
     # One row per student+upcoming-panel pair (unchanged); 'notes' is now the
     # student's whole active SafeguardingNote list (no panel FK to filter by
@@ -3324,7 +3323,7 @@ def _dsl_briefing_rows(request):
     return rows
 
 
-def _dsl_briefing_extra_context(request):
+def _safeguarding_note_extra_context(request):
     # Shared by the full-page render and the AJAX card-fragment re-render
     # below, so both stay in lockstep on who can write.
     current_staff = _current_staff(request)
@@ -3337,7 +3336,7 @@ def _dsl_briefing_extra_context(request):
     }
 
 
-def inclusion_panel_dsl_briefings(request):
+def inclusion_panel_safeguarding_notes(request):
     # DSL-only screen (LWLAT-Portal#71/#74): students on upcoming panels,
     # left column, MAT-wide/school-switcher scoped; selected student's
     # briefing notes thread inline on the right - no modal. Reachable by URL
@@ -3345,7 +3344,7 @@ def inclusion_panel_dsl_briefings(request):
     # this app) - the DSL-only-ness is a visibility gate on the sidebar entry
     # (_panel_base_context) and on the write/edit/delete actions themselves,
     # not a hard page redirect.
-    rows = _dsl_briefing_rows(request)
+    rows = _safeguarding_note_rows(request)
 
     needs_briefing_count = sum(1 for r in rows if not r['has_briefing'])
     panel_group_choices = sorted({row['panel'].panel_group.name for row in rows if row['panel'].panel_group_id})
@@ -3355,13 +3354,13 @@ def inclusion_panel_dsl_briefings(request):
 
     context = {
         **_panel_base_context(request),
-        **_dsl_briefing_extra_context(request),
+        **_safeguarding_note_extra_context(request),
         'rows': rows,
         'needs_briefing_count': needs_briefing_count,
         'panel_group_choices': panel_group_choices,
         'selected_row': selected_row,
     }
-    return render(request, 'hubs/inclusion/panel/dsl_briefings.html', context)
+    return render(request, 'hubs/inclusion/panel/safeguarding_notes.html', context)
 
 
 def _active_student_note(student, note_id):
@@ -3377,7 +3376,7 @@ def _reactivatable_student_note(student, note_id):
     ).exclude(retirement_reason=SafeguardingNote.RETIREMENT_REASON_SUPERSEDED).first()
 
 
-def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
+def inclusion_panel_safeguarding_notes_mutate(request, panel_referral_id):
     # Add/edit(=supersede)/delete(=retire)/reactivate a note in this
     # student's SafeguardingNote list, and toggle this (student, panel)
     # pair's briefing_ready flag. Gated on is_dsl only - see
@@ -3415,10 +3414,10 @@ def inclusion_panel_dsl_briefing_notes(request, panel_referral_id):
             panel_referral.save(update_fields=['briefing_ready'])
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        rows = _dsl_briefing_rows(request)
+        rows = _safeguarding_note_rows(request)
         row = next((r for r in rows if r['panel_referral'].id == panel_referral.id), None)
-        return render(request, 'hubs/inclusion/panel/_dsl_briefing_card.html', {
-            **_dsl_briefing_extra_context(request),
+        return render(request, 'hubs/inclusion/panel/_safeguarding_note_card.html', {
+            **_safeguarding_note_extra_context(request),
             'row': row,
         })
-    return redirect(f"{reverse('inclusion_panel_dsl_briefings')}?panel_referral={panel_referral.id}")
+    return redirect(f"{reverse('inclusion_panel_safeguarding_notes')}?panel_referral={panel_referral.id}")
