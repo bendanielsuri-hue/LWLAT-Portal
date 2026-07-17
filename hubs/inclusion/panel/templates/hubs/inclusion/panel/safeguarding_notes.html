@@ -107,11 +107,12 @@ right, both inside one .list-card instead of two.
                     </select>
                 </div>
                 <div class="filter-field">
-                    <label>Pupil Premium</label>
-                    <div class="filter-toggle-wrap">
-                        <input type="checkbox" id="dsl-pp-toggle-input" hidden>
-                        <button type="button" id="dsl-pp-toggle" class="toggle-pill" aria-pressed="false" aria-label="Pupil Premium"><span class="toggle-knob"></span></button>
-                    </div>
+                    <label for="dsl-pp-filter">PP</label>
+                    <select id="dsl-pp-filter" class="ui-select--center">
+                        <option value="">All</option>
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
                 </div>
             </div>
             </div>
@@ -176,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var senFilter = document.getElementById('dsl-sen-status-filter');
     var genderFilter = document.getElementById('dsl-gender-filter');
     var ethnicityFilter = document.getElementById('dsl-ethnicity-filter');
-    var ppToggle = document.getElementById('dsl-pp-toggle');
+    var ppFilter = document.getElementById('dsl-pp-filter');
     var filterBar = document.getElementById('dsl-filter-bar');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
 
@@ -200,7 +201,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function applyDslFilters() {
         var needsOnly = needsToggle.classList.contains('on');
-        var ppOnly = ppToggle.classList.contains('on');
         var group = groupFilter.value;
         var year = yearFilter.value;
         var house = houseFilter.value;
@@ -208,9 +208,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var sen = senFilter.value;
         var gender = genderFilter.value;
         var ethnicity = ethnicityFilter.value;
+        var pp = ppFilter.value;
         document.querySelectorAll('.entity-list [data-dsl-briefed]').forEach(function (row) {
             var matchesNeeds = !needsOnly || row.dataset.dslBriefed === '0';
-            var matchesPp = !ppOnly || row.dataset.dslPp === '1';
             var matchesGroup = !group || row.dataset.dslGroup === group;
             var matchesYear = !year || row.dataset.dslYear === year;
             var matchesHouse = !house || row.dataset.dslHouse === house;
@@ -218,9 +218,10 @@ document.addEventListener('DOMContentLoaded', function () {
             var matchesSen = !sen || row.dataset.dslSen === sen;
             var matchesGender = !gender || row.dataset.dslGender === gender;
             var matchesEthnicity = !ethnicity || row.dataset.dslEthnicity === ethnicity;
+            var matchesPp = !pp || row.dataset.dslPp === pp;
             row.style.display = (
-                matchesNeeds && matchesPp && matchesGroup && matchesYear && matchesHouse
-                && matchesReg && matchesSen && matchesGender && matchesEthnicity
+                matchesNeeds && matchesGroup && matchesYear && matchesHouse
+                && matchesReg && matchesSen && matchesGender && matchesEthnicity && matchesPp
             ) ? '' : 'none';
         });
         refreshFilterBarState();
@@ -231,11 +232,7 @@ document.addEventListener('DOMContentLoaded', function () {
             needsToggle.setAttribute('aria-pressed', needsToggle.classList.contains('on') ? 'true' : 'false');
             applyDslFilters();
         });
-        ppToggle.addEventListener('click', function () {
-            ppToggle.classList.toggle('on');
-            ppToggle.setAttribute('aria-pressed', ppToggle.classList.contains('on') ? 'true' : 'false');
-            applyDslFilters();
-        });
+        ppFilter.addEventListener('change', applyDslFilters);
         groupFilter.addEventListener('change', applyDslFilters);
         yearFilter.addEventListener('change', function () {
             refreshRegOptions();
@@ -267,11 +264,10 @@ document.addEventListener('DOMContentLoaded', function () {
             senFilter.value = '';
             genderFilter.value = '';
             ethnicityFilter.value = '';
+            ppFilter.value = '';
             refreshRegOptions();
             needsToggle.classList.remove('on');
             needsToggle.setAttribute('aria-pressed', 'false');
-            ppToggle.classList.remove('on');
-            ppToggle.setAttribute('aria-pressed', 'false');
             applyDslFilters();
         });
     }
