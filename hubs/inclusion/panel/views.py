@@ -3357,6 +3357,8 @@ def inclusion_panel_safeguarding_notes(request):
     needs_briefing_count = sum(1 for r in rows if not r['has_briefing'])
     panel_group_choices = sorted({row['panel'].panel_group.name for row in rows if row['panel'].panel_group_id})
     year_group_choices = sorted({row['student'].year_group for row in rows})
+    house_choices = sorted({row['student'].house for row in rows if row['student'].house})
+    reg_choices = sorted({row['student'].reg_form for row in rows if row['student'].reg_form})
 
     selected_id = request.GET.get('panel_referral')
     selected_row = next((r for r in rows if str(r['panel_referral'].id) == selected_id), None) if selected_id else None
@@ -3368,6 +3370,8 @@ def inclusion_panel_safeguarding_notes(request):
         'needs_briefing_count': needs_briefing_count,
         'panel_group_choices': panel_group_choices,
         'year_group_choices': year_group_choices,
+        'house_choices': house_choices,
+        'reg_choices': reg_choices,
         'selected_row': selected_row,
     }
     return render(request, 'hubs/inclusion/panel/safeguarding_notes.html', context)

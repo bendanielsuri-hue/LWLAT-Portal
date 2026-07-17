@@ -51,6 +51,24 @@ right, both inside one .list-card instead of two.
                 </select>
             </div>
             <div class="filter-field">
+                <label for="dsl-house-filter">House</label>
+                <select id="dsl-house-filter">
+                    <option value="">All</option>
+                    {% for h in house_choices %}
+                    <option value="{{ h }}">{{ h }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="dsl-reg-filter">Reg</label>
+                <select id="dsl-reg-filter">
+                    <option value="">All</option>
+                    {% for r in reg_choices %}
+                    <option value="{{ r }}">{{ r }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
                 <label>Needs briefing only</label>
                 <div class="filter-toggle-wrap">
                     <input type="checkbox" id="dsl-needs-toggle-input" hidden>
@@ -65,7 +83,9 @@ right, both inside one .list-card instead of two.
                    href="?panel_referral={{ row.panel_referral.id }}"
                    data-dsl-briefed="{{ row.has_briefing|yesno:'1,0' }}"
                    data-dsl-group="{{ row.panel.panel_group.name|default:'' }}"
-                   data-dsl-year="{{ row.student.year_group }}">
+                   data-dsl-year="{{ row.student.year_group }}"
+                   data-dsl-house="{{ row.student.house }}"
+                   data-dsl-reg="{{ row.student.reg_form }}">
                     <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                     <div class="entity-body">
                         <div class="row-title-row">
@@ -77,6 +97,7 @@ right, both inside one .list-card instead of two.
                             {% endif %}
                         </div>
                         <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"D d M" }}</div>
+                        <div class="entity-meta">Year {{ row.student.year_group }}{% if row.student.house %} &middot; {{ row.student.house }}{% endif %}{% if row.student.reg_form %} &middot; {{ row.student.reg_form }}{% endif %}</div>
                     </div>
                 </a>
                 {% empty %}
@@ -99,15 +120,21 @@ document.addEventListener('DOMContentLoaded', function () {
     var needsToggle = document.getElementById('dsl-needs-toggle');
     var groupFilter = document.getElementById('dsl-group-filter');
     var yearFilter = document.getElementById('dsl-year-filter');
+    var houseFilter = document.getElementById('dsl-house-filter');
+    var regFilter = document.getElementById('dsl-reg-filter');
     function applyDslFilters() {
         var needsOnly = needsToggle.classList.contains('on');
         var group = groupFilter.value;
         var year = yearFilter.value;
+        var house = houseFilter.value;
+        var reg = regFilter.value;
         document.querySelectorAll('.entity-list [data-dsl-briefed]').forEach(function (row) {
             var matchesNeeds = !needsOnly || row.dataset.dslBriefed === '0';
             var matchesGroup = !group || row.dataset.dslGroup === group;
             var matchesYear = !year || row.dataset.dslYear === year;
-            row.style.display = (matchesNeeds && matchesGroup && matchesYear) ? '' : 'none';
+            var matchesHouse = !house || row.dataset.dslHouse === house;
+            var matchesReg = !reg || row.dataset.dslReg === reg;
+            row.style.display = (matchesNeeds && matchesGroup && matchesYear && matchesHouse && matchesReg) ? '' : 'none';
         });
     }
     if (needsToggle) {
@@ -118,6 +145,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         groupFilter.addEventListener('change', applyDslFilters);
         yearFilter.addEventListener('change', applyDslFilters);
+        houseFilter.addEventListener('change', applyDslFilters);
+        regFilter.addEventListener('change', applyDslFilters);
     }
 
     // Add/Edit/Delete note (.safeguarding-note-form, see
