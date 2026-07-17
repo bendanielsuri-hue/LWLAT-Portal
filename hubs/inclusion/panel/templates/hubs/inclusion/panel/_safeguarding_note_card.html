@@ -18,40 +18,41 @@ re-rendered, swapped in wholesale.
 {% endcomment %}
 <div class="safeguarding-briefing-card safeguarding-briefing-card--scrollable">
     <div class="safeguarding-briefing-header safeguarding-briefing-header--panel">
-        <div>
-            <h2>{{ row.student.first_name }} {{ row.student.last_name }}</h2>
-            <h3>{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</h3>
+        <div class="safeguarding-briefing-header-top">
+            <div>
+                <h2>{{ row.student.first_name }} {{ row.student.last_name }}</h2>
+                <h3>{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"d/m/Y" }}</h3>
+            </div>
+            {% comment %}
+            Ready for Panel: a coloured pill+toggle on the header's right side
+            (#84) - was a small inline toggle-pill in the header, then a
+            full-width banner below it; moved back into the header row once
+            that felt like its own separate section rather than a fact about
+            this student/panel pairing.
+            {% endcomment %}
+            <div class="safeguarding-ready-banner{% if row.panel_referral.briefing_ready %} is-ready{% endif %}">
+                <span class="safeguarding-ready-banner-label">{% if row.panel_referral.briefing_ready %}Ready for Panel{% else %}Not ready for Panel yet{% endif %}</span>
+                {% if can_edit_briefing %}
+                <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_action" value="toggle_ready">
+                    <button type="submit" class="toggle-pill toggle-pill--lg{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
+                </form>
+                {% endif %}
+            </div>
         </div>
-        {% comment %}
-        Ready for Panel: a coloured pill+toggle on the header's right side
-        (#84) - was a small inline toggle-pill in the header, then a
-        full-width banner below it; moved back into the header row once
-        that felt like its own separate section rather than a fact about
-        this student/panel pairing.
-        {% endcomment %}
-        <div class="safeguarding-ready-banner{% if row.panel_referral.briefing_ready %} is-ready{% endif %}">
-            <span class="safeguarding-ready-banner-label">{% if row.panel_referral.briefing_ready %}Ready for Panel{% else %}Not ready for Panel yet{% endif %}</span>
-            {% if can_edit_briefing %}
-            <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="form_action" value="toggle_ready">
-                <button type="submit" class="toggle-pill toggle-pill--lg{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
-            </form>
-            {% endif %}
-        </div>
-    </div>
 
-    {% if can_edit_briefing %}
-    <div class="safeguarding-note-composer">
-        <label for="dsl-add-note-{{ row.panel_referral.id }}" class="safeguarding-note-composer-label">Add Note</label>
-        <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form">
-            {% csrf_token %}
-            <input type="hidden" name="form_action" value="add">
-            <input type="text" id="dsl-add-note-{{ row.panel_referral.id }}" name="text" maxlength="150" placeholder="Write a new safeguarding note..." required>
-            <button type="submit" class="btn btn-add btn-sm">Add Note</button>
-        </form>
+        {% if can_edit_briefing %}
+        <div class="safeguarding-note-composer">
+            <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" class="safeguarding-briefing-form safeguarding-note-form">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="add">
+                <input type="text" id="dsl-add-note-{{ row.panel_referral.id }}" name="text" maxlength="150" placeholder="Write a new safeguarding note..." aria-label="Add Note" required>
+                <button type="submit" class="btn btn-add btn-sm">Add Note</button>
+            </form>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 
     <div class="safeguarding-briefing-notes">
         <div class="referral-section-title referral-section-title--sm">Active Notes</div>
