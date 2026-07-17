@@ -18,10 +18,6 @@
 {% block page_title %}Safeguarding Notes{% endblock %}
 
 {% block content %}
-{% if not is_dsl %}
-<p class="empty-note">This page isn't normally reachable from your sidebar (Safeguarding Notes is DSL-only), but stays open by direct URL like every other page in this app.</p>
-{% endif %}
-
 {% comment %}
 Single merged card (#84, prototyped as variant A - see wayfinder #82's
 Decisions so far for the throwaway branch with the other two variants):
@@ -157,7 +153,9 @@ right, both inside one .list-card instead of two.
                 {% endfor %}
             </div>
             <div class="dsl-briefing-detail-col" id="dsl-briefing-detail">
-                {% if selected_row %}
+                {% if not is_dsl %}
+                <p class="empty-note">Safeguarding notes are visible to Designated Safeguarding Leads only. This page isn't normally reachable from your sidebar, but stays open by direct URL like every other page in this app.</p>
+                {% elif selected_row %}
                 {% include 'hubs/inclusion/panel/_safeguarding_note_card.html' with row=selected_row %}
                 {% else %}
                 <p class="empty-note">Select a student on the left to view or write their safeguarding note.</p>
