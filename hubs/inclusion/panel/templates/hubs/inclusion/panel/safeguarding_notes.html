@@ -67,10 +67,10 @@ right, both inside one .list-card instead of two.
                 </select>
             </div>
             <div class="filter-field">
-                <label>Needs briefing only</label>
+                <label>Not Ready only</label>
                 <div class="filter-toggle-wrap">
                     <input type="checkbox" id="dsl-needs-toggle-input" hidden>
-                    <button type="button" id="dsl-needs-toggle" class="toggle-pill" aria-pressed="false" aria-label="Needs briefing only"><span class="toggle-knob"></span></button>
+                    <button type="button" id="dsl-needs-toggle" class="toggle-pill" aria-pressed="false" aria-label="Not Ready only"><span class="toggle-knob"></span></button>
                 </div>
             </div>
             <div class="filter-secondary-fields" hidden>
@@ -126,7 +126,7 @@ right, both inside one .list-card instead of two.
                 <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
                    href="?panel_referral={{ row.panel_referral.id }}"
                    data-panel-referral-id="{{ row.panel_referral.id }}"
-                   data-dsl-briefed="{{ row.has_briefing|yesno:'1,0' }}"
+                   data-dsl-ready="{{ row.panel_referral.briefing_ready|yesno:'1,0' }}"
                    data-dsl-group="{{ row.panel.panel_group.name|default:'' }}"
                    data-dsl-year="{{ row.student.year_group }}"
                    data-dsl-house="{{ row.student.house }}"
@@ -209,8 +209,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var gender = genderFilter.value;
         var ethnicity = ethnicityFilter.value;
         var pp = ppFilter.value;
-        document.querySelectorAll('.entity-list [data-dsl-briefed]').forEach(function (row) {
-            var matchesNeeds = !needsOnly || row.dataset.dslBriefed === '0';
+        document.querySelectorAll('.entity-list [data-dsl-ready]').forEach(function (row) {
+            var matchesNeeds = !needsOnly || row.dataset.dslReady === '0';
             var matchesGroup = !group || row.dataset.dslGroup === group;
             var matchesYear = !year || row.dataset.dslYear === year;
             var matchesHouse = !house || row.dataset.dslHouse === house;
@@ -348,6 +348,10 @@ document.addEventListener('DOMContentLoaded', function () {
                             pill.textContent = isReady ? 'Ready for Panel' : 'Not Ready';
                             pill.classList.toggle('complete', isReady);
                             pill.classList.toggle('open', !isReady);
+                            // Same fact the pill just switched to - the
+                            // Not Ready only filter reads this attribute
+                            // (see applyDslFilters).
+                            leftRow.dataset.dslReady = isReady ? '1' : '0';
                         }
                         var activeCount = template.content.querySelectorAll('[data-active-notes-list] [data-note-id]').length;
                         var historyCount = template.content.querySelectorAll('[data-history-list] [data-note-id]').length;
@@ -356,7 +360,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             countMeta.textContent = activeCount + ' active note' + (activeCount === 1 ? '' : 's')
                                 + ' · ' + historyCount + ' inactive note' + (historyCount === 1 ? '' : 's');
                         }
-                        leftRow.dataset.dslBriefed = activeCount > 0 ? '1' : '0';
+                        // Re-apply filters now that this row's own facts
+                        // may have changed (e.g. toggling Ready for Panel
+                        // while "Not Ready only" is on) - a filter control
+                        // itself wasn't touched, so nothing else re-runs
+                        // applyDslFilters after a mutation.
+                        applyDslFilters();
                     }
 
                     ['[data-active-notes-list]', '[data-history-list]'].forEach(function (sel) {
