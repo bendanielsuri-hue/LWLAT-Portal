@@ -19,7 +19,7 @@ from core.identity import (
 from core.models import AcademicYear, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student
 from core.modules import filter_by_module, module_map
 from core.student_history import attendance_percentage, behaviour_summary, exclusion_count
-from core.term_dates import next_half_term, next_term
+from core.term_dates import next_half_term, next_term, upcoming_review_terms
 
 from .models import (
     Action,
@@ -3161,6 +3161,12 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'panel_notes': panel_referral.notes.select_related('author'),
         'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),
         'next_term_date': next_term(referral.student.school, timezone.localdate()),
+        # End Discussion's own "Review in..." picker (#100) - every term
+        # left in the current academic year, named, plus a rolled-over Next
+        # Autumn Term once none are left. Distinct from next_term_date above,
+        # which still backs the Actions due-date picker included further
+        # down this page via _discussion_action_item.html.
+        'review_term_options': upcoming_review_terms(referral.student.school, timezone.localdate()),
     }
 
     return render(request, 'hubs/inclusion/panel/discussion.html', context)
