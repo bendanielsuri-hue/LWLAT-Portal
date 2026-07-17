@@ -1,11 +1,11 @@
 {% comment %}
-mode: 'compact' (running-state In/Not In Attendance groups - name + toggle
-only) or 'readonly' (a complete panel's frozen attendance record - photo,
-expertise, Joined/Left timestamps, no toggle). The pre-start roster uses
+mode: 'compact' (running-state In/Not In Attendance groups - photo,
+expertise pill, Chair pill, name + toggle, no timestamps) or 'readonly' (a
+complete panel's frozen attendance record - photo, expertise, Joined/Left
+timestamps, no toggle). The pre-start roster uses
 _panel_agenda_member_card.html instead.
 {% endcomment %}
 <div class="entity-row selectable{% if mode == 'compact' %} entity-row--compact{% endif %}">
-    {% if mode == 'readonly' %}
     <div class="entity-thumb">
         {% if member.staff and member.staff.photo %}
         <img src="{{ member.staff.photo.url }}" alt="">
@@ -13,7 +13,6 @@ _panel_agenda_member_card.html instead.
         {% include 'icons/avatar_placeholder_svg.html' %}
         {% endif %}
     </div>
-    {% endif %}
     <div class="entity-body">
         <div class="entity-title">{% if member.staff %}{{ member.staff }}{% else %}{{ member.external_contact }}{% endif %}</div>
         {% if mode == 'readonly' %}
@@ -26,6 +25,10 @@ _panel_agenda_member_card.html instead.
         <div class="entity-meta">Joined {{ member.checked_in_at|time:"H:i" }}{% if member.left_at %} &middot; Left {{ member.left_at|time:"H:i" }}{% endif %}</div>
         {% endif %}
         {% else %}
+        <div class="entity-meta">
+            {% if member.staff_id and member.staff_id == panel.effective_chair_id %}<span class="status-pill type-chair">Chair</span>{% endif %}
+            {% if member.expertise %}<span class="status-pill">{{ member.expertise.name }}</span>{% endif %}
+        </div>
         <form method="post" class="member-attendance-form">
             {% csrf_token %}
             <input type="hidden" name="member_id" value="{{ member.id }}">
