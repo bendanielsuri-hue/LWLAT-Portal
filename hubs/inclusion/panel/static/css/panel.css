@@ -671,6 +671,14 @@
    .setup-col-header since editing group membership is a rare, out-of-band
    action, not this card's everyday job (attendance-taking). */
 .setup-col-footer { flex-shrink: 0; display: flex; justify-content: flex-end; padding-top: var(--space-sm); }
+/* "Edit Group Membership" runs on with its icon in the narrow Members
+   Register column (.setup-col--narrow, 220-240px) - .btn's own
+   white-space:nowrap keeps it from wrapping at all, so it overflows the
+   column instead. flex-wrap here plus .btn-label-break's flex-basis:100%
+   forces "Membership" onto its own line (still centred, same as the rest
+   of the label, via .btn's own justify-content:center applying per line). */
+[data-open-group-edit-trigger] { flex-wrap: wrap; }
+[data-open-group-edit-trigger] .btn-label-break { flex-basis: 100%; }
 .setup-col h2, .discussion-col h2, .discussion-toolbar-card h2 { font-size: var(--font-xl); margin-bottom: var(--space-md); }
 
 /* Panel Discussion cards (Student Details, Referral Details, Actions, DSL
@@ -2558,18 +2566,18 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    above. Same fixed-footer extension of the header/body split
    dialog.modal-dialog already uses (root DesignLanguage.md's "Card-internal
    scroll with a fixed header"), so it stays flush against the bottom of the
-   dialog regardless of how long the member list/picker above it gets. */
+   dialog regardless of how long the member list/picker above it gets.
+   Centred rather than docked to an edge - whichever button(s) are visible
+   (Add Member alone, or Back plus New External Contact) read as one
+   self-contained action slot, not an advancing/undoing pair that needs a
+   side each. */
 #panel-group-dialog .panel-group-modal-footer {
     flex-shrink: 0;
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
+    gap: var(--space-sm);
     padding-top: var(--space-sm);
 }
-/* Forward-moving actions (+ Add Member) dock right by default (the flex-end
-   above); Back is the one exception - it undoes rather than advances, so it
-   pins left instead via its own margin-right:auto, regardless of whether
-   it's rendering alongside another button or (as today) alone. */
-#panel-group-dialog [data-members-back-btn] { margin-right: auto; }
 
 /* Add Expertise Tag - a single-field quick-add, narrower than the shared
    560px modal shell (dialog.modal-dialog) since one label+input+btn-row
