@@ -1,3 +1,26 @@
+/* Building a new bordered "card" container -- start from the base case, then
+   branch:
+   1. Base case: bordered/filled/standalone, not a form input/popover/modal/row
+      divider: background: var(--bg-surface); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-xl); padding: 20px; box-shadow: var(--card-shadow).
+      Border is always --border-strong -- a paler border can fail to read as an
+      edge depending on the active theme's own surface tone.
+   2. Content needs to scroll independently? -> add display: flex; flex-direction:
+      column to host a scrollable body (list container card).
+   3. It's a compact metric tile, not a content container? -> flex: 1 1 200px;
+      padding: 16px 20px; add border-left: 4px solid <semantic colour> + a
+      top-right icon if it needs to flag a threshold (accent stat card).
+   4. It's optional/collapsible detail? -> use <details> instead of a div,
+      pseudo-content triangle, no native marker (settings section).
+   Whether several sections already sitting inside one outer bordered container
+   should each get their own nested card, or stay borderless and divide with a
+   rule between them, depends on the content/container too much to fix as one
+   portal-wide answer -- an app-level call where it comes up.
+
+   Key-fact row (label: value, one per line): display: grid; grid-template-columns:
+   minmax(160px, 200px) 1fr; column-gap: 16px; value text-align: left. (DES-A1)
+   Never right-align the value against a left-aligned label. */
+
 /* Hub landing page cards */
 .hub-card {
     display: flex;

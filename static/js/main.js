@@ -1087,7 +1087,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // Unlike a normal filter change - where the control the user
                 // just touched already shows its new value - the AJAX swap
                 // only ever replaces the target, never the filter bar itself
-                // (see DesignLanguage.md "Server-side dashboard filter"), so
+                // (see the filter-bar branch of DES-L1), so
                 // nothing resets the bar's own controls back to "no filter"
                 // on Clear Filters. form.reset() looked like the obvious
                 // fix but is wrong here: it restores each control's value at
@@ -1313,7 +1313,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             selectEl.classList, function (c) { return c !== 'ui-select-native'; }
         ).join(' ');
         // .ui-fused-field--stacked selects (e.g. Chair) center their value
-        // under a centered label - see DesignLanguage.md "Text alignment".
+        // under a centered label - see DES-A2.
         // That context lives on an ancestor, not the <select>'s own class
         // list, so it can't be picked up by the mirroring above.
         if (selectEl.closest('.ui-fused-field--stacked')) {
@@ -1888,7 +1888,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // shape from .ui-popover's option-list style (Panel Group/Chair
         // selects, the calendar grid): there's no discrete list of times to
         // browse, so a spinner reads more honestly than a scrollable column
-        // of every minute. See DesignLanguage.md.
+        // of every minute (DES-L1: layout follows what the content forces).
         function renderTimePopover() {
             var parts = currentParts();
             var isPM = parts.hour24 >= 12;

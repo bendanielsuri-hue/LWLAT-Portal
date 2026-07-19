@@ -12,8 +12,9 @@
        horizontal stays --space-lg, this is vertical-only. */
     padding: var(--space-xs) var(--space-lg);
     /* --bg-well, not --bg-surface-alt: the bar is a controls strip (chrome),
-       not an editable field itself (see DesignLanguage.md "Editable field
-       background") - --bg-surface-alt sits too close to --bg-surface/--bg-page
+       not an editable field itself (see DES-F1 in PRINCIPLES-DESIGN.md, and
+       the depth-ladder/affordance comment in theme/light.css) -
+       --bg-surface-alt sits too close to --bg-surface/--bg-page
        in several themes (e.g. Soft/pastel) to read as its own layer, especially
        since Pastel cards carry no shadow. --bg-well already exists for exactly
        this "you're inside interactive chrome" tier, reused rather than adding a
@@ -95,7 +96,7 @@
        --primary (the app's "this is active/selected" signal - see every
        .filter-field--active, .ui-segmented-option.active, etc.) unless a
        filter is actually applied. Only goes --primary once the count badge
-       is non-empty (see DesignLanguage.md "Filter bar"). */
+       is non-empty (see the layout-pattern-selection comment in layout.css). */
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -241,13 +242,25 @@
    (not fixed), so a border that appears only on activation grows the box
    by ~2px and visibly nudges every field after it (see grilling session
    2026-07-12). */
+/* Fused vs. plain fields -- decide in order:
+   1. Is this a filter-bar field? -> Never fuse it -- the active-filter
+      highlight needs to fill the whole label+control wrapper as a "chip"; a
+      permanent fused border on every field would blunt that contrast.
+   2. (DES-C1) Otherwise, is there horizontal room beside the control for its
+      label without cramping the value? -> Left Fused: label beside control,
+      one shared border -- the default whenever there's room.
+   3. Not enough width (a narrow multi-column row)? -> Upper Fused: label
+      above, boxed, value always centred regardless of content. (DES-S2) But
+      if this row also holds single-line controls, Upper Fused's taller shape
+      will misalign against them -- fall back to plain there instead.
+   4. Neither fits at all? -> Fall back to a plain label-above .field-group. */
 .filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); padding: var(--space-xs) var(--space-sm); max-width: 200px; border: 1px solid transparent; }
 /* Left, not centred: matches every other label in the app (.field-group
    label, .ui-fused-field-label - neither overrides text-align, both plain
    left) - .filter-field was the one place centering labels at all. Left also
    lines the label up with the select/input's own left-aligned text below it
-   (see DesignLanguage.md "Text alignment") instead of sitting disconnected
-   over its midpoint (see grilling session 2026-07-12). */
+   (DES-A2) instead of sitting disconnected over its midpoint (see grilling
+   session 2026-07-12). */
 /* nowrap/ellipsis, same treatment as the select/trigger below it - a label
    should never wrap to a second line under this field's own 200px cap.
    font-weight: 600 matches every other label in the app (.field-group
@@ -257,7 +270,10 @@
    page for no real reason (see grilling session 2026-07-12). */
 .filter-field label { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .filter-field input, .filter-field select {
-    padding: var(--space-xs) var(--space-sm); /* matches button height, see DesignLanguage.md */
+    /* (DES-S1) Single-line control height matches button height: same vertical
+       padding as .btn (--space-xs), not a more generous default. Doesn't apply
+       to <textarea> or other inherently multi-line controls. */
+    padding: var(--space-xs) var(--space-sm);
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
     background: var(--bg-surface-alt);
@@ -349,12 +365,12 @@ select.ui-select-native, input.ui-select-native {
 }
 .ui-select-trigger {
     width: 100%;
-    /* Left-aligned by default per DesignLanguage.md "Text alignment" - most
-       selects hold names or descriptions/categories, which read left like
-       any other text. Vertical padding matches .btn's own (--space-xs) -
-       dropdowns and buttons sit side by side throughout the app (e.g.
-       Inclusion Panel's row actions), so the two should be the same height
-       by default rather than a select consistently reading taller.
+    /* (DES-A2) Left-aligned by default - most selects hold names or
+       descriptions/categories, which read left like any other text.
+       (DES-S1) Vertical padding matches .btn's own (--space-xs) - dropdowns
+       and buttons sit side by side throughout the app (e.g. Inclusion Panel's
+       row actions), so the two should be the same height by default rather
+       than a select consistently reading taller.
        Left padding matches the plain text-input reset's own --space-sm
        below; right stays wider (34px) to leave room for the chevron. */
     text-align: left;
@@ -426,6 +442,9 @@ select.ui-select-native, input.ui-select-native {
    still set per-instance by positionPopover(), anchored to the trigger's
    getBoundingClientRect(); margin/border/backdrop here neutralize the
    browser's default <dialog> chrome. */
+/* Floating dialog detached from its trigger by a small gap, fully rounded,
+   own elevation shadow (matches the modern convention — Material 3,
+   Radix/shadcn, macOS/iOS). Never flush/square-cornered. */
 dialog.ui-popover { margin: 0; }
 dialog.ui-popover::backdrop { background: transparent; }
 .ui-popover {
@@ -456,7 +475,7 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-option:hover, .ui-option.highlighted { background: var(--row-hover-bg); color: var(--primary); }
 /* Fill-only variant of the sitewide chosen/selected convention
    (.entity-row.chosen, .panel-list li.chosen, etc. use fill + a left accent
-   bar — see InteractionLanguage.md's "Chosen / selected state on a row").
+   bar — see the chosen-state rule in components/cards.css).
    A popover option skips the bar deliberately: options are already
    corner-clipped to the popover's own radius, and a left bar reads oddly
    against that clipped edge on the first/last row of a column. */
@@ -466,7 +485,7 @@ dialog.ui-popover::backdrop { background: transparent; }
     color: var(--primary);
 }
 /* Hover on a selected row keeps the selected fill rather than reverting to
-   the plain hover fill — same rule InteractionLanguage.md documents for
+   the plain hover fill — same rule components/cards.css documents for
    .chosen rows elsewhere. */
 .ui-option.selected:hover, .ui-option.selected.highlighted { background: var(--primary-light); }
 .ui-option.muted { color: var(--text-secondary); background: var(--bg-surface-alt); }
@@ -490,7 +509,7 @@ dialog.ui-popover::backdrop { background: transparent; }
 
 /* Opt-in centering for selects whose values are short status/enum words
    (High/Medium/Low, Y/N, single-letter codes) rather than names or
-   descriptions - see DesignLanguage.md "Text alignment". Put the class on
+   descriptions (DES-A2). Put the class on
    the source <select> itself; enhanceSelect() (static/js/main.js) mirrors
    the select's own classes onto both the trigger (render()) and its
    popover panel (creation time), so this one class reaches both the closed
@@ -557,9 +576,9 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-select--sm { flex: 1; min-width: 0; }
 .ui-select--sm .ui-select-trigger {
     /* Day/Month/Year and Hour/Minute values are bare numbers, not names/
-       descriptions, so they stay centered per DesignLanguage.md "Text
-       alignment" even though the base .ui-select-trigger default is now
-       left. Symmetric padding keeps that centered text visually centred
+       descriptions, so they stay centered (DES-A2) even though the base
+       .ui-select-trigger default is now left. Symmetric padding keeps that
+       centered text visually centred
        within the box itself, matching the calendar/clock button's own
        fixed width to its right. */
     text-align: center;
@@ -841,8 +860,8 @@ dialog.ui-popover::backdrop { background: transparent; }
     grid-row: 2;
 }
 /* Stacked/Card-style selectors always keep a centered value under their
-   centered label (e.g. the Chair field) - see DesignLanguage.md "Fused vs.
-   plain, and Left vs. Upper fused". This overrides the base trigger's new
+   centered label (e.g. the Chair field) - see the "Fused vs. plain fields"
+   decision tree above .filter-field. This overrides the base trigger's new
    left-aligned default even for name/description content. Restores the
    symmetric 34px/34px padding the base rule used before it switched to an
    asymmetric left-aligned default, so the centered text still sits at the
@@ -1023,8 +1042,7 @@ dialog.ui-popover::backdrop { background: transparent; }
 .field-group label:not(:first-child) { margin-top: var(--space-md); }
 /* Vertical padding matches .btn's (--space-xs) rather than --space-sm so a
    single-line field renders at the same height as a button sitting beside
-   or below it - see DesignLanguage.md's "Single-line control height"
-   convention. Horizontal padding stays the more generous --space-sm since
+   or below it (DES-S1). Horizontal padding stays the more generous --space-sm since
    that axis has no button to match. */
 .field-group input, .field-group select, .field-group .field-box {
     width: 100%;
@@ -1125,7 +1143,11 @@ dialog.ui-popover::backdrop { background: transparent; }
 
 /* Segmented control — for any control with 3 or fewer static options.
    Always-visible buttons in one shared bordered box beat a hidden <select>
-   for a small fixed option set (see DesignLanguage.md "Segmented control").
+   for a small fixed option set. Exception: inside a filter bar, use a
+   dropdown even for <=3 options — horizontal space there is at a premium,
+   so this control stays consistent with its sibling filter fields; the
+   segmented default still applies everywhere else (row-level controls,
+   detail views, etc.).
    Active option reuses .filter-field--active's vocabulary (primary-light
    fill = "this is the active choice") so Search's has-text state, filter
    chips, and this control all read as one consistent signal. Inactive

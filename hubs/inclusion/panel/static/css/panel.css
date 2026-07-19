@@ -509,9 +509,10 @@
    Primary filter fields stay inline; candidate/secondary filters sit
    behind a "More filters" toggle - a filled button chip, same .btn.btn-sm
    height as Clear Filters, so it reads as a standard button rather than a
-   dropdown or one-off control (per DesignLanguage.md's rule against
-   hiding 3-or-fewer static options behind a <select>, this is instead for
-   an open-ended set of secondary filters, not a fixed small choice set).
+   dropdown or one-off control (per the segmented-control rule in
+   components/forms.css against hiding 3-or-fewer static options behind a
+   <select>, this is instead for an open-ended set of secondary filters,
+   not a fixed small choice set).
    More filters/Clear Filters are a sibling of the fields wrap (not one
    more item wrapping inside it), so they always sit at the bar's true
    right edge regardless of how many field rows wrap on the left. See
@@ -592,7 +593,7 @@
 /* Panel Discussion's cards (Student Details, Referral Details, etc.) scroll
    internally past viewport height instead of growing the whole page. Same
    "Card-internal scroll with a fixed header" split as .setup-col-body
-   (DesignLanguage.md): the column itself is the flex column with a fixed
+   (DES-L1): the column itself is the flex column with a fixed
    max-height (there's no .list-page-shell stretching it to an exact height
    here, so max-height + overflow: hidden stands in for height + overflow:
    hidden), its own <h2> is a non-scrolling flex-shrink: 0 sibling, and
@@ -665,8 +666,7 @@
 }
 /* Panel Agenda's Members Register: a persistent action slot pinned below the
    scrolling member list, same fixed-footer extension of the header/body
-   split as #panel-group-dialog's own .panel-group-modal-footer (see
-   DesignLanguage.md's "Card-internal scroll with a fixed header") - stays
+   split as #panel-group-dialog's own .panel-group-modal-footer (DES-L1) - stays
    reachable without scrolling down past a long member list, and out of
    .setup-col-header since editing group membership is a rare, out-of-band
    action, not this card's everyday job (attendance-taking). */
@@ -734,9 +734,10 @@
    so it's left-aligned like the h3 sub-headings instead of centred. */
 .setup-col--narrow > .setup-col-header h2 { text-align: left; grid-column: 1; justify-self: start; }
 /* ...except the Members Register card, which reads as this page's own
-   centrepiece (root DesignLanguage.md's Information hierarchy: every
-   card/column heading is centre-aligned) same as Referral Selection's -
-   only Settings/Panel Summary above wants the left-aligned aside look. */
+   centrepiece (every card/column heading is centre-aligned by default, per
+   the --font-xl convention in tokens/typography.css) same as Referral
+   Selection's - only Settings/Panel Summary above wants the left-aligned
+   aside look. */
 .members-register-col.setup-col--narrow > .setup-col-header h2 { text-align: center; grid-column: 2; justify-self: auto; }
 .setup-col-header > .btn,
 .setup-col-header > form { grid-column: 3; justify-self: end; }
@@ -847,9 +848,8 @@
     background: var(--primary);
 }
 
-/* Status-filter tab entering/leaving the tab row (DesignLanguage.md's
-   "Status-filter tab rows", InteractionLanguage.md's own section of the same
-   name) - a tab whose count is 0 still isn't rendered as a disabled state,
+/* Status-filter tab entering/leaving the tab row (INT-U10: transition
+   rather than a sudden jump) - a tab whose count is 0 still isn't rendered as a disabled state,
    it's just collapsed to zero width instead of omitted from the DOM outright,
    so JS can transition it in/out live instead of it appearing/disappearing
    with a snap. 200px is a generous cap for these labels (longest is "Not
@@ -868,13 +868,12 @@
     transition: opacity 260ms ease, max-width 260ms ease, padding-left 260ms ease, padding-right 260ms ease;
 }
 
-/* Count-delta pulse (InteractionLanguage.md's "Tab count-delta pulse") -
+/* Count-delta pulse (INT-U14) -
    fires on any live count when an action changes it, not on a page load -
    a tab's own (N), or a card/section heading's count (.panel-card-count and
    similar). Scale + colour, no background box (read too "boxy" at this text
    size) and no weight change. Deliberately NOT gated behind
-   prefers-reduced-motion - see InteractionLanguage.md's "prefers-reduced-
-   motion scope": this is a passive indicator, not a hover effect on
+   prefers-reduced-motion: this is a passive indicator, not a hover effect on
    something clickable. Not scoped to .tab-row - applies wherever
    window.pulseCount() is called (see panel.js). */
 .count-pulse-up, .count-pulse-down { display: inline-block; transform-origin: center; }
@@ -1017,7 +1016,7 @@
    the boxed field-group/field-readonly treatment above, which read like an
    editable form despite nothing here being editable (#49, prototyped on
    prototype/49-condensed-referral-details). Row grid/border technique
-   matches the "Key-fact row" pattern DesignLanguage.md already documents
+   matches the "Key-fact row" pattern (DES-A1)
    and .referral-decision-strip .summary-line already implements - same
    minmax(160px, 200px) 1fr columns, border via the sibling selector
    (never a trailing border after the last row) rather than border-bottom
@@ -1256,8 +1255,8 @@
 .safeguarding-briefing-list li + li { border-top: 1px solid var(--border-color); }
 /* Safeguarding Briefings screen (#71/#74) named layout classes, replacing
    what would otherwise be one-off inline styles for structural patterns
-   (two-column split, card-internal-scroll) DesignLanguage.md expects as
-   reusable classes, not inline declarations. */
+   (two-column split, card-internal-scroll) the layout-pattern-selection
+   rule (DES-L1) expects as reusable classes, not inline declarations. */
 .list-page-shell.dsl-briefings-shell { flex-direction: row; gap: var(--space-md); }
 .dsl-briefings-shell .list-card--narrow { flex: 0 0 380px; }
 .dsl-briefings-shell .list-card--detail { flex: 1 1 auto; }
@@ -1448,7 +1447,7 @@
 .members-register-placeholder { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 600; margin: 0 0 var(--space-sm); }
 /* Panel Agenda wraps toolbar + agenda-layout in the standard .list-page-shell
    (see meeting_setup.html's identical .list-page-shell .setup-columns rule
-   above, and DesignLanguage.md "Card-internal scroll with a fixed header") -
+   above, and DES-L1) -
    the live stats bar (elapsed timer, progress, counts) stays pinned while
    each column's own list scrolls, rather than the whole page scrolling with
    it. align-items: stretch overrides .agenda-layout's own align-items: start
@@ -1472,7 +1471,7 @@
 
 /* Settings (Group/Date/Chair) is a true non-scrolling flex sibling of
    .setup-col-body, same "Card-internal scroll with a fixed header" technique
-   .setup-col-header/.modal-header use (see DesignLanguage.md) - not
+   .setup-col-header/.modal-header use (DES-L1) - not
    position: sticky inside the scrolling body, which used to make the
    Members entity-list's own scrollbar run the full height of this
    unusually-tall block (Group + Date + Chair + the Members sub-heading),
@@ -2170,7 +2169,7 @@ textarea.referral-field-compact { min-height: 44px; resize: vertical; }
    left-aligned, close together, is the same reasoning behind .field-group's
    label-above-value stacking elsewhere in the app - a value should sit
    right next to (or under) the label it answers, never opposite it. See
-   "Key-fact row" in DesignLanguage.md. */
+   the "Key-fact row" pattern (DES-A1). */
 .referral-decision-strip { background: var(--bg-nested); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-md); margin-bottom: var(--space-md); }
 .referral-decision-strip .summary-line { display: grid; grid-template-columns: minmax(160px, 200px) 1fr; column-gap: var(--space-md); align-items: baseline; font-size: var(--font-sm); padding: var(--space-xs) 0; }
 .referral-decision-strip .summary-line + .summary-line { border-top: 1px solid var(--border-color); }
@@ -2260,7 +2259,7 @@ textarea.referral-field-compact { min-height: 44px; resize: vertical; }
    position: sticky within it) and .modal-body is the one scrolling child
    (flex: 1 1 auto; min-height: 0; overflow-y: auto below) - same
    "Card-internal scroll with a fixed header" technique as .setup-col/
-   .setup-col-body (see DesignLanguage.md). Fixes two things at once: the
+   .setup-col-body (DES-L1). Fixes two things at once: the
    scrollbar no longer runs behind the header (it starts exactly where
    .modal-body starts), and it no longer sits flush against the dialog's own
    rounded corners (it's now inset by .modal-body's own padding, a plain
@@ -2324,7 +2323,7 @@ dialog.modal-dialog.is-open::backdrop {
 /* Fade toggle - generic "this one thing appears/disappears in place"
    companion to window.setFadeHidden (panel.js), for elements too small to
    change the dialog's own height (a footer button swap, not a whole
-   section) - see InteractionLanguage.md "Fade toggle". Only takes effect
+   section). Only takes effect
    once JS has added the class (a call to setFadeHidden); a plain
    server-rendered `hidden` attribute with neither class still just snaps
    via the [hidden] UA rule, same as any other element on first paint. */
@@ -2443,7 +2442,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    everything below it (tabs + member list, or the Add Member picker) is a
    separate scrolling body - same "header outside, body scrolls" split
    dialog.modal-dialog itself uses one level up (.modal-header/.modal-body,
-   see DesignLanguage.md "Card-internal scroll with a fixed header"), just
+   DES-L1), just
    applied a second time inside this specific dialog's .modal-body so the
    member list's own scrollbar starts below the header instead of running
    behind it. */
@@ -2461,8 +2460,8 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    header) carries it; the New Panel Group form has nothing below it. */
 /* Also a .ui-fused-field-group (Name + Chair as its two rows) so both
    labels share one subgrid and render the same width instead of each
-   one-field form guessing its own - see DesignLanguage.md "Fused field"
-   ("Matching label widths"). Beats .panel-group-modal-header's own
+   one-field form guessing its own - see DES-C1 ("Matching label widths").
+   Beats .panel-group-modal-header's own
    unconditional `display: flex` above via the ID selector's specificity,
    not source order. */
 #panel-group-dialog [data-panel-group-header] {
@@ -2478,7 +2477,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    (panel.js) strips this class off the same fetched form when swapping it
    into a *different* modal (Create Panel Meeting/Edit Panel Settings)
    instead, in favour of .ui-fused-field-group + its own .btn-row (below) -
-   see DesignLanguage.md's "Inline creation swap" for why. */
+   see INT-U16 for why. */
 #panel-group-dialog .panel-group-modal-sticky-row {
     display: flex;
     align-items: flex-end;
@@ -2507,8 +2506,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    which keeps everything in one row). */
 [data-inline-create-host] .ui-fused-field-group { margin-bottom: var(--space-md); }
 /* Bleeds out through .modal-body's own right padding (same technique as
-   .panel-search-results/.setup-col-body, see DesignLanguage.md "Card-internal
-   scroll with a fixed header") so this scroll region's scrollbar sits flush
+   .panel-search-results/.setup-col-body, DES-L1) so this scroll region's scrollbar sits flush
    against the dialog's right edge instead of inset by --space-xl.
    padding-right restores that gap for the content itself (tab row, member
    rows) so nothing actually shifts, only the scrollbar's own position does. */
@@ -2553,14 +2551,15 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 #panel-group-dialog .member-row-controls .ui-fused-field-group { flex: 1; min-width: 0; }
 #panel-group-dialog .member-row-controls .member-attendance-form { margin-top: 0; flex-shrink: 0; }
 /* Tabs (Active/Inactive Members) get their own row, no button beside them -
-   see root DesignLanguage.md's tab-row anti-pattern #17. margin-left: 0 is
+   see the "Tab row" rule in components/navigation.css. margin-left: 0 is
    just restating .tab-row's own default (no bleed) explicitly, since it
    sits directly under this selector's specificity - .modal-body's own
    padding (--space-xl) is what the tabs align with unbled.
    Sticky against .panel-group-modal-scroll (its nearest scrolling ancestor)
    so the tabs stay put as the member list scrolls underneath them, same
    "tab row pinned above its own scrolling body" treatment as
-   .setup-col-body .tab-row - see root DesignLanguage.md's "Tab row" section.
+   .setup-col-body .tab-row - see the "Tab row" rule in
+   components/navigation.css.
    Keeps the base .tab-row rule's own border-bottom (not overridden here),
    same as that Referral Selection instance - the divider belongs directly
    under the tabs, not between the static Name/Chair fields above and the
@@ -2572,8 +2571,8 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
     z-index: 1;
     background: var(--bg-surface);
 }
-/* margin-bottom matches .tab-row's own (--space-md), not the root
-   DesignLanguage.md spacing table's generic 28px below an <h3> - this
+/* margin-bottom matches .tab-row's own (--space-md), not the usual
+   generic 28px below an <h3> - this
    heading only ever renders in place of the tab-row (a brand-new group
    with no members at all yet), so it needs the same gap above the member
    list the tab-row would leave, not a bigger one that shifts the list down
@@ -2585,8 +2584,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    than each view rendering its own trailing button inline - moved here
    specifically so it no longer shares a row with the Active/Inactive tabs
    above. Same fixed-footer extension of the header/body split
-   dialog.modal-dialog already uses (root DesignLanguage.md's "Card-internal
-   scroll with a fixed header"), so it stays flush against the bottom of the
+   dialog.modal-dialog already uses (DES-L1), so it stays flush against the bottom of the
    dialog regardless of how long the member list/picker above it gets.
    Centred rather than docked to an edge - whichever button(s) are visible
    (Add Member alone, or Back plus New External Contact) read as one
@@ -2620,8 +2618,8 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    shift the top edge upward on every grow, which reads far jumpier than a
    stable top with a moving bottom - a cost worth paying when height keeps
    changing, but not for a dialog that only ever resizes once or twice per
-   open (see InteractionLanguage.md "Modal content swap" for the full
-   growable-vs-mode-switch distinction, and why Panel Meeting/Settings is
+   open (the growable-vs-mode-switch distinction above is the full reasoning
+   for why Panel Meeting/Settings is
    the one dialog that looks similar but stays centered instead).
    - Panel Search: result count changes on every keystroke.
    - Panel Group Edit: tabs, add/remove members, search-filtered picker.
@@ -2662,11 +2660,10 @@ dialog#panel-search-dialog .modal-body {
 }
 /* Layout glue only — border/background/hover/focus/has-text states come
    from the shared .app-search-field/.app-search-input component in
-   navigation.css (see DesignLanguage.md "Search"). */
+   navigation.css (INT-U13). */
 .panel-search-field { width: 100%; flex: 0 0 auto; }
 /* Bleeds out through .modal-body's own right padding (same technique as
-   .setup-col-body, see DesignLanguage.md "Card-internal scroll with a fixed
-   header") so the results list's scrollbar sits flush against the dialog's
+   .setup-col-body, DES-L1) so the results list's scrollbar sits flush against the dialog's
    right edge instead of inset by --space-xl. padding-right restores that gap
    for the row content itself; left stays untouched so it keeps lining up
    with .panel-search-field above it. */
@@ -2707,8 +2704,8 @@ dialog#panel-search-dialog .modal-body {
 .panel-group-member-row { display: flex; gap: var(--space-xs); margin-bottom: var(--space-xs); }
 .panel-group-member-row select { flex: 1; min-width: 0; }
 
-/* Source segmented control (still 3 always-visible buttons, see
-   DesignLanguage.md "Segmented control") stacks above Search as one fused
+/* Source segmented control (still 3 always-visible buttons, see the
+   segmented-control comment in components/forms.css) stacks above Search as one fused
    component, not two independently-bordered ones beside each other - no
    border-radius seam between them, single shared outer border/corner
    radius, one divider line between the two rows. Each option is flex: 1
@@ -2789,7 +2786,7 @@ dialog#panel-search-dialog .modal-body {
    true edge - not the dialog edge itself. padding-right restores that gap
    for the rows themselves, so only the scrollbar's position moves. */
 /* No outer card - see the matching comment on .referral-student-results
-   above and InteractionLanguage.md "Search". */
+   above (INT-U13). */
 .member-result-list {
     max-height: min(65vh, 480px);
     overflow-y: auto;
@@ -2861,7 +2858,7 @@ dialog#panel-search-dialog .modal-body {
 .btn-icon-only { flex: 0 0 auto; padding: 0 14px; line-height: 1; }
 
 /* Border/hover/focus/has-text states come from the shared .app-search-field
-   component in navigation.css (see DesignLanguage.md "Search"), which wins
+   component in navigation.css (INT-U13), which wins
    over .field-group input's generic styling on specificity. */
 /* Bleeds out through .modal-body's own right padding, same technique (and
    same reason) as .panel-search-results above - otherwise the scrollbar
@@ -2872,7 +2869,7 @@ dialog#panel-search-dialog .modal-body {
    sit directly in the modal's own flow, hugging their actual content via
    max-height (not a fixed height reserving dead space), each row reading as
    its own rounded "card" only once hovered/active rather than a permanently
-   boxed list. See InteractionLanguage.md "Search". */
+   boxed list (INT-U13). */
 .referral-student-picker .referral-student-results {
     max-height: min(60vh, 400px);
     overflow-y: auto;

@@ -16,8 +16,8 @@ window.resolvePanelSchoolFilter = function (groupOptions, currentStaffSchoolId) 
 // Client-side filter bars (Students/Referrals/Actions) don't submit/reload —
 // they filter .entity-rows in place — but should still get the same
 // .filter-bar-label/.filter-bar-count active-count badge and
-// .filter-field--active highlight as the server-side dashboard flavour (see
-// DesignLanguage.md "Filter bar"). Rather than duplicate that bookkeeping in
+// .filter-field--active highlight as the server-side dashboard flavour
+// (DES-L1, filter bar branch). Rather than duplicate that bookkeeping in
 // each page's own inline <script>, wire it once here: pass the .filter-bar
 // element, get back a refresh() to call from the page's own
 // applyFilters()/clearFilters() whenever a control changes.
@@ -222,8 +222,7 @@ window.animateModalHeightChange = function (dialog, mutate) {
 // the Panel Group modal footer swapping "+ Add Member" for "Back"/"New
 // External Contact". Genuine height-affecting swaps still go through
 // window.animateModalHeightChange above - this is for the plain "this one
-// thing appears/disappears in place" case that rule doesn't cover, per
-// InteractionLanguage.md's "Fade toggle" entry.
+// thing appears/disappears in place" case that rule doesn't cover.
 //
 // [hidden] is UA-styled `display: none`, which can't be transitioned - so
 // hiding needs the *opposite* order from showing: drop opacity first (via
@@ -381,8 +380,8 @@ window.setFadeHidden = function (el, hide) {
         }
 
         // Hidden until typed, server-fetched, debounced 250ms with a 2-char
-        // minimum - the shared Search precedent (InteractionLanguage.md
-        // "Search"), same numbers as Panel search and Add Member.
+        // minimum - the shared Search precedent (INT-U13), same numbers as
+        // Panel search and Add Member.
         search.addEventListener('input', function () {
             var term = search.value.trim();
             clearTimeout(debounceTimer);
@@ -678,8 +677,8 @@ window.setFadeHidden = function (el, hide) {
     // add mode; [data-members-back-btn] (same footer, hidden until add mode)
     // exits it without adding. Both live in the one persistent footer slot
     // below the scrolling member list/picker rather than each view rendering
-    // its own trailing button inline - see hubs/inclusion/panel/DesignLanguage.md's
-    // "Edit Panel Group modal" section for why. The whole sticky header
+    // its own trailing button inline, so the two modes never fight over one
+    // button's label/meaning. The whole sticky header
     // (Name/Chair) hides while adding - Default Chair only makes sense
     // against members that already exist, and the add-member picker doesn't
     // need the group's own name repeated above it. Always resets to list
@@ -701,8 +700,7 @@ window.setFadeHidden = function (el, hide) {
             if (header) header.hidden = mode !== 'list';
             // The footer's own buttons are small, same-height elements that
             // pop in/out without changing the dialog's height - fade rather
-            // than snap (window.setFadeHidden, panel.js; InteractionLanguage.md
-            // "Fade toggle"), unlike listView/addView/header just above,
+            // than snap (window.setFadeHidden, panel.js), unlike listView/addView/header just above,
             // which are real content swaps already covered by this whole
             // callback being wrapped in animateModalHeightChange.
             if (enterBtn) window.setFadeHidden(enterBtn, mode !== 'list');
@@ -810,8 +808,8 @@ window.setFadeHidden = function (el, hide) {
         var oldScrollEl = dialog.querySelector('[data-panel-group-scroll]');
         var scrollTop = oldScrollEl ? oldScrollEl.scrollTop : 0;
 
-        // Snapshot for the Active/Inactive count-delta pulse below (see
-        // InteractionLanguage.md's "Count-delta pulse") - taken before this
+        // Snapshot for the Active/Inactive count-delta pulse below (INT-U14)
+        // - taken before this
         // render tears the old buttons out, compared against the freshly-
         // rendered ones once they're in. Skipped entirely on the render that
         // first opens the modal (isFirstRender) - a pulse on open would be
@@ -1281,7 +1279,7 @@ window.setFadeHidden = function (el, hide) {
                     : 'Inactive — click to reactivate');
 
                 // Same reasoning as optimisticallyDecrementCounts elsewhere in
-                // this file (see InteractionLanguage.md's "Count-delta pulse"
+                // this file (INT-U14)
                 // - every count pulse fires the instant its own action is
                 // confirmed, never waiting on a row/column animation-gated
                 // re-render): which tab gains a member and which loses one is
@@ -1751,8 +1749,8 @@ function initMemberPicker(rootEl) {
     var debounceTimer = null;
     if (!sourceOptions.length || !searchInput) return;
 
-    // Source is a segmented control, not a <select> (see DesignLanguage.md
-    // "Segmented control") - mode lives in this closure var instead of a
+    // Source is a segmented control, not a <select> (see the segmented-control
+    // comment in components/forms.css) - mode lives in this closure var instead of a
     // form element's .value, kept in sync with the .active class below.
     var initialActiveBtn = sourceOptions.filter(function (btn) { return btn.classList.contains('active'); })[0] || sourceOptions[0];
     var mode = initialActiveBtn.dataset.value;
@@ -1810,8 +1808,8 @@ function initMemberPicker(rootEl) {
     }
 
     // Hidden until typed, server-fetched, debounced 250ms with a 2-char
-    // minimum - the shared Search precedent (InteractionLanguage.md
-    // "Search"), same numbers as Panel search and the referral student
+    // minimum - the shared Search precedent (INT-U13), same numbers as
+    // Panel search and the referral student
     // picker.
     function applySearch() {
         var term = searchInput.value.trim();
@@ -1974,7 +1972,8 @@ window.resetMemberPicker = function (rootEl) {
 };
 
 // Shared row enter/exit animation - originally built for the Panel Agenda
-// drag-and-drop feature below, now used portal-wide (see InteractionLanguage.md)
+// drag-and-drop feature below, now used portal-wide (INT-U10: transition
+// rather than a sudden jump)
 // for adding/removing an item from any div/li list spaced by padding +
 // border-bottom (.entity-row, .settings-row, etc). Defined at top level,
 // alongside initAgendaDragDrop, for the same reason: available to every
@@ -2000,8 +1999,8 @@ function flash(el, kind) {
 }
 
 // Status-filter tab entering/leaving the tab row, and any live count
-// pulsing when it changes (InteractionLanguage.md's "Status-filter tab
-// entering/leaving the tab row" / "Tab count-delta pulse") - a tab's own
+// pulsing when it changes (INT-U10 for the transition, INT-U14 for the
+// count-delta pulse) - a tab's own
 // (N), or a card/section heading's count. Defined at top level for the same
 // reason as flash() above - any page's inline script can call these after
 // an AJAX refresh (or a DOM-only recount - see recountFromRows below) changes
@@ -2422,8 +2421,8 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
     }
 
     // flash/shrinkAndFadeOut/growIn/cancelRowAnim/ROW_ANIM_DURATION/
-    // ROW_ANIM_EASING are now shared top-level helpers defined above (see
-    // InteractionLanguage.md) - reused here as-is.
+    // ROW_ANIM_EASING are now shared top-level helpers defined above -
+    // reused here as-is.
 
     // growIn runs *after* a column has already been swapped (flashAcrossZones
     // calls it at the tail end of applyFreshDoc, on the freshly-inserted
@@ -2589,8 +2588,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
             if (patchedCols.indexOf(oldCol) !== -1) return;
             patchedCols.push(oldCol);
             var freshCol = freshZoneEl.closest('.setup-col') || freshZoneEl;
-            // Tab/heading counts (see InteractionLanguage.md's "Tab
-            // count-delta pulse") live in the column's header/tab-row, not
+            // Tab/heading counts (INT-U14) live in the column's header/tab-row, not
             // inside the zone element itself - sync them directly from the
             // fresh doc now that a whole-column swap doesn't bring them
             // along for free.
@@ -3597,7 +3595,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Every results swap after the dialog is already open goes through
     // animateModalHeightChange, same as every other modal in the app whose
-    // content changes shape at runtime (see InteractionLanguage.md) - the
+    // content changes shape at runtime - the
     // dialog now grows/shrinks with the live result count instead of
     // staying pinned to a fixed height regardless of content.
     function setResults(html) {

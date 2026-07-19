@@ -5,6 +5,39 @@
     box-sizing: border-box;
 }
 
+/* Layout pattern selection (DES-L1) — work through in order, each answers "does
+   this apply," not a menu to pick from freely:
+   1. Two roughly-equal side-by-side content blocks? -> flex; gap: 24px;
+      flex-wrap: wrap; align-items: flex-start; children flex: 1 1 280px;
+      min-width: 260px; wraps to single-column below ~600px.
+   2. A list that needs to scroll independently within a fixed viewport height,
+      with a stats footer pinned below it? -> .list-page-shell/.list-card below —
+      only reach for this when the list genuinely needs internal scrolling; on a
+      short/variable-height page it produces excess whitespace or a misplaced
+      footer instead. Anything above the scrolling body that isn't a filter bar
+      is a flex-shrunk child inside the shell (flex-shrink: 0), not a sibling
+      outside it guessing a second viewport-height calculation.
+   3. A card/dialog holding a list that can grow long, needing a header/footer
+      that stays put while the list scrolls? -> flex column, overflow: hidden;
+      non-scrolling header/footer (flex-shrink: 0); scrolling body (flex: 1 1
+      auto; min-height: 0; overflow-y: auto). Applies to any modal too — keeps
+      the scrollbar flush with the body's own edge/padding.
+   4. 3+ equal-weight sections that should auto-fill a row? -> grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px.
+   5. User-adjustable filtering? -> .filter-bar below. Client-side (hides rows
+      in place via JS, no reload) when only which rows are visible changes;
+      server-side (form method=get, recomputes from request.GET, progressively
+      AJAX-enhanced so a plain GET submit always works standalone) whenever the
+      numbers on the page must reflect the filter too. Always render the
+      active-filter count badge via a hidden-state toggle, not conditional
+      inclusion, so neighbouring fields don't shift. A dependent filter's
+      options narrow from the selected parent value and drop a selection no
+      longer in the narrowed set. A sticky filter bar shares the page header's
+      own sticky container, not an independent position: sticky sibling.
+   6. An at-a-glance KPI/count summary? -> .stats-strip below: flex; gap: 16px;
+      flex-wrap: wrap; of stat cards — bottom of a shell (pinned) or below a
+      content section (not pinned), never at the top of a page. */
+
 body {
     min-height: 100vh;
     background-color: var(--bg-page);

@@ -1,7 +1,6 @@
 /* Search component — shared idle/hover/focus/has-text convention for every
    standalone search box in the app (Global Rail, homepage hero, staff
-   switcher, Panel search modal, picker search fields). See DesignLanguage.md
-   "Search" for the full state table and the rationale.
+   switcher, Panel search modal, picker search fields).
    Primary is reserved for the "has text" state (border + icon) so it reads
    as "this box is doing something" rather than firing on mere hover;
    :focus-visible is the one exception, kept unconditional as a plain a11y
@@ -46,8 +45,8 @@
     padding: var(--space-xs) var(--space-sm) var(--space-xs) 34px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
-    /* --bg-surface-alt, not --bg-surface - see DesignLanguage.md "Editable
-       field background". Every other editable control in the app
+    /* --bg-surface-alt, not --bg-surface - see DES-F1 in PRINCIPLES-DESIGN.md.
+       Every other editable control in the app
        (.field-group input, .ui-fused-field, .filter-field, .ui-select-trigger)
        already uses this tint to read as "you can type/pick here"; Search
        was the one exception, sharing plain --bg-surface with inert
@@ -82,7 +81,7 @@
    taller than the viewport scrolls internally instead of growing the box
    unbounded off the bottom of the screen - same "cap it, scroll the rest"
    treatment as .panel-search-results (panel.css) and .member-result-list
-   (DesignLanguage.md "Member result list"). */
+   (see the "Result list" note in tables.css). */
 .app-search-results {
     position: absolute;
     top: calc(100% + 6px);
@@ -163,6 +162,28 @@
     color: var(--text-tertiary);
     font-size: var(--font-sm);
 }
+
+/* Tab row — decide in order when adding one:
+   1. Sharing a row with a button or other control? Don't — give the control
+      its own row (a header row above, or a footer row below). A taller
+      sibling makes the row inherit its height, leaving the tab underline
+      floating with dead space beneath it.
+   2. Sitting directly above a scrolling list body? Make it sticky, scoped to
+      that scrolling ancestor — otherwise it scrolls away with the content
+      it's meant to be filtering.
+   3. Its container has its own padding the row needs to bleed past to reach
+      the true edge? Set a two-sided margin on that container's own .tab-row
+      rule, sized to its padding — never a bleed value on the base rule,
+      since no single value fits every container.
+   4. Representing filterable statuses? Show each tab's live count in
+      parentheses, always render an "All (N)" default tab, and collapse a
+      zero-count tab out of the row (animated) rather than reserving space
+      for it.
+   Visual chrome, independent of the above: underline indicator only, no
+   background fill; animates in via scaleX(0) -> scaleX(1) + opacity; hover =
+   faint indicator + primary text, active = primary indicator + text; the
+   row's own divider sits directly under the tabs, never on the static block
+   above it. */
 
 /* Generic overflow "More" dropdown — populated by setupOverflowTabs() in
    main.js for any opted-in tab row. Shared sitewide so any page's tab row

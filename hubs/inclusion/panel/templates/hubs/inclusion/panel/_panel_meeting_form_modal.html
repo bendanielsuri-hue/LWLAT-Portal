@@ -3,6 +3,20 @@
     <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
 </div>
 <div class="modal-body">
+    {% comment %}
+    Field order (School, Panel Group, Date, Time) is the same in both modes -
+    School just isn't rendered at all in edit mode, since an existing Panel
+    has no school of its own, only via panel.panel_group.school. No
+    ui-fused-field-group--force-stacked here - each field is free to
+    independently drop to label-above via the group's own overflow-based
+    auto-stacking (evaluateFusedFieldGroup in main.js) if it doesn't fit,
+    rather than forcing every field to stack just because one (Panel Group,
+    whose select + "+" button need the most room) sometimes needs to.
+    Saving always redirects/reloads the Panel Agenda Setup page in both
+    modes - Panel Group can change the school-scoped referral/member lists
+    shown elsewhere on that page, so there's no case left where a quieter
+    in-place update is safe.
+    {% endcomment %}
     <form method="post" action="{% if panel %}{% url 'inclusion_panel_meeting_edit_details' panel.id %}{% else %}{% url 'inclusion_panel_meeting_new' %}{% endif %}" id="panel-meeting-form" class="ui-fused-field-group" data-panel-meeting-modal-form>
         {% csrf_token %}
         {% if not panel %}

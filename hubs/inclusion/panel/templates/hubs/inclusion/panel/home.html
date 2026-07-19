@@ -202,9 +202,9 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        // "All" is always first and never collapses (see DesignLanguage.md's
-        // "Status-filter tab rows"), so it's always a safe default even now
-        // that zero-count tabs stay in the DOM collapsed rather than omitted.
+        // "All" is always first and never collapses, so it's always a safe
+        // default even now that zero-count tabs stay in the DOM collapsed
+        // rather than omitted.
         tabButtons[0].classList.add('active');
         applyTab(tabButtons[0].dataset[tabDataKey]);
     }
@@ -283,8 +283,8 @@ function initActionTabs() {
 
 // "Mark Complete"/"Reopen"/"Mark Not Required" submit via fetch instead of a
 // full page reload, so the tab counts/rows can animate instead of snapping
-// (InteractionLanguage.md's "Tab count-delta pulse" / "Status-filter tab
-// entering/leaving the tab row"). data-ajax-wired guards against double-
+// (INT-U14: count-delta pulse; INT-U10: transition rather than a jump for
+// tabs entering/leaving the tab row). data-ajax-wired guards against double-
 // binding the same form across repeated initActionTabs-style re-inits.
 function wireActionForms() {
     document.querySelectorAll('#actions-card [data-action-status-form]').forEach(function (form) {
@@ -347,8 +347,8 @@ function refreshMyActionsCard(html) {
 
     var newTabRow = freshCard.querySelector('[data-action-tab-row]');
     if (newTabRow) {
-        // The one-shot tab-row-fade-in shouldn't replay on a refresh — see
-        // InteractionLanguage.md's "Refreshing a live fragment in place".
+        // The one-shot tab-row-fade-in shouldn't replay on a refresh (INT-U11:
+        // a targeted in-place refresh shouldn't reset state that was already settled).
         // But if the row didn't exist before (the tab-row itself just
         // crossed from a single populated bucket to its first second one),
         // this genuinely is its first appearance, so let it fade in.

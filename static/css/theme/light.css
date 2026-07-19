@@ -41,6 +41,19 @@ html { color-scheme: light; accent-color: var(--primary); }
     --bg-tint-rail: 0%;
     --bg-page: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-page, 0%), var(--bg-page-base));
     --bg-nav: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-nav, 0%), var(--bg-nav-base));
+    /* Depth ladder, ascending: --bg-page (page canvas) -> --bg-surface (a card) ->
+       --bg-surface-alt (a stripe breaking up peers at the same level, e.g. alternating
+       rows/header strips) -> --bg-nested (content semantically inside a card) -> --bg-well
+       (a trough sunk further inside a nested section, rare). Test: would a user describe
+       this as inside/under something -> --bg-nested; a stripe at the same level ->
+       --bg-surface-alt. This is theme-specific, not a portable rule -- a theme flavour may
+       express depth differently (or via shadow instead of shade), so this ladder isn't
+       assumed to hold universally, just documented as this theme's current answer.
+
+       (DES-F1) Never reuse --bg-surface (read-only/display) for something a user can
+       act on. --bg-surface-alt and --bg-well currently do double duty as both a depth
+       tier and an actionable-control fill (input fields; segmented control/fused-field
+       labels) — candidates for their own dedicated tokens, tracked separately (see #110). */
     --bg-surface: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-surface, 0%), var(--bg-surface-base));
     --bg-surface-alt: #fbfdff;
     --bg-well: color-mix(in srgb, var(--bg-tint-colour) var(--bg-tint-well, 0%), var(--bg-well-base));

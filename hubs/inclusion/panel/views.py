@@ -700,8 +700,7 @@ def _token_name_filter(tokens, *fields):
     # Every whitespace-separated token must match somewhere across the given
     # fields (AND across tokens, OR across fields per token) - "Be S" finds
     # "Ben Suri" (token "Be" matches first_name, "S" matches last_name), the
-    # shared matching rule for every search surface (see InteractionLanguage.md
-    # "Search").
+    # shared matching rule for every search surface (INT-U13).
     q = Q()
     for token in tokens:
         token_q = Q()
@@ -774,7 +773,7 @@ def inclusion_panel_search(request):
 
     # kind == 'all': Panel's own general search - the only surface that
     # legitimately spans more than one entity type, so it's the only one
-    # that groups results by kind (see InteractionLanguage.md "Search").
+    # that groups results by kind (INT-U13).
     is_panel_staff = _is_panel_staff(_current_staff(request))
 
     students_url = reverse('inclusion_panel_students')
@@ -1368,9 +1367,9 @@ def _referral_detail_context(referral, current_staff):
     by both inclusion_panel_referral_edit (viewing/editing a referral) and
     inclusion_panel_action_status_update (toggling one action's status from
     within that same modal) so the two can never drift apart the way the
-    old, separate Actions modal used to (see CLAUDE.md/DesignLanguage.md -
-    action.is_overdue and the sensitive-category filter both used to only
-    exist on one of the two views)."""
+    old, separate Actions modal used to (action.is_overdue and the
+    sensitive-category filter both used to only exist on one of the two
+    views)."""
     is_panel_staff = _is_panel_staff(current_staff)
     today = timezone.localdate()
 
@@ -1603,9 +1602,9 @@ def inclusion_panel_action_set_status(request, action_id):
             action.save()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         # Fired from the Home page's My Actions card (see home.html) so the
-        # tab counts/rows can update in place with the InteractionLanguage.md
-        # "Tab count-delta pulse" / "Status-filter tab entering/leaving the
-        # tab row" animations, instead of a full page reload snapping them.
+        # tab counts/rows can update in place with the count-delta pulse
+        # (INT-U14) and transition (INT-U10) animations, instead of a full
+        # page reload snapping them.
         current_staff = _current_staff(request)
         is_panel_staff = _is_panel_staff(current_staff)
         return render(request, 'hubs/inclusion/panel/_my_actions_card.html', _my_actions_context(current_staff, is_panel_staff))
@@ -1615,7 +1614,7 @@ def inclusion_panel_action_set_status(request, action_id):
 def inclusion_panel_action_status_update(request, referral_id):
     # Posted from the status dropdown in Referral Details' own Actions
     # section - the standalone "View Actions" modal this used to back has
-    # been folded into that one view (see DesignLanguage.md), so this is now
+    # been folded into that one view, so this is now
     # a pure status-update endpoint: update the one Action, then re-render
     # the whole Referral Details fragment (via the same shared context
     # inclusion_panel_referral_edit uses) so the dialog can swap it in place
