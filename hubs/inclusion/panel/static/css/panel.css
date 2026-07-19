@@ -1665,13 +1665,14 @@
 .student-column { display: flex; flex-direction: column; gap: var(--space-sm); }
 .student-thumb-row { display: flex; align-items: flex-start; gap: var(--space-md); }
 .referral-pills { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
-/* Panel Agenda's Discussed rows: inline Review Date + Resolve/Cancel, only
-   while a follow-up is actually still incomplete - avoids the round-trip
-   through Discussion's End Discussion dialog for a simple adjustment. Once
+/* Panel Agenda's Discussed rows: read-only Review Date + Change/Mark
+   Reviewed/No Longer Needed, only while a follow-up is actually still
+   incomplete - avoids the round-trip through Discussion's End Discussion
+   dialog for a simple adjustment (Change opens review-date-dialog, same
+   preset shape as End Discussion's own follow-up date picker). Once
    resolved/cancelled the row reverts to the plain read-only text line
    (base .entity-meta) above, since there's nothing left to act on. */
 .review-date-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
-.review-date-mini-form { display: flex; }
 /* Referral Details actions (Set/Change Priority, View Details, plus Referral
    Selection's own Add to Agenda) sit on their own line below the
    student/referral details - last child of .agenda-content's flex column on
@@ -2909,3 +2910,26 @@ dialog#panel-search-dialog .modal-body {
     border-radius: var(--radius-md);
     background: var(--bg-surface-alt);
 }
+
+/* Panel Agenda's Pending row Remove button, pinned to the row's top-right
+   corner instead of a labelled bottom-row button (was too wide - #prototype
+   agenda-pending-row-actions branch compared it against a kebab-menu and a
+   dual-icon layout; this single icon won). .agenda-row is already
+   position: relative. */
+.row-corner-action { position: absolute; top: var(--space-sm); right: var(--space-sm); z-index: 2; }
+.row-corner-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-slide), border-color var(--transition-slide), color var(--transition-slide);
+}
+.row-corner-icon-btn svg { width: 16px; height: 16px; }
+.row-corner-icon-btn:hover, .row-corner-icon-btn:focus-visible { border-color: var(--btn-delete-border); color: var(--btn-delete-text); }

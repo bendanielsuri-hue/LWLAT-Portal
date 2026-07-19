@@ -162,6 +162,12 @@
         <div class="entity-list entity-list--bleed" data-drop-zone="pending">
             {% for pr in pending %}
             <div class="entity-row agenda-row selectable" draggable="true" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
+                <form method="post" class="row-corner-action" onsubmit="return confirm('Remove this student from the agenda?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_action" value="unassign_referral">
+                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                    <button type="submit" class="row-corner-icon-btn" title="Remove from agenda" aria-label="Remove from agenda">{% include 'icons/delete_svg.html' %}</button>
+                </form>
                 <span class="drag-handle drag-handle-pattern" aria-hidden="true" title="Drag to reorder"></span>
                 <div class="agenda-order-rail">
                     <span class="agenda-order-rail-number">{{ forloop.counter }}</span>
@@ -232,12 +238,6 @@
                             {% else %}
                             <span class="btn btn-add btn-sm btn-disabled" aria-disabled="true" title="Start the meeting to begin discussing referrals"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</span>
                             {% endif %}
-                            <form method="post" onsubmit="return confirm('Remove this student from the agenda?');">
-                                {% csrf_token %}
-                                <input type="hidden" name="form_action" value="unassign_referral">
-                                <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                                <button type="submit" class="btn btn-secondary btn-delete btn-sm"><span class="btn-icon">{% include 'icons/remove_svg.html' %}</span> Remove</button>
-                            </form>
                         </div>
                     </div>
                 </div>
@@ -258,7 +258,13 @@
                 <div class="agenda-content">
                     <div class="referral-row-grid">
                         <div class="referral-pills">
-                            <span class="status-pill {{ pr.referral.status }}">{{ pr.referral.get_status_display }}</span>
+                            {% comment %}
+                            InclusionReferral.status deliberately not shown here (#111) - it
+                            aggregates across every active PanelReferral for this referral,
+                            so it can still read e.g. "Overdue Review" right after resolving
+                            the one that was overdue, if another still-active row elsewhere
+                            is overdue. pr.stage is this discussion's own outcome.
+                            {% endcomment %}
                             <span class="status-pill {{ pr.stage }}">{{ pr.stage_label }}</span>
                         </div>
                         <div class="student-column">
@@ -272,34 +278,72 @@
                         </div>
                         <div class="referral-details">
                             <div class="entity-meta">Time discussed: {{ pr.duration_display }}{% if pr.discussion_auto_stopped %} <span class="status-pill danger" title="This discussion's timer was auto-stopped after 30 minutes with no note or action against it, so this duration is an estimate">Auto-stopped</span>{% endif %}</div>
-                            {% if pr.follow_up_status == 'incomplete' %}
-                            <div class="entity-meta review-date-controls">
-                                <span>Review due:</span>
-                                <form method="post" class="review-date-mini-form">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="form_action" value="update_review_date">
-                                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                                    <input type="date" name="follow_up_date" value="{{ pr.follow_up_date|date:'Y-m-d' }}" aria-label="Review date" onchange="this.form.requestSubmit()">
-                                </form>
-                                <form method="post">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="form_action" value="resolve_followup">
-                                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                                    <button type="submit" class="btn btn-add btn-sm">Resolve</button>
-                                </form>
-                                <form method="post" onsubmit="return confirm('Cancel this follow-up? It will no longer need review.');">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="form_action" value="cancel_followup">
-                                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                                    <button type="submit" class="btn btn-secondary btn-delete btn-sm">Cancel</button>
-                                </form>
-                            </div>
-                            {% else %}
-                            <div class="entity-meta">Review due: {{ pr.follow_up_date|default:"—" }} {% if pr.follow_up_status %}({{ pr.get_follow_up_status_display }}){% endif %}</div>
-                            {% endif %}
                             {% if pr.actions_total %}
                             <div class="entity-meta actions-complete-row">
                                 <span>{{ pr.actions_complete }} of {{ pr.actions_total }} actions complete</span>
+                            </div>
+                            {% endif %}
+                            {% if pr.follow_up_status == 'incomplete' %}
+                            <div class="entity-meta review-date-controls">
+                                {% comment %}
+                                Read-only date + subtle Change button (#111) -
+                                Change opens review-date-dialog below (same
+                                "Review in..." preset shape as End Discussion's
+                                own follow-up date picker, discussion.html),
+                                not a raw date input inline.
+
+                                Close Referral/Cancel is one dynamic button,
+                                not two - cancelling this row's follow-up
+                                doesn't always close the referral (it can have
+                                more than one active row over its life: this
+                                discussion plus a separately-scheduled
+                                follow-up elsewhere - see _is_last_open_review).
+                                The label names the real consequence up front
+                                when it has one, rather than a generic
+                                "Cancel" a chair could click every time
+                                without realising it sometimes ends the
+                                referral. Only the Close Referral case (this
+                                *is* the last one) gets a confirm - plain
+                                Cancel has no referral-closing consequence to
+                                confirm.
+                                {% endcomment %}
+                                <span>Review due: {{ pr.follow_up_date|date:"d/m/Y"|default:"—" }}</span>
+                                <button type="button" class="btn btn-subtle" data-review-date-trigger data-review-date-mode="change"
+                                    data-panel-referral-id="{{ pr.id }}"
+                                    data-current-date="{{ pr.follow_up_date|date:'Y-m-d' }}"
+                                    data-next-half-term="{{ pr.next_half_term_date|date:'Y-m-d' }}"
+                                    data-next-half-term-label="{% if pr.next_half_term_date %}Next Half Term ({{ pr.next_half_term_date|date:'d/m/Y' }}){% endif %}"
+                                    data-next-term="{{ pr.next_term_date|date:'Y-m-d' }}"
+                                    data-next-term-label="{% if pr.next_term_date %}Next Term ({{ pr.next_term_date|date:'d/m/Y' }}){% endif %}">Change</button>
+                                <form method="post"{% if pr.is_last_open_review %} onsubmit="return confirm('This is the last open review for this referral. Confirming will close it. Continue?');"{% endif %}>
+                                    {% csrf_token %}
+                                    <input type="hidden" name="form_action" value="cancel_followup">
+                                    <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
+                                    {% if pr.is_last_open_review %}
+                                    <button type="submit" class="btn btn-secondary btn-delete btn-sm" title="This is the referral's last open review - confirming closes the whole referral">Close Referral</button>
+                                    {% else %}
+                                    <button type="submit" class="btn btn-subtle" title="This discussion's review isn't needed - the referral has other open review(s) and stays open">Cancel</button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                            {% else %}
+                            {% comment %}
+                            No follow-up currently open on this row (never
+                            needed one, or it was Closed/Cancelled) - Schedule
+                            Review reopens it and sets a date in one motion
+                            via the same review-date-dialog (#111): saving
+                            there always (re)activates follow_up_status, see
+                            update_review_date.
+                            {% endcomment %}
+                            <div class="entity-meta review-date-controls">
+                                <span>Review not required</span>
+                                <button type="button" class="btn btn-subtle" data-review-date-trigger data-review-date-mode="schedule"
+                                    data-panel-referral-id="{{ pr.id }}"
+                                    data-current-date="{{ pr.follow_up_date|date:'Y-m-d' }}"
+                                    data-next-half-term="{{ pr.next_half_term_date|date:'Y-m-d' }}"
+                                    data-next-half-term-label="{% if pr.next_half_term_date %}Next Half Term ({{ pr.next_half_term_date|date:'d/m/Y' }}){% endif %}"
+                                    data-next-term="{{ pr.next_term_date|date:'Y-m-d' }}"
+                                    data-next-term-label="{% if pr.next_term_date %}Next Term ({{ pr.next_term_date|date:'d/m/Y' }}){% endif %}">Schedule Review</button>
                             </div>
                             {% endif %}
                         </div>
@@ -318,7 +362,9 @@
                             </form>
                         </div>
                         {% else %}
-                        <button type="button" class="btn btn-secondary btn-sm" data-open-discussion-summary-trigger data-panel-referral-id="{{ pr.id }}">Discussion Summary</button>
+                        <div class="row-action-form">
+                            <button type="button" class="btn btn-primary btn-sm" data-open-discussion-summary-trigger data-panel-referral-id="{{ pr.id }}">Discussion Summary</button>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
@@ -435,6 +481,134 @@ document.addEventListener('DOMContentLoaded', function () {
             'pending': { role: 'sink' },
         }, { removeAction: 'unassign_referral' });
     }
+});
+</script>
+
+{% comment %}
+Students Discussed's Review due date - Change (still-open follow-up) and
+Schedule Review (Complete row, reopening one) both open this one dialog
+instead of an inline raw date input (#111), same "Review in..." preset shape
+(1 Week/2 Weeks/1 Month/Next Half Term/Next Term/Other) as End Discussion's
+own follow-up date picker (discussion.html). Populated per-row from the
+triggering button's data-* attributes since one shared dialog serves every
+Discussed row rather than one dialog instance each; title/Save text switch
+on data-review-date-mode so "Schedule Review" doesn't open a dialog that
+still says "Change Review Date" (see update_review_date - saving here always
+(re)activates the follow-up, so Schedule Review needs no separate action).
+{% endcomment %}
+<dialog id="review-date-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2 id="review-date-dialog-title">Change Review Date</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+        <form method="post" id="review-date-form">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="update_review_date">
+            <input type="hidden" name="panel_referral_id" id="review-date-panel-referral-id" value="">
+            <div class="field-group">
+                <label for="review-date-interval">Review in...</label>
+                <select id="review-date-interval">
+                    <option value="7">1 Week</option>
+                    <option value="14">2 Weeks</option>
+                    <option value="30">1 Month</option>
+                    <option value="" id="review-date-half-term-option" hidden></option>
+                    <option value="" id="review-date-term-option" hidden></option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="ui-fused-field-group" id="review-date-custom-group" hidden>
+                <span class="ui-fused-field">
+                    <label class="ui-fused-field-label" for="review-date-custom">Review Date</label>
+                    <input type="date" id="review-date-custom">
+                </span>
+            </div>
+            <input type="hidden" name="follow_up_date" id="review-date-final" value="">
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+                <button type="submit" class="btn btn-secondary btn-sm" id="review-date-save-btn">Save</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var dialog = document.getElementById('review-date-dialog');
+    var titleEl = document.getElementById('review-date-dialog-title');
+    var saveBtn = document.getElementById('review-date-save-btn');
+    var prIdInput = document.getElementById('review-date-panel-referral-id');
+    var intervalSelect = document.getElementById('review-date-interval');
+    var halfTermOption = document.getElementById('review-date-half-term-option');
+    var termOption = document.getElementById('review-date-term-option');
+    var customGroup = document.getElementById('review-date-custom-group');
+    var customInput = document.getElementById('review-date-custom');
+    var finalInput = document.getElementById('review-date-final');
+    var MODE_TEXT = {
+        change: { title: 'Change Review Date', save: 'Save' },
+        schedule: { title: 'Schedule Review', save: 'Schedule' },
+    };
+
+    function applyInterval(value) {
+        if (value === 'other') {
+            customGroup.hidden = false;
+            finalInput.value = customInput.value;
+            return;
+        }
+        customGroup.hidden = true;
+        if (/^\d+$/.test(value)) {
+            var d = new Date();
+            d.setDate(d.getDate() + parseInt(value, 10));
+            finalInput.value = d.toISOString().slice(0, 10);
+        } else {
+            finalInput.value = value; // ISO date (Next Half/Full Term)
+        }
+    }
+
+    document.querySelectorAll('[data-review-date-trigger]').forEach(function (trigger) {
+        trigger.addEventListener('click', function () {
+            var mode = MODE_TEXT[trigger.getAttribute('data-review-date-mode')] || MODE_TEXT.change;
+            titleEl.textContent = mode.title;
+            saveBtn.textContent = mode.save;
+
+            prIdInput.value = trigger.getAttribute('data-panel-referral-id');
+
+            var halfTermDate = trigger.getAttribute('data-next-half-term');
+            halfTermOption.hidden = !halfTermDate;
+            halfTermOption.value = halfTermDate || '';
+            halfTermOption.textContent = trigger.getAttribute('data-next-half-term-label') || '';
+
+            var termDate = trigger.getAttribute('data-next-term');
+            termOption.hidden = !termDate;
+            termOption.value = termDate || '';
+            termOption.textContent = trigger.getAttribute('data-next-term-label') || '';
+
+            // Opens on the current date as a custom value rather than
+            // guessing which preset it came from - a date set weeks ago
+            // won't line up with "1 Week from today" any more anyway.
+            customInput.value = trigger.getAttribute('data-current-date') || '';
+            intervalSelect.value = 'other';
+            applyInterval('other');
+            // The native <select>/<input type=date> were already enhanced
+            // into custom controls on page load (main.js) - refresh rather
+            // than re-enhance, since the popover cached its option list (and
+            // the date input its day/month/year selects) at that first
+            // enhance (see enhanceSelect/enhanceDateInput in main.js).
+            if (intervalSelect._uiSelect) intervalSelect._uiSelect.refresh();
+            if (customInput._uiDate) customInput._uiDate.refresh();
+
+            dialog.showModal();
+            requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+        });
+    });
+
+    intervalSelect.addEventListener('change', function () { applyInterval(intervalSelect.value); });
+    customInput.addEventListener('change', function () { finalInput.value = customInput.value; });
+
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog || e.target.closest('[data-modal-close]')) {
+            window.closeModalWithFadeOut(dialog);
+        }
+    });
 });
 </script>
 {% endblock %}

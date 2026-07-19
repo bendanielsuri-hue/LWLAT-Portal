@@ -193,6 +193,21 @@ def _panel_referral_stage(pr):
     return 'complete', 'Complete'
 
 
+def _is_last_open_review(pr):
+    # Whether cancelling *this* PanelReferral's follow-up would close the
+    # whole referral (see _sync_referral_status) - true only when every
+    # other active (non-deferred) row for the same referral is already
+    # 'complete'. Drives the Discussed row's dynamic Close Referral/Cancel
+    # Review button (#111): a referral can have more than one active row
+    # over its life (this discussion plus a separately-scheduled follow-up
+    # review elsewhere), so cancelling one row's follow-up doesn't always
+    # close the referral.
+    other_active = pr.referral.panel_referrals.filter(
+        removed_at__isnull=True,
+    ).exclude(pk=pr.pk).exclude(discussion_status='deferred')
+    return all(_panel_referral_stage(other)[0] == 'complete' for other in other_active)
+
+
 def _panel_member_roster(panel):
     # "Who's on this panel" - one roster (PanelGroupMember), not a per-meeting
     # copy. For a completed panel this instead returns only members who
@@ -2789,24 +2804,23 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                 referral.priority = priority
                 referral.save()
         elif action == 'update_review_date':
+            # Not gated on follow_up_status already being 'incomplete' -
+            # setting/rescheduling a date always (re)activates the follow-up
+            # (#111). This is also how a Complete row's Schedule Review
+            # button reopens it in one motion, not just how an already-open
+            # row's Change edits its date.
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
-            if pr.follow_up_status == 'incomplete':
-                raw_date = request.POST.get('follow_up_date')
-                try:
-                    pr.follow_up_date = datetime.date.fromisoformat(raw_date) if raw_date else None
-                except ValueError:
-                    pass
-                else:
-                    pr.save(update_fields=['follow_up_date'])
-                    _sync_referral_status(pr.referral)
-        elif action == 'resolve_followup':
-            # Marks the review itself as done - follow_up_date is kept as the
-            # historical record of when it was due, distinct from
-            # cancel_followup below (no review was ever needed).
-            pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
-            pr.follow_up_status = 'complete'
-            pr.save(update_fields=['follow_up_status'])
-            _sync_referral_status(pr.referral)
+            raw_date = request.POST.get('follow_up_date')
+            try:
+                new_date = datetime.date.fromisoformat(raw_date) if raw_date else None
+            except ValueError:
+                pass
+            else:
+                pr.follow_up_date = new_date
+                if new_date:
+                    pr.follow_up_status = 'incomplete'
+                pr.save(update_fields=['follow_up_date', 'follow_up_status'])
+                _sync_referral_status(pr.referral)
         elif action == 'cancel_followup':
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             pr.follow_up_date = None
@@ -2926,7 +2940,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     last_discussed_by_referral = {}
     discussed_counts_by_referral = Counter()
     for prev in PanelReferral.objects.filter(
-        referral_id__in=[pr.referral_id for pr in pending], discussion_status='discussed',
+        referral_id__in=[pr.referral_id for pr in panel_referrals], discussion_status='discussed',
     ).exclude(panel_id=panel.id).select_related('panel').order_by('referral_id', '-panel__date'):
         last_discussed_by_referral.setdefault(prev.referral_id, prev)
         discussed_counts_by_referral[prev.referral_id] += 1
@@ -2940,6 +2954,15 @@ def inclusion_panel_meeting_agenda(request, panel_id):
 
     discussed = [pr for pr in panel_referrals if pr.discussion_status == 'discussed']
     for pr in discussed:
+        # Same "Review in..." preset options (1 Week/2 Weeks/1 Month/Next Half
+        # Term/Next Term/Other) as End Discussion's own follow-up date picker
+        # (discussion.html) - both Change (still-open follow-up) and
+        # Schedule Review (Complete row, reopening one) use this shape
+        # rather than a raw date input (#111).
+        pr.next_half_term_date = next_half_term(pr.referral.student.school, today)
+        pr.next_term_date = next_term(pr.referral.student.school, today)
+        if pr.follow_up_status == 'incomplete':
+            pr.is_last_open_review = _is_last_open_review(pr)
         if pr.duration:
             total_seconds = int(pr.duration.total_seconds())
             h, rem = divmod(total_seconds, 3600)
