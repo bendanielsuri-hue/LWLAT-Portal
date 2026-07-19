@@ -307,16 +307,19 @@
                     <div class="referral-details-actions">
                         {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices %}
                         <button type="button" class="btn btn-secondary btn-sm" data-view-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
-                        <button type="button" class="btn btn-secondary btn-sm" data-open-discussion-summary-trigger data-panel-referral-id="{{ pr.id }}">Discussion Summary</button>
+                        {% if panel.status == 'running' %}
                         <div class="row-action-form btn-row">
+                            <a href="{% url 'inclusion_panel_referral_escalate' pr.referral.id %}?next={% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
                             <form method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="form_action" value="start_discussion">
                                 <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
-                                <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Continue Discussion</button>
+                                <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Resume</button>
                             </form>
-                            <a href="{% url 'inclusion_panel_referral_escalate' pr.referral.id %}?next={% url 'inclusion_panel_meeting_agenda' panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
                         </div>
+                        {% else %}
+                        <button type="button" class="btn btn-secondary btn-sm" data-open-discussion-summary-trigger data-panel-referral-id="{{ pr.id }}">Discussion Summary</button>
+                        {% endif %}
                     </div>
                 </div>
             </div>

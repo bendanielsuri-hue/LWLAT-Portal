@@ -3059,7 +3059,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
 
     # Pure display - starting/resuming the discussion timer happens only via
     # the explicit 'start_discussion' POST action on
-    # inclusion_panel_meeting_agenda (the Discuss/Continue Discussion
+    # inclusion_panel_meeting_agenda (the Discuss/Resume
     # buttons on the Panel Agenda page, gated on panel.started_at). A GET
     # here (a refresh, browser back/forward, or the Referral Details modal's
     # "View Discussion Page" link) must never mutate discussion_status or
