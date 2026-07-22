@@ -16,6 +16,10 @@ _Avoid_: Behaviour summary/note (a derived rollup of incidents, not a thing stor
 A single logged exclusion for a student — start date, end date (blank for permanent), type (fixed-term / permanent / internal), reason. `exclusions_count` shown anywhere in the app is always a derived count of these records, never its own stored counter.
 _Avoid_: Exclusion count (a derived value, not a stored fact)
 
+**Positive Behaviour Incident**:
+A single logged positive-recognition event for a student — date, category (a fixed preset set: Merit/Effort/Achievement/Kindness/Other), a numeric `points` value, and who logged it. Deliberately a separate model from `Behaviour Incident`, not a positive severity option on it — the two log opposite signals and are displayed as independent Student Details cards (#95). Unlike `Behaviour Incident`'s severity (a per-event tier), `points` is summable: a student's points total is a derived sum across their log, same "never a stored summary field" rule as Attendance/Behaviour/Exclusions.
+_Avoid_: Merit count/points total (a derived value, not a stored fact); positive severity (this model has no severity-style tier, only points)
+
 **Safeguarding Note**:
 A Designated Safeguarding Lead's atomic, one-line safeguarding statement about a student — no link to any hub-specific model, so any hub can read a student's safeguarding context, not just Inclusion Panel (the only current consumer; see [ADR 0001](../docs/adr/0001-shared-referral-base-table.md) for the sibling reasoning behind relocating a hub-born model to `core`). "Editing" never mutates a note in place — it creates a new active row with `supersedes` pointing at the note it replaces, auto-retiring the predecessor (`retired_at`/`retired_by`/`retirement_reason='superseded'`). The one in-place mutation is manual retirement (no successor). No hard delete, ever — see `hubs/inclusion/panel/CONTEXT.md` for the fuller history (#52, #77-#81) and gating rules (`Staff.is_dsl`).
 _Avoid_: Safeguarding Briefing (the pre-decoupling model/screen name, still used for the Inclusion Panel screen itself, not the record)

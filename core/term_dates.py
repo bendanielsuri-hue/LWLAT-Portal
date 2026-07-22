@@ -1,7 +1,7 @@
 from core.models import AcademicYear, Term
 
 
-def _terms_for_school(school):
+def terms_for_school(school):
     # Same tiered resolution as core.portal_settings: a school's own Term
     # rows override the MAT-wide (school=None) ones, but only if it has any
     # at all — otherwise fall through to MAT-wide.
@@ -16,7 +16,7 @@ def next_half_term(school, as_of):
     # term itself if that comes sooner — both are "half term" checkpoints
     # in the school calendar, whichever is nearer.
     candidates = []
-    for term in _terms_for_school(school):
+    for term in terms_for_school(school):
         if term.half_term_start and term.half_term_start > as_of:
             candidates.append(term.half_term_start)
         if term.start_date > as_of:
@@ -25,7 +25,7 @@ def next_half_term(school, as_of):
 
 
 def next_term(school, as_of):
-    term = _terms_for_school(school).filter(start_date__gt=as_of).order_by('start_date').first()
+    term = terms_for_school(school).filter(start_date__gt=as_of).order_by('start_date').first()
     return term.start_date if term else None
 
 
@@ -37,7 +37,7 @@ def remaining_terms_in_year(school, as_of):
     # next_autumn_term() for what fills that gap.
     academic_year = AcademicYear.for_date(as_of)
     return list(
-        _terms_for_school(school)
+        terms_for_school(school)
         .filter(academic_year=academic_year, start_date__gt=as_of)
         .order_by('start_date')
     )
@@ -56,7 +56,7 @@ def next_autumn_term(school, as_of):
     )
     if not next_year:
         return None
-    return _terms_for_school(school).filter(
+    return terms_for_school(school).filter(
         academic_year=next_year, name=Term.TERM_AUTUMN,
     ).first()
 

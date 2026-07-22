@@ -18,7 +18,22 @@ from core.identity import (
 )
 from core.models import AcademicYear, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student
 from core.modules import filter_by_module, module_map
-from core.student_history import attendance_percentage, behaviour_summary, exclusion_count
+from core.student_history import (
+    attendance_authorised_pct,
+    attendance_percentage,
+    attendance_periods,
+    attendance_sessions_possible,
+    attendance_unauthorised_pct,
+    behaviour_periods,
+    behaviour_severity_counts,
+    behaviour_severity_pct,
+    behaviour_summary,
+    exclusion_count,
+    exclusion_most_recent,
+    positive_behaviour_entry_count,
+    positive_behaviour_periods,
+    positive_behaviour_points,
+)
 from core.term_dates import next_half_term, next_term, upcoming_review_terms
 
 from .models import (
@@ -3144,23 +3159,79 @@ def inclusion_panel_discussion(request, panel_referral_id):
         and not panel_referral.briefing_ready
     )
 
+    # PROTOTYPE (#95) - wipe me: ?period=week/month/half_term/term and
+    # ?detail_variant=a/b/c/d switch the Attendance "View details" breakdown
+    # live, so the period grouping + visual treatment can both be judged
+    # against real data before picking one. Remove both params + the
+    # switcher bar once a combination wins.
+    attendance_period = request.GET.get('period', 'week')
+    if attendance_period not in ('week', 'month', 'half_term', 'term', 'year'):
+        attendance_period = 'week'
+    detail_variant = request.GET.get('detail_variant', 'a')
+    if detail_variant not in ('a', 'b', 'c', 'd'):
+        detail_variant = 'a'
+    attendance_details_open = 'period' in request.GET or 'detail_variant' in request.GET
+
+    # Behaviour/Positive Behaviour cards (#95) get the same period-grouped
+    # "View details" disclosure as Attendance, on their own query params so
+    # opening one doesn't affect the others.
+    behaviour_period = request.GET.get('behaviour_period', 'week')
+    if behaviour_period not in ('week', 'month', 'half_term', 'term', 'year'):
+        behaviour_period = 'week'
+    behaviour_details_open = 'behaviour_period' in request.GET
+    positive_behaviour_period = request.GET.get('positive_period', 'week')
+    if positive_behaviour_period not in ('week', 'month', 'half_term', 'term', 'year'):
+        positive_behaviour_period = 'week'
+    positive_behaviour_details_open = 'positive_period' in request.GET
+
+    attendance_period_list = attendance_periods(referral.student, attendance_period)
+    # Variant C's line chart needs actual point coordinates on a fixed
+    # viewBox - simplest done once here, not re-derived per-row in the
+    # template.
+    attendance_sparkline_points = ''
+    if attendance_period_list:
+        width, height = 280, 80
+        pcts = [p['percentage'] for p in attendance_period_list]
+        xs = [width / 2] if len(pcts) == 1 else [i * width / (len(pcts) - 1) for i in range(len(pcts))]
+        ys = [height - (pct / 100 * height) for pct in pcts]
+        attendance_sparkline_points = ' '.join(f'{x:.1f},{y:.1f}' for x, y in zip(xs, ys))
+
     context = {
         **_panel_base_context(request),
         'panel_referral': panel_referral,
         'referral': referral,
         'student': referral.student,
+        'attendance_period': attendance_period,
+        'detail_variant': detail_variant,
+        'attendance_details_open': attendance_details_open,
+        'behaviour_period': behaviour_period,
+        'behaviour_details_open': behaviour_details_open,
+        'positive_behaviour_period': positive_behaviour_period,
+        'positive_behaviour_details_open': positive_behaviour_details_open,
         # Derived, never stored on Student directly - see
-        # docs/adr/0007-student-history-tables-not-summary-fields.md. The
-        # full record lists (not just the counts above) back Student
-        # Details' "More Details" disclosures (#30) - no windowing, since
-        # Behaviour/Exclusions are naturally sparse and Attendance is
-        # capped by how much history actually exists to show.
+        # docs/adr/0007-student-history-tables-not-summary-fields.md.
+        # Student Details' cards (#95) show a chart/breakdown built from
+        # these, not a drill-down into the raw per-record log - Attendance's
+        # own "View details" disclosure below is the one exception, so its
+        # raw AttendanceDay log and a period-grouped breakdown are both
+        # fetched.
         'attendance_percentage': attendance_percentage(referral.student),
-        'behaviour_summary': behaviour_summary(referral.student),
-        'exclusion_count': exclusion_count(referral.student),
+        'attendance_sessions_possible': attendance_sessions_possible(referral.student),
+        'attendance_authorised_pct': attendance_authorised_pct(referral.student),
+        'attendance_unauthorised_pct': attendance_unauthorised_pct(referral.student),
         'attendance_days': referral.student.attendance_days.all(),
-        'behaviour_incidents': referral.student.behaviour_incidents.select_related('logged_by').all(),
-        'exclusions': referral.student.exclusions.all(),
+        'attendance_periods': attendance_period_list,
+        'attendance_sparkline_points': attendance_sparkline_points,
+        'behaviour_summary': behaviour_summary(referral.student),
+        'behaviour_severity_counts': behaviour_severity_counts(referral.student),
+        'behaviour_severity_pct': behaviour_severity_pct(referral.student),
+        'behaviour_incidents': referral.student.behaviour_incidents.all(),
+        'behaviour_periods': behaviour_periods(referral.student, behaviour_period),
+        'exclusion_count': exclusion_count(referral.student),
+        'exclusion_most_recent': exclusion_most_recent(referral.student),
+        'positive_behaviour_points': positive_behaviour_points(referral.student),
+        'positive_behaviour_entry_count': positive_behaviour_entry_count(referral.student),
+        'positive_behaviour_periods': positive_behaviour_periods(referral.student, positive_behaviour_period),
         'is_panel_staff': is_panel_staff,
         'is_dsl': bool(current_staff and current_staff.is_dsl),
         'safeguarding_notes': safeguarding_notes,

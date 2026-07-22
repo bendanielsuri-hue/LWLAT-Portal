@@ -316,6 +316,34 @@ class Exclusion(models.Model):
         return f'{self.student} — {self.get_type_display()} ({self.start_date})'
 
 
+# One row per logged positive-recognition event - deliberately a separate
+# model from BehaviourIncident (opposite signal, own Student Details card -
+# #95) rather than a positive severity option on it. points is summable (a
+# student's points total is a derived sum, same never-a-stored-summary-field
+# rule as Attendance/Behaviour/Exclusions) - no severity-style tier.
+class PositiveBehaviourIncident(models.Model):
+    CATEGORY_CHOICES = [
+        ('merit', 'Merit'),
+        ('effort', 'Effort'),
+        ('achievement', 'Achievement'),
+        ('kindness', 'Kindness'),
+        ('other', 'Other'),
+    ]
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='positive_behaviour_incidents')
+    date = models.DateField()
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    points = models.PositiveIntegerField(default=1)
+    logged_by = models.ForeignKey(Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        ordering = ['-date']
+
+    def __str__(self):
+        return f'{self.student} — {self.get_category_display()} ({self.date})'
+
+
 class AcademicYear(models.Model):
     # Keyed on start_date (not a bare start_year int) so a year's actual
     # first day is a real, queryable fact rather than an assumed Sept 1 -

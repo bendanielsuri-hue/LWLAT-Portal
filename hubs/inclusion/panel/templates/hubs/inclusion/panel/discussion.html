@@ -210,6 +210,245 @@
             </div>
         </div>
 
+        <div class="detail-stat-card detail-stat-card--{% if attendance_percentage == None %}neutral{% elif attendance_percentage >= 95 %}positive{% elif attendance_percentage >= 90 %}warning{% else %}negative{% endif %}" id="attendance-card">
+            <div class="detail-stat-card-main">
+            <div class="detail-stat-card-header">
+                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/calendar_check_svg.html' %}</span>
+                <strong>Attendance</strong>
+            </div>
+            {% if attendance_percentage == None %}
+            <p class="empty-note">No attendance recorded.</p>
+            {% else %}
+            {% with stop1=attendance_percentage stop2=attendance_percentage|add:attendance_authorised_pct stop3=attendance_percentage|add:attendance_authorised_pct|add:attendance_unauthorised_pct %}
+            <div class="attendance-ring-layout">
+                <div class="attendance-ring" style="background: conic-gradient(var(--color-positive) 0% {{ stop1 }}%, var(--color-caution) {{ stop1 }}% {{ stop2 }}%, var(--color-negative) {{ stop2 }}% {{ stop3 }}%, var(--border-color) {{ stop3 }}% 100%);">
+                    <div class="attendance-ring-value">{{ attendance_percentage }}%</div>
+                </div>
+                <div class="attendance-ring-legend">
+                    <div class="attendance-legend-row"><span class="attendance-legend-dot" style="background: var(--color-positive)"></span>Present <strong>{{ attendance_percentage }}%</strong></div>
+                    <div class="attendance-legend-row"><span class="attendance-legend-dot" style="background: var(--color-caution)"></span>Authorised absence <strong>{{ attendance_authorised_pct }}%</strong></div>
+                    <div class="attendance-legend-row"><span class="attendance-legend-dot" style="background: var(--color-negative)"></span>Unauthorised absence <strong>{{ attendance_unauthorised_pct }}%</strong></div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endif %}
+            </div>
+            {% if attendance_percentage != None %}
+            <details class="detail-stat-card-view-more"{% if attendance_details_open %} open{% endif %}>
+                <summary><span class="view-more-label-closed">View details</span><span class="view-more-label-open">Hide details</span></summary>
+                {% if attendance_details_open %}<span class="accent-connector"></span>{% endif %}
+
+                <div class="detail-stat-card-view-more-body">
+                <div class="ui-segmented">
+                    <a href="?period=week&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'week' %} active{% endif %}">Week</a>
+                    <a href="?period=month&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'month' %} active{% endif %}">Month</a>
+                    <a href="?period=half_term&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'half_term' %} active{% endif %}">Half Term</a>
+                    <a href="?period=term&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'term' %} active{% endif %}">Term</a>
+                    <a href="?period=year&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'year' %} active{% endif %}">Year</a>
+                </div>
+
+                {% if detail_variant == 'a' %}
+                <!-- Variant A: horizontal bar list, one row per period - stacked
+                     Present/Authorised/Unauthorised breakdown, same key colours
+                     as the ring above. -->
+                <div class="attendance-periods-list">
+                    {% for period in attendance_periods %}
+                    <div class="attendance-period-row">
+                        <span class="attendance-period-label">{{ period.label }}</span>
+                        <span class="attendance-period-stack">
+                            <span class="attendance-stacked-seg attendance-stacked-seg--present" style="width: {{ period.percentage }}%"></span>
+                            <span class="attendance-stacked-seg attendance-stacked-seg--authorised" style="width: {{ period.authorised_pct }}%"></span>
+                            <span class="attendance-stacked-seg attendance-stacked-seg--unauthorised" style="width: {{ period.unauthorised_pct }}%"></span>
+                        </span>
+                        <span class="attendance-period-value">{{ period.percentage }}%</span>
+                    </div>
+                    {% empty %}
+                    <p class="empty-note">No periods to show.</p>
+                    {% endfor %}
+                </div>
+
+                {% elif detail_variant == 'b' %}
+                <!-- Variant B: calendar-style heatmap, one cell per school day (ignores the period picker above - always shows every recorded day). -->
+                <div class="attendance-heatmap">
+                    {% for day in attendance_days %}
+                    <span class="attendance-heatmap-cell attendance-heatmap-cell--{% if day.am_status == 'present' and day.pm_status == 'present' %}present{% elif day.am_status == 'absent_unauthorised' or day.pm_status == 'absent_unauthorised' %}unauthorised{% elif day.am_status == 'absent_authorised' or day.pm_status == 'absent_authorised' %}authorised{% else %}late{% endif %}" title="{{ day.date|date:'d/m/Y' }}: AM {{ day.get_am_status_display }}, PM {{ day.get_pm_status_display }}"></span>
+                    {% empty %}
+                    <p class="empty-note">No attendance recorded.</p>
+                    {% endfor %}
+                </div>
+                <div class="attendance-heatmap-legend">
+                    <span><span class="attendance-legend-dot" style="background: var(--color-positive)"></span>Present</span>
+                    <span><span class="attendance-legend-dot" style="background: var(--color-caution)"></span>Authorised</span>
+                    <span><span class="attendance-legend-dot" style="background: var(--color-negative)"></span>Unauthorised</span>
+                    <span><span class="attendance-legend-dot" style="background: var(--color-warning)"></span>Late</span>
+                </div>
+
+                {% elif detail_variant == 'c' %}
+                <!-- Variant C: line/sparkline trend across periods. -->
+                {% if attendance_periods %}
+                <svg class="attendance-sparkline" viewBox="0 0 280 80" preserveAspectRatio="none">
+                    <polyline points="{{ attendance_sparkline_points }}" fill="none" stroke="var(--primary)" stroke-width="2"></polyline>
+                </svg>
+                <div class="attendance-sparkline-labels">
+                    {% for period in attendance_periods %}
+                    <span>{{ period.label }} <strong>{{ period.percentage }}%</strong></span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="empty-note">No periods to show.</p>
+                {% endif %}
+
+                {% else %}
+                <!-- Variant D: stacked segmented bar per period (present/authorised/unauthorised). -->
+                <div class="attendance-periods-list">
+                    {% for period in attendance_periods %}
+                    <div class="attendance-period-row">
+                        <span class="attendance-period-label">{{ period.label }}</span>
+                        <span class="attendance-period-stack">
+                            <span class="attendance-stacked-seg attendance-stacked-seg--present" style="width: {{ period.percentage }}%"></span>
+                            <span class="attendance-stacked-seg attendance-stacked-seg--authorised" style="width: {{ period.authorised_pct }}%"></span>
+                            <span class="attendance-stacked-seg attendance-stacked-seg--unauthorised" style="width: {{ period.unauthorised_pct }}%"></span>
+                        </span>
+                        <span class="attendance-period-value">{{ period.percentage }}%</span>
+                    </div>
+                    {% empty %}
+                    <p class="empty-note">No periods to show.</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+
+        <div class="detail-stat-card detail-stat-card--{% if behaviour_incidents %}negative{% else %}positive{% endif %}" id="behaviour-card">
+            <div class="detail-stat-card-main">
+            <div class="detail-stat-card-header">
+                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/document_svg.html' %}</span>
+                <strong>Behaviour</strong>
+            </div>
+            {% if behaviour_incidents %}
+            <div class="detail-stat-card-footnote">{{ behaviour_summary }}</div>
+            <div class="detail-stat-card-chart">
+                <div class="detail-stat-card-bar-row">
+                    <span class="detail-stat-card-bar-label">Low</span>
+                    <span class="detail-stat-card-bar-track"><span class="detail-stat-card-bar-fill" style="width: {{ behaviour_severity_pct.low }}%; background: var(--color-positive);"></span></span>
+                    <span class="detail-stat-card-bar-value">{{ behaviour_severity_counts.low }}</span>
+                </div>
+                <div class="detail-stat-card-bar-row">
+                    <span class="detail-stat-card-bar-label">Medium</span>
+                    <span class="detail-stat-card-bar-track"><span class="detail-stat-card-bar-fill" style="width: {{ behaviour_severity_pct.medium }}%; background: var(--color-caution);"></span></span>
+                    <span class="detail-stat-card-bar-value">{{ behaviour_severity_counts.medium }}</span>
+                </div>
+                <div class="detail-stat-card-bar-row">
+                    <span class="detail-stat-card-bar-label">High</span>
+                    <span class="detail-stat-card-bar-track"><span class="detail-stat-card-bar-fill" style="width: {{ behaviour_severity_pct.high }}%; background: var(--color-negative);"></span></span>
+                    <span class="detail-stat-card-bar-value">{{ behaviour_severity_counts.high }}</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty-note">No behaviour incidents logged.</p>
+            {% endif %}
+            </div>
+            {% if behaviour_incidents %}
+            <details class="detail-stat-card-view-more"{% if behaviour_details_open %} open{% endif %}>
+                <summary><span class="view-more-label-closed">View details</span><span class="view-more-label-open">Hide details</span></summary>
+                {% if behaviour_details_open %}<span class="accent-connector"></span>{% endif %}
+
+                <div class="detail-stat-card-view-more-body">
+                <div class="ui-segmented">
+                    <a href="?behaviour_period=week#behaviour-card" class="ui-segmented-option{% if behaviour_period == 'week' %} active{% endif %}">Week</a>
+                    <a href="?behaviour_period=month#behaviour-card" class="ui-segmented-option{% if behaviour_period == 'month' %} active{% endif %}">Month</a>
+                    <a href="?behaviour_period=half_term#behaviour-card" class="ui-segmented-option{% if behaviour_period == 'half_term' %} active{% endif %}">Half Term</a>
+                    <a href="?behaviour_period=term#behaviour-card" class="ui-segmented-option{% if behaviour_period == 'term' %} active{% endif %}">Term</a>
+                    <a href="?behaviour_period=year#behaviour-card" class="ui-segmented-option{% if behaviour_period == 'year' %} active{% endif %}">Year</a>
+                </div>
+                <div class="attendance-periods-list">
+                    {% for period in behaviour_periods %}
+                    <div class="attendance-period-row">
+                        <span class="attendance-period-label">{{ period.label }}</span>
+                        <span class="attendance-period-stack">
+                            <span class="attendance-stacked-seg attendance-stacked-seg--present" style="width: {{ period.low_pct }}%"></span>
+                            <span class="attendance-stacked-seg attendance-stacked-seg--authorised" style="width: {{ period.medium_pct }}%"></span>
+                            <span class="attendance-stacked-seg attendance-stacked-seg--unauthorised" style="width: {{ period.high_pct }}%"></span>
+                        </span>
+                        <span class="attendance-period-value">{{ period.total }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="empty-note">No periods to show.</p>
+                    {% endfor %}
+                </div>
+                </div>
+            </details>
+            {% endif %}
+        </div>
+
+        <div class="detail-stat-card detail-stat-card--positive" id="positive-behaviour-card">
+            <div class="detail-stat-card-main">
+            <div class="detail-stat-card-header">
+                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/checkmark_svg.html' %}</span>
+                <strong>Positive Behaviour</strong>
+            </div>
+            {% if positive_behaviour_points %}
+            <!-- Bar fraction is proportional to a soft display cap (20 points), not a real threshold - just gives the bar something to be a fraction of. -->
+            <div class="detail-stat-card-chart">
+                <div class="detail-stat-card-bar-row">
+                    <span class="detail-stat-card-bar-label">Points</span>
+                    <span class="detail-stat-card-bar-track"><span class="detail-stat-card-bar-fill" style="width: {% widthratio positive_behaviour_points 20 100 %}%"></span></span>
+                    <span class="detail-stat-card-bar-value">{{ positive_behaviour_points }}</span>
+                </div>
+            </div>
+            <div class="detail-stat-card-footnote">Entries: {{ positive_behaviour_entry_count }}</div>
+            {% else %}
+            <p class="empty-note">No positive behaviour logged.</p>
+            {% endif %}
+            </div>
+            {% if positive_behaviour_points %}
+            <details class="detail-stat-card-view-more"{% if positive_behaviour_details_open %} open{% endif %}>
+                <summary><span class="view-more-label-closed">View details</span><span class="view-more-label-open">Hide details</span></summary>
+                {% if positive_behaviour_details_open %}<span class="accent-connector"></span>{% endif %}
+
+                <div class="detail-stat-card-view-more-body">
+                <div class="ui-segmented">
+                    <a href="?positive_period=week#positive-behaviour-card" class="ui-segmented-option{% if positive_behaviour_period == 'week' %} active{% endif %}">Week</a>
+                    <a href="?positive_period=month#positive-behaviour-card" class="ui-segmented-option{% if positive_behaviour_period == 'month' %} active{% endif %}">Month</a>
+                    <a href="?positive_period=half_term#positive-behaviour-card" class="ui-segmented-option{% if positive_behaviour_period == 'half_term' %} active{% endif %}">Half Term</a>
+                    <a href="?positive_period=term#positive-behaviour-card" class="ui-segmented-option{% if positive_behaviour_period == 'term' %} active{% endif %}">Term</a>
+                    <a href="?positive_period=year#positive-behaviour-card" class="ui-segmented-option{% if positive_behaviour_period == 'year' %} active{% endif %}">Year</a>
+                </div>
+                <div class="attendance-periods-list">
+                    {% for period in positive_behaviour_periods %}
+                    <div class="attendance-period-row">
+                        <span class="attendance-period-label">{{ period.label }}</span>
+                        <span class="detail-stat-card-footnote">{{ period.entries }} entr{{ period.entries|pluralize:"y,ies" }}</span>
+                        <span class="attendance-period-value">{{ period.points }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="empty-note">No periods to show.</p>
+                    {% endfor %}
+                </div>
+                </div>
+            </details>
+            {% endif %}
+        </div>
+
+        <div class="detail-stat-card detail-stat-card--{% if exclusion_count == 0 %}positive{% else %}negative{% endif %}">
+            <div class="detail-stat-card-main">
+            <div class="detail-stat-card-header">
+                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/shield_check_svg.html' %}</span>
+                <strong>Exclusions</strong>
+            </div>
+            <div class="detail-stat-card-bignum-layout">
+                <span class="detail-stat-card-bignum">{{ exclusion_count }}</span>
+                {% if exclusion_most_recent %}
+                <span class="detail-stat-card-footnote">Most recent: {{ exclusion_most_recent.start_date|date:"d/m/Y" }} ({{ exclusion_most_recent.get_type_display }})</span>
+                {% else %}
+                <span class="empty-note">No exclusions recorded.</span>
+                {% endif %}
+            </div>
+            </div>
+        </div>
+
         {% if is_panel_staff and safeguarding_notes %}
         <div class="safeguarding-briefing-card">
             <div class="safeguarding-briefing-header">
@@ -231,51 +470,6 @@
             {% endif %}
         </div>
         {% endif %}
-
-        <details class="detail-stat-card">
-            <summary>
-                <div class="detail-stat-card-header">
-                    <strong>Attendance: {{ attendance_percentage|default:"—" }}{% if attendance_percentage %}%{% endif %}</strong>
-                </div>
-            </summary>
-            {% if attendance_days %}
-            {% for day in attendance_days %}
-            <div class="entity-meta">{{ day.date|date:"d/m/Y" }} — AM: {{ day.get_am_status_display }}, PM: {{ day.get_pm_status_display }}</div>
-            {% endfor %}
-            {% else %}
-            <p class="empty-note">No attendance recorded.</p>
-            {% endif %}
-        </details>
-        <details class="detail-stat-card">
-            <summary>
-                <div class="detail-stat-card-header">
-                    <strong>Behaviour Summary: {{ behaviour_summary }}</strong>
-                </div>
-            </summary>
-            {% if behaviour_incidents %}
-            {% for incident in behaviour_incidents %}
-            <div class="entity-meta">{{ incident.date|date:"d/m/Y" }} — {{ incident.get_category_display }} ({{ incident.get_severity_display }}){% if incident.logged_by %}, logged by {{ incident.logged_by }}{% endif %}</div>
-            {% if incident.description %}<div class="field-readonly">{{ incident.description }}</div>{% endif %}
-            {% endfor %}
-            {% else %}
-            <p class="empty-note">No behaviour incidents logged.</p>
-            {% endif %}
-        </details>
-        <details class="detail-stat-card">
-            <summary>
-                <div class="detail-stat-card-header">
-                    <strong>Exclusions: {{ exclusion_count }}</strong>
-                </div>
-            </summary>
-            {% if exclusions %}
-            {% for exclusion in exclusions %}
-            <div class="entity-meta">{{ exclusion.start_date|date:"d/m/Y" }} — {% if exclusion.end_date %}to {{ exclusion.end_date|date:"d/m/Y" }}{% else %}Permanent{% endif %} ({{ exclusion.get_type_display }})</div>
-            {% if exclusion.reason %}<div class="field-readonly">{{ exclusion.reason }}</div>{% endif %}
-            {% endfor %}
-            {% else %}
-            <p class="empty-note">No exclusions recorded.</p>
-            {% endif %}
-        </details>
         </div>
     </div>
 
@@ -412,6 +606,34 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endif %}
+
+<div class="proto-variant-switcher" data-current="{{ detail_variant }}">
+    <a href="#" class="proto-variant-arrow proto-variant-prev" aria-label="Previous variant">&larr;</a>
+    <span class="proto-variant-label">Detail variant {{ detail_variant|upper }} — {% if detail_variant == 'a' %}Bar list{% elif detail_variant == 'b' %}Calendar heatmap{% elif detail_variant == 'c' %}Sparkline trend{% else %}Stacked bar list{% endif %} (#95 prototype)</span>
+    <a href="#" class="proto-variant-arrow proto-variant-next" aria-label="Next variant">&rarr;</a>
+</div>
+<script>
+(function () {
+    var variants = ['a', 'b', 'c', 'd'];
+    var current = variants.indexOf('{{ detail_variant }}');
+    var bar = document.querySelector('.proto-variant-switcher');
+    if (!bar) return;
+    function urlFor(idx) {
+        var url = new URL(window.location.href);
+        url.searchParams.set('detail_variant', variants[(idx + variants.length) % variants.length]);
+        url.searchParams.set('period', '{{ attendance_period }}');
+        return url.toString();
+    }
+    bar.querySelector('.proto-variant-prev').href = urlFor(current - 1);
+    bar.querySelector('.proto-variant-next').href = urlFor(current + 1);
+    document.addEventListener('keydown', function (e) {
+        var tag = document.activeElement && document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
+        if (e.key === 'ArrowLeft') window.location.href = urlFor(current - 1);
+        if (e.key === 'ArrowRight') window.location.href = urlFor(current + 1);
+    });
+})();
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
