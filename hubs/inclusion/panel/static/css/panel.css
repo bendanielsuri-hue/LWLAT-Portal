@@ -1375,11 +1375,142 @@
        pane visibly reads as that chosen row's own content. */
     box-shadow: inset 3px 0 0 var(--accent-border);
 }
-/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
-.detail-stat-card { border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); }
-.detail-stat-card summary { font-weight: 600; cursor: pointer; }
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card).
+   Dashboard-style stat card (#95): left-aligned header with a coloured
+   accent icon, a chart/breakdown replacing the old plain summary line, no
+   expand/collapse - this is the whole card, not a disclosure trigger for a
+   hidden raw record list. */
+.detail-stat-card { border: 1px solid var(--border-strong); border-left: 4px solid var(--stat-accent, var(--border-strong)); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); text-align: left; }
 .detail-stat-card .field-readonly { margin-top: var(--space-xs); }
-.detail-stat-card-header { display: flex; justify-content: center; align-items: center; gap: var(--space-sm); }
+/* Accent lives on the outer card by default (full card height, including a
+   collapsed "View details" row below the main content) - a card with an
+   *open* expandable section (Attendance) switches the accent onto
+   .detail-stat-card-main instead (header+chart only), via :has(), so it
+   stops before the expanded content rather than running the full height.
+   Negative left margin/padding on .detail-stat-card-main compensates so
+   that version of the accent still reads flush with the card's own edge. */
+.detail-stat-card:has(.detail-stat-card-view-more[open]) { border-left-color: var(--border-strong); }
+/* Bleeds both left and up so the accent starts exactly at the card's true
+   top-left corner (not inset by the card's own padding). Left bleed is
+   -(space-md + 4px) - the card's own border-left is 4px wide (not 1px like
+   its other sides), so the offset has to match that, not the general
+   border width. */
+.detail-stat-card:has(.detail-stat-card-view-more[open]) .detail-stat-card-main { border-left: 4px solid var(--stat-accent, var(--border-strong)); border-top-left-radius: var(--radius-md); margin-left: calc(-1 * (var(--space-md) + 4px)); margin-top: calc(-1px - var(--space-sm)); padding-left: var(--space-md); padding-top: calc(1px + var(--space-sm)); }
+/* Zero gap between .detail-stat-card-main and the open <details> - the
+   default margin-top (--space-xs) would otherwise leave a small unaccented
+   break between the two accent segments (main's own border-left and the
+   .accent-connector inside details). */
+.detail-stat-card:has(.detail-stat-card-view-more[open]) .detail-stat-card-view-more[open] { margin-top: 0; }
+.detail-stat-card-header { display: flex; justify-content: flex-start; align-items: center; gap: var(--space-sm); font-weight: 600; }
+.detail-stat-card-icon { display: inline-flex; width: 20px; height: 20px; color: var(--stat-accent); flex-shrink: 0; }
+.detail-stat-card-icon svg { width: 100%; height: 100%; }
+.detail-stat-card-icon--lg { width: 28px; height: 28px; }
+.detail-stat-card--positive { --stat-accent: var(--color-positive); }
+.detail-stat-card--warning { --stat-accent: var(--color-warning); }
+.detail-stat-card--negative { --stat-accent: var(--color-negative); }
+.detail-stat-card--neutral { --stat-accent: var(--color-neutral); }
+
+/* Mini bar chart shared by Attendance/Behaviour/Positive Behaviour cards -
+   one row per series, label (optional) + track + value (optional). */
+.detail-stat-card-chart { margin-top: var(--space-sm); }
+.detail-stat-card-bar-row { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-xxs); }
+.detail-stat-card-bar-row:last-child { margin-bottom: 0; }
+.detail-stat-card-bar-label { flex: 0 0 90px; font-size: var(--font-sm); color: var(--text-secondary); }
+.detail-stat-card-bar-track { flex: 1 1 auto; background: var(--border-color); border-radius: var(--radius-sm); height: 8px; overflow: hidden; }
+.detail-stat-card-bar-fill { display: block; height: 100%; background: var(--stat-accent); }
+.detail-stat-card-bar-fill--muted { background: color-mix(in srgb, var(--stat-accent) 55%, var(--text-secondary)); }
+.detail-stat-card-bar-value { flex: 0 0 24px; text-align: right; font-size: var(--font-sm); color: var(--text-secondary); }
+.detail-stat-card-footnote { font-size: var(--font-sm); color: var(--text-secondary); margin-top: var(--space-xxs); }
+
+/* Attendance card (#95): conic-gradient donut ring (Present/Authorised/
+   Unauthorised as one coloured circle) + legend, decided over a stacked-bar
+   and vertical-bar-chart alternative via live prototype. */
+.attendance-ring-layout { display: flex; align-items: center; gap: var(--space-md); margin-top: var(--space-xs); }
+.attendance-ring { width: 88px; height: 88px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+.attendance-ring::before { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: var(--bg-surface-alt); }
+/* Plain text colour, not --stat-accent - the ring's own segments already
+   carry the Present/Authorised/Unauthorised colour-coding (--color-positive/
+   --color-caution/--color-negative), the card's border-left/icon carry the
+   threshold status separately; the centre number doesn't need a third
+   colour signal on top of both. */
+.attendance-ring-value { position: relative; z-index: 1; font-size: var(--font-lg); font-weight: 700; color: var(--text-primary); }
+.attendance-ring-legend { display: flex; flex-direction: column; gap: var(--space-xxs); font-size: var(--font-sm); }
+.attendance-legend-row { display: flex; align-items: center; gap: var(--space-xs); }
+.attendance-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* Behaviour/Positive Behaviour cards (#95): same donut-ring + legend visual
+   language as Attendance above, generalized under non-"attendance-" prefixed
+   names so both cards can share one set of rules. */
+.detail-stat-ring-layout { display: flex; align-items: center; gap: var(--space-md); margin-top: var(--space-xs); }
+.detail-stat-ring { width: 88px; height: 88px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+.detail-stat-ring::before { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: var(--bg-surface-alt); }
+.detail-stat-ring-value { position: relative; z-index: 1; font-size: var(--font-lg); font-weight: 700; color: var(--text-primary); }
+.detail-stat-ring-legend { display: flex; flex-direction: column; gap: var(--space-xxs); font-size: var(--font-sm); }
+.detail-stat-legend-row { display: flex; align-items: center; gap: var(--space-xs); }
+.detail-stat-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* Exclusions card (#95): no proportional breakdown to ring (usually 0 or a
+   handful of rows), so a large stat number stands in for the ring instead -
+   same "one visual focal point beside the legend/footnote" shape. */
+.detail-stat-card-bignum-layout { display: flex; align-items: center; gap: var(--space-md); margin-top: var(--space-sm); }
+.detail-stat-card-bignum { font-size: var(--font-4xl); font-weight: 700; color: var(--stat-accent); line-height: 1; }
+
+/* "View details" disclosure - a small pill button (not the card's main
+   affordance, so kept subdued: quiet border/bg, no accent colour). Uses
+   display:table + margin-left:auto (not text-align:right on the parent) so
+   only the button itself sits at the right edge - the expanded body below
+   stays left-aligned regardless. Label swaps to "Hide details" once open
+   via the two-span toggle below. */
+/* A plain horizontal rule separates the expanded section from the card's
+   main content above it once open - no separate boxed/recessed background
+   (tried and looked like an ugly nested card), just a clean divider line,
+   consistent with how .panel-notes-history separates its own history from
+   the content above it. */
+.detail-stat-card-view-more { margin-top: var(--space-xs); position: relative; }
+.detail-stat-card-view-more summary { display: table; margin-left: auto; font-size: var(--font-sm); color: var(--text-secondary); cursor: pointer; list-style: none; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 2px var(--space-sm); background: var(--bg-surface); }
+.detail-stat-card-view-more summary::-webkit-details-marker { display: none; }
+.detail-stat-card-view-more summary:hover { color: var(--primary); border-color: var(--primary); }
+.detail-stat-card-view-more[open] summary { margin-bottom: var(--space-sm); }
+/* Accent continues through the button row as a plain positioned strip (not
+   a border on <summary> itself, which would visually clash with the
+   button's own all-round border). 37px = measured rendered height of
+   summary (24px, fixed by font-sm/padding/border, never user content) +
+   its own margin-bottom (--space-sm, 12px) - not a blind guess, but also
+   not expressible as a clean calc() since line-height metrics aren't
+   exposed as a token; re-measure if summary's own font-size/padding ever
+   changes. */
+.accent-connector { position: absolute; top: 0; left: calc(-1 * (var(--space-md) + 4px)); width: 4px; height: 37px; background: var(--stat-accent, var(--border-strong)); }
+/* Divider sits on .detail-stat-card-view-more-body (everything after
+   <summary>), not on the <details> element itself - a border-top there
+   would render above the summary/button, not after it. Plain line only -
+   no background/border-radius (that read as an ugly nested card). Bled
+   full card width via the same negative margin trick used for the accent. */
+.detail-stat-card-view-more-body { border-top: 1px solid var(--border-color); padding-top: var(--space-sm); margin-left: calc(-1 * (var(--space-md) + 4px)); margin-right: calc(-1px - var(--space-md)); padding-left: calc(4px + var(--space-md)); padding-right: calc(1px + var(--space-md)); }
+.view-more-label-open { display: none; }
+.detail-stat-card-view-more[open] .view-more-label-closed { display: none; }
+.detail-stat-card-view-more[open] .view-more-label-open { display: inline; }
+
+/* Period picker (Attendance/Behaviour/Positive Behaviour "View details")
+   reuses the app's existing .ui-segmented component (forms.css) rather than
+   inventing its own tab styling - fused into one bordered group, no gaps
+   between options. */
+.ui-segmented { margin-bottom: var(--space-sm); }
+.ui-segmented .ui-segmented-option { text-decoration: none; }
+
+/* Period-list row shape - label + stacked bar + value. Chosen over a
+   calendar heatmap and a sparkline trend during #95's live prototype
+   comparison. */
+.attendance-periods-list { display: flex; flex-direction: column; gap: var(--space-xxs); }
+.attendance-period-row { display: flex; align-items: center; gap: var(--space-xs); }
+.attendance-period-label { flex: 0 0 100px; font-size: var(--font-sm); color: var(--text-secondary); }
+.attendance-period-value { flex: 0 0 40px; text-align: right; font-size: var(--font-sm); }
+.attendance-period-stack { flex: 1 1 auto; display: flex; height: 10px; background: var(--border-color); border-radius: var(--radius-sm); overflow: hidden; }
+/* Same key colours as the ring/legend above: Present/positive,
+   Authorised/caution, Unauthorised/negative. */
+.attendance-stacked-seg--present { background: var(--color-positive); }
+.attendance-stacked-seg--authorised { background: var(--color-caution); }
+.attendance-stacked-seg--unauthorised { background: var(--color-negative); }
+
 /* Overrides .discussion-toolbar-card's centred default (shared with
    .discussion-col/.setup-col for the profile-style cards) - a note thread
    reads left-aligned like any other chat/list content, not centred. */

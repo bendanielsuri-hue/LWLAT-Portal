@@ -9,6 +9,21 @@ from core.models import AcademicYear, Term
 # docs/adr/0008-academic-year-term-model-shape.md) and holiday periods
 # (derived from the gaps between these rows, not stored).
 TERM_DATES = [
+    # 2024/25 - approximate, NOT from a real published sheet (the trust has
+    # no sheet on file for this year). Same term pattern as 2025/26, shifted
+    # back one year, so the Attendance card's Year-comparison view (#95) has
+    # something real to compare the current year against.
+    {
+        'academic_year': (datetime.date(2024, 8, 26), datetime.date(2025, 7, 8)),
+        'terms': [
+            (Term.TERM_AUTUMN, datetime.date(2024, 8, 26), datetime.date(2024, 12, 18),
+             datetime.date(2024, 10, 21), datetime.date(2024, 10, 25)),
+            (Term.TERM_SPRING, datetime.date(2025, 1, 6), datetime.date(2025, 3, 27),
+             datetime.date(2025, 2, 17), datetime.date(2025, 2, 21)),
+            (Term.TERM_SUMMER, datetime.date(2025, 4, 13), datetime.date(2025, 7, 8),
+             datetime.date(2025, 5, 26), datetime.date(2025, 5, 30)),
+        ],
+    },
     # 2025/26
     {
         'academic_year': (datetime.date(2025, 8, 26), datetime.date(2026, 7, 8)),
