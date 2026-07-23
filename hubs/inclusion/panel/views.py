@@ -3159,22 +3159,16 @@ def inclusion_panel_discussion(request, panel_referral_id):
         and not panel_referral.briefing_ready
     )
 
-    # PROTOTYPE (#95) - wipe me: ?period=week/month/half_term/term and
-    # ?detail_variant=a/b/c/d switch the Attendance "View details" breakdown
-    # live, so the period grouping + visual treatment can both be judged
-    # against real data before picking one. Remove both params + the
-    # switcher bar once a combination wins.
+    # Attendance/Behaviour/Positive Behaviour cards (#95) each have a
+    # period-grouped "View details" disclosure (Week/Month/Half Term/Term/
+    # Year), on their own query params so opening one doesn't affect the
+    # others. Bar-list visual treatment won a live prototype comparison
+    # against a calendar heatmap and a sparkline trend - see panel.css.
     attendance_period = request.GET.get('period', 'week')
     if attendance_period not in ('week', 'month', 'half_term', 'term', 'year'):
         attendance_period = 'week'
-    detail_variant = request.GET.get('detail_variant', 'a')
-    if detail_variant not in ('a', 'b', 'c', 'd'):
-        detail_variant = 'a'
-    attendance_details_open = 'period' in request.GET or 'detail_variant' in request.GET
+    attendance_details_open = 'period' in request.GET
 
-    # Behaviour/Positive Behaviour cards (#95) get the same period-grouped
-    # "View details" disclosure as Attendance, on their own query params so
-    # opening one doesn't affect the others.
     behaviour_period = request.GET.get('behaviour_period', 'week')
     if behaviour_period not in ('week', 'month', 'half_term', 'term', 'year'):
         behaviour_period = 'week'
@@ -3184,25 +3178,12 @@ def inclusion_panel_discussion(request, panel_referral_id):
         positive_behaviour_period = 'week'
     positive_behaviour_details_open = 'positive_period' in request.GET
 
-    attendance_period_list = attendance_periods(referral.student, attendance_period)
-    # Variant C's line chart needs actual point coordinates on a fixed
-    # viewBox - simplest done once here, not re-derived per-row in the
-    # template.
-    attendance_sparkline_points = ''
-    if attendance_period_list:
-        width, height = 280, 80
-        pcts = [p['percentage'] for p in attendance_period_list]
-        xs = [width / 2] if len(pcts) == 1 else [i * width / (len(pcts) - 1) for i in range(len(pcts))]
-        ys = [height - (pct / 100 * height) for pct in pcts]
-        attendance_sparkline_points = ' '.join(f'{x:.1f},{y:.1f}' for x, y in zip(xs, ys))
-
     context = {
         **_panel_base_context(request),
         'panel_referral': panel_referral,
         'referral': referral,
         'student': referral.student,
         'attendance_period': attendance_period,
-        'detail_variant': detail_variant,
         'attendance_details_open': attendance_details_open,
         'behaviour_period': behaviour_period,
         'behaviour_details_open': behaviour_details_open,
@@ -3211,17 +3192,14 @@ def inclusion_panel_discussion(request, panel_referral_id):
         # Derived, never stored on Student directly - see
         # docs/adr/0007-student-history-tables-not-summary-fields.md.
         # Student Details' cards (#95) show a chart/breakdown built from
-        # these, not a drill-down into the raw per-record log - Attendance's
-        # own "View details" disclosure below is the one exception, so its
-        # raw AttendanceDay log and a period-grouped breakdown are both
-        # fetched.
+        # these, not a drill-down into the raw per-record log - each card's
+        # own "View details" disclosure is the one exception, showing a
+        # period-grouped breakdown (not the raw per-record log itself).
         'attendance_percentage': attendance_percentage(referral.student),
         'attendance_sessions_possible': attendance_sessions_possible(referral.student),
         'attendance_authorised_pct': attendance_authorised_pct(referral.student),
         'attendance_unauthorised_pct': attendance_unauthorised_pct(referral.student),
-        'attendance_days': referral.student.attendance_days.all(),
-        'attendance_periods': attendance_period_list,
-        'attendance_sparkline_points': attendance_sparkline_points,
+        'attendance_periods': attendance_periods(referral.student, attendance_period),
         'behaviour_summary': behaviour_summary(referral.student),
         'behaviour_severity_counts': behaviour_severity_counts(referral.student),
         'behaviour_severity_pct': behaviour_severity_pct(referral.student),

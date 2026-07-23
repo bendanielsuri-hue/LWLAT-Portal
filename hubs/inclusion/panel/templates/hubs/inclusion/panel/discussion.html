@@ -240,17 +240,17 @@
 
                 <div class="detail-stat-card-view-more-body">
                 <div class="ui-segmented">
-                    <a href="?period=week&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'week' %} active{% endif %}">Week</a>
-                    <a href="?period=month&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'month' %} active{% endif %}">Month</a>
-                    <a href="?period=half_term&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'half_term' %} active{% endif %}">Half Term</a>
-                    <a href="?period=term&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'term' %} active{% endif %}">Term</a>
-                    <a href="?period=year&detail_variant={{ detail_variant }}#attendance-card" class="ui-segmented-option{% if attendance_period == 'year' %} active{% endif %}">Year</a>
+                    <a href="?period=week#attendance-card" class="ui-segmented-option{% if attendance_period == 'week' %} active{% endif %}">Week</a>
+                    <a href="?period=month#attendance-card" class="ui-segmented-option{% if attendance_period == 'month' %} active{% endif %}">Month</a>
+                    <a href="?period=half_term#attendance-card" class="ui-segmented-option{% if attendance_period == 'half_term' %} active{% endif %}">Half Term</a>
+                    <a href="?period=term#attendance-card" class="ui-segmented-option{% if attendance_period == 'term' %} active{% endif %}">Term</a>
+                    <a href="?period=year#attendance-card" class="ui-segmented-option{% if attendance_period == 'year' %} active{% endif %}">Year</a>
                 </div>
 
-                {% if detail_variant == 'a' %}
-                <!-- Variant A: horizontal bar list, one row per period - stacked
+                <!-- Horizontal bar list, one row per period - stacked
                      Present/Authorised/Unauthorised breakdown, same key colours
-                     as the ring above. -->
+                     as the ring above. Won over a calendar heatmap and a
+                     sparkline trend during #95's live prototype comparison. -->
                 <div class="attendance-periods-list">
                     {% for period in attendance_periods %}
                     <div class="attendance-period-row">
@@ -266,56 +266,6 @@
                     <p class="empty-note">No periods to show.</p>
                     {% endfor %}
                 </div>
-
-                {% elif detail_variant == 'b' %}
-                <!-- Variant B: calendar-style heatmap, one cell per school day (ignores the period picker above - always shows every recorded day). -->
-                <div class="attendance-heatmap">
-                    {% for day in attendance_days %}
-                    <span class="attendance-heatmap-cell attendance-heatmap-cell--{% if day.am_status == 'present' and day.pm_status == 'present' %}present{% elif day.am_status == 'absent_unauthorised' or day.pm_status == 'absent_unauthorised' %}unauthorised{% elif day.am_status == 'absent_authorised' or day.pm_status == 'absent_authorised' %}authorised{% else %}late{% endif %}" title="{{ day.date|date:'d/m/Y' }}: AM {{ day.get_am_status_display }}, PM {{ day.get_pm_status_display }}"></span>
-                    {% empty %}
-                    <p class="empty-note">No attendance recorded.</p>
-                    {% endfor %}
-                </div>
-                <div class="attendance-heatmap-legend">
-                    <span><span class="attendance-legend-dot" style="background: var(--color-positive)"></span>Present</span>
-                    <span><span class="attendance-legend-dot" style="background: var(--color-caution)"></span>Authorised</span>
-                    <span><span class="attendance-legend-dot" style="background: var(--color-negative)"></span>Unauthorised</span>
-                    <span><span class="attendance-legend-dot" style="background: var(--color-warning)"></span>Late</span>
-                </div>
-
-                {% elif detail_variant == 'c' %}
-                <!-- Variant C: line/sparkline trend across periods. -->
-                {% if attendance_periods %}
-                <svg class="attendance-sparkline" viewBox="0 0 280 80" preserveAspectRatio="none">
-                    <polyline points="{{ attendance_sparkline_points }}" fill="none" stroke="var(--primary)" stroke-width="2"></polyline>
-                </svg>
-                <div class="attendance-sparkline-labels">
-                    {% for period in attendance_periods %}
-                    <span>{{ period.label }} <strong>{{ period.percentage }}%</strong></span>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="empty-note">No periods to show.</p>
-                {% endif %}
-
-                {% else %}
-                <!-- Variant D: stacked segmented bar per period (present/authorised/unauthorised). -->
-                <div class="attendance-periods-list">
-                    {% for period in attendance_periods %}
-                    <div class="attendance-period-row">
-                        <span class="attendance-period-label">{{ period.label }}</span>
-                        <span class="attendance-period-stack">
-                            <span class="attendance-stacked-seg attendance-stacked-seg--present" style="width: {{ period.percentage }}%"></span>
-                            <span class="attendance-stacked-seg attendance-stacked-seg--authorised" style="width: {{ period.authorised_pct }}%"></span>
-                            <span class="attendance-stacked-seg attendance-stacked-seg--unauthorised" style="width: {{ period.unauthorised_pct }}%"></span>
-                        </span>
-                        <span class="attendance-period-value">{{ period.percentage }}%</span>
-                    </div>
-                    {% empty %}
-                    <p class="empty-note">No periods to show.</p>
-                    {% endfor %}
-                </div>
-                {% endif %}
                 </div>
             </details>
             {% endif %}
@@ -606,34 +556,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endif %}
-
-<div class="proto-variant-switcher" data-current="{{ detail_variant }}">
-    <a href="#" class="proto-variant-arrow proto-variant-prev" aria-label="Previous variant">&larr;</a>
-    <span class="proto-variant-label">Detail variant {{ detail_variant|upper }} — {% if detail_variant == 'a' %}Bar list{% elif detail_variant == 'b' %}Calendar heatmap{% elif detail_variant == 'c' %}Sparkline trend{% else %}Stacked bar list{% endif %} (#95 prototype)</span>
-    <a href="#" class="proto-variant-arrow proto-variant-next" aria-label="Next variant">&rarr;</a>
-</div>
-<script>
-(function () {
-    var variants = ['a', 'b', 'c', 'd'];
-    var current = variants.indexOf('{{ detail_variant }}');
-    var bar = document.querySelector('.proto-variant-switcher');
-    if (!bar) return;
-    function urlFor(idx) {
-        var url = new URL(window.location.href);
-        url.searchParams.set('detail_variant', variants[(idx + variants.length) % variants.length]);
-        url.searchParams.set('period', '{{ attendance_period }}');
-        return url.toString();
-    }
-    bar.querySelector('.proto-variant-prev').href = urlFor(current - 1);
-    bar.querySelector('.proto-variant-next').href = urlFor(current + 1);
-    document.addEventListener('keydown', function (e) {
-        var tag = document.activeElement && document.activeElement.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
-        if (e.key === 'ArrowLeft') window.location.href = urlFor(current - 1);
-        if (e.key === 'ArrowRight') window.location.href = urlFor(current + 1);
-    });
-})();
-</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
