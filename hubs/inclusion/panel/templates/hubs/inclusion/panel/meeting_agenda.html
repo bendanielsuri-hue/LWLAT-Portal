@@ -72,7 +72,7 @@
             <div class="attendance-dialog-footer">
                 <span class="attendance-summary"><strong>{{ checked_in_count }}</strong> of {{ members|length }} checked in</span>
                 <div class="btn-row">
-                    <button type="button" class="btn btn-sm" data-modal-close>View Agenda</button>
+                    <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
                     <form method="post" style="display:inline">
                         {% csrf_token %}
                         <input type="hidden" name="form_action" value="start_meeting">
@@ -86,11 +86,48 @@
 </dialog>
 {% endif %}
 
+{% if can_manage_running %}
+{% comment %}
+Inactivity-warning dialog (see initInactivityWarning, panel.js) - polls
+inclusion_panel_meeting_activity_poll every ~60s while this panel is
+running, and shows this once the server reports the STALE_PANEL_TIMEOUT
+cutoff is within stale_panel_warning_lead_seconds. "Still here" pings the
+same endpoint (form_action=ping), which bumps Panel.last_confirmed_at - a
+genuine activity signal, not just a UI dismiss - and resets the clock. No
+response before the poll reports closed:true and the page reloads into its
+now-read-only state (see agenda_readonly elsewhere in this template). The
+backstop sweep (_sync_stale_running_panels) still catches this panel
+regardless if the browser closes entirely before that happens.
+{% endcomment %}
+<div
+    id="inactivity-poll-root"
+    data-panel-id="{{ panel.id }}"
+    data-poll-url="{% url 'inclusion_panel_meeting_activity_poll' panel.id %}"
+    data-warning-lead-seconds="{{ stale_panel_warning_lead_seconds }}"
+    hidden
+></div>
+<dialog id="inactivity-warning-dialog" class="modal-dialog">
+    <div class="modal-header">
+        <h2>Still going?</h2>
+    </div>
+    <div class="modal-body">
+        <p>This meeting will end automatically in <strong id="inactivity-countdown">5:00</strong> due to inactivity.</p>
+        <form method="post" id="inactivity-ping-form">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="ping">
+            <div class="btn-row">
+                <button type="submit" class="btn btn-primary" id="inactivity-still-here-btn">Still here</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{% endif %}
+
 <div class="list-page-shell">
 
 <div class="panel-toolbar">
     <div class="panel-toolbar-stats">
-        <span>Students pending discussion: {{ pending|length }}</span>
+        <span>Students {% if agenda_readonly %}deferred{% else %}pending discussion{% endif %}: {{ pending|length }}</span>
         <span>Students discussed: {{ discussed|length }}</span>
         <span>Progress: {{ progress_pct }}%</span>
         {% if is_running_long %}<span class="status-pill danger" title="This meeting has been running well past this group's typical length — consider ending it if it's finished">Running long</span>{% endif %}
@@ -106,7 +143,19 @@
             </form>
         </div>
         {% elif can_start_meeting %}
+        {% if agenda_is_empty %}
+        {% comment %}
+        A real disabled `<button>` doesn't fire hover events, so its own
+        `title` never shows a tooltip - wrapping it in an element that
+        itself carries the title (and does receive hover) is the standard
+        workaround.
+        {% endcomment %}
+        <span title="Add at least one referral to the agenda before starting">
+            <span class="btn btn-secondary btn-disabled" aria-disabled="true"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</span>
+        </span>
+        {% else %}
         <button type="button" class="btn btn-secondary" data-open-attendance-trigger><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
+        {% endif %}
         {% endif %}
     </div>
 </div>
@@ -120,7 +169,13 @@
         {% if is_pre_start %}
         <p class="members-register-placeholder">{{ checked_in_count }} of {{ members|length }} checked in</p>
         {% if can_start_meeting %}
+        {% if agenda_is_empty %}
+        <span title="Add at least one referral to the agenda before starting">
+            <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Take Attendance</span>
+        </span>
+        {% else %}
         <button type="button" class="btn btn-secondary btn-sm" data-open-attendance-trigger><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Take Attendance</button>
+        {% endif %}
         {% endif %}
         {% elif panel.status == 'running' %}
         <p class="members-register-placeholder">{{ checked_in_count }} of {{ members|length }} checked in</p>
@@ -155,13 +210,24 @@
 
     <div class="agenda-section setup-col">
         <div class="setup-col-header">
-            <h2>Students Pending <span class="count" data-count-key="heading" data-count="{{ pending|length }}">({{ pending|length }})</span></h2>
+            <h2>Students {% if agenda_readonly %}Deferred{% else %}Pending{% endif %} <span class="count" data-count-key="heading" data-count="{{ pending|length }}">({{ pending|length }})</span></h2>
             <a href="{% url 'inclusion_panel_meeting_setup' panel.id %}" class="btn btn-subtle btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add to Agenda</a>
         </div>
         <div class="setup-col-body">
         <div class="entity-list entity-list--bleed" data-drop-zone="pending">
             {% for pr in pending %}
-            <div class="entity-row agenda-row selectable" draggable="true" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
+            {% comment %}
+            .selectable only carries a hover tint (this list isn't wrapped in
+            a [data-selectable] container, so it never actually toggles
+            anything on click - see initSelectable in main.js) - still drop
+            it once agenda_readonly so an ended meeting's rows don't imply
+            an interaction that was never really there. Same gate covers the
+            corner Remove button and the whole order rail (number + Promote/
+            Demote) below - nothing on this row is still editable once the
+            meeting's over.
+            {% endcomment %}
+            <div class="entity-row agenda-row{% if not agenda_readonly %} selectable{% endif %}" draggable="{% if agenda_readonly %}false{% else %}true{% endif %}" data-drop-id="{{ pr.id }}" data-referral-id="{{ pr.referral_id }}">
+                {% if not agenda_readonly %}
                 <form method="post" class="row-corner-action" onsubmit="return confirm('Remove this student from the agenda?');">
                     {% csrf_token %}
                     <input type="hidden" name="form_action" value="unassign_referral">
@@ -188,6 +254,7 @@
                         </form>
                     </div>
                 </div>
+                {% endif %}
                 <div class="agenda-content">
                     <div class="referral-row-grid">
                         <div class="referral-pills">
@@ -225,25 +292,32 @@
                         </div>
                     </div>
                     <div class="referral-details-actions">
-                        {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices %}
+                        {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices readonly=agenda_readonly %}
                         <button type="button" class="btn btn-secondary btn-sm" data-view-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
                         <div class="row-action-form btn-row">
-                            {% if panel.started_at %}
+                            {% if panel.status == 'running' %}
                             <form method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="form_action" value="start_discussion">
                                 <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
                                 <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</button>
                             </form>
-                            {% else %}
+                            {% elif panel.status != 'complete' and panel.status != 'void' %}
                             <span class="btn btn-add btn-sm btn-disabled" aria-disabled="true" title="Start the meeting to begin discussing referrals"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</span>
                             {% endif %}
+                            {% comment %}
+                            No button at all once the meeting's ended
+                            (complete/void) - unlike the pre-start disabled-
+                            with-tooltip case above, there's nothing left to
+                            explain: this referral just never got discussed
+                            here (see 'deferred' handling, agenda_readonly).
+                            {% endcomment %}
                         </div>
                     </div>
                 </div>
             </div>
             {% empty %}
-            <p class="empty-note">No students pending discussion.</p>
+            <p class="empty-note">No students {% if agenda_readonly %}deferred{% else %}pending discussion{% endif %}.</p>
             {% endfor %}
         </div>
         </div>
@@ -349,7 +423,7 @@
                         </div>
                     </div>
                     <div class="referral-details-actions">
-                        {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices %}
+                        {% include 'hubs/inclusion/panel/_priority_mini.html' with ref=pr.referral priority_choices=priority_choices readonly=agenda_readonly %}
                         <button type="button" class="btn btn-secondary btn-sm" data-view-referral-trigger data-referral-id="{{ pr.referral.id }}" data-next="{{ request.path }}">Referral Details</button>
                         {% if panel.status == 'running' %}
                         <div class="row-action-form btn-row">
@@ -471,6 +545,99 @@ document.addEventListener('DOMContentLoaded', function () {
             closeDialog();
         }
     });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Live counterpart to the backstop sweep (_sync_stale_running_panels) -
+    // see #inactivity-poll-root's own comment above for the full picture.
+    // Only present at all when can_manage_running (this viewer could act on
+    // a warning), so an absent root is the normal case on most loads, not
+    // an error.
+    var root = document.getElementById('inactivity-poll-root');
+    if (!root) return;
+
+    var pollUrl = root.dataset.pollUrl;
+    var warningLeadSeconds = parseInt(root.dataset.warningLeadSeconds, 10);
+    var dialog = document.getElementById('inactivity-warning-dialog');
+    var countdownEl = document.getElementById('inactivity-countdown');
+    var pingForm = document.getElementById('inactivity-ping-form');
+    var secondsRemaining = null;
+    var countdownTick = null;
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function formatMMSS(totalSeconds) {
+        var s = Math.max(0, totalSeconds);
+        return Math.floor(s / 60) + ':' + pad(s % 60);
+    }
+
+    function stopCountdownTick() {
+        if (countdownTick) {
+            clearInterval(countdownTick);
+            countdownTick = null;
+        }
+    }
+
+    function showWarning() {
+        countdownEl.textContent = formatMMSS(secondsRemaining);
+        if (!dialog.open) {
+            dialog.showModal();
+            requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+        }
+        stopCountdownTick();
+        // Ticks the displayed countdown once a second between polls -
+        // purely cosmetic, the poll response (every ~60s) is what actually
+        // decides when the panel closes, this just keeps the dialog's own
+        // number from sitting frozen for up to a minute at a time.
+        countdownTick = setInterval(function () {
+            secondsRemaining = Math.max(0, secondsRemaining - 1);
+            countdownEl.textContent = formatMMSS(secondsRemaining);
+        }, 1000);
+    }
+
+    function hideWarning() {
+        stopCountdownTick();
+        if (dialog.open) window.closeModalWithFadeOut(dialog);
+    }
+
+    function handlePollResult(data) {
+        if (data.closed) {
+            stopCountdownTick();
+            // The panel this page is showing no longer reflects reality
+            // (it's complete/void now) - a full reload is the simplest way
+            // to land back on the same URL's now-read-only render, same
+            // destination End Panel Meeting already sends a chair to.
+            window.location.reload();
+            return;
+        }
+        secondsRemaining = data.seconds_remaining;
+        if (secondsRemaining <= warningLeadSeconds) {
+            showWarning();
+        } else {
+            hideWarning();
+        }
+    }
+
+    function poll() {
+        fetch(pollUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.json(); })
+            .then(handlePollResult);
+    }
+
+    pingForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fetch(pollUrl, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(pingForm),
+        })
+            .then(function (res) { return res.json(); })
+            .then(handlePollResult);
+    });
+
+    poll();
+    setInterval(poll, 60000);
 });
 </script>
 

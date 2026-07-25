@@ -55,6 +55,11 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* Bottom-edge bleed (DES-L5) - .panel-card's own padding otherwise traps
+       this scroll region --space-lg short of the card's bottom edge, same
+       bug/fix as .setup-col-body:last-child below. */
+    margin-bottom: calc(-1 * var(--space-lg));
+    padding-bottom: var(--space-lg);
 }
 
 /* Belt-and-braces: every direct child of a shell panel-card needs min-height:
@@ -99,6 +104,9 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* Bottom-edge bleed (DES-L5) - same reason/fix as .panel-list above. */
+    margin-bottom: calc(-1 * var(--space-lg));
+    padding-bottom: var(--space-lg);
 }
 
 /* Narrow-window card switcher: the generic .card-switcher/.card-tab/
@@ -593,7 +601,7 @@
 /* Panel Discussion's cards (Student Details, Referral Details, etc.) scroll
    internally past viewport height instead of growing the whole page. Same
    "Card-internal scroll with a fixed header" split as .setup-col-body
-   (DES-L1): the column itself is the flex column with a fixed
+   (DES-L5): the column itself is the flex column with a fixed
    max-height (there's no .list-page-shell stretching it to an exact height
    here, so max-height + overflow: hidden stands in for height + overflow:
    hidden), its own <h2> is a non-scrolling flex-shrink: 0 sibling, and
@@ -615,6 +623,12 @@
     overflow-y: auto;
     margin: 0 calc(-1 * var(--space-lg));
     padding: 0 var(--space-lg);
+}
+/* Same bottom-edge bleed as .setup-col-body:last-child above (DES-L5) - and
+   for the same reason, only needed for cards where this is the last child. */
+.discussion-col-body:last-child {
+    margin-bottom: calc(-1 * var(--space-lg));
+    padding-bottom: var(--space-lg);
 }
 
 /* Panel Agenda Setup wraps its toolbar + card row in the standard .list-page-shell
@@ -664,9 +678,20 @@
     margin: 0 calc(-1 * var(--space-lg));
     padding: 0 var(--space-lg);
 }
+/* When nothing follows the scrolling body (no .setup-col-footer), bleed the
+   bottom too (DES-L5) - otherwise the card's own bottom padding traps the
+   scroll region short of the card's bottom edge, so the scrollbar's track
+   stops there instead of running flush to the bottom like every other
+   flush-scroll card (.list-card .entity-list, .meetings-scroll). Left alone
+   when a footer follows: that padding is the footer's own breathing room,
+   not dead space. */
+.setup-col-body:last-child {
+    margin-bottom: calc(-1 * var(--space-lg));
+    padding-bottom: var(--space-lg);
+}
 /* Panel Agenda's Members Register: a persistent action slot pinned below the
    scrolling member list, same fixed-footer extension of the header/body
-   split as #panel-group-dialog's own .panel-group-modal-footer (DES-L1) - stays
+   split as #panel-group-dialog's own .panel-group-modal-footer (DES-L5) - stays
    reachable without scrolling down past a long member list, and out of
    .setup-col-header since editing group membership is a rare, out-of-band
    action, not this card's everyday job (attendance-taking). */
@@ -1578,7 +1603,7 @@
 .members-register-placeholder { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 600; margin: 0 0 var(--space-sm); }
 /* Panel Agenda wraps toolbar + agenda-layout in the standard .list-page-shell
    (see meeting_setup.html's identical .list-page-shell .setup-columns rule
-   above, and DES-L1) -
+   above, and DES-L5) -
    the live stats bar (elapsed timer, progress, counts) stays pinned while
    each column's own list scrolls, rather than the whole page scrolling with
    it. align-items: stretch overrides .agenda-layout's own align-items: start
@@ -1602,7 +1627,7 @@
 
 /* Settings (Group/Date/Chair) is a true non-scrolling flex sibling of
    .setup-col-body, same "Card-internal scroll with a fixed header" technique
-   .setup-col-header/.modal-header use (DES-L1) - not
+   .setup-col-header/.modal-header use (DES-L5) - not
    position: sticky inside the scrolling body, which used to make the
    Members entity-list's own scrollbar run the full height of this
    unusually-tall block (Group + Date + Chair + the Members sub-heading),
@@ -1686,6 +1711,12 @@
    shared default is --border-strong now (forms.css), which was previously
    only patched in on this one component (see grilling session 2026-07-12). */
 .priority-select { background-color: var(--bg-surface); }
+/* Read-only counterpart, once a meeting's ended (agenda_readonly - see
+   _priority_mini.html): same box model as .ui-select-trigger (forms.css)
+   minus the chevron background-image and pointer cursor, since there's
+   nothing to open. Shares .priority-select's own tint rules below rather
+   than duplicating the colour values. */
+.priority-static { display: inline-flex; align-items: center; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background-color: var(--bg-surface); color: var(--text-primary); font-size: var(--font-sm); white-space: nowrap; }
 /* Trigger button: border + text colour full-strength as before, but the
    fill is diluted well below the popover's own option rows
    (.ui-option.priority-*, still full-strength -bg tint below) - the
@@ -1694,9 +1725,9 @@
    the fill entirely made it blend into the hovered row (see the "Unset"
    comment above). Mixing a quarter of the tint into the plain surface
    colour keeps just enough of a wash to stay legible as a distinct field. */
-.priority-select.priority-high   { background-color: color-mix(in srgb, var(--color-negative-bg) 25%, var(--bg-surface)); border-color: var(--color-negative); color: var(--color-negative); }
-.priority-select.priority-medium { background-color: color-mix(in srgb, var(--color-warning-bg) 25%, var(--bg-surface));  border-color: var(--color-warning);  color: var(--color-warning); }
-.priority-select.priority-low    { background-color: color-mix(in srgb, var(--color-caution-bg) 25%, var(--bg-surface)); border-color: var(--color-caution);  color: var(--color-caution); }
+.priority-select.priority-high,   .priority-static.priority-high   { background-color: color-mix(in srgb, var(--color-negative-bg) 25%, var(--bg-surface)); border-color: var(--color-negative); color: var(--color-negative); }
+.priority-select.priority-medium, .priority-static.priority-medium { background-color: color-mix(in srgb, var(--color-warning-bg) 25%, var(--bg-surface));  border-color: var(--color-warning);  color: var(--color-warning); }
+.priority-select.priority-low,    .priority-static.priority-low    { background-color: color-mix(in srgb, var(--color-caution-bg) 25%, var(--bg-surface)); border-color: var(--color-caution);  color: var(--color-caution); }
 .ui-option.priority-high   { background-color: var(--color-negative-bg); border-color: var(--color-negative); color: var(--color-negative); }
 .ui-option.priority-medium { background-color: var(--color-warning-bg);  border-color: var(--color-warning);  color: var(--color-warning); }
 .ui-option.priority-low    { background-color: var(--color-caution-bg);  border-color: var(--color-caution);  color: var(--color-caution); }
@@ -2395,7 +2426,7 @@ button.referral-history-more { background: none; border: none; padding: 0; curso
    position: sticky within it) and .modal-body is the one scrolling child
    (flex: 1 1 auto; min-height: 0; overflow-y: auto below) - same
    "Card-internal scroll with a fixed header" technique as .setup-col/
-   .setup-col-body (DES-L1). Fixes two things at once: the
+   .setup-col-body (DES-L5). Fixes two things at once: the
    scrollbar no longer runs behind the header (it starts exactly where
    .modal-body starts), and it no longer sits flush against the dialog's own
    rounded corners (it's now inset by .modal-body's own padding, a plain
@@ -2508,9 +2539,11 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    than the standard 560px modal.modal-dialog shell so a row of member cards
    has room to breathe, and its own header carries a subtitle (the Panel
    Group's name) beneath the title/close row, unlike every other modal's
-   flat single-row header. */
+   flat single-row header. #meeting-start-dialog (Panel Meetings list) is
+   the same dialog content fetched via AJAX instead of embedded server-side
+   - see _meeting_attendance_dialog.html. */
 .modal-dialog--wide { width: min(820px, 92vw); }
-#attendance-dialog .modal-header { flex-direction: column; align-items: stretch; gap: var(--space-xxs); }
+#attendance-dialog .modal-header, #meeting-start-dialog .modal-header { flex-direction: column; align-items: stretch; gap: var(--space-xxs); }
 .modal-header-row { display: flex; align-items: center; justify-content: space-between; }
 .modal-subtitle { font-size: var(--font-sm); color: var(--text-secondary); margin: 0; }
 .modal-divider { border: none; border-top: 1px solid var(--border-color); margin: var(--space-md) 0; }
@@ -2578,7 +2611,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    everything below it (tabs + member list, or the Add Member picker) is a
    separate scrolling body - same "header outside, body scrolls" split
    dialog.modal-dialog itself uses one level up (.modal-header/.modal-body,
-   DES-L1), just
+   DES-L5), just
    applied a second time inside this specific dialog's .modal-body so the
    member list's own scrollbar starts below the header instead of running
    behind it. */
@@ -2642,7 +2675,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    which keeps everything in one row). */
 [data-inline-create-host] .ui-fused-field-group { margin-bottom: var(--space-md); }
 /* Bleeds out through .modal-body's own right padding (same technique as
-   .panel-search-results/.setup-col-body, DES-L1) so this scroll region's scrollbar sits flush
+   .panel-search-results/.setup-col-body, DES-L5) so this scroll region's scrollbar sits flush
    against the dialog's right edge instead of inset by --space-xl.
    padding-right restores that gap for the content itself (tab row, member
    rows) so nothing actually shifts, only the scrollbar's own position does. */
@@ -2720,7 +2753,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    than each view rendering its own trailing button inline - moved here
    specifically so it no longer shares a row with the Active/Inactive tabs
    above. Same fixed-footer extension of the header/body split
-   dialog.modal-dialog already uses (DES-L1), so it stays flush against the bottom of the
+   dialog.modal-dialog already uses (DES-L5), so it stays flush against the bottom of the
    dialog regardless of how long the member list/picker above it gets.
    Centred rather than docked to an edge - whichever button(s) are visible
    (Add Member alone, or Back plus New External Contact) read as one
@@ -2799,7 +2832,7 @@ dialog#panel-search-dialog .modal-body {
    navigation.css (INT-U13). */
 .panel-search-field { width: 100%; flex: 0 0 auto; }
 /* Bleeds out through .modal-body's own right padding (same technique as
-   .setup-col-body, DES-L1) so the results list's scrollbar sits flush against the dialog's
+   .setup-col-body, DES-L5) so the results list's scrollbar sits flush against the dialog's
    right edge instead of inset by --space-xl. padding-right restores that gap
    for the row content itself; left stays untouched so it keeps lining up
    with .panel-search-field above it. */

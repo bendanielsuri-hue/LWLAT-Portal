@@ -1481,6 +1481,70 @@ window.setFadeHidden = function (el, hide) {
     });
 })();
 
+// Meeting Start dialog (Panel Meetings list) - same
+// fetch/dialog.innerHTML/showModal convention as #panel-meeting-dialog
+// above, fetching _meeting_attendance_dialog.html
+// (inclusion_panel_meeting_attendance) instead of navigating to the Panel
+// Agenda page first. Every reschedule/check-in/mark-left submit inside is
+// intercepted and swaps the dialog's content in place (same server fragment
+// re-rendered); the page only actually navigates to the Panel Agenda once a
+// submit comes back with started:true (the Start Meeting button itself).
+(function () {
+    var dialog = document.getElementById('meeting-start-dialog');
+    if (!dialog) return;
+
+    function closeDialog() {
+        window.closeModalWithFadeOut(dialog);
+    }
+
+    function openDialog(panelId) {
+        dialog.dataset.panelId = panelId;
+        fetch('/inclusion/panel/meetings/' + encodeURIComponent(panelId) + '/attendance/', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(function (res) { return res.text(); })
+            .then(function (html) {
+                dialog.innerHTML = html;
+                dialog.showModal();
+                requestAnimationFrame(function () { dialog.classList.add('is-open'); });
+            });
+    }
+
+    document.addEventListener('click', function (e) {
+        var trigger = e.target.closest('[data-open-meeting-start-trigger]');
+        if (trigger) {
+            openDialog(trigger.dataset.panelId);
+            return;
+        }
+        if (e.target.closest('[data-modal-close]') && e.target.closest('#meeting-start-dialog')) {
+            closeDialog();
+        }
+    });
+
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog) closeDialog();
+    });
+
+    dialog.addEventListener('submit', function (e) {
+        var form = e.target.closest('[data-attendance-ajax-form]');
+        if (!form) return;
+        e.preventDefault();
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form),
+        }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data.started) {
+                    window.location = '/inclusion/panel/meetings/' + dialog.dataset.panelId + '/agenda/';
+                    return;
+                }
+                window.animateModalHeightChange(dialog, function () { dialog.innerHTML = data.html; });
+            });
+    });
+})();
+
 // Add Action modal (see #51) - one dialog/fetch-fragment pair, same
 // convention as #panel-meeting-dialog above: openActionFormModal fetches
 // _action_form_modal.html (inclusion_panel_action_new) into the shared

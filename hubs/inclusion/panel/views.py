@@ -4,8 +4,9 @@ from collections import Counter
 from urllib.parse import quote
 
 from django.db.models import Count, Max, Prefetch, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -275,6 +276,60 @@ def _is_group_member(staff, panel):
     return PanelGroupMember.objects.filter(panel_group_id=panel.panel_group_id, staff=staff, is_active=True).exists()
 
 
+def _apply_attendance_action(request, panel, action):
+    # The four Attendance-dialog mutations (reschedule/check-in/mark-left/
+    # start), factored out so both the full-page Panel Agenda dialog
+    # (inclusion_panel_meeting_agenda) and the AJAX one opened from the
+    # Panel Meetings list (inclusion_panel_meeting_attendance) share one
+    # implementation rather than re-deriving these rules twice (ENG-S1).
+    if action == 'start_meeting':
+        starter = _current_staff(request)
+        if (
+            panel.status not in ('running', 'complete', 'void')
+            and panel.panel_referrals.filter(removed_at__isnull=True).exists()
+            and _is_group_member(starter, panel)
+        ):
+            starter_gm = PanelGroupMember.objects.get(panel_group_id=panel.panel_group_id, staff=starter, is_active=True)
+            now = timezone.now()
+            PanelMember.objects.update_or_create(
+                panel=panel, panel_group_member=starter_gm,
+                defaults={'checked_in_at': now, 'left_at': None},
+            )
+            panel.started_at = now
+            panel.date = timezone.localdate(now)
+            panel.time = timezone.localtime(now).time()
+            panel.status = 'running'
+            panel.save()
+    elif action == 'reschedule_to_now':
+        if panel.status not in ('running', 'complete'):
+            now = timezone.now()
+            panel.date = timezone.localdate(now)
+            panel.time = timezone.localtime(now).time()
+            panel.save(update_fields=['date', 'time'])
+    elif action == 'check_in':
+        gm = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group_id=panel.panel_group_id)
+        PanelMember.objects.update_or_create(
+            panel=panel, panel_group_member=gm,
+            defaults={'checked_in_at': timezone.now(), 'left_at': None},
+        )
+    elif action == 'mark_left':
+        gm = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group_id=panel.panel_group_id)
+        PanelMember.objects.filter(panel=panel, panel_group_member=gm).update(left_at=timezone.now())
+
+
+def _attendance_dialog_context(panel):
+    scheduled_at = timezone.make_aware(
+        datetime.datetime.combine(panel.date, panel.time or datetime.time.min)
+    )
+    members = _panel_member_roster(panel)
+    return {
+        'panel': panel,
+        'show_schedule_warning': panel.status not in ('running', 'complete') and timezone.now() < scheduled_at,
+        'members': members,
+        'checked_in_count': sum(1 for m in members if m.checked_in_at),
+    }
+
+
 def _next_agenda_order(panel):
     # New agenda additions always land at the end of the manually-ordered list,
     # regardless of which action created them (Panel Agenda Setup's Add, a pulled-in
@@ -415,18 +470,41 @@ def _group_typical_duration(panel_group):
     return sum(durations, datetime.timedelta()) / len(durations)
 
 
+# How long a running panel can go with no recorded activity before it's
+# considered abandoned - shared by the lazy backstop sweep
+# (_sync_stale_running_panels) and the live poll
+# (inclusion_panel_meeting_activity_poll) so the two can never disagree
+# about when a panel is due to close.
+STALE_PANEL_TIMEOUT = datetime.timedelta(minutes=60)
+# How long before STALE_PANEL_TIMEOUT the in-page warning dialog appears
+# (see initInactivityWarning in panel.js) - only meaningful to someone
+# actively polling from the Panel Agenda page; the backstop sweep doesn't
+# use this at all.
+STALE_PANEL_WARNING_LEAD = datetime.timedelta(minutes=5)
+
+
 def _panel_last_activity_at(panel):
-    # No dedicated "last touched" timestamp exists on Panel, so this derives
-    # one from the most recent thing that actually happened in the meeting:
-    # a note added on any of its discussions, or a member checking in/out.
-    # Falls back to started_at if neither has happened yet (a meeting
+    # No dedicated general-purpose "last touched" timestamp exists on Panel,
+    # so this derives one from the most recent thing that actually happened
+    # in the meeting: a note added on any of its discussions, a member
+    # checking in/out, a PanelReferral being touched at all (marked
+    # discussed, resumed, a follow-up set - PanelReferral.updated_at is
+    # auto_now, so any save() bumps it), or an explicit "Still here" ping
+    # from the inactivity-warning dialog (last_confirmed_at). The referral-
+    # touch signal matters as much as the others - a chair who spends the
+    # whole meeting actually discussing referrals, without ever adding a
+    # note or touching attendance, must not read as "abandoned" (#114).
+    # Falls back to started_at if nothing has happened yet (a meeting
     # started but never actually engaged with).
-    candidates = [panel.started_at]
+    candidates = [panel.started_at, panel.last_confirmed_at]
     latest_note = PanelReferralNote.objects.filter(
         panel_referral__panel=panel
     ).order_by('-created_at').values_list('created_at', flat=True).first()
     if latest_note:
         candidates.append(latest_note)
+    latest_referral_touch = panel.panel_referrals.order_by('-updated_at').values_list('updated_at', flat=True).first()
+    if latest_referral_touch:
+        candidates.append(latest_referral_touch)
     for field in ('checked_in_at', 'left_at'):
         latest = PanelMember.objects.filter(panel=panel, **{f'{field}__isnull': False}) \
             .order_by(f'-{field}').values_list(field, flat=True).first()
@@ -435,38 +513,60 @@ def _panel_last_activity_at(panel):
     return max(c for c in candidates if c is not None)
 
 
+def _panel_had_any_discussion(panel):
+    # Whether this panel is worth keeping as a real completed meeting -
+    # 'discussed' is only ever set by actually running a discussion
+    # (inclusion_panel_discussion), so a panel with none is one that ended
+    # without a single referral being discussed. Used by both end paths
+    # (end_panel_meeting, _close_stale_panel) to decide 'complete' vs 'void'.
+    return panel.panel_referrals.filter(removed_at__isnull=True, discussion_status='discussed').exists()
+
+
+def _close_stale_panel(panel, now):
+    # The actual "abandon this meeting" mutation, factored out so both the
+    # lazy backstop sweep (_sync_stale_running_panels, which can only ever
+    # catch this on someone else's unrelated page load) and the live poll
+    # (inclusion_panel_meeting_activity_poll, which can close it the instant
+    # STALE_PANEL_TIMEOUT elapses while a chair is still watching the Panel
+    # Agenda page) share one implementation. Caller must have already
+    # checked now - _panel_last_activity_at(panel) > STALE_PANEL_TIMEOUT.
+    for pr in panel.panel_referrals.filter(discussion_status='pending', discussion_started_at__isnull=False):
+        _stop_discussion_timer(pr)
+    # Same deferral as a manual End Panel Meeting (see that action's own
+    # comment) - nothing left "Assigned to Panel" on a panel nobody's
+    # coming back to.
+    for pr in panel.panel_referrals.filter(discussion_status='pending', removed_at__isnull=True):
+        pr.discussion_status = 'deferred'
+        pr.save(update_fields=['discussion_status'])
+        _sync_referral_status(pr.referral)
+    if panel.chair_follows_default:
+        panel.chair_id = panel.effective_chair_id
+        panel.chair_follows_default = False
+    panel.status = 'complete' if _panel_had_any_discussion(panel) else 'void'
+    panel.ended_at = now
+    panel.auto_ended = True
+    panel.save()
+
+
 def _sync_stale_running_panels():
     # A running meeting with no scheduled end time can run forever if the
     # chair forgets to click End Panel Meeting. There's no notification/
     # background-job infrastructure anywhere in this app to proactively flag
     # that, so this auto-completes a meeting once nothing has actually
-    # happened in it for 30 minutes (see _panel_last_activity_at) the next
-    # time any view that calls this happens to load - same lazy
-    # recompute-on-page-load pattern as _sync_delayed_panels above. The
-    # separate in-page warning (see inclusion_panel_meeting_agenda) fires
-    # earlier and independently, based on elapsed time vs. this group's
-    # typical duration rather than activity - it's a heads-up, this is the
-    # backstop for when nobody ever sees that heads-up.
+    # happened in it for STALE_PANEL_TIMEOUT (see _panel_last_activity_at)
+    # the next time any view that calls this happens to load - same lazy
+    # recompute-on-page-load pattern as _sync_delayed_panels above. This is
+    # the backstop for when a chair isn't actively on the Panel Agenda page
+    # to see the live warning+poll (inclusion_panel_meeting_activity_poll) -
+    # e.g. the browser's been closed entirely - so a panel still gets caught
+    # eventually regardless. The separate in-page "Running long" nudge (see
+    # inclusion_panel_meeting_agenda) is unrelated: earlier and independent,
+    # based on elapsed time vs. this group's typical duration rather than
+    # activity.
     now = timezone.now()
     for panel in Panel.objects.filter(status='running', started_at__isnull=False):
-        if now - _panel_last_activity_at(panel) <= datetime.timedelta(minutes=30):
-            continue
-        for pr in panel.panel_referrals.filter(discussion_status='pending', discussion_started_at__isnull=False):
-            _stop_discussion_timer(pr)
-        # Same deferral as a manual End Panel Meeting (see that action's own
-        # comment) - nothing left "Assigned to Panel" on a panel nobody's
-        # coming back to.
-        for pr in panel.panel_referrals.filter(discussion_status='pending', removed_at__isnull=True):
-            pr.discussion_status = 'deferred'
-            pr.save(update_fields=['discussion_status'])
-            _sync_referral_status(pr.referral)
-        if panel.chair_follows_default:
-            panel.chair_id = panel.effective_chair_id
-            panel.chair_follows_default = False
-        panel.status = 'complete'
-        panel.ended_at = now
-        panel.auto_ended = True
-        panel.save()
+        if now - _panel_last_activity_at(panel) > STALE_PANEL_TIMEOUT:
+            _close_stale_panel(panel, now)
 
 
 def _discussion_last_activity_at(pr):
@@ -949,7 +1049,7 @@ def inclusion_panel_home(request):
     )
 
     next_panel = _panels_for_school_key(
-        Panel.objects.exclude(status__in=['complete', 'delayed']).select_related('panel_group__school').order_by('date'),
+        Panel.objects.exclude(status__in=['complete', 'delayed', 'void']).select_related('panel_group__school').order_by('date'),
         school_key,
     ).first()
     next_panel_preview = None
@@ -2103,9 +2203,9 @@ def inclusion_panel_group_edit(request, group_id=None):
                     group.save()
                 # A panel's roster is this same live group, so a panel can't
                 # keep pointing chair at someone just deactivated from it -
-                # except a completed panel, whose chair is a historical
-                # record that shouldn't change after the fact.
-                group.panels.filter(chair_id=member.staff_id).exclude(status='complete').update(chair=None)
+                # except a completed or void panel, whose chair is a
+                # historical record that shouldn't change after the fact.
+                group.panels.filter(chair_id=member.staff_id).exclude(status__in=['complete', 'void']).update(chair=None)
         if is_ajax:
             return JsonResponse({'success': True})
         return redirect(_safe_next(request, 'inclusion_panel_group_settings'))
@@ -2249,7 +2349,7 @@ def inclusion_panel_meetings(request):
     # below are applied, same convention as inclusion_hub's year_group_choices -
     # so Panel Group/Chair/Academic Year don't shrink each other's dropdowns.
     base_panels = _panels_for_school_key(
-        Panel.objects.select_related('chair', 'panel_group__default_chair', 'academic_year'),
+        Panel.objects.exclude(status='void').select_related('chair', 'panel_group__default_chair', 'academic_year'),
         school_key,
     )
     chairs_by_id = {}
@@ -2272,7 +2372,9 @@ def inclusion_panel_meetings(request):
         academic_year_filter = ''
 
     panels = _panels_for_school_key(
-        Panel.objects.select_related('chair', 'panel_group__school', 'panel_group__default_chair').prefetch_related(
+        Panel.objects.exclude(status='void').select_related(
+            'chair', 'panel_group__school', 'panel_group__default_chair'
+        ).prefetch_related(
             'panel_referrals__referral',
         ).order_by('date'),
         school_key,
@@ -2485,6 +2587,56 @@ def inclusion_panel_meeting_start(request, panel_id):
     # Meeting control lives.
     panel = get_object_or_404(Panel, pk=panel_id)
     return redirect('inclusion_panel_meeting_agenda', panel_id=panel.id)
+
+
+def inclusion_panel_meeting_attendance(request, panel_id):
+    # AJAX-only counterpart of the Attendance dialog embedded in
+    # inclusion_panel_meeting_agenda, opened instead from the Panel Meetings
+    # list's Start Meeting button so reschedule/check-in happens in place
+    # without leaving that page. The browser only navigates to the Panel
+    # Agenda page once 'started' comes back true (the meeting has actually
+    # been started) - Cancel just closes the dialog client-side.
+    panel = get_object_or_404(Panel, pk=panel_id)
+    if request.method == 'POST':
+        _apply_attendance_action(request, panel, request.POST.get('form_action'))
+    html = render_to_string(
+        'hubs/inclusion/panel/_meeting_attendance_dialog.html',
+        _attendance_dialog_context(panel),
+        request=request,
+    )
+    if request.method == 'POST':
+        return JsonResponse({'html': html, 'started': panel.status == 'running'})
+    return HttpResponse(html)
+
+
+def inclusion_panel_meeting_activity_poll(request, panel_id):
+    # Live counterpart to the lazy _sync_stale_running_panels backstop -
+    # polled every ~60s from the Panel Agenda page (initInactivityWarning,
+    # panel.js) while a panel is running, so STALE_PANEL_TIMEOUT can actually
+    # fire the instant it's reached instead of waiting for someone to load
+    # some other page first. GET just checks/reports; POST (form_action=ping)
+    # is the inactivity-warning dialog's "Still here" response, which bumps
+    # Panel.last_confirmed_at - a genuine _panel_last_activity_at signal, not
+    # a separate side channel - before reporting back.
+    panel = get_object_or_404(Panel, pk=panel_id)
+    if panel.status != 'running':
+        # Already ended (by this exact race, or a manual End Panel Meeting
+        # while this tab's poll loop was mid-flight) - nothing left to ping
+        # or check, just report the terminal state.
+        return JsonResponse({'closed': True, 'seconds_remaining': 0})
+
+    now = timezone.now()
+    if request.method == 'POST' and request.POST.get('form_action') == 'ping':
+        panel.last_confirmed_at = now
+        panel.save(update_fields=['last_confirmed_at'])
+
+    elapsed = now - _panel_last_activity_at(panel)
+    if elapsed > STALE_PANEL_TIMEOUT:
+        _close_stale_panel(panel, now)
+        return JsonResponse({'closed': True, 'seconds_remaining': 0})
+
+    seconds_remaining = int((STALE_PANEL_TIMEOUT - elapsed).total_seconds())
+    return JsonResponse({'closed': False, 'seconds_remaining': seconds_remaining})
 
 
 def inclusion_panel_meeting_delete(request, panel_id):
@@ -2766,58 +2918,39 @@ def inclusion_panel_meeting_agenda(request, panel_id):
 
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action == 'start_meeting':
-            starter = _current_staff(request)
-            # Checked against panel.status, not just started_at is None -
-            # some seeded historical panels are created directly as
-            # 'complete' without ever populating started_at/ended_at, and
-            # status is the authoritative field for "can this be (re)started".
-            if panel.status not in ('running', 'complete') and _is_group_member(starter, panel):
-                starter_gm = PanelGroupMember.objects.get(panel_group_id=panel.panel_group_id, staff=starter, is_active=True)
-                now = timezone.now()
-                PanelMember.objects.update_or_create(
-                    panel=panel, panel_group_member=starter_gm,
-                    defaults={'checked_in_at': now, 'left_at': None},
-                )
-                panel.started_at = now
-                panel.date = timezone.localdate(now)
-                panel.time = timezone.localtime(now).time()
-                panel.status = 'running'
-                panel.save()
-        elif action == 'reschedule_to_now':
-            # The schedule-warning dialog's "not due yet" escape hatch - moves
-            # the scheduled date/time to now without starting the meeting.
-            # Attendance is still step one (see start_meeting above), so this
-            # only ever brings the chair back to the agenda page to check
-            # members in before the real Start Meeting button unlocks.
-            if panel.status not in ('running', 'complete'):
-                now = timezone.now()
-                panel.date = timezone.localdate(now)
-                panel.time = timezone.localtime(now).time()
-                panel.save(update_fields=['date', 'time'])
-        elif action == 'check_in':
-            gm = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group_id=panel.panel_group_id)
-            PanelMember.objects.update_or_create(
-                panel=panel, panel_group_member=gm,
-                defaults={'checked_in_at': timezone.now(), 'left_at': None},
-            )
-        elif action == 'mark_left':
-            gm = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group_id=panel.panel_group_id)
-            PanelMember.objects.filter(panel=panel, panel_group_member=gm).update(left_at=timezone.now())
+        if action in ('start_meeting', 'reschedule_to_now', 'check_in', 'mark_left'):
+            # Shared with the AJAX Attendance dialog opened from the Panel
+            # Meetings list (inclusion_panel_meeting_attendance) - see
+            # _apply_attendance_action. Checked against panel.status, not
+            # just started_at is None - some seeded historical panels are
+            # created directly as 'complete' without ever populating
+            # started_at/ended_at, and status is the authoritative field for
+            # "can this be (re)started". An empty agenda is blocked here too
+            # (not just in the template) so a meeting can never reach
+            # 'running' with nothing on it to discuss - see agenda_is_empty
+            # below for the UI-side mirror.
+            _apply_attendance_action(request, panel, action)
         elif action == 'unassign_referral':
-            pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
-            pr.removed_at = timezone.now()
-            pr.removed_by_id = request.POST.get('removed_by') or None
-            pr.save()
-            _sync_referral_status(pr.referral)
+            # Removing from the agenda, like reorder above, only makes sense
+            # pre-meeting-end - the corner Remove button is already hidden
+            # once agenda_readonly (meeting_agenda.html), this is the same
+            # server-side twin.
+            removed = panel.status not in ('complete', 'void')
+            if removed:
+                pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
+                pr.removed_at = timezone.now()
+                pr.removed_by_id = request.POST.get('removed_by') or None
+                pr.save()
+                _sync_referral_status(pr.referral)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': True})
+                return JsonResponse({'success': removed})
         elif action == 'update_priority':
-            referral = get_object_or_404(InclusionReferral, pk=request.POST.get('referral_id'))
-            priority = request.POST.get('priority', '')
-            if priority == '' or priority in dict(InclusionReferral.PRIORITY_CHOICES):
-                referral.priority = priority
-                referral.save()
+            if panel.status not in ('complete', 'void'):
+                referral = get_object_or_404(InclusionReferral, pk=request.POST.get('referral_id'))
+                priority = request.POST.get('priority', '')
+                if priority == '' or priority in dict(InclusionReferral.PRIORITY_CHOICES):
+                    referral.priority = priority
+                    referral.save()
         elif action == 'update_review_date':
             # Not gated on follow_up_status already being 'incomplete' -
             # setting/rescheduling a date always (re)activates the follow-up
@@ -2843,22 +2976,29 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             pr.save(update_fields=['follow_up_date', 'follow_up_status'])
             _sync_referral_status(pr.referral)
         elif action == 'reorder_agenda':
-            ordered_ids = request.POST.getlist('panel_referral_id')
-            referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
-            updated = []
-            for index, pr_id in enumerate(ordered_ids, start=1):
-                pr = referrals.get(int(pr_id))
-                if pr is not None:
-                    pr.agenda_order = index
-                    updated.append(pr)
-            PanelReferral.objects.bulk_update(updated, ['agenda_order'])
+            # Reordering only makes sense while the meeting's still live - the
+            # UI already hides drag/up-down once agenda_readonly (see
+            # meeting_agenda.html), this is the same gate server-side so a
+            # stale page open in another tab can't sneak a reorder through
+            # after the meeting's ended.
+            if panel.status not in ('complete', 'void'):
+                ordered_ids = request.POST.getlist('panel_referral_id')
+                referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
+                updated = []
+                for index, pr_id in enumerate(ordered_ids, start=1):
+                    pr = referrals.get(int(pr_id))
+                    if pr is not None:
+                        pr.agenda_order = index
+                        updated.append(pr)
+                PanelReferral.objects.bulk_update(updated, ['agenda_order'])
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': True})
+                return JsonResponse({'success': panel.status not in ('complete', 'void')})
         elif action == 'move_agenda_referral':
-            pending_siblings = panel.panel_referrals.filter(
-                removed_at__isnull=True, discussion_status='pending'
-            ).order_by('agenda_order', 'id')
-            _move_agenda_referral(pending_siblings, request.POST.get('panel_referral_id'), request.POST.get('direction'))
+            if panel.status not in ('complete', 'void'):
+                pending_siblings = panel.panel_referrals.filter(
+                    removed_at__isnull=True, discussion_status='pending'
+                ).order_by('agenda_order', 'id')
+                _move_agenda_referral(pending_siblings, request.POST.get('panel_referral_id'), request.POST.get('direction'))
         elif action == 'end_panel_meeting':
             # Freeze whatever chair this panel was following into a plain
             # snapshot before completing it - a completed panel's chair is a
@@ -2868,9 +3008,6 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             if panel.chair_follows_default:
                 panel.chair_id = panel.effective_chair_id
                 panel.chair_follows_default = False
-            panel.status = 'complete'
-            panel.ended_at = timezone.now()
-            panel.save()
             for pr in panel.panel_referrals.filter(discussion_status='pending', discussion_started_at__isnull=False):
                 _stop_discussion_timer(pr)
             # Anything still pending (started-and-abandoned or never reached)
@@ -2883,6 +3020,13 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                 pr.discussion_status = 'deferred'
                 pr.save(update_fields=['discussion_status'])
                 _sync_referral_status(pr.referral)
+            # Decided after deferring (deferring never touches an already-
+            # 'discussed' row) so a meeting ending with nothing discussed
+            # goes to 'void' instead of joining real meeting history - see
+            # _panel_had_any_discussion.
+            panel.status = 'complete' if _panel_had_any_discussion(panel) else 'void'
+            panel.ended_at = timezone.now()
+            panel.save()
             return redirect('inclusion_panel_meetings')
         elif action == 'start_discussion':
             # The only place a discussion timer is allowed to start/resume -
@@ -2995,10 +3139,12 @@ def inclusion_panel_meeting_agenda(request, panel_id):
 
     # Elapsed-time nudge - a running meeting well past this group's typical
     # duration probably means the chair forgot to click End Panel Meeting.
-    # Distinct from _sync_stale_running_panels' auto-end above: that only
-    # force-completes at 2x typical (a much stronger "clearly abandoned"
-    # signal); this is the earlier, in-page-only warning at 1.5x, giving a
-    # chair who's still here a chance to notice and end it themselves.
+    # Distinct from the STALE_PANEL_TIMEOUT auto-end (_sync_stale_running_panels/
+    # inclusion_panel_meeting_activity_poll): that's activity-based (nothing
+    # touched in 60 minutes), this is duration-based (1.5x this group's own
+    # typical length) and fires much earlier - a chair who's still here and
+    # actively working the agenda gets this nudge long before inactivity
+    # would ever become a concern.
     is_running_long = False
     if panel.status == 'running' and panel.started_at:
         typical = _group_typical_duration(panel.panel_group)
@@ -3017,6 +3163,13 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     return render(request, 'hubs/inclusion/panel/meeting_agenda.html', {
         **_panel_base_context(request),
         'panel': panel,
+        # complete/void meetings are history - Discuss and priority-editing
+        # both go read-only once a meeting's ended, not just while it's
+        # pre-start (chair can still triage priority before starting).
+        # agenda_readonly gates _priority_mini.html's readonly and the
+        # Discuss button below; auto-ended panels still have
+        # panel.started_at set, so that alone isn't the right check.
+        'agenda_readonly': panel.status in ('complete', 'void'),
         'pending': pending,
         'discussed': discussed,
         'progress_pct': progress_pct,
@@ -3025,7 +3178,17 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'members_in_attendance': members_in_attendance,
         'members_not_in_attendance': members_not_in_attendance,
         'is_pre_start': is_pre_start,
-        'can_start_meeting': is_pre_start and _is_group_member(_current_staff(request), panel),
+        'can_start_meeting': is_pre_start and _is_group_member(current_staff, panel),
+        # Gates the inactivity-warning poll (initInactivityWarning, panel.js)
+        # - only worth polling from while the panel is actually running and
+        # this viewer could do anything about a warning (ping/End Panel
+        # Meeting) if it fired.
+        'can_manage_running': panel.status == 'running' and _is_group_member(current_staff, panel),
+        'stale_panel_warning_lead_seconds': int(STALE_PANEL_WARNING_LEAD.total_seconds()),
+        # Start Meeting/Take Attendance stay visible-but-disabled (not hidden)
+        # when true - see meeting_agenda.html - rather than being folded into
+        # can_start_meeting, which also gates dialog/button visibility itself.
+        'agenda_is_empty': not panel_referrals,
         'scheduled_at': scheduled_at,
         'show_schedule_warning': show_schedule_warning,
         'is_running_long': is_running_long,
@@ -3052,22 +3215,19 @@ def inclusion_panel_discussion(request, panel_referral_id):
                 elapsed = timezone.now() - panel_referral.discussion_started_at
                 panel_referral.duration = (panel_referral.duration or datetime.timedelta()) + elapsed
                 panel_referral.discussion_started_at = None
-            if _discussion_too_short_to_count(panel_referral):
-                # Under a minute with nothing recorded reads as an accidental
-                # Discuss/End Discussion click-through rather than a real
-                # conversation - defer instead of asking a follow-up question
-                # about a discussion that didn't meaningfully happen.
-                panel_referral.discussion_status = 'deferred'
+            # _discussion_too_short_to_count's <1-minute "was this a real
+            # discussion" check is only for the *automatic* 30-minute
+            # abandonment timeout (_sync_stale_discussion_timers) - a chair
+            # who explicitly confirms End Discussion here has already said
+            # this was a real discussion, however brief, so that's final
+            # regardless of duration/notes.
+            panel_referral.discussion_status = 'discussed'
+            if request.POST.get('requires_followup') == 'yes':
+                panel_referral.follow_up_date = request.POST.get('follow_up_date') or None
+                panel_referral.follow_up_status = 'incomplete'
+            else:
                 panel_referral.follow_up_date = None
                 panel_referral.follow_up_status = ''
-            else:
-                panel_referral.discussion_status = 'discussed'
-                if request.POST.get('requires_followup') == 'yes':
-                    panel_referral.follow_up_date = request.POST.get('follow_up_date') or None
-                    panel_referral.follow_up_status = 'incomplete'
-                else:
-                    panel_referral.follow_up_date = None
-                    panel_referral.follow_up_status = ''
             panel_referral.save()
             _sync_referral_status(referral)
             return redirect('inclusion_panel_meeting_agenda', panel_id=panel_referral.panel_id)

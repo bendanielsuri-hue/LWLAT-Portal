@@ -205,6 +205,12 @@ class Panel(models.Model):
         ('running', 'Running'),
         ('delayed', 'Delayed'),
         ('complete', 'Complete'),
+        # A meeting that was ended (manually or via _sync_stale_running_panels)
+        # with zero referrals ever actually discussed - not worth keeping as a
+        # real completed meeting, but attendance/history rows are kept rather
+        # than hard-deleted. Deliberately not exposed in any status filter -
+        # see end_panel_meeting/_sync_stale_running_panels in views.py.
+        ('void', 'Void'),
     ]
 
     date = models.DateField()
@@ -224,6 +230,12 @@ class Panel(models.Model):
     panel_group = models.ForeignKey(PanelGroup, null=True, blank=True, on_delete=models.SET_NULL, related_name='panels')
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+    # "Still here" ping from the inactivity-warning dialog (meeting_agenda.html
+    # / inclusion_panel_meeting_activity_poll) - a dedicated signal rather than
+    # faking a discussion touch, since dismissing that dialog isn't itself
+    # discussion work, just confirmation someone's actually watching. Counted
+    # alongside the others in _panel_last_activity_at.
+    last_confirmed_at = models.DateTimeField(null=True, blank=True)
     # Set by _sync_stale_running_panels (views.py) when a running meeting is
     # force-completed for running 2x past this group's typical duration with
     # no End Panel Meeting click - an abandoned meeting's elapsed time is an
@@ -316,6 +328,15 @@ class PanelReferral(models.Model):
     # this field existed) don't need a fabricated backfill value — they simply won't
     # surface in the "assigned to panel" activity feed, see _recent_activity() in views.py.
     created_at = models.DateTimeField(null=True, blank=True, auto_now_add=True)
+    # Bumped on every save() - the "was this discussion actually touched
+    # recently" signal _panel_last_activity_at (views.py) needs. Marking a
+    # referral discussed, resuming/starting a discussion, adding a note, etc.
+    # all save() this row, so a chair actively working through the agenda
+    # keeps a running meeting looking active even with no PanelReferralNote
+    # or attendance change in the same window (see #114 - a real 04:31-05:01
+    # meeting with one referral genuinely discussed still got silently
+    # auto-ended because none of that showed up as "activity").
+    updated_at = models.DateTimeField(auto_now=True)
     discussion_status = models.CharField(max_length=20, choices=DISCUSSION_CHOICES, default='pending')
     duration = models.DurationField(null=True, blank=True)
     # Set by _sync_stale_discussion_timers (views.py) when this discussion's

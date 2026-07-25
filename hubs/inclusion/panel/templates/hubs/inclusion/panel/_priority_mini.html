@@ -1,3 +1,14 @@
+{% if readonly %}
+{% comment %}
+Static display for a panel that's no longer running (complete/void) - the
+priority a referral was given while it was live editable, not a control to
+keep changing after the fact. .priority-static shares .priority-select's own
+box/colour tokens (panel.css) so it stays the same height as the row's
+.btn-sm buttons, just without the chevron/pointer-cursor a real dropdown
+implies. See meeting_agenda.html.
+{% endcomment %}
+<span class="priority-static{% if ref.priority %} priority-{{ ref.priority }}{% endif %}">{% if ref.priority %}{{ ref.get_priority_display }} Priority{% else %}Untriaged{% endif %}</span>
+{% else %}
 <form method="post" class="priority-mini-form">
     {% csrf_token %}
     <input type="hidden" name="form_action" value="update_priority">
@@ -9,3 +20,4 @@
         {% endfor %}
     </select>
 </form>
+{% endif %}

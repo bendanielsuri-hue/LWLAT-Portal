@@ -1,0 +1,54 @@
+{% comment %}
+Attendance-dialog content (reschedule/attendance stages), fetched via AJAX
+into the shared #meeting-start-dialog shell on the Panel Meetings list (see
+initMeetingStartDialog in panel.js) and re-fetched wholesale after every
+mutation, same render()-replaces-innerHTML convention as #panel-group-dialog.
+Every form here posts to inclusion_panel_meeting_attendance and is
+intercepted client-side - Cancel always just closes the dialog in place,
+the page only navigates to the Panel Agenda once the meeting has actually
+started (see the dialog's submit handler).
+{% endcomment %}
+{% url 'inclusion_panel_meeting_attendance' panel.id as attendance_url %}
+<div class="modal-header">
+    <div class="modal-header-row">
+        <h2>Group Member Attendance</h2>
+        <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    </div>
+    <p class="modal-subtitle">{{ panel.panel_group.name }}</p>
+</div>
+<div class="modal-body">
+    {% if show_schedule_warning %}
+    <div data-attendance-stage="reschedule">
+        <p>This panel meeting is not set to start until {{ panel.date }}{% if panel.time %} at {{ panel.time|time:'H:i' }}{% endif %}. Reschedule it to now?</p>
+        <div class="btn-row">
+            <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+            <form method="post" action="{{ attendance_url }}" data-attendance-ajax-form style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="reschedule_to_now">
+                <button type="submit" class="btn btn-primary btn-sm">Reschedule</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div data-attendance-stage="attendance">
+        <div class="member-card-row" data-panel-members-list="dialog">
+            {% for member in members %}
+            {% include 'hubs/inclusion/panel/_panel_agenda_member_card.html' with member=member attendance_action_url=attendance_url %}
+            {% empty %}
+            <p class="empty-note">No members in this Panel Group yet — add some from "Edit Group Membership".</p>
+            {% endfor %}
+        </div>
+        <div class="attendance-dialog-footer">
+            <span class="attendance-summary"><strong>{{ checked_in_count }}</strong> of {{ members|length }} checked in</span>
+            <div class="btn-row">
+                <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
+                <form method="post" action="{{ attendance_url }}" data-attendance-ajax-form style="display:inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_action" value="start_meeting">
+                    <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

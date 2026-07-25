@@ -48,10 +48,33 @@
             <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true" title="Coming soon"><span class="btn-icon">{% include 'icons/document_svg.html' %}</span> Summary</span>
             <a href="{% url 'inclusion_panel_meeting_agenda' m.panel.id %}" class="btn btn-tertiary btn-sm">View Meeting</a>
             {% elif m.can_manage %}
-            <form method="post" action="{% url 'inclusion_panel_meeting_start' m.panel.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> {% if m.panel.started_at %}Continue Meeting{% else %}Start Meeting{% endif %}</button>
-            </form>
+            {% if not m.panel.started_at and not m.referral_count %}
+            {% comment %}
+            A real disabled `<button>` doesn't fire hover events, so its own
+            `title` never shows a tooltip - wrapping it in an element that
+            itself carries the title (and does receive hover) is the
+            standard workaround, same reasoning as .btn-disabled spans
+            elsewhere in this file (e.g. the Summary "Coming soon" button).
+            {% endcomment %}
+            <span title="Add at least one referral to the agenda before starting">
+                <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</span>
+            </span>
+            {% elif m.panel.started_at %}
+            {% comment %}
+            A meeting already 'running' has nothing left to reschedule/check
+            in - Continue Meeting goes straight to the Panel Agenda page,
+            same as before, instead of opening the attendance dialog.
+            {% endcomment %}
+            <a href="{% url 'inclusion_panel_meeting_start' m.panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Continue Meeting</a>
+            {% else %}
+            {% comment %}
+            Opens the Attendance dialog in place (see initMeetingStartDialog
+            in panel.js / inclusion_panel_meeting_attendance) - the page only
+            navigates to the Panel Agenda once the meeting has actually
+            started from inside that dialog.
+            {% endcomment %}
+            <button type="button" class="btn btn-secondary btn-sm" data-open-meeting-start-trigger data-panel-id="{{ m.panel.id }}"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
+            {% endif %}
             {% if not m.panel.started_at %}
             <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Agenda</a>
             <form method="post" action="{% url 'inclusion_panel_meeting_delete' m.panel.id %}" data-row-remove-form data-confirm-message="Delete this panel meeting? This cannot be undone.">

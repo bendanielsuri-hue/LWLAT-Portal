@@ -2,7 +2,10 @@
 Attendance-dialog roster card (B1b) - photo, an affiliation strip (school
 logo+name / "MAT-wide" / "External"), name, Chair/expertise pills, and the
 check-in toggle pinned to the bottom of the card regardless of how many
-pills sit above it.
+pills sit above it. attendance_action_url is optional: unset, the toggle
+form posts to the current page (meeting_agenda.html's own full-page-reload
+dialog); passed, it posts there via AJAX instead (the Panel Meetings list's
+attendance dialog - see _meeting_attendance_dialog.html).
 {% endcomment %}
 <div class="member-card" data-present="{{ member.checked_in_at|yesno:'true,false' }}">
     {% if member.staff and member.staff.photo %}
@@ -32,7 +35,7 @@ pills sit above it.
             {% if member.expertise %}<span class="status-pill">{{ member.expertise.name }}</span>{% endif %}
         </div>
         <div class="card-toggle-slot">
-            <form method="post" class="member-attendance-form">
+            <form method="post" class="member-attendance-form"{% if attendance_action_url %} action="{{ attendance_action_url }}" data-attendance-ajax-form{% endif %}>
                 {% csrf_token %}
                 <input type="hidden" name="member_id" value="{{ member.id }}">
                 {% if member.checked_in_at and not member.left_at %}
