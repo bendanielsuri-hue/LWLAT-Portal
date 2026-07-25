@@ -513,6 +513,18 @@ def _panel_last_activity_at(panel):
     return max(c for c in candidates if c is not None)
 
 
+# A panel that's finished, whether it reached that point with a real
+# discussion ('complete') or not ('void') - see Panel.STATUS_CHOICES (models.py)
+# for what each means. Shared by every "is this meeting still editable"
+# check (agenda_readonly and its server-side twins on reorder/move/unassign/
+# update_priority below) so they can't drift out of sync with each other.
+PANEL_ENDED_STATUSES = ('complete', 'void')
+
+
+def _panel_is_ended(panel):
+    return panel.status in PANEL_ENDED_STATUSES
+
+
 def _panel_had_any_discussion(panel):
     # Whether this panel is worth keeping as a real completed meeting -
     # 'discussed' is only ever set by actually running a discussion
@@ -2935,7 +2947,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             # pre-meeting-end - the corner Remove button is already hidden
             # once agenda_readonly (meeting_agenda.html), this is the same
             # server-side twin.
-            removed = panel.status not in ('complete', 'void')
+            removed = not _panel_is_ended(panel)
             if removed:
                 pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
                 pr.removed_at = timezone.now()
@@ -2945,7 +2957,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': removed})
         elif action == 'update_priority':
-            if panel.status not in ('complete', 'void'):
+            if not _panel_is_ended(panel):
                 referral = get_object_or_404(InclusionReferral, pk=request.POST.get('referral_id'))
                 priority = request.POST.get('priority', '')
                 if priority == '' or priority in dict(InclusionReferral.PRIORITY_CHOICES):
@@ -2981,7 +2993,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             # meeting_agenda.html), this is the same gate server-side so a
             # stale page open in another tab can't sneak a reorder through
             # after the meeting's ended.
-            if panel.status not in ('complete', 'void'):
+            if not _panel_is_ended(panel):
                 ordered_ids = request.POST.getlist('panel_referral_id')
                 referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
                 updated = []
@@ -2992,9 +3004,9 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                         updated.append(pr)
                 PanelReferral.objects.bulk_update(updated, ['agenda_order'])
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': panel.status not in ('complete', 'void')})
+                return JsonResponse({'success': not _panel_is_ended(panel)})
         elif action == 'move_agenda_referral':
-            if panel.status not in ('complete', 'void'):
+            if not _panel_is_ended(panel):
                 pending_siblings = panel.panel_referrals.filter(
                     removed_at__isnull=True, discussion_status='pending'
                 ).order_by('agenda_order', 'id')
@@ -3169,7 +3181,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         # agenda_readonly gates _priority_mini.html's readonly and the
         # Discuss button below; auto-ended panels still have
         # panel.started_at set, so that alone isn't the right check.
-        'agenda_readonly': panel.status in ('complete', 'void'),
+        'agenda_readonly': _panel_is_ended(panel),
         'pending': pending,
         'discussed': discussed,
         'progress_pct': progress_pct,
