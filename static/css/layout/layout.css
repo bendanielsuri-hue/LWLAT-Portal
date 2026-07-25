@@ -396,6 +396,10 @@ main { position: relative; }
     border-radius: var(--radius-xs);
     background-color: var(--tooltip-bg);
     color: var(--tooltip-text);
+    /* Reset, not inherited (INT-U17's row-hover fake-bold would otherwise
+       bleed onto this bubble's own text via inheritance from the hovered
+       host element it's a pseudo-element of). */
+    text-shadow: none;
     box-shadow: var(--shadow-lg);
     font-size: var(--font-base);
     font-weight: 600;
@@ -498,7 +502,7 @@ main { position: relative; }
     padding: var(--space-xs);
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background-color var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
+    transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 /* Selectable rows stay full-width; action buttons hug their own icon+label */
 .side-nav a:not(.nav-row-btn),
@@ -508,27 +512,49 @@ main { position: relative; }
 }
 
 /* Every side-nav row shares the same quiet hover nudge — translateX(3px) +
-   bold — regardless of whether it's an action or a selectable row. */
+   bold — regardless of whether it's an action or a selectable row.
+   Bold is faked via text-shadow (INT-U17), not a real font-weight change —
+   a real weight change widens the label text enough to wrap a fitting
+   single-line label onto two lines the moment the pointer arrives.
+   The nudge itself is applied to the icon/label children, never to the row
+   element being hovered — transforming the hit-tested element itself moves
+   its hit-test box out from under a cursor sitting near its edge, which
+   drops :hover, snaps the transform back, re-enters :hover, and loops
+   (see the icon-tooltip-host note just below, which already worked around
+   this same mechanism for the collapsed/icon-only case). */
 .side-nav .nav-row-btn:hover,
 .side-nav a:not(.nav-row-btn):hover,
 .side-nav .school-nav-option:hover,
-.side-nav .staff-nav-option:hover {
+.side-nav .staff-nav-option:hover,
+.side-nav .nav-row-btn:focus-visible,
+.side-nav a:not(.nav-row-btn):focus-visible,
+.side-nav .school-nav-option:focus-visible,
+.side-nav .staff-nav-option:focus-visible {
+    text-shadow: var(--hover-fake-bold);
+}
+.side-nav .nav-row-btn:hover .menu-icon,
+.side-nav .nav-row-btn:hover .menu-label,
+.side-nav .nav-row-btn:hover .menu-label-stack,
+.side-nav a:not(.nav-row-btn):hover .menu-icon,
+.side-nav a:not(.nav-row-btn):hover .menu-label,
+.side-nav a:not(.nav-row-btn):hover .menu-label-stack,
+.side-nav .school-nav-option:hover .menu-icon,
+.side-nav .school-nav-option:hover .menu-label,
+.side-nav .staff-nav-option:hover .menu-icon,
+.side-nav .staff-nav-option:hover .menu-label-stack,
+.side-nav .nav-row-btn:focus-visible .menu-icon,
+.side-nav .nav-row-btn:focus-visible .menu-label,
+.side-nav .nav-row-btn:focus-visible .menu-label-stack,
+.side-nav a:not(.nav-row-btn):focus-visible .menu-icon,
+.side-nav a:not(.nav-row-btn):focus-visible .menu-label,
+.side-nav a:not(.nav-row-btn):focus-visible .menu-label-stack,
+.side-nav .school-nav-option:focus-visible .menu-icon,
+.side-nav .school-nav-option:focus-visible .menu-label,
+.side-nav .staff-nav-option:focus-visible .menu-icon,
+.side-nav .staff-nav-option:focus-visible .menu-label-stack {
     transform: translateX(3px);
-    font-weight: 600;
 }
-/* Icon-only tooltip hosts cancel the row-level nudge (it shifts the hit-test
-   region and causes hover-flicker on the tooltip). Icon glyph nudges instead. */
-.hub-rail a.icon-tooltip-host:hover,
-.hub-rail a.icon-tooltip-host:focus-visible,
-.hub-rail button.icon-tooltip-host:hover,
-.hub-rail button.icon-tooltip-host:focus-visible,
-.side-nav.collapsed a.icon-tooltip-host:hover,
-.side-nav.collapsed a.icon-tooltip-host:focus-visible,
-.side-nav.collapsed button.icon-tooltip-host:not(.collapse-toggle):hover,
-.side-nav.collapsed button.icon-tooltip-host:not(.collapse-toggle):focus-visible {
-    transform: none;
-}
-/* Icon-level nudge stand-in for the cancelled row-level nudge above */
+/* Icon-only tooltip hosts: no label child to nudge, just the icon. */
 .hub-rail .icon-tooltip-host:hover .menu-icon,
 .hub-rail .icon-tooltip-host:hover > svg,
 .hub-rail .icon-tooltip-host:focus-visible .menu-icon,
@@ -555,12 +581,11 @@ main { position: relative; }
     transform-origin: center;
     transition: opacity var(--transition-base), background-color var(--transition-base), transform var(--transition-pop);
 }
-/* translateX(-3px) cancels the row's own nudge so the bar stays at left:3px */
 .side-nav a:not(.nav-row-btn):hover::before,
 .side-nav .school-nav-option:hover::before,
 .side-nav .staff-nav-option:hover::before {
     opacity: 1;
-    transform: translateX(-3px) scaleY(1);
+    transform: scaleY(1);
 }
 
 .side-nav a:not(.nav-row-btn).active,
@@ -727,7 +752,7 @@ a { color: inherit; }
 }
 .side-nav .menu-icon svg { width: 20px; height: 20px; display: block; }
 .side-nav .menu-icon img { width: 20px; height: 20px; display: block; }
-.side-nav .menu-label { flex: 1; min-width: 0; display: block; white-space: normal; line-height: 22px; }
+.side-nav .menu-label { flex: 1; min-width: 0; display: block; white-space: normal; line-height: 22px; transition: transform var(--transition-fast); }
 .nav-header { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; }
 .side-nav.hidden { display: none; }
 /* Overlay header: a full-width "Close" row sits above the title */
@@ -884,6 +909,7 @@ a { color: inherit; }
     display: flex;
     flex-direction: column;
     line-height: 1.3;
+    transition: transform var(--transition-fast);
 }
 .side-nav .menu-label-stack .user-name {
     font-size: var(--font-md);

@@ -186,7 +186,12 @@
    bolder primary fill + inset accent once .chosen (click-to-select) —
    both spanning the full card width via the negative margin above. */
 .panel-list li:hover { background: var(--row-hover-bg); }
-.panel-list li:hover .panel-item-title { font-weight: 700; }
+/* Fake bold via text-shadow (INT-U17), not font-weight — see cards.css's
+   .selectable:hover .entity-title for why. */
+.panel-list li:hover .panel-item-title,
+.panel-list li:focus-visible .panel-item-title {
+    text-shadow: var(--hover-fake-bold);
+}
 .panel-list li.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
 .panel-list li.chosen .panel-item-title { font-weight: 700; }
 .panel-list li.chosen:hover { background: var(--primary-light); }
@@ -426,7 +431,13 @@
 }
 .meeting-card:last-child { border-bottom: none; }
 .meeting-card:hover { background: var(--row-hover-bg); }
-.meeting-card:hover h3 { font-weight: 700; }
+/* Fake bold via text-shadow (INT-U17), not font-weight — the title is
+   ellipsis-truncated but flex-sized to its own content, so a real weight
+   change widens it and nudges the status pills beside it sideways. */
+.meeting-card:hover h3,
+.meeting-card:focus-visible h3 {
+    text-shadow: var(--hover-fake-bold);
+}
 .meeting-card.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
 .meeting-card.chosen h3 { font-weight: 700; }
 
@@ -2572,8 +2583,11 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 }
 .member-card[data-present="true"] { border-color: var(--accent-border); background: var(--primary-light); }
 /* Hover: name weight only, nothing else - no background/transform/transition,
-   matching .selectable:hover .entity-title's own hover treatment elsewhere. */
-.member-card:hover .card-name { font-weight: 800; }
+   matching .selectable:hover .entity-title's own hover treatment elsewhere.
+   Fake bold via text-shadow (INT-U17), not font-weight, so the name never
+   widens/reflows on hover. No :focus-visible companion — the card itself
+   isn't a tabbable unit, only its own check-in toggle button is. */
+.member-card:hover .card-name { text-shadow: var(--hover-fake-bold); }
 .member-card .photo-avatar, .member-card .no-photo-avatar { width: 168px; height: 106px; flex-shrink: 0; object-fit: cover; }
 .member-card .no-photo-avatar {
     display: flex;
