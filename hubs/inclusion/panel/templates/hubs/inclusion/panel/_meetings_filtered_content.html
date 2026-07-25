@@ -45,20 +45,11 @@
         </div>
         <div class="meeting-card-actions">
             {% if m.panel.status == 'complete' %}
-            <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true" title="Coming soon"><span class="btn-icon">{% include 'icons/document_svg.html' %}</span> Summary</span>
+            {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/document_svg.html" label="Summary" title="Coming soon" %}
             <a href="{% url 'inclusion_panel_meeting_agenda' m.panel.id %}" class="btn btn-tertiary btn-sm">View Meeting</a>
             {% elif m.can_manage %}
             {% if not m.panel.started_at and not m.referral_count %}
-            {% comment %}
-            A real disabled `<button>` doesn't fire hover events, so its own
-            `title` never shows a tooltip - wrapping it in an element that
-            itself carries the title (and does receive hover) is the
-            standard workaround, same reasoning as .btn-disabled spans
-            elsewhere in this file (e.g. the Summary "Coming soon" button).
-            {% endcomment %}
-            <span title="Add at least one referral to the agenda before starting">
-                <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</span>
-            </span>
+            {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/play_svg.html" label="Start Meeting" title="Add at least one referral to the agenda before starting" %}
             {% elif m.panel.started_at %}
             {% comment %}
             A meeting already 'running' has nothing left to reschedule/check

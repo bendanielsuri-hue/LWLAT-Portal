@@ -145,15 +145,7 @@ regardless if the browser closes entirely before that happens.
         </div>
         {% elif can_start_meeting %}
         {% if agenda_is_empty %}
-        {% comment %}
-        A real disabled `<button>` doesn't fire hover events, so its own
-        `title` never shows a tooltip - wrapping it in an element that
-        itself carries the title (and does receive hover) is the standard
-        workaround.
-        {% endcomment %}
-        <span title="Add at least one referral to the agenda before starting">
-            <span class="btn btn-secondary btn-disabled" aria-disabled="true"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</span>
-        </span>
+        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary" icon="icons/play_svg.html" label="Start Meeting" title="Add at least one referral to the agenda before starting" %}
         {% else %}
         <button type="button" class="btn btn-secondary" data-open-attendance-trigger><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
         {% endif %}
@@ -171,9 +163,7 @@ regardless if the browser closes entirely before that happens.
         <p class="members-register-placeholder">{{ checked_in_count }} of {{ members|length }} checked in</p>
         {% if can_start_meeting %}
         {% if agenda_is_empty %}
-        <span title="Add at least one referral to the agenda before starting">
-            <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Take Attendance</span>
-        </span>
+        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/play_svg.html" label="Take Attendance" title="Add at least one referral to the agenda before starting" %}
         {% else %}
         <button type="button" class="btn btn-secondary btn-sm" data-open-attendance-trigger><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Take Attendance</button>
         {% endif %}
@@ -304,7 +294,7 @@ regardless if the browser closes entirely before that happens.
                                 <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</button>
                             </form>
                             {% elif panel.status != 'complete' and panel.status != 'void' %}
-                            <span class="btn btn-add btn-sm btn-disabled" aria-disabled="true" title="Start the meeting to begin discussing referrals"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Discuss</span>
+                            {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-add btn-sm" icon="icons/play_svg.html" label="Discuss" title="Start the meeting to begin discussing referrals" %}
                             {% endif %}
                             {% comment %}
                             No button at all once the meeting's ended

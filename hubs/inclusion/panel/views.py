@@ -2217,7 +2217,7 @@ def inclusion_panel_group_edit(request, group_id=None):
                 # keep pointing chair at someone just deactivated from it -
                 # except a completed or void panel, whose chair is a
                 # historical record that shouldn't change after the fact.
-                group.panels.filter(chair_id=member.staff_id).exclude(status__in=['complete', 'void']).update(chair=None)
+                group.panels.filter(chair_id=member.staff_id).exclude(status__in=PANEL_ENDED_STATUSES).update(chair=None)
         if is_ajax:
             return JsonResponse({'success': True})
         return redirect(_safe_next(request, 'inclusion_panel_group_settings'))
