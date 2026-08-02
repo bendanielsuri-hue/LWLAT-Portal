@@ -430,15 +430,11 @@ class Action(models.Model):
 
     referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='actions')
     category = models.ForeignKey(ActionCategory, null=True, blank=True, on_delete=models.SET_NULL)
-    assigned_to = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
-    # Either assigned_to (an individual) or assigned_to_group (a
+    assigned_to_staff = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
+    # Either assigned_to_staff (an individual) or assigned_to_group (a
     # core.StaffGroup - "SENCo Team", "Head of Year 9", etc.), exactly one
     # set at a time - same either/or FK pattern as PanelGroupMember's own
-    # staff/external_contact split. assigned_to itself is not renamed to
-    # assigned_to_staff yet - that's a wider rename across every existing
-    # caller (Actions list, action_form.html, seed_referral_actions, ...),
-    # deferred until the Panel Discussion Actions row redesign this supports
-    # is actually confirmed (see /prototype, ?variant=b).
+    # staff/external_contact split.
     assigned_to_group = models.ForeignKey(
         'core.StaffGroup', null=True, blank=True, on_delete=models.SET_NULL, related_name='+'
     )

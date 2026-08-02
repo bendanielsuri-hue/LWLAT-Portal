@@ -317,6 +317,27 @@
     min-width: 0;
 }
 
+/* My Actions card only: student (thumb+name/details, tight together) and the
+   status switch underneath on the left; Category/Description/Due Date on the
+   right - see _my_actions_card.html. Student side is narrower - it's just a
+   name/status switch, not worth matching the wider Category/Description text. */
+.panel-item-body--two-col { display: flex; gap: var(--space-lg); }
+.panel-item-col { flex: 1; min-width: 0; }
+.panel-item-col--student { flex: 0 0 38%; }
+/* Category/Description/Due Date reads as one shorter block next to the
+   taller student side (thumb-row + status switch stacked) - centre it
+   vertically against the row's full height instead of pinning to the top. */
+.panel-item-col--centered { display: flex; flex-direction: column; justify-content: center; }
+.panel-item-thumb-row { display: flex; align-items: center; gap: var(--space-sm); }
+.panel-item-thumb-details { min-width: 0; }
+/* Horizontal rule between the student details and the status switch below -
+   .panel-item-actions' own top edge, not a separate <hr>. */
+.panel-item-col--student .panel-item-actions { margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--border-color); }
+/* .mc-vdivider (meeting-card.css convention) only carries its border/stretch
+   styling when scoped to a known parent - .panel-item-body--two-col's own
+   gap already provides the spacing either side, so no extra margin here. */
+.panel-item-body--two-col .mc-vdivider { border-left: 1px solid var(--border-color); align-self: stretch; }
+
 .panel-item-title {
     font-weight: 600;
     font-size: var(--font-md);
@@ -355,15 +376,6 @@
     display: flex;
     align-items: center;
     gap: var(--space-xs);
-}
-
-.panel-item-actions-stacked {
-    flex-direction: column;
-    align-items: stretch;
-}
-.panel-item-actions-stacked form,
-.panel-item-actions-stacked .btn {
-    width: 100%;
 }
 
 .status-pill.danger,
@@ -2178,40 +2190,16 @@
 .settings-row:last-child { border-bottom: none; }
 .quick-add-row { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-bottom: var(--space-md); }
 
-/* Referral Details modal: each question category collapses into its own
-   .settings-section (closed by default when viewing/editing an existing
-   referral - see is_edit/is_view_only check in _referral_form_fields.html)
-   instead of dumping every field open at once. Sections stay a touch more
-   compact than the page-level .settings-section since several stack inside
-   one modal. */
-.referral-section { padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); }
-.referral-section summary { font-size: var(--font-base); }
-.referral-section .settings-body { margin-top: var(--space-sm); }
-.referral-section .field-group { margin-bottom: var(--space-sm); }
-.referral-section .field-group:last-child { margin-bottom: 0; }
-
-/* Condensed field presentation for the Referral Details modal - a select/
-   textarea that reads like .field-readonly at rest (flat, no heavy border)
-   and only reveals it's editable on hover/focus, so an editable referral
-   doesn't look like a bare data-entry form the way a fully-bordered input
-   does. Student picker's .referral-student-selected-row already looks this
-   way; this brings the question fields (e.g. Main Concern Category) in line
-   with it instead of the two looking like different components. */
-.referral-field-compact {
-    width: 100%;
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-md);
-    border: 1px solid transparent;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: var(--font-base);
-    font-family: inherit;
+/* Referral modal's Student row sits in its own .ui-fused-field-group
+   (shown only before a student is picked/for the referral's own read-only
+   row), separate from the question fields' group below it - two different
+   grids don't share column sizing automatically, so without this, "Student"
+   (short) and "Main Concern" (longer) would each auto-size their own
+   group's label column independently and end up visibly different widths. */
+.referral-student-picker .ui-fused-field-label,
+[data-referral-question-fields] .ui-fused-field-label {
+    min-width: 110px;
 }
-.referral-field-compact:hover { border-color: var(--border-color); }
-.referral-field-compact:focus { outline: none; border-color: var(--primary); background: var(--bg-surface); }
-.referral-field-compact:disabled { color: var(--text-secondary); cursor: default; }
-.referral-field-compact:disabled:hover { border-color: transparent; }
-textarea.referral-field-compact { min-height: 44px; resize: vertical; }
 
 .discussion-thumb {
     width: 56px;
@@ -2230,15 +2218,35 @@ textarea.referral-field-compact { min-height: 44px; resize: vertical; }
 
 /* Every field is directly inline-editable, no Edit button (see #51's
    follow-up: fully inline editing won over Edit-as-modal after prototyping
-   both) - Category, Description, Assigned To, Due Date, Status, each its
-   own line (a denser spreadsheet-row layout was tried and read as too
-   cramped). .field-editable is the shared "this control saves itself"
-   chrome; each select's own selected-option text is the only label it
-   needs (aria-label covers screen readers - see the template). */
+   both) - Category, Description, Due Date, Status, each its own line (a
+   denser spreadsheet-row layout was tried and read as too cramped).
+   .field-editable is the shared "this control saves itself" chrome; each
+   select's own selected-option text is the only label it needs (aria-label
+   covers screen readers - see the template). Assigned To is the one
+   exception (#98): static text + a fused Edit button opening the Add Action
+   modal's Assign step, not an inline control - see .ui-fused-field-value
+   below. */
 .action-item { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-sm); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); }
 .action-item > * { margin-bottom: var(--space-sm); }
 .action-item > *:last-child { margin-bottom: 0; }
 .action-item-desc.field-editable { display: block; width: 100%; resize: vertical; }
+/* Plain text standing in for a .ui-select/.ui-date/input in a .ui-fused-field
+   row (Assigned To, #98) - same vertical padding as .ui-select-trigger/a
+   fused text input (var(--space-xs) var(--space-sm)) so this row's own
+   content-driven grid-row height matches every sibling row's (a select's
+   padded trigger button, a text input) instead of coming out shorter and
+   leaving the row visibly squatter than "Category"/"Due Date" beside it -
+   grid's implicit row-track sizing runs before align-items: stretch, so a
+   too-short value here shrinks the whole row, not just this one cell. */
+.ui-fused-field-value {
+    display: flex;
+    align-items: center;
+    padding: var(--space-xs) var(--space-sm);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .field-editable {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
@@ -2395,6 +2403,22 @@ textarea.referral-field-compact { min-height: 44px; resize: vertical; }
 .referral-view-fields .summary-line:first-child { padding-top: 0; }
 .referral-view-fields .summary-value { text-align: left; white-space: normal; }
 .referral-view-fields + .field-group { margin-top: var(--space-sm); margin-bottom: 0; }
+
+/* Referral edit modal only: Student is *which* referral this is, so it reads
+   as this form's own title - no "Student" label needed, the context (a
+   referral being edited) already says what the name below the modal's own
+   h2 (--font-2xl) is. --font-md/weight 700 is this app's existing "row/item
+   title" role (see typography.css), which fits. Referred By is secondary
+   metadata underneath it, so it keeps its label but drops to the label's own
+   small/secondary format instead - unlike .referral-view-fields' condensed
+   label|value column list above (that's a denser, many-facts-at-once read;
+   this is just one line), there's no shared column to keep aligned here. A
+   real divider (not just margin) separates these fixed facts from the
+   editable fields below, same as .referral-view-fields' own row dividers. */
+.referral-edit-summary { display: flex; flex-direction: column; gap: var(--space-xs); margin-bottom: var(--space-lg); padding-bottom: var(--space-md); border-bottom: 1px solid var(--border-color); }
+.referral-edit-summary-student { font-size: var(--font-md); font-weight: 700; color: var(--text-primary); }
+.referral-edit-summary .summary-line { display: flex; align-items: baseline; gap: var(--space-sm); font-size: var(--font-sm); }
+.referral-edit-summary .summary-value { font-size: var(--font-sm); font-weight: 400; color: var(--text-secondary); }
 
 /* Shared row-title style for both flat sections below (Panel Meetings'
    per-discussion heading and Actions' Category heading) - same size/weight
@@ -2811,6 +2835,8 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    - Panel Group Edit: tabs, add/remove members, search-filtered picker.
    - New Referral: its student search re-filters live as you type, even
      though the picker-vs-form step itself is a one-off switch.
+   - Add Action: Assign Staff Mode's own live search-filtered results, on
+     top of the details/Assign step switch (#98).
    Small static dialogs (Add Expertise Tag, confirm dialogs) and one-off
    mode-switch dialogs (Panel Meeting/Settings' inline "Create Panel Group"
    swap) stay centered — this is a deliberate, scoped override per dialog,
@@ -2823,7 +2849,8 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    underneath. */
 dialog#panel-search-dialog[open],
 dialog#panel-group-dialog[open],
-dialog#new-referral-dialog[open] {
+dialog#new-referral-dialog[open],
+dialog#action-form-dialog[open] {
     top: 8vh;
     bottom: auto;
     margin: 0 auto;
@@ -3080,17 +3107,6 @@ dialog#panel-search-dialog .modal-body {
 }
 .referral-student-option:hover { background: var(--row-hover-bg); }
 .referral-student-option-meta { color: var(--text-faint); font-size: var(--font-sm); flex-shrink: 0; }
-.referral-student-selected[hidden] { display: none; }
-.referral-student-selected-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-sm);
-    padding: var(--space-xs) var(--space-sm);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    background: var(--bg-surface-alt);
-}
 
 /* Panel Agenda's Pending row Remove button, pinned to the row's top-right
    corner instead of a labelled bottom-row button (was too wide - #prototype

@@ -98,6 +98,16 @@ def _panel_base_context(request):
 ACTION_CATEGORY_PRESETS = ['Parent Meeting', 'Intervention', 'Other']
 
 
+def _next_term_option(school, as_of):
+    # The single immediate-next term for a "Due in..." preset (Add Action's
+    # own Due Date field and the Discussion row's inline equivalent) - same
+    # (term, is_rollover) shape as End Discussion's own review_term_options
+    # (#100), just the first entry, so the option reads "Summer Term (...)"
+    # instead of a generic "Next Term (...)" that doesn't say which term.
+    options = upcoming_review_terms(school, as_of)
+    return options[0] if options else None
+
+
 def _safe_next(request, default_url):
     next_url = request.POST.get('next') or request.GET.get('next')
     if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
@@ -863,10 +873,40 @@ PICKER_RESULT_LIMIT = 8
 def inclusion_panel_search(request):
     q = request.GET.get('q', '').strip()
     tokens = q.split()
+    kind = request.GET.get('kind', 'all')
+
+    if kind == 'group':
+        # Listed in full as soon as this source is picked, not gated behind
+        # 2+ typed characters like every other kind below - a school's
+        # StaffGroup roster is small enough that "browse the whole list" is
+        # the more useful default than "type to search" (#98). An empty
+        # `tokens` still filters correctly: _token_name_filter's loop never
+        # runs, leaving an unconstrained Q() that matches every group.
+        #
+        # Scoped the same way Action assignment's own staff_groups queryset
+        # already was (views.py's inclusion_panel_discussion/_action_new/
+        # _action_inline_update) - MAT-wide or this student's school, and
+        # either not year-specific or matching this student's year group -
+        # not every Head of Year group portal-wide.
+        school_id = request.GET.get('school_id') or None
+        year_group = request.GET.get('year_group') or None
+        groups = StaffGroup.objects.filter(
+            Q(school__isnull=True) | Q(school_id=school_id), is_active=True,
+        ).filter(
+            Q(year_group__isnull=True) | Q(year_group=year_group)
+        ).filter(_token_name_filter(tokens, 'name'))[:PICKER_RESULT_LIMIT]
+        results = [{
+            'source': 'group',
+            'id': group.id,
+            'name': group.name,
+            'subtitle': '',
+            'school_name': group.school.name if group.school_id else '',
+        } for group in groups]
+        return JsonResponse({'results': results})
+
     if len(q) < 2:
         return JsonResponse({'results': []})
 
-    kind = request.GET.get('kind', 'all')
     school_key = current_school_key(request)
     scoped_students = student_queryset_for_school_key(school_key)
 
@@ -950,7 +990,7 @@ def inclusion_panel_search(request):
     )[:5]
     for staff in staff_members:
         referrals_raised = InclusionReferral.objects.filter(student__in=scoped_students, raised_by=staff).count()
-        actions_assigned = Action.objects.filter(referral__student__in=scoped_students, assigned_to=staff)
+        actions_assigned = Action.objects.filter(referral__student__in=scoped_students, assigned_to_staff=staff)
         if not is_panel_staff:
             actions_assigned = actions_assigned.exclude(category__is_sensitive=True)
         actions_assigned_count = actions_assigned.count()
@@ -974,7 +1014,7 @@ def _my_actions_context(current_staff, is_panel_staff):
     # these counts so both stay in sync.
     today = timezone.localdate()
     if current_staff is not None:
-        my_actions = Action.objects.filter(assigned_to=current_staff).select_related('referral__student').order_by('status', 'due_date')
+        my_actions = Action.objects.filter(assigned_to_staff=current_staff).select_related('referral__student').order_by('referral__student__last_name', 'referral__student__first_name', 'status', 'due_date')
         if not is_panel_staff:
             my_actions = my_actions.exclude(category__is_sensitive=True)
         my_actions = list(my_actions)
@@ -1505,7 +1545,7 @@ def inclusion_panel_referral_new(request):
 
 def _referral_detail_context(referral, current_staff):
     """Shared display context for _referral_form_modal.html - the decision
-    strip, Panel History, Actions (with is_overdue) and Notes sections. Used
+    strip, Panel History and Actions (with is_overdue) sections. Used
     by both inclusion_panel_referral_edit (viewing/editing a referral) and
     inclusion_panel_action_status_update (toggling one action's status from
     within that same modal) so the two can never drift apart the way the
@@ -1550,7 +1590,7 @@ def _referral_detail_context(referral, current_staff):
 
     review_label_by_pr_id = {d['pr'].id: d['review_label'] for d in discussions}
 
-    referral_actions = referral.actions.select_related('category', 'assigned_to', 'origin_panel_referral__panel')
+    referral_actions = referral.actions.select_related('category', 'assigned_to_staff', 'origin_panel_referral__panel')
     if not is_panel_staff:
         referral_actions = referral_actions.exclude(category__is_sensitive=True)
     referral_actions = list(referral_actions)
@@ -1585,8 +1625,6 @@ def _referral_detail_context(referral, current_staff):
     if stage_key == 'requires_follow_up':
         stage_label = _review_label(discussion_count)
 
-    safeguarding_notes = visible_notes_for(current_staff, referral.student)
-
     return {
         'discussions': discussions,
         'latest_discussion': latest_discussion,
@@ -1598,7 +1636,6 @@ def _referral_detail_context(referral, current_staff):
         'actions_total': actions_total,
         'actions_complete': actions_complete,
         'actions_overdue': actions_overdue,
-        'safeguarding_notes': safeguarding_notes,
         # Nothing worth a decision-strip card when the referral has never
         # reached a panel and has no actions raised yet either - Django's
         # {% if %} has no parenthesised grouping, so this is computed here
@@ -1634,7 +1671,7 @@ def _discussion_summary_context(pr):
             note_authors.append(note.author)
 
     actions = list(
-        Action.objects.filter(origin_panel_referral=pr).select_related('category', 'assigned_to')
+        Action.objects.filter(origin_panel_referral=pr).select_related('category', 'assigned_to_staff')
     )
     today = timezone.localdate()
     for action in actions:
@@ -1879,7 +1916,7 @@ def inclusion_panel_actions(request):
 
     scoped_students = student_queryset_for_school_key(school_key)
     actions_qs = Action.objects.filter(referral__student__in=scoped_students).select_related(
-        'referral__student', 'referral__student__school', 'assigned_to', 'category', 'created_by',
+        'referral__student', 'referral__student__school', 'assigned_to_staff', 'category', 'created_by',
     )
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
@@ -1904,9 +1941,9 @@ def inclusion_panel_actions(request):
     if category_filter:
         actions_qs = actions_qs.filter(category_id=category_filter)
     if assigned_filter == 'unassigned':
-        actions_qs = actions_qs.filter(assigned_to__isnull=True)
+        actions_qs = actions_qs.filter(assigned_to_staff__isnull=True)
     elif assigned_filter:
-        actions_qs = actions_qs.filter(assigned_to_id=assigned_filter)
+        actions_qs = actions_qs.filter(assigned_to_staff_id=assigned_filter)
     if status_filter:
         actions_qs = actions_qs.filter(status=status_filter)
     if due_filter == 'overdue':
@@ -1941,7 +1978,7 @@ def inclusion_panel_actions(request):
             max_ch=26,
         ),
         'assigned': _col_width(
-            [f'Assigned to: {a.assigned_to}' if a.assigned_to else 'Assigned to: Unassigned' for a in actions]
+            [f'Assigned to: {a.assigned_to_staff}' if a.assigned_to_staff else 'Assigned to: Unassigned' for a in actions]
             + [f'Due: {a.due_date:%d %b %Y}' if a.due_date else 'Due: —' for a in actions],
             max_ch=26,
         ),
@@ -1986,20 +2023,38 @@ def inclusion_panel_actions(request):
 
 
 def inclusion_panel_action_new(request, referral_id):
-    # Add Action is a modal (see #51) - this is now the only caller of
-    # _action_form_modal.html, fetched into Discussion's shared
-    # #action-form-dialog shell (see openActionFormModal in panel.js), same
-    # fetch-fragment-into-a-page-level-<dialog> convention as
-    # inclusion_panel_meeting_new/_panel_meeting_form_modal.html. Kept as its
-    # own view/URL (rather than folded into the dialog's JS) so it stays
-    # reusable from other entry points later, even though Discussion is the
-    # only consumer today.
+    # Add Action is a 2-step modal (details, then Assign - see #98): this is
+    # now the only caller of _action_form_modal.html, fetched into
+    # Discussion's shared #action-form-dialog shell (see openActionFormModal
+    # in panel.js), same fetch-fragment-into-a-page-level-<dialog> convention
+    # as inclusion_panel_meeting_new/_panel_meeting_form_modal.html. Also
+    # doubles as the edit entry point for an existing Action's Discussion row
+    # (?edit=<id>) - one code path for create and edit, landing an edit
+    # straight on the Assign step while Back still reaches the details step.
+    # Kept as its own view/URL (rather than folded into the dialog's JS) so
+    # it stays reusable from other entry points later.
     referral = get_object_or_404(InclusionReferral, pk=referral_id)
+    is_panel_staff = _is_panel_staff(_current_staff(request))
     categories = visible_categories_for(_current_staff(request))
-    auto_assign_by_category = {
-        category.id: (category.resolve_auto_assignee().id if category.resolve_auto_assignee() else None)
-        for category in categories
-    }
+    auto_assign_by_category = {}
+    for category in categories:
+        suggestion = category.resolve_auto_assignee()
+        if suggestion:
+            auto_assign_by_category[category.id] = {'id': suggestion.id, 'name': str(suggestion)}
+    edit_action_id = request.GET.get('edit') or request.POST.get('action_id') or None
+    action = None
+    if edit_action_id:
+        action = get_object_or_404(
+            Action.objects.select_related('assigned_to_staff', 'assigned_to_group', 'category'),
+            pk=edit_action_id, referral=referral,
+        )
+        # Deep-linking an action_id directly (?edit=<id>/action_id POST)
+        # bypasses the categories dropdown's own is_sensitive filtering
+        # above, so a non-panel-staff viewer could otherwise still reach a
+        # sensitive action's edit form by id - same guard the old standalone
+        # Edit Action page used to carry.
+        if not is_panel_staff and action.category_id and action.category.is_sensitive:
+            return redirect(_safe_next(request, '/inclusion/panel/actions/'))
     # Only ever set when this link came from a live Discussion page (the one
     # place a panel_referral is known at the point an action is created) -
     # actions added from the standalone Actions page correctly stay
@@ -2011,30 +2066,54 @@ def inclusion_panel_action_new(request, referral_id):
         category_id = request.POST.get('category') or None
         if category_id and not categories.filter(pk=category_id).exists():
             category_id = None
-        Action.objects.create(
-            referral=referral,
-            category_id=category_id,
-            assigned_to_id=request.POST.get('assigned_to') or None,
-            due_date=request.POST.get('due_date') or None,
-            note=request.POST.get('note', ''),
-            origin_panel_referral_id=origin_panel_referral_id,
-            created_by=_current_staff(request),
-        )
+        assigned_to_staff_id = request.POST.get('assigned_to_staff') or None
+        assigned_to_group_id = request.POST.get('assigned_to_group') or None
+        if action:
+            action.category_id = category_id
+            action.assigned_to_staff_id = assigned_to_staff_id
+            action.assigned_to_group_id = assigned_to_group_id
+            action.due_date = request.POST.get('due_date') or None
+            action.note = request.POST.get('note', '')
+            action.save()
+        else:
+            Action.objects.create(
+                referral=referral,
+                category_id=category_id,
+                assigned_to_staff_id=assigned_to_staff_id,
+                assigned_to_group_id=assigned_to_group_id,
+                due_date=request.POST.get('due_date') or None,
+                note=request.POST.get('note', ''),
+                origin_panel_referral_id=origin_panel_referral_id,
+                created_by=_current_staff(request),
+            )
         redirect_url = _safe_next(request, '/inclusion/panel/actions/')
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': True, 'redirect': redirect_url})
         return redirect(redirect_url)
 
+    initial_assign_type = None
+    initial_assign_id = None
+    initial_assign_name = ''
+    if action:
+        if action.assigned_to_staff_id:
+            initial_assign_type, initial_assign_id, initial_assign_name = 'staff', action.assigned_to_staff_id, str(action.assigned_to_staff)
+        elif action.assigned_to_group_id:
+            initial_assign_type, initial_assign_id, initial_assign_name = 'group', action.assigned_to_group_id, str(action.assigned_to_group)
+
     return render(request, 'hubs/inclusion/panel/_action_form_modal.html', {
         **_panel_base_context(request),
         'referral': referral,
+        'action': action,
         'categories': categories,
-        'staff_list': staff_queryset_for_school_key(current_school_key(request)),
+        'initial_assign_type': initial_assign_type,
+        'initial_assign_id': initial_assign_id,
+        'initial_assign_name': initial_assign_name,
         'auto_assign_by_category': auto_assign_by_category,
         'next': request.GET.get('next', ''),
         'panel_referral_id': origin_panel_referral_id,
         'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),
         'next_term_date': next_term(referral.student.school, timezone.localdate()),
+        'next_term_option': _next_term_option(referral.student.school, timezone.localdate()),
     })
 
 
@@ -3309,7 +3388,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
             )
         ]
 
-    actions = referral.actions.select_related('assigned_to', 'category')
+    actions = referral.actions.select_related('assigned_to_staff', 'category')
     if not is_panel_staff:
         actions = actions.exclude(category__is_sensitive=True)
 
@@ -3390,114 +3469,47 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'previous_referrals': previous_referrals,
         'actions': actions,
         'categories': visible_categories_for(current_staff),
-        'staff_list': staff_queryset_for_school_key(current_school_key(request)),
-        # Scoped to what's actually relevant to this referral's student -
-        # MAT-wide groups (Careers Team) or this student's own school, and
-        # either not year-specific or matching this student's year group -
-        # not every Head of Year group portal-wide.
-        'staff_groups': StaffGroup.objects.filter(
-            Q(school__isnull=True) | Q(school=referral.student.school),
-            is_active=True,
-        ).filter(
-            Q(year_group__isnull=True) | Q(year_group=referral.student.year_group)
-        ),
         'panel_notes': panel_referral.notes.select_related('author'),
         'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),
         'next_term_date': next_term(referral.student.school, timezone.localdate()),
+        # Named (e.g. "Summer Term (...)") rather than a generic "Next Term"
+        # - backs the Actions due-date picker included further down this
+        # page via _discussion_action_item.html.
+        'next_term_option': _next_term_option(referral.student.school, timezone.localdate()),
         # End Discussion's own "Review in..." picker (#100) - every term
         # left in the current academic year, named, plus a rolled-over Next
-        # Autumn Term once none are left. Distinct from next_term_date above,
-        # which still backs the Actions due-date picker included further
-        # down this page via _discussion_action_item.html.
+        # Autumn Term once none are left. Distinct from next_term_option
+        # above, which is just the single immediate-next term.
         'review_term_options': upcoming_review_terms(referral.student.school, timezone.localdate()),
     }
 
     return render(request, 'hubs/inclusion/panel/discussion.html', context)
 
 
-def inclusion_panel_action_edit(request, action_id):
-    # The standalone Actions list page's own "Edit Action" link - a full
-    # page, unchanged. Panel Discussion no longer edits Actions this way at
-    # all (see #51's follow-up: fully inline editing won over Edit-as-modal
-    # after prototyping both - inclusion_panel_action_inline_update handles
-    # every field change there instead).
-    action = get_object_or_404(Action.objects.select_related('referral__student'), pk=action_id)
-    is_panel_staff = _is_panel_staff(_current_staff(request))
-    if not is_panel_staff and action.category_id and action.category.is_sensitive:
-        return redirect(_safe_next(request, '/inclusion/panel/actions/'))
-
-    categories = ActionCategory.objects.filter(is_active=True)
-    if not is_panel_staff:
-        categories = categories.exclude(is_sensitive=True)
-    auto_assign_by_category = {
-        category.id: (category.resolve_auto_assignee().id if category.resolve_auto_assignee() else None)
-        for category in categories
-    }
-
-    if request.method == 'POST':
-        category_id = request.POST.get('category') or None
-        if category_id and not categories.filter(pk=category_id).exists():
-            category_id = None
-        action.category_id = category_id
-        action.assigned_to_id = request.POST.get('assigned_to') or None
-        action.due_date = request.POST.get('due_date') or None
-        action.note = request.POST.get('note', '')
-        new_status = request.POST.get('status', action.status)
-        if new_status != action.status:
-            action.completed_at = timezone.now() if new_status == 'complete' else None
-        action.status = new_status
-        action.save()
-        return redirect(_safe_next(request, '/inclusion/panel/actions/'))
-
-    return render(request, 'hubs/inclusion/panel/action_form.html', {
-        **_panel_base_context(request),
-        'action': action,
-        'referral': action.referral,
-        'categories': categories,
-        'staff_list': Staff.objects.filter(is_active=True),
-        'auto_assign_json': json.dumps(auto_assign_by_category),
-        'next': request.GET.get('next', ''),
-        'next_half_term_date': next_half_term(action.referral.student.school, timezone.localdate()),
-        'next_term_date': next_term(action.referral.student.school, timezone.localdate()),
-    })
-
-
 def inclusion_panel_action_inline_update(request, action_id):
-    # Panel Discussion's Actions column has no Edit button - every field
-    # (Category, Description, Assigned To, Due Date, Status) is directly
-    # inline-editable instead, autosaving one <form data-inline-action-form>
-    # per row on change/blur (see the delegated listeners in panel.js and
-    # #51's follow-up: fully inline editing won over Edit-as-modal after
-    # prototyping both). Returns just that one row's fragment so the row can
-    # be swapped in place without touching any other row mid-edit.
+    # Panel Discussion's Actions column has no Edit button for Category,
+    # Description, Due Date, or Status - those stay directly inline-editable,
+    # autosaving one <form data-inline-action-form> per row on change/blur
+    # (see the delegated listeners in panel.js and #51's follow-up: fully
+    # inline editing won over Edit-as-modal after prototyping both). Assigned
+    # To is the one exception (#98): it no longer posts here at all - editing
+    # it opens the full Add Action modal via inclusion_panel_action_new's
+    # ?edit=<id> mode instead, since a flat merged select stopped scaling as
+    # the Staff/StaffGroup lists grew. Returns just that one row's fragment
+    # so the row can be swapped in place without touching any other row
+    # mid-edit.
     action = get_object_or_404(
-        Action.objects.select_related('category', 'assigned_to', 'assigned_to_group', 'referral__student'),
+        Action.objects.select_related('category', 'assigned_to_staff', 'assigned_to_group', 'referral__student'),
         pk=action_id,
     )
     current_staff = _current_staff(request)
     categories = visible_categories_for(current_staff)
-    student = action.referral.student
 
     if request.method == 'POST':
         category_id = request.POST.get('category') or None
         if category_id and not categories.filter(pk=category_id).exists():
             category_id = None
         action.category_id = category_id
-        # Assigned To is one merged dropdown (see
-        # _discussion_action_item.html) covering either an individual Staff
-        # member or a StaffGroup - 'staff:<id>'/'group:<id>' tells the two
-        # apart, same either/or as the assigned_to/assigned_to_group fields
-        # themselves.
-        assigned_to_value = request.POST.get('assigned_to', '')
-        if assigned_to_value.startswith('staff:'):
-            action.assigned_to_id = assigned_to_value.split(':', 1)[1]
-            action.assigned_to_group_id = None
-        elif assigned_to_value.startswith('group:'):
-            action.assigned_to_group_id = assigned_to_value.split(':', 1)[1]
-            action.assigned_to_id = None
-        else:
-            action.assigned_to_id = None
-            action.assigned_to_group_id = None
         action.note = request.POST.get('note', '')
         # The interval-select/custom-date-picker split (see
         # _discussion_action_item.html) resolves client-side into one hidden
@@ -3514,12 +3526,9 @@ def inclusion_panel_action_inline_update(request, action_id):
     return render(request, 'hubs/inclusion/panel/_discussion_action_item.html', {
         'action': action,
         'categories': categories,
-        'staff_list': staff_queryset_for_school_key(current_school_key(request)),
-        'staff_groups': StaffGroup.objects.filter(
-            Q(school__isnull=True) | Q(school=student.school), is_active=True,
-        ).filter(Q(year_group__isnull=True) | Q(year_group=student.year_group)),
-        'next_half_term_date': next_half_term(student.school, timezone.localdate()),
-        'next_term_date': next_term(student.school, timezone.localdate()),
+        'next_half_term_date': next_half_term(action.referral.student.school, timezone.localdate()),
+        'next_term_date': next_term(action.referral.student.school, timezone.localdate()),
+        'next_term_option': _next_term_option(action.referral.student.school, timezone.localdate()),
     })
 
 

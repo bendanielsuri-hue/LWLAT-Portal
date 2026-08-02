@@ -255,6 +255,42 @@ window.setFadeHidden = function (el, hide) {
     }
 };
 
+// Snapshot every field's value within `root` right after a modal's content
+// loads, keyed by name (falling back to id, then DOM index) -
+// window.formValuesDirty compares a live root against that snapshot to
+// answer "has anything in this form actually changed since it opened," the
+// shared check INT-U6's confirm-before-discard guard (below) is built on.
+// Any real field counts (select/date/checkbox included, not just typed
+// text) - a step-switching UI (e.g. Add Action's details/Assign steps)
+// keeps every field in the DOM the whole time, just hidden on the inactive
+// step, so this still sees a change made on a step the user has since
+// navigated away from.
+window.snapshotFormValues = function (root) {
+    var map = {};
+    root.querySelectorAll('input, select, textarea').forEach(function (el, i) {
+        var key = (el.name || el.id || ('idx' + i)) + (el.type === 'checkbox' || el.type === 'radio' ? ':' + el.value : '');
+        map[key] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
+    });
+    return map;
+};
+window.formValuesDirty = function (root, snapshot) {
+    var current = window.snapshotFormValues(root);
+    for (var key in current) {
+        if (current[key] !== snapshot[key]) return true;
+    }
+    return false;
+};
+
+// Confirm before letting a modal close discard real typed content (INT-U6)
+// - every closing gesture (the header X, an explicit Cancel button, a
+// backdrop click, Escape) weighs the same, not just the accidental ones; a
+// form with nothing but untouched dropdowns has nothing worth guarding.
+// `isDirty` is a caller-supplied predicate (each modal knows which of its
+// own fields count) - returns whether the close should actually proceed.
+window.confirmModalDiscard = function (isDirty) {
+    return !isDirty() || window.confirm('Discard your changes?');
+};
+
 (function () {
     var dialog = document.getElementById('new-referral-dialog');
     if (!dialog) return;
@@ -288,6 +324,11 @@ window.setFadeHidden = function (el, hide) {
                 dialog.innerHTML = html;
                 window.enhanceFormControls(dialog);
                 wireStudentPicker();
+                // After wireStudentPicker's own initial setup (it can reset
+                // fields, e.g. showPicker()'s input.value = '') so that
+                // normalization doesn't itself register as a "change" -
+                // see closeModal's INT-U6 guard below.
+                dialog._formSnapshot = window.snapshotFormValues(dialog);
                 dialog.showModal();
                 // Autofocus the student search the moment the dialog opens,
                 // but only when it's actually the visible step (a pre-selected
@@ -306,15 +347,61 @@ window.setFadeHidden = function (el, hide) {
         window.closeModalWithFadeOut(dialog);
     }
 
+    // INT-U6: every closing gesture (X, Cancel, backdrop click, Escape)
+    // goes through this instead of calling closeModal() directly - a
+    // successful submit still calls closeModal() straight, bypassing the
+    // guard, since that's a save, not a discard.
+    function guardedClose() {
+        if (window.confirmModalDiscard(function () {
+            return window.formValuesDirty(dialog, dialog._formSnapshot || {});
+        })) closeModal();
+    }
+
     function animateHeightChange(mutate) {
         window.animateModalHeightChange(dialog, mutate);
     }
 
     function wireStudentPicker() {
+        var form = dialog.querySelector('[data-referral-modal-form]');
+        var saveBtn = dialog.querySelector('[data-referral-save]');
+        var saveTooltip = dialog.querySelector('[data-referral-save-tooltip]');
+
+        // A disabled <button> is inert to hover/focus in every browser, so a
+        // `title` on the button itself never surfaces while disabled - the
+        // wrapping span (still hoverable) carries the tooltip instead. Names
+        // the actual unmet field (its <label for="...">) rather than a
+        // generic "fill in required fields", so student picks it doesn't
+        // have to go hunting for which one - falls back to the field's own
+        // id/name when it has no <label> (e.g. the hidden student input).
+        function updateSaveState() {
+            if (!saveBtn || !form) return;
+            var valid = form.checkValidity();
+            saveBtn.disabled = !valid;
+            if (!saveTooltip) return;
+            if (valid) {
+                saveTooltip.removeAttribute('title');
+                return;
+            }
+            var studentInput = form.querySelector('[data-referral-student-input]');
+            if (studentInput && !studentInput.value) {
+                saveTooltip.title = 'Select a student before saving';
+                return;
+            }
+            var invalidEl = form.querySelector(':invalid');
+            var label = invalidEl && invalidEl.id && form.querySelector('label[for="' + invalidEl.id + '"]');
+            var fieldName = label ? label.textContent.trim() : null;
+            saveTooltip.title = fieldName ? fieldName + ' is blank' : 'Answer all required fields before saving';
+        }
+
+        if (form) {
+            form.addEventListener('input', updateSaveState);
+            form.addEventListener('change', updateSaveState);
+        }
+        updateSaveState();
+
         var picker = dialog.querySelector('[data-referral-student-picker]');
         if (!picker) return;
 
-        var form = dialog.querySelector('[data-referral-modal-form]');
         var input = picker.querySelector('[data-referral-student-input]');
         var search = picker.querySelector('[data-referral-student-search]');
         var searchPanel = picker.querySelector('[data-referral-student-search-panel]');
@@ -324,12 +411,7 @@ window.setFadeHidden = function (el, hide) {
         var changeBtn = picker.querySelector('[data-referral-student-change]');
         var questionFields = dialog.querySelector('[data-referral-question-fields]');
         var btnRow = dialog.querySelector('.btn-row');
-        var saveBtn = dialog.querySelector('[data-referral-save]');
         var debounceTimer = null;
-
-        function updateSaveState() {
-            if (saveBtn && form) saveBtn.disabled = !form.checkValidity();
-        }
 
         function showForm() {
             animateHeightChange(function () {
@@ -441,12 +523,17 @@ window.setFadeHidden = function (el, hide) {
             return;
         }
         if (e.target.closest('[data-modal-close]')) {
-            closeModal();
+            guardedClose();
         }
     });
 
     dialog.addEventListener('click', function (e) {
-        if (e.target === dialog) closeModal();
+        if (e.target === dialog) guardedClose();
+    });
+
+    dialog.addEventListener('cancel', function (e) {
+        e.preventDefault();
+        guardedClose();
     });
 
     dialog.addEventListener('submit', function (e) {
@@ -1564,24 +1651,94 @@ window.setFadeHidden = function (el, hide) {
         window.closeModalWithFadeOut(dialog);
     }
 
+    // INT-U6: every closing gesture (X, Cancel, backdrop click, Escape)
+    // goes through this instead of calling closeModal() directly - a
+    // successful submit still calls closeModal() straight, bypassing the
+    // guard, since that's a save, not a discard.
+    function guardedClose() {
+        if (window.confirmModalDiscard(function () {
+            return window.formValuesDirty(dialog, dialog._formSnapshot || {});
+        })) closeModal();
+    }
+
     // The category select's auto-assign-by-category behaviour can't be an
     // inline <script> here - this fragment is injected via dialog.innerHTML,
     // and a <script> tag inserted that way never executes. Reads the
     // json_script data island the fragment renders instead (see
-    // _action_form_modal.html).
+    // _action_form_modal.html). Create mode only - editing an existing
+    // Action starts from its own real assignment, not a category
+    // suggestion. Pre-selects into the Assign Staff Mode fields (#98)
+    // rather than a plain <select>'s value - select()'s own
+    // 'action-assign:change' event keeps the details step's static display
+    // in sync even though the user never has to open Assign Staff Mode to
+    // see it take effect.
     function wireAutoAssign() {
-        var category = dialog.querySelector('#action-modal-category');
-        var assignedTo = dialog.querySelector('#action-modal-assigned-to');
+        var category = dialog.querySelector('[data-action-modal-category]');
+        var fieldsRoot = dialog.querySelector('[data-action-assign-fields-root]');
         var dataEl = dialog.querySelector('[data-action-modal-auto-assign]');
-        if (!category || !assignedTo || !dataEl) return;
+        if (!category || !fieldsRoot || !dataEl) return;
         var autoAssignByCategory = JSON.parse(dataEl.textContent);
         category.addEventListener('change', function () {
-            var staffId = autoAssignByCategory[category.value];
-            if (staffId) {
-                assignedTo.value = String(staffId);
-                if (assignedTo._uiSelect) assignedTo._uiSelect.refresh();
+            var suggestion = autoAssignByCategory[category.value];
+            if (suggestion && fieldsRoot._actionAssignFields) {
+                fieldsRoot._actionAssignFields.select('staff', String(suggestion.id), suggestion.name);
             }
         });
+    }
+
+    // Toggles between the details step and Assign Staff Mode (#98 revision)
+    // - same hidden-view-swap + animateModalHeightChange convention as the
+    // Panel Group modal's list/add modes. Both create and edit open on
+    // details; the only entry into Assign Staff Mode is the Staff Assigned
+    // row's own Edit button, or a trigger passing initialStep === 'assign'
+    // (the Discussion row's dedicated Assigned-To Edit button - see
+    // openActionFormModal). Back always returns to details.
+    function wireSteps(initialStep) {
+        var detailsStep = dialog.querySelector('[data-action-step-details]');
+        var assignStep = dialog.querySelector('[data-action-step-assign]');
+        var assignToggleBtn = dialog.querySelector('[data-action-assign-toggle]');
+        var cancelBtn = dialog.querySelector('[data-action-cancel-btn]');
+        var backBtn = dialog.querySelector('[data-action-back-btn]');
+        var saveBtn = dialog.querySelector('[data-action-save-btn]');
+        var titleEl = dialog.querySelector('[data-action-modal-title]');
+        var assignDisplay = dialog.querySelector('[data-action-assign-display]');
+        if (!detailsStep || !assignStep) return;
+
+        // Cancel/Back/Save toggle via a plain `hidden` flip, not
+        // setFadeHidden's crossfade - setFadeHidden keeps the hiding
+        // element in flow for 160ms so it can fade, but Back sits before
+        // Save in the DOM, so during that overlap the flex-end .btn-row
+        // briefly shows both ("Back Save") before Save's delayed
+        // hidden=true collapses it and the remaining button snaps
+        // rightward into the row's true single-button position - a visible
+        // jump. An instant swap avoids the overlap entirely; the height
+        // transition around this (below) already carries the visual
+        // smoothness. Cancel and Back never show together (opposite of
+        // Cancel/Save's own split), so there's nothing to reorder for them.
+        function applyStep(step) {
+            detailsStep.hidden = step !== 'details';
+            assignStep.hidden = step !== 'assign';
+            if (cancelBtn) cancelBtn.hidden = step !== 'details';
+            if (backBtn) backBtn.hidden = step !== 'assign';
+            if (saveBtn) saveBtn.hidden = step !== 'details';
+            if (titleEl) titleEl.textContent = step === 'assign' ? 'Assign Staff to Action' : titleEl.dataset.actionModalTitleBase;
+        }
+
+        function setStep(step) {
+            window.animateModalHeightChange(dialog, function () { applyStep(step); });
+        }
+
+        if (assignToggleBtn) assignToggleBtn.addEventListener('click', function () { setStep('assign'); });
+        if (backBtn) backBtn.addEventListener('click', function () { setStep('details'); });
+        // Bubbles from initActionAssignFields' select() (a live pick, or
+        // wireAutoAssign's category-driven suggestion) - keeps the details
+        // step's static "Staff Assigned" text current without requiring the
+        // user to have actually opened Assign Staff Mode.
+        dialog.addEventListener('action-assign:change', function (e) {
+            if (assignDisplay) assignDisplay.textContent = e.detail.name || 'Unassigned';
+        });
+
+        applyStep(initialStep === 'assign' ? 'assign' : 'details');
     }
 
     // Due Date is a "1 Week/2 Weeks/1 Month/Next Half Term/Next Term/Other"
@@ -1613,9 +1770,19 @@ window.setFadeHidden = function (el, hide) {
         });
     }
 
-    window.openActionFormModal = function (referralId, panelReferralId) {
+    // editActionId (#98): the Actions list page's "Edit Action" button
+    // reuses this same fetch-fragment-into-dialog flow, just with
+    // ?edit=<id> - the fragment opens on the details step like any other
+    // edit, since it's editing the whole Action, not specifically its
+    // assignment. initialStep === 'assign' is the one exception: the
+    // Discussion row's dedicated Assigned-To Edit button passes it to land
+    // straight in Assign Staff Mode, since that trigger exists
+    // specifically to change the assignment - see
+    // _discussion_action_item.html.
+    window.openActionFormModal = function (referralId, panelReferralId, editActionId, initialStep) {
         var params = new URLSearchParams();
         if (panelReferralId) params.set('panel_referral', panelReferralId);
+        if (editActionId) params.set('edit', editActionId);
         params.set('next', window.location.pathname);
         var url = '/inclusion/panel/referrals/' + encodeURIComponent(referralId) + '/actions/new/?' + params.toString();
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -1624,7 +1791,14 @@ window.setFadeHidden = function (el, hide) {
                 dialog.innerHTML = html;
                 wireAutoAssign();
                 wireDueDatePreset();
+                wireSteps(initialStep);
+                dialog.querySelectorAll('[data-action-assign-fields-root]').forEach(initActionAssignFields);
                 window.enhanceFormControls(dialog);
+                // After every wireXxx() above (they can set initial values,
+                // e.g. an auto-assign suggestion) so that setup doesn't
+                // itself register as a "change" - see guardedClose's INT-U6
+                // guard above.
+                dialog._formSnapshot = window.snapshotFormValues(dialog);
                 dialog.showModal();
                 requestAnimationFrame(function () { dialog.classList.add('is-open'); });
             });
@@ -1633,15 +1807,19 @@ window.setFadeHidden = function (el, hide) {
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-add-action-trigger]')) {
             var trigger = e.target.closest('[data-add-action-trigger]');
-            window.openActionFormModal(trigger.dataset.referralId, trigger.dataset.panelReferralId);
+            window.openActionFormModal(trigger.dataset.referralId, trigger.dataset.panelReferralId, trigger.dataset.editActionId, trigger.dataset.openStep);
             return;
         }
         if (e.target.closest('[data-modal-close]') && e.target.closest('#action-form-dialog')) {
-            closeModal();
+            guardedClose();
         }
     });
     dialog.addEventListener('click', function (e) {
-        if (e.target === dialog) closeModal();
+        if (e.target === dialog) guardedClose();
+    });
+    dialog.addEventListener('cancel', function (e) {
+        e.preventDefault();
+        guardedClose();
     });
 
     dialog.addEventListener('submit', function (e) {
@@ -2034,6 +2212,147 @@ function initMemberPicker(rootEl) {
 window.resetMemberPicker = function (rootEl) {
     if (rootEl && rootEl._memberPicker) rootEl._memberPicker.reset();
 };
+
+// Assign Staff Mode (#98 third revision) of the Add Action modal - a
+// segmented Staff/Group source and the search box are two separate,
+// independently-bordered components (not fused into one shared box), and
+// there's no "current assignment" display here at all - the details step's
+// own "Staff Assigned" row already shows it. The search box always reads
+// "Search…" and is never prefilled with the current name. No separate
+// Unassign action either: Action.assigned_to_staff/assigned_to_group stay
+// either/or, so picking a different name already replaces the old one.
+// Every mutation that changes this step's height (results appearing/
+// clearing, switching source) is wrapped in animateModalHeightChange, same
+// as every other in-place content change in these dialogs.
+function initActionAssignFields(rootEl) {
+    var schoolId = rootEl.dataset.schoolId || '';
+    var yearGroup = rootEl.dataset.yearGroup || '';
+    var sourceOptions = Array.prototype.slice.call(rootEl.querySelectorAll('[data-assign-source-segmented] .ui-segmented-option'));
+    var searchInput = rootEl.querySelector('[data-assign-search]');
+    var staffInput = rootEl.querySelector('[data-assign-staff-input]');
+    var groupInput = rootEl.querySelector('[data-assign-group-input]');
+    var resultList = rootEl.querySelector('[data-assign-result-list]');
+    var debounceTimer = null;
+    if (!sourceOptions.length || !searchInput) return;
+
+    var initialActiveBtn = sourceOptions.filter(function (btn) { return btn.classList.contains('active'); })[0] || sourceOptions[0];
+    var mode = initialActiveBtn.dataset.value;
+    searchInput.placeholder = 'Search ' + initialActiveBtn.textContent + '…';
+
+    var ownerDialog = rootEl.closest('dialog');
+    function animateHeightChange(mutate) {
+        if (ownerDialog) {
+            window.animateModalHeightChange(ownerDialog, mutate);
+        } else {
+            mutate();
+        }
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function renderResults(items) {
+        animateHeightChange(function () {
+            if (!items.length) {
+                resultList.innerHTML = '<p class="empty-note search-hint">No matches found.</p>';
+                resultList.hidden = false;
+                return;
+            }
+            resultList.innerHTML = items.map(function (item) {
+                var metaBits = [];
+                if (item.school_name) metaBits.push('<span class="result-school">' + escapeHtml(item.school_name) + '</span>');
+                if (item.subtitle) metaBits.push('<span class="result-role">' + escapeHtml(item.subtitle) + '</span>');
+                var meta = metaBits.length ? '<span class="member-result-meta">' + metaBits.join('') + '</span>' : '';
+                return '<button type="button" class="member-result-option" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '">' +
+                    '<span class="member-result-label-stack">' +
+                    '<span class="member-result-name-row"><span class="result-name">' + escapeHtml(item.name) + '</span></span>' +
+                    meta +
+                    '</span>' +
+                    '</button>';
+            }).join('');
+            resultList.hidden = false;
+        });
+    }
+
+    function runSearch(term) {
+        var params = 'q=' + encodeURIComponent(term);
+        if (mode === 'group') {
+            params += '&kind=group&school_id=' + encodeURIComponent(schoolId) + '&year_group=' + encodeURIComponent(yearGroup);
+        } else {
+            params += '&kind=staff&mode=mat';
+        }
+        fetch('/inclusion/panel/search/?' + params, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.json(); })
+            .then(function (data) { renderResults(data.results); });
+    }
+
+    function hideResults() {
+        if (resultList.hidden) return;
+        animateHeightChange(function () { resultList.hidden = true; });
+    }
+
+    // Staff stays hidden until 2+ characters typed, server-fetched,
+    // debounced 250ms - the shared Search precedent (INT-U13), same numbers
+    // as every other picker on this page. Group skips that minimum
+    // entirely and lists in full the moment it's picked (see the search
+    // view's own kind == 'group' branch) - a school's StaffGroup roster is
+    // small enough that browsing beats typing first.
+    function applySearch() {
+        var term = searchInput.value.trim();
+        clearTimeout(debounceTimer);
+        if (mode !== 'group' && term.length < 2) {
+            hideResults();
+            return;
+        }
+        debounceTimer = setTimeout(function () { runSearch(term); }, 250);
+    }
+
+    function select(id, name) {
+        if (mode === 'staff') {
+            staffInput.value = id;
+            groupInput.value = '';
+        } else {
+            groupInput.value = id;
+            staffInput.value = '';
+        }
+        searchInput.value = '';
+        hideResults();
+        rootEl.dispatchEvent(new CustomEvent('action-assign:change', { bubbles: true, detail: { type: mode, id: id, name: name } }));
+    }
+
+    sourceOptions.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            mode = btn.dataset.value;
+            sourceOptions.forEach(function (b) { b.classList.toggle('active', b === btn); });
+            searchInput.placeholder = 'Search ' + btn.textContent + '…';
+            searchInput.value = '';
+            searchInput.focus();
+            // Group lists in full immediately (see applySearch above);
+            // Staff still waits for the user to type.
+            if (mode === 'group') {
+                runSearch('');
+            } else {
+                hideResults();
+            }
+        });
+    });
+    searchInput.addEventListener('input', applySearch);
+    resultList.addEventListener('click', function (e) {
+        var optBtn = e.target.closest('.member-result-option');
+        if (optBtn) select(optBtn.dataset.id, optBtn.dataset.name);
+    });
+
+    rootEl._actionAssignFields = {
+        select: function (type, id, name) {
+            mode = type;
+            sourceOptions.forEach(function (b) { b.classList.toggle('active', b.dataset.value === type); });
+            select(id, name);
+        },
+    };
+}
 
 // Shared row enter/exit animation - originally built for the Panel Agenda
 // drag-and-drop feature below, now used portal-wide (INT-U10: transition

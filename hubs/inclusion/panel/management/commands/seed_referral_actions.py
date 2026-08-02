@@ -77,7 +77,7 @@ class Command(BaseCommand):
                 action = Action.objects.create(
                     referral=pr.referral,
                     category=category,
-                    assigned_to=pr.panel.chair,
+                    assigned_to_staff=pr.panel.chair,
                     due_date=due_date,
                     status='complete' if complete else 'incomplete',
                     completed_at=timezone.now() if complete else None,
@@ -154,7 +154,7 @@ class Command(BaseCommand):
         # at the student's school - same "always something plausible, never
         # random" approach as _placeholder_answer in seed_helpers.py.
         assigned_fixed = 0
-        for action in Action.objects.filter(assigned_to__isnull=True).select_related(
+        for action in Action.objects.filter(assigned_to_staff__isnull=True, assigned_to_group__isnull=True).select_related(
             'referral__student', 'referral__raised_by', 'origin_panel_referral__panel__chair',
         ):
             staff = None
@@ -175,8 +175,8 @@ class Command(BaseCommand):
                 if candidates:
                     staff = candidates[action.id % len(candidates)]
             if staff:
-                action.assigned_to = staff
-                action.save(update_fields=['assigned_to'])
+                action.assigned_to_staff = staff
+                action.save(update_fields=['assigned_to_staff'])
                 assigned_fixed += 1
         if assigned_fixed:
             self.stdout.write(self.style.SUCCESS(

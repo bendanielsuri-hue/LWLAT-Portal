@@ -1,5 +1,5 @@
-{% if not is_view_only %}
-<div class="field-group referral-student-picker" data-referral-student-picker>
+{% if not is_view_only and not is_edit %}
+<div class="referral-student-picker ui-fused-field-group" data-referral-student-picker>
     <input type="hidden" name="student" value="{% if selected_student %}{{ selected_student.id }}{% endif %}" data-referral-student-input required>
     <div data-referral-student-search-panel {% if selected_student %}hidden{% endif %}>
         <div class="app-search-field">
@@ -14,14 +14,20 @@
         {% endcomment %}
         <div class="referral-student-results" data-referral-student-results></div>
     </div>
-    <div class="referral-student-selected" data-referral-student-selected {% if not selected_student %}hidden{% endif %}>
-        <label>Student</label>
-        <div class="referral-student-selected-row">
-            <span data-referral-student-selected-name>{% if selected_student %}{{ selected_student.first_name }} {{ selected_student.last_name }} — Year {{ selected_student.year_group }}{% if selected_student.reg_form %} ({{ selected_student.reg_form }}){% endif %}{% endif %}</span>
-            {% if not is_edit %}<button type="button" class="btn btn-sm" data-referral-student-change>Change</button>{% endif %}
-        </div>
-    </div>
+    {% comment %}
+    Direct .ui-fused-field child of .ui-fused-field-group (not wrapped in an
+    extra div) so subgrid actually inherits the group's columns - toggled via
+    the [hidden] attribute itself, same as any other .ui-fused-field.
+    {% endcomment %}
+    <span class="ui-fused-field" data-referral-student-selected {% if not selected_student %}hidden{% endif %}>
+        <span class="ui-fused-field-label">Student</span>
+        <span class="ui-fused-field-value" data-referral-student-selected-name>{% if selected_student %}{{ selected_student.first_name }} {{ selected_student.last_name }} — Year {{ selected_student.year_group }}{% if selected_student.reg_form %} ({{ selected_student.reg_form }}){% endif %}{% endif %}</span>
+        <button type="button" class="ui-fused-field-add btn-edit btn-sm" data-referral-student-change aria-label="Change student"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span></button>
+    </span>
 </div>
+{% elif not is_view_only %}
+{% comment %} Edit mode: the student a referral was raised for can't be changed, so no picker/Change button - just the hidden field the form still needs to submit, plus the plain read-only row below. {% endcomment %}
+<input type="hidden" name="student" value="{{ selected_student.id }}">
 {% endif %}
 
 {% if is_view_only %}
@@ -45,60 +51,59 @@
 {% comment %}
 data-referral-question-fields hides the picked-question fields until a student is chosen (new-referral flow) -
 view-only mode always has a selected_student, so its .referral-flat-section renders unwrapped above instead,
-as a direct sibling of Panel Meetings/Actions/Notes for the between-section divider to match against.
+as a direct sibling of Panel Meetings/Actions for the between-section divider to match against.
+
+Student/Referred By/Referral Date aren't editable, so they sit above the
+fused-field group as plain key-fact rows (.referral-view-fields, same
+convention as the view-only rendering and the decision strip) rather than in
+the editable form's own boxed/fused chrome - nothing here should look
+editable when it isn't.
 {% endcomment %}
-<div data-referral-question-fields {% if not selected_student %}hidden{% endif %}>
-    {% if main_concern_question %}
-    <div class="field-group">
-        <label for="question_{{ main_concern_question.id }}">{{ main_concern_question.label }}</label>
-        <select id="question_{{ main_concern_question.id }}" name="question_{{ main_concern_question.id }}" class="referral-field-compact" required>
-            <option value="">Select…</option>
-            {% for option in main_concern_question.choice_list %}
-            <option value="{{ option }}" {% if main_concern_question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
-            {% endfor %}
-        </select>
+<div class="referral-flat-section" data-referral-question-fields {% if not selected_student %}hidden{% endif %}>
+    {% if is_edit %}
+    <div class="referral-edit-summary">
+        <div class="referral-edit-summary-student">{{ selected_student.first_name }} {{ selected_student.last_name }} — Year {{ selected_student.year_group }}{% if selected_student.reg_form %} ({{ selected_student.reg_form }}){% endif %}</div>
+        <div class="summary-line"><span class="summary-label">Referred By</span><span class="summary-value">{{ referral.raised_by|default:"—" }} ({{ referral.created_at|date:"d/m/Y" }})</span></div>
     </div>
     {% endif %}
 
     {% if main_concern_question or concern_details_question or remaining_question_groups %}
-    <details class="settings-section referral-section"{% if not is_edit %} open{% endif %}>
-        <summary>Referral</summary>
-        <div class="settings-body">
-            {% if concern_details_question %}
-            <div class="field-group">
-                <label for="question_{{ concern_details_question.id }}">{{ concern_details_question.label }}</label>
-                <textarea id="question_{{ concern_details_question.id }}" name="question_{{ concern_details_question.id }}" class="referral-field-compact">{{ concern_details_question.existing_answer }}</textarea>
-            </div>
+    <div class="ui-fused-field-group">
+        {% if main_concern_question %}
+        <span class="ui-fused-field">
+            <label class="ui-fused-field-label" for="question_{{ main_concern_question.id }}">Main Concern</label>
+            <select id="question_{{ main_concern_question.id }}" name="question_{{ main_concern_question.id }}" required>
+                <option value="">Select…</option>
+                {% for option in main_concern_question.choice_list %}
+                <option value="{{ option }}" {% if main_concern_question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </span>
+        {% endif %}
+        {% if concern_details_question %}
+        <span class="ui-fused-field ui-fused-field--stacked">
+            <label class="ui-fused-field-label" for="question_{{ concern_details_question.id }}">{{ concern_details_question.label }}</label>
+            <textarea id="question_{{ concern_details_question.id }}" name="question_{{ concern_details_question.id }}">{{ concern_details_question.existing_answer }}</textarea>
+        </span>
+        {% endif %}
+        {% for group in remaining_question_groups %}
+        {% for question in group.questions %}
+        <span class="ui-fused-field ui-fused-field--stacked">
+            <label class="ui-fused-field-label" for="question_{{ question.id }}">{{ question.label }}</label>
+            {% if question.question_type == 'select' %}
+            <select id="question_{{ question.id }}" name="question_{{ question.id }}" required>
+                <option value="">Select…</option>
+                {% for option in question.choice_list %}
+                <option value="{{ option }}" {% if question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+            {% else %}
+            <textarea id="question_{{ question.id }}" name="question_{{ question.id }}">{{ question.existing_answer }}</textarea>
             {% endif %}
-            {% if is_edit %}
-            <div class="field-group">
-                <label>Referred By</label>
-                <div class="field-readonly">{{ referral.raised_by|default:"—" }}</div>
-            </div>
-            <div class="field-group">
-                <label>Referral Date</label>
-                <div class="field-readonly">{{ referral.created_at|date:"d/m/Y" }}</div>
-            </div>
-            {% endif %}
-            {% for group in remaining_question_groups %}
-            {% for question in group.questions %}
-            <div class="field-group">
-                <label for="question_{{ question.id }}">{{ question.label }}</label>
-                {% if question.question_type == 'select' %}
-                <select id="question_{{ question.id }}" name="question_{{ question.id }}" class="referral-field-compact" required>
-                    <option value="">Select…</option>
-                    {% for option in question.choice_list %}
-                    <option value="{{ option }}" {% if question.existing_answer == option %}selected{% endif %}>{{ option }}</option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                <textarea id="question_{{ question.id }}" name="question_{{ question.id }}" class="referral-field-compact">{{ question.existing_answer }}</textarea>
-                {% endif %}
-            </div>
-            {% endfor %}
-            {% endfor %}
-        </div>
-    </details>
+        </span>
+        {% endfor %}
+        {% endfor %}
+    </div>
     {% endif %}
 </div>
 {% endif %}

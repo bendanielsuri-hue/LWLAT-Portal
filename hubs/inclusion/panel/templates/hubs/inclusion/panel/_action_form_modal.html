@@ -1,73 +1,99 @@
 <div class="modal-header">
-    <h2>Add Action</h2>
+    <h2 data-action-modal-title data-action-modal-title-base="{% if action %}Edit Action{% else %}Add Action{% endif %}">{% if action %}Edit Action{% else %}Add Action{% endif %}</h2>
     <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
 </div>
 <div class="modal-body">
-    <form method="post" action="{% url 'inclusion_panel_action_new' referral.id %}" class="ui-fused-field-group" data-action-modal-form>
+    <form method="post" action="{% url 'inclusion_panel_action_new' referral.id %}" data-action-modal-form>
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next }}">
         {% if panel_referral_id %}<input type="hidden" name="panel_referral" value="{{ panel_referral_id }}">{% endif %}
-
-        <span class="ui-fused-field">
-            <label class="ui-fused-field-label" for="action-modal-category">Category</label>
-            <select id="action-modal-category" name="category">
-                <option value="">No category</option>
-                {% for c in categories %}
-                <option value="{{ c.id }}">{{ c.name }}</option>
-                {% endfor %}
-            </select>
-        </span>
-
-        <span class="ui-fused-field">
-            <label class="ui-fused-field-label" for="action-modal-assigned-to">Assigned To</label>
-            <select id="action-modal-assigned-to" name="assigned_to">
-                <option value="">Unassigned</option>
-                {% for staff in staff_list %}
-                <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
-                {% endfor %}
-            </select>
-        </span>
+        {% if action %}<input type="hidden" name="action_id" value="{{ action.id }}">{% endif %}
 
         {% comment %}
-        "1 Week/2 Weeks/1 Month/Next Half Term/Next Term/Other" preset, same
-        shape as Panel Discussion's own inline row and End Discussion's
-        follow-up date - "Other" reveals the real date field instead of
-        showing one unconditionally, since a stored date can't be
-        reverse-mapped onto a preset in general. wireDueDatePreset() in
-        panel.js resolves a preset pick straight into #action-modal-due-date
-        (the one actually named due_date) rather than a separate hidden
-        field, since this modal has no autosave to worry about racing with
-        the picker widget's own change event - see openActionFormModal.
+        Details, plus "Assign Staff Mode" reached only via the Staff
+        Assigned row's own Edit button (#98 revision) - not a Next-driven
+        wizard step. Both create and edit open on details first; the
+        Discussion row's dedicated Assigned-To Edit button is the one entry
+        point that still jumps straight into Assign Staff Mode
+        (data-open-step="assign" on that trigger - see
+        _discussion_action_item.html/openActionFormModal), since that
+        button exists specifically to change the assignment. Back always
+        returns to details - one code path/one form for create and edit,
+        same convention as Panel Group's list/add modes.
         {% endcomment %}
-        <span class="ui-fused-field">
-            <label class="ui-fused-field-label" for="action-modal-due-date-interval">Due Date</label>
-            <select id="action-modal-due-date-interval" data-modal-due-date-interval>
-                <option value="" selected>No due date</option>
-                <option value="7">Due in 1 Week</option>
-                <option value="14">Due in 2 Weeks</option>
-                <option value="30">Due in 1 Month</option>
-                {% if next_half_term_date and next_half_term_date != next_term_date %}
-                <option value="{{ next_half_term_date|date:'Y-m-d' }}">Next Half Term ({{ next_half_term_date|date:'d/m/Y' }})</option>
-                {% endif %}
-                {% if next_term_date %}
-                <option value="{{ next_term_date|date:'Y-m-d' }}">Next Term ({{ next_term_date|date:'d/m/Y' }})</option>
-                {% endif %}
-                <option value="other">Other</option>
-            </select>
-        </span>
-        <span class="ui-fused-field" data-modal-due-date-custom-wrap hidden>
-            <label class="ui-fused-field-label" for="action-modal-due-date">Custom Date</label>
-            <input type="date" id="action-modal-due-date" name="due_date">
-        </span>
+        <div data-action-step-details class="ui-fused-field-group">
+            <span class="ui-fused-field">
+                <label class="ui-fused-field-label" for="action-modal-category">Category</label>
+                <select id="action-modal-category" name="category" data-action-modal-category>
+                    <option value="">No category</option>
+                    {% for c in categories %}
+                    <option value="{{ c.id }}" {% if action.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </span>
 
-        <div class="field-group">
-            <label for="action-modal-note">Description</label>
-            <textarea id="action-modal-note" name="note"></textarea>
+            <span class="ui-fused-field">
+                <label class="ui-fused-field-label" for="action-modal-note">Description</label>
+                <textarea id="action-modal-note" name="note">{{ action.note }}</textarea>
+            </span>
+
+            {% comment %}
+            Static text + a fused Edit button, same shape as the Discussion
+            row's own Assigned To display (_discussion_action_item.html) -
+            clicking it switches this modal into Assign Staff Mode rather
+            than opening yet another dialog. data-action-assign-display is
+            kept in sync with whatever's actually selected there (including
+            a category's auto-assign suggestion) via the bubbling
+            'action-assign:change' event - see wireSteps() in panel.js.
+            {% endcomment %}
+            <span class="ui-fused-field">
+                <span class="ui-fused-field-label">Staff Assigned</span>
+                <span class="ui-fused-field-value" data-action-assign-display>{{ initial_assign_name|default:"Unassigned" }}</span>
+                <button type="button" class="ui-fused-field-add btn btn-edit btn-sm" data-action-assign-toggle aria-label="Assign staff or group"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span></button>
+            </span>
+
+            {% comment %}
+            "1 Week/2 Weeks/1 Month/Next Half Term/Next Term/Other" preset,
+            same shape as Panel Discussion's own inline row and End
+            Discussion's follow-up date - "Other" reveals the real date
+            field instead of showing one unconditionally, since a stored
+            date can't be reverse-mapped onto a preset in general.
+            wireDueDatePreset() in panel.js resolves a preset pick straight
+            into #action-modal-due-date (the one actually named due_date)
+            rather than a separate hidden field, since this modal has no
+            autosave to worry about racing with the picker widget's own
+            change event - see openActionFormModal.
+            {% endcomment %}
+            <span class="ui-fused-field">
+                <label class="ui-fused-field-label" for="action-modal-due-date-interval">Due Date</label>
+                <select id="action-modal-due-date-interval" data-modal-due-date-interval>
+                    <option value="" {% if not action.due_date %}selected{% endif %}>No due date</option>
+                    <option value="7">Due in 1 Week</option>
+                    <option value="14">Due in 2 Weeks</option>
+                    <option value="30">Due in 1 Month</option>
+                    {% if next_half_term_date and next_half_term_date != next_term_date %}
+                    <option value="{{ next_half_term_date|date:'Y-m-d' }}">Next Half Term ({{ next_half_term_date|date:'d/m/Y' }})</option>
+                    {% endif %}
+                    {% if next_term_option %}
+                    <option value="{{ next_term_option.0.start_date|date:'Y-m-d' }}">{% if next_term_option.1 %}Next Autumn Term{% else %}{{ next_term_option.0.get_name_display }} Term{% endif %} ({{ next_term_option.0.start_date|date:'d/m/Y' }})</option>
+                    {% endif %}
+                    <option value="other" {% if action.due_date %}selected{% endif %}>Other</option>
+                </select>
+            </span>
+            <span class="ui-fused-field" data-modal-due-date-custom-wrap {% if not action.due_date %}hidden{% endif %}>
+                <label class="ui-fused-field-label" for="action-modal-due-date">Custom Date</label>
+                <input type="date" id="action-modal-due-date" name="due_date" value="{{ action.due_date|date:'Y-m-d' }}">
+            </span>
+        </div>
+
+        <div data-action-step-assign hidden>
+            {% include 'hubs/inclusion/panel/_action_assign_fields.html' with school_id=referral.student.school_id year_group=referral.student.year_group initial_type=initial_assign_type initial_id=initial_assign_id initial_name=initial_assign_name %}
         </div>
 
         <div class="btn-row">
-            <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-            <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Action</button>
+            <button type="button" class="btn btn-sm" data-modal-close data-action-cancel-btn>Cancel</button>
+            <button type="button" class="btn btn-sm" data-action-back-btn hidden>Back</button>
+            <button type="submit" class="btn btn-add btn-sm" data-action-save-btn><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> {% if action %}Save{% else %}Add Action{% endif %}</button>
         </div>
     </form>
 </div>
@@ -76,6 +102,8 @@ json_script data island, not an inline <script> - this fragment is injected
 via dialog.innerHTML (see openActionFormModal in panel.js), and a <script>
 tag inserted that way never executes. wireAutoAssign() in panel.js reads
 this once the fragment lands instead, same convention as
-_panel_group_form_modal.html's existing-panel-groups.
+_panel_group_form_modal.html's existing-panel-groups. Only meaningful in
+create mode - editing an existing Action starts from its own real
+assignment (initial_assign_type/id/name above), not a category suggestion.
 {% endcomment %}
-{{ auto_assign_by_category|json_script:"action-modal-auto-assign" }}
+{% if not action %}{{ auto_assign_by_category|json_script:"action-modal-auto-assign" }}{% endif %}

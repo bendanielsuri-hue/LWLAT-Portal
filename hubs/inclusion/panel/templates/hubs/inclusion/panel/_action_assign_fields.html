@@ -1,0 +1,28 @@
+{% comment %}
+Assign Staff Mode (#98 third revision) - segmented Staff/Group source and
+the search box are two separate, independently-bordered components (not
+fused into one shared box, and no separate "Assigned" display up top - the
+details step's own "Staff Assigned" row already shows the current
+assignment, so repeating it here was redundant). The search box always
+reads "Search…" and never gets prefilled with the current selection's name.
+No separate Unassign action either: Action.assigned_to_staff/
+assigned_to_group stay either/or (see Action model), so picking a different
+name already replaces the old one - initActionAssignFields (panel.js)
+dispatches a bubbling 'action-assign:change' event so the details step's
+display stays in sync once Back is pressed.
+{% endcomment %}
+<div class="member-picker" data-action-assign-fields-root data-school-id="{{ school_id|default:'' }}" data-year-group="{{ year_group|default:'' }}">
+    <input type="hidden" name="assigned_to_staff" data-assign-staff-input value="{% if initial_type == 'staff' %}{{ initial_id }}{% endif %}">
+    <input type="hidden" name="assigned_to_group" data-assign-group-input value="{% if initial_type == 'group' %}{{ initial_id }}{% endif %}">
+
+    <div class="ui-segmented" data-assign-source-segmented>
+        <button type="button" class="ui-segmented-option active" data-value="staff">Staff</button>
+        <button type="button" class="ui-segmented-option" data-value="group">Group</button>
+    </div>
+    <div class="app-search-field">
+        <span class="app-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
+        <input type="text" class="app-search-input" data-assign-search placeholder="Search…" autocomplete="off">
+    </div>
+
+    <div class="member-result-list" data-assign-result-list></div>
+</div>

@@ -281,11 +281,13 @@ function initActionTabs() {
     applyActionTab(active.dataset.actionTab);
 }
 
-// "Mark Complete"/"Reopen"/"Mark Not Required" submit via fetch instead of a
+// The segmented status control's own submit posts via fetch instead of a
 // full page reload, so the tab counts/rows can animate instead of snapping
 // (INT-U14: count-delta pulse; INT-U10: transition rather than a jump for
 // tabs entering/leaving the tab row). data-ajax-wired guards against double-
 // binding the same form across repeated initActionTabs-style re-inits.
+// FormData(form, submitter) picks up the clicked option's own name/value
+// pair, same as Panel Discussion's inline Actions column (panel.js).
 function wireActionForms() {
     document.querySelectorAll('#actions-card [data-action-status-form]').forEach(function (form) {
         if (form.dataset.ajaxWired) return;
@@ -295,7 +297,7 @@ function wireActionForms() {
             fetch(form.action, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: new FormData(form),
+                body: new FormData(form, e.submitter),
             }).then(function (res) { return res.text(); })
                 .then(function (html) { refreshMyActionsCard(html); });
         });

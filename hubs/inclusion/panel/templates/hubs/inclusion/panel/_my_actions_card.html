@@ -27,36 +27,47 @@ animate in when a count goes from 0 back up.
     <ul class="panel-list" id="my-actions-list" data-selectable="single">
         {% for action in my_actions %}
         <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}">
-            <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-            <div class="panel-item-body">
-                <div class="panel-item-title">{{ action.referral.student }}</div>
-                <div class="panel-item-meta">
-                    Due Date: {{ action.due_date|default:"—" }}
-                    &middot;
-                    {% if action.is_overdue %}<span class="status-pill danger">Overdue</span>{% else %}<span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span>{% endif %}
+            <div class="panel-item-body panel-item-body--two-col">
+                <div class="panel-item-col panel-item-col--student">
+                    <div class="panel-item-thumb-row">
+                        <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                        <div class="panel-item-thumb-details">
+                            <div class="panel-item-title">{{ action.referral.student }}</div>
+                            <div class="entity-meta">Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; {{ action.referral.student.reg_form }}{% endif %}</div>
+                        </div>
+                    </div>
+                    {% comment %}
+                    Its own row under the student details, same
+                    .ui-segmented--action-status treatment (per-state
+                    semantic colour) as the Actions list page's own status
+                    control (_actions_filtered_content.html) and Panel
+                    Discussion's inline Actions column
+                    (_discussion_action_item.html). wireActionForms() in
+                    home.html intercepts this form's own 'submit' so clicking
+                    an option refreshes the card in place instead of a real
+                    page navigation.
+                    {% endcomment %}
+                    <div class="panel-item-actions">
+                        <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" data-action-status-form>
+                            {% csrf_token %}
+                            <div class="ui-segmented ui-segmented--action-status">
+                                {% for value, label in action.STATUS_CHOICES %}
+                                <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
+                                {% endfor %}
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div class="panel-item-note">{{ action.note }}</div>
-            </div>
-            <div class="panel-item-actions panel-item-actions-stacked">
-                <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" data-action-status-form>
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
-                    {% if action.status == 'incomplete' %}
-                    <input type="hidden" name="status" value="complete">
-                    <button type="submit" class="btn btn-sm btn-success"><span class="btn-icon">{% include 'icons/checkmark_svg.html' %}</span> Mark Complete</button>
-                    {% else %}
-                    <input type="hidden" name="status" value="incomplete">
-                    <button type="submit" class="btn btn-sm">Reopen</button>
-                    {% endif %}
-                </form>
-                {% if action.status == 'incomplete' %}
-                <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" data-action-status-form>
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
-                    <input type="hidden" name="status" value="not_needed">
-                    <button type="submit" class="btn btn-sm">Mark Not Required</button>
-                </form>
-                {% endif %}
+                <span class="mc-vdivider"></span>
+                <div class="panel-item-col panel-item-col--centered">
+                    {% comment %} Same prominent row-title treatment as the Referral Details modal's own Actions section heading (_action_row.html). {% endcomment %}
+                    <span class="referral-row-title">{{ action.category|default:"No category" }}</span>
+                    <div class="panel-item-note">{{ action.note|default:"No description." }}</div>
+                    <div class="panel-item-meta">
+                        Due Date: {{ action.due_date|default:"—" }}
+                        {% if action.is_overdue %}&middot; <span class="status-pill danger">Overdue</span>{% endif %}
+                    </div>
+                </div>
             </div>
         </li>
         {% empty %}

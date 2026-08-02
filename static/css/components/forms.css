@@ -671,7 +671,8 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-select,
 .ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-date,
 .ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-time,
-.ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > input[type="text"] {
+.ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > input[type="text"],
+.ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > textarea {
     grid-column: 2 / 4;
 }
 /* Our own `display: grid` above is an author-stylesheet rule, so it beats
@@ -706,7 +707,8 @@ dialog.ui-popover::backdrop { background: transparent; }
 .ui-fused-field > .ui-select,
 .ui-fused-field > .ui-date,
 .ui-fused-field > .ui-time,
-.ui-fused-field > input[type="text"] { min-width: 0; }
+.ui-fused-field > input[type="text"],
+.ui-fused-field > textarea { min-width: 0; }
 /* .ui-select stretches to the fused row's full height (grid's align-items:
    stretch on .ui-fused-field), but .ui-select-trigger is a plain button
    nested one level inside it, not itself a grid item — it doesn't inherit
@@ -738,6 +740,23 @@ dialog.ui-popover::backdrop { background: transparent; }
     color: var(--text-primary);
 }
 .ui-fused-field > input[type="text"]:focus { outline: none; }
+/* A <textarea> (e.g. Add Action's Description, #98) needs the same border/
+   background reset as the plain text input above - a textarea has no
+   wrapper of its own to carry that reset for it either. Always used inside
+   .ui-fused-field--stacked below - a multi-line control reads better with
+   its label above than squeezed beside it at a fixed row height. */
+.ui-fused-field > textarea {
+    width: 100%;
+    min-height: 60px;
+    border: none;
+    background: transparent;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-base);
+    font-family: inherit;
+    color: var(--text-primary);
+    resize: vertical;
+}
+.ui-fused-field > textarea:focus { outline: none; }
 /* Element-qualified so this reliably beats .btn-add's own border/radius
    (a class+pseudo-class selector on :hover ties with a two-class selector
    on specificity alone; adding the `button` element type breaks the tie in
@@ -851,7 +870,8 @@ dialog.ui-popover::backdrop { background: transparent; }
 }
 .ui-fused-field--stacked > .ui-select,
 .ui-fused-field--stacked > .ui-date,
-.ui-fused-field--stacked > .ui-time {
+.ui-fused-field--stacked > .ui-time,
+.ui-fused-field--stacked > textarea {
     grid-column: 1;
     grid-row: 2;
 }

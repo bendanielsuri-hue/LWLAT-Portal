@@ -32,29 +32,19 @@ spreadsheet-row layout read as too cramped.
     <textarea name="note" class="field-editable action-item-desc" rows="2" placeholder="Description...">{{ action.note }}</textarea>
 
     {% comment %}
-    One merged dropdown, not a Person/Group toggle + separate select
-    (decided in /grill-with-docs) - <optgroup> keeps it to one compact
-    control even though it can resolve to either core.Staff or
-    core.StaffGroup (assigned_to/assigned_to_group, either/or - see Action
-    model). 'staff:<id>'/'group:<id>' tells the two apart server-side
-    (inclusion_panel_action_inline_update).
+    Static text + a fused Edit button (#98), not an inline dropdown - a flat
+    merged Staff/StaffGroup select stopped scaling as both lists grew.
+    Clicking Edit opens the full Add Action modal (openActionFormModal),
+    jumped straight to Assign Staff Mode (data-open-step="assign") since
+    this button exists specifically to change the assignment - contrast the
+    Actions list's own "Edit Action" button, which opens on the details
+    step. One code path/one form for create and edit either way.
     {% endcomment %}
     <div class="ui-fused-field-group">
         <span class="ui-fused-field">
-            <label class="ui-fused-field-label" for="action-assigned-{{ action.id }}">Assigned To</label>
-            <select id="action-assigned-{{ action.id }}" name="assigned_to">
-                <option value="" {% if not action.assigned_to_id and not action.assigned_to_group_id %}selected{% endif %}>Unassigned</option>
-                <optgroup label="Groups">
-                    {% for group in staff_groups %}
-                    <option value="group:{{ group.id }}" {% if action.assigned_to_group_id == group.id %}selected{% endif %}>{{ group.name }}</option>
-                    {% endfor %}
-                </optgroup>
-                <optgroup label="Staff">
-                    {% for staff in staff_list %}
-                    <option value="staff:{{ staff.id }}" {% if action.assigned_to_id == staff.id %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
-                    {% endfor %}
-                </optgroup>
-            </select>
+            <span class="ui-fused-field-label">Assigned To</span>
+            <span class="ui-fused-field-value">{{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}</span>
+            <button type="button" class="ui-fused-field-add btn btn-edit btn-sm" data-add-action-trigger data-referral-id="{{ referral.id }}" data-panel-referral-id="{{ panel_referral.id }}" data-edit-action-id="{{ action.id }}" data-open-step="assign" aria-label="Edit assignment"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span></button>
         </span>
     </div>
 
@@ -82,8 +72,8 @@ spreadsheet-row layout read as too cramped.
                 {% if next_half_term_date and next_half_term_date != next_term_date %}
                 <option value="{{ next_half_term_date|date:'Y-m-d' }}">Next Half Term ({{ next_half_term_date|date:'d/m/Y' }})</option>
                 {% endif %}
-                {% if next_term_date %}
-                <option value="{{ next_term_date|date:'Y-m-d' }}">Next Term ({{ next_term_date|date:'d/m/Y' }})</option>
+                {% if next_term_option %}
+                <option value="{{ next_term_option.0.start_date|date:'Y-m-d' }}">{% if next_term_option.1 %}Next Autumn Term{% else %}{{ next_term_option.0.get_name_display }} Term{% endif %} ({{ next_term_option.0.start_date|date:'d/m/Y' }})</option>
                 {% endif %}
                 <option value="other" {% if action.due_date %}selected{% endif %}>Other</option>
             </select>

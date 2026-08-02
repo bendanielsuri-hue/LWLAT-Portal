@@ -84,24 +84,19 @@
         </div>
         {% endif %}
 
-        {% if safeguarding_notes %}
-        <details class="referral-flat-section">
-            <summary class="referral-section-title">Safeguarding Notes</summary>
-            <div class="referral-flat-section-body">
-            {% for note in safeguarding_notes %}
-            <div class="field-group">
-                <label>{{ note.created_at|date:"d/m/Y" }} &middot; {{ note.author|default:"Unknown" }}</label>
-                <div class="field-readonly">{{ note.text }}</div>
-            </div>
-            {% endfor %}
-            </div>
-        </details>
-        {% endif %}
-
         {% if not is_view_only %}
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-            <button type="submit" class="btn btn-add btn-sm" data-referral-save>{% if is_edit %}Save Changes{% else %}Save Referral{% endif %}</button>
+            {% comment %}
+            A disabled <button> eats its own hover/focus events in every
+            browser, so a `title` on the button itself never shows while
+            disabled - the wrapping span carries the tooltip instead (see
+            updateSaveState() in panel.js, which keeps this in sync with the
+            disabled state on every input/change).
+            {% endcomment %}
+            <span data-referral-save-tooltip>
+                <button type="submit" class="btn btn-add btn-sm" data-referral-save>{% if is_edit %}Save Changes{% else %}Save Referral{% endif %}</button>
+            </span>
         </div>
         {% endif %}
     </form>
