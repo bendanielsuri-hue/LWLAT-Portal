@@ -38,6 +38,7 @@ Visual design values that hold regardless of which project this is. Entries here
 - **L2.** In a list of rows, give a fixed width to any column whose content length varies row to row (a name, a title) — sizing it to content instead makes every row's later columns start at a different position, and the list looks ragged.
 - **L3.** When a row can show a variable amount of something (e.g. 1-3 buttons depending on the record), reserve space for the maximum case and align within it — don't let the row's width/shape shift depending on how much happens to render.
 - **L4.** Keep an app- or hub-wide action visually separate from an action specific to this screen — don't merge them into one row — and give the screen-specific action more visual weight.
+- **L5.** When a card's content can outgrow its available height, split it into a fixed header/footer and one scrolling body — never let the whole card grow past the viewport. The scrolling body's edges should run flush against whichever of the card's boundaries it's the last thing before (no dead padding trapping the scrollbar short of that edge).
 
 ## M — Meaning
 

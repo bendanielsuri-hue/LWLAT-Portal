@@ -13,7 +13,7 @@ Seven states, in two groups. *On a live agenda*: `assigned` (added to an upcomin
 _Avoid_: "In progress" (ambiguous between `assigned` and `discussing`)
 
 **Panel**:
-One scheduled meeting session — a specific date/time with a chair and a status (`draft` → `ready` → `running`/`delayed` → `complete`). Distinct from "the Panel" as a general concept (the whole feature area) and from `PanelGroup` (see below).
+One scheduled meeting session — a specific date/time with a chair and a status (`draft` → `ready` → `running`/`delayed` → `complete`). A running panel ending (manually via End Panel Meeting, or automatically via `_sync_stale_running_panels`) with zero referrals ever actually discussed becomes `void` instead of `complete` — not a real meeting worth recording as history, though its rows aren't hard-deleted. `void` is deliberately not exposed in the Panel Meetings status filter or any list — see `_panel_had_any_discussion` in `views.py`. Distinct from "the Panel" as a general concept (the whole feature area) and from `PanelGroup` (see below).
 _Avoid_: Meeting (used interchangeably in UI copy, but "Panel" is the model name — prefer Panel in code/docs)
 
 **PanelGroup**:
@@ -29,7 +29,7 @@ Per-meeting *attendance* only, not a roster — a `checked_in_at`/`left_at` reco
 _Avoid_: Attendee, participant, Member (this is an attendance fact, not a person)
 
 **PanelReferral**:
-The link between a `Referral` and a `Panel` — "this referral is on this panel's agenda." Carries the per-meeting discussion state (`discussion_status`: pending/discussed), agenda position, timing, and follow-up scheduling. A Referral's overall status is derived from its PanelReferral rows, not stored independently of them once it's been on an agenda.
+The link between a `Referral` and a `Panel` — "this referral is on this panel's agenda." Carries the per-meeting discussion state (`discussion_status`: pending/discussed/deferred — `deferred` means the panel ended before this one was reached, and it falls back to counting as `open` on the Referral, same as never having been on an agenda), agenda position, timing, and follow-up scheduling. A Referral's overall status is derived from its PanelReferral rows, not stored independently of them once it's been on an agenda.
 _Avoid_: Agenda item (used in UI copy; PanelReferral is the model name)
 
 **Discussion stage**:
