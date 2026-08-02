@@ -12,8 +12,13 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# .env is gitignored - see docs/adr/0012 (first secret this app manages).
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -24,6 +29,11 @@ SECRET_KEY = 'django-insecure-xq)(7m10_h+3a5rjxr8ujy)32$^cmp+t#zamf=l*#khx_h1$^c
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+# Separate from DEBUG on purpose - DEBUG controls error verbosity/security
+# headers, ENVIRONMENT is just a display label (see docs/adr/0012). No env
+# var to read yet since there's no deployment - hardcoded until there is.
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'Development')
 
 ALLOWED_HOSTS = []
 
@@ -60,6 +70,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Default is DENY, which blocks even same-origin framing - breaks the dev
+# breakpoint-preview footer tool's same-origin iframe. See docs/adr/0010.
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 ROOT_URLCONF = 'mysite.urls'
 
 TEMPLATES = [
@@ -78,6 +92,7 @@ TEMPLATES = [
                 'portal.context_processors.current_identity',
                 'portal.context_processors.module_settings',
                 'portal.context_processors.portal_settings',
+                'portal.context_processors.footer_meta',
             ],
         },
     },
@@ -141,3 +156,10 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Used by the footer's non-dev "report a problem" form to file a GitHub
+# issue server-side on the user's behalf - see docs/adr/0012. Needs a
+# personal access token with repo/issues scope on bendanielsuri-hue/LWLAT-Portal,
+# set in a local .env (gitignored, see .env.example).
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
+GITHUB_REPO = 'bendanielsuri-hue/LWLAT-Portal'

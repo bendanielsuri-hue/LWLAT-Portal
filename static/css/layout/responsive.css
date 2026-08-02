@@ -44,6 +44,88 @@
     }
 }
 
+@media (max-width: 480px) {
+    /* Every pixel of vertical space matters at phone width - the footer
+       (#128) is a permanent-chrome status bar, not core page content, so it
+       goes first. Dev cluster (breakpoint tool/errors/file issue) goes with
+       it - not worth carving out an exception since a developer testing at
+       real mobile width would normally do so via the breakpoint preview
+       tool itself, from a wider screen where the footer is still there. */
+    .app-footer {
+        display: none;
+    }
+
+    /* Filter bar (shared across most Inclusion pages, see #113/#114): fields
+       and Clear collapse behind the existing "Filters · count" label, which
+       becomes the tap target that toggles `.is-expanded`. Unchanged above
+       this width - fields stay always-visible via the default .filter-field
+       display below. */
+    .filter-bar {
+        justify-content: center;
+    }
+    .filter-bar-label {
+        cursor: pointer;
+        width: 100%;
+        justify-content: center;
+        margin-right: 0;
+    }
+    .filter-bar-label::after {
+        content: '\25BE';
+        margin-left: var(--space-xxs);
+        font-size: var(--font-xs);
+        color: var(--text-faint);
+        transition: transform var(--transition-base);
+    }
+    .filter-bar.is-expanded .filter-bar-label::after {
+        transform: rotate(180deg);
+    }
+    .filter-bar .filter-field,
+    .filter-bar .filter-bar-clear {
+        display: none;
+    }
+    .filter-bar.is-expanded .filter-field,
+    .filter-bar.is-expanded .filter-bar-clear {
+        display: flex;
+    }
+    /* 2-up once expanded, rather than every field claiming a full row. */
+    .filter-bar.is-expanded .filter-field {
+        flex: 1 1 calc(50% - var(--space-xs));
+        max-width: none;
+    }
+
+    /* SEND & Provision dashboard KPI strip: smaller, 3-up rather than the
+       flex-wrap row today's (tablet/desktop-only, unchanged) layout uses. */
+    .stats-strip--compact {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-xs);
+    }
+    .stats-strip--compact .stat-card {
+        padding: var(--space-xs) var(--space-xxs);
+        border-radius: var(--radius-sm);
+    }
+    .stats-strip--compact .stat-card .stat-value { font-size: var(--font-xl); }
+    .stats-strip--compact .stat-card .stat-label { font-size: 10px; line-height: 1.2; }
+    .stats-strip--compact .stat-card-sublabel { display: none; }
+
+    /* SEND-code donut: shrink to leave the legend room beside it rather than
+       forcing it below. */
+    .donut-chart-wrap { gap: var(--space-sm); }
+    .donut-chart { width: 84px; height: 84px; }
+    .donut-chart-hole { inset: 12px; }
+    .donut-chart-value { font-size: var(--font-md); }
+    .donut-chart-label { font-size: 10px; }
+    .donut-chart-sublabel { font-size: 9px; }
+
+    /* Referral trend bars: shorter, and drop the per-bar value/month label
+       (12 of each doesn't fit 375px legibly) - the card's own h3 already
+       carries the overdue count, and Total Students × 12 months isn't a
+       number worth reading off a bar this narrow anyway. */
+    .trend-chart { height: 56px; gap: 3px; margin-top: var(--space-xs); }
+    .trend-chart-bar-track { max-width: none; height: 100%; }
+    .trend-chart-value, .trend-chart-label { display: none; }
+}
+
 @media (max-width: 1024px) {
     .card-switcher { display: flex; }
     /* .switch-card repeated to outrank a page's own unconditional display

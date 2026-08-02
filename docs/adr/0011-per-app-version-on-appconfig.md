@@ -1,0 +1,3 @@
+# Version numbers live per-app on AppConfig, not one portal-wide version
+
+TestProject is a system of several hub apps (see [0004](0004-hubs-as-url-convention-not-db-model.md)) that will evolve independently. A single portal-wide version number would misrepresent that — bumping it for a change to one hub would imply every other hub also changed. Each hub app declares its own `VERSION` constant on its `AppConfig` (`hubs/<name>/apps.py`); the footer's version display (#128) reads the current page's hub version, falling back to `core`'s `AppConfig.VERSION` on non-hub pages (MAT home, Portal Admin) since those aren't owned by any hub.

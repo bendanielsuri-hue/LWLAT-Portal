@@ -1,0 +1,5 @@
+# Secrets via .env/python-dotenv; two separate issue-reporting paths, not one shared
+
+The footer's "report a problem" feature (#128) needs a `GITHUB_TOKEN` so the server can file a GitHub issue on a non-technical user's behalf — the first real secret this app has ever needed (settings.py previously only had a hardcoded dev `SECRET_KEY`, no `.env`/`requirements.txt` existed). Standard Django pattern adopted: gitignored `.env` loaded via `python-dotenv`, read through `os.environ` in `settings.py`. This establishes the pattern any future secret in this app should follow.
+
+Two separate reporting paths were deliberately kept rather than one shared mechanism: developers (`is_developer`) get a footer button that opens a pre-filled GitHub new-issue page directly in their browser (assumes GitHub literacy, gives full control over the report). Regular MAT staff get a lightweight in-app form (description + category) that POSTs server-side to file the issue via `GITHUB_TOKEN` — they're not expected to have or want a GitHub account. Both land in the same triage queue (`needs-triage` + category label), so the split is about *how* the report is authored, not where it ends up.

@@ -1,10 +1,24 @@
+import json
+
+import requests
+from django.conf import settings
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from core.identity import current_staff
 from core.models import School
 from core.modules import filter_by_module, is_module_visible, module_label, module_map
 from core.portal_settings import resolve_portal_settings
+
+# Category picked in the footer's "report a problem" form (#128) maps
+# straight onto an existing repo label - see docs/adr/0012.
+REPORT_PROBLEM_CATEGORY_LABELS = {
+    'bug': "Something's broken",
+    'enhancement': 'Suggestion',
+    'question': 'Question',
+}
 
 AGGREGATE_ENTRIES = [
     {'name': 'All Schools', 'category': None, 'aggregate': True, 'key': 'all'},
@@ -210,3 +224,54 @@ def mat_home(request):
         'hub_title': 'Home',
         'local_menu': [],
     })
+
+
+@require_POST
+def report_problem(request):
+    # Non-dev counterpart to the footer's dev-only "file issue" link (#128) -
+    # files the GitHub issue server-side via GITHUB_TOKEN instead of sending
+    # the reporter to GitHub themselves. See docs/adr/0012.
+    try:
+        payload = json.loads(request.body)
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid request.'}, status=400)
+
+    description = (payload.get('description') or '').strip()
+    category = payload.get('category') or 'bug'
+    page_url = payload.get('page_url') or ''
+    if not description:
+        return JsonResponse({'error': 'Description is required.'}, status=400)
+    if category not in REPORT_PROBLEM_CATEGORY_LABELS:
+        category = 'bug'
+
+    if not settings.GITHUB_TOKEN:
+        return JsonResponse({'error': 'Reporting is not configured on this server.'}, status=503)
+
+    staff = current_staff(request)
+    reporter = f'{staff.first_name} {staff.last_name}' if staff else 'Unknown user'
+    body_lines = [
+        description,
+        '',
+        f'**Reported by:** {reporter}',
+        f'**Page:** {page_url}',
+        f'**Category:** {REPORT_PROBLEM_CATEGORY_LABELS[category]}',
+    ]
+    title = description.splitlines()[0][:80] or 'User-reported problem'
+
+    response = requests.post(
+        f'https://api.github.com/repos/{settings.GITHUB_REPO}/issues',
+        headers={
+            'Authorization': f'Bearer {settings.GITHUB_TOKEN}',
+            'Accept': 'application/vnd.github+json',
+        },
+        json={
+            'title': title,
+            'body': '\n'.join(body_lines),
+            'labels': [category, 'needs-triage'],
+        },
+        timeout=10,
+    )
+    if response.status_code != 201:
+        return JsonResponse({'error': 'GitHub declined the report.'}, status=502)
+
+    return JsonResponse({'issue_url': response.json().get('html_url', '')}, status=201)

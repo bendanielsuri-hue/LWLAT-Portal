@@ -18,12 +18,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
-from portal.views import mat_home
+from portal.views import mat_home, report_problem
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', mat_home, name='homepage'),
+    path('report-problem/', report_problem, name='report_problem'),
     path('staff/', include('hubs.staff.urls')),
     path('student/', include('hubs.student.urls')),
     path('services/', include('hubs.services.urls')),

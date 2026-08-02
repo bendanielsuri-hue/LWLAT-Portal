@@ -45,6 +45,12 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     line-height: 1.4;
     transition: background-color var(--transition-base), color var(--transition-base);
+    /* Column so #page-shell (flex: 1; min-height: 0 below) fills the
+       viewport without assuming it owns the full height on its own. The dev
+       breakpoint-preview overlay and .app-footer both now live inside
+       #page-shell/.content-column, not as body-level siblings - see #128. */
+    display: flex;
+    flex-direction: column;
 }
 
 html, body {
@@ -55,7 +61,8 @@ html, body {
    content never drags the sidebars or header along with it — only main scrolls. */
 .page-shell {
     display: flex;
-    height: 100vh;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -335,6 +342,13 @@ main { position: relative; }
     z-index: var(--z-global-nav);
     height: 100%;
 }
+/* [hidden] beats the unconditional display:flex above on specificity alone
+   (both single-selector, this stylesheet loading after the UA stylesheet's
+   own [hidden]{display:none}) - toggled off while the breakpoint preview
+   shows, since the iframe loads a full copy of this page (own global-nav
+   included) and two side-by-side copies of the nav would otherwise show
+   (#128). */
+.global-nav[hidden] { display: none; }
 .hub-rail {
     width: 72px;
     flex-shrink: 0;
@@ -454,6 +468,248 @@ main { position: relative; }
 .global-backdrop.active { opacity: 1; position: fixed; inset: 0; background: rgba(3,6,23,0.45); z-index: var(--z-backdrop); pointer-events: auto; }
 /* Dark theme: use solid black so the overlay reads clearly on the dark page */
 [data-theme-mode="dark"] .global-backdrop.active { background: rgba(0,0,0,0.65); }
+
+/* Always-present app footer (see #128 grilling) - a permanent docked bar
+   inside .content-column, so it runs under <main> only, never under
+   .global-nav to its left. Two clusters: general (everyone) pushed left,
+   dev-only pushed right via margin-left: auto on .footer-cluster--dev. */
+.app-footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    min-height: 34px;
+    padding: 0 var(--space-sm);
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-nav);
+}
+.footer-cluster {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+.footer-cluster--dev {
+    position: relative;
+    margin-left: auto;
+    padding-left: var(--space-sm);
+    border-left: 1px solid var(--border-color);
+}
+.footer-item { flex-shrink: 0; }
+.footer-meta-item {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+}
+.footer-status {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+}
+.footer-status--success { color: var(--btn-add-bg); }
+.footer-status--error { color: var(--btn-delete-bg); }
+
+/* Plain text+icon buttons (Report a problem/Errors/File issue) - not
+   .btn/.btn-sm, which are too visually heavy for a 34px status-bar sliver. */
+.footer-text-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xxs);
+    background: transparent;
+    border: none;
+    padding: var(--space-xxs) var(--space-xs);
+    border-radius: var(--radius-xs);
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+}
+/* text-shadow, not font-weight, for the hover bold (INT-U17) - a real
+   weight change would widen "Report a problem"/"File issue" and could wrap
+   or nudge the neighbouring footer item. */
+.footer-text-btn:hover { color: var(--text-primary); background: var(--bg-well); text-shadow: var(--hover-fake-bold); }
+.footer-text-btn svg { width: 14px; height: 14px; }
+/* [hidden] beats the unconditional display: inline-flex above on
+   specificity alone (both single-selector, this stylesheet loading after
+   the UA stylesheet's own [hidden]{display:none}) - without this
+   #dev-error-btn stays visible with hidden set (see #128). */
+.footer-text-btn[hidden] { display: none; }
+.footer-error-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--btn-delete-bg);
+    color: var(--btn-delete-text);
+    font-size: 10px;
+    line-height: 1;
+}
+.footer-error-badge[hidden] { display: none; }
+
+/* Breakpoint switcher: plain icon buttons matching the app's own
+   icon-button conventions (transparent, tinted-background active state)
+   rather than the earlier PowerApps-style bordered squares - see #128
+   grilling. Sized to the footer's 34px height rather than the icons
+   dictating the bar's height. */
+.dev-bp-group {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+.dev-bp-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    border-radius: var(--radius-xs);
+    cursor: pointer;
+}
+.dev-bp-option svg { width: 14px; height: 14px; }
+/* Icon colour only - no background/border - so hover reads as a distinct,
+   lighter-weight signal from .active's filled chip below rather than a
+   dimmer version of the same thing. */
+.dev-bp-option:hover { color: var(--primary); }
+/* Fill + border, not fill alone - a border-only-on-activation ring would nudge
+   layout by ~1px each side, so the border is always transparent above and
+   only recolours here (same invariant as .filter-field--active in forms.css,
+   which this reuses the vocabulary of). --primary-light alone isn't reliably
+   visible against --bg-nav in every theme (it's a *dark* tint in dark mode -
+   see theme/dark.css), so the border carries the contrast the fill can't. */
+.dev-bp-option.active {
+    background: var(--primary-light);
+    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+    color: var(--primary);
+}
+
+/* Dev error console dropdown - anchored above the footer button that opens
+   it since the footer docks at the page bottom. */
+.dev-error-panel {
+    position: absolute;
+    bottom: calc(100% + var(--space-xs));
+    right: 0;
+    width: 320px;
+    max-height: 240px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-global-nav);
+}
+.dev-error-panel.hidden { display: none; }
+.dev-error-panel-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-xs) var(--space-sm);
+    border-bottom: 1px solid var(--border-color);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.dev-error-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    list-style: none;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-xs);
+    color: var(--text-primary);
+}
+.dev-error-list li {
+    padding: var(--space-xxs) 0;
+    border-bottom: 1px solid var(--border-color);
+    word-break: break-word;
+}
+.dev-error-list li:last-child { border-bottom: none; }
+
+/* Minimal native <dialog>-based modal for the footer's "report a problem"
+   form (#128) - self-contained here rather than depending on
+   hubs/inclusion/panel's own .modal-dialog, since this footer is loaded on
+   every page site-wide, not just Inclusion Panel. */
+.ui-dialog {
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 0;
+    width: 420px;
+    max-width: calc(100vw - var(--space-xl));
+}
+.ui-dialog::backdrop { background: rgba(3, 6, 23, 0.45); }
+.ui-dialog-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+}
+.ui-dialog-title { font-size: var(--font-lg); font-weight: 600; }
+.ui-dialog-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xxs);
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+.ui-dialog-field select, .ui-dialog-field textarea {
+    font: inherit;
+    color: var(--text-primary);
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-well);
+    resize: vertical;
+}
+.ui-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-xs);
+}
+
+/* Not a modal - takes <main>'s own slot in .content-column's flex column,
+   so picking a breakpoint reads as the app itself resizing rather than a
+   dialog opening on top of it. <main> (and .global-nav, see above) are
+   hidden (not removed) while this shows - see the toggle logic in
+   layout.html. Deliberately a sibling of <main>, not a replacement for the
+   whole #page-shell (an earlier version hid #page-shell entirely, which
+   took the footer - and the very breakpoint buttons used to switch/exit
+   the preview - down with it, see #128). [hidden] beats the unconditional
+   display:flex below on specificity alone (both single-selector, and this
+   stylesheet loads after the UA stylesheet's own [hidden]{display:none}) -
+   without this the overlay would show on every page load and never close,
+   since setting the hidden *attribute* stops doing anything once an
+   equal-specificity author rule already forces a display value. */
+.dev-bp-overlay[hidden] { display: none; }
+
+.dev-bp-overlay {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    background: var(--bg-page);
+    overflow: auto;
+    /* Larger vertical padding than horizontal - the preview iframe should
+       read as an inset device mockup with clear air above/below it, not
+       flush against the header/footer edges (#128). */
+    padding: var(--space-2xl) var(--space-lg);
+}
+.dev-bp-frame {
+    max-width: 100%;
+    max-height: 100%;
+    border: none;
+    border-radius: var(--radius-lg);
+    background: var(--bg-page);
+    box-shadow: var(--shadow-md);
+    /* width/height set inline per breakpoint by the script in layout.html
+       (real device dimensions, not just width) - flex-shrink:0 stops the
+       centring flex row from squashing it below that. */
+    flex-shrink: 0;
+}
 
 .side-nav .nav-title {
     align-self: stretch;
@@ -639,9 +895,20 @@ main { position: relative; }
     margin-bottom: var(--space-md);
 }
 
+/* Flex column sibling of .global-nav inside .page-shell (flex row) - holds
+   <main> plus .app-footer below it, so the footer docks under the content
+   area only rather than running full page-width under the nav (#128). */
+.content-column {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+}
+
 main {
     flex: 1;
-    height: 100%;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
 }

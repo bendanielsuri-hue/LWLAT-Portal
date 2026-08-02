@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.identity import current_staff
@@ -47,6 +48,12 @@ def portaladmin_home(request):
             school = get_object_or_404(School, pk=request.POST.get('school_id'))
             _apply_fields(school, request.POST)
             school.save()
+        # AJAX proof-of-concept for the footer's generic status indicator
+        # (#128) - same X-Requested-With convention main.js's dashboard
+        # filter fetch() already uses. Plain form posts (no JS/old browser)
+        # still work via the redirect fallback.
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'ok'})
         return redirect('portaladmin_home')
 
     mat_settings, _ = MatSettings.objects.get_or_create(pk=1)

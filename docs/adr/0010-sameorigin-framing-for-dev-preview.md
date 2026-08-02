@@ -1,0 +1,3 @@
+# Site-wide X-Frame-Options: SAMEORIGIN, not per-view exemption
+
+The developer breakpoint-preview footer tool (#128) loads the current page in a same-origin `<iframe>` so real `@media` rules evaluate against the iframe's own viewport. Django's default `XFrameOptionsMiddleware` sends `X-Frame-Options: DENY`, which blocks even same-origin framing — any page could be the one previewed, so a per-view `@xframe_options_exempt` would need to be remembered on every new view forever. Set `X_FRAME_OPTIONS = 'SAMEORIGIN'` globally instead: same-origin framing is all this app ever needs (no legitimate cross-site embedding use case), so it costs nothing while fixing the tool for every page automatically.

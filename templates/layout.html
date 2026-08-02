@@ -25,13 +25,13 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=150">
-    <script src="{% static 'js/main.js' %}?v=64" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=175">
+    <script src="{% static 'js/main.js' %}?v=66" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     {{ search_items|json_script:"app-search-data" }}
-    <div class="page-shell">
+    <div class="page-shell" id="page-shell">
         <div class="global-nav">
         <nav class="side-nav hub-rail" aria-label="Hubs">
             <div class="hub-rail-inner">
@@ -128,6 +128,14 @@
         {% block hub_sidebar %}{% endblock %}
         </div>
         </div>
+        {% comment %}
+        .content-column is a flex column sibling of .global-nav inside
+        .page-shell (itself flex row), so .app-footer below docks under
+        <main> only - it never runs under the global nav/hub sidebar to its
+        left (see #128 grilling: footer reads as page chrome, not app-wide
+        OS chrome).
+        {% endcomment %}
+        <div class="content-column">
         <main>
             <div class="main-inner">
                 {% block breadcrumbs_wrapper %}
@@ -160,7 +168,346 @@
                 {% endblock %}
             </div>
         </main>
+        {% if current_staff.is_developer %}
+        {% comment %}
+        Developer breakpoint preview (see #114/#128). Not a modal - swaps
+        into <main>'s own slot in .content-column's flex column (main.hidden
+        while this shows, see the toggle logic in the script below), so
+        picking a breakpoint reads as the app itself resizing rather than a
+        dialog opening on top of it. Sits alongside <main> rather than
+        replacing the whole #page-shell so the footer - including these very
+        breakpoint buttons - stays visible and clickable throughout;
+        .global-nav is hidden separately (see the script below) since the
+        iframe loads a full copy of this page, own global-nav included, and
+        two side-by-side copies of it would otherwise show. Loads the
+        current page inside a same-origin iframe pinned to that device
+        width+height, so real @media rules evaluate against the iframe's
+        own viewport (including sidenav collapse behaviour) rather than a
+        resized div, which can't trigger @media at all - accurate without
+        needing an actual device or browser devtools. The
+        window.self !== window.top guard in the script below stops the
+        iframe's own copy of this page from rendering another preview
+        inside itself.
+        {% endcomment %}
+        <div id="dev-bp-overlay" class="dev-bp-overlay" hidden>
+            <iframe id="dev-bp-frame" class="dev-bp-frame" title="Breakpoint preview"></iframe>
+        </div>
+        {% endif %}
+        {% comment %}
+        Always-present app footer (see #128 grilling). General cluster
+        (env/version/status/report-a-problem) is visible to everyone; the
+        dev cluster (breakpoint tool/error console/file-issue link) only
+        renders for is_developer, gated the same way as the Portal Admin hub.
+        {% endcomment %}
+        <footer class="app-footer">
+            <div class="footer-cluster footer-cluster--general">
+                <span class="footer-item footer-meta-item" title="Environment">{{ footer_environment }}</span>
+                <span class="footer-item footer-meta-item" title="App version">v{{ footer_app_version }}</span>
+                <span class="footer-item footer-status" id="footer-status" hidden></span>
+                {% if not current_staff.is_developer %}
+                {% comment %}
+                Dev-only "File issue" (in the cluster below) covers this need
+                for developers instead - showing both would be two buttons
+                doing the same job for the one audience that has both (#128).
+                {% endcomment %}
+                <button type="button" class="footer-item footer-text-btn" id="report-problem-btn">
+                    {% include 'icons/flag_svg.html' %}
+                    <span>Report a problem</span>
+                </button>
+                {% endif %}
+            </div>
+            {% if current_staff.is_developer %}
+            <div class="footer-cluster footer-cluster--dev">
+                <div id="dev-bp-group" class="dev-bp-group">
+                    <button type="button" class="dev-bp-option active icon-tooltip-host" data-bp-w="0" data-bp-h="0" data-tooltip="Desktop">
+                        {% include 'icons/bp_desktop_svg.html' %}
+                    </button>
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="1024" data-bp-h="768" data-tooltip="Tablet Wide · 1024×768">
+                        {% include 'icons/bp_tablet_wide_svg.html' %}
+                    </button>
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="768" data-bp-h="1024" data-tooltip="Tablet Portrait · 768×1024">
+                        {% include 'icons/bp_tablet_portrait_svg.html' %}
+                    </button>
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="375" data-bp-h="667" data-tooltip="Mobile · 375×667">
+                        {% include 'icons/bp_mobile_svg.html' %}
+                    </button>
+                </div>
+                {% comment %}
+                Hidden until the first JS error actually fires (see JS below)
+                - no point showing an "Errors" control that's always empty.
+                {% endcomment %}
+                <button type="button" class="footer-item footer-text-btn" id="dev-error-btn" aria-expanded="false" hidden>
+                    {% include 'icons/alert_triangle_svg.html' %}
+                    <span>Errors</span>
+                    <span class="footer-error-badge" id="dev-error-badge" hidden>0</span>
+                </button>
+                <div class="dev-error-panel hidden" id="dev-error-panel">
+                    <div class="dev-error-panel-header">
+                        <span>JS errors on this page</span>
+                        <button type="button" class="footer-text-btn" id="dev-error-clear-btn">Clear</button>
+                    </div>
+                    <ul class="dev-error-list" id="dev-error-list"></ul>
+                </div>
+                <a href="#" class="footer-item footer-text-btn" id="dev-issue-link" target="_blank" rel="noopener">File issue</a>
+            </div>
+            {% endif %}
+        </footer>
+        </div>
     </div>
+
+    {% if not current_staff.is_developer %}
+    {% comment %}
+    Non-dev "report a problem" form (see #128/docs/adr/0012) - posts to
+    portal.views.report_problem, which files the GitHub issue server-side
+    via GITHUB_TOKEN so the reporter never needs a GitHub account. Developers
+    get the dev cluster's direct "File issue" GitHub link instead (see
+    footer-cluster--dev above) - not both, one button per audience.
+    {% endcomment %}
+    <dialog class="ui-dialog" id="report-problem-dialog">
+        <form method="dialog" class="ui-dialog-form" id="report-problem-form">
+            {% csrf_token %}
+            {% comment %}
+            Not submitted by name - report-problem-form's JS reads the
+            csrftoken cookie itself and sends it as an X-CSRFToken header
+            (matches the AJAX convention in static/js/main.js). Rendering
+            the tag here is what makes Django set that cookie in the first
+            place, since this dialog is the only thing on some pages that
+            would otherwise trigger it.
+            {% endcomment %}
+            <h2 class="ui-dialog-title">Report a problem</h2>
+            <label class="ui-dialog-field">
+                <span>Category</span>
+                <select name="category" id="report-problem-category">
+                    <option value="bug">Something's broken</option>
+                    <option value="enhancement">Suggestion</option>
+                    <option value="question">Question</option>
+                </select>
+            </label>
+            <label class="ui-dialog-field">
+                <span>Description</span>
+                <textarea name="description" id="report-problem-description" rows="4" required></textarea>
+            </label>
+            <div class="ui-dialog-actions">
+                <button type="button" class="btn btn-secondary" id="report-problem-cancel-btn">Cancel</button>
+                <button type="submit" class="btn btn-primary">Send report</button>
+            </div>
+        </form>
+    </dialog>
+    {% endif %}
+
+    <script>
+    (function () {
+        // Generic footer status slot + shared JS API (#128) - any page's JS
+        // can call window.AppStatus.show('Saving…')/success('Saved')/
+        // error('Failed to save') to surface transient async state, rather
+        // than each feature building its own one-off indicator.
+        var statusEl = document.getElementById('footer-status');
+        var statusTimer = null;
+        function showStatus(text, kind) {
+            clearTimeout(statusTimer);
+            statusEl.textContent = text;
+            statusEl.hidden = false;
+            statusEl.className = 'footer-item footer-status' + (kind ? ' footer-status--' + kind : '');
+            if (kind === 'success' || kind === 'error') {
+                statusTimer = setTimeout(function () { statusEl.hidden = true; }, 4000);
+            }
+        }
+        window.AppStatus = {
+            show: function (text) { showStatus(text, 'pending'); },
+            success: function (text) { showStatus(text || 'Saved', 'success'); },
+            error: function (text) { showStatus(text || 'Something went wrong', 'error'); },
+            clear: function () { clearTimeout(statusTimer); statusEl.hidden = true; },
+        };
+
+    })();
+    </script>
+
+    {% if not current_staff.is_developer %}
+    <script>
+    (function () {
+        // Non-dev "report a problem" wiring - only rendered when the
+        // trigger button/dialog above exist (see #128: one issue-reporting
+        // path per audience, not both).
+        function getCookie(name) {
+            var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return match ? decodeURIComponent(match[2]) : '';
+        }
+
+        var reportDialog = document.getElementById('report-problem-dialog');
+        var reportForm = document.getElementById('report-problem-form');
+        document.getElementById('report-problem-btn').addEventListener('click', function () {
+            reportForm.reset();
+            reportDialog.showModal();
+        });
+        document.getElementById('report-problem-cancel-btn').addEventListener('click', function () {
+            reportDialog.close();
+        });
+        reportForm.addEventListener('submit', function () {
+            var description = document.getElementById('report-problem-description').value.trim();
+            if (!description) return;
+            reportDialog.close();
+            window.AppStatus.show('Sending report…');
+            fetch('{% url "report_problem" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({
+                    description: description,
+                    category: document.getElementById('report-problem-category').value,
+                    page_url: location.href,
+                }),
+            }).then(function (response) {
+                if (!response.ok) throw new Error();
+                window.AppStatus.success('Report sent - thank you');
+            }).catch(function () {
+                window.AppStatus.error('Could not send report');
+            });
+        });
+    })();
+    </script>
+    {% endif %}
+
+    {% if current_staff.is_developer %}
+    <script>
+    (function () {
+        // The iframe loads the *whole* current page, own footer/switcher
+        // included - kept live (not blocked/hidden) so it stays visible and
+        // interactive rather than showing dead chrome (#128). Clicking a
+        // breakpoint button from *inside* the iframe forwards to the real
+        // switcher in window.top instead of nesting another iframe inside
+        // this one - one preview frame ever exists, however many levels
+        // deep you click from.
+        var insideFrame = window.self !== window.top;
+        var mainEl = document.querySelector('.content-column > main');
+        // The iframe loads the *whole* current page, own global-nav/hub
+        // sidebar included - so that real chrome has to be hidden too while
+        // previewing, or you get two side-by-side copies of it (#128).
+        var globalNav = document.querySelector('.page-shell > .global-nav');
+        var overlay = document.getElementById('dev-bp-overlay');
+        var frame = document.getElementById('dev-bp-frame');
+        var options = document.querySelectorAll('#dev-bp-group .dev-bp-option');
+
+        function applyBreakpoint(width, height) {
+            if (!width) {
+                overlay.hidden = true;
+                mainEl.hidden = false;
+                globalNav.hidden = false;
+                frame.src = 'about:blank';
+                return;
+            }
+            frame.style.width = width + 'px';
+            frame.style.height = height + 'px';
+            // postMessage (not window.innerWidth inside the iframe - that's
+            // shrunk by its own scrollbar and never exactly matches any
+            // data-bp-w) tells the iframe's own switcher copy which
+            // breakpoint it's actually showing, so its active highlight
+            // stays in sync with the real one (#128). onload fires on every
+            // navigation, including when frame.src is already correct and
+            // doesn't need reassigning below.
+            frame.onload = function () {
+                frame.contentWindow.postMessage({ devBpWidth: width }, location.origin);
+            };
+            if (frame.src !== location.href) {
+                frame.src = location.href;
+            } else {
+                frame.contentWindow.postMessage({ devBpWidth: width }, location.origin);
+            }
+            mainEl.hidden = true;
+            globalNav.hidden = true;
+            overlay.hidden = false;
+        }
+
+        options.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (insideFrame) {
+                    // Same-origin, so reaching into window.top is safe -
+                    // let the parent's own click handler do the real work
+                    // (including its own active-class bookkeeping).
+                    var topBtn = window.top.document.querySelector(
+                        '#dev-bp-group .dev-bp-option[data-bp-w="' + btn.dataset.bpW + '"]'
+                    );
+                    if (topBtn) topBtn.click();
+                    return;
+                }
+                options.forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                applyBreakpoint(parseInt(btn.dataset.bpW, 10), btn.dataset.bpH);
+            });
+        });
+
+        // Inside the iframe, sync this copy's own active button to
+        // whichever breakpoint the parent actually loaded it at (see the
+        // postMessage in applyBreakpoint above), so it doesn't show
+        // "Desktop" highlighted while sitting inside a Mobile-sized frame.
+        if (insideFrame) {
+            window.addEventListener('message', function (event) {
+                if (event.origin !== location.origin || !event.data) return;
+                var width = event.data.devBpWidth;
+                if (typeof width !== 'number') return;
+                options.forEach(function (btn) {
+                    btn.classList.toggle('active', parseInt(btn.dataset.bpW, 10) === width);
+                });
+            });
+        }
+
+        // Dev-only JS error console (#128) - resets per page load (no
+        // persistence across navigation, per the grilling call). Captures
+        // both runtime errors and unhandled promise rejections.
+        var errors = [];
+        var badge = document.getElementById('dev-error-badge');
+        var panel = document.getElementById('dev-error-panel');
+        var list = document.getElementById('dev-error-list');
+        var errorBtn = document.getElementById('dev-error-btn');
+        var issueLink = document.getElementById('dev-issue-link');
+
+        function updateIssueLink() {
+            var body = 'Page: ' + location.href;
+            if (errors.length) {
+                body += '\n\nJS errors:\n' + errors.map(function (e) { return '- ' + e; }).join('\n');
+            }
+            var params = new URLSearchParams({
+                title: 'Issue on ' + location.pathname,
+                body: body,
+                labels: 'needs-triage',
+            });
+            issueLink.href = 'https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/new?' + params.toString();
+        }
+
+        function recordError(message) {
+            errors.push(message);
+            badge.textContent = String(errors.length);
+            badge.hidden = false;
+            errorBtn.hidden = false;
+            var item = document.createElement('li');
+            item.textContent = message;
+            list.appendChild(item);
+            updateIssueLink();
+        }
+
+        window.addEventListener('error', function (event) {
+            recordError(event.message + ' (' + event.filename + ':' + event.lineno + ')');
+        });
+        window.addEventListener('unhandledrejection', function (event) {
+            recordError('Unhandled promise rejection: ' + event.reason);
+        });
+
+        errorBtn.addEventListener('click', function () {
+            var willShow = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !willShow);
+            errorBtn.setAttribute('aria-expanded', String(willShow));
+        });
+        document.getElementById('dev-error-clear-btn').addEventListener('click', function () {
+            errors = [];
+            list.innerHTML = '';
+            badge.hidden = true;
+            errorBtn.hidden = true;
+            panel.classList.add('hidden');
+            errorBtn.setAttribute('aria-expanded', 'false');
+            updateIssueLink();
+        });
+        updateIssueLink();
+    })();
+    </script>
+    {% endif %}
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>
