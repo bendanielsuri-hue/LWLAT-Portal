@@ -207,6 +207,27 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
     .mobile-tabbar { display: none; }
     @media (max-width: 479px) {
         body:has(.mobile-tabbar) .side-nav.hub-side { display: none; }
+        {% comment %}
+        The bar is position:fixed, so it takes up no space in normal flow —
+        page content had nothing reserved for it and rendered straight
+        underneath, the last row(s) on any page tall enough to scroll
+        permanently hidden behind the bar, and main's own native scrollbar
+        ran the full viewport height behind the (opaque) bar too rather
+        than stopping cleanly above it (#129 grilling: "mobile nav seems
+        to cover bottom of page" / "scrollbar bottom is cut off"). A plain
+        padding-bottom on main alone measured zero effect on its own
+        scrollHeight, confirmed empirically - .main-inner is height:100%
+        (capped to main's own height, layout.css) with overflow:visible
+        children (e.g. the SENCo carousel) that render past that capped
+        box on any page tall enough to need this fix in the first place,
+        so main never "sees" that overflowing content as part of its own
+        scrollable region for padding to trail after. margin-bottom
+        shrinks main's own rendered box instead (leaving .main-inner's
+        height:100% alone, now correctly 100% of a shorter main) - the
+        scrollbar, content clearance, and the bar all resolve from that one
+        change, no padding/height override needed on either element.
+        {% endcomment %}
+        body:has(.mobile-tabbar) main { margin-bottom: 47px; }
         .mobile-tabbar {
             display: flex;
             align-items: center;
@@ -274,6 +295,18 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
     .modal-close classes directly, since panel.css isn't guaranteed loaded
     on every hub this shared sidebar partial renders on.
     {% endcomment %}
+    {% comment %}
+    An unconditional `display: flex` (needed to lay out the sheet's own
+    contents once open) is author CSS, which always beats the browser's own
+    `dialog:not([open]) { display: none }` UA rule regardless of
+    specificity — the same trap dialog.modal-dialog's own comment in
+    panel.css documents. Without this, a *closed* .mobile-more-sheet still
+    sits in normal document flow (width:100%, up to 480px) inside
+    .nav-stack, forcing .global-nav/.nav-stack to stay that wide and
+    squeezing all real page content into whatever's left — the page not
+    rendering at full width on mobile.
+    {% endcomment %}
+    .mobile-more-sheet:not([open]) { display: none; }
     .mobile-more-sheet {
         position: relative;
         border: none;
@@ -437,6 +470,48 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
         }
         body:has(.mobile-tabbar) .side-nav.overlay-nav.open {
             transform: translateY(0);
+        }
+        {% comment %}
+        Every .side-nav.overlay-nav (School/Search/Settings/Staff/Hubs, all
+        five share this one component) only ever had its close button as
+        "✕ Close" text at the very bottom of .nav-footer - on a long list
+        (e.g. Switch School) that sits below the fold of an 80vh sheet, with
+        no visible close affordance without scrolling all the way down
+        first (#129 grilling: "Switch school needs an x in mobile mode").
+        Repositions the same .nav-close-btn (still the same element/click
+        handler, just moved) to the top-right corner, matching Menu/
+        Settings/Search/+Referral's × - font-size:0 + a ::after glyph
+        swaps its visible "✕ Close" text for a bare × without touching the
+        shared nav-header/nav-footer markup those panels render from
+        (layout.html, _settings_panel.html).
+        {% endcomment %}
+        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-header { padding-right: var(--space-2xl); }
+        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-footer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: var(--space-sm);
+            border: none;
+        }
+        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-close-btn {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            font-size: 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-close-btn::after {
+            content: "×";
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-4xl);
+            line-height: 1;
+            color: var(--text-faint);
         }
         {% comment %}
         Native <dialog>-based popups (Search/+Referral/Menu/Settings) block
