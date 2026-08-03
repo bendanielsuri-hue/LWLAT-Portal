@@ -65,3 +65,506 @@
         {% endif %}
     </div>
 </nav>
+
+{% if request.GET.variant %}
+{% comment %}
+PROTOTYPE — issue #129, throwaway, not for main. Bottom bar for phone width
+(<480px), gated behind ?variant so it's invisible unless explicitly
+requested. Fixed 3 buttons instead of enumerating pages as tabs: Menu (this
+hub's local_menu plus a "Switch Hub" row at the bottom, in one sheet — hub-
+switching folded in rather than its own bar button, since it's the rarer
+action once you're inside a hub, see #129 grilling), Search and the page's
+primary action (+ Referral) both proxy-click the real header buttons already
+wired by panel.js, rather than re-implementing their modals here.
+{% endcomment %}
+<nav class="proto-tabbar" aria-label="Mobile navigation (prototype)">
+    <button type="button" class="proto-tab" data-proto-menu-trigger aria-label="Menu">
+        <span class="proto-tab-icon">{% include 'icons/menu_svg.html' %}</span>
+    </button>
+    <a href="{{ local_menu.0.url }}" class="proto-tab" aria-label="Home">
+        <span class="proto-tab-icon">{% include 'icons/house_svg.html' %}</span>
+    </a>
+    {% comment %}
+    Raised centre FAB - the one action a panel user does most often from a
+    list page, so it gets the visually dominant slot instead of sitting flush
+    in the row like the other 4 (which are 2-and-2 either side of it, see
+    #129 grilling). Still proxy-clicks the real header's Referral button.
+    {% endcomment %}
+    <button type="button" class="proto-tab-fab" aria-label="New Referral" data-proto-proxy-click="[data-new-referral-trigger]">
+        {% include 'icons/new_svg.html' %}
+    </button>
+    {% comment %}
+    In-app content search (data-panel-search-trigger, e.g. students/
+    referrals/actions) takes priority over the global hub-switcher search
+    (#search-nav-overlay) - a plain combined-selector querySelector picked
+    whichever happened to sit first in the page's DOM (the sidebar's global
+    search button, earlier in the page than the panel's own), which was the
+    wrong one. See wireSearchProxy() below.
+    {% endcomment %}
+    <button type="button" class="proto-tab" data-proto-search-trigger aria-label="Search">
+        <span class="proto-tab-icon">{% include 'icons/search_svg.html' %}</span>
+    </button>
+    {% comment %}
+    Switch School only matters to MAT-wide staff (is_mat_staff) - a single-
+    school-scoped user has nothing to switch to, so their Settings tab skips
+    the two-option Settings sheet entirely and opens Appearance directly
+    (#129 grilling: "if switch school is not relevant to user can the
+    visual setting auto open"). Proxy-clicks the real desktop sidebar's own
+    Settings trigger (data-overlay-target="#settings-nav-overlay",
+    nav-footer above) - same reuse pattern as Search/+Referral.
+    {% endcomment %}
+    {% if current_staff.is_mat_staff %}
+    <button type="button" class="proto-tab" data-proto-settings-trigger aria-label="Settings">
+        <span class="proto-tab-icon">{% include 'icons/cog_svg.html' %}</span>
+    </button>
+    {% else %}
+    <button type="button" class="proto-tab" data-proto-proxy-click="[data-overlay-target='#settings-nav-overlay']" aria-label="Settings">
+        <span class="proto-tab-icon">{% include 'icons/cog_svg.html' %}</span>
+    </button>
+    {% endif %}
+</nav>
+
+<dialog class="proto-more-sheet" data-proto-menu-sheet>
+    {% comment %}
+    Close sits in its own row, first in DOM order, above everything else
+    (#129 grilling) - normal flow rather than absolute-positioned over the
+    header content below it, which visibly collided with Switch Hub. Not
+    meant to be the primary way to dismiss the sheet on a phone though -
+    tapping anywhere in the dimmed backdrop (the far larger, thumb-natural
+    target, wireBackdropClose() below) closes it too; × is the familiar
+    fallback for people who don't know that gesture, not the one the top-
+    right corner reach was optimised for.
+    {% endcomment %}
+    <div class="proto-more-sheet-close-row">
+        <button type="button" class="proto-more-sheet-x" data-proto-menu-close aria-label="Close">&times;</button>
+    </div>
+    <div class="proto-more-sheet-header">
+        {% comment %}
+        Back to {{ back_to_hub_label }} / Switch Hub sit above the hub's own
+        name now, not below it in the body (#129 grilling: "above the App
+        Name... Back to Hub primary, Switch Hub secondary") - reads as
+        "where you could go" outranking "where you are" (the h2 below).
+        Back to {{ back_to_hub_label }} is Panel's existing back_to_hub_url/
+        label (desktop sidebar nav-header, hubs/inclusion/panel/CLAUDE.md) -
+        it never had a mobile home once the real sidebar got hidden at
+        phone width, even though Switch Hub's own Hubs overlay could always
+        reach the same place, just not in one tap. Primary/secondary here
+        follows the same weighting as any other btn-primary/btn-secondary
+        pair in the app - Back to Hub is the more likely of the two taps.
+        {% endcomment %}
+        <div class="proto-more-sheet-context-row">
+            {% if back_to_hub_url %}
+            <a href="{{ back_to_hub_url }}" class="proto-more-sheet-btn proto-more-sheet-btn-primary">
+                <span class="proto-tab-icon">{% include 'icons/arrow_left_svg.html' %}</span>
+                {{ back_to_hub_label }}
+            </a>
+            {% endif %}
+            <button type="button" class="proto-more-sheet-btn proto-more-sheet-btn-secondary" data-overlay-target="#hubs-nav-overlay">
+                <span class="proto-tab-icon">{% include 'icons/switch_apps_svg.html' %}</span>
+                Switch Hub
+            </button>
+        </div>
+        <div class="proto-more-sheet-divider"></div>
+        <h2>{{ hub_title }}</h2>
+    </div>
+    <div class="proto-more-sheet-body">
+        <ul class="proto-more-sheet-list">
+            {% for item in local_menu %}
+            <li><a href="{{ item.url }}"><span class="proto-tab-icon">{% include item.icon %}</span>{{ item.name }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+</dialog>
+
+{% comment %}
+Bundles the two settings a mobile user might plausibly touch — School
+(MAT staff checking another school's data) and Appearance (theme/colour/
+text size) — behind one row, opened from the bar's own Settings button
+(promoted to a top-level tab, not nested under Menu, once the bar grew a
+5th slot). Current-user ("who am I") switching is dev/testing-only (no real
+auth yet) and deliberately left off mobile entirely, see #129 grilling.
+{% endcomment %}
+<dialog class="proto-more-sheet" data-proto-settings-sheet>
+    <div class="proto-more-sheet-close-row">
+        <button type="button" class="proto-more-sheet-x" data-proto-settings-close aria-label="Close">&times;</button>
+    </div>
+    <div class="proto-more-sheet-header">
+        <h2>Settings</h2>
+    </div>
+    <div class="proto-more-sheet-body">
+        <ul class="proto-more-sheet-list">
+            <li><button type="button" class="proto-settings-row" data-overlay-target="#school-nav-overlay"><span class="proto-tab-icon">{% include 'icons/school_logo_placeholder_svg.html' %}</span>Switch School</button></li>
+            <li><button type="button" class="proto-settings-row" data-overlay-target="#settings-nav-overlay"><span class="proto-tab-icon">{% include 'icons/cog_svg.html' %}</span>Appearance</button></li>
+        </ul>
+    </div>
+</dialog>
+
+<style>
+    /* Only ever shown below 480px — matches the phone tier this issue is
+       actually about (tablet keeps the icon-rail collapse, see #129
+       grilling). */
+    .proto-tabbar { display: none; }
+    @media (max-width: 479px) {
+        body:has(.proto-tabbar) .side-nav.hub-side { display: none; }
+        .proto-tabbar {
+            display: flex;
+            align-items: center;
+            position: fixed;
+            left: 0; right: 0; bottom: 0;
+            z-index: 40;
+            width: 100%;
+            background: var(--bg-nav);
+            border-top: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+            overflow: visible;
+        }
+        .proto-tab {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-sm) var(--space-micro);
+            color: var(--text-secondary);
+            text-decoration: none;
+            background: none;
+            border: none;
+            font: inherit;
+            cursor: pointer;
+        }
+        /* Icon-only now (no label) - a touch bigger than the labelled version
+           was, since the icon alone carries more visual weight in the row
+           (#129 grilling: "icons are self explanatory, lose labels"). */
+        .proto-tab-icon svg { width: 22px; height: 22px; display: block; }
+
+        /* Centre FAB - lifted clear of the bar's top edge via negative
+           margin (the bar has overflow: visible above so it isn't clipped),
+           with a ring the bar's own background colour so it reads as
+           punched through rather than just a bigger square icon (#129
+           grilling: "green fill circle stick out of menu bar"). Reuses the
+           existing Add-button colour tokens rather than a new one-off green. */
+        .proto-tab-fab {
+            flex: 0 0 auto;
+            width: 56px;
+            height: 56px;
+            margin: 0 var(--space-xs);
+            margin-top: -28px;
+            border-radius: var(--radius-pill);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--btn-add-bg);
+            border: none;
+            color: var(--btn-add-text);
+            box-shadow: 0 0 0 4px var(--bg-nav), var(--shadow-lg);
+            cursor: pointer;
+        }
+        .proto-tab-fab svg { width: 26px; height: 26px; display: block; }
+        .proto-tab-fab:active { background: var(--btn-add-hover-bg); }
+    }
+
+    {% comment %}
+    Menu/Settings sheet chrome deliberately mirrors dialog.modal-dialog's own
+    header convention (title + × top-right, panel.css) rather than a one-off
+    "Close" button at the bottom — Search and +Referral both open that real
+    component, so without this Menu/Settings read as a visibly different
+    kind of overlay sitting right next to them (#129 grilling: "more mobile
+    consistency"). Values duplicated rather than reusing the .modal-header/
+    .modal-close classes directly, since panel.css isn't guaranteed loaded
+    on every hub this shared sidebar partial renders on.
+    {% endcomment %}
+    .proto-more-sheet {
+        position: relative;
+        border: none;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        padding: 0;
+        width: 100%;
+        max-width: 480px;
+        max-height: 92vh;
+        margin: auto auto 0;
+        background: var(--bg-surface);
+        box-shadow: var(--shadow-modal);
+        display: flex;
+        flex-direction: column;
+        /* Same slide-up-from-bottom treatment as dialog.modal-dialog and
+           .side-nav.overlay-nav below - Menu/Settings previously just
+           snapped open/closed with no transition at all, the one visible
+           gap left once shape/colour/height were already unified (#129
+           grilling: "search has a nice transition, can we do the same for
+           all menus and modals"). .is-open is toggled by JS (not [open]
+           alone - a dialog's [open] attribute flip and its first paint
+           happen in the same frame, too late for a transition to catch). */
+        transform: translateY(100%);
+        transition: transform var(--transition-slide);
+    }
+    .proto-more-sheet.is-open { transform: translateY(0); }
+    .proto-more-sheet::backdrop { background: rgba(15, 23, 36, 0.4); }
+    .proto-more-sheet-header {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-md);
+        padding: var(--space-lg) var(--space-lg) var(--space-md);
+    }
+    .proto-more-sheet-context-row { display: flex; gap: var(--space-sm); }
+    .proto-more-sheet-divider { border-top: 1px solid var(--border-color); }
+    .proto-more-sheet-header h2 { font-size: var(--font-2xl); margin: 0; }
+    .proto-more-sheet-close-row { flex-shrink: 0; display: flex; justify-content: flex-end; padding: var(--space-sm) var(--space-sm) 0; }
+    .proto-more-sheet-x {
+        border: none;
+        background: none;
+        font-size: var(--font-4xl);
+        line-height: 1;
+        cursor: pointer;
+        color: var(--text-faint);
+    }
+    .proto-more-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--space-lg) var(--space-lg); }
+    .proto-more-sheet-list { list-style: none; margin: 0 0 var(--space-md); padding: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
+    .proto-more-sheet-list a { display: flex; align-items: center; gap: var(--space-sm); color: var(--text-primary); text-decoration: none; padding: var(--space-xs) 0; }
+    .proto-more-sheet-list .proto-tab-icon svg { width: 18px; height: 18px; }
+    {% comment %}
+    Back to {{ hub_title }}'s parent hub / Switch Hub - primary/secondary,
+    same weighting convention as any other btn-primary/btn-secondary pair in
+    the app (#129 grilling: "Back to Hub primary, Switch Hub secondary").
+    Values duplicated rather than reusing panel.css's own .btn-primary/
+    .btn-secondary, for the same cross-hub-availability reason as the
+    modal-header duplication above.
+    {% endcomment %}
+    .proto-more-sheet-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-xs);
+        padding: var(--space-sm);
+        border-radius: var(--radius-md);
+        font: inherit;
+        font-weight: 600;
+        font-size: var(--font-sm);
+        text-decoration: none;
+        text-align: center;
+        cursor: pointer;
+    }
+    {% comment %}
+    Text wraps instead of ellipsis-truncating (#129 grilling: "text needs
+    to overflow if required") - a school name like "SEND & Provision" was
+    getting cut off mid-word. No explicit height/align-items on
+    .proto-more-sheet-context-row above - flex's own default
+    align-items:stretch already makes both buttons match whichever one
+    wraps to two lines, so nothing extra is needed for that half of the ask.
+    {% endcomment %}
+    .proto-more-sheet-btn .proto-tab-icon svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .proto-more-sheet-btn-primary { background: var(--btn-primary-bg); border: 1px solid var(--btn-primary-border); color: #fff; }
+    .proto-more-sheet-btn-secondary { background: var(--btn-secondary-bg); border: 1px solid var(--btn-secondary-border); color: var(--btn-secondary-text); }
+    .proto-settings-row { display: flex; align-items: center; gap: var(--space-sm); width: 100%; padding: var(--space-xs) 0; background: none; border: none; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+    .proto-settings-row .proto-tab-icon svg { width: 18px; height: 18px; }
+
+    {% comment %}
+    Search and +Referral both open the real dialog.modal-dialog component
+    (panel.css) — a centred floating card. Reskinning it to bottom-sheet
+    chrome here (rather than leaving it centred while Menu/Settings above
+    are bottom sheets) is what actually answers "more mobile consistency":
+    all three now share one shape. Scoped to phone width AND to pages
+    running this prototype (body:has(.proto-tabbar)) so it never touches
+    real desktop/tablet behaviour.
+    {% endcomment %}
+    @media (max-width: 479px) {
+        body:has(.proto-tabbar) dialog.modal-dialog {
+            /* !important on top/bottom specifically - panel.css has its own
+               dialog#panel-search-dialog[open] (+3 others) ID rule setting
+               `top: 8vh; bottom: auto;` for desktop's near-top-anchored
+               growable modals, and an ID selector always outranks our
+               class-based one regardless of source order. Left un-important,
+               that rule won on the `top` property alone, leaving the sheet
+               floating 8vh from the top with a gap below it - the dimmed tab
+               bar visible peeking through that gap rather than covered. */
+            top: auto !important;
+            bottom: 0 !important;
+            inset-inline: 0;
+            margin: 0;
+            width: 100%;
+            max-width: 100%;
+            /* Fixed, not just capped - Panel Search normally grows/shrinks
+               with its result count (animateModalHeightChange in panel.js,
+               which pins dialog.style.height inline mid-transition). Anchored
+               to the bottom edge that reading as the sheet's top edge
+               constantly jumping, unlike the desktop centred card where
+               growing/shrinking outward reads as normal. !important beats
+               that inline style so the sheet stays one constant height
+               regardless of result count, same as Menu/Settings already do -
+               .modal-body's own overflow-y:auto (panel.css) handles the rest. */
+            height: 80vh !important;
+            max-height: 80vh;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            border: none;
+            border-top: 1px solid var(--border-color);
+            transform: translateY(100%);
+        }
+        body:has(.proto-tabbar) dialog.modal-dialog.is-open {
+            transform: translateY(0);
+        }
+    }
+
+    {% comment %}
+    Switch Hub opens #hubs-nav-overlay — the same .side-nav.overlay-nav
+    component every rail switcher uses (School, Appearance/Settings, Search,
+    Staff). Left unstyled at phone width it stays a 240px strip pinned to
+    the left edge (its normal desktop "narrow rail sliding out" shape) right
+    next to bottom sheets everywhere else — the exact "shows as a rail, not
+    a menu" mismatch flagged in #129 grilling. Reskinning this one shared
+    class fixes every one of those switchers at once, not just Hubs. Also
+    overrides its background from --bg-nav (the sidebar-rail tint, wrong
+    here) to --bg-surface, matching Menu/Settings/Search/+Referral — every
+    pop now shares one background colour (#129 grilling).
+    {% endcomment %}
+    @media (max-width: 479px) {
+        body:has(.proto-tabbar) .side-nav.overlay-nav {
+            position: fixed;
+            inset: auto 0 0 0;
+            width: 100%;
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            border-right: none;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--bg-surface);
+            box-shadow: var(--shadow-modal);
+            z-index: 9998;
+            transform: translateY(100%);
+            transition: transform var(--transition-slide), opacity var(--transition-base);
+        }
+        body:has(.proto-tabbar) .side-nav.overlay-nav.open {
+            transform: translateY(0);
+        }
+        {% comment %}
+        Native <dialog>-based popups (Search/+Referral/Menu/Settings) block
+        interaction with everything behind them automatically, tab bar
+        included, via the browser's own top layer - .global-backdrop
+        (main.js's addBackdrop(), z-index: var(--z-backdrop) = 11) is a
+        plain positioned div instead, and sat BELOW the tab bar's z-index:40,
+        so Switch Hub/School/Appearance left the tab bar's own buttons still
+        visible and clickable on top of the dimmed page while "open" - the
+        exact "some hide the app buttons and some do not" mismatch (#129
+        grilling). Raising it above the tab bar (still below the overlay
+        panel itself, 9998) makes every popup dim/block the bar the same way.
+        {% endcomment %}
+        body:has(.proto-tabbar) .global-backdrop.active {
+            z-index: 9997;
+        }
+    }
+</style>
+<script>
+(function () {
+    var SHEET_CLOSE_DELAY = 380; // matches --transition-slide (360ms) + buffer
+
+    function openSheet(sheet) {
+        sheet.showModal();
+        requestAnimationFrame(function () { sheet.classList.add('is-open'); });
+    }
+    function closeSheet(sheet) {
+        if (!sheet.open) return;
+        sheet.classList.remove('is-open');
+        setTimeout(function () { if (sheet.open) sheet.close(); }, SHEET_CLOSE_DELAY);
+    }
+    {% comment %}
+    Tapping the dimmed area is the primary way to dismiss the sheet on a
+    phone (large, thumb-natural, works from wherever the thumb already is -
+    see #129 grilling on the × corner being a long reach). `e.target ===
+    sheet` doesn't reliably catch this: .proto-more-sheet is sized to just
+    its visible card (not the full viewport), so a tap in the dimmed area
+    around it lands on the dialog's own ::backdrop, not the dialog element -
+    comparing the actual click coordinates against the sheet's own rendered
+    box works regardless of that sizing.
+    {% endcomment %}
+    function wireBackdropClose(sheet) {
+        sheet.addEventListener('click', function (e) {
+            var rect = sheet.getBoundingClientRect();
+            var inside = e.clientX >= rect.left && e.clientX <= rect.right
+                && e.clientY >= rect.top && e.clientY <= rect.bottom;
+            if (!inside) closeSheet(sheet);
+        });
+    }
+
+    var menuTrigger = document.querySelector('[data-proto-menu-trigger]');
+    var menuSheet = document.querySelector('[data-proto-menu-sheet]');
+    var menuClose = document.querySelector('[data-proto-menu-close]');
+    var settingsTrigger = document.querySelector('[data-proto-settings-trigger]');
+    var settingsSheet = document.querySelector('[data-proto-settings-sheet]');
+    var settingsClose = document.querySelector('[data-proto-settings-close]');
+
+    {% comment %}
+    Nothing closed whatever else was open before opening its own thing -
+    e.g. tapping Settings straight from the bar while Search was still open
+    left Search technically open underneath (native dialogs stack rather
+    than replace each other), showing through behind the newest sheet
+    rather than being replaced by it. Every trigger below now closes
+    everything else first.
+    {% endcomment %}
+    function closeEverythingProto() {
+        closeSheet(menuSheet);
+        closeSheet(settingsSheet);
+        document.querySelectorAll('dialog.modal-dialog[open]').forEach(function (d) {
+            var closeBtn = d.querySelector('.modal-close');
+            if (closeBtn) closeBtn.click(); else d.close();
+        });
+        document.querySelectorAll('.side-nav.overlay-nav.open').forEach(function (nav) {
+            var closeBtn = nav.querySelector('.nav-close-btn');
+            if (closeBtn) closeBtn.click();
+        });
+    }
+
+    if (menuTrigger && menuSheet) {
+        menuTrigger.addEventListener('click', function () {
+            closeEverythingProto();
+            openSheet(menuSheet);
+        });
+        menuClose.addEventListener('click', function () { closeSheet(menuSheet); });
+        wireBackdropClose(menuSheet);
+        // Switch Hub opens the global overlay panel, which would otherwise
+        // render behind this native <dialog>'s own top-layer stacking.
+        var hubsBtn = menuSheet.querySelector('[data-overlay-target]');
+        if (hubsBtn) hubsBtn.addEventListener('click', function () { closeSheet(menuSheet); });
+    }
+    if (settingsTrigger && settingsSheet) {
+        settingsTrigger.addEventListener('click', function () {
+            closeEverythingProto();
+            openSheet(settingsSheet);
+        });
+        settingsClose.addEventListener('click', function () { closeSheet(settingsSheet); });
+        wireBackdropClose(settingsSheet);
+        // Same top-layer reason as Switch Hub above - close this sheet
+        // before the global overlay-target handler opens School/Appearance.
+        settingsSheet.querySelectorAll('[data-overlay-target]').forEach(function (btn) {
+            btn.addEventListener('click', function () { closeSheet(settingsSheet); });
+        });
+    }
+
+    // +Referral proxy-clicks whichever real header button matches - reuses
+    // the page's own already-wired modal instead of re-implementing it here
+    // (see hubs/inclusion/panel/CLAUDE.md "Key helpers").
+    document.querySelectorAll('[data-proto-proxy-click]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            closeEverythingProto();
+            var real = document.querySelector(btn.dataset.protoProxyClick);
+            if (real) real.click();
+        });
+    });
+
+    // Search: in-app content search wins over the global hub-switcher
+    // search when both exist on the page - can't rely on a plain combined
+    // querySelector for this since it just returns whichever sits first in
+    // DOM order, which was the wrong one here (the sidebar's global search
+    // button renders earlier in the page than Panel's own).
+    var searchTrigger = document.querySelector('[data-proto-search-trigger]');
+    if (searchTrigger) {
+        searchTrigger.addEventListener('click', function () {
+            closeEverythingProto();
+            var real = document.querySelector('[data-panel-search-trigger]')
+                || document.querySelector('[data-overlay-target="#search-nav-overlay"]');
+            if (real) real.click();
+        });
+    }
+})();
+</script>
+{% endif %}
