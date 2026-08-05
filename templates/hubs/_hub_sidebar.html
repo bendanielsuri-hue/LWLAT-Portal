@@ -108,43 +108,50 @@ collapse below that breakpoint (see responsive.css's own 900px tier, kept
 for tablet) rather than enumerating every hub page as a tab (#129, see
 docs/adr/0013-mobile-bottom-nav-bar.md for the full decision trail). Menu
 (this hub's local_menu plus a Back-to-parent-hub row, only shown when
-there's somewhere nested to return from), Hub (opens the portal-wide Hub
-Menu switcher directly), Search and the page's primary action (+ Referral)
-both proxy-click the real header buttons already wired by panel.js, rather
-than re-implementing their modals here.
+there's somewhere nested to return from), Home (always the portal
+homepage) and Search both proxy-click/link to the real thing rather than
+re-implementing it here; the raised centre FAB is either the page's primary
+action (+ Referral) or, on pages with no such action of their own, the Hub
+Menu switcher instead - see its own comment below.
 {% endcomment %}
 <nav class="mobile-tabbar" aria-label="Mobile navigation">
     <button type="button" class="mobile-tab" data-mobile-menu-trigger aria-label="Menu">
         <span class="mobile-tab-icon">{% include 'icons/menu_svg.html' %}</span>
     </button>
     {% comment %}
-    Opens the same Hub Menu overlay (#hubs-nav-overlay) the desktop sidebar's
-    own Hub Menu button and the Menu sheet's former Hub Menu row both used -
-    promoted straight to the tabbar since it's common enough to want "switch
-    hub" without going through Menu first. data-overlay-target is generic
-    (main.js), no extra wiring needed beyond closing whatever else is open
-    first, same as Search/+Referral below. Replaces the former Home button
-    (portal homepage) - Menu (left of this) already covers "navigate within
-    this hub" and "leave this hub" reached one tap further via this same
-    overlay, so a separate portal-home shortcut wasn't pulling its weight
-    here.
+    Always a house icon, but "home" means something different depending on
+    how deep you are. Inside a nested app (back_to_hub_url set - e.g.
+    Inclusion Panel, a sub-app of SEND & Provision) it's that app's own
+    landing page - local_menu.0.url, the same convention PANEL_MENU and
+    every other hub's own <HUB>_MENU already use for their first "Home"/
+    "Dashboard" entry - not the parent hub and not the portal. On a plain
+    hub page (no back_to_hub_url - nothing nested to be "in") there's no
+    separate app-home to offer, so it's the MAT Portal homepage instead.
+    Menu (left of this) still covers "navigate within this hub/app"; a
+    nested app's own "Back to {{ back_to_hub_label }}" row lives in the Menu
+    sheet for the deliberate "go up a level to the parent hub" tap - a
+    different destination than this button now covers.
     {% endcomment %}
-    <button type="button" class="mobile-tab" data-mobile-hub-trigger data-overlay-target="#hubs-nav-overlay" aria-label="Hub Menu">
-        <span class="mobile-tab-icon">{% include 'icons/switch_apps_svg.html' %}</span>
-    </button>
+    <a href="{% if back_to_hub_url %}{{ local_menu.0.url }}{% else %}{% url 'homepage' %}{% endif %}" class="mobile-tab" aria-label="Home">
+        <span class="mobile-tab-icon">{% include 'icons/house_svg.html' %}</span>
+    </a>
     {% comment %}
-    Raised centre FAB - the one action a panel user does most often from a
-    list page, so it gets the visually dominant slot instead of sitting flush
-    in the row like the other 4 (which are 2-and-2 either side of it, see
-    #129 grilling). Still proxy-clicks the real header's Referral button.
-    Omitted via hide_mobile_fab on pages that front more than one app (e.g.
-    the SEND & Provision hub landing page, #114 follow-up) - "New Referral"
-    is only one of several things "+" could mean there, so a single FAB
-    reads as a wrong guess rather than a shortcut. The remaining 4 buttons
-    are flex: 1 1 0 (below), so they just re-space evenly with no gap left
-    behind.
+    Raised centre FAB - visually dominant slot, always occupied now (used to
+    be omitted outright on hide_mobile_fab pages, re-spacing the other 4
+    buttons evenly - #114 follow-up). hide_mobile_fab pages (e.g. the SEND &
+    Provision hub landing page - "New Referral" is only one of several
+    things "+" could mean there) get the Hub Menu switcher
+    (#hubs-nav-overlay) in this slot instead of a page-specific action -
+    primary-coloured (btn-primary tokens) rather than the Add green, so it
+    reads as navigation, not creation. Everywhere else this is still "New
+    Referral", proxy-clicking the real header button, Add-coloured as
+    before.
     {% endcomment %}
-    {% if not hide_mobile_fab %}
+    {% if hide_mobile_fab %}
+    <button type="button" class="mobile-tab-fab mobile-tab-fab-nav" data-overlay-target="#hubs-nav-overlay" aria-label="Hub Menu">
+        {% include 'icons/switch_apps_svg.html' %}
+    </button>
+    {% else %}
     <button type="button" class="mobile-tab-fab" aria-label="New Referral" data-mobile-proxy-click="[data-new-referral-trigger]">
         {% include 'icons/new_svg.html' %}
     </button>
@@ -308,6 +315,15 @@ than re-implementing their modals here.
         }
         .mobile-tab-fab svg { width: 26px; height: 26px; display: block; }
         .mobile-tab-fab:active { background: var(--btn-add-hover-bg); }
+        /* Hub Menu variant (hide_mobile_fab pages) - primary-coloured
+           (same tokens as any other btn-primary) rather than the Add
+           green, so this reads as navigation rather than creation despite
+           sitting in the same visually-dominant slot. */
+        .mobile-tab-fab-nav {
+            background: var(--btn-primary-bg);
+            color: #fff;
+        }
+        .mobile-tab-fab-nav:active { background: var(--btn-primary-hover-bg); }
     }
 
     {% comment %}
@@ -775,13 +791,13 @@ than re-implementing their modals here.
         });
     }
 
-    // Hub button: closes any open sheet/dialog first, same as every other
-    // tabbar trigger - main.js's own generic data-overlay-target handler
-    // (registered separately, see the comment on the button itself) does
-    // the actual opening.
-    var hubTrigger = document.querySelector('[data-mobile-hub-trigger]');
-    if (hubTrigger) {
-        hubTrigger.addEventListener('click', function () { closeEverythingMobile(); });
+    // FAB-as-Hub-Menu (hide_mobile_fab pages): closes any open sheet/dialog
+    // first, same as every other tabbar trigger - main.js's own generic
+    // data-overlay-target handler (registered separately) does the actual
+    // opening.
+    var fabNavTrigger = document.querySelector('.mobile-tab-fab-nav');
+    if (fabNavTrigger) {
+        fabNavTrigger.addEventListener('click', function () { closeEverythingMobile(); });
     }
 })();
 </script>
