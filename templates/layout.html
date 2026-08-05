@@ -37,14 +37,22 @@
                 // touch-narrow one moment later (confirmed via a frame-by-
                 // frame trace - #129 follow-up). js-preload above only
                 // suppressed the *animation* of that snap, not the flash of
-                // wrong content it was snapping from. The dev breakpoint
-                // preview iframe still can't make a real mouse report
-                // hover:none - it keeps relying on main.js's own
-                // force-touch-nav override via postMessage after the iframe
-                // loads, same as before; only real touch hardware benefits
-                // here.
+                // wrong content it was snapping from.
+                //
+                // A real mouse over the dev breakpoint preview iframe can
+                // never make hover:none true on its own, so that copy of this
+                // page also checks window.top.__devBpTouch (same-origin,
+                // readable synchronously - no postMessage round trip to wait
+                // on) when it's running inside the preview frame. Needed for
+                // more than just the initial breakpoint switch: clicking a
+                // link *inside* the preview navigates that iframe on its own,
+                // which reloads this whole script from scratch without
+                // applyBreakpoint ever running again - only a value already
+                // sitting on window.top survives that.
                 try {
-                    root.classList.toggle('nav-touch-mode', window.matchMedia('(hover: none)').matches);
+                    var touch = window.matchMedia('(hover: none)').matches;
+                    if (!touch && window.self !== window.top && window.top.__devBpTouch) touch = true;
+                    root.classList.toggle('nav-touch-mode', touch);
                 } catch (e) { }
             } catch (e) { }
         })();
@@ -460,6 +468,17 @@
         var options = document.querySelectorAll('#dev-bp-group .dev-bp-option');
         var currentWidth = 0;
         var currentHeight = 0;
+        // Read synchronously by the iframe's own copy of this same page (see
+        // the head script above) the instant it starts parsing - same-origin
+        // window.top access needs no postMessage round trip, so it's already
+        // correct before that copy's first paint, unlike the postMessage
+        // version below (which still exists, for the different case of
+        // switching between two already-open touch presets without a reload -
+        // see applyBreakpoint's own comment). Closes the gap postMessage
+        // alone left open: clicking a link *inside* the preview iframe reloads
+        // it via the iframe's own navigation, not applyBreakpoint, so nothing
+        // would otherwise send devBpTouch again for that load.
+        window.__devBpTouch = false;
 
         // Shrinks (never grows - min(1, ...)) the device box to fit
         // whatever room the overlay actually has, so a preset taller than
@@ -494,6 +513,7 @@
             }
             currentWidth = width;
             currentHeight = height;
+            window.__devBpTouch = !!touch;
             frame.style.width = width + 'px';
             frame.style.height = height + 'px';
             // Unhide before rescale() - it measures overlay.clientWidth/
