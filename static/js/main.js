@@ -284,8 +284,21 @@ document.addEventListener('DOMContentLoaded', function () {
     // hover:none/pointer:coarse device.
     var realHoverNoneMql = window.matchMedia('(hover: none)');
     var touchNavListeners = [];
+    // Also checks window.top.__devBpTouch (dev breakpoint preview, same-origin
+    // synchronous read - see layout.html's own head script) alongside
+    // force-touch-nav - without this, this function's very first call here
+    // (DOMContentLoaded, below) ran before the preview's postMessage handshake
+    // had a chance to arrive (that only fires on frame.onload, later than
+    // DOMContentLoaded) and force-touch-nav wasn't set yet, so it disagreed
+    // with the correct state layout.html's synchronous scripts had already
+    // rendered - flipping the sidebar open again for the brief window until
+    // the postMessage handler finally set force-touch-nav and this got called
+    // a second time to correct it. That "closed, then open, then closed"
+    // cascade is what this line closes.
     function isTouchNav() {
-        return realHoverNoneMql.matches || document.documentElement.classList.contains('force-touch-nav');
+        if (realHoverNoneMql.matches || document.documentElement.classList.contains('force-touch-nav')) return true;
+        try { if (window.self !== window.top && window.top.__devBpTouch) return true; } catch (e) { }
+        return false;
     }
     function syncTouchNavClass() {
         document.documentElement.classList.toggle('nav-touch-mode', isTouchNav());
