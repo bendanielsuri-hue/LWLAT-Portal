@@ -269,10 +269,73 @@ a.stat-card.selectable:hover { background: var(--stat-card-bg); }
 .stat-card--accent-neutral   { border-color: var(--color-neutral); --stat-card-bg: color-mix(in srgb, var(--color-neutral) 8%, var(--bg-surface-alt)); }
 .stat-card--accent-neutral   .stat-card-icon { color: var(--color-neutral); }
 
+/* Quick-nav row (prototype, #114 follow-up): surfaces a hub's local_menu
+   destinations as visible cards on a hub landing page whose own content
+   (e.g. a dashboard) is secondary to actually navigating onward. Hidden by
+   default - the sidebar already shows these as directly-clickable icons
+   down to 480px (responsive.css's <=900px icon-only collapse), so this row
+   would just duplicate them. Only below 480px does the sidebar disappear
+   behind the mobile bottom nav's "Menu" button/sheet (_hub_sidebar.html) -
+   that's the one width where local_menu genuinely isn't one tap away
+   already, so the <=480px block in responsive.css re-enables this. */
+.hub-quick-nav { display: none; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-lg); }
+.hub-quick-nav-card {
+    flex: 1 1 200px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-surface);
+    /* --border-strong, not --border-color - same portal-wide card-edge fix
+       as .breakdown-card/.list-card (grilling session 2026-07-12). */
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.hub-quick-nav-card:hover, .hub-quick-nav-card:focus-visible {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+}
+.hub-quick-nav-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    color: var(--primary);
+}
+.hub-quick-nav-icon svg { width: 100%; height: 100%; }
+.hub-quick-nav-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hub-quick-nav-label { font-weight: 600; }
+.hub-quick-nav-description { font-size: var(--font-xs); color: var(--text-secondary); font-weight: 400; }
+
+/* Divider + heading between the quick-nav cards and the dashboard content
+   below (#114 follow-up) - hidden/shown together with .hub-quick-nav since
+   there'd be nothing above them to separate from otherwise. */
+.hub-quick-nav-divider {
+    display: none;
+    border: none;
+    border-top: 1px solid var(--border-strong);
+    margin: 0 0 var(--space-lg);
+}
+.hub-quick-nav-dashboard-title {
+    display: none;
+    font-size: var(--font-md);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-md);
+}
+
 /* Simple labelled breakdown bars (SEND & Provision hub home) */
 .breakdown-grid { display: flex; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-xl); }
 .breakdown-card {
     flex: 1 1 280px;
+    /* min-width: 0 - overrides the flex/grid item default of min-width:auto,
+       which sizes to content's min-content width. Without it, --lg's
+       .trend-chart (12 bars, each with its own min-width) forced this card
+       wider than its siblings instead of letting the chart's own
+       overflow-x: auto (cards.css/.trend-chart) scroll internally (#114
+       grilling). */
+    min-width: 0;
     background: var(--bg-surface);
     /* --border-strong (see grilling session 2026-07-12, applied portal-wide
        to every card). */
@@ -358,8 +421,19 @@ a.stat-card.selectable:hover { background: var(--stat-card-bg); }
 /* SEND & Provision dashboard: referral trend bars. Month labels use the
    short "Mon YY" format so they sit flat under a narrow bar column instead
    of needing to be rotated. */
-.trend-chart { display: flex; align-items: flex-end; gap: var(--space-xs); height: 168px; margin-top: var(--space-sm); }
-.trend-chart-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+/* overflow-x: auto, not visible - .trend-chart-col below has no min-width
+   (#114 grilling: the "Sep 25" label needs ~50px, and flex: 1 1 0 with no
+   floor happily shrinks a column well past that once ~12 of them are
+   fighting for a narrower card's width), so once columns hit that floor
+   the row scrolls horizontally instead of continuing to squeeze - which
+   just overlaps each nowrap label into its neighbour, unreadable. */
+/* overflow-y: hidden, not left implicit - with only overflow-x set, the
+   spec computes overflow-y: visible up to auto too, so any sub-pixel
+   rounding that pushes content a fraction over the fixed height (e.g. the
+   stacked month/year label at narrow widths) painted a vertical scrollbar
+   nothing actually needed. */
+.trend-chart { display: flex; align-items: flex-end; gap: var(--space-xs); height: 168px; margin-top: var(--space-sm); overflow-x: auto; overflow-y: hidden; }
+.trend-chart-col { flex: 1 1 0; min-width: 42px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
 .trend-chart-bar-track { width: 100%; max-width: 22px; height: 100px; display: flex; align-items: flex-end; background: var(--bg-surface-alt); border-radius: var(--radius-sm); overflow: hidden; }
 .trend-chart-bar { width: 100%; background: var(--primary); border-radius: var(--radius-sm) var(--radius-sm) 0 0; min-height: 2px; transition: height var(--transition-base); }
 .trend-chart-value { font-size: var(--font-xs); font-weight: 600; color: var(--text-secondary); margin-top: var(--space-xxs); }
@@ -372,6 +446,12 @@ a.stat-card.selectable:hover { background: var(--stat-card-bg); }
     margin-top: var(--space-xxs);
     white-space: nowrap;
 }
+/* Full "Jan 26" by default; narrow widths swap to the stacked month/year
+   pair instead (see responsive.css's <=480px block, #114 grilling) - same
+   two facts, just laid out on two lines instead of one so it still fits a
+   phone-width bar column. */
+.trend-chart-label-stacked { display: none; flex-direction: column; align-items: center; line-height: 1.15; }
+.trend-chart-label-year { color: var(--text-faint); }
 .breakdown-card [data-new-referral-trigger] { margin-top: var(--space-xs); }
 
 .senco-section-title { margin: 0 0 var(--space-sm); font-size: var(--font-md); color: var(--text-primary); }

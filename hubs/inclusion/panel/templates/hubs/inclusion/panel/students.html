@@ -159,7 +159,7 @@ Gender/Ethnicity/Tutor/PP/EAL/LAC/Young Carer/More Able sit behind a
     <div class="filter-actions-right">
         <button type="button" class="btn btn-sm btn-secondary more-filters-toggle" data-more-filters aria-expanded="false">
             <span class="more-filters-toggle-icon">{% include 'icons/arrow_down_svg.html' %}</span>
-            More filters
+            <span data-more-filters-label>More filters</span>
         </button>
         <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
     </div>
@@ -221,22 +221,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
-
-    var moreFiltersBtn = document.querySelector('[data-more-filters]');
-    var secondaryRow = document.querySelector('.filter-secondary-fields');
-    if (moreFiltersBtn && secondaryRow) {
-        var hasActiveSecondary = secondaryRow.querySelector('.filter-field--active')
-            || Array.prototype.some.call(secondaryRow.querySelectorAll('input[type=checkbox]'), function (i) { return i.checked; });
-        if (hasActiveSecondary) {
-            secondaryRow.hidden = false;
-            moreFiltersBtn.setAttribute('aria-expanded', 'true');
-        }
-        moreFiltersBtn.addEventListener('click', function () {
-            var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
-            secondaryRow.hidden = expanded;
-            moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
-        });
-    }
+    // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
 });
 </script>
 {% endblock %}

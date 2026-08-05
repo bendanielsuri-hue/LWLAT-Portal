@@ -125,7 +125,7 @@ Actions.
     <div class="filter-actions-right">
         <button type="button" class="btn btn-sm btn-secondary more-filters-toggle" data-more-filters aria-expanded="false">
             <span class="more-filters-toggle-icon">{% include 'icons/arrow_down_svg.html' %}</span>
-            More filters
+            <span data-more-filters-label>More filters</span>
         </button>
         {% comment %}
         academic_year= explicit (not just omitted) so Clear Filters truly
@@ -163,21 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setupToggle(overdueActionsToggle, overdueActionsInput);
 
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
-
-    var moreFiltersBtn = document.querySelector('[data-more-filters]');
-    var secondaryRow = document.querySelector('.filter-secondary-fields');
-    if (moreFiltersBtn && secondaryRow) {
-        var hasActiveSecondary = secondaryRow.querySelector('.filter-field--active') || (overdueActionsInput && overdueActionsInput.checked);
-        if (hasActiveSecondary) {
-            secondaryRow.hidden = false;
-            moreFiltersBtn.setAttribute('aria-expanded', 'true');
-        }
-        moreFiltersBtn.addEventListener('click', function () {
-            var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
-            secondaryRow.hidden = expanded;
-            moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
-        });
-    }
+    // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
 });
 </script>
 {% endblock %}

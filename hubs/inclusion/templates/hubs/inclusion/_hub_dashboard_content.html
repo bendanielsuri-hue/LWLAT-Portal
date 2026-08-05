@@ -17,7 +17,16 @@ must stay outside the AJAX-swapped region.
     {% endfor %}
 </div>
 
-<div class="breakdown-grid">
+{% comment %}
+breakdown-grid--top (#114 grilling): at the tablet size-reduction, this
+grid pairs into 2 columns rather than the default flex-wrap - donut +
+gender (both compact) fill row 1's two columns, Referrals per Month spans
+both on its own row below (grid-column: 1 / -1, see responsive.css). Markup
+order matters for that auto-placement: donut and gender come first so they
+land in row 1 together, Referrals per Month last so it naturally flows to
+row 2 once row 1's two columns are already taken.
+{% endcomment %}
+<div class="breakdown-grid breakdown-grid--top">
     <div class="breakdown-card breakdown-card--donut">
         <h3>By SEND code</h3>
         <div class="donut-chart-wrap">
@@ -37,30 +46,6 @@ must stay outside the AJAX-swapped region.
                 {% endfor %}
             </div>
         </div>
-    </div>
-
-    <div class="breakdown-card breakdown-card--lg">
-        <h3>Referrals per Month
-            {% if overdue_referrals %}
-            <span class="status-pill pill-warning">{{ overdue_referrals }} overdue</span>
-            {% endif %}
-        </h3>
-        {% if referral_trend %}
-        <div class="trend-chart" role="img" aria-label="Referrals per month, this academic year">
-            {% for point in referral_trend %}
-            <div class="trend-chart-col">
-                <div class="trend-chart-bar-track">
-                    <div class="trend-chart-bar" style="height: {{ point.pct }}%"></div>
-                </div>
-                <div class="trend-chart-value">{{ point.count }}</div>
-                <div class="trend-chart-label">{{ point.label }}</div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <p class="empty-note">No referrals recorded.</p>
-        {% endif %}
-        <button type="button" class="btn btn-primary btn-sm" data-new-referral-trigger data-next="{% url 'inclusion_hub' %}">+ New Referral</button>
     </div>
 
     <div class="breakdown-card breakdown-card--sm">
@@ -89,6 +74,44 @@ must stay outside the AJAX-swapped region.
         {% else %}
         <p class="empty-note">No students recorded.</p>
         {% endif %}
+    </div>
+
+    <div class="breakdown-card breakdown-card--lg">
+        <h3>Referrals per Month
+            {% if overdue_referrals %}
+            <span class="status-pill pill-warning">{{ overdue_referrals }} overdue</span>
+            {% endif %}
+        </h3>
+        {% if referral_trend %}
+        <div class="trend-chart" role="img" aria-label="Referrals per month, this academic year">
+            {% for point in referral_trend %}
+            <div class="trend-chart-col">
+                <div class="trend-chart-bar-track">
+                    <div class="trend-chart-bar" style="height: {{ point.pct }}%"></div>
+                </div>
+                <div class="trend-chart-value">{{ point.count }}</div>
+                {% comment %}
+                Two layouts, one shown at a time via CSS (#114 grilling) -
+                label ("Jan 26") is one line, fits fine at desktop width;
+                narrow widths swap to the stacked month/year pair instead
+                (still both visible, just two lines) since a bare month
+                would be ambiguous once the trend straddles a calendar-year
+                boundary.
+                {% endcomment %}
+                <div class="trend-chart-label">
+                    <span class="trend-chart-label-full">{{ point.label }}</span>
+                    <span class="trend-chart-label-stacked">
+                        <span class="trend-chart-label-month">{{ point.short_label }}</span>
+                        <span class="trend-chart-label-year">{{ point.year_label }}</span>
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-note">No referrals recorded.</p>
+        {% endif %}
+        <button type="button" class="btn btn-primary btn-sm" data-new-referral-trigger data-next="{% url 'inclusion_hub' %}">+ New Referral</button>
     </div>
 </div>
 

@@ -4,18 +4,52 @@
 {% block title %}SEND & Provision{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=36">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=37">
 {% endblock %}
 
-{% block hub_sidebar %}{% include 'hubs/_hub_sidebar.html' %}{% endblock %}
+{% block hub_sidebar %}{% include 'hubs/_hub_sidebar.html' with hide_mobile_fab=True %}{% endblock %}
 
 {% block breadcrumbs_wrapper %}
+{% comment %}
+Prototype (issue #114 follow-up): this dashboard's own stats are a nice
+extra, but the hub's actual job is getting to Provision & Strategies /
+Inclusion Panel / SEND Diagnosis Tracker - the sidebar auto-collapses
+behind a toggle below 900px (responsive.css), which buried that primary
+task behind a click. This surfaces the same local_menu destinations as a
+visible row so the main action doesn't depend on opening the sidebar.
+Placed before Filters, not inside block content - it's the primary action
+on this page, so it reads before the dashboard's own filtering/stats, not
+after.
+{% endcomment %}
+<nav class="hub-quick-nav" aria-label="{{ hub_title }} sections">
+    {% for item in local_menu %}
+    <a href="{{ item.url }}" class="hub-quick-nav-card">
+        <span class="hub-quick-nav-icon">{% include item.icon %}</span>
+        <span class="hub-quick-nav-text">
+            <span class="hub-quick-nav-label">{{ item.name }}</span>
+            {% if item.description %}
+            <span class="hub-quick-nav-description">{{ item.description }}</span>
+            {% endif %}
+        </span>
+    </a>
+    {% endfor %}
+</nav>
+<hr class="hub-quick-nav-divider">
+<h2 class="hub-quick-nav-dashboard-title">SEND Hub Dashboard</h2>
 {% block page_filters %}
 <div class="sticky-zone-sentinel"></div>
+{% comment %}
+Filter bar: flat field list, one row - setupFilterBarMoreFilters() (main.js)
+measures which fields fit and dynamically moves whatever overflows behind a
+"More filters" disclosure, same visual/interaction language as Inclusion
+Panel Students/Referrals' curated version (components/forms.css) but
+without a hardcoded primary/secondary split, since this dashboard's 9
+fields don't have that kind of settled "always vs. rarely used" call yet.
+{% endcomment %}
 <form method="get" class="filter-bar" data-ajax-target="#dashboard-filtered-content">
     <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if selected_year_group %} filter-field--active{% endif %}">
-        <label for="year-filter">Year Group</label>
+        <label for="year-filter">Year</label>
         <select name="year_group" id="year-filter">
             <option value="">All Years</option>
             {% for yg in year_group_choices %}
@@ -23,8 +57,19 @@
             {% endfor %}
         </select>
     </div>
+    {% if has_houses %}
+    <div class="filter-field{% if selected_house %} filter-field--active{% endif %}">
+        <label for="house-filter">House</label>
+        <select name="house" id="house-filter">
+            <option value="">All</option>
+            {% for h in house_choices %}
+            <option value="{{ h }}" {% if selected_house == h %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
     <div class="filter-field{% if selected_reg_group %} filter-field--active{% endif %}">
-        <label for="reg-group-filter">Reg Group</label>
+        <label for="reg-group-filter">Reg</label>
         <select name="reg_group" id="reg-group-filter">
             <option value="">All</option>
             {% for rg in reg_group_choices %}
@@ -32,17 +77,9 @@
             {% endfor %}
         </select>
     </div>
-    <div class="filter-field{% if selected_gender %} filter-field--active{% endif %}">
-        <label for="gender-filter">Gender</label>
-        <select name="gender" id="gender-filter" class="ui-select--center">
-            <option value="">All</option>
-            <option value="M" {% if selected_gender == 'M' %}selected{% endif %}>Male</option>
-            <option value="F" {% if selected_gender == 'F' %}selected{% endif %}>Female</option>
-        </select>
-    </div>
     <div class="filter-field{% if selected_send_code %} filter-field--active{% endif %}">
-        <label for="code-filter">SEN Code</label>
-        <select name="send_code" id="code-filter" class="ui-select--center">
+        <label for="code-filter">SEN</label>
+        <select name="send_code" id="code-filter">
             <option value="">All</option>
             <option value="K" {% if selected_send_code == 'K' %}selected{% endif %}>K</option>
             <option value="E" {% if selected_send_code == 'E' %}selected{% endif %}>E</option>
@@ -50,16 +87,24 @@
         </select>
     </div>
     <div class="filter-field{% if selected_pp %} filter-field--active{% endif %}">
-        <label for="pp-filter">Pupil Premium</label>
-        <select name="pp" id="pp-filter" class="ui-select--center">
+        <label for="pp-filter">PP</label>
+        <select name="pp" id="pp-filter">
             <option value="">All</option>
             <option value="1" {% if selected_pp == '1' %}selected{% endif %}>Y</option>
             <option value="0" {% if selected_pp == '0' %}selected{% endif %}>N</option>
         </select>
     </div>
+    <div class="filter-field{% if selected_gender %} filter-field--active{% endif %}">
+        <label for="gender-filter">Gender</label>
+        <select name="gender" id="gender-filter">
+            <option value="">All</option>
+            <option value="M" {% if selected_gender == 'M' %}selected{% endif %}>Male</option>
+            <option value="F" {% if selected_gender == 'F' %}selected{% endif %}>Female</option>
+        </select>
+    </div>
     <div class="filter-field{% if selected_more_able %} filter-field--active{% endif %}">
         <label for="more-able-filter">More Able</label>
-        <select name="more_able" id="more-able-filter" class="ui-select--center">
+        <select name="more_able" id="more-able-filter">
             <option value="">All</option>
             <option value="1" {% if selected_more_able == '1' %}selected{% endif %}>Y</option>
             <option value="0" {% if selected_more_able == '0' %}selected{% endif %}>N</option>
@@ -83,9 +128,7 @@
             {% endfor %}
         </select>
     </div>
-    <div class="filter-field">
-        <a href="{% url 'inclusion_hub' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
-    </div>
+    <a href="{% url 'inclusion_hub' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
 </form>
 {% endblock %}
 {% endblock %}
@@ -138,6 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
     yearFilter.addEventListener('change', refreshRegOptions);
     filterBar.addEventListener('change', refreshFilterBarState);
+    // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
 });
 </script>
 

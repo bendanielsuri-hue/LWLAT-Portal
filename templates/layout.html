@@ -16,6 +16,18 @@
                 root.setAttribute('data-theme', localStorage.getItem('pref-theme') || 'pastel');
                 root.setAttribute('data-text-size', localStorage.getItem('pref-text-size') || 'md');
                 root.setAttribute('data-time-format', localStorage.getItem('pref-time-format') || '24');
+                // Every full page load starts the hub sidebar from its plain
+                // server-rendered markup (no .collapsed/.touch-expanded yet -
+                // main.js's setup is deferred, running after parsing) - on
+                // tablet/touch or a locked narrow desktop window, that read as
+                // the sidebar flashing full-width then visibly shrinking closed
+                // a moment later. This class (added here, before first paint,
+                // same FOUC-avoidance trick as the theme attributes above)
+                // suppresses .side-nav's own transitions until main.js removes
+                // it once the correct collapsed/touch state has actually been
+                // applied - see the matching CSS in layout.css and the removal
+                // at the end of the DOMContentLoaded handler in main.js.
+                root.classList.add('js-preload');
             } catch (e) { }
         })();
     </script>
@@ -25,8 +37,8 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=175">
-    <script src="{% static 'js/main.js' %}?v=66" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=222">
+    <script src="{% static 'js/main.js' %}?v=76" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -190,7 +202,21 @@
         inside itself.
         {% endcomment %}
         <div id="dev-bp-overlay" class="dev-bp-overlay" hidden>
-            <iframe id="dev-bp-frame" class="dev-bp-frame" title="Breakpoint preview"></iframe>
+            {% comment %}
+            The frame itself always keeps its true device width/height (so
+            @media inside it evaluates against real dimensions, per the
+            comment above) - this wrapper is sized to width*scale/height*scale
+            instead and clips the frame's CSS transform:scale() down to fit,
+            so a device taller than the available viewport (portrait iPad,
+            1180px) shrinks to fit in full like the wide preset already does,
+            rather than needing a scrollbar - both presets read as
+            proportionate device mockups of the same true aspect ratio,
+            not one truncated mid-scroll while the other fits at 1:1 (see
+            applyBreakpoint() in the script below).
+            {% endcomment %}
+            <div id="dev-bp-frame-wrap" class="dev-bp-frame-wrap">
+                <iframe id="dev-bp-frame" class="dev-bp-frame" title="Breakpoint preview"></iframe>
+            </div>
         </div>
         {% endif %}
         {% comment %}
@@ -222,10 +248,10 @@
                     <button type="button" class="dev-bp-option active icon-tooltip-host" data-bp-w="0" data-bp-h="0" data-tooltip="Desktop">
                         {% include 'icons/bp_desktop_svg.html' %}
                     </button>
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="1024" data-bp-h="768" data-tooltip="Tablet Wide · 1024×768">
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="1180" data-bp-h="820" data-bp-touch="true" data-tooltip="Tablet Wide · 1180×820 (iPad 11th gen/Air)">
                         {% include 'icons/bp_tablet_wide_svg.html' %}
                     </button>
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="768" data-bp-h="1024" data-tooltip="Tablet Portrait · 768×1024">
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="820" data-bp-h="1180" data-bp-touch="true" data-tooltip="Tablet Portrait · 820×1180 (iPad 11th gen/Air)">
                         {% include 'icons/bp_tablet_portrait_svg.html' %}
                     </button>
                     <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="375" data-bp-h="667" data-tooltip="Mobile · 375×667">
@@ -383,37 +409,76 @@
         // previewing, or you get two side-by-side copies of it (#128).
         var globalNav = document.querySelector('.page-shell > .global-nav');
         var overlay = document.getElementById('dev-bp-overlay');
+        var wrap = document.getElementById('dev-bp-frame-wrap');
         var frame = document.getElementById('dev-bp-frame');
         var options = document.querySelectorAll('#dev-bp-group .dev-bp-option');
+        var currentWidth = 0;
+        var currentHeight = 0;
 
-        function applyBreakpoint(width, height) {
+        // Shrinks (never grows - min(1, ...)) the device box to fit
+        // whatever room the overlay actually has, so a preset taller than
+        // the browser window (portrait iPad, 1180px) reads as a smaller but
+        // still fully-visible, correctly-proportioned mockup instead of
+        // needing a scrollbar - matching how a preset that already fits
+        // (landscape) reads at a glance, rather than one looking "cut off
+        // tall" next to the other looking "comfortably wide".
+        function computeScale(width, height) {
+            var cs = getComputedStyle(overlay);
+            var availW = overlay.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+            var availH = overlay.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+            return Math.min(1, availW / width, availH / height);
+        }
+        function rescale() {
+            if (!currentWidth) return;
+            var scale = computeScale(currentWidth, currentHeight);
+            wrap.style.width = (currentWidth * scale) + 'px';
+            wrap.style.height = (currentHeight * scale) + 'px';
+            frame.style.transform = 'scale(' + scale + ')';
+        }
+        window.addEventListener('resize', rescale);
+
+        function applyBreakpoint(width, height, touch) {
             if (!width) {
                 overlay.hidden = true;
                 mainEl.hidden = false;
                 globalNav.hidden = false;
                 frame.src = 'about:blank';
+                currentWidth = 0;
                 return;
             }
+            currentWidth = width;
+            currentHeight = height;
             frame.style.width = width + 'px';
             frame.style.height = height + 'px';
+            // Unhide before rescale() - it measures overlay.clientWidth/
+            // Height to size the fit, both 0 while [hidden] still applies
+            // display:none, which would scale the frame to nothing on a
+            // first open (switching between two already-open presets is
+            // unaffected either way).
+            mainEl.hidden = true;
+            globalNav.hidden = true;
+            overlay.hidden = false;
+            rescale();
             // postMessage (not window.innerWidth inside the iframe - that's
             // shrunk by its own scrollbar and never exactly matches any
             // data-bp-w) tells the iframe's own switcher copy which
             // breakpoint it's actually showing, so its active highlight
-            // stays in sync with the real one (#128). onload fires on every
+            // stays in sync with the real one (#128). devBpTouch rides the
+            // same message - a real mouse over this resized frame can never
+            // make hover:none media queries true on its own, so Tablet
+            // Portrait/Wide need this explicit signal to exercise the
+            // touch-only nav drawer (main.js's window.__setDevBpTouch,
+            // responsive.css's .nav-touch-mode). onload fires on every
             // navigation, including when frame.src is already correct and
             // doesn't need reassigning below.
             frame.onload = function () {
-                frame.contentWindow.postMessage({ devBpWidth: width }, location.origin);
+                frame.contentWindow.postMessage({ devBpWidth: width, devBpTouch: !!touch }, location.origin);
             };
             if (frame.src !== location.href) {
                 frame.src = location.href;
             } else {
-                frame.contentWindow.postMessage({ devBpWidth: width }, location.origin);
+                frame.contentWindow.postMessage({ devBpWidth: width, devBpTouch: !!touch }, location.origin);
             }
-            mainEl.hidden = true;
-            globalNav.hidden = true;
-            overlay.hidden = false;
         }
 
         options.forEach(function (btn) {
@@ -430,14 +495,16 @@
                 }
                 options.forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
-                applyBreakpoint(parseInt(btn.dataset.bpW, 10), btn.dataset.bpH);
+                applyBreakpoint(parseInt(btn.dataset.bpW, 10), btn.dataset.bpH, btn.dataset.bpTouch === 'true');
             });
         });
 
         // Inside the iframe, sync this copy's own active button to
         // whichever breakpoint the parent actually loaded it at (see the
         // postMessage in applyBreakpoint above), so it doesn't show
-        // "Desktop" highlighted while sitting inside a Mobile-sized frame.
+        // "Desktop" highlighted while sitting inside a Mobile-sized frame -
+        // and force the touch-nav override so this copy's own sidebar
+        // renders the same way a real touch device previewing itself would.
         if (insideFrame) {
             window.addEventListener('message', function (event) {
                 if (event.origin !== location.origin || !event.data) return;
@@ -446,6 +513,7 @@
                 options.forEach(function (btn) {
                     btn.classList.toggle('active', parseInt(btn.dataset.bpW, 10) === width);
                 });
+                if (window.__setDevBpTouch) window.__setDevBpTouch(!!event.data.devBpTouch);
             });
         }
 
@@ -484,6 +552,11 @@
         }
 
         window.addEventListener('error', function (event) {
+            // Chrome/Safari fire this whenever a ResizeObserver callback's own
+            // layout changes trigger another resize within the same frame -
+            // harmless and unactionable (not a real app bug), just noisy
+            // since it fires from browser internals rather than app code.
+            if (event.message && event.message.indexOf('ResizeObserver loop') !== -1) return;
             recordError(event.message + ' (' + event.filename + ':' + event.lineno + ')');
         });
         window.addEventListener('unhandledrejection', function (event) {

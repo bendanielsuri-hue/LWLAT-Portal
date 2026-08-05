@@ -82,12 +82,33 @@ html, body {
     border-right: 1px solid var(--border-color);
 }
 .side-nav { transition: width var(--transition-slide), transform var(--transition-slide), box-shadow var(--transition-slide), background-color var(--transition-base), border-color var(--transition-base); }
+/* Suppresses every transition under the sidebar (width, opacity on labels/
+   nav-title, ...) until main.js has applied the correct collapsed/touch
+   state and removed this class (layout.html sets it before first paint,
+   same FOUC-avoidance trick as the theme attributes there) - without it,
+   every full page load visibly animated from the plain server-rendered
+   markup into whatever state JS decided on a moment later. */
+.js-preload .side-nav, .js-preload .side-nav * {
+    transition: none !important;
+}
+/* No explicit width - stretches to fill .side-nav same as if this wrapper
+   didn't exist (desktop, and touch mode's own default). Touch mode pins it
+   to a fixed width instead (responsive.css) so .side-nav's own width
+   animation is a pure reveal, not a reflow - see the wrapper's comment in
+   _hub_sidebar.html. */
+.side-nav-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex: 1;
+    min-width: 0;
+}
 
 /* Icon-only rail: the hub sidebar (and the home page's single inline pane) can
    collapse down to just its icons, either automatically below the narrow-window
    breakpoint or via the manual toggle button — see main.js setupSidebarCollapse. */
 .side-nav.collapsed {
-    width: 64px;
+    width: 72px;
 }
 .side-nav.collapsed .nav-title,
 .side-nav.collapsed .nav-search,
@@ -97,7 +118,7 @@ html, body {
 /* Lets the new hover tooltips (.icon-tooltip-host::after) escape past the
    sidebar's own right edge instead of being clipped by the shared .side-nav
    overflow:hidden rule above (and .nav-scroll's own overflow-y:auto) — only
-   safe once the sidebar is at rest in its fixed 64px collapsed width;
+   safe once the sidebar is at rest in its fixed 72px collapsed width;
    .hub-side specifically (not every .side-nav.collapsed variant) so the
    width-animated expand/collapse transition elsewhere isn't affected. */
 .side-nav.hub-side.collapsed {
@@ -135,16 +156,16 @@ html, body {
 .side-nav.collapsed .staff-nav-option {
     justify-content: flex-start;
 }
-/* Rows centre their icon in the 64px rail by giving it equal breathing room
-   on both sides: 12px container padding + 6px row padding leaves exactly the
-   28px icon box's width. */
+/* Rows centre their icon in the 72px rail by giving it equal breathing room
+   on both sides: 12px container padding + 4px row padding leaves exactly the
+   32px icon box's width. */
 .side-nav.collapsed.hub-side .nav-menu a,
 .side-nav.collapsed .nav-row-btn,
 .side-nav.collapsed .exit-hub,
 .side-nav.collapsed .school-nav-option,
 .side-nav.collapsed .staff-nav-option {
-    padding-left: 6px;
-    padding-right: 6px;
+    padding-left: 4px;
+    padding-right: 4px;
 }
 /* "Hubs" only exists as a stand-in for the global rail, which hides itself
    whenever this sidebar is collapsed — so it's only ever shown in that state.
@@ -217,6 +238,22 @@ html, body {
     flex-shrink: 0;
     transition: transform var(--transition-fast);
 }
+/* Touch/tablet gets the burger icon instead of desktop's collapse/expand
+   chevron (main.js sets .nav-touch-mode) - see the comment on the two icon
+   spans in _hub_sidebar.html. Both hide rules are qualified with
+   .side-nav .collapse-toggle (three classes) to outrank the generic
+   ".side-nav .menu-icon { display: flex }" rule below - a plain
+   ".collapse-toggle-icon-touch { display: none }" loses that specificity
+   fight and the burger rendered in desktop mode too, alongside the chevron. */
+.side-nav .collapse-toggle .collapse-toggle-icon-touch {
+    display: none;
+}
+html.nav-touch-mode .side-nav .collapse-toggle .collapse-toggle-icon-desktop {
+    display: none;
+}
+html.nav-touch-mode .side-nav .collapse-toggle .collapse-toggle-icon-touch {
+    display: flex;
+}
 .collapse-toggle-label {
     overflow: hidden;
     white-space: nowrap;
@@ -276,6 +313,30 @@ html, body {
 .side-nav:not(.collapsed) .exit-hub + .nav-title {
     margin-top: -6px;
 }
+/* Touch/tablet's temporary single-rail expand (.touch-expanded, main.js
+   openTouchExpand) shows every other row as icon+label (Hubs stand-in,
+   local_menu, Settings) - Back to hub losing its icon to read as a
+   centered title-only row (desktop's permanently-expanded sidebar
+   treatment above) made it the odd one out here. Restore the normal
+   icon+label row so it matches its neighbours in this state. */
+.side-nav.touch-expanded .exit-hub {
+    display: flex;
+    align-items: center;
+    text-align: left;
+    padding: 11px 14px;
+}
+.side-nav.touch-expanded .exit-hub .menu-icon {
+    display: flex;
+}
+.side-nav.touch-expanded .exit-hub .menu-label {
+    opacity: 1;
+    font-size: inherit;
+    font-weight: 400;
+    color: inherit;
+}
+.side-nav.touch-expanded .exit-hub + .nav-title {
+    margin-top: 0;
+}
 
 /* The home page's inline "Change School"/"Settings" panes get a stronger border
    colour since they lack the box-shadow that makes overlay drawer borders clear */
@@ -323,11 +384,13 @@ html, body {
     border-right: none;
     background-color: var(--bg-nav);
     opacity: 0;
+    transform: translateX(-100%);
     pointer-events: none;
-    transition: opacity var(--transition-base), box-shadow var(--transition-slide), border-color var(--transition-base);
+    transition: opacity var(--transition-base), transform var(--transition-slide), box-shadow var(--transition-slide), border-color var(--transition-base);
 }
 .side-nav.overlay-nav.open {
     opacity: 1;
+    transform: translateX(0);
     pointer-events: auto;
     border-right: 1px solid var(--border-color);
 }
@@ -377,7 +440,7 @@ main { position: relative; }
     align-items: center;
     justify-content: flex-start;
     flex-shrink: 0;
-    padding: 11px 14px;
+    padding: 11px 11px;
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     background: transparent;
@@ -388,9 +451,12 @@ main { position: relative; }
 .hub-rail .hub-rail-item:not(.nav-row-btn) {
     width: 100%;
 }
+/* Same excess-padding-vs-icon-size gap the touch rail had (layout.css's
+   nav-touch-mode collapsed-rail rules above) - desktop's rail left room
+   spare too. Grown to fill it rather than staying at the old 22px. */
 .hub-rail-item svg {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     flex-shrink: 0;
     transition: transform var(--transition-fast);
 }
@@ -454,7 +520,7 @@ main { position: relative; }
 /* Re-assert rail padding so the generic .side-nav .nav-row-btn rule (higher
    specificity) doesn't overwrite it. */
 .hub-rail .hub-rail-item.nav-row-btn {
-    padding: 11px 14px;
+    padding: 11px 11px;
 }
 
 /* The dimming backdrop covers <main> only — signals that main content isn't
@@ -698,17 +764,30 @@ main { position: relative; }
        flush against the header/footer edges (#128). */
     padding: var(--space-2xl) var(--space-lg);
 }
-.dev-bp-frame {
-    max-width: 100%;
-    max-height: 100%;
-    border: none;
-    border-radius: var(--radius-lg);
-    background: var(--bg-page);
-    box-shadow: var(--shadow-md);
-    /* width/height set inline per breakpoint by the script in layout.html
-       (real device dimensions, not just width) - flex-shrink:0 stops the
-       centring flex row from squashing it below that. */
+/* Sized to the device's true width*scale/height*scale (script below) -
+   scale is 1 (no shrink) whenever the preset already fits the available
+   viewport, so this only ever shrinks a preset that wouldn't otherwise fit,
+   never distorts one that does. Carries the chrome (radius/shadow) instead
+   of .dev-bp-frame itself, since transform:scale()-ing a border-radius/
+   box-shadow along with the frame's content looks subtly off at the seam
+   compared to clipping a crisp, unscaled frame inside a correctly-sized,
+   already-chromed box. */
+.dev-bp-frame-wrap {
     flex-shrink: 0;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+.dev-bp-frame {
+    border: none;
+    background: var(--bg-page);
+    /* width/height set inline per breakpoint by the script in layout.html
+       to the device's true (unscaled) size, so @media inside it evaluates
+       against real dimensions regardless of how small the wrap/transform
+       above end up shrinking it visually - transform-origin: top left keeps
+       the scaled-down box's top-left corner aligned with the wrap's own,
+       matching how its width/height were used to size the wrap. */
+    transform-origin: top left;
 }
 
 .side-nav .nav-title {
@@ -919,12 +998,16 @@ main {
 .main-inner {
     min-width: 0;
     max-width: 1600px;
-    height: 100%;
+    /* min-height, not height - height:100% pinned this box to main's
+       viewport-derived height even when children overflow it, which
+       shrank position:sticky's containing block to that same height and
+       made stuck children (e.g. the SEND & Provision filter bar) pop loose
+       partway down a page taller than one screen (#114 grilling). */
+    min-height: 100%;
     margin: 0 auto;
     padding: var(--space-2xl);
     display: flex;
     flex-direction: column;
-    min-height: 0;
 }
 
 /* Sticky page header (breadcrumbs/actions) and home screen title+search row. */
@@ -1011,19 +1094,23 @@ a { color: inherit; }
 .errorlist { color: var(--color-negative); margin-left: 0.5rem; }
 .logout-button { background: transparent; border: none; cursor: pointer; }
 
+/* Grown to match the global rail's own icon bump above (same "padding had
+   more room than the icon was using" call) - covers every .side-nav menu,
+   hub sidebars and Inclusion Panel's PANEL_MENU alike, since both render
+   through this one shared _hub_sidebar.html/menu-icon markup. */
 .side-nav .menu-icon {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 22px;
+    width: 32px;
+    height: 28px;
     margin-right: var(--space-xs);
     transition: transform var(--transition-fast);
 }
-.side-nav .menu-icon svg { width: 20px; height: 20px; display: block; }
-.side-nav .menu-icon img { width: 20px; height: 20px; display: block; }
-.side-nav .menu-label { flex: 1; min-width: 0; display: block; white-space: normal; line-height: 22px; transition: transform var(--transition-fast); }
+.side-nav .menu-icon svg { width: 24px; height: 24px; display: block; }
+.side-nav .menu-icon img { width: 24px; height: 24px; display: block; }
+.side-nav .menu-label { flex: 1; min-width: 0; display: block; white-space: normal; line-height: 22px; transition: transform var(--transition-fast), opacity var(--transition-base); }
 .nav-header { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; }
 .side-nav.hidden { display: none; }
 /* Overlay header: a full-width "Close" row sits above the title */
@@ -1172,6 +1259,11 @@ a { color: inherit; }
 .nav-scroll-divider {
     margin: 0;
 }
+/* Only shown by tablet/touch (responsive.css) - desktop's manually-collapsed
+   rail shares the same Hub Menu button but doesn't get a divider above it. */
+.hub-menu-divider {
+    display: none;
+}
 
 /* "Current user" feature row: avatar + name + job title, opens staff overlay */
 .side-nav .menu-label-stack {
@@ -1211,6 +1303,13 @@ a { color: inherit; }
     font-size: var(--font-sm);
     font-weight: 600;
     color: var(--text-secondary);
+}
+/* Touch/tablet only - see responsive.css's .nav-touch-mode block, which
+   un-hides this alongside hiding the sidebar's own standalone Switch
+   School row (desktop keeps that one instead, so this would otherwise be
+   a duplicate there). */
+.settings-switch-school-group {
+    display: none;
 }
 
 /* Primary colour swatches */

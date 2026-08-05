@@ -1,32 +1,56 @@
 {% load static %}
 {% load hub_extras %}
-<nav class="side-nav hub-side expanded" data-hub="{{ hub_title|lower }}">
+{% comment %}
+Tablet/touch rail (#114 follow-up, widened #129): touch has no :hover, so
+the icon-only rail's tooltips can't identify a row - rather than a
+separate off-canvas drawer (the original #114 approach) or the old
+permanently-narrow inline expand, this corner toggle (shared with
+desktop's collapse/expand button) temporarily widens the same rail in
+place to show full labels as an overlay, then collapses back down on next
+tap or a tap outside (main.js setupSidebarCollapse). Desktop's narrowed-
+window rail (hover: hover, untouched) still locks permanently with this
+toggle hidden - nowhere wider to expand to there.
+{% endcomment %}
+<nav class="side-nav hub-side expanded" id="hub-sidebar-nav" data-hub="{{ hub_title|lower }}">
+    {% comment %}
+    Tablet/touch's expand-in-place (responsive.css) widens .side-nav itself
+    (72px<->280px, overflow:hidden) rather than reflowing its content -
+    everything in here is pinned to a fixed 280px width for the whole touch
+    range regardless of rest/expanded state, so growing .side-nav is purely
+    a reveal (more of an already-fully-laid-out row becoming visible through
+    the clip) rather than the row's own content re-wrapping/re-padding mid-
+    transition, which is what used to read as text overflowing while it grew.
+    Desktop is unaffected - .side-nav-inner has no explicit width there, so
+    it just stretches to fill .side-nav as if this wrapper didn't exist.
+    {% endcomment %}
+    <div class="side-nav-inner">
     <div class="nav-header">
         <div class="nav-header-top-row">
             <button type="button" class="collapse-toggle" id="sidebar-collapse-toggle" aria-label="Collapse sidebar">
-                <span class="menu-icon icon-tooltip-host" data-tooltip="Collapse sidebar">{% include 'icons/panel_collapse_svg.html' %}</span>
+                {% comment %}
+                Two icons, CSS-swapped on the .nav-touch-mode class (main.js) -
+                touch/tablet reads better as a familiar burger (menu_svg) than
+                desktop's directional collapse/expand chevron, even though both
+                icons drive the same toggle (main.js updateToggleLabel keeps
+                aria-label/tooltip text in sync regardless of which is shown).
+                {% endcomment %}
+                <span class="menu-icon icon-tooltip-host collapse-toggle-icon-desktop" data-tooltip="Collapse sidebar">{% include 'icons/panel_collapse_svg.html' %}</span>
+                <span class="menu-icon icon-tooltip-host collapse-toggle-icon-touch" data-tooltip="Open menu">{% include 'icons/menu_svg.html' %}</span>
                 <span class="collapse-toggle-label" id="sidebar-collapse-toggle-label">Collapse</span>
             </button>
         </div>
         {% comment %}
         The global rail hides itself whenever this sidebar is collapsed (two
-        icon-only columns read as redundant) — these are the collapsed-only
-        replacement way to reach the rail's Hubs/Search overlays, shown purely
-        via CSS (.hubs-trigger, style.css) so they never appear while the
-        sidebar (and therefore the rail) is expanded. Each is its own
-        full-width row, right below the collapse toggle's row, rather than
-        squeezed onto the same line. Settings gets the same treatment but
-        lives in .nav-footer below (see .settings-trigger there) to match
-        where it sits in the rail itself (bottom-pinned via margin-top:auto).
+        icon-only columns read as redundant) - Hub Menu (below, in
+        .nav-footer next to Settings) is the collapsed-only replacement way
+        to reach the rail's Hubs overlay, shown purely via CSS
+        (.hubs-trigger, style.css) so it never appears while the sidebar
+        (and therefore the rail) is expanded. Global Search deliberately has
+        no such stand-in (unlike Hubs/Settings): this one-rail state is
+        exactly where a lone search-looking button reads as this page's own
+        in-app search rather than the portal-wide app-switcher search, so it
+        stays reachable only from the expanded global rail.
         {% endcomment %}
-        <button type="button" class="hubs-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#hubs-nav-overlay" aria-label="Switch hub" data-tooltip="Hubs">
-            <span class="menu-icon">{% include 'icons/switch_apps_svg.html' %}</span>
-            <span class="menu-label">Hubs</span>
-        </button>
-        <button type="button" class="hubs-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#search-nav-overlay" aria-label="Search" data-tooltip="Search">
-            <span class="menu-icon">{% include 'icons/search_svg.html' %}</span>
-            <span class="menu-label">Search</span>
-        </button>
         {% if back_to_hub_url %}
         <a href="{{ back_to_hub_url }}" class="exit-hub nav-row-btn icon-tooltip-host" data-tooltip="{{ back_to_hub_label }}">
             <span class="menu-icon">{% include 'icons/arrow_left_svg.html' %}</span>
@@ -44,6 +68,17 @@
         </ul>
     </div>
     <div class="nav-footer">
+        {% comment %}
+        Tablet/touch only (responsive.css, hidden by default in layout.css) -
+        desktop's manually-collapsed rail shares this same Hub Menu button
+        but doesn't get a divider above it; School/Staff below already have
+        their own .nav-footer-divider there.
+        {% endcomment %}
+        <div class="nav-header-divider hub-menu-divider"></div>
+        <button type="button" class="hubs-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#hubs-nav-overlay" aria-label="Hub Menu" data-tooltip="Hub Menu">
+            <span class="menu-icon">{% include 'icons/switch_apps_svg.html' %}</span>
+            <span class="menu-label">Hub Menu</span>
+        </button>
         <button type="button" class="settings-trigger hubs-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#settings-nav-overlay" aria-label="Settings" data-tooltip="Settings">
             <span class="menu-icon">{% include 'icons/cog_svg.html' %}</span>
             <span class="menu-label">Settings</span>
@@ -64,6 +99,7 @@
         </button>
         {% endif %}
     </div>
+    </div>
 </nav>
 
 {% comment %}
@@ -82,7 +118,17 @@ modals here.
     <button type="button" class="mobile-tab" data-mobile-menu-trigger aria-label="Menu">
         <span class="mobile-tab-icon">{% include 'icons/menu_svg.html' %}</span>
     </button>
-    <a href="{{ local_menu.0.url }}" class="mobile-tab" aria-label="Home">
+    {% comment %}
+    The portal-wide 'homepage', not this hub's own landing page - Menu (left
+    of this) already covers "navigate within this hub" (its local_menu) and
+    "leave this hub" (Hub Menu/Switch Hub, inside that same sheet), so Home
+    reads as the one-tap way out to the app's actual front door, matching
+    what a house icon means everywhere outside this bar. Previously pointed
+    at hub_nav_items' active entry (this hub's own dashboard) - changed on
+    direct feedback that landing back inside the same hub didn't feel like
+    "Home".
+    {% endcomment %}
+    <a href="{% url 'homepage' %}" class="mobile-tab" aria-label="Home">
         <span class="mobile-tab-icon">{% include 'icons/house_svg.html' %}</span>
     </a>
     {% comment %}
@@ -90,10 +136,18 @@ modals here.
     list page, so it gets the visually dominant slot instead of sitting flush
     in the row like the other 4 (which are 2-and-2 either side of it, see
     #129 grilling). Still proxy-clicks the real header's Referral button.
+    Omitted via hide_mobile_fab on pages that front more than one app (e.g.
+    the SEND & Provision hub landing page, #114 follow-up) - "New Referral"
+    is only one of several things "+" could mean there, so a single FAB
+    reads as a wrong guess rather than a shortcut. The remaining 4 buttons
+    are flex: 1 1 0 (below), so they just re-space evenly with no gap left
+    behind.
     {% endcomment %}
+    {% if not hide_mobile_fab %}
     <button type="button" class="mobile-tab-fab" aria-label="New Referral" data-mobile-proxy-click="[data-new-referral-trigger]">
         {% include 'icons/new_svg.html' %}
     </button>
+    {% endif %}
     {% comment %}
     In-app content search (data-panel-search-trigger, e.g. students/
     referrals/actions) takes priority over the global hub-switcher search
@@ -127,46 +181,17 @@ modals here.
 
 <dialog class="mobile-more-sheet" data-mobile-menu-sheet>
     {% comment %}
-    Close sits in its own row, first in DOM order, above everything else
-    (#129 grilling) - normal flow rather than absolute-positioned over the
-    header content below it, which visibly collided with Switch Hub. Not
-    meant to be the primary way to dismiss the sheet on a phone though -
-    tapping anywhere in the dimmed backdrop (the far larger, thumb-natural
-    target, wireBackdropClose() below) closes it too; × is the familiar
-    fallback for people who don't know that gesture, not the one the top-
-    right corner reach was optimised for.
+    × shares the title's own row now (same shape as dialog.modal-dialog's
+    .modal-header) - still normal flow, not absolute-positioned over
+    anything below it. Not meant to be the primary way to dismiss the sheet
+    on a phone though - tapping anywhere in the dimmed backdrop (the far
+    larger, thumb-natural target, wireBackdropClose() below) closes it too;
+    × is the familiar fallback for people who don't know that gesture, not
+    the one the top-right corner reach was optimised for.
     {% endcomment %}
-    <div class="mobile-more-sheet-close-row">
-        <button type="button" class="mobile-more-sheet-x" data-mobile-menu-close aria-label="Close">&times;</button>
-    </div>
     <div class="mobile-more-sheet-header">
-        {% comment %}
-        Back to {{ back_to_hub_label }} / Switch Hub sit above the hub's own
-        name now, not below it in the body (#129 grilling: "above the App
-        Name... Back to Hub primary, Switch Hub secondary") - reads as
-        "where you could go" outranking "where you are" (the h2 below).
-        Back to {{ back_to_hub_label }} is Panel's existing back_to_hub_url/
-        label (desktop sidebar nav-header, hubs/inclusion/panel/CLAUDE.md) -
-        it never had a mobile home once the real sidebar got hidden at
-        phone width, even though Switch Hub's own Hubs overlay could always
-        reach the same place, just not in one tap. Primary/secondary here
-        follows the same weighting as any other btn-primary/btn-secondary
-        pair in the app - Back to Hub is the more likely of the two taps.
-        {% endcomment %}
-        <div class="mobile-more-sheet-context-row">
-            {% if back_to_hub_url %}
-            <a href="{{ back_to_hub_url }}" class="mobile-more-sheet-btn mobile-more-sheet-btn-primary">
-                <span class="mobile-tab-icon">{% include 'icons/arrow_left_svg.html' %}</span>
-                {{ back_to_hub_label }}
-            </a>
-            {% endif %}
-            <button type="button" class="mobile-more-sheet-btn mobile-more-sheet-btn-secondary" data-overlay-target="#hubs-nav-overlay">
-                <span class="mobile-tab-icon">{% include 'icons/switch_apps_svg.html' %}</span>
-                Switch Hub
-            </button>
-        </div>
-        <div class="mobile-more-sheet-divider"></div>
         <h2>{{ hub_title }}</h2>
+        <button type="button" class="mobile-more-sheet-x" data-mobile-menu-close aria-label="Close">&times;</button>
     </div>
     <div class="mobile-more-sheet-body">
         <ul class="mobile-more-sheet-list">
@@ -174,6 +199,37 @@ modals here.
             <li><a href="{{ item.url }}"><span class="mobile-tab-icon">{% include item.icon %}</span>{{ item.name }}</a></li>
             {% endfor %}
         </ul>
+    </div>
+    {% comment %}
+    Back to {{ back_to_hub_label }} / Hub Menu moved to the bottom, below the
+    hub's own local_menu list, with a divider above them separating "this
+    hub's pages" (the list, primary content of the sheet) from "leave this
+    hub" (these two) - matches the tablet sidebar's own Hub Menu/Settings
+    placement (nav-footer, _hub_sidebar.html) now, both reading as an exit
+    row rather than the first thing you see opening the sheet. Back to
+    {{ back_to_hub_label }} is Panel's existing back_to_hub_url/label
+    (desktop sidebar nav-header, hubs/inclusion/panel/CLAUDE.md) - it never
+    had a mobile home once the real sidebar got hidden at phone width, even
+    though Hub Menu's own Hubs overlay could always reach the same place,
+    just not in one tap. Primary/secondary here follows the same weighting
+    as any other btn-primary/btn-secondary pair in the app - Back to Hub is
+    the more likely of the two taps whenever it's on screen. On a plain hub
+    page (no back_to_hub_url - nothing nested to return from) Hub Menu is
+    the only action in this row, so it takes the primary style instead of
+    reading as secondary with no primary to defer to.
+    {% endcomment %}
+    <div class="mobile-more-sheet-divider"></div>
+    <div class="mobile-more-sheet-context-row">
+        {% if back_to_hub_url %}
+        <a href="{{ back_to_hub_url }}" class="mobile-more-sheet-btn mobile-more-sheet-btn-primary">
+            <span class="mobile-tab-icon">{% include 'icons/arrow_left_svg.html' %}</span>
+            {{ back_to_hub_label }}
+        </a>
+        {% endif %}
+        <button type="button" class="mobile-more-sheet-btn mobile-more-sheet-btn-{% if back_to_hub_url %}secondary{% else %}primary{% endif %}" data-overlay-target="#hubs-nav-overlay">
+            <span class="mobile-tab-icon">{% include 'icons/switch_apps_svg.html' %}</span>
+            Hub Menu
+        </button>
     </div>
 </dialog>
 
@@ -186,11 +242,9 @@ text size) — behind one row, opened from the bar's own Settings button
 auth yet) and deliberately left off mobile entirely, see #129 grilling.
 {% endcomment %}
 <dialog class="mobile-more-sheet" data-mobile-settings-sheet>
-    <div class="mobile-more-sheet-close-row">
-        <button type="button" class="mobile-more-sheet-x" data-mobile-settings-close aria-label="Close">&times;</button>
-    </div>
     <div class="mobile-more-sheet-header">
         <h2>Settings</h2>
+        <button type="button" class="mobile-more-sheet-x" data-mobile-settings-close aria-label="Close">&times;</button>
     </div>
     <div class="mobile-more-sheet-body">
         <ul class="mobile-more-sheet-list">
@@ -326,6 +380,12 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
         box-shadow: var(--shadow-modal);
         display: flex;
         flex-direction: column;
+        /* <dialog>'s own default overflow is auto, not hidden - with enough
+           content to bump against max-height (easy to hit once School/Staff
+           lists or a long local_menu are in play), that gave the dialog
+           itself a second, outer scrollbar alongside .mobile-more-sheet-
+           body's own inner one. Only the body should ever scroll. */
+        overflow: hidden;
         /* Same slide-up-from-bottom treatment as dialog.modal-dialog and
            .side-nav.overlay-nav below - Menu/Settings previously just
            snapped open/closed with no transition at all, the one visible
@@ -339,17 +399,34 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
     }
     .mobile-more-sheet.is-open { transform: translateY(0); }
     .mobile-more-sheet::backdrop { background: rgba(15, 23, 36, 0.4); }
+    {% comment %}
+    Title and × now share one row, matching dialog.modal-dialog's own
+    .modal-header (panel.css) exactly - same flex/space-between shape, same
+    padding scale, same h2 size. Previously the × sat in its own row above
+    the title (.mobile-more-sheet-close-row, now removed), costing a full
+    extra row of vertical height purely to keep it out of normal flow -
+    that was solving a different problem (avoiding *absolute* positioning
+    colliding with content below, the overlay-nav Switch-Hub/School bug -
+    see .side-nav.overlay-nav .nav-header above), not something this
+    still-in-normal-flow space-between row reintroduces.
+    {% endcomment %}
     .mobile-more-sheet-header {
         flex-shrink: 0;
         display: flex;
-        flex-direction: column;
-        gap: var(--space-md);
-        padding: var(--space-lg) var(--space-lg) var(--space-md);
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-lg) var(--space-xl) var(--space-md);
     }
-    .mobile-more-sheet-context-row { display: flex; gap: var(--space-sm); }
-    .mobile-more-sheet-divider { border-top: 1px solid var(--border-color); }
+    {% comment %}
+    Moved below .mobile-more-sheet-body (bottom of the sheet, exit-row
+    treatment - see the comment by .mobile-more-sheet-context-row's markup
+    further down) - flex-shrink:0 since it's now a direct child of the
+    sheet's own flex column alongside the body's flex:1 1 auto, and its own
+    padding since it no longer inherits .mobile-more-sheet-header's.
+    {% endcomment %}
+    .mobile-more-sheet-divider { flex-shrink: 0; border-top: 1px solid var(--border-color); margin: 0 var(--space-lg); }
+    .mobile-more-sheet-context-row { flex-shrink: 0; display: flex; gap: var(--space-sm); padding: var(--space-md) var(--space-lg) var(--space-lg); }
     .mobile-more-sheet-header h2 { font-size: var(--font-2xl); margin: 0; }
-    .mobile-more-sheet-close-row { flex-shrink: 0; display: flex; justify-content: flex-end; padding: var(--space-sm) var(--space-sm) 0; }
     .mobile-more-sheet-x {
         border: none;
         background: none;
@@ -357,7 +434,17 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
         line-height: 1;
         cursor: pointer;
         color: var(--text-faint);
+        /* Same negative-margin hit-target trick as .modal-close (panel.css) -
+           keeps the × visually anchored at the row's far edge while growing
+           its actual clickable box past just the glyph. */
+        padding: var(--space-sm);
+        margin: calc(-1 * var(--space-sm));
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
+    .mobile-more-sheet-x:hover { color: var(--text-primary); }
     .mobile-more-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--space-lg) var(--space-lg); }
     .mobile-more-sheet-list { list-style: none; margin: 0 0 var(--space-md); padding: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
     .mobile-more-sheet-list a { display: flex; align-items: center; gap: var(--space-sm); color: var(--text-primary); text-decoration: none; padding: var(--space-xs) 0; }
@@ -491,7 +578,17 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
         shared nav-header/nav-footer markup those panels render from
         (layout.html, _settings_panel.html).
         {% endcomment %}
-        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-header { padding-right: var(--space-2xl); }
+        {% comment %}
+        padding-right alone (above) isn't enough - .nav-footer below is
+        positioned absolute relative to the whole overlay panel, not this
+        header, so its 56px-tall corner box (32px close button + space-sm
+        padding on all sides) floats independently of whatever padding-top
+        the header happens to have. Desktop's own 32px (--space-2xl,
+        layout.css) left the header's large --font-4xl title starting a full
+        24px before that corner box even ended, its centred text visibly
+        running under the ×. padding-top: 56px clears it exactly.
+        {% endcomment %}
+        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-header { padding-right: var(--space-2xl); padding-top: calc(var(--space-2xl) + var(--space-xl) + var(--space-xs)); }
         body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-footer {
             position: absolute;
             top: 0;
@@ -534,20 +631,111 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
         body:has(.mobile-tabbar) .global-backdrop.active {
             z-index: 9997;
         }
+        {% comment %}
+        The comment above only accounts for the tab bar - it missed that
+        every .side-nav.overlay-nav popup (School/Appearance/Hubs/Staff/
+        Search, all of them - this shared component, see main.js's
+        openOverlay comment) lives nested inside .global-nav (z-index: 20,
+        layout.css), which itself creates its own stacking context. z-index
+        only ever gets compared within the same stacking context - a
+        popup's own z-index: 9998 (above) only wins against its *siblings*
+        inside .global-nav; against something OUTSIDE .global-nav, like the
+        backdrop, what actually gets compared is .global-nav's z-index (20)
+        itself vs. the backdrop's (9997). 20 loses, so raising the backdrop
+        above the tab bar silently dragged every popup on mobile down
+        underneath it too, invisible/unreachable behind the dim the instant
+        any option inside one was tapped (reported as "the overlay is over
+        the top" - #131). Desktop never hit this: .global-backdrop's
+        unraised z-index (11) was already below .global-nav's 20 there.
+        Raising .global-nav itself above the backdrop restores that same
+        "backdrop, then global-nav's whole subtree" ordering on mobile.
+        {% endcomment %}
+        body:has(.mobile-tabbar) .global-nav {
+            z-index: 9999;
+        }
     }
 </style>
 <script>
 (function () {
     var SHEET_CLOSE_DELAY = 380; // matches --transition-slide (360ms) + buffer
 
+    {% comment %}
+    showModal() alone doesn't stop the page behind it from scrolling (no
+    wheel/scroll-gesture lock, unlike focus/click, which the top layer's own
+    inertness already blocks) - a swipe/scroll over the dimmed backdrop
+    scrolled <main> underneath, visible through/around the sheet as it slid
+    back into view on close.
+
+    Two things that look like they'd lock scroll both turned out to cause
+    the exact "lurches to the top and back" bug instead:
+    - body.style.overflow='hidden' resets scrollTop to 0 on a scrolled iOS
+      Safari page the instant it's set, then jumps back on release.
+    - body.style.position='fixed' (the usual iOS-safe fix for the above)
+      pulls body out of <html>'s normal flow entirely - <html>'s own
+      scrollbar can disappear/reappear as a result, reflowing the viewport
+      width and reading as the same lurch, confirmed on desktop Chrome.
+
+    overflow:hidden on <html> (not body, no position tricks) avoids both -
+    it doesn't reset scroll position, and compensating the vanishing
+    scrollbar's width with padding-right keeps the viewport from reflowing
+    when it disappears.
+    {% endcomment %}
+    function lockBodyScroll() {
+        var scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+        document.documentElement.style.overflow = 'hidden';
+        if (scrollbarWidth > 0) document.body.style.paddingRight = scrollbarWidth + 'px';
+    }
+    function unlockBodyScroll() {
+        document.documentElement.style.overflow = '';
+        document.body.style.paddingRight = '';
+    }
     function openSheet(sheet) {
+        var scrollY = window.scrollY;
+        lockBodyScroll();
         sheet.showModal();
+        {% comment %}
+        showModal()'s own autofocus (no child has an explicit autofocus
+        attribute, so the dialog itself gets focused) tries to scroll that
+        focus target into view - at this exact instant the sheet is still
+        translateY(100%), off-screen below the fold, so the browser scrolled
+        the page down to reveal it. Re-focusing explicitly with preventScroll
+        (below) stops that call from adding another scroll, but the browser's
+        own auto-focus scroll already fired synchronously inside showModal()
+        itself, before this line ever runs - and it's an animated scroll, not
+        an instant jump, so it spent the next ~300ms easing back up in
+        parallel with the sheet's own slide-up transition. Two competing
+        eases at once read as the sheet "bouncing" as it opened - closing
+        never re-triggers focus, so only opening showed it (#130). Snapping
+        scroll straight back to where it was, synchronously and without
+        animation, cancels that in-flight ease before it can render a frame.
+        {% endcomment %}
+        sheet.focus({ preventScroll: true });
+        window.scrollTo({ top: scrollY, left: 0, behavior: 'instant' });
         requestAnimationFrame(function () { sheet.classList.add('is-open'); });
     }
-    function closeSheet(sheet) {
+    function closeSheet(sheet, immediate) {
         if (!sheet.open) return;
         sheet.classList.remove('is-open');
-        setTimeout(function () { if (sheet.open) sheet.close(); }, SHEET_CLOSE_DELAY);
+        var finish = function () {
+            if (sheet.open) sheet.close();
+            if (!document.querySelector('.mobile-more-sheet[open]')) unlockBodyScroll();
+        };
+        {% comment %}
+        immediate skips the graceful close delay below - needed whenever this
+        sheet is being closed to make way for a plain .overlay-nav div (School/
+        Appearance/Switch Hub), not another <dialog>. A still-`open` <dialog>
+        stays in the browser's top layer for the whole SHEET_CLOSE_DELAY
+        window regardless of this class change, and top-layer content always
+        paints above regular DOM stacking no matter its z-index - so the
+        overlay panel opening underneath was invisible, covered by this
+        sheet's own close animation, for ~380ms (reported as "the overlay
+        covers"). Closing the dialog outright the instant we know an overlay
+        is taking over sidesteps the graceful CSS transition entirely, but
+        that's fine here - the incoming overlay covers the screen at the same
+        moment anyway, so there was never anything to see it ease out.
+        {% endcomment %}
+        if (immediate) finish();
+        else setTimeout(finish, SHEET_CLOSE_DELAY);
     }
     {% comment %}
     Tapping the dimmed area is the primary way to dismiss the sheet on a
@@ -604,9 +792,10 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
         menuClose.addEventListener('click', function () { closeSheet(menuSheet); });
         wireBackdropClose(menuSheet);
         // Switch Hub opens the global overlay panel, which would otherwise
-        // render behind this native <dialog>'s own top-layer stacking.
+        // render behind this native <dialog>'s own top-layer stacking -
+        // immediate close (see closeSheet) so it actually clears in time.
         var hubsBtn = menuSheet.querySelector('[data-overlay-target]');
-        if (hubsBtn) hubsBtn.addEventListener('click', function () { closeSheet(menuSheet); });
+        if (hubsBtn) hubsBtn.addEventListener('click', function () { closeSheet(menuSheet, true); });
     }
     if (settingsTrigger && settingsSheet) {
         settingsTrigger.addEventListener('click', function () {
@@ -616,9 +805,10 @@ auth yet) and deliberately left off mobile entirely, see #129 grilling.
         settingsClose.addEventListener('click', function () { closeSheet(settingsSheet); });
         wireBackdropClose(settingsSheet);
         // Same top-layer reason as Switch Hub above - close this sheet
-        // before the global overlay-target handler opens School/Appearance.
+        // immediately before the global overlay-target handler opens
+        // School/Appearance.
         settingsSheet.querySelectorAll('[data-overlay-target]').forEach(function (btn) {
-            btn.addEventListener('click', function () { closeSheet(settingsSheet); });
+            btn.addEventListener('click', function () { closeSheet(settingsSheet, true); });
         });
     }
 

@@ -1,3 +1,20 @@
+{% comment %}
+Touch/tablet only (CSS-gated .settings-switch-school-group, main.js's
+.nav-touch-mode) - desktop already has its own standalone Switch School
+row in the sidebar footer (_hub_sidebar.html), so this would just be a
+duplicate there. MAT-staff gated same as the mobile bottom-tab bar's own
+Settings sheet (a single-school user has nothing to switch to) - see
+_hub_sidebar.html's mobile-more-sheet-list for the same call.
+{% endcomment %}
+{% if current_staff.is_mat_staff %}
+<div class="settings-group settings-switch-school-group">
+    <button type="button" class="settings-switch-school-btn nav-row-btn" data-overlay-target="#school-nav-overlay">
+        <span class="menu-icon">{% include 'icons/school_logo_placeholder_svg.html' %}</span>
+        <span>Switch School — {{ current_school_label }}</span>
+    </button>
+</div>
+{% endif %}
+
 <div class="settings-group">
     <span class="settings-label" id="pref-view-full-system-label">Show all modules (incl. unreleased)</span>
     <button type="button" class="theme-toggle" id="pref-view-full-system" role="switch" aria-checked="{% if view_full_system %}true{% else %}false{% endif %}" aria-labelledby="pref-view-full-system-label">

@@ -4,7 +4,7 @@
     /* Below 900px the hub sidebar auto-collapses into icon-only mode — the
        same state the manual toggle button produces at wider widths. */
     .side-nav:not(.overlay-nav) {
-        width: 64px;
+        width: 72px;
     }
     /* The global hub-rail duplicates what the now-collapsed sidebar already
        shows (a row of icons) — at narrow widths the rail is redundant noise. */
@@ -44,6 +44,224 @@
     }
 }
 
+/* Collapse/expand toggle: hidden at this width for a hover-capable pointer -
+   desktop's rail is forced+locked below (nowhere wider to toggle to). Touch
+   keeps it visible up to 1180px instead (see the touch-expand block below) -
+   it's what temporarily widens the rail in place there. */
+@media (max-width: 900px) {
+    html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
+        display: none;
+    }
+}
+
+/* Tablet/touch rail expand-in-place (#114 follow-up, widened #129): touch
+   has no :hover, so the plain icon-only rail's tooltips can't identify a
+   row the way they do for a narrowed desktop window (hover: hover,
+   untouched, still just the locked rail). Rather than a second off-canvas
+   drawer, the same corner .collapse-toggle temporarily widens this rail in
+   place instead - main.js drops .collapsed and adds .touch-expanded, this
+   promotes the rail to an absolute overlay (same layering School/Search/
+   Settings/Hubs panels already use, layout.css's .side-nav.overlay-nav)
+   so it doesn't reflow <main> while open, then closes back to the plain
+   .collapsed rail on next tap or a tap on the backdrop.
+
+   480-1180px, not 480-900px (the original #114 range) - landscape tablet
+   (the latest iPad's 1180px logical viewport - iPad 11th gen/Air 10.9")
+   is still a touch surface without :hover, not "desktop with room to
+   spare" (#129 follow-up grilling). Lower-bounded at 480px so it never
+   fights the sub-480 mobile bottom-tab-bar's own handling of this same
+   sidebar (_hub_sidebar.html's inline <style>, body:has(.mobile-tabbar)).
+
+   Gated on the .nav-touch-mode class (main.js), not a bare hover:none media
+   query directly - the dev breakpoint preview iframe (layout.html) is still
+   a real mouse over a resized frame, so hover:none never actually matches
+   there. main.js sets the class from real hover:none OR the preview's
+   forced-touch override, so previewing either Tablet preset exercises the
+   same expand-in-place a genuine touch device gets. */
+@media (min-width: 480px) and (max-width: 1180px) {
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded {
+        position: absolute;
+        inset: 0;
+        z-index: var(--z-overlay);
+        width: 280px;
+        box-shadow: var(--shadow-modal);
+    }
+    /* Opening Hub Menu/Settings/School/Staff from inside this expanded rail
+       still closes it (main.js), same as before - but the overlay panel
+       needs to actually paint on top of it while that collapse plays out
+       underneath, or the rail's own shrink is what's visible instead of the
+       overlay's slide-in. Both share the same --z-overlay stacking context
+       (.global-nav) and .overlay-slot comes first in DOM order
+       (layout.html), so at equal z-index the rail (the later sibling) would
+       normally win the tie and render over the overlay, not under it - bump
+       the overlay's stacking above the rail's to fix that, touch mode only
+       (desktop's own rail is never positioned/z-indexed, so it already
+       always loses to the overlay regardless). */
+    html.nav-touch-mode .overlay-slot {
+        z-index: var(--z-global-nav);
+    }
+    /* Matches the touch-expanded rail's own width (above) so the overlay's
+       opaque background (layout.css) fully covers it while it collapses
+       underneath, rather than leaving a sliver of the (still 240px-wide by
+       default) overlay short of the wider rail's right edge visible. */
+    html.nav-touch-mode .side-nav.overlay-nav {
+        width: 280px;
+    }
+    /* .nav-stack (layout.css) sizes itself off its in-flow children - normally
+       just this sidebar. The instant it goes position:absolute above, it stops
+       contributing to that width (same as the overlay panels .nav-stack's own
+       comment already excludes), leaving nothing in-flow to hold nav-stack's
+       width - it collapsed toward zero, and <main> (flex:1 alongside it) grew
+       to fill the reclaimed space, then shrank back on close. That's the
+       opposite of "floats above content without reflowing it" this mode is
+       for. Pin nav-stack to the resting rail's own width so the reserved gap
+       never changes size regardless of what the sidebar is doing on top of it. */
+    html.nav-touch-mode .nav-stack {
+        width: 72px;
+    }
+    /* .side-nav-inner (_hub_sidebar.html) pinned to its expanded width the
+       instant .touch-expanded is added (a discrete jump, same frame the
+       class changes - all the padding/opacity rules below already switch
+       to their expanded values at that same instant) - .side-nav itself
+       (72px<->280px, overflow:hidden) then just reveals progressively more
+       of an already-fully-laid-out row as it grows, rather than reflowing
+       its own content mid-transition. This is what actually fixed labels/
+       app name visibly overflowing/re-wrapping while the rail grew -
+       previous attempts patched individual symptoms (nowrap-until-settled
+       hacks main.js used to add/remove) rather than this root cause.
+       Rest state deliberately left at its default (unpinned, ~72px) width
+       instead of also being pinned to 280px here - .side-nav.collapsed
+       overrides overflow to visible (tooltip escape, layout.css), and a
+       280px-wide-but-invisible (opacity:0) row under that would still
+       paint past the 72px column and intercept clicks over the main
+       content behind it. */
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .side-nav-inner {
+        width: 280px;
+    }
+    /* Back-to-hub is a full extra row here on top of Hub Menu doing the same
+       "leave this hub" job one tap further in - tablet's tighter vertical
+       space (rows for local_menu, Hub Menu, Settings, School, Staff all
+       competing) drops it in this mode only. Desktop keeps it (both the
+       expanded centred-title treatment and the manual-collapse icon row). */
+    html.nav-touch-mode .side-nav.hub-side .exit-hub {
+        display: none;
+    }
+
+    /* Undoes the plain forced-icon-only styling the <=900px auto-collapse
+       block above still applies by bare width regardless of .collapsed -
+       expanded should read as the ordinary full-width sidebar, full labels
+       included. No-op above 900px (that block doesn't reach there), where
+       .touch-expanded's own default .side-nav styling already has these. */
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-search {
+        display: block;
+    }
+    /* nav-title (the app name) is the one row that doesn't exist at all in
+       collapsed rail mode - unlike every other row below, it isn't already
+       on screen waiting to be relabelled. Reserves its space at rest too
+       (display:block, not none) so opening never has to grow a height into
+       existence - just fades the text in. .side-nav-inner (above) is only
+       pinned to 280px wide once .touch-expanded - at rest it's back to
+       ~72px, so this invisible text would wrap into many more, much
+       shorter lines there than its 1-2 lines at 280px, making the row
+       itself taller at rest and pushing every row below down further than
+       in the expanded state (rail-mode icons sitting lower than expanded's).
+       Fixed height + overflow:hidden clips that - safe since it's opacity:0
+       at rest anyway, nothing visible to clip. Smaller font than desktop's
+       own --font-4xl nav-title - that size read as oversized in this
+       narrower 280px rail, and read as excess padding around a hub name
+       that's often just one line anyway. */
+    html.nav-touch-mode .side-nav.hub-side .nav-title {
+        display: block;
+        height: 56px;
+        overflow: hidden;
+        font-size: var(--font-2xl);
+        opacity: 0;
+        transition: opacity var(--transition-base);
+    }
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-title {
+        opacity: 1;
+    }
+    /* Tablet/touch drops the header/menu-list divider entirely (both rest
+       and expanded) - desktop's expanded sidebar and manually-collapsed rail
+       keep it (.nav-scroll-divider, layout.css). Hub Menu/Settings below get
+       their own bordered "secondary button" look instead once expanded,
+       which already reads as visually separate from the plain menu-item
+       rows without needing a line between them. */
+    html.nav-touch-mode .side-nav.hub-side .nav-scroll-divider {
+        display: none;
+    }
+    /* ...replaced with one above Hub Menu instead (both rest and expanded) -
+       separates it/Settings from the local_menu list above now that they've
+       moved down into .nav-footer together. */
+    html.nav-touch-mode .side-nav.hub-side .hub-menu-divider {
+        display: block;
+    }
+    /* Every other row (menu items, Hub Menu, Settings, exit-hub...) already
+       sits in the collapsed rail, icon-only - just fade its label in here.
+       Wrapping/truncation is whatever the base .menu-label rules already do
+       - safe now that .side-nav-inner (above) keeps this row the same 280px
+       wide the whole time, rest state included, so there's no width change
+       for the label to re-wrap against mid-transition. */
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .menu-label,
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .menu-label-stack {
+        opacity: 1;
+    }
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-header,
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-scroll,
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-footer {
+        padding-left: var(--space-lg);
+        padding-right: var(--space-lg);
+    }
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-menu a,
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-row-btn,
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .exit-hub,
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .school-nav-option,
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .staff-nav-option {
+        padding-left: var(--space-sm);
+        padding-right: var(--space-sm);
+    }
+    /* Hub Menu/Settings triggers: normally only shown as the icon-only
+       .collapsed rail's stand-in for the global hub-rail (layout.css) - the
+       rail is unreachable at this width regardless of collapse state
+       (hidden outright, base <=900px block above), and .touch-expanded
+       drops .collapsed while open, so force them visible here too or Hub
+       Menu/Settings would have no way to be reached at all while
+       expanded. */
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .hubs-trigger {
+        display: flex;
+    }
+    /* The <=900px base block above already hides .hub-rail there (it
+       duplicates the collapsed sidebar's own icon column), but that block
+       stops at 900px - this range now reaches 1180px (landscape iPad), so
+       touch mode needs its own hide reaching the same width its rail
+       (collapsed or expanded, .hubs-trigger above covers switching hubs
+       either way) replaces. Non-touch desktop between 901-1180px keeps the
+       rail as normal - only touch loses it. */
+    html.nav-touch-mode .hub-rail {
+        display: none;
+    }
+    /* Current-user ("who am I") switching is dev/testing-only (no real auth
+       yet) and deliberately left off touch/tablet entirely, same call the
+       mobile bottom-tab bar's settings sheet already makes (_hub_sidebar.html,
+       #129 grilling) - just reached via this temporarily-widened rail
+       instead of a sheet there. Its divider goes with it - nothing left
+       below Settings to separate from. School switching stays reachable,
+       but only for MAT staff (a single-school user has nothing to switch
+       to) and moved into Settings instead of its own row - see the
+       settings-switch-school-group in _settings_content.html, same
+       Switch-School-lives-in-Settings call mobile already makes. */
+    html.nav-touch-mode .side-nav.hub-side .switch-staff,
+    html.nav-touch-mode .side-nav.hub-side .nav-footer-divider,
+    html.nav-touch-mode .side-nav.hub-side .switch-school {
+        display: none;
+    }
+    /* layout.css hides this by default (desktop's own duplicate row) - see
+       the comment there. */
+    html.nav-touch-mode .settings-switch-school-group {
+        display: flex;
+    }
+}
+
 @media (max-width: 480px) {
     /* Every pixel of vertical space matters at phone width - the footer
        (#128) is a permanent-chrome status bar, not core page content, so it
@@ -53,6 +271,20 @@
        tool itself, from a wider screen where the footer is still there. */
     .app-footer {
         display: none;
+    }
+
+    /* Quick-nav row + its divider/heading (cards.css, #114 follow-up):
+       re-enabled only here - this is the one width where the sidebar is
+       gone behind the mobile bottom nav's "Menu" button instead of showing
+       as a directly-clickable icon rail. */
+    .hub-quick-nav {
+        display: flex;
+    }
+    .hub-quick-nav-divider {
+        display: block;
+    }
+    .hub-quick-nav-dashboard-title {
+        display: block;
     }
 
     /* Filter bar (shared across most Inclusion pages, see #113/#114): fields
@@ -108,22 +340,58 @@
     .stats-strip--compact .stat-card .stat-label { font-size: 10px; line-height: 1.2; }
     .stats-strip--compact .stat-card-sublabel { display: none; }
 
-    /* SEND-code donut: shrink to leave the legend room beside it rather than
-       forcing it below. */
-    .donut-chart-wrap { gap: var(--space-sm); }
-    .donut-chart { width: 84px; height: 84px; }
-    .donut-chart-hole { inset: 12px; }
-    .donut-chart-value { font-size: var(--font-md); }
-    .donut-chart-label { font-size: 10px; }
-    .donut-chart-sublabel { font-size: 9px; }
+    /* SEND-code donut: the card is full-width at this size (see the
+       min-width: 481px floor on .breakdown-grid--top above, #114 grilling),
+       so there's room to go bigger and centred rather than shrinking it
+       small and side-by-side with the legend - stack legend below instead. */
+    .donut-chart-wrap { flex-direction: column; justify-content: center; gap: var(--space-sm); }
+    .donut-chart { width: 160px; height: 160px; margin: 0 auto; }
+    .donut-chart-hole { inset: 20px; }
+    .donut-chart-legend { align-self: center; }
 
-    /* Referral trend bars: shorter, and drop the per-bar value/month label
-       (12 of each doesn't fit 375px legibly) - the card's own h3 already
-       carries the overdue count, and Total Students × 12 months isn't a
-       number worth reading off a bar this narrow anyway. */
+    /* Referral trend bars: shorter, and drop the per-bar value (the card's
+       own h3 already carries the overdue count, and Total Students x 12
+       months isn't a number worth reading off a bar this narrow anyway) -
+       but the month/year label stays, just stacked onto two lines instead
+       of one (see cards.css/#114 grilling) since "Jan 26" side by side
+       doesn't fit 375px legibly and the year still needs to stay visible
+       once the trend straddles a calendar-year boundary. */
     .trend-chart { height: 56px; gap: 3px; margin-top: var(--space-xs); }
     .trend-chart-bar-track { max-width: none; height: 100%; }
-    .trend-chart-value, .trend-chart-label { display: none; }
+    .trend-chart-value { display: none; }
+    .trend-chart-label-full { display: none; }
+    .trend-chart-label-stacked { display: flex; }
+    /* ~24px fits "Jan"/"26" stacked at font-xs without the 42px full-label
+       floor cards.css sets - narrow enough that all 12 fit without the
+       horizontal scroll that floor would otherwise force at this width. */
+    .trend-chart-col { min-width: 24px; }
+
+    /* By gender/year group/school breakdown rows: the 3 E/K/N stat-labels
+       wrap onto their own line below the row's title/meta rather than
+       squeezing onto one row with it - "12 (24%)" x3 plus gaps doesn't fit
+       375px next to a label that can run to a full school name. */
+    .breakdown-row-stats { flex-wrap: wrap; row-gap: var(--space-micro); }
+
+    /* By area of need: the label's fixed 130px + value's fixed 70px only
+       leaves ~100px for the bar itself at this width - drop both to a
+       narrower fixed width instead of a proportional shrink, so the bar
+       (the actual data) gets the room back rather than the fixed-width
+       chrome around it. */
+    .breakdown-row-need-label { flex-basis: 84px; font-size: var(--font-xs); }
+    .breakdown-row-need-value { min-width: 52px; font-size: var(--font-xs); }
+
+    /* SENCo contacts (#114 grilling): a horizontal scroll-snap carousel
+       makes sense with room for several 180px cards side by side, but at
+       375px that's barely one card's width - vertically stack instead, one
+       per row, full width. Arrows go with it (nothing left to scroll). */
+    .senco-carousel-wrap { flex-direction: column; align-items: stretch; }
+    .senco-carousel-arrow { display: none; }
+    .senco-carousel {
+        flex-direction: column;
+        overflow-x: visible;
+        scroll-snap-type: none;
+    }
+    .senco-card { flex: 0 0 auto; width: 100%; }
 }
 
 @media (max-width: 1024px) {
@@ -145,5 +413,58 @@
         flex: 1 1 auto;
         border-top-left-radius: 0;
         border-top-right-radius: 0;
+    }
+
+    /* SEND & Provision Dashboard KPI strip (#114 grilling): the default
+       flex-wrap (basis-driven, see cards.css) leaves however many 150px
+       cards fit on row 1 and strands the rest - for this dashboard's 5
+       cards that's an ugly 4-then-1, with the lone card stretched
+       (flex-grow) to fill the whole row. A fixed 3-column grid gives a
+       balanced 3-then-2 instead - same column count as the phone-width
+       grid below 480px, just without that tier's extra font-size shrink
+       (there's room for full-size text at this width). */
+    .stats-strip--compact {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-sm);
+    }
+
+    /* _hub_dashboard_content.html renders two separate .breakdown-grid
+       blocks back to back (donut/trend/gender, then year/school/need). Its
+       margin-bottom (--space-xl) is bigger than its own row gap
+       (--space-md, cards.css) - invisible at desktop where each grid fits
+       one row, but once cards stack single-column at this width, the
+       boundary between the two grids reads as one oddly bigger gap among
+       otherwise-even stacked cards. Match it to the row gap so the rhythm
+       stays consistent once everything's one column. */
+    .breakdown-grid {
+        margin-bottom: var(--space-md);
+    }
+}
+
+/* min-width floor (not just <=1024px, see the block above) - this 2-column
+   grid needs real room for the donut's legend content beside it. Sharing
+   the plain <=1024px block let it also match phone width, where 2 columns
+   don't fit that content at all: the grid item's default content-based
+   min-width forced the whole row wider than the viewport, which is why
+   "By SEND code" wasn't full-width and "Referrals per Month" (sharing that
+   same over-wide row) read as too wide too (#114 grilling). Below this
+   floor, .breakdown-grid--top falls back to the ordinary single-column
+   flex-wrap stack every other breakdown card already gets at phone width. */
+@media (min-width: 481px) and (max-width: 1024px) {
+    /* Donut + Referrals per Month + By gender: a real 2-column grid instead
+       of flex-wrap - donut and gender (both compact) pair up in row 1's two
+       columns, Referrals per Month spans both and flows to its own row 2
+       below (grid auto-placement - see the markup order/comment in
+       _hub_dashboard_content.html). Fixes the same dead-space problem
+       flex-wrap's stretch-to-fill had for the donut card, but via layout
+       rather than an arbitrary max-width cap. */
+    .breakdown-grid--top {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-md);
+    }
+    .breakdown-grid--top .breakdown-card--lg {
+        grid-column: 1 / -1;
     }
 }

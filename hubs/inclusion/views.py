@@ -17,9 +17,21 @@ from core.modules import filter_by_module, module_map
 from hubs.inclusion.panel.models import Action, InclusionReferral
 
 INCLUSION_MENU = [
-    {'name': 'Provision & Strategies', 'url': '/inclusion/provision-strategies/', 'icon': 'icons/registers_svg.html', 'module_key': 'inclusion_provision_strategies'},
-    {'name': 'Inclusion Panel', 'url': '/inclusion/panel/', 'icon': 'icons/people_svg.html', 'module_key': 'inclusion_panel'},
-    {'name': 'SEND Diagnosis Tracker', 'url': '/inclusion/diagnosis-tracker/', 'icon': 'icons/reports_svg.html', 'module_key': 'inclusion_diagnosis_tracker'},
+    {
+        'name': 'Provision & Strategies', 'url': '/inclusion/provision-strategies/',
+        'icon': 'icons/registers_svg.html', 'module_key': 'inclusion_provision_strategies',
+        'description': 'Interventions and support strategies',
+    },
+    {
+        'name': 'Inclusion Panel', 'url': '/inclusion/panel/',
+        'icon': 'icons/people_svg.html', 'module_key': 'inclusion_panel',
+        'description': 'Referrals, actions and meetings',
+    },
+    {
+        'name': 'SEND Diagnosis Tracker', 'url': '/inclusion/diagnosis-tracker/',
+        'icon': 'icons/reports_svg.html', 'module_key': 'inclusion_diagnosis_tracker',
+        'description': 'Track diagnosis pathways',
+    },
 ]
 
 
@@ -90,6 +102,14 @@ def _referral_trend(students):
     return [
         {
             'label': bucket.strftime('%b %y'),
+            # Month and year split into their own fields so narrow widths
+            # can stack them onto two lines - "Jan 26" needs more horizontal
+            # room than a 375px bar column has, but the year still needs to
+            # stay visible since the trend straddles a Aug-Jan/Jan-Jul
+            # calendar-year boundary (see _hub_dashboard_content.html/#114
+            # grilling).
+            'short_label': bucket.strftime('%b'),
+            'year_label': bucket.strftime('%y'),
             'count': counts_by_date.get(bucket, 0),
             'pct': _pct(counts_by_date.get(bucket, 0), max_count) if max_count else 0,
         }
@@ -123,6 +143,14 @@ def inclusion_hub(request):
     }
     reg_groups_by_year_json = json.dumps(reg_groups_by_year)
 
+    # House filter, sits between Year and Reg. Plain CharField, not a fixed
+    # choice list (see Student.house) - houses are a per-school naming
+    # scheme and not every school runs one, so has_houses gates whether the
+    # field renders at all, same convention as Inclusion Panel Students
+    # (students.html/views.py).
+    house_choices = sorted({h for h in base_students.values_list('house', flat=True) if h})
+    has_houses = bool(house_choices)
+
     selected_year_group = request.GET.get('year_group') or ''
 
     reg_group_scope = base_students.filter(year_group=selected_year_group) if selected_year_group else base_students
@@ -136,6 +164,7 @@ def inclusion_hub(request):
     # reg form that isn't even shown as selected in the (now-narrowed) list.
     if selected_reg_group and selected_reg_group not in reg_group_choices:
         selected_reg_group = ''
+    selected_house = request.GET.get('house') or ''
     selected_pp = request.GET.get('pp') or ''
     selected_ethnicity = request.GET.get('ethnicity') or ''
     selected_more_able = request.GET.get('more_able') or ''
@@ -148,6 +177,8 @@ def inclusion_hub(request):
         students = students.filter(year_group=selected_year_group)
     if selected_reg_group:
         students = students.filter(reg_form=selected_reg_group)
+    if selected_house:
+        students = students.filter(house=selected_house)
     if selected_pp in ('1', '0'):
         students = students.filter(is_pp=(selected_pp == '1'))
     if selected_ethnicity:
@@ -262,7 +293,7 @@ def inclusion_hub(request):
     referral_trend = _referral_trend(students)
     code_pcts = {row['code']: row['pct'] for row in code_breakdown}
     active_filter_count = sum(1 for v in (
-        selected_year_group, selected_reg_group, selected_pp, selected_ethnicity,
+        selected_year_group, selected_reg_group, selected_house, selected_pp, selected_ethnicity,
         selected_more_able, selected_gender, selected_send_code, selected_prior_attainment,
     ) if v)
 
@@ -292,8 +323,11 @@ def inclusion_hub(request):
         'reg_groups_by_year_json': reg_groups_by_year_json,
         'ethnicity_choices': Student.ETHNICITY_CHOICES,
         'prior_attainment_choices': Student.PRIOR_ATTAINMENT_CHOICES,
+        'house_choices': house_choices,
+        'has_houses': has_houses,
         'selected_year_group': selected_year_group,
         'selected_reg_group': selected_reg_group,
+        'selected_house': selected_house,
         'selected_pp': selected_pp,
         'selected_ethnicity': selected_ethnicity,
         'selected_more_able': selected_more_able,

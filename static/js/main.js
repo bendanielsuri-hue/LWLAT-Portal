@@ -125,29 +125,235 @@ function setupOverflowTabs(row) {
 }
 window.setupOverflowTabs = setupOverflowTabs;
 
+// Shared progressive-disclosure filter bar (#114 grilling, then the
+// standard portal-wide - originated on Students/Referrals/Safeguarding
+// Notes, issues #7/#9/#11): secondary filters sit behind a "More filters"/
+// "Hide filters" toggle and reveal inline (pushing the rest of the page
+// down), same .btn.btn-sm height as Clear Filters
+// (components/forms.css: .filter-fields-wrap/.filter-actions-right/
+// .filter-secondary-fields/.more-filters-toggle).
+//
+// Two ways a bar ends up with a secondary group:
+//   - Curated: the template already wraps the deliberately-chosen fields in
+//     `.filter-secondary-fields` next to its own `[data-more-filters]`
+//     trigger (a product decision, e.g. Students/Referrals - #7/#9/#11).
+//   - Dynamic: no such wrapper - every .filter-field is measured by
+//     offsetTop and whichever don't fit the bar's first row are moved into
+//     an auto-built secondary group/trigger instead (SEND & Provision,
+//     Panel Actions/Meetings - "filter bar stays one row, overflow goes to
+//     More"). Phone width (<=480px) already gets its own full collapse via
+//     .is-expanded (see responsive.css) - dynamic mode is a no-op there.
+//
+// Both paths share the same toggle/label-swap/auto-open-if-active wiring.
+function setupFilterBarMoreFilters(bar) {
+    if (!bar) return;
+    var moreFiltersBtn = bar.querySelector('[data-more-filters]');
+    var secondaryRow = bar.querySelector('.filter-secondary-fields');
+
+    if (moreFiltersBtn && secondaryRow) {
+        wireMoreFiltersToggle(moreFiltersBtn, secondaryRow);
+        return;
+    }
+
+    var clearEl = bar.querySelector('.filter-bar-clear');
+    var clearWrapper = clearEl && clearEl.closest('.filter-field');
+    var label = bar.querySelector('.filter-bar-label');
+    var fields = Array.prototype.slice.call(bar.querySelectorAll('.filter-field')).filter(function (f) {
+        return f !== clearWrapper;
+    });
+    if (fields.length < 2) return;
+
+    var fieldsWrap = document.createElement('div');
+    fieldsWrap.className = 'filter-fields-wrap';
+    bar.insertBefore(fieldsWrap, label || fields[0]);
+    if (label) fieldsWrap.appendChild(label);
+    fields.forEach(function (f) { fieldsWrap.appendChild(f); });
+
+    secondaryRow = document.createElement('div');
+    secondaryRow.className = 'filter-secondary-fields';
+    var divider = document.createElement('span');
+    divider.className = 'filter-divider';
+    secondaryRow.appendChild(divider);
+    fieldsWrap.appendChild(secondaryRow);
+
+    var actionsRight = document.createElement('div');
+    actionsRight.className = 'filter-actions-right';
+    moreFiltersBtn = document.createElement('button');
+    moreFiltersBtn.type = 'button';
+    moreFiltersBtn.className = 'btn btn-sm btn-secondary more-filters-toggle';
+    moreFiltersBtn.setAttribute('data-more-filters', '');
+    moreFiltersBtn.setAttribute('aria-expanded', 'false');
+    moreFiltersBtn.hidden = true;
+    var icon = document.createElement('span');
+    icon.className = 'more-filters-toggle-icon';
+    // Same path as templates/icons/arrow_down_svg.html - kept inline (not
+    // an {% include %}) since this markup is JS-authored.
+    icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var labelSpan = document.createElement('span');
+    labelSpan.setAttribute('data-more-filters-label', '');
+    labelSpan.textContent = 'More filters';
+    moreFiltersBtn.appendChild(icon);
+    moreFiltersBtn.appendChild(labelSpan);
+    actionsRight.appendChild(moreFiltersBtn);
+    if (clearWrapper) {
+        bar.insertBefore(clearEl, clearWrapper);
+        clearWrapper.remove();
+    }
+    if (clearEl) actionsRight.appendChild(clearEl);
+    bar.appendChild(actionsRight);
+
+    function measure() {
+        // Move every field back into the primary row, in original order,
+        // before remeasuring - appendChild reparents in place, so this
+        // recovers fields that ended up in the secondary group on a
+        // previous, narrower pass.
+        fields.forEach(function (f) { fieldsWrap.insertBefore(f, secondaryRow); });
+        secondaryRow.hidden = true;
+        moreFiltersBtn.hidden = true;
+        moreFiltersBtn.setAttribute('aria-expanded', 'false');
+
+        if (!window.matchMedia('(max-width: 480px)').matches) {
+            var firstTop = fields[0].offsetTop;
+            var overflowed = fields.filter(function (f) { return f.offsetTop > firstTop; });
+            if (overflowed.length) {
+                overflowed.forEach(function (f) { secondaryRow.appendChild(f); });
+                moreFiltersBtn.hidden = false;
+            }
+        }
+        openIfSecondaryActive(moreFiltersBtn, secondaryRow);
+    }
+
+    measure();
+    var lastWidth = bar.clientWidth;
+    function handleResize() {
+        var width = bar.clientWidth;
+        if (width === lastWidth) return;
+        lastWidth = width;
+        measure();
+    }
+    window.addEventListener('resize', handleResize);
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(handleResize).observe(bar);
+    }
+
+    wireMoreFiltersToggle(moreFiltersBtn, secondaryRow);
+}
+window.setupFilterBarMoreFilters = setupFilterBarMoreFilters;
+
+function openIfSecondaryActive(moreFiltersBtn, secondaryRow) {
+    var hasActiveSecondary = secondaryRow.querySelector('.filter-field--active')
+        || Array.prototype.some.call(secondaryRow.querySelectorAll('input[type=checkbox]'), function (i) { return i.checked; });
+    if (!hasActiveSecondary) return;
+    secondaryRow.hidden = false;
+    moreFiltersBtn.setAttribute('aria-expanded', 'true');
+}
+
+function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow) {
+    openIfSecondaryActive(moreFiltersBtn, secondaryRow);
+    setMoreFiltersLabel(moreFiltersBtn);
+    moreFiltersBtn.addEventListener('click', function () {
+        var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
+        secondaryRow.hidden = expanded;
+        moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
+        setMoreFiltersLabel(moreFiltersBtn);
+    });
+}
+
+// "More filters" <-> "Hide filters" (grilling) - swaps the label span if
+// the template provides one (data-more-filters-label; dynamic mode always
+// does, see above). Curated-mode templates that haven't added the span
+// yet just keep their static "More filters" text - the chevron rotation
+// (components/forms.css) still communicates the state either way.
+function setMoreFiltersLabel(moreFiltersBtn) {
+    var labelSpan = moreFiltersBtn.querySelector('[data-more-filters-label]');
+    if (!labelSpan) return;
+    var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
+    labelSpan.textContent = expanded ? 'Hide filters' : 'More filters';
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 
-    // Manual collapse/expand of the hub sidebar to an icon-only rail. Below the
-    // narrow-window breakpoint there's no stored preference yet, default to
-    // collapsed for space — but (unlike the old forced-icon-only @media rule)
-    // the toggle itself stays visible there, so a tap can still expand it.
-    // Touch devices have no :hover, so this toggle is the only way to ever
-    // reach the full labels on a narrow/mobile viewport.
+    // Dev breakpoint preview (layout.html): the preview iframe is just a
+    // resized window still driven by the real desktop mouse, so it can never
+    // make hover:none media queries true on its own - previewing "Tablet
+    // Portrait"/"Tablet Wide" would otherwise always exercise the
+    // hover-capable narrow-window path below (locked rail), never the
+    // touch-only drawer. layout.html's postMessage handler calls
+    // window.__setDevBpTouch(true/false) when switching breakpoints, which
+    // this class + the isTouchNav() checks below stand in for a real
+    // hover:none/pointer:coarse device.
+    var realHoverNoneMql = window.matchMedia('(hover: none)');
+    var touchNavListeners = [];
+    function isTouchNav() {
+        return realHoverNoneMql.matches || document.documentElement.classList.contains('force-touch-nav');
+    }
+    function syncTouchNavClass() {
+        document.documentElement.classList.toggle('nav-touch-mode', isTouchNav());
+        touchNavListeners.forEach(function (fn) { fn(); });
+    }
+    syncTouchNavClass();
+    realHoverNoneMql.addEventListener('change', syncTouchNavClass);
+    window.__setDevBpTouch = function (touch) {
+        document.documentElement.classList.toggle('force-touch-nav', !!touch);
+        syncTouchNavClass();
+    };
+
+    // Manual collapse/expand of the hub sidebar to an icon-only rail.
+    //
+    // Below the narrow-window breakpoint, a hover-capable pointer (a
+    // narrowed desktop browser window, not a touch tablet) gets the rail
+    // forced and locked: responsive.css already pins width to 64px there,
+    // so an "expanded" state the toggle could reach would never actually
+    // show full-width - just a rail with a pointless working toggle on it
+    // (hidden entirely at this width+pointer combo, see responsive.css).
+    // Forcing the .collapsed class rather than just leaving the width
+    // override to carry it visually also gets the forced rail every other
+    // .side-nav.collapsed behavior for free - tooltips-on-hover included,
+    // same as the always-icon-only .hub-rail.
+    //
+    // Touch/tablet (480-1180px, real hover:none or the dev breakpoint
+    // preview's forced override - see isTouchNav() above) sits icon-only at
+    // rest same as the locked desktop rail, but isn't locked: this same
+    // corner toggle temporarily widens the rail in place instead (adds
+    // .touch-expanded, drops .collapsed - responsive.css positions it as an
+    // absolute overlay so it doesn't reflow <main>), closing back down on a
+    // second tap or a tap on the backdrop (#114/#129 follow-up - replaces
+    // the original off-canvas drawer, which needed a second always-visible
+    // burger button instead of reusing this one).
     (function setupSidebarCollapse() {
         var toggle = document.getElementById('sidebar-collapse-toggle');
         var nav = toggle && closest(toggle, '.side-nav');
         if (!toggle || !nav) return;
-        var toggleIconEl = toggle.querySelector('.icon-tooltip-host');
+        // Two icon spans share this button (desktop chevron + touch burger,
+        // CSS-swapped on .nav-touch-mode) - both get the tooltip kept in
+        // sync since only one is ever visible at a time.
+        var toggleIconEls = toggle.querySelectorAll('.icon-tooltip-host');
         var toggleLabelEl = document.getElementById('sidebar-collapse-toggle-label');
         var STORAGE_KEY = 'pref-sidebar-collapsed';
-        var NARROW_QUERY = '(max-width: 900px)';
+        var narrowMql = window.matchMedia('(max-width: 900px)');
+        var hoverCapableMql = window.matchMedia('(hover: hover) and (pointer: fine)');
+        var touchRailMql = window.matchMedia('(min-width: 480px) and (max-width: 1180px)');
+
+        function locked() {
+            // The dev breakpoint preview iframe (layout.html) can't make a
+            // real mouse report hover:none/pointer:coarse, so it forces
+            // isTouchNav() true via a class instead when previewing a touch
+            // breakpoint - see isTouchNav() below.
+            return narrowMql.matches && hoverCapableMql.matches && !isTouchNav();
+        }
+        function touchRailActive() {
+            return touchRailMql.matches && isTouchNav();
+        }
 
         function updateToggleLabel() {
+            var touch = touchRailActive();
+            var expanded = nav.classList.contains('touch-expanded');
             var collapsed = nav.classList.contains('collapsed');
-            var label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+            var label = touch ? (expanded ? 'Close menu' : 'Open menu') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar');
             toggle.setAttribute('aria-label', label);
-            if (toggleIconEl) toggleIconEl.setAttribute('data-tooltip', label);
-            if (toggleLabelEl) toggleLabelEl.textContent = collapsed ? 'Expand' : 'Collapse';
+            toggle.setAttribute('aria-expanded', touch ? String(expanded) : String(!collapsed));
+            toggleIconEls.forEach(function (el) { el.setAttribute('data-tooltip', label); });
+            if (toggleLabelEl) toggleLabelEl.textContent = touch ? (expanded ? 'Close' : 'Menu') : (collapsed ? 'Expand' : 'Collapse');
             // Hub landing pages render their H1 as "Dashboard" with a hidden
             // "<Hub Name> " prefix (see e.g. hubs/inclusion/templates/hubs/inclusion/hub.html)
             // — once the sidebar collapses to an icon-only rail, the hub name
@@ -157,22 +363,91 @@ document.addEventListener('DOMContentLoaded', function () {
             if (hubTitlePrefix) hubTitlePrefix.hidden = !collapsed;
         }
 
-        var storedPref = localStorage.getItem(STORAGE_KEY);
-        var shouldCollapse = storedPref === null
-            ? window.matchMedia(NARROW_QUERY).matches
-            : storedPref === 'true';
-        if (shouldCollapse) {
+        function closeTouchExpand() {
+            nav.classList.remove('touch-expanded');
             nav.classList.add('collapsed');
+            updateToggleLabel();
+            removeBackdrop();
         }
-        updateToggleLabel();
+        function openTouchExpand() {
+            nav.classList.remove('collapsed');
+            nav.classList.add('touch-expanded');
+            updateToggleLabel();
+            addBackdrop(closeTouchExpand);
+        }
+
+        function syncCollapsed() {
+            if (touchRailActive()) {
+                // Rest state only - an already-open touch-expand shouldn't
+                // snap shut just because some other matchMedia fired (e.g.
+                // hoverCapableMql), only on an actual resize out of range
+                // (handled separately below).
+                if (!nav.classList.contains('touch-expanded')) {
+                    nav.classList.add('collapsed');
+                }
+                updateToggleLabel();
+                return;
+            }
+            // Leaving touch range (resize, dev breakpoint preview switch)
+            // shouldn't leave a stray .touch-expanded/backdrop behind.
+            if (nav.classList.contains('touch-expanded')) closeTouchExpand();
+            var collapsed = locked() || (localStorage.getItem(STORAGE_KEY) === 'true');
+            nav.classList.toggle('collapsed', collapsed);
+            updateToggleLabel();
+        }
+
+        syncCollapsed();
+        // Live-updates across an actual resize (not just page load) -
+        // matters for the dev breakpoint preview iframe, which loads once
+        // at a fixed size, but also for a real browser window being
+        // resized/dev-tools-docked mid-session.
+        narrowMql.addEventListener('change', syncCollapsed);
+        hoverCapableMql.addEventListener('change', syncCollapsed);
+        touchRailMql.addEventListener('change', syncCollapsed);
+        touchNavListeners.push(syncCollapsed);
 
         toggle.addEventListener('click', function (e) {
             e.preventDefault();
+            // No-op while locked - the toggle itself is hidden at this
+            // width+pointer combo (responsive.css), but guard anyway in
+            // case it's reached some other way (e.g. keyboard focus
+            // retained from a wider layout, or a pointer type change).
+            if (locked()) return;
+            if (touchRailActive()) {
+                if (nav.classList.contains('touch-expanded')) closeTouchExpand(); else openTouchExpand();
+                return;
+            }
             var collapsed = nav.classList.toggle('collapsed');
             try { localStorage.setItem(STORAGE_KEY, collapsed ? 'true' : 'false'); } catch (err) { }
             updateToggleLabel();
         });
+        // A link inside the temporarily-widened rail navigating to a new
+        // page doesn't need an explicit close - the page reload takes care
+        // of it - but clicking a trigger that opens another overlay from
+        // inside (Hub Menu/Settings/School/Staff) still closes this rail,
+        // same as before. What changed is *when* it visibly happens: the
+        // overlay panel now slides fully over the rail first (opaque
+        // background, matching width, higher z-index - see responsive.css),
+        // so the rail's own collapse happens hidden behind it instead of
+        // racing it in view - closing this rail immediately, in step with
+        // the overlay opening, no longer reads as two competing animations.
+        // It also means there's nothing left open underneath once the
+        // overlay is later closed.
+        nav.querySelectorAll('[data-overlay-target]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (nav.classList.contains('touch-expanded')) closeTouchExpand();
+            });
+        });
     })();
+
+    // The sidebar's correct collapsed/touch state is fully applied by this
+    // point (syncTouchNavClass/syncCollapsed above, both called
+    // synchronously) - safe to lift the transition suppression layout.html
+    // added before first paint. One rAF so it lifts after this state has
+    // actually been painted, not mid-frame.
+    requestAnimationFrame(function () {
+        document.documentElement.classList.remove('js-preload');
+    });
 
     // Generic overlay nav handling: "Switch Hub", "Select School", "Select User" and
     // "Settings" are absolutely-positioned layers stacked inside one shared
@@ -235,7 +510,13 @@ document.addEventListener('DOMContentLoaded', function () {
     var backdropRemovalTimer = null;
 
     function addBackdrop(onClick) {
-        var main = document.querySelector('.page-shell > main');
+        // .content-column > main, not .page-shell > main - main hasn't been
+        // a direct child of .page-shell since the #128 footer restructure
+        // (it's nested one level deeper now), which left every overlay
+        // (Settings/Search/School/Staff/Hubs, and now the touch-expanded rail) opening
+        // with zero backdrop dimming - the querySelector silently matched
+        // nothing instead of erroring.
+        var main = document.querySelector('.content-column > main');
         if (!main) return;
         if (backdropRemovalTimer) {
             clearTimeout(backdropRemovalTimer);
@@ -256,7 +537,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function removeBackdrop() {
-        var existing = document.querySelector('.page-shell > main .global-backdrop');
+        var existing = document.querySelector('.content-column > main .global-backdrop');
         if (!existing) return;
         existing.classList.remove('active');
         if (backdropRemovalTimer) clearTimeout(backdropRemovalTimer);
@@ -771,6 +1052,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     })();
 
     document.querySelectorAll('.panel-card .tab-row, .card-switcher, [data-overflow-tabs]').forEach(setupOverflowTabs);
+    document.querySelectorAll('.filter-bar').forEach(setupFilterBarMoreFilters);
 
     // Page-header actions (the {% block page_extras %} buttons/links beside
     // the page title, e.g. "Add Referral") crowd the title on narrow
@@ -1029,6 +1311,18 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         });
     })();
 
+    // Mobile filter bar collapse (see responsive.css's ≤480px block, #114):
+    // tapping the "Filters · count" label toggles `.is-expanded`, which is
+    // what actually reveals the fields below that width. No-op above 480px
+    // since the CSS there ignores the class and shows fields unconditionally.
+    document.addEventListener('click', function (e) {
+        var label = closest(e.target, '.filter-bar-label');
+        if (!label) return;
+        var bar = closest(label, '.filter-bar');
+        if (!bar) return;
+        bar.classList.toggle('is-expanded');
+    });
+
     // Server-side dashboard filter bars (e.g. SEND & Provision) can opt into
     // AJAX partial-reload instead of a full navigation via
     // data-ajax-target="<selector>" on the <form class="filter-bar">. On
@@ -1098,8 +1392,12 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // anything that mirrors a control's value outside the
                 // control itself (an enhanced select's trigger button, a
                 // toggle-pill's .on class) since setting .value/.checked
-                // directly doesn't touch either of those.
+                // directly doesn't touch either of those. Skips
+                // [data-not-a-filter] fields (see wireFilterBarActiveState in
+                // panel.js) - those aren't a filter to clear, just a value
+                // that happens to live in the same bar.
                 Array.prototype.forEach.call(form.querySelectorAll('select'), function (s) {
+                    if (closest(s, '[data-not-a-filter]')) return;
                     s.value = '';
                     if (s._uiSelect) s._uiSelect.refresh();
                 });
