@@ -28,6 +28,24 @@
                 // applied - see the matching CSS in layout.css and the removal
                 // at the end of the DOMContentLoaded handler in main.js.
                 root.classList.add('js-preload');
+                // Real touch detection (hover:none), set synchronously here
+                // rather than left to main.js's own syncTouchNavClass - that
+                // runs on a deferred script, which fires after first paint
+                // often enough that a real tablet visibly saw the plain
+                // desktop layout (global hub-rail, full-width sidebar, hub
+                // name text) for a frame or two before snapping to the
+                // touch-narrow one moment later (confirmed via a frame-by-
+                // frame trace - #129 follow-up). js-preload above only
+                // suppressed the *animation* of that snap, not the flash of
+                // wrong content it was snapping from. The dev breakpoint
+                // preview iframe still can't make a real mouse report
+                // hover:none - it keeps relying on main.js's own
+                // force-touch-nav override via postMessage after the iframe
+                // loads, same as before; only real touch hardware benefits
+                // here.
+                try {
+                    root.classList.toggle('nav-touch-mode', window.matchMedia('(hover: none)').matches);
+                } catch (e) { }
             } catch (e) { }
         })();
     </script>
@@ -37,7 +55,7 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=222">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=223">
     <script src="{% static 'js/main.js' %}?v=76" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
@@ -138,6 +156,34 @@
         </div>
 
         {% block hub_sidebar %}{% endblock %}
+        {% comment %}
+        Mirrors main.js's own locked()/touchRailActive() decision (see
+        setupSidebarCollapse) but runs synchronously the instant the sidebar
+        markup above has been parsed, rather than waiting for main.js's
+        deferred DOMContentLoaded handler - same reasoning as the
+        nav-touch-mode class above, closes the other half of the same flash
+        (the sidebar's own width/labels, not just the global rail). main.js
+        still runs its full setup afterwards as normal; on a page load this
+        just confirms the same state again, a no-op with nothing left to
+        visibly snap to.
+        {% endcomment %}
+        <script>
+        (function () {
+            try {
+                var nav = document.getElementById('hub-sidebar-nav');
+                if (!nav) return;
+                var touch = document.documentElement.classList.contains('nav-touch-mode');
+                var locked = window.matchMedia('(max-width: 900px)').matches
+                    && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+                    && !touch;
+                var touchRail = window.matchMedia('(min-width: 480px) and (max-width: 1180px)').matches && touch;
+                var manualPref = localStorage.getItem('pref-sidebar-collapsed') === 'true';
+                if (touchRail || locked || manualPref) {
+                    nav.classList.add('collapsed');
+                }
+            } catch (e) { }
+        })();
+        </script>
         </div>
         </div>
         {% comment %}
