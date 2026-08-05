@@ -282,7 +282,18 @@
     .breadcrumbs {
         display: none;
     }
-    .page-header-extras {
+    /* Not display:none on .page-header-extras itself - Inclusion Panel's
+       _base.html (page_extras block) renders its New Referral/Panel Search/
+       Panel Group/... <dialog> elements as siblings of the visible button
+       row in there, and a display:none *ancestor* kills a <dialog> even
+       once showModal() has promoted it to the top layer - the mobile
+       Search/+Referral tabbar buttons proxy-click these same dialogs open,
+       so hiding the whole container silently broke both (confirmed: search
+       opened fine on a plain hub page, which has no dialogs in this block,
+       but not inside Panel). Hiding every non-dialog child instead leaves
+       any <dialog> free to render on its own terms regardless of its
+       hidden siblings. */
+    .page-header-extras > *:not(dialog) {
         display: none;
     }
 

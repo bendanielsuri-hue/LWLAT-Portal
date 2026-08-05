@@ -650,6 +650,25 @@ Menu switcher instead - see its own comment below.
         body:has(.mobile-tabbar) .global-nav {
             z-index: 9999;
         }
+        {% comment %}
+        Still not enough on its own - .overlay-slot (layout.css, the actual
+        parent the overlay panels render into) has its own z-index: 15, and
+        is a sibling of .mobile-tabbar under .nav-stack (layout.html:
+        .nav-stack contains .overlay-slot, then the hub_sidebar block, which
+        is where _hub_sidebar.html's own .mobile-tabbar markup lands).
+        .global-nav's raised z-index above only wins the outer comparison
+        (global-nav's whole subtree vs. the backdrop/tabbar as external
+        siblings) - once inside that subtree, .overlay-slot (15) and
+        .mobile-tabbar (40) are compared directly against each other as
+        siblings, and 15 still loses there regardless of the popup's own
+        9998 nested inside it (that only matters for panel-vs-panel
+        comparisons within .overlay-slot itself). Confirmed via screenshot:
+        raising .global-nav alone left the tab bar still visibly on top of
+        an open Settings panel. Same fix, one level deeper.
+        {% endcomment %}
+        body:has(.mobile-tabbar) .overlay-slot {
+            z-index: 9999;
+        }
     }
 </style>
 <script>
