@@ -205,13 +205,17 @@ Menu switcher instead - see its own comment below.
         </ul>
     </div>
     {% comment %}
-    Back to {{ back_to_hub_label }} only now - Hub Menu moved out to the
-    tabbar's own Hub button (replacing Home, see below), so it's no longer
-    duplicated in here too. That leaves this row/divider with nothing to
-    show at all on a plain hub page (no back_to_hub_url - nothing nested to
-    return from), so the whole thing is conditional on back_to_hub_url now,
-    not just the link inside it. Back to {{ back_to_hub_label }} is Panel's
-    existing back_to_hub_url/label (desktop sidebar nav-header,
+    Back to {{ back_to_hub_label }} / Change Hub - only when in an app
+    (back_to_hub_url set, e.g. Inclusion Panel); nothing to show on a plain
+    hub page (nothing nested to return from, and Hub Menu already lives in
+    the tabbar FAB there instead - see its own comment below). Primary/
+    secondary follows the same weighting as any other btn-primary/
+    btn-secondary pair in the app - going up to the parent hub is the more
+    likely of the two taps whenever both are on screen. Change Hub opens the
+    same #hubs-nav-overlay switcher as the FAB does on plain hub pages, just
+    reached one tap further in here since it's the rarer action once you're
+    this deep. Back to {{ back_to_hub_label }} is Panel's existing
+    back_to_hub_url/label (desktop sidebar nav-header,
     hubs/inclusion/panel/CLAUDE.md) - it never had a mobile home once the
     real sidebar got hidden at phone width.
     {% endcomment %}
@@ -222,6 +226,10 @@ Menu switcher instead - see its own comment below.
             <span class="mobile-tab-icon">{% include 'icons/arrow_left_svg.html' %}</span>
             {{ back_to_hub_label }}
         </a>
+        <button type="button" class="mobile-more-sheet-btn mobile-more-sheet-btn-secondary" data-overlay-target="#hubs-nav-overlay">
+            <span class="mobile-tab-icon">{% include 'icons/switch_apps_svg.html' %}</span>
+            Change Hub
+        </button>
     </div>
     {% endif %}
 </dialog>
@@ -431,11 +439,12 @@ Menu switcher instead - see its own comment below.
     .mobile-more-sheet-list a { display: flex; align-items: center; gap: var(--space-sm); color: var(--text-primary); text-decoration: none; padding: var(--space-xs) 0; }
     .mobile-more-sheet-list .mobile-tab-icon svg { width: 18px; height: 18px; }
     {% comment %}
-    Back to {{ hub_title }}'s parent hub - only ever one of these now (Hub
-    Menu moved to the tabbar's own Hub button), always primary weighting.
-    Values duplicated rather than reusing panel.css's own .btn-primary, for
-    the same cross-hub-availability reason as the modal-header duplication
-    above.
+    Back to {{ hub_title }}'s parent hub / Change Hub - primary/secondary,
+    same weighting convention as any other btn-primary/btn-secondary pair in
+    the app (#129 grilling: "Back to Hub primary, Switch Hub secondary").
+    Values duplicated rather than reusing panel.css's own .btn-primary/
+    .btn-secondary, for the same cross-hub-availability reason as the
+    modal-header duplication above.
     {% endcomment %}
     .mobile-more-sheet-btn {
         flex: 1 1 0;
@@ -463,6 +472,7 @@ Menu switcher instead - see its own comment below.
     {% endcomment %}
     .mobile-more-sheet-btn .mobile-tab-icon svg { width: 16px; height: 16px; flex-shrink: 0; }
     .mobile-more-sheet-btn-primary { background: var(--btn-primary-bg); border: 1px solid var(--btn-primary-border); color: #fff; }
+    .mobile-more-sheet-btn-secondary { background: var(--btn-secondary-bg); border: 1px solid var(--btn-secondary-border); color: var(--btn-secondary-text); }
 
     {% comment %}
     Search and +Referral both open the real dialog.modal-dialog component
@@ -764,6 +774,11 @@ Menu switcher instead - see its own comment below.
         });
         menuClose.addEventListener('click', function () { closeSheet(menuSheet); });
         wireBackdropClose(menuSheet);
+        // Change Hub opens the global overlay panel, which would otherwise
+        // render behind this native <dialog>'s own top-layer stacking -
+        // immediate close (see closeSheet) so it actually clears in time.
+        var hubsBtn = menuSheet.querySelector('[data-overlay-target]');
+        if (hubsBtn) hubsBtn.addEventListener('click', function () { closeSheet(menuSheet, true); });
     }
     // +Referral proxy-clicks whichever real header button matches - reuses
     // the page's own already-wired modal instead of re-implementing it here
