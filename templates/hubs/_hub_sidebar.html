@@ -566,16 +566,26 @@ Menu switcher instead - see its own comment below.
         (layout.html, _settings_panel.html).
         {% endcomment %}
         {% comment %}
-        padding-right alone (above) isn't enough - .nav-footer below is
-        positioned absolute relative to the whole overlay panel, not this
-        header, so its 56px-tall corner box (32px close button + space-sm
-        padding on all sides) floats independently of whatever padding-top
-        the header happens to have. Desktop's own 32px (--space-2xl,
-        layout.css) left the header's large --font-4xl title starting a full
-        24px before that corner box even ended, its centred text visibly
-        running under the ×. padding-top: 56px clears it exactly.
+        Title shares the corner ×'s own row now, left-aligned instead of
+        desktop's centred/oversized --font-4xl (#129 follow-up: "title
+        should be at the top, not a row below close button" - the earlier
+        version pushed the title a full 64px down purely to clear the
+        floating × below it, wasting a header's worth of height that could
+        go to the list instead). Matches the Menu/Settings sheet's own h2 +
+        × row (--font-2xl, "modal h2" per its own token comment) rather than
+        introducing a third size. padding-right still reserved so a long
+        title doesn't run under the ×, which now actually matters since
+        left-aligned text (unlike centred) can end close to that corner.
         {% endcomment %}
-        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-header { padding-right: var(--space-2xl); padding-top: calc(var(--space-2xl) + var(--space-xl) + var(--space-xs)); }
+        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-header {
+            padding-top: var(--space-lg);
+            padding-right: var(--space-2xl);
+            padding-bottom: var(--space-md);
+        }
+        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-title {
+            text-align: left;
+            font-size: var(--font-2xl);
+        }
         body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-footer {
             position: absolute;
             top: 0;
