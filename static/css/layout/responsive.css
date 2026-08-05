@@ -263,16 +263,6 @@
 }
 
 @media (max-width: 480px) {
-    /* Every pixel of vertical space matters at phone width - the footer
-       (#128) is a permanent-chrome status bar, not core page content, so it
-       goes first. Dev cluster (breakpoint tool/errors/file issue) goes with
-       it - not worth carving out an exception since a developer testing at
-       real mobile width would normally do so via the breakpoint preview
-       tool itself, from a wider screen where the footer is still there. */
-    .app-footer {
-        display: none;
-    }
-
     /* Breadcrumbs just restate "Home > This Hub" info the mobile bottom
        nav's own Home/Menu buttons already cover one tap away, and the real
        header buttons (Search/+Referral/Settings/...) are redundant with the
@@ -427,9 +417,78 @@
         scroll-snap-type: none;
     }
     .senco-card { flex: 0 0 auto; width: 100%; }
+
+    /* Panel Home (#116): the bounded-height "dashboard shell" desktop/tablet
+       use (list-page-shell's fixed height + each card scrolling internally,
+       panel.css) costs too much of an already-cramped viewport at phone
+       width - drop it for an ordinary page that scrolls, cards stacking
+       top to bottom instead. Scoped via :has(.panel-columns), matching
+       panel.css's own scoping for the same shell, since plain
+       .list-page-shell also backs Students/Referrals/Actions (#117-120),
+       whose own phone treatment isn't decided by this ticket. Row 1's
+       card-switcher tabs (already active <=1024px) keep working unchanged -
+       only the forced internal scroll goes away, so the visible card just
+       grows to its content height and the page scrolls past it. Row 2
+       (Next Panel Meeting/Recent Activity) is display:none <=1024px
+       (panel.css) so isn't a concern here. */
+    .list-page-shell:has(.panel-columns) {
+        overflow: visible;
+    }
+    .list-page-shell:has(.panel-columns) .panel-card {
+        height: auto;
+        overflow: visible;
+    }
+    .list-page-shell:has(.panel-columns) .panel-list {
+        flex: none;
+        overflow-y: visible;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    /* Home's KPI row carousel (#116 follow-up): phone width switches from
+       "fit as many whole cards as possible" to a "peek" carousel instead -
+       one card centred, deliberately sized/positioned (main.js layout())
+       so slivers of its neighbours are visible at both edges of the
+       viewport, hinting there's more to swipe to without needing to read
+       a second card's text at this width. scroll-snap-align: center (not
+       the desktop/tablet default of start) is what actually centres the
+       current card rather than flushing it to the viewport's left edge.
+       .stat-card repeated for specificity - panel.css (loaded after this
+       file, in each panel template's own extra_head) sets start
+       unconditionally, so a plain override here would lose the cascade on
+       load order alone regardless of this media query being the more
+       specific match. */
+    .stats-carousel-slot .stat-card.stat-card {
+        scroll-snap-align: center;
+    }
+    .stats-carousel-track { gap: var(--space-xs); }
 }
 
-@media (max-width: 1024px) {
+/* Card-switcher/switch-card-group (Home Row 1, Meeting Setup's Settings/
+   Referral Selection/Panel Agenda tabs) and the app-footer (#128): moved
+   from <=1024px to <=1180px (#116 follow-up) to match the dev breakpoint
+   preview tool's actual "Tablet Wide" preset (1180x820, layout.html) and
+   the sidebar's own touch-expand range above - 1024px sat in a gap neither
+   preset (1180 landscape, 820 portrait) ever actually tested, so Tablet
+   Wide showed a half-switched, half-desktop page (card-switcher/footer
+   still off, but the stats-strip's own <=1180px override already on).
+   Widening this shared, portal-wide mechanism also pushes Meeting Setup's
+   own card-switcher out to 1180px - same tablet-collapse behaviour it
+   already had, just consistently testable at the same preset now. */
+@media (max-width: 1180px) {
+    /* Every pixel of vertical space matters once a page's card layout starts
+       giving up its side-by-side desktop treatment (card-switcher below) -
+       the footer (#128) is a permanent-chrome status bar, not core page
+       content, so it goes first. Dev cluster (breakpoint tool/errors/file
+       issue) goes with it - not worth carving out an exception since a
+       developer testing at tablet/phone width would normally do so via the
+       breakpoint preview tool itself, from a wider screen where the footer
+       is still there. Widened from phone-only to this tier per #116
+       grilling feedback. */
+    .app-footer {
+        display: none;
+    }
+
     .card-switcher { display: flex; }
     /* .switch-card repeated to outrank a page's own unconditional display
        rule for its cards (e.g. .panel-card's display: flex in panel.css) on
@@ -449,7 +508,9 @@
         border-top-left-radius: 0;
         border-top-right-radius: 0;
     }
+}
 
+@media (max-width: 1024px) {
     /* SEND & Provision Dashboard KPI strip (#114 grilling): the default
        flex-wrap (basis-driven, see cards.css) leaves however many 150px
        cards fit on row 1 and strands the rest - for this dashboard's 5
@@ -503,3 +564,4 @@
         grid-column: 1 / -1;
     }
 }
+

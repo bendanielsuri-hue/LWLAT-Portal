@@ -84,6 +84,143 @@
 .panel-row-secondary .panel-card-meeting { flex: 35 1 0%; }
 .panel-row-secondary .panel-card-activity { flex: 65 1 0%; }
 
+/* #116: Row 2 is secondary context (see the 65:35 split above) - below
+   1180px there's no room left for it once Row 1 needs the space a
+   card-switcher demands, and it's non-essential enough to just drop rather
+   than solve a layout for (a card-switcher and a horizontal-scroll strip
+   were both tried and reverted per grilling feedback). Next Panel Meeting/
+   Recent Activity are both reachable from their own dedicated pages
+   (Meetings, and nowhere yet for Activity - it's a nice-to-have glance, not
+   a unique access point) - see #113/#112 grilling. 1180px, not 1024px -
+   matches the card-switcher/app-footer breakpoint (responsive.css), moved
+   there per #116 follow-up to align with the dev breakpoint preview tool's
+   actual Tablet Wide preset. */
+@media (max-width: 1180px) {
+    .panel-row-secondary {
+        display: none;
+    }
+}
+
+/* #116 Home's KPI row carousel - several rounds settled here (plain
+   overflow-x scroll, a senco-style arrows-beside-scroll hybrid, a dot-
+   indicator focused/scaled-card version) via live grilling feedback each
+   time. Current shape: native horizontal scroll + scroll-snap (real touch
+   momentum/flick for free) inside a viewport JS-sized per breakpoint
+   (layout() in main.js):
+   - Desktop/tablet: fit as many whole cards as the width allows: if every
+     card already fits, they stretch (via --stats-carousel-card-w) to fill
+     the row edge to edge instead of leaving spare width unused; otherwise
+     they stay a fixed base width and the viewport is capped at exactly
+     that many whole cards, never a forced-narrower reservation and never
+     leftover dead space past the last real card.
+   - Phone: a deliberately narrower "peek" viewport (not full width) with
+     one card centred (scroll-snap-align: center below) and slivers of its
+     neighbours visible at both edges - see the <=480px override.
+   Every card stays one flat size at rest (no scale/opacity change) - a
+   gradient fade at whichever edge still has more content is the "there's
+   more here" signal instead, and Prev/Next arrows (48px, touch-sized) sit
+   on the row's own edges, hiding entirely once nothing overflows and
+   disabling individually at whichever end has been reached otherwise. The
+   row also responds to click-and-drag (mouse/pen - touch already gets
+   native panning) via plain scrollLeft manipulation, so it behaves like an
+   ordinary scroll container rather than a custom transform-driven one.
+   Wired generically in main.js off the .stats-carousel-* class names
+   below, so another KPI row could reuse it as-is. */
+.stats-carousel-wrap {
+    position: relative;
+}
+.stats-carousel-viewport {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin: 0 auto;
+    cursor: grab;
+}
+.stats-carousel-viewport.is-grabbing {
+    cursor: grabbing;
+}
+.stats-carousel-viewport::-webkit-scrollbar {
+    display: none;
+}
+.stats-carousel-track {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-sm);
+    padding: 4px 8px;
+}
+.stats-carousel-slot {
+    flex: 0 0 auto;
+    display: flex;
+}
+.stats-carousel-slot .stat-card {
+    width: var(--stats-carousel-card-w, 140px);
+    /* Stretched to the tallest card in the row (align-items: stretch above)
+       instead of each card sizing to its own content - a longer label (e.g.
+       "Safeguarding Briefings Needed") wrapping to 3 lines was making that
+       one card visibly taller than its neighbours. */
+    height: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    user-select: none; /* no accidental text selection while click-dragging the row */
+    -webkit-user-drag: none; /* belt-and-braces alongside main.js's pointerdown preventDefault - stops Safari's own native link-drag starting before JS gets a chance to */
+}
+/* Positioned against .stats-carousel-wrap, NOT .stats-carousel-viewport -
+   the viewport itself scrolls, so an absolutely-positioned child of it
+   would scroll away with the content instead of staying put as a fixed
+   edge mask. main.js measures the viewport's actual rendered offset inside
+   the wrap (it's centred via margin: 0 auto above, and its own width is
+   set dynamically per breakpoint) and writes that as inline left/right here
+   each time layout() runs, so the fade always lines up with the viewport's
+   true edge regardless of how wide the viewport currently is. */
+.stats-carousel-fade-l,
+.stats-carousel-fade-r {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0; /* main.js's update() is what reveals either side - default hidden so there's nothing to show before JS has run, or if it's ever wrong for one side */
+    transition: opacity var(--transition-base);
+}
+/* --bg-page, not --bg-surface(-alt) - the row sits directly on the page
+   canvas here (list-page-shell has no card background of its own behind
+   it), so the fade needs to match that, not a card-level surface tone. */
+.stats-carousel-fade-l { background: linear-gradient(to right, var(--bg-page), transparent); }
+.stats-carousel-fade-r { background: linear-gradient(to left, var(--bg-page), transparent); }
+
+/* Same visual treatment as .senco-carousel-arrow (cards.css) - not shared
+   via that class directly since it'd read oddly on a non-SENCo component,
+   duplicated here rather than renaming an already-shipped feature's class
+   for a one-word difference. Bigger than SENCo's own 28px (#116 grilling:
+   the smaller size read as too fiddly a touch target). */
+.stats-carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-md);
+    font-size: var(--font-2xl);
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition-fast), opacity var(--transition-fast);
+    z-index: 3;
+}
+.stats-carousel-arrow:hover:not(:disabled) { background: var(--border-color); }
+.stats-carousel-arrow:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.stats-carousel-arrow--prev { left: -8px; }
+.stats-carousel-arrow--next { right: -8px; }
+
 /* Next Panel Meeting's content is short relative to its now-compact card —
    center it rather than leaving it pinned to the top with dead space below. */
 .panel-card-meeting { justify-content: center; }
@@ -337,6 +474,28 @@
    styling when scoped to a known parent - .panel-item-body--two-col's own
    gap already provides the spacing either side, so no extra margin here. */
 .panel-item-body--two-col .mc-vdivider { border-left: 1px solid var(--border-color); align-self: stretch; }
+
+/* #116 phone-width overrides: below the tablet floor, the row is single-
+   column full width, not the ~375px-wide slice it gets on a 320px-min
+   desktop/tablet .panel-card - re-stack rather than keep squeezing the
+   fixed 38%/62% split. */
+@media (max-width: 480px) {
+    .panel-item-body--two-col { flex-direction: column; gap: var(--space-sm); }
+    .panel-item-col--student { flex-basis: auto; }
+    /* Same rule swaps from a vertical rule to a horizontal one, echoing the
+       student column's own status-switch divider just above it - one
+       consistent "section break" look stacked instead of side-by-side. */
+    .panel-item-body--two-col .mc-vdivider {
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        align-self: stretch;
+    }
+
+    /* My Referrals row: Edit/Delete keep their icons but drop the text
+       label, staying inline next to the thumb/title instead of wrapping to
+       a second row or forcing the row taller. */
+    .panel-item-actions .btn-label { display: none; }
+}
 
 .panel-item-title {
     font-weight: 600;

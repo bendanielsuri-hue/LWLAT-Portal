@@ -60,12 +60,12 @@
                     {% endif %}
                 </div>
                 <div class="panel-item-actions">
-                    <button type="button" class="btn btn-edit btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
+                    <button type="button" class="btn btn-edit btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> <span class="btn-label">Edit</span></button>
                     {% if referral.can_delete %}
                     <form method="post" action="{% url 'inclusion_panel_referral_delete' referral.id %}" data-row-remove-form data-confirm-message="Delete this referral? This cannot be undone.">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
-                        <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
+                        <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> <span class="btn-label">Delete</span></button>
                     </form>
                     {% endif %}
                 </div>
@@ -140,44 +140,64 @@
     </div>
 </div>
 
-<div class="stats-strip">
-    <a class="stat-card stat-card--accent-primary selectable" href="{% url 'inclusion_panel_referrals' %}?status=active">
-        <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
-        <div class="stat-value">{{ active_referrals_count }}</div>
-        <div class="stat-label">Active Referrals</div>
-    </a>
-    <a class="stat-card stat-card--accent-{{ actions_overdue_total_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=overdue">
-        <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
-        <div class="stat-value">{{ actions_overdue_total }}</div>
-        <div class="stat-label">Overdue Actions</div>
-    </a>
-    <a class="stat-card stat-card--accent-{{ actions_due_this_week_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=this_week">
-        <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
-        <div class="stat-value">{{ actions_due_this_week }}</div>
-        <div class="stat-label">Actions Due This Week</div>
-    </a>
-    <a class="stat-card stat-card--accent-{{ followups_due_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=overdue_review">
-        <div class="stat-card-icon">{% include 'icons/arrow_up_svg.html' %}</div>
-        <div class="stat-value">{{ followups_due_count }}</div>
-        <div class="stat-label">Referrals Due a Review</div>
-    </a>
-    <a class="stat-card stat-card--accent-{{ unassigned_referrals_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=open">
-        <div class="stat-card-icon">{% include 'icons/new_svg.html' %}</div>
-        <div class="stat-value">{{ unassigned_referrals_count }}</div>
-        <div class="stat-label">Unassigned Referrals</div>
-    </a>
-    {% if is_dsl %}
-    {% comment %}
-    DSL-only (#71/#75) - Staff.is_dsl directly, not the Module system every
-    other card's link target uses, same reasoning as the sidebar entry in
-    _panel_base_context: a DSL may hold no Panel Group seat at all.
-    {% endcomment %}
-    <a class="stat-card stat-card--accent-{{ needs_briefing_count_accent }} selectable" href="{% url 'inclusion_panel_safeguarding_notes' %}">
-        <div class="stat-card-icon">{% include 'icons/shield_check_svg.html' %}</div>
-        <div class="stat-value">{{ needs_briefing_count }}</div>
-        <div class="stat-label">Safeguarding Briefings Needed</div>
-    </a>
-    {% endif %}
+<div class="stats-carousel-wrap">
+    <button type="button" class="stats-carousel-arrow stats-carousel-arrow--prev" aria-label="Previous card">&lsaquo;</button>
+    <div class="stats-carousel-fade-l"></div>
+    <div class="stats-carousel-viewport">
+        <div class="stats-carousel-track">
+            <div class="stats-carousel-slot">
+                <a class="stat-card stat-card--accent-primary selectable" href="{% url 'inclusion_panel_referrals' %}?status=active">
+                    <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
+                    <div class="stat-value">{{ active_referrals_count }}</div>
+                    <div class="stat-label">Active Referrals</div>
+                </a>
+            </div>
+            <div class="stats-carousel-slot">
+                <a class="stat-card stat-card--accent-{{ actions_overdue_total_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=overdue">
+                    <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
+                    <div class="stat-value">{{ actions_overdue_total }}</div>
+                    <div class="stat-label">Overdue Actions</div>
+                </a>
+            </div>
+            <div class="stats-carousel-slot">
+                <a class="stat-card stat-card--accent-{{ actions_due_this_week_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=this_week">
+                    <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
+                    <div class="stat-value">{{ actions_due_this_week }}</div>
+                    <div class="stat-label">Actions Due This Week</div>
+                </a>
+            </div>
+            <div class="stats-carousel-slot">
+                <a class="stat-card stat-card--accent-{{ followups_due_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=overdue_review">
+                    <div class="stat-card-icon">{% include 'icons/arrow_up_svg.html' %}</div>
+                    <div class="stat-value">{{ followups_due_count }}</div>
+                    <div class="stat-label">Referrals Due a Review</div>
+                </a>
+            </div>
+            <div class="stats-carousel-slot">
+                <a class="stat-card stat-card--accent-{{ unassigned_referrals_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=open">
+                    <div class="stat-card-icon">{% include 'icons/new_svg.html' %}</div>
+                    <div class="stat-value">{{ unassigned_referrals_count }}</div>
+                    <div class="stat-label">Unassigned Referrals</div>
+                </a>
+            </div>
+            {% if is_dsl %}
+            {% comment %}
+            DSL-only (#71/#75) - Staff.is_dsl directly, not the Module system every
+            other card's link target uses, same reasoning as the sidebar entry in
+            _panel_base_context: a DSL may hold no Panel Group seat at all.
+            {% endcomment %}
+            <div class="stats-carousel-slot">
+                <a class="stat-card stat-card--accent-{{ needs_briefing_count_accent }} selectable" href="{% url 'inclusion_panel_safeguarding_notes' %}">
+                    <div class="stat-card-icon">{% include 'icons/shield_check_svg.html' %}</div>
+                    <div class="stat-value">{{ needs_briefing_count }}</div>
+                    <div class="stat-label">Safeguarding Briefings Needed</div>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="stats-carousel-fade-r"></div>
+    <button type="button" class="stats-carousel-arrow stats-carousel-arrow--next" aria-label="Next card">&rsaquo;</button>
 </div>
 </div>
 
