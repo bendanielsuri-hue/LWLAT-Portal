@@ -91,6 +91,22 @@ html, body {
 .js-preload .side-nav, .js-preload .side-nav * {
     transition: none !important;
 }
+/* Belt-and-braces on top of the transition suppression above: transitions
+   only hide the *animation* between wrong-then-right state, not a still,
+   uninterrupted paint of the wrong state itself if the browser manages to
+   paint between the sidebar's plain server-rendered markup and the
+   synchronous script (_hub_sidebar.html, right after the nav) that corrects
+   its collapsed class - confirmed happening in practice for landscape
+   tablet width (900-1180px), which (unlike <=900px) has no plain-CSS-only
+   fallback and depends entirely on that script's timing. Hidden here,
+   revealed by that same script setting visibility:visible as an inline
+   style (higher specificity than this class rule, so it wins regardless of
+   js-preload still being present) in the same synchronous tick it applies
+   the correct class - nothing ever paints before that reveal, whatever
+   state it ends up being. */
+.js-preload #hub-sidebar-nav {
+    visibility: hidden;
+}
 /* No explicit width - stretches to fill .side-nav same as if this wrapper
    didn't exist (desktop, and touch mode's own default). Touch mode pins it
    to a fixed width instead (responsive.css) so .side-nav's own width

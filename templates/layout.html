@@ -63,7 +63,7 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=224">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=225">
     <script src="{% static 'js/main.js' %}?v=76" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
@@ -174,12 +174,24 @@
         still runs its full setup afterwards as normal; on a page load this
         just confirms the same state again, a no-op with nothing left to
         visibly snap to.
+        Also reveals the sidebar (layout.css's .js-preload #hub-sidebar-nav
+        starts it visibility:hidden) as the very last step, unconditionally -
+        outside the try/catch and after every class decision above, so
+        nothing can ever paint before this point regardless of which branch
+        ran or whether one threw. Transition suppression alone (js-preload's
+        original job) only hides the *animation* between wrong-then-right
+        state; it doesn't stop the browser from painting the wrong state
+        itself if a paint opportunity happens to land between the sidebar's
+        plain server-rendered markup and this script correcting it - measured
+        happening in practice for landscape tablet width (900-1180px, no
+        plain-CSS-only fallback the way <=900px has, so it depended entirely
+        on this script's timing) even after the class fix above shipped.
         {% endcomment %}
         <script>
         (function () {
+            var nav = document.getElementById('hub-sidebar-nav');
+            if (!nav) return;
             try {
-                var nav = document.getElementById('hub-sidebar-nav');
-                if (!nav) return;
                 var touch = document.documentElement.classList.contains('nav-touch-mode');
                 var locked = window.matchMedia('(max-width: 900px)').matches
                     && window.matchMedia('(hover: hover) and (pointer: fine)').matches
@@ -190,6 +202,7 @@
                     nav.classList.add('collapsed');
                 }
             } catch (e) { }
+            nav.style.visibility = 'visible';
         })();
         </script>
         </div>
