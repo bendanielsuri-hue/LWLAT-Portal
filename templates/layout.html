@@ -63,8 +63,8 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=233">
-    <script src="{% static 'js/main.js' %}?v=85" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=239">
+    <script src="{% static 'js/main.js' %}?v=87" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -73,8 +73,19 @@
         <div class="global-nav">
         <nav class="side-nav hub-rail" aria-label="Hubs">
             <div class="hub-rail-inner">
-            <a href="{% url 'homepage' %}" class="hub-rail-item icon-tooltip-host nav-row-btn" data-tooltip="LWLAT Portal" aria-label="LWLAT Portal">{% include 'icons/house_svg.html' %}</a>
-            <div class="hub-rail-divider"></div>
+            {% comment %}
+            Tab-linking (#131): the border+shadow that separates the rail from
+            the hub sidebar lives on these two layers, not directly on
+            .hub-rail-inner, so main.js (positionHubRailSeam) can cut a real
+            gap in them at the current hub's row - that row then reads as
+            fused into the sidebar instead of separated by a seam.
+            .hub-rail-active-fill fills the gap with the sidebar's own colour.
+            No-op (full-height seam, no gap) on pages with no active hub item.
+            {% endcomment %}
+            <div class="hub-rail-seam hub-rail-seam-top" id="hub-rail-seam-top"></div>
+            <div class="hub-rail-seam hub-rail-seam-bottom" id="hub-rail-seam-bottom"></div>
+            <div class="hub-rail-active-fill" id="hub-rail-active-fill"></div>
+            <a href="{% url 'homepage' %}" class="hub-rail-item icon-tooltip-host nav-row-btn" data-tooltip="LWLAT Portal" aria-label="LWLAT Portal">{% include 'icons/switch_apps_svg.html' %}</a>
             {% for item in hub_nav_items %}
             <a href="{{ item.url }}" class="hub-rail-item icon-tooltip-host {% if item.active %}active{% endif %}" data-tooltip="{{ item.label }}" aria-label="{{ item.label }}">{% include item.icon %}</a>
             {% endfor %}
@@ -165,7 +176,8 @@
 
         {% block hub_sidebar %}{% endblock %}
         {% comment %}
-        Mirrors main.js's own locked()/touchRailActive() decision (see
+        Mirrors main.js's own locked()/touchRailActive() decision (desktop
+        has no manual override to also account for now - see
         setupSidebarCollapse) but runs synchronously the instant the sidebar
         markup above has been parsed, rather than waiting for main.js's
         deferred DOMContentLoaded handler - same reasoning as the
@@ -197,8 +209,7 @@
                     && window.matchMedia('(hover: hover) and (pointer: fine)').matches
                     && !touch;
                 var touchRail = window.matchMedia('(min-width: 480px) and (max-width: 1180px)').matches && touch;
-                var manualPref = localStorage.getItem('pref-sidebar-collapsed') === 'true';
-                if (touchRail || locked || manualPref) {
+                if (touchRail || locked) {
                     nav.classList.add('collapsed');
                 }
             } catch (e) { }

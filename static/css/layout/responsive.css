@@ -1,8 +1,9 @@
 /* Responsive overrides — must load last to win the cascade */
 
 @media (max-width: 900px) {
-    /* Below 900px the hub sidebar auto-collapses into icon-only mode — the
-       same state the manual toggle button produces at wider widths. */
+    /* Below 900px the hub sidebar auto-collapses into icon-only mode - the
+       same locked-rail state a narrowed desktop window gets regardless of
+       any user action, since desktop has no manual collapse control. */
     .side-nav:not(.overlay-nav) {
         width: 72px;
     }
@@ -44,14 +45,13 @@
     }
 }
 
-/* Collapse/expand toggle: hidden at this width for a hover-capable pointer -
-   desktop's rail is forced+locked below (nowhere wider to toggle to). Touch
-   keeps it visible up to 1180px instead (see the touch-expand block below) -
-   it's what temporarily widens the rail in place there. */
-@media (max-width: 900px) {
-    html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
-        display: none;
-    }
+/* Collapse/expand toggle: desktop has no manual collapse control at all, so
+   this is hidden outright for a hover-capable pointer - a narrowed desktop
+   window locks the rail permanently below instead (nowhere to toggle to).
+   Touch keeps it visible up to 1180px instead (see the touch-expand block
+   below) - it's what temporarily widens the rail in place there. */
+html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
+    display: none;
 }
 
 /* Tablet/touch rail expand-in-place (#114 follow-up, widened #129): touch
@@ -181,16 +181,7 @@
     html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-title {
         opacity: 1;
     }
-    /* Tablet/touch drops the header/menu-list divider entirely (both rest
-       and expanded) - desktop's expanded sidebar and manually-collapsed rail
-       keep it (.nav-scroll-divider, layout.css). Hub Menu/Settings below get
-       their own bordered "secondary button" look instead once expanded,
-       which already reads as visually separate from the plain menu-item
-       rows without needing a line between them. */
-    html.nav-touch-mode .side-nav.hub-side .nav-scroll-divider {
-        display: none;
-    }
-    /* ...replaced with one above Hub Menu instead (both rest and expanded) -
+    /* Replaced with one above Hub Menu instead (both rest and expanded) -
        separates it/Settings from the local_menu list above now that they've
        moved down into .nav-footer together. */
     html.nav-touch-mode .side-nav.hub-side .hub-menu-divider {
@@ -489,7 +480,11 @@
         display: none;
     }
 
-    .card-switcher { display: flex; }
+    /* flex-end, not the default stretch — stretch would force every tab to
+       match the tallest one's height, cancelling out the active tab's own
+       extra height (navigation.css) instead of letting it stand taller than
+       its neighbours. */
+    .card-switcher { display: flex; align-items: flex-end; }
     /* .switch-card repeated to outrank a page's own unconditional display
        rule for its cards (e.g. .panel-card's display: flex in panel.css) on
        specificity alone, regardless of which stylesheet loads first. */

@@ -4,12 +4,14 @@
 Tablet/touch rail (#114 follow-up, widened #129): touch has no :hover, so
 the icon-only rail's tooltips can't identify a row - rather than a
 separate off-canvas drawer (the original #114 approach) or the old
-permanently-narrow inline expand, this corner toggle (shared with
-desktop's collapse/expand button) temporarily widens the same rail in
-place to show full labels as an overlay, then collapses back down on next
-tap or a tap outside (main.js setupSidebarCollapse). Desktop's narrowed-
-window rail (hover: hover, untouched) still locks permanently with this
-toggle hidden - nowhere wider to expand to there.
+permanently-narrow inline expand, this corner toggle temporarily widens
+the same rail in place to show full labels as an overlay, then collapses
+back down on next tap or a tap outside (main.js setupSidebarCollapse).
+Desktop has no manual collapse/expand control at all - this toggle is
+CSS-hidden outright for a hover-capable pointer (responsive.css). A
+narrowed desktop window still locks permanently to the icon-only rail,
+just with nothing to click to leave it - nowhere wider to expand to there
+anyway.
 {% endcomment %}
 <nav class="side-nav hub-side expanded" id="hub-sidebar-nav" data-hub="{{ hub_title|lower }}">
     {% comment %}
@@ -26,17 +28,15 @@ toggle hidden - nowhere wider to expand to there.
     <div class="side-nav-inner">
     <div class="nav-header">
         <div class="nav-header-top-row">
-            <button type="button" class="collapse-toggle" id="sidebar-collapse-toggle" aria-label="Collapse sidebar">
+            <button type="button" class="collapse-toggle" id="sidebar-collapse-toggle" aria-label="Open menu">
                 {% comment %}
-                Two icons, CSS-swapped on the .nav-touch-mode class (main.js) -
-                touch/tablet reads better as a familiar burger (menu_svg) than
-                desktop's directional collapse/expand chevron, even though both
-                icons drive the same toggle (main.js updateToggleLabel keeps
-                aria-label/tooltip text in sync regardless of which is shown).
+                Touch/tablet only now - CSS-hidden for a hover-capable pointer
+                (responsive.css), so this burger (menu_svg) is the only icon
+                this button ever shows (main.js updateToggleLabel keeps its
+                aria-label/tooltip text in sync with open/closed state).
                 {% endcomment %}
-                <span class="menu-icon icon-tooltip-host collapse-toggle-icon-desktop" data-tooltip="Collapse sidebar">{% include 'icons/panel_collapse_svg.html' %}</span>
-                <span class="menu-icon icon-tooltip-host collapse-toggle-icon-touch" data-tooltip="Open menu">{% include 'icons/menu_svg.html' %}</span>
-                <span class="collapse-toggle-label" id="sidebar-collapse-toggle-label">Collapse</span>
+                <span class="menu-icon icon-tooltip-host" data-tooltip="Open menu">{% include 'icons/menu_svg.html' %}</span>
+                <span class="collapse-toggle-label" id="sidebar-collapse-toggle-label">Menu</span>
             </button>
         </div>
         {% comment %}
@@ -59,7 +59,6 @@ toggle hidden - nowhere wider to expand to there.
         {% endif %}
         <div class="nav-title">{{ hub_title }}</div>
     </div>
-    <div class="nav-header-divider nav-scroll-divider"></div>
     <div class="nav-scroll">
         <ul class="nav-menu">
             {% for item in local_menu %}

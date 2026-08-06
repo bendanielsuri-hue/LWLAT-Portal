@@ -26,8 +26,22 @@
 <div class="card-switcher">
     <button type="button" class="card-tab active" data-card-target="referrals-card">My Referrals ({{ my_referrals|length }})</button>
     <button type="button" class="card-tab" data-card-target="actions-card">My Actions ({{ my_actions|length }})</button>
+    <button type="button" class="card-tab" data-card-target="meeting-card">Next Panel Meeting</button>
+    <button type="button" class="card-tab" data-card-target="activity-card">Recent Activity</button>
 </div>
-<div class="panel-columns panel-row-primary switch-card-group">
+{% comment %}
+.panel-home-cards is display:contents at every width (panel.css) - its only
+job is to give all 4 cards below one shared .switch-card-group ancestor so a
+single tab row (above) can switch between all of them as one set, in tab
+mode (<=1180px). At desktop width it renders as nothing: .panel-row-primary/
+.panel-row-secondary become .list-page-shell's real flex children directly,
+same two-row 65:35 layout as before this wrapper existed. Below 1180px the
+two rows *also* become display:contents (panel.css), flattening all 4 cards
+into one plain list where the generic .switch-card-group mechanism
+(main.js) shows exactly one at a time, full width.
+{% endcomment %}
+<div class="panel-home-cards switch-card-group">
+<div class="panel-columns panel-row-primary">
     <div class="panel-card switch-card active-card" id="referrals-card" data-recount-container>
         <div class="panel-card-header">
             <h2>My Referrals</h2>
@@ -79,7 +93,7 @@
 </div>
 
 <div class="panel-columns panel-row-secondary">
-    <div class="panel-card panel-card-meeting">
+    <div class="panel-card panel-card-meeting switch-card" id="meeting-card">
         <div class="panel-card-header">
             <h2>Next Panel Meeting</h2>
         </div>
@@ -122,7 +136,7 @@
         <p class="empty-note">No upcoming panel meeting.</p>
         {% endif %}
     </div>
-    <div class="panel-card panel-card-activity">
+    <div class="panel-card panel-card-activity switch-card" id="activity-card">
         <div class="panel-card-header">
             <h2>Recent Activity</h2>
         </div>
@@ -138,6 +152,7 @@
             {% endfor %}
         </ul>
     </div>
+</div>
 </div>
 
 <div class="stats-carousel-wrap">

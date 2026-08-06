@@ -244,27 +244,132 @@
 /* Generic card switcher: pairs a .card-switcher (row of .card-tab buttons)
    with a .switch-card-group of full-size cards sharing class .switch-card.
    Hidden by default — only relevant on pages whose card group can't fit
-   side-by-side below the breakpoint (see layout/responsive.css). */
-.card-switcher { display: none; gap: var(--space-xxs); margin-bottom: -1px; position: relative; z-index: 1; flex-shrink: 0; }
+   side-by-side below the breakpoint (see layout/responsive.css). Scrolls
+   (setupOverflowTabs, main.js) rather than wrapping or hiding tabs behind a
+   "More" dropdown once it overflows — see #131. */
+.card-switcher { display: none; margin-bottom: -1px; position: relative; z-index: 1; flex-shrink: 0; }
 .card-tab {
     background: var(--bg-page);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    padding: var(--space-xs) var(--space-sm);
     font-size: var(--font-base);
     font-weight: 600;
     font-family: inherit;
     color: var(--text-secondary);
     cursor: pointer;
+    flex-shrink: 0;
+    white-space: normal;
+    max-width: 130px;
+    text-align: center;
+    /* Reserves roughly 2 lines of height so every tab is the same height
+       regardless of label length, and the active tab's own extra height
+       (below) isn't silently absorbed if its particular label happens to
+       fit on one line. */
+    min-height: calc(1em * 1.2 * 2 + var(--space-xs) * 2);
 }
+/* No gap between tabs — each one's own right border is the only divider,
+   so seams never double up (a gap plus two borders reads thicker than one
+   line). Border-strong throughout matches the card's own border below
+   (was --border-color, a lighter token that read as a mismatch once tabs
+   sit flush against the card). */
+.card-tab:not(:last-child) { border-right: none; }
+.card-tab + .card-tab { border-left: 1px solid var(--border-strong); }
 .card-tab:hover { color: var(--text-primary); }
-/* The active tab recolors its bottom edge to match the card's own background,
-   erasing the seam where tab meets card. */
+/* Active tab: no border-bottom (flows into the card with no seam, same idea
+   as the old border-bottom-color trick this replaces) and taller than its
+   neighbours via extra padding, not width — reads as "raised", like a
+   physical folder tab. Known trade-off: this only reads as a fully seamless
+   merge when the active tab sits at the row's own edge, next to the card's
+   rounded corner; for a tab in the middle of the row the card's border can
+   still look slightly interrupted there. A fully robust fix needs a
+   separate bordered "frame" layer independent of the row's own tabs — real
+   complexity for one edge case, not worth it for the common case. */
 .card-tab.active {
     background: var(--bg-surface);
     color: var(--text-primary);
-    border-bottom-color: var(--bg-surface);
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    padding-top: calc(var(--space-xs) + 6px);
+    padding-bottom: calc(var(--space-xs) + 2px);
+    min-height: calc(1em * 1.2 * 2 + var(--space-xs) * 2 + 8px);
     z-index: 1;
+}
+
+/* Scroll-based overflow (setupOverflowTabs, main.js) for both .tab-row and
+   .card-switcher — replaces the old "More ▾" dropdown (#131). Drag/swipe to
+   scroll; a fade signals there's more at whichever edge still has content,
+   coloured to match whatever tab is actually under it (sampled in JS, not
+   assumed — .card-switcher alternates background by active state, .tab-row
+   doesn't). */
+.overflow-scroll-wrap { position: relative; }
+.overflow-scroll-row.overflow-scroll-row {
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    cursor: grab;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.overflow-scroll-row.overflow-scroll-row::-webkit-scrollbar { display: none; }
+.overflow-scroll-row.overflow-scroll-dragging { cursor: grabbing; scroll-snap-type: none; }
+.overflow-scroll-row > button,
+.overflow-scroll-row > a { scroll-snap-align: start; }
+.overflow-scroll-fade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+    pointer-events: none;
+    opacity: 0;
+    /* background-color transitions smoothly; background-image (a gradient)
+       doesn't animate reliably between two different gradients, so the
+       fade-shape comes from mask-image instead, leaving a plain animatable
+       colour underneath. */
+    transition: opacity 0.15s, background-color 0.2s;
+    /* .card-switcher sets position:relative; z-index:1 on the row itself,
+       which otherwise paints above this sibling overlay despite coming
+       later in the DOM. */
+    z-index: 2;
+}
+.overflow-scroll-fade--left {
+    left: 0;
+    -webkit-mask-image: linear-gradient(to right, black 40%, transparent);
+    mask-image: linear-gradient(to right, black 40%, transparent);
+}
+.overflow-scroll-fade--right {
+    right: 0;
+    -webkit-mask-image: linear-gradient(to left, black 40%, transparent);
+    mask-image: linear-gradient(to left, black 40%, transparent);
+}
+.overflow-scroll-wrap.has-more-left .overflow-scroll-fade--left,
+.overflow-scroll-wrap.has-more-right .overflow-scroll-fade--right {
+    opacity: 1;
+}
+
+/* Card-switcher's card body animates in on tab switch, direction depending
+   on which side the newly-picked tab was on (data-switch-dir, set in
+   main.js's card-switcher click handler before the active class swaps) —
+   reads as "moving toward" the tab you picked rather than a plain swap.
+   main.js toggles .switch-card's display:none<->flex instantly on click;
+   an animation (not a transition) is what actually plays across that
+   display:none boundary. Animated on the card's direct children, not the
+   card itself, so its own border/background stay completely still — only
+   the content slides/fades. */
+@keyframes switch-card-enter-right {
+    from { opacity: 0; transform: translateX(16px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes switch-card-enter-left {
+    from { opacity: 0; transform: translateX(-16px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.switch-card-group .switch-card.active-card > * {
+    animation: switch-card-enter-right 350ms ease-out;
+}
+.switch-card-group[data-switch-dir="left"] .switch-card.active-card > * {
+    animation-name: switch-card-enter-left;
 }
 
 /* Breadcrumbs: single line by default (overflow clipped). Pages nested more

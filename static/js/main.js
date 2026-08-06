@@ -45,85 +45,113 @@ function initSelectable(root) {
 }
 window.initSelectable = initSelectable;
 
-// Generic overflow tabs: any row of <button> tabs opting in via
+// Generic overflow tabs: any row of <button>/<a> tabs opting in via
 // [data-overflow-tabs] (or the two cases already relying on it — Inclusion
-// Panel's per-card .tab-row and any .card-switcher) collapses whichever
-// buttons don't fit into a "More" dropdown instead of wrapping. Re-measures
-// on resize and whenever a tab is clicked (so the dropdown's contents and
-// active-state stay in sync). Pulled out of the DOMContentLoaded sweep and
-// exposed on window for the same reason as initSelectable above — a tab row
-// swapped in fresh via AJAX (e.g. Inclusion Panel Home's My Actions card
-// refresh) needs this re-run on the new element, not just the page's
-// original rows.
+// Panel's per-card .tab-row and any .card-switcher) scrolls horizontally
+// once it overflows, rather than hiding whichever tabs don't fit behind a
+// "More ▾" dropdown (#131 — that dropdown duplicated every hidden tab's
+// label in a floating menu, disliked, and needed a design pass). Drag/swipe
+// to scroll, with a fade at whichever edge has more content, and selecting
+// a tab scrolls it to the centre of the row so it's never left half-hidden.
+// Pulled out of the DOMContentLoaded sweep and exposed on window for the
+// same reason as initSelectable above — a tab row swapped in fresh via AJAX
+// (e.g. Inclusion Panel Home's My Actions card refresh) needs this re-run on
+// the new element, not just the page's original rows.
 function setupOverflowTabs(row) {
     if (!row) return;
-    var buttons = Array.prototype.slice.call(row.children).filter(function (el) {
-        return el.tagName === 'BUTTON';
+    var tabs = Array.prototype.slice.call(row.children).filter(function (el) {
+        return el.tagName === 'BUTTON' || el.tagName === 'A';
     });
-    if (buttons.length < 2) return;
+    if (tabs.length < 2) return;
 
-    var moreWrap = document.createElement('div');
-    moreWrap.className = 'tab-row-more';
-    var moreBtn = document.createElement('button');
-    moreBtn.type = 'button';
-    moreBtn.className = 'tab-row-more-btn';
-    moreBtn.textContent = 'More ▾';
-    var menu = document.createElement('div');
-    menu.className = 'tab-row-more-menu hidden';
-    moreWrap.appendChild(moreBtn);
-    moreWrap.appendChild(menu);
-    row.appendChild(moreWrap);
+    row.classList.add('overflow-scroll-row');
+    var wrap = document.createElement('div');
+    wrap.className = 'overflow-scroll-wrap';
+    row.parentNode.insertBefore(wrap, row);
+    wrap.appendChild(row);
 
-    moreBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        menu.classList.toggle('hidden');
-    });
-    document.addEventListener('click', function () { menu.classList.add('hidden'); });
+    var fadeLeft = buildOverflowFade('left');
+    var fadeRight = buildOverflowFade('right');
+    wrap.appendChild(fadeLeft);
+    wrap.appendChild(fadeRight);
 
-    function measure() {
-        moreWrap.style.display = 'none';
-        buttons.forEach(function (b) { b.style.display = ''; });
-        menu.innerHTML = '';
-
-        var available = row.clientWidth;
-        var totalWidth = buttons.reduce(function (sum, b) { return sum + b.offsetWidth; }, 0);
-        if (totalWidth <= available) return;
-
-        moreWrap.style.display = '';
-        var budget = available - moreWrap.offsetWidth;
-        var used = 0;
-        var overflowed = [];
-        buttons.forEach(function (b) {
-            var w = b.offsetWidth;
-            if (used + w <= budget) {
-                used += w;
-            } else {
-                b.style.display = 'none';
-                overflowed.push(b);
-            }
-        });
-
-        overflowed.forEach(function (b) {
-            var item = document.createElement('button');
-            item.type = 'button';
-            item.textContent = b.textContent;
-            if (b.classList.contains('active')) item.classList.add('active');
-            item.addEventListener('click', function () {
-                menu.classList.add('hidden');
-                b.click();
-            });
-            menu.appendChild(item);
-        });
+    // Samples the actual background-colour of whatever tab is under each
+    // edge, rather than assuming a fixed pair of colours — .card-switcher's
+    // tabs alternate bg-page/bg-surface by active state, but .tab-row sits
+    // on a single uniform background throughout, so hardcoding either
+    // scheme would be wrong for the other call site.
+    function sampleBackground(edgeX) {
+        var el = document.elementFromPoint(edgeX, row.getBoundingClientRect().top + row.clientHeight / 2);
+        var tab = el && el.closest('button, a');
+        return getComputedStyle(tab || row).backgroundColor;
     }
 
-    row.addEventListener('click', function () { measure(); });
-    measure();
+    function measure() {
+        wrap.classList.toggle('has-more-left', row.scrollLeft > 2);
+        wrap.classList.toggle('has-more-right', row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+        var rowRect = row.getBoundingClientRect();
+        fadeLeft.style.backgroundColor = sampleBackground(rowRect.left + 8);
+        fadeRight.style.backgroundColor = sampleBackground(rowRect.right - 8);
+    }
+    row.addEventListener('scroll', measure);
     window.addEventListener('resize', measure);
     if (typeof ResizeObserver !== 'undefined') {
         new ResizeObserver(measure).observe(row);
     }
+    measure();
+
+    setupOverflowDragScroll(row);
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        });
+    });
 }
 window.setupOverflowTabs = setupOverflowTabs;
+
+function buildOverflowFade(side) {
+    var fade = document.createElement('div');
+    fade.className = 'overflow-scroll-fade overflow-scroll-fade--' + side;
+    return fade;
+}
+
+// Pointer-based drag-to-scroll (mouse and touch alike — devtools mobile
+// emulation and non-touch trackpads don't get native touch-scroll for
+// free). Suppresses the click that would otherwise fire on the tab under
+// the pointer once the drag has moved past a small threshold, so dragging
+// doesn't also switch tabs.
+function setupOverflowDragScroll(el) {
+    var dragging = false;
+    var moved = false;
+    var startX = 0;
+    var startScroll = 0;
+
+    el.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        dragging = true;
+        moved = false;
+        startX = e.clientX;
+        startScroll = el.scrollLeft;
+        el.classList.add('overflow-scroll-dragging');
+    });
+    el.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        var dx = e.clientX - startX;
+        if (Math.abs(dx) > 4) moved = true;
+        el.scrollLeft = startScroll - dx;
+    });
+    function endDrag() {
+        dragging = false;
+        el.classList.remove('overflow-scroll-dragging');
+    }
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('pointerleave', function () { if (dragging) endDrag(); });
+    el.addEventListener('click', function (e) {
+        if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
+    }, true);
+}
 
 // Shared progressive-disclosure filter bar (#114 grilling, then the
 // standard portal-wide - originated on Students/Referrals/Safeguarding
@@ -311,23 +339,20 @@ document.addEventListener('DOMContentLoaded', function () {
         syncTouchNavClass();
     };
 
-    // Manual collapse/expand of the hub sidebar to an icon-only rail.
-    //
-    // Below the narrow-window breakpoint, a hover-capable pointer (a
-    // narrowed desktop browser window, not a touch tablet) gets the rail
-    // forced and locked: responsive.css already pins width to 64px there,
-    // so an "expanded" state the toggle could reach would never actually
-    // show full-width - just a rail with a pointless working toggle on it
-    // (hidden entirely at this width+pointer combo, see responsive.css).
-    // Forcing the .collapsed class rather than just leaving the width
-    // override to carry it visually also gets the forced rail every other
-    // .side-nav.collapsed behavior for free - tooltips-on-hover included,
-    // same as the always-icon-only .hub-rail.
+    // Icon-only rail behaviour for the hub sidebar. Desktop has no manual
+    // control here at all - below the narrow-window breakpoint a
+    // hover-capable pointer (a narrowed desktop browser window, not a touch
+    // tablet) just gets the rail forced and locked, no toggle to reach it
+    // with (hidden entirely at this width+pointer combo, see
+    // responsive.css). Forcing the .collapsed class rather than just
+    // leaving the width override to carry it visually also gets the forced
+    // rail every other .side-nav.collapsed behavior for free -
+    // tooltips-on-hover included, same as the always-icon-only .hub-rail.
     //
     // Touch/tablet (480-1180px, real hover:none or the dev breakpoint
     // preview's forced override - see isTouchNav() above) sits icon-only at
-    // rest same as the locked desktop rail, but isn't locked: this same
-    // corner toggle temporarily widens the rail in place instead (adds
+    // rest same as the locked desktop rail, but isn't locked: the corner
+    // toggle temporarily widens the rail in place instead (adds
     // .touch-expanded, drops .collapsed - responsive.css positions it as an
     // absolute overlay so it doesn't reflow <main>), closing back down on a
     // second tap or a tap on the backdrop (#114/#129 follow-up - replaces
@@ -342,7 +367,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // sync since only one is ever visible at a time.
         var toggleIconEls = toggle.querySelectorAll('.icon-tooltip-host');
         var toggleLabelEl = document.getElementById('sidebar-collapse-toggle-label');
-        var STORAGE_KEY = 'pref-sidebar-collapsed';
         var narrowMql = window.matchMedia('(max-width: 900px)');
         var hoverCapableMql = window.matchMedia('(hover: hover) and (pointer: fine)');
         var touchRailMql = window.matchMedia('(min-width: 480px) and (max-width: 1180px)');
@@ -359,14 +383,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function updateToggleLabel() {
-            var touch = touchRailActive();
+            // Desktop never shows this button (CSS-hidden, see
+            // responsive.css) so only the touch open/close label applies -
+            // but hubTitlePrefix below still needs `collapsed` for desktop's
+            // own locked-rail state too.
             var expanded = nav.classList.contains('touch-expanded');
             var collapsed = nav.classList.contains('collapsed');
-            var label = touch ? (expanded ? 'Close menu' : 'Open menu') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+            var label = expanded ? 'Close menu' : 'Open menu';
             toggle.setAttribute('aria-label', label);
-            toggle.setAttribute('aria-expanded', touch ? String(expanded) : String(!collapsed));
+            toggle.setAttribute('aria-expanded', String(expanded));
             toggleIconEls.forEach(function (el) { el.setAttribute('data-tooltip', label); });
-            if (toggleLabelEl) toggleLabelEl.textContent = touch ? (expanded ? 'Close' : 'Menu') : (collapsed ? 'Expand' : 'Collapse');
+            if (toggleLabelEl) toggleLabelEl.textContent = expanded ? 'Close' : 'Menu';
             // Hub landing pages render their H1 as "Dashboard" with a hidden
             // "<Hub Name> " prefix (see e.g. hubs/inclusion/templates/hubs/inclusion/hub.html)
             // — once the sidebar collapses to an icon-only rail, the hub name
@@ -404,8 +431,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Leaving touch range (resize, dev breakpoint preview switch)
             // shouldn't leave a stray .touch-expanded/backdrop behind.
             if (nav.classList.contains('touch-expanded')) closeTouchExpand();
-            var collapsed = locked() || (localStorage.getItem(STORAGE_KEY) === 'true');
-            nav.classList.toggle('collapsed', collapsed);
+            nav.classList.toggle('collapsed', locked());
             updateToggleLabel();
         }
 
@@ -421,18 +447,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         toggle.addEventListener('click', function (e) {
             e.preventDefault();
-            // No-op while locked - the toggle itself is hidden at this
-            // width+pointer combo (responsive.css), but guard anyway in
+            // Touch-only control - the toggle is CSS-hidden for any
+            // hover-capable pointer (responsive.css), but guard anyway in
             // case it's reached some other way (e.g. keyboard focus
             // retained from a wider layout, or a pointer type change).
-            if (locked()) return;
-            if (touchRailActive()) {
-                if (nav.classList.contains('touch-expanded')) closeTouchExpand(); else openTouchExpand();
-                return;
-            }
-            var collapsed = nav.classList.toggle('collapsed');
-            try { localStorage.setItem(STORAGE_KEY, collapsed ? 'true' : 'false'); } catch (err) { }
-            updateToggleLabel();
+            if (!touchRailActive()) return;
+            if (nav.classList.contains('touch-expanded')) closeTouchExpand(); else openTouchExpand();
         });
         // A link inside the temporarily-widened rail navigating to a new
         // page doesn't need an explicit close - the page reload takes care
@@ -461,6 +481,38 @@ document.addEventListener('DOMContentLoaded', function () {
     requestAnimationFrame(function () {
         document.documentElement.classList.remove('js-preload');
     });
+
+    // Tab-linking (#131): sizes .hub-rail-seam-top/-bottom/.hub-rail-active-fill
+    // (layout.css) so the border/shadow separating the rail from the hub
+    // sidebar has a real gap at the current hub's row, instead of a
+    // fixed-width cover guessing how far the shadow's blur reaches. Measured
+    // via getBoundingClientRect rather than hardcoded row math so it stays
+    // correct regardless of which/how many hubs render (module visibility
+    // cascade, core/modules.py) or if the row height ever changes. No active
+    // item (e.g. the homepage) collapses back to a full, ungapped seam.
+    function positionHubRailSeam() {
+        var rail = document.querySelector('.hub-rail-inner');
+        var seamTop = document.getElementById('hub-rail-seam-top');
+        var seamBottom = document.getElementById('hub-rail-seam-bottom');
+        var activeFill = document.getElementById('hub-rail-active-fill');
+        if (!rail || !seamTop || !seamBottom || !activeFill) return;
+        var active = rail.querySelector('.hub-rail-item.active');
+        if (!active) {
+            seamTop.style.height = '100%';
+            seamBottom.style.top = '100%';
+            activeFill.style.height = '0px';
+            return;
+        }
+        var railRect = rail.getBoundingClientRect();
+        var itemRect = active.getBoundingClientRect();
+        var top = itemRect.top - railRect.top;
+        seamTop.style.height = top + 'px';
+        seamBottom.style.top = (top + itemRect.height) + 'px';
+        activeFill.style.top = top + 'px';
+        activeFill.style.height = itemRect.height + 'px';
+    }
+    positionHubRailSeam();
+    window.addEventListener('resize', positionHubRailSeam);
 
     // Generic overlay nav handling: "Switch Hub", "Select School", "Select User" and
     // "Settings" are absolutely-positioned layers stacked inside one shared
@@ -1147,8 +1199,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // Panel Home.
     document.querySelectorAll('.card-switcher').forEach(function (switcher) {
         var buttons = switcher.querySelectorAll('.card-tab');
-        buttons.forEach(function (button) {
+        buttons.forEach(function (button, newIdx) {
             button.addEventListener('click', function () {
+                // Read before the class swap below — which way the card
+                // should slide (see .switch-card-enter-left/right, style.css)
+                // depends on where the newly-picked tab sits relative to
+                // whichever one was active before this click.
+                var oldIdx = Array.prototype.findIndex.call(buttons, function (b) {
+                    return b.classList.contains('active');
+                });
+
                 buttons.forEach(function (b) { b.classList.remove('active'); });
                 button.classList.add('active');
                 // Scoped to this button's own .switch-card-group (found via its
@@ -1159,6 +1219,9 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 var targetCard = document.getElementById(button.dataset.cardTarget);
                 var group = targetCard ? targetCard.closest('.switch-card-group') : null;
                 var scope = group || document;
+                if (group && oldIdx >= 0 && oldIdx !== newIdx) {
+                    group.setAttribute('data-switch-dir', newIdx > oldIdx ? 'right' : 'left');
+                }
                 scope.querySelectorAll('.switch-card').forEach(function (card) {
                     card.classList.toggle('active-card', card.id === button.dataset.cardTarget);
                 });

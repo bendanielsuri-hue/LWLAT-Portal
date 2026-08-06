@@ -75,7 +75,10 @@
 /* Row 1 (My Referrals/My Actions) is the primary operational area and should
    dominate the page; Row 2 (Next Panel Meeting/Recent Activity) is secondary
    context and stays compressed — a 65:35 split of the shell's free space
-   (down from an even 50:50), roughly a 30% height reduction for Row 2. */
+   (down from an even 50:50), roughly a 30% height reduction for Row 2. Only
+   meaningful above 1180px - below that both rows flatten to display:contents
+   (see .panel-home-cards below), so there's no box left for this flex-basis
+   to apply to. */
 .list-page-shell .panel-columns.panel-row-primary { flex: 65 1 0; }
 .list-page-shell .panel-columns.panel-row-secondary { flex: 35 1 0; }
 
@@ -84,20 +87,38 @@
 .panel-row-secondary .panel-card-meeting { flex: 35 1 0%; }
 .panel-row-secondary .panel-card-activity { flex: 65 1 0%; }
 
-/* #116: Row 2 is secondary context (see the 65:35 split above) - below
-   1180px there's no room left for it once Row 1 needs the space a
-   card-switcher demands, and it's non-essential enough to just drop rather
-   than solve a layout for (a card-switcher and a horizontal-scroll strip
-   were both tried and reverted per grilling feedback). Next Panel Meeting/
-   Recent Activity are both reachable from their own dedicated pages
-   (Meetings, and nowhere yet for Activity - it's a nice-to-have glance, not
-   a unique access point) - see #113/#112 grilling. 1180px, not 1024px -
-   matches the card-switcher/app-footer breakpoint (responsive.css), moved
-   there per #116 follow-up to align with the dev breakpoint preview tool's
-   actual Tablet Wide preset. */
+/* Tab mode (#131 follow-up to #116): below 1180px all 4 cards (My Referrals/
+   My Actions/Next Panel Meeting/Recent Activity) join one shared tab set
+   instead of Row 2 just dropping - reverses the earlier #116 call that Row 2
+   wasn't worth a second card-switcher, in favour of one unified switcher
+   covering all 4. .panel-home-cards (home.html) wraps both rows purely to
+   give them one common .switch-card-group ancestor for main.js's generic
+   card-switcher click handler; display:contents removes it from the box
+   tree entirely so it's invisible to layout at every width. At >1180px the
+   two .panel-columns rows underneath render exactly as before (their own
+   flex-basis above, untouched). At <=1180px the rows *also* become
+   display:contents, flattening all 4 .switch-card cards into one plain
+   list of .list-page-shell's direct flex children - the existing generic
+   .switch-card-group rules below (display:none / active-card:flex) then
+   show exactly one, full width, regardless of which row it originally
+   belonged to. */
+.panel-home-cards {
+    display: contents;
+}
 @media (max-width: 1180px) {
+    .panel-row-primary,
     .panel-row-secondary {
-        display: none;
+        display: contents;
+    }
+    /* Only one .switch-card is ever visible at a time here (the rest are
+       display:none, which drops them from flex layout entirely) - applying
+       this to all 4 uniformly, rather than a single "+ .panel-columns"-style
+       adjacency rule, means it stays correct no matter which one is active,
+       cancelling the shell's own row gap (:has(.panel-columns) above) that
+       would otherwise reintroduce a large space between the tabs and
+       whichever card is currently showing. */
+    .list-page-shell .switch-card {
+        margin-top: calc(-1 * var(--space-xl));
     }
 }
 
@@ -221,9 +242,16 @@
 .stats-carousel-arrow--prev { left: -8px; }
 .stats-carousel-arrow--next { right: -8px; }
 
-/* Next Panel Meeting's content is short relative to its now-compact card —
-   center it rather than leaving it pinned to the top with dead space below. */
-.panel-card-meeting { justify-content: center; }
+/* Next Panel Meeting's content is short relative to its now-compact Row 2
+   card — center it rather than leaving it pinned to the top with dead space
+   below. Desktop only (>1180px, matching the card-switcher breakpoint,
+   responsive.css): in tab mode (#131) this card can become the single
+   full-height active card instead, where centering would leave the preview
+   floating in the middle of a much taller box - top-aligned (the plain
+   .panel-card default) reads better there, same as every other tab. */
+@media (min-width: 1181px) {
+    .panel-card-meeting { justify-content: center; }
+}
 
 /* .empty-note's default padding/font-size (space-3xl + font-xl) is sized for
    a full-height list-card empty state — inside a compressed Row 2 card that
