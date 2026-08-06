@@ -23,26 +23,20 @@
 {% endif %}
 
 <div class="list-page-shell">
-<div class="card-switcher">
-    <button type="button" class="card-tab active" data-card-target="referrals-card">My Referrals ({{ my_referrals|length }})</button>
-    <button type="button" class="card-tab" data-card-target="actions-card">My Actions ({{ my_actions|length }})</button>
-    <button type="button" class="card-tab" data-card-target="meeting-card">Next Panel Meeting</button>
-    <button type="button" class="card-tab" data-card-target="activity-card">Recent Activity</button>
-</div>
 {% comment %}
 .panel-home-cards is display:contents at every width (panel.css) - its only
-job is to give all 4 cards below one shared .switch-card-group ancestor so a
-single tab row (above) can switch between all of them as one set, in tab
-mode (<=1180px). At desktop width it renders as nothing: .panel-row-primary/
-.panel-row-secondary become .list-page-shell's real flex children directly,
-same two-row 65:35 layout as before this wrapper existed. Below 1180px the
-two rows *also* become display:contents (panel.css), flattening all 4 cards
-into one plain list where the generic .switch-card-group mechanism
-(main.js) shows exactly one at a time, full width.
+job is to give all 4 cards below one shared ancestor. At desktop width it
+renders as nothing: .panel-row-primary/.panel-row-secondary become
+.list-page-shell's real flex children directly, two-row 65:35 layout. Below
+1180px the two rows *also* become display:contents (panel.css), flattening
+all 4 cards into one plain list that stacks top to bottom, full natural
+height, no tabs/single-active-card switching - the page itself scrolls
+through all of them in order (see the .panel-home-cards rules in panel.css).
+Each card's own <h2> is its own "where am I" cue.
 {% endcomment %}
-<div class="panel-home-cards switch-card-group">
+<div class="panel-home-cards">
 <div class="panel-columns panel-row-primary">
-    <div class="panel-card switch-card active-card" id="referrals-card" data-recount-container>
+    <div class="panel-card" id="referrals-card" data-recount-container>
         <div class="panel-card-header">
             <h2>My Referrals</h2>
             <span class="panel-card-count count" data-heading-count data-count="{{ my_referrals|length }}">({{ my_referrals|length }})</span>
@@ -93,7 +87,7 @@ into one plain list where the generic .switch-card-group mechanism
 </div>
 
 <div class="panel-columns panel-row-secondary">
-    <div class="panel-card panel-card-meeting switch-card" id="meeting-card">
+    <div class="panel-card panel-card-meeting" id="meeting-card">
         <div class="panel-card-header">
             <h2>Next Panel Meeting</h2>
         </div>
@@ -136,7 +130,7 @@ into one plain list where the generic .switch-card-group mechanism
         <p class="empty-note">No upcoming panel meeting.</p>
         {% endif %}
     </div>
-    <div class="panel-card panel-card-activity switch-card" id="activity-card">
+    <div class="panel-card panel-card-activity" id="activity-card">
         <div class="panel-card-header">
             <h2>Recent Activity</h2>
         </div>
@@ -154,7 +148,12 @@ into one plain list where the generic .switch-card-group mechanism
     </div>
 </div>
 </div>
+</div>
 
+<button type="button" class="stats-carousel-toggle" aria-expanded="false">
+    <span>Overview</span>
+    <span class="stats-carousel-toggle-icon">&#9662;</span>
+</button>
 <div class="stats-carousel-wrap">
     <button type="button" class="stats-carousel-arrow stats-carousel-arrow--prev" aria-label="Previous card">&lsaquo;</button>
     <div class="stats-carousel-fade-l"></div>
@@ -213,7 +212,6 @@ into one plain list where the generic .switch-card-group mechanism
     </div>
     <div class="stats-carousel-fade-r"></div>
     <button type="button" class="stats-carousel-arrow stats-carousel-arrow--next" aria-label="Next card">&rsaquo;</button>
-</div>
 </div>
 
 <script>

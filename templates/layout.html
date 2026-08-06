@@ -63,8 +63,8 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=239">
-    <script src="{% static 'js/main.js' %}?v=87" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=248">
+    <script src="{% static 'js/main.js' %}?v=99" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -481,6 +481,17 @@
         // this one - one preview frame ever exists, however many levels
         // deep you click from.
         var insideFrame = window.self !== window.top;
+        // The real top-level page is the breakpoint tool's own control
+        // surface (Mobile/Tablet/Desktop buttons live in .app-footer's dev
+        // cluster) - it must stay visible even once the *real* browser
+        // window is narrow too, or there's no way to switch away from a
+        // narrow preset. Only the iframe's own copy (previewing what an
+        // actual narrow visitor would see) should hide its footer behind
+        // the mobile bottom nav - see the <=1180px override in
+        // responsive.css keyed off this class.
+        if (!insideFrame) {
+            document.documentElement.classList.add('dev-bp-host');
+        }
         var mainEl = document.querySelector('.content-column > main');
         // The iframe loads the *whole* current page, own global-nav/hub
         // sidebar included - so that real chrome has to be hidden too while

@@ -87,21 +87,19 @@
 .panel-row-secondary .panel-card-meeting { flex: 35 1 0%; }
 .panel-row-secondary .panel-card-activity { flex: 65 1 0%; }
 
-/* Tab mode (#131 follow-up to #116): below 1180px all 4 cards (My Referrals/
-   My Actions/Next Panel Meeting/Recent Activity) join one shared tab set
-   instead of Row 2 just dropping - reverses the earlier #116 call that Row 2
-   wasn't worth a second card-switcher, in favour of one unified switcher
-   covering all 4. .panel-home-cards (home.html) wraps both rows purely to
-   give them one common .switch-card-group ancestor for main.js's generic
-   card-switcher click handler; display:contents removes it from the box
-   tree entirely so it's invisible to layout at every width. At >1180px the
-   two .panel-columns rows underneath render exactly as before (their own
-   flex-basis above, untouched). At <=1180px the rows *also* become
-   display:contents, flattening all 4 .switch-card cards into one plain
-   list of .list-page-shell's direct flex children - the existing generic
-   .switch-card-group rules below (display:none / active-card:flex) then
-   show exactly one, full width, regardless of which row it originally
-   belonged to. */
+/* Stack mode (#131 follow-up to #116, superseded by the "lose the tabs"
+   grilling): below 1180px all 4 cards (My Referrals/My Actions/Next Panel
+   Meeting/Recent Activity) render at once, stacked top to bottom, full
+   natural height - no tab row, no single-active-card switching, the page
+   itself scrolls through all of them in order. Tried a shared tab set
+   first (one card visible at a time, main.js's generic card-switcher) but
+   settled on this after prototyping both. .panel-home-cards (home.html)
+   wraps both rows purely to give them one common ancestor; display:contents
+   removes it from the box tree entirely at desktop width, invisible to
+   layout there. At >1180px the two .panel-columns rows underneath render
+   exactly as before (their own flex-basis above, untouched). At <=1180px
+   the rows *also* become display:contents, flattening all 4 real cards
+   into .panel-home-cards' own flex column below. */
 .panel-home-cards {
     display: contents;
 }
@@ -110,15 +108,35 @@
     .panel-row-secondary {
         display: contents;
     }
-    /* Only one .switch-card is ever visible at a time here (the rest are
-       display:none, which drops them from flex layout entirely) - applying
-       this to all 4 uniformly, rather than a single "+ .panel-columns"-style
-       adjacency rule, means it stays correct no matter which one is active,
-       cancelling the shell's own row gap (:has(.panel-columns) above) that
-       would otherwise reintroduce a large space between the tabs and
-       whichever card is currently showing. */
-    .list-page-shell .switch-card {
-        margin-top: calc(-1 * var(--space-xl));
+    .panel-home-cards {
+        display: flex;
+        flex-direction: column;
+    }
+    /* Overrides the bounded-height dashboard shell every other
+       .list-page-shell page (Students/Referrals/Actions, Meeting Setup)
+       still wants - setupListPageShellHeight (main.js) sets an inline
+       height on every .list-page-shell unconditionally, and .panel-card's
+       own height:100%/overflow:hidden (unconditional, above) assumes that
+       bounded model too. :has(.panel-home-cards) scopes this to Panel
+       Home's shell specifically, the same way :has(.panel-columns) already
+       scopes the row gap above - !important beats the inline style JS
+       sets, same reasoning as home.html's earlier stack prototype. */
+    .list-page-shell:has(.panel-home-cards) {
+        height: auto !important;
+        overflow: visible;
+    }
+    .panel-home-cards .panel-card {
+        height: auto;
+        overflow: visible;
+        margin-bottom: var(--space-xl);
+    }
+    .panel-home-cards .panel-card:last-child {
+        margin-bottom: 0;
+    }
+    .panel-home-cards .panel-list,
+    .panel-home-cards .activity-list {
+        flex: none;
+        overflow-y: visible;
     }
 }
 
@@ -149,6 +167,12 @@
    below, so another KPI row could reuse it as-is. */
 .stats-carousel-wrap {
     position: relative;
+}
+/* Collapse toggle (responsive.css ≤480px, main.js) only exists as a phone
+   affordance — desktop/tablet always show the carousel with nothing to
+   toggle, so this stays hidden until that media query turns it on. */
+.stats-carousel-toggle {
+    display: none;
 }
 .stats-carousel-viewport {
     overflow-x: auto;

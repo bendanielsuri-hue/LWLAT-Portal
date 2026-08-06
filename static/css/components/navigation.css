@@ -248,7 +248,18 @@
    (setupOverflowTabs, main.js) rather than wrapping or hiding tabs behind a
    "More" dropdown once it overflows — see #131. */
 .card-switcher { display: none; margin-bottom: -1px; position: relative; z-index: 1; flex-shrink: 0; }
+/* setupOverflowTabs (main.js, #131) wraps .card-switcher in .overflow-scroll-wrap
+   once it overflows — that wrap, not .card-switcher itself, is the actual flex
+   item in .list-page-shell, so .card-switcher's own -1px margin-bottom never
+   reaches outside it and the active tab stops flowing into its card (a real
+   gap appears, so the tab's missing border-bottom becomes visible again as an
+   edge with nothing to hide it against). Re-declared on the wrap directly so
+   the seamless-merge works whether or not the row has actually overflowed. */
+.overflow-scroll-wrap:has(.card-switcher) { margin-bottom: -1px; }
 .card-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: var(--bg-page);
     border: 1px solid var(--border-strong);
     border-radius: 0;
@@ -262,10 +273,12 @@
     white-space: normal;
     max-width: 130px;
     text-align: center;
-    /* Reserves roughly 2 lines of height so every tab is the same height
-       regardless of label length, and the active tab's own extra height
-       (below) isn't silently absorbed if its particular label happens to
-       fit on one line. */
+    line-height: 1.2;
+    /* Reserves roughly 2 lines of height as a floor so a lone single-tab row
+       never looks squashed; .card-switcher's own align-items: stretch
+       (responsive.css) is what actually keeps every tab equal to the
+       tallest one's real content height once there's more than one. Content
+       is flex-centered (above) so it stays vertically centred either way. */
     min-height: calc(1em * 1.2 * 2 + var(--space-xs) * 2);
 }
 /* No gap between tabs — each one's own right border is the only divider,
@@ -276,23 +289,30 @@
 .card-tab:not(:last-child) { border-right: none; }
 .card-tab + .card-tab { border-left: 1px solid var(--border-strong); }
 .card-tab:hover { color: var(--text-primary); }
+/* .overflow-scroll-wrap's -1px margin-bottom (above) exists only to pull the
+   active tab's open bottom edge flush into its card — now that every tab is
+   stretched to the same height, that -1px shift also lands under inactive
+   tabs, putting their own border-bottom almost exactly on top of the card's
+   top border (rounds to a visible double/misaligned line depending on
+   sub-pixel placement). Pushing inactive tabs back down by 1px cancels the
+   shift for them specifically, leaving only the active tab overlapping. */
+.card-tab:not(.active) { margin-bottom: 1px; }
 /* Active tab: no border-bottom (flows into the card with no seam, same idea
-   as the old border-bottom-color trick this replaces) and taller than its
-   neighbours via extra padding, not width — reads as "raised", like a
-   physical folder tab. Known trade-off: this only reads as a fully seamless
-   merge when the active tab sits at the row's own edge, next to the card's
-   rounded corner; for a tab in the middle of the row the card's border can
-   still look slightly interrupted there. A fully robust fix needs a
-   separate bordered "frame" layer independent of the row's own tabs — real
-   complexity for one edge case, not worth it for the common case. */
+   as the old border-bottom-color trick this replaces). Same height as every
+   other tab (no more "raised folder tab" via extra padding — dropped in
+   favour of a uniform row, all tabs stretched to the tallest one's content
+   height by .card-switcher's align-items: stretch). Known trade-off: this
+   only reads as a fully seamless merge when the active tab sits at the
+   row's own edge, next to the card's rounded corner; for a tab in the
+   middle of the row the card's border can still look slightly interrupted
+   there. A fully robust fix needs a separate bordered "frame" layer
+   independent of the row's own tabs — real complexity for one edge case,
+   not worth it for the common case. */
 .card-tab.active {
     background: var(--bg-surface);
     color: var(--text-primary);
     border-bottom: none;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    padding-top: calc(var(--space-xs) + 6px);
-    padding-bottom: calc(var(--space-xs) + 2px);
-    min-height: calc(1em * 1.2 * 2 + var(--space-xs) * 2 + 8px);
     z-index: 1;
 }
 
@@ -319,7 +339,14 @@
 .overflow-scroll-fade {
     position: absolute;
     top: 0;
-    bottom: 0;
+    /* 1px short of the wrap's own bottom edge, not 0 — .overflow-scroll-wrap's
+       -1px margin-bottom (added for #131's active-tab/card seam fix, above)
+       pulls the wrap's whole box 1px into the card underneath, and a fade
+       sized to that same box would paint its own sampled tab colour over
+       that shared pixel at the card's top-left/top-right corners (only
+       visible there, not along the whole edge, since the fade only covers
+       each end of the row). */
+    bottom: 1px;
     width: 40px;
     pointer-events: none;
     opacity: 0;

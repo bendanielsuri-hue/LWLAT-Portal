@@ -87,8 +87,14 @@ function setupOverflowTabs(row) {
     }
 
     function measure() {
-        wrap.classList.toggle('has-more-left', row.scrollLeft > 2);
-        wrap.classList.toggle('has-more-right', row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+        // Epsilon wider than a plain rounding guard (was 2px) — on a
+        // fractionally-scaled display (e.g. Windows 125%/150% scaling)
+        // scrollWidth/clientWidth carry sub-pixel remainders, so even a
+        // fully-scrolled row can sit >2px short of scrollWidth and never
+        // clear has-more-right, leaving the edge fade permanently drawn
+        // over the last tab (reads as a soft clip on its label).
+        wrap.classList.toggle('has-more-left', row.scrollLeft > 4);
+        wrap.classList.toggle('has-more-right', row.scrollLeft + row.clientWidth < row.scrollWidth - 4);
         var rowRect = row.getBoundingClientRect();
         fadeLeft.style.backgroundColor = sampleBackground(rowRect.left + 8);
         fadeRight.style.backgroundColor = sampleBackground(rowRect.right - 8);
@@ -1104,15 +1110,65 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var shells = document.querySelectorAll('.list-page-shell');
         if (!header || !shells.length) return;
 
+        // The card should use all the space main actually has to give,
+        // short of what's genuinely needed for real trailing content.
+        // Panel Home's KPI toggle/carousel (home.html) render as the
+        // shell's own trailing siblings, not inside it - above 480px the
+        // carousel is always visible (no toggle to collapse it there, see
+        // responsive.css), so it genuinely needs its share reserved or it
+        // overflows main outright. At phone width the collapsed carousel
+        // itself measures 0, so this sums to just the small toggle - the
+        // card still gets everything else.
         function applyHeight() {
-            var height = window.innerHeight - header.getBoundingClientRect().bottom - 32;
-            shells.forEach(function (shell) { shell.style.height = height + 'px'; });
+            var headerBottom = header.getBoundingClientRect().bottom;
+            shells.forEach(function (shell) {
+                var trailing = 0;
+                var sib = shell.nextElementSibling;
+                while (sib) {
+                    var sibCs = getComputedStyle(sib);
+                    trailing += sib.getBoundingClientRect().height
+                        + parseFloat(sibCs.marginTop || 0)
+                        + parseFloat(sibCs.marginBottom || 0);
+                    sib = sib.nextElementSibling;
+                }
+                // Budget against main's own rendered bottom edge, not
+                // window.innerHeight - anything below main in the layout
+                // (e.g. the mobile bottom nav bar) eats into innerHeight
+                // without main actually having that space to give.
+                var mainBottom = shell.closest('main').getBoundingClientRect().bottom;
+                // flex: none (not just flexGrow/flexShrink: 0) - the base
+                // CSS's flex: 1 shorthand also sets flex-basis: 0%, which
+                // wins over an explicit height for a flex item's main size
+                // even with grow/shrink zeroed out, so leaving flex-basis
+                // alone would still ignore the pixel height set below.
+                shell.style.flex = 'none';
+                shell.style.height = (mainBottom - headerBottom - 32 - trailing) + 'px';
+            });
         }
 
         applyHeight();
         window.addEventListener('resize', applyHeight);
         if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(applyHeight).observe(header);
+            var ro = new ResizeObserver(applyHeight);
+            ro.observe(header);
+            // Also watches the trailing siblings themselves, so expanding
+            // stats-carousel-toggle's carousel re-measures and shrinks the
+            // shell to make room, rather than only reacting to header
+            // resizes.
+            shells.forEach(function (shell) {
+                var sib = shell.nextElementSibling;
+                while (sib) { ro.observe(sib); sib = sib.nextElementSibling; }
+            });
+        }
+        // Belt-and-braces recompute once web fonts actually finish loading -
+        // the very first applyHeight() above can run against a fallback
+        // font's metrics (FOUT), and if the real font reflows text by a few
+        // px in a way none of the observed elements individually resize
+        // enough to trigger (or the swap lands in the same tick the
+        // observers are still being wired up), the shell's height is set
+        // once, correctly for the wrong font, and never revisited.
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(applyHeight);
         }
     })();
 
@@ -1563,6 +1619,21 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var bar = closest(label, '.filter-bar');
         if (!bar) return;
         bar.classList.toggle('is-expanded');
+    });
+
+    // KPI carousel collapse (Panel Home, see responsive.css's ≤480px block):
+    // same is-expanded toggle mechanism as the filter bar above, just on a
+    // separate toggle button rather than the row itself, since the carousel
+    // still needs its own arrows/drag handlers live underneath. No-op above
+    // 480px since that CSS ignores the class and always shows the carousel.
+    document.addEventListener('click', function (e) {
+        var toggle = closest(e.target, '.stats-carousel-toggle');
+        if (!toggle) return;
+        var wrap = toggle.nextElementSibling;
+        if (!wrap || !wrap.classList.contains('stats-carousel-wrap')) return;
+        var expanded = wrap.classList.toggle('is-expanded');
+        toggle.classList.toggle('is-expanded', expanded);
+        toggle.setAttribute('aria-expanded', String(expanded));
     });
 
     // Server-side dashboard filter bars (e.g. SEND & Provision) can opt into

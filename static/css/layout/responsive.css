@@ -409,33 +409,6 @@ html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
     }
     .senco-card { flex: 0 0 auto; width: 100%; }
 
-    /* Panel Home (#116): the bounded-height "dashboard shell" desktop/tablet
-       use (list-page-shell's fixed height + each card scrolling internally,
-       panel.css) costs too much of an already-cramped viewport at phone
-       width - drop it for an ordinary page that scrolls, cards stacking
-       top to bottom instead. Scoped via :has(.panel-columns), matching
-       panel.css's own scoping for the same shell, since plain
-       .list-page-shell also backs Students/Referrals/Actions (#117-120),
-       whose own phone treatment isn't decided by this ticket. Row 1's
-       card-switcher tabs (already active <=1024px) keep working unchanged -
-       only the forced internal scroll goes away, so the visible card just
-       grows to its content height and the page scrolls past it. Row 2
-       (Next Panel Meeting/Recent Activity) is display:none <=1024px
-       (panel.css) so isn't a concern here. */
-    .list-page-shell:has(.panel-columns) {
-        overflow: visible;
-    }
-    .list-page-shell:has(.panel-columns) .panel-card {
-        height: auto;
-        overflow: visible;
-    }
-    .list-page-shell:has(.panel-columns) .panel-list {
-        flex: none;
-        overflow-y: visible;
-        margin-bottom: 0;
-        padding-bottom: 0;
-    }
-
     /* Home's KPI row carousel (#116 follow-up): phone width switches from
        "fit as many whole cards as possible" to a "peek" carousel instead -
        one card centred, deliberately sized/positioned (main.js layout())
@@ -453,6 +426,42 @@ html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
         scroll-snap-align: center;
     }
     .stats-carousel-track { gap: var(--space-xs); }
+
+    /* KPI carousel collapse (stats-carousel-toggle, main.js): the row of
+       stat cards is useful context but permanently costs the same vertical
+       space every referral-list scroll has to clear past first at phone
+       width, where that space is scarcest. Collapsed by default here (the
+       opposite default direction from .filter-bar's is-expanded, since this
+       content is supplementary rather than a control the page needs) -
+       tapping the toggle reveals it, same class-toggle-on-click mechanism
+       as the filter bar. */
+    .stats-carousel-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: var(--space-xs) var(--space-sm);
+        margin-bottom: var(--space-xs);
+        font-size: var(--font-sm);
+        font-weight: 600;
+        color: var(--text-secondary);
+        cursor: pointer;
+    }
+    .stats-carousel-toggle-icon {
+        transition: transform var(--transition-base);
+    }
+    .stats-carousel-toggle.is-expanded .stats-carousel-toggle-icon {
+        transform: rotate(180deg);
+    }
+    .stats-carousel-wrap {
+        display: none;
+    }
+    .stats-carousel-wrap.is-expanded {
+        display: flex;
+    }
 }
 
 /* Card-switcher/switch-card-group (Home Row 1, Meeting Setup's Settings/
@@ -470,21 +479,26 @@ html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
     /* Every pixel of vertical space matters once a page's card layout starts
        giving up its side-by-side desktop treatment (card-switcher below) -
        the footer (#128) is a permanent-chrome status bar, not core page
-       content, so it goes first. Dev cluster (breakpoint tool/errors/file
-       issue) goes with it - not worth carving out an exception since a
-       developer testing at tablet/phone width would normally do so via the
-       breakpoint preview tool itself, from a wider screen where the footer
-       is still there. Widened from phone-only to this tier per #116
-       grilling feedback. */
+       content, so it goes first. Widened from phone-only to this tier per
+       #116 grilling feedback. */
     .app-footer {
         display: none;
     }
+    /* Exception: the real top-level page (not the preview iframe's own
+       copy) is the breakpoint tool's control surface - its dev cluster is
+       where the Mobile/Tablet/Desktop buttons live, so hiding it the
+       moment the *real* browser window also happens to be narrow removes
+       the only way to switch back out. Only the iframe's copy (genuinely
+       simulating a narrow visitor) should hide its footer - see the
+       dev-bp-host class in layout.html, set only outside the iframe. */
+    html.dev-bp-host .app-footer {
+        display: flex;
+    }
 
-    /* flex-end, not the default stretch — stretch would force every tab to
-       match the tallest one's height, cancelling out the active tab's own
-       extra height (navigation.css) instead of letting it stand taller than
-       its neighbours. */
-    .card-switcher { display: flex; align-items: flex-end; }
+    /* stretch (the flex default) so every tab matches the tallest one's
+       content height, label vertically centred (navigation.css) — the
+       active tab no longer stands taller than its neighbours. */
+    .card-switcher { display: flex; align-items: stretch; }
     /* .switch-card repeated to outrank a page's own unconditional display
        rule for its cards (e.g. .panel-card's display: flex in panel.css) on
        specificity alone, regardless of which stylesheet loads first. */
