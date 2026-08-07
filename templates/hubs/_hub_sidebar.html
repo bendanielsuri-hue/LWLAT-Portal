@@ -241,32 +241,43 @@ Menu switcher instead - see its own comment below.
     @media (max-width: 479px) {
         body:has(.mobile-tabbar) .side-nav.hub-side { display: none; }
         {% comment %}
-        The bar is position:fixed, so it takes up no space in normal flow —
-        page content had nothing reserved for it and rendered straight
-        underneath, the last row(s) on any page tall enough to scroll
-        permanently hidden behind the bar, and main's own native scrollbar
-        ran the full viewport height behind the (opaque) bar too rather
-        than stopping cleanly above it (#129 grilling: "mobile nav seems
-        to cover bottom of page" / "scrollbar bottom is cut off"). A plain
-        padding-bottom on main alone measured zero effect on its own
-        scrollHeight, confirmed empirically - .main-inner is height:100%
-        (capped to main's own height, layout.css) with overflow:visible
-        children (e.g. the SENCo carousel) that render past that capped
-        box on any page tall enough to need this fix in the first place,
-        so main never "sees" that overflowing content as part of its own
-        scrollable region for padding to trail after. margin-bottom
-        shrinks main's own rendered box instead (leaving .main-inner's
-        height:100% alone, now correctly 100% of a shorter main) - the
-        scrollbar, content clearance, and the bar all resolve from that one
-        change, no padding/height override needed on either element.
-        47px is the bar's own flat height; +Referral's raised FAB (-28px
-        margin-top on a 56px circle) pokes another 18px above that on top,
-        so content clearing the flat bar could still sit right up against
-        it (#129 grilling: "+ button... could get in way"). Margin covers
-        the FAB's true top edge plus a small breathing-room gap, not just
-        the bar's own box.
+        #129 shrank main itself via margin-bottom, which stopped the bar
+        covering content but also stopped content ever visually running
+        underneath the (fixed) bar while scrolling - #132 then tried
+        removing that entirely, which brought back #129's original bug
+        (scrollbar/last row cut off, nothing reachable past the bar).
+
+        This is the third attempt, on .main-inner instead of main: a
+        padding-bottom the same size as the bar (+ FAB clearance) added to
+        .main-inner's own bottom edge. .main-inner is a normal-flow child
+        of main (min-height: 100%, not a fixed height - see its own
+        comment above), so this padding genuinely extends main's
+        scrollable content instead of just resizing main's outer box the
+        way margin-bottom on main did. Net effect: while scrolling, real
+        content still passes visually behind the fixed bar exactly as
+        asked for, but there's real (blank) scroll room past the last row
+        - so that last row can still be scrolled clear of the bar instead
+        of staying permanently trapped under it.
         {% endcomment %}
-        body:has(.mobile-tabbar) main { margin-bottom: calc(47px + 18px + var(--space-sm)); }
+        body:has(.mobile-tabbar) .main-inner { padding-bottom: calc(47px + 18px + var(--space-lg)); }
+        {% comment %}
+        main's own native scrollbar renders at main's own edge, and main
+        still occupies the full viewport height (only .main-inner shrank
+        via padding above, not main itself) - so the scrollbar's bottom
+        stretch runs behind the fixed bar, same visual complaint as before
+        just on the scrollbar instead of the content. Hidden outright
+        rather than reserving yet more space for it: this is a phone-width,
+        touch-first surface where native momentum scrolling doesn't need a
+        visible track anyway (same call already made this pass for every
+        other scroll surface on Panel Home - the referrals carousel, the
+        KPI carousel, My Actions/Recent Activity's own internal scroll).
+        {% endcomment %}
+        body:has(.mobile-tabbar) main {
+            scrollbar-width: none;
+        }
+        body:has(.mobile-tabbar) main::-webkit-scrollbar {
+            display: none;
+        }
         .mobile-tabbar {
             display: flex;
             align-items: center;

@@ -1151,10 +1151,10 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         if (typeof ResizeObserver !== 'undefined') {
             var ro = new ResizeObserver(applyHeight);
             ro.observe(header);
-            // Also watches the trailing siblings themselves, so expanding
-            // stats-carousel-toggle's carousel re-measures and shrinks the
-            // shell to make room, rather than only reacting to header
-            // resizes.
+            // Also watches the trailing siblings themselves, so a trailing
+            // element resizing (e.g. the KPI carousel re-measuring on
+            // window resize) shrinks the shell to make room, rather than
+            // only reacting to header resizes.
             shells.forEach(function (shell) {
                 var sib = shell.nextElementSibling;
                 while (sib) { ro.observe(sib); sib = sib.nextElementSibling; }
@@ -1413,153 +1413,256 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         wireScrollCarousel(wrap, '.senco-carousel', '.senco-card', '.senco-carousel-arrow--prev', '.senco-carousel-arrow--next');
     });
 
-    // Home's KPI row carousel (#116 - see the issue for the carousel-design
-    // prototype this settled on, several rounds in). Native horizontal
-    // scroll + CSS scroll-snap (real touch momentum/flick for free), plus
-    // click-and-drag scrolling for mouse/pen wired below. layout() sizes
-    // the viewport and every card's width (via the --stats-carousel-card-w
-    // custom property, panel.css) differently per breakpoint - see that
-    // function's own comments - and fadeL/fadeR are kept aligned to the
-    // viewport's actual rendered edges each time, since they live outside
-    // the scrolling element itself (can't be descendants of it, or they'd
-    // scroll away with the content instead of staying put as an edge mask).
+    // Home's KPI row carousel (#116, rebuilt #132 to match My Referrals' own
+    // "stack" carousel - see panel.css's own comment on .stats-carousel-wrap
+    // for why). .stats-carousel-track is both the scrolling element and the
+    // flex row (no separate viewport wrapper any more, same shape as
+    // #my-referrals-list); each .stats-carousel-slot is the "li" equivalent
+    // - overlapping (negative margin, panel.css), scaled/dimmed by distance
+    // from the active one (--dist/--absdist, set alongside z-index below).
+    // Generic per-.stats-carousel-wrap (forEach, not a singleton) - unlike
+    // My Referrals/My Actions (home.html, page-specific), this was always
+    // meant to be reusable by another KPI row.
+    var STATS_CAROUSEL_COUNT_LABEL_THRESHOLD = 8;
     document.querySelectorAll('.stats-carousel-wrap').forEach(function (wrap) {
-        var viewport = wrap.querySelector('.stats-carousel-viewport');
         var track = wrap.querySelector('.stats-carousel-track');
         var prev = wrap.querySelector('.stats-carousel-arrow--prev');
         var next = wrap.querySelector('.stats-carousel-arrow--next');
         var fadeL = wrap.querySelector('.stats-carousel-fade-l');
         var fadeR = wrap.querySelector('.stats-carousel-fade-r');
-        if (!viewport || !track || !prev || !next) return;
+        if (!track || !prev || !next) return;
 
-        var cards = Array.prototype.slice.call(track.querySelectorAll('.stat-card'));
-        if (!cards.length) return;
+        var dotsContainer = wrap.parentNode.querySelector('[data-stats-dots]');
+        var countLabel = wrap.parentNode.querySelector('[data-stats-count]');
+        var liveRegion = wrap.parentNode.querySelector('[data-stats-live]');
+        var lastAnnouncedIndex = -1;
 
-        var BASE_CARD_W = 140;
-
-        function currentGap() {
-            var style = window.getComputedStyle(track);
-            return parseFloat(style.columnGap || style.gap) || 0;
-        }
-        // .stats-carousel-track carries its own horizontal padding (panel.css)
-        // - left uncounted, the width maths below sized cards/gaps to fill
-        // the *viewport's* full width while the track (same width as the
-        // viewport) still had to fit that content inside width-minus-padding,
-        // overflowing by exactly the padding amount. That overflow was enough
-        // to make an already-fully-fitting row register as scrollable -
-        // arrows/fade showing with nothing to actually scroll to.
-        function trackPaddingX() {
-            var style = window.getComputedStyle(track);
-            return (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+        function slots() {
+            return Array.prototype.slice.call(track.children);
         }
 
-        function layout() {
-            var gap = currentGap();
-            var padX = trackPaddingX();
-            var count = cards.length;
-            var isPeek = window.matchMedia('(max-width: 480px)').matches;
-            var viewportW;
-            if (isPeek) {
-                // Phone: one card centred (scroll-snap-align: center,
-                // responsive.css), deliberately narrower than the full
-                // width so slivers of its neighbours peek in on both sides
-                // rather than filling edge to edge.
-                viewportW = Math.round(wrap.clientWidth * 0.9);
-                track.style.setProperty('--stats-carousel-card-w', Math.round((viewportW - padX) * 0.66) + 'px');
-            } else {
-                // Desktop/tablet: fit as many whole cards as the width
-                // allows. If every card already fits, stretch them to fill
-                // the row edge to edge instead of leaving spare width
-                // unused; otherwise keep the base width and cap the
-                // viewport at exactly that many whole cards (never more
-                // than the real card count, so there's no dead space past
-                // the last one either).
-                var available = wrap.clientWidth - padX;
-                var fitAtBase = Math.max(1, Math.floor((available + gap) / (BASE_CARD_W + gap)));
-                if (fitAtBase >= count) {
-                    viewportW = wrap.clientWidth;
-                    track.style.setProperty('--stats-carousel-card-w', Math.floor((available - gap * (count - 1)) / count) + 'px');
-                } else {
-                    viewportW = fitAtBase * (BASE_CARD_W + gap) - gap + padX;
-                    track.style.setProperty('--stats-carousel-card-w', BASE_CARD_W + 'px');
-                }
+        function step() {
+            var slot = slots()[0];
+            if (!slot) return track.clientWidth;
+            var style = window.getComputedStyle(track);
+            return slot.getBoundingClientRect().width + (parseFloat(style.columnGap || style.gap) || 0);
+        }
+
+        // Card centre vs viewport centre - see My Referrals' identical
+        // function (wireReferralCarouselInteractions, home.html) for why.
+        function activeIndex() {
+            var cards = slots();
+            var viewportCenter = track.scrollLeft + track.clientWidth / 2;
+            var closestIndex = 0;
+            var closestDist = Infinity;
+            cards.forEach(function (card, i) {
+                var cardCenter = card.offsetLeft + card.offsetWidth / 2;
+                var dist = Math.abs(cardCenter - viewportCenter);
+                if (dist < closestDist) { closestDist = dist; closestIndex = i; }
+            });
+            return { cards: cards, index: closestIndex };
+        }
+
+        function goTo(index, focusCard) {
+            var cards = slots();
+            var card = cards[index];
+            if (!card) return;
+            track.scrollTo({ left: card.offsetLeft - (track.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
+            if (focusCard) {
+                var focusable = card.querySelector('a, button');
+                if (focusable) focusable.focus({ preventScroll: true });
             }
-            viewport.style.width = viewportW + 'px';
-            // Fades live on .stats-carousel-wrap (a non-scrolling ancestor),
-            // not inside the viewport - keep them aligned to its actual
-            // edges. Centred via margin: 0 auto (panel.css), so the same
-            // offset applies to both sides.
-            var offset = viewport.offsetLeft;
-            if (fadeL) { fadeL.style.left = offset + 'px'; }
-            if (fadeR) { fadeR.style.right = offset + 'px'; }
         }
 
-        function update() {
-            var atStart = viewport.scrollLeft <= 1;
-            var atEnd = viewport.scrollLeft >= viewport.scrollWidth - viewport.clientWidth - 1;
-            var overflowing = viewport.scrollWidth > viewport.clientWidth + 1;
-            // Hidden outright once every card already fits (nothing to
-            // scroll to at all), not just disabled - a visible-but-greyed
-            // arrow pair implied there was still something to reach.
+        function updateState() {
+            var overflowing = track.scrollWidth > track.clientWidth + 1;
+            var active = activeIndex();
+            var cards = active.cards;
+            var closestIndex = active.index;
+            var atStart = closestIndex === 0;
+            var atEnd = closestIndex === cards.length - 1;
+
             prev.hidden = !overflowing;
             next.hidden = !overflowing;
             prev.disabled = atStart;
             next.disabled = atEnd;
-            if (fadeL) fadeL.style.opacity = atStart ? 0 : 1;
-            if (fadeR) fadeR.style.opacity = (atEnd || !overflowing) ? 0 : 1;
+            if (fadeL) fadeL.style.opacity = (!overflowing || atStart) ? 0 : 1;
+            if (fadeR) fadeR.style.opacity = (!overflowing || atEnd) ? 0 : 1;
+
+            cards.forEach(function (card, i) {
+                card.classList.toggle('is-active', i === closestIndex);
+                var dist = i - closestIndex;
+                card.style.setProperty('--dist', dist);
+                card.style.setProperty('--absdist', Math.abs(dist));
+                // Capped at 10, not left at z-index:auto/high - see My
+                // Referrals' identical reasoning (home.html) for why a
+                // stacked card's own z-index must stay below this row's
+                // fade/arrow chrome (panel.css: 15/20).
+                card.style.zIndex = String(Math.max(1, 10 - Math.abs(dist)));
+            });
+
+            if (dotsContainer) {
+                var dots = dotsContainer.querySelectorAll('.stats-carousel-dot');
+                dots.forEach(function (dot, i) {
+                    var isActive = i === closestIndex;
+                    dot.classList.toggle('active', isActive);
+                    dot.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                });
+            }
+
+            if (countLabel && cards.length > 1) {
+                countLabel.textContent = (closestIndex + 1) + ' / ' + cards.length;
+                countLabel.classList.add('has-cards');
+                countLabel.classList.toggle('many-cards', cards.length > STATS_CAROUSEL_COUNT_LABEL_THRESHOLD);
+            } else if (countLabel) {
+                countLabel.classList.remove('has-cards', 'many-cards');
+            }
+
+            if (liveRegion && cards.length > 1 && closestIndex !== lastAnnouncedIndex) {
+                lastAnnouncedIndex = closestIndex;
+                liveRegion.textContent = 'Stat card ' + (closestIndex + 1) + ' of ' + cards.length;
+            }
         }
-        function step() {
-            return cards[0].getBoundingClientRect().width + currentGap();
+
+        function rebuildDots() {
+            if (!dotsContainer) return;
+            var cards = slots();
+            dotsContainer.innerHTML = '';
+            if (cards.length > 1 && cards.length <= STATS_CAROUSEL_COUNT_LABEL_THRESHOLD) {
+                cards.forEach(function (card, i) {
+                    var dot = document.createElement('button');
+                    dot.type = 'button';
+                    dot.setAttribute('role', 'tab');
+                    dot.className = 'stats-carousel-dot' + (i === 0 ? ' active' : '');
+                    dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+                    dot.setAttribute('aria-label', 'Go to stat card ' + (i + 1) + ' of ' + cards.length);
+                    dot.addEventListener('click', function () { goTo(i, true); });
+                    dotsContainer.appendChild(dot);
+                });
+            }
         }
-        prev.addEventListener('click', function () { viewport.scrollBy({ left: -step(), behavior: 'smooth' }); });
-        next.addEventListener('click', function () { viewport.scrollBy({ left: step(), behavior: 'smooth' }); });
-        viewport.addEventListener('scroll', update);
-        window.addEventListener('resize', function () { layout(); update(); });
+
+        prev.addEventListener('click', function () { goTo(activeIndex().index - 1, true); });
+        next.addEventListener('click', function () { goTo(activeIndex().index + 1, true); });
+        track.addEventListener('scroll', updateState);
+        window.addEventListener('resize', function () {
+            goTo(activeIndex().index, false);
+            updateState();
+        });
+        wrap.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowRight') { e.preventDefault(); goTo(activeIndex().index + 1, true); }
+            else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(activeIndex().index - 1, true); }
+        });
 
         // Click-and-drag (mouse/pen only - touch already gets native
-        // panning/flick from overflow-x: auto, so this would just double up
-        // with the browser's own touch handling). Plain scrollLeft
-        // manipulation, not a transform, so it stays a normal scroll
-        // container - scroll-snap still settles it on release.
+        // panning/flick from overflow-x: auto). Same mechanics as My
+        // Referrals' own drag (home.html) - see its comments for the fuller
+        // reasoning on each piece, in particular why setPointerCapture only
+        // happens once an actual drag starts (pointermove, below), not on
+        // every pointerdown - capturing immediately would retarget the
+        // eventual click to the track itself instead of whichever card was
+        // actually under the pointer, breaking "click a peeking card to
+        // activate it" for any tap that never moved.
         var isPointerDown = false;
         var dragMoved = false;
         var startX = 0;
         var startScrollLeft = 0;
-        viewport.addEventListener('pointerdown', function (e) {
+        var lastSampleScrollLeft = 0;
+        var lastSampleTime = 0;
+        var flingVelocity = 0;
+        track.addEventListener('pointerdown', function (e) {
             if (e.pointerType === 'touch') return;
-            // Without this, a mousedown+move over a .stat-card (a real <a>)
-            // kicks off the browser's own native link drag-and-drop instead
-            // of ever reaching pointermove below with useful deltas - that's
-            // what made the row feel like dragging didn't do anything.
+            // No "real control" guard here unlike My Referrals' identical
+            // handler (home.html) - there, it protects separate Edit/Delete
+            // buttons from being hijacked into a drag start. Here the whole
+            // card *is* the one link (.stat-card), covering the entire
+            // clickable area - excluding "a" targets left nothing left to
+            // ever start a drag from (confirmed empirically: dragging did
+            // nothing anywhere on the row - live feedback: "it does not
+            // have drag to scroll"). A real click still reaches the link
+            // normally; only an actual drag (dragMoved) gets swallowed by
+            // the click-capture guard below.
+            //
+            // Without this preventDefault, a mousedown+move over a
+            // .stat-card (a real <a>) kicks off the browser's own native
+            // link drag-and-drop instead of ever reaching pointermove below
+            // with useful deltas.
             e.preventDefault();
             isPointerDown = true;
             dragMoved = false;
             startX = e.clientX;
-            startScrollLeft = viewport.scrollLeft;
-            viewport.classList.add('is-grabbing');
-            viewport.setPointerCapture(e.pointerId);
+            startScrollLeft = track.scrollLeft;
+            lastSampleScrollLeft = track.scrollLeft;
+            lastSampleTime = performance.now();
+            flingVelocity = 0;
         });
-        viewport.addEventListener('pointermove', function (e) {
+        track.addEventListener('pointermove', function (e) {
             if (!isPointerDown) return;
             var dx = e.clientX - startX;
-            if (Math.abs(dx) > 5) dragMoved = true;
-            if (dragMoved) viewport.scrollLeft = startScrollLeft - dx;
+            if (!dragMoved && Math.abs(dx) > 5) {
+                dragMoved = true;
+                track.classList.add('is-grabbing');
+                track.setPointerCapture(e.pointerId);
+            }
+            if (dragMoved) {
+                track.scrollLeft = startScrollLeft - dx;
+                var now = performance.now();
+                var dt = now - lastSampleTime;
+                if (dt > 8) {
+                    flingVelocity = (track.scrollLeft - lastSampleScrollLeft) / dt;
+                    lastSampleScrollLeft = track.scrollLeft;
+                    lastSampleTime = now;
+                }
+            }
         });
         function endPointerDrag() {
             isPointerDown = false;
-            viewport.classList.remove('is-grabbing');
+            track.classList.remove('is-grabbing');
+            if (dragMoved) {
+                // Projects the fling distance, then settles smoothly on
+                // whichever card ends up nearest that point - no CSS
+                // scroll-snap (a snap point catching mid-flick felt bad on
+                // My Referrals, same reasoning applies here), but a release
+                // with real momentum still finishes centred on a card
+                // rather than wherever the raw scroll happened to stop.
+                var distance = 0;
+                if (Math.abs(flingVelocity) > 0.05) {
+                    var cap = step() * 1.5;
+                    distance = Math.max(-cap, Math.min(cap, flingVelocity * 220));
+                }
+                var projectedCenter = track.scrollLeft + distance + track.clientWidth / 2;
+                var cards = slots();
+                var settleIndex = 0;
+                var settleDist = Infinity;
+                cards.forEach(function (card, i) {
+                    var d = Math.abs((card.offsetLeft + card.offsetWidth / 2) - projectedCenter);
+                    if (d < settleDist) { settleDist = d; settleIndex = i; }
+                });
+                goTo(settleIndex, false);
+            }
+            flingVelocity = 0;
         }
-        viewport.addEventListener('pointerup', endPointerDrag);
-        viewport.addEventListener('pointercancel', endPointerDrag);
-        // A drag that actually moved shouldn't also fire the card's own
-        // link navigation - swallow that one click in the capture phase
-        // before it reaches the anchor.
+        track.addEventListener('pointerup', endPointerDrag);
+        track.addEventListener('pointercancel', endPointerDrag);
+        // Tapping a *peeking* (not currently centred) card advances to it
+        // instead of following its link - see My Referrals' identical guard
+        // (home.html) for the fuller reasoning. A real link click (the
+        // active card, or dragMoved) always gets through untouched.
         track.addEventListener('click', function (e) {
-            if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; }
+            if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; return; }
+            var card = e.target.closest('.stats-carousel-slot');
+            if (!card) return;
+            var cards = slots();
+            var idx = cards.indexOf(card);
+            if (idx === -1 || idx === activeIndex().index) return;
+            e.preventDefault();
+            e.stopPropagation();
+            goTo(idx, true);
         }, true);
 
-        layout();
-        update();
+        rebuildDots();
+        goTo(0, false);
+        updateState();
     });
 
     // Toggle .is-stuck on whatever sits right after a .sticky-zone-sentinel
@@ -1621,20 +1724,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         bar.classList.toggle('is-expanded');
     });
 
-    // KPI carousel collapse (Panel Home, see responsive.css's ≤480px block):
-    // same is-expanded toggle mechanism as the filter bar above, just on a
-    // separate toggle button rather than the row itself, since the carousel
-    // still needs its own arrows/drag handlers live underneath. No-op above
-    // 480px since that CSS ignores the class and always shows the carousel.
-    document.addEventListener('click', function (e) {
-        var toggle = closest(e.target, '.stats-carousel-toggle');
-        if (!toggle) return;
-        var wrap = toggle.nextElementSibling;
-        if (!wrap || !wrap.classList.contains('stats-carousel-wrap')) return;
-        var expanded = wrap.classList.toggle('is-expanded');
-        toggle.classList.toggle('is-expanded', expanded);
-        toggle.setAttribute('aria-expanded', String(expanded));
-    });
 
     // Server-side dashboard filter bars (e.g. SEND & Provision) can opt into
     // AJAX partial-reload instead of a full navigation via

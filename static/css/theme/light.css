@@ -71,6 +71,26 @@ html { color-scheme: light; accent-color: var(--primary); }
     --text-faint: #94a3b8;
     --border-color: #e6eef4;
     --border-strong: #cdd9e6;
+    /* Third tier, fainter than --border-color: for a divider between
+       same-type repeating items (list rows, table rows, thread entries) -
+       --border-color and --border-strong were being asked to carry three
+       different jobs (repeating-item separator, meaningful section break,
+       card/structural framing) with only two steps of contrast between
+       them, so adjacent same-type dividers read as visually identical to
+       actually-structural ones (e.g. a tab-row's own border-bottom sitting
+       right above a list's row dividers - #116 grilling). Formula-derived
+       (blend toward --bg-surface), not hand-picked per theme, so it
+       inherits whatever --border-color/--bg-surface already are on
+       every theme/dark-mode variant automatically - see --accent-border
+       above for the same derived-not-hardcoded approach.
+       80/20, not 50/50 - a 50/50 blend landed almost exactly on
+       --row-hover-bg's own (very subtle, ~12% primary tint) distance from
+       --bg-surface, so a hovered row's own border effectively vanished
+       into its just-changed background (#116 grilling: "border is hidden
+       on hover"). 80% keeps this token visibly closer to --border-color
+       than to --bg-surface, clearing --row-hover-bg with real margin
+       instead of coincidentally landing on top of it. */
+    --border-faint: color-mix(in srgb, var(--border-color) 80%, var(--bg-surface));
     --badge-bg: #f1f7fb;
 
     --color-neutral: #94a3b8;

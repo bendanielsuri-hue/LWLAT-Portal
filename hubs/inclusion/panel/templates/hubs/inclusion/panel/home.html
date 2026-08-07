@@ -4,7 +4,7 @@
 {% block title %}Inclusion Panel{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=190">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=213">
 {% endblock %}
 
 
@@ -39,15 +39,33 @@ Each card's own <h2> is its own "where am I" cue.
     <div class="panel-card" id="referrals-card" data-recount-container>
         <div class="panel-card-header">
             <h2>My Referrals</h2>
-            <span class="panel-card-count count" data-heading-count data-count="{{ my_referrals|length }}">({{ my_referrals|length }})</span>
         </div>
         {% if show_referral_tabs %}
+        {% comment %}
+        Carousel-mode-only replacement for the tab row below (hidden here
+        via panel.css, ≤820px) - sits right under the heading so it reads as
+        one linked phrase ("My Referrals" / "Awaiting Discussion") rather
+        than a control bolted onto the carousel itself. Delegates every
+        click straight to the (still-present, just hidden) tab button's own
+        click handler - see wireCarouselFilterDropdown below - rather than
+        reimplementing filtering/animation/recount here.
+        {% endcomment %}
+        <div class="carousel-filter" data-referral-filter>
+            <button type="button" class="carousel-filter-trigger" data-filter-trigger aria-haspopup="listbox" aria-expanded="false">
+                <span data-filter-label></span>
+                <span class="carousel-filter-chevron" aria-hidden="true"></span>
+            </button>
+            <ul class="carousel-filter-menu" data-filter-menu role="listbox" hidden></ul>
+        </div>
         <div class="tab-row" data-referral-tab-row>
             <button type="button" data-referral-tab="all" data-count="{{ my_referrals|length }}">All <span class="count">({{ my_referrals|length }})</span></button>
             <button type="button" data-referral-tab="awaiting" data-count="{{ referrals_awaiting_count }}" class="{% if not referrals_awaiting_count %}tab-collapsed{% endif %}"{% if not referrals_awaiting_count %} tabindex="-1"{% endif %}>Awaiting Discussion <span class="count">({{ referrals_awaiting_count }})</span></button>
             <button type="button" data-referral-tab="discussed" data-count="{{ referrals_discussed_count }}" class="{% if not referrals_discussed_count %}tab-collapsed{% endif %}"{% if not referrals_discussed_count %} tabindex="-1"{% endif %}>Discussed <span class="count">({{ referrals_discussed_count }})</span></button>
         </div>
         {% endif %}
+        <div class="referral-carousel-wrap" data-referral-carousel role="region" aria-roledescription="carousel" aria-label="My Referrals">
+        <button type="button" class="referral-carousel-arrow referral-carousel-arrow--prev" aria-label="Previous referral">&lsaquo;</button>
+        <div class="referral-carousel-fade-l"></div>
         <ul class="panel-list" id="my-referrals-list" data-selectable="single">
             {% for referral in my_referrals %}
             <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-discussed="{{ referral.discussed_pr|yesno:'discussed,awaiting' }}">
@@ -56,8 +74,21 @@ Each card's own <h2> is its own "where am I" cue.
                     <div class="panel-item-title">{{ referral.student }}</div>
                     <div class="panel-item-meta">
                         {{ referral.created_at|date:"d/m/Y H:i" }}
-                        &middot;
+                    </div>
+                    <div class="panel-item-pills">
+                        {% comment %}
+                        Status pill dropped whenever show_referral_tabs is
+                        True - the active tab (Awaiting/Discussed; "All" is
+                        always hidden, panel.css) already tells you which
+                        bucket every visible card is in, so repeating it per
+                        card was pure redundancy. Only shown when tabs
+                        themselves aren't rendered at all (show_referral_tabs
+                        False - one bucket empty), where it's the only status
+                        cue left.
+                        {% endcomment %}
+                        {% if not show_referral_tabs %}
                         {% if referral.discussed_pr %}<span class="status-pill discussed">Discussed</span>{% else %}<span class="status-pill">Awaiting Discussion</span>{% endif %}
+                        {% endif %}
                         {% if referral.concern_category %}<span class="status-pill concern">{{ referral.concern_category }}</span>{% endif %}
                     </div>
                     {% if referral.discussed_pr %}
@@ -67,21 +98,46 @@ Each card's own <h2> is its own "where am I" cue.
                     </div>
                     {% endif %}
                 </div>
+                {% comment %}
+                Edit/Delete only make sense before a referral's been
+                discussed - once discussed_pr is set there's a real
+                discussion record downstream (actions, notes) that editing
+                or deleting the referral itself would orphan, so the whole
+                row is dropped rather than left clickable. Delete itself
+                (still, among Awaiting referrals) stays visible but disabled
+                once assigned to a panel (not can_delete/is_unassigned) -
+                greyed out with a reason, rather than vanishing outright,
+                so it's clear *why* it can't be deleted right now instead of
+                just not being there.
+                {% endcomment %}
+                {% if not referral.discussed_pr %}
                 <div class="panel-item-actions">
                     <button type="button" class="btn btn-edit btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> <span class="btn-label">Edit</span></button>
-                    {% if referral.can_delete %}
                     <form method="post" action="{% url 'inclusion_panel_referral_delete' referral.id %}" data-row-remove-form data-confirm-message="Delete this referral? This cannot be undone.">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
-                        <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> <span class="btn-label">Delete</span></button>
+                        <button type="submit" class="btn btn-delete btn-sm"{% if not referral.can_delete %} disabled title="Already assigned to a panel - remove it from the panel first to delete it"{% endif %}><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> <span class="btn-label">Delete</span></button>
                     </form>
-                    {% endif %}
                 </div>
+                {% endif %}
             </li>
             {% empty %}
             <li class="empty-note">No open referrals.</li>
             {% endfor %}
         </ul>
+        <div class="referral-carousel-fade-r"></div>
+        <button type="button" class="referral-carousel-arrow referral-carousel-arrow--next" aria-label="Next referral">&rsaquo;</button>
+        </div>
+        <div class="referral-carousel-dots" data-referral-dots role="tablist" aria-label="Choose a referral card"></div>
+        <div class="referral-carousel-count" data-referral-count aria-hidden="true"></div>
+        {% comment %}
+        Announces the active card on every carousel navigation (dot/arrow/
+        swipe/drag) for screen reader users, who can't otherwise tell the
+        active card changed - polite, not assertive, so it queues behind
+        whatever the user's already doing rather than interrupting. Text
+        content is set/updated in home.html's updateState().
+        {% endcomment %}
+        <div class="sr-only" aria-live="polite" data-referral-live></div>
     </div>
     {% include 'hubs/inclusion/panel/_my_actions_card.html' %}
 </div>
@@ -150,73 +206,270 @@ Each card's own <h2> is its own "where am I" cue.
 </div>
 </div>
 
-<button type="button" class="stats-carousel-toggle" aria-expanded="false">
-    <span>Overview</span>
-    <span class="stats-carousel-toggle-icon">&#9662;</span>
-</button>
-<div class="stats-carousel-wrap">
+<div class="stats-carousel-wrap" data-stats-carousel role="region" aria-roledescription="carousel" aria-label="Key stats">
     <button type="button" class="stats-carousel-arrow stats-carousel-arrow--prev" aria-label="Previous card">&lsaquo;</button>
     <div class="stats-carousel-fade-l"></div>
-    <div class="stats-carousel-viewport">
-        <div class="stats-carousel-track">
-            <div class="stats-carousel-slot">
-                <a class="stat-card stat-card--accent-primary selectable" href="{% url 'inclusion_panel_referrals' %}?status=active">
-                    <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
-                    <div class="stat-value">{{ active_referrals_count }}</div>
-                    <div class="stat-label">Active Referrals</div>
-                </a>
-            </div>
-            <div class="stats-carousel-slot">
-                <a class="stat-card stat-card--accent-{{ actions_overdue_total_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=overdue">
-                    <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
-                    <div class="stat-value">{{ actions_overdue_total }}</div>
-                    <div class="stat-label">Overdue Actions</div>
-                </a>
-            </div>
-            <div class="stats-carousel-slot">
-                <a class="stat-card stat-card--accent-{{ actions_due_this_week_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=this_week">
-                    <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
-                    <div class="stat-value">{{ actions_due_this_week }}</div>
-                    <div class="stat-label">Actions Due This Week</div>
-                </a>
-            </div>
-            <div class="stats-carousel-slot">
-                <a class="stat-card stat-card--accent-{{ followups_due_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=overdue_review">
-                    <div class="stat-card-icon">{% include 'icons/arrow_up_svg.html' %}</div>
-                    <div class="stat-value">{{ followups_due_count }}</div>
-                    <div class="stat-label">Referrals Due a Review</div>
-                </a>
-            </div>
-            <div class="stats-carousel-slot">
-                <a class="stat-card stat-card--accent-{{ unassigned_referrals_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=open">
-                    <div class="stat-card-icon">{% include 'icons/new_svg.html' %}</div>
-                    <div class="stat-value">{{ unassigned_referrals_count }}</div>
-                    <div class="stat-label">Unassigned Referrals</div>
-                </a>
-            </div>
-            {% if is_dsl %}
-            {% comment %}
-            DSL-only (#71/#75) - Staff.is_dsl directly, not the Module system every
-            other card's link target uses, same reasoning as the sidebar entry in
-            _panel_base_context: a DSL may hold no Panel Group seat at all.
-            {% endcomment %}
-            <div class="stats-carousel-slot">
-                <a class="stat-card stat-card--accent-{{ needs_briefing_count_accent }} selectable" href="{% url 'inclusion_panel_safeguarding_notes' %}">
-                    <div class="stat-card-icon">{% include 'icons/shield_check_svg.html' %}</div>
-                    <div class="stat-value">{{ needs_briefing_count }}</div>
-                    <div class="stat-label">Safeguarding Briefings Needed</div>
-                </a>
-            </div>
-            {% endif %}
+    <div class="stats-carousel-track" id="stats-carousel-track">
+        <div class="stats-carousel-slot">
+            <a class="stat-card stat-card--accent-primary selectable" href="{% url 'inclusion_panel_referrals' %}?status=active">
+                <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
+                <div class="stat-value">{{ active_referrals_count }}</div>
+                <div class="stat-label">Active Referrals</div>
+            </a>
         </div>
+        <div class="stats-carousel-slot">
+            <a class="stat-card stat-card--accent-{{ actions_overdue_total_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=overdue">
+                <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
+                <div class="stat-value">{{ actions_overdue_total }}</div>
+                <div class="stat-label">Overdue Actions</div>
+            </a>
+        </div>
+        <div class="stats-carousel-slot">
+            <a class="stat-card stat-card--accent-{{ actions_due_this_week_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=this_week">
+                <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
+                <div class="stat-value">{{ actions_due_this_week }}</div>
+                <div class="stat-label">Actions Due This Week</div>
+            </a>
+        </div>
+        <div class="stats-carousel-slot">
+            <a class="stat-card stat-card--accent-{{ followups_due_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=overdue_review">
+                <div class="stat-card-icon">{% include 'icons/arrow_up_svg.html' %}</div>
+                <div class="stat-value">{{ followups_due_count }}</div>
+                <div class="stat-label">Referrals Due a Review</div>
+            </a>
+        </div>
+        <div class="stats-carousel-slot">
+            <a class="stat-card stat-card--accent-{{ unassigned_referrals_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=open">
+                <div class="stat-card-icon">{% include 'icons/new_svg.html' %}</div>
+                <div class="stat-value">{{ unassigned_referrals_count }}</div>
+                <div class="stat-label">Unassigned Referrals</div>
+            </a>
+        </div>
+        {% if is_dsl %}
+        {% comment %}
+        DSL-only (#71/#75) - Staff.is_dsl directly, not the Module system every
+        other card's link target uses, same reasoning as the sidebar entry in
+        _panel_base_context: a DSL may hold no Panel Group seat at all.
+        {% endcomment %}
+        <div class="stats-carousel-slot">
+            <a class="stat-card stat-card--accent-{{ needs_briefing_count_accent }} selectable" href="{% url 'inclusion_panel_safeguarding_notes' %}">
+                <div class="stat-card-icon">{% include 'icons/shield_check_svg.html' %}</div>
+                <div class="stat-value">{{ needs_briefing_count }}</div>
+                <div class="stat-label">Safeguarding Briefings Needed</div>
+            </a>
+        </div>
+        {% endif %}
     </div>
     <div class="stats-carousel-fade-r"></div>
     <button type="button" class="stats-carousel-arrow stats-carousel-arrow--next" aria-label="Next card">&rsaquo;</button>
 </div>
+<div class="stats-carousel-dots" data-stats-dots role="tablist" aria-label="Choose a stat card"></div>
+<div class="stats-carousel-count" data-stats-count aria-hidden="true"></div>
+<div class="sr-only" aria-live="polite" data-stats-live></div>
 
 <script>
+// Shared by both tab rows (My Referrals' setupTabs below, My Actions'
+// initActionTabs) - "All" is always first and never collapses on its own
+// (zero-count tabs stay in the DOM collapsed rather than omitted), so it's
+// normally a safe default. Carousel mode (panel.css, both cards' own
+// breakpoint) hides "All" outright instead (one long combined carousel is a
+// worse default there, and one less tab to fit on an already-narrow tab
+// row) - skip past any hidden/collapsed button so the first genuinely
+// visible one becomes active instead.
+function firstUsableTabButton(buttons) {
+    return Array.prototype.filter.call(buttons, function (b) {
+        return !b.classList.contains('tab-collapsed') && getComputedStyle(b).display !== 'none';
+    })[0] || buttons[0];
+}
+
+// Carousel-mode replacement for the tab row (still present in the DOM, just
+// hidden at this width, panel.css) - a single compact trigger + popover list
+// reads far more cheaply than a full row of buttons once the card itself is
+// only carousel-width. Deliberately does not reimplement any filtering,
+// carousel-reset, count-recompute or pulse-animation logic of its own -
+// every option click just delegates to the real (hidden) tab button's own
+// click handler, so setupTabs/recountTabsFromRows/refreshMyActionsCard stay
+// the single source of truth for all of that; this only ever mirrors it.
+// A MutationObserver on the tab row (rather than scattering manual resync
+// calls across every place that can change it - a tab click, a delete-
+// driven recount, an AJAX refresh) keeps the trigger's own label in sync
+// with whichever button is .active, including its live count.
+function wireCarouselFilterDropdown(rootSelector, tabRowSelector) {
+    var root = document.querySelector(rootSelector);
+    var tabRow = document.querySelector(tabRowSelector);
+    var trigger = root && root.querySelector('[data-filter-trigger]');
+    var label = root && root.querySelector('[data-filter-label]');
+    var menu = root && root.querySelector('[data-filter-menu]');
+    if (!root || !tabRow || !trigger || !label || !menu) return;
+
+    function usableButtons() {
+        return Array.prototype.filter.call(tabRow.querySelectorAll('button'), function (b) {
+            return !b.classList.contains('tab-collapsed') && getComputedStyle(b).display !== 'none';
+        });
+    }
+
+    // Tab button text is "Awaiting Discussion (4)" (its own .count span,
+    // panel.css) - split the trailing "(N)" off into a small rounded badge
+    // instead of carrying the literal parentheses into the dropdown, here
+    // and in each menu option below.
+    function renderWithBadge(el, text) {
+        var match = /^(.*)\s\((\d+)\)$/.exec(text);
+        el.textContent = '';
+        if (!match) { el.textContent = text; return; }
+        el.appendChild(document.createTextNode(match[1]));
+        var badge = document.createElement('span');
+        badge.className = 'carousel-filter-badge';
+        badge.textContent = match[2];
+        el.appendChild(badge);
+    }
+
+    function syncLabel() {
+        var active = tabRow.querySelector('button.active') || usableButtons()[0];
+        if (!active) return;
+        // The previous call's badge (if any) already lives on the trigger
+        // itself, not the label (moved out below) - renderWithBadge's own
+        // `label.textContent = ''` never touches it, so without this it
+        // just piled up a fresh one on every sync instead of replacing it
+        // (confirmed empirically: the trigger showed two badges).
+        var oldBadge = trigger.querySelector('.carousel-filter-badge');
+        if (oldBadge) oldBadge.remove();
+        renderWithBadge(label, active.textContent.trim());
+        // Moves the badge renderWithBadge just appended into the label out
+        // to the trigger itself, after the chevron span (panel.css) - a
+        // real element, appendChild always places it last regardless of
+        // where it started, landing it after the chevron rather than
+        // before (live feedback: "the badge count... after the dropdown
+        // arrow"). No-op (returns null) on a plain label with no count.
+        var badge = label.querySelector('.carousel-filter-badge');
+        if (badge) trigger.appendChild(badge);
+    }
+
+    function onOutsideClick(e) {
+        if (!root.contains(e.target)) closeMenu();
+    }
+
+    function closeMenu() {
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.classList.remove('open');
+        document.removeEventListener('click', onOutsideClick, true);
+    }
+
+    function openMenu() {
+        menu.innerHTML = '';
+        usableButtons().forEach(function (btn) {
+            var li = document.createElement('li');
+            li.setAttribute('role', 'option');
+            renderWithBadge(li, btn.textContent.trim());
+            var isActive = btn.classList.contains('active');
+            li.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            if (isActive) li.classList.add('active');
+            li.addEventListener('click', function (e) {
+                e.stopPropagation();
+                btn.click();
+                closeMenu();
+            });
+            menu.appendChild(li);
+        });
+        menu.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        trigger.classList.add('open');
+        document.addEventListener('click', onOutsideClick, true);
+    }
+
+    trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (menu.hidden) openMenu(); else closeMenu();
+    });
+    trigger.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeMenu();
+    });
+
+    // subtree+childList+characterData, not just the class attribute filter -
+    // a live count changing (recountTabsFromRows' pulseCount targets a
+    // button's own .count span text) needs to reach the trigger label too,
+    // not just an active/collapsed class toggling.
+    new MutationObserver(syncLabel).observe(tabRow, {
+        subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'],
+    });
+    syncLabel();
+}
+
+// Per-row carousel-mode dropdown for My Actions' own status changer
+// (.ui-segmented--action-status) - same trigger+popover-delegates-to-the-
+// real-hidden-control idea as wireCarouselFilterDropdown above, but wired
+// once per row (one call per [data-action-status-filter], not a single
+// page-wide call) since every action card has its own independent status
+// rather than one shared tab row. Re-run after every AJAX refresh of the
+// My Actions card (refreshMyActionsCard, below) - the buttons are fresh DOM
+// nodes each time, same reasoning as initActionTabs/wireActionForms there.
+function wireActionStatusFilters() {
+    document.querySelectorAll('[data-action-status-filter]').forEach(function (root) {
+        var segmented = root.querySelector('.ui-segmented--action-status');
+        var trigger = root.querySelector('[data-filter-trigger]');
+        var label = root.querySelector('[data-filter-label]');
+        var menu = root.querySelector('[data-filter-menu]');
+        if (!segmented || !trigger || !label || !menu) return;
+
+        function options() {
+            return Array.prototype.slice.call(segmented.querySelectorAll('.ui-segmented-option'));
+        }
+
+        function syncLabel() {
+            var active = segmented.querySelector('.ui-segmented-option.active') || options()[0];
+            if (active) label.textContent = active.textContent.trim();
+        }
+
+        function onOutsideClick(e) {
+            if (!root.contains(e.target)) closeMenu();
+        }
+
+        function closeMenu() {
+            menu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.classList.remove('open');
+            document.removeEventListener('click', onOutsideClick, true);
+        }
+
+        function openMenu() {
+            menu.innerHTML = '';
+            options().forEach(function (btn) {
+                var li = document.createElement('li');
+                li.setAttribute('role', 'option');
+                li.textContent = btn.textContent.trim();
+                var isActive = btn.classList.contains('active');
+                li.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                if (isActive) li.classList.add('active');
+                li.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    // Real submit button, still in the DOM just hidden
+                    // (panel.css) - .click() fires its form's own submit
+                    // (wireActionForms, below) exactly as a direct tap on
+                    // the segmented control itself would.
+                    btn.click();
+                    closeMenu();
+                });
+                menu.appendChild(li);
+            });
+            menu.hidden = false;
+            trigger.setAttribute('aria-expanded', 'true');
+            trigger.classList.add('open');
+            document.addEventListener('click', onOutsideClick, true);
+        }
+
+        trigger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (menu.hidden) openMenu(); else closeMenu();
+        });
+        trigger.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeMenu();
+        });
+        syncLabel();
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
-    function setupTabs(tabSelector, tabDataKey, rowSelector, rowDataKey) {
+    function setupTabs(tabSelector, tabDataKey, rowSelector, rowDataKey, onApply) {
         var tabButtons = document.querySelectorAll(tabSelector);
         var rows = document.querySelectorAll(rowSelector);
         if (!tabButtons.length) return;
@@ -225,6 +478,7 @@ document.addEventListener('DOMContentLoaded', function () {
             rows.forEach(function (row) {
                 row.style.display = (tab === 'all' || row.dataset[rowDataKey] === tab) ? '' : 'none';
             });
+            if (onApply) onApply();
         }
 
         tabButtons.forEach(function (button) {
@@ -235,18 +489,27 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        // "All" is always first and never collapses, so it's always a safe
-        // default even now that zero-count tabs stay in the DOM collapsed
-        // rather than omitted.
-        tabButtons[0].classList.add('active');
-        applyTab(tabButtons[0].dataset[tabDataKey]);
+        var defaultButton = firstUsableTabButton(tabButtons);
+        defaultButton.classList.add('active');
+        applyTab(defaultButton.dataset[tabDataKey]);
     }
 
-    setupTabs('[data-referral-tab]', 'referralTab', '#my-referrals-list li[data-discussed]', 'discussed');
+    // onApply resets the carousel to its first card on every tab switch
+    // (rebuildReferralCarousel(true)) - the phone-only (#my-referrals-list)
+    // scroll-snap carousel dots/arrows track whichever cards the tab just
+    // filtered to, not the full unfiltered set (#116 grilling).
+    setupTabs('[data-referral-tab]', 'referralTab', '#my-referrals-list li[data-discussed]', 'discussed', function () {
+        rebuildReferralCarousel(true);
+    });
+    wireReferralCarouselInteractions();
     wireReferralRecount();
+    wireCarouselFilterDropdown('[data-referral-filter]', '[data-referral-tab-row]');
 
+    wireActionCarouselInteractions();
     initActionTabs();
     wireActionForms();
+    wireCarouselFilterDropdown('[data-action-filter]', '[data-action-tab-row]');
+    wireActionStatusFilters();
     // Overflow handling for each card's own tab row (collapsing into "More"),
     // and the My Referrals/My Actions card switcher itself, are both wired up
     // generically in static/js/main.js — nothing page-specific needed here.
@@ -274,7 +537,617 @@ function wireReferralRecount() {
         var tabRow = card.querySelector('[data-referral-tab-row]');
         var heading = card.querySelector('[data-heading-count]');
         window.recountTabsFromRows(tabRow, rows, referralMatchers, 'referralTab', heading);
+        // Deleting a row doesn't change *which* tab is active, so the
+        // remaining cards' order/position is still valid - just rebuild the
+        // dots to match the now-smaller set rather than resetting scroll.
+        rebuildReferralCarousel(false);
     });
+}
+
+// Phone-only (<=479px, panel.css) horizontal scroll-snap carousel for My
+// Referrals - same "native scroll + scroll-snap" base as the KPI stats row
+// (#116) but with dots (touch) or arrows (mouse/trackpad - nav-touch-mode
+// class, main.js) instead of that row's own arrows-always/peek-mode
+// treatment, since this only ever needs to work at one fixed breakpoint.
+// wireReferralCarouselInteractions runs once (arrows/drag/scroll listeners);
+// rebuildReferralCarousel re-runs whenever the *visible* card set changes
+// (tab switch, delete) to rebuild the dots and re-sync fade/arrow state.
+// A dot per card stops being a usable indicator (or a realistic tap
+// target) past this many - rebuildReferralCarousel/rebuildActionCarousel
+// switch to a plain "3 / 12" text label instead once the count exceeds it.
+var CAROUSEL_COUNT_LABEL_THRESHOLD = 8;
+
+function wireReferralCarouselInteractions() {
+    var wrap = document.querySelector('[data-referral-carousel]');
+    var viewport = document.getElementById('my-referrals-list');
+    if (!wrap || !viewport) return;
+    var prev = wrap.querySelector('.referral-carousel-arrow--prev');
+    var next = wrap.querySelector('.referral-carousel-arrow--next');
+    var fadeL = wrap.querySelector('.referral-carousel-fade-l');
+    var fadeR = wrap.querySelector('.referral-carousel-fade-r');
+    var countLabel = document.querySelector('[data-referral-count]');
+    var liveRegion = document.querySelector('[data-referral-live]');
+    var lastAnnouncedIndex = -1;
+
+    function visibleCards() {
+        return Array.prototype.filter.call(viewport.children, function (li) {
+            return li.style.display !== 'none' && !li.classList.contains('referral-carousel-spacer');
+        });
+    }
+
+    function step() {
+        var card = visibleCards()[0];
+        if (!card) return viewport.clientWidth;
+        var style = window.getComputedStyle(viewport);
+        return card.getBoundingClientRect().width + (parseFloat(style.columnGap || style.gap) || 0);
+    }
+
+    // Nearest card to the viewport's own centre (in scroll-space) - matches
+    // goTo's own centering target (viewport.scrollTo, above) exactly, card
+    // centre vs viewport centre. Previously compared raw offsetLeft against
+    // scrollLeft (a left-edge-to-left-edge distance), which was consistent
+    // back when goTo scrolled each card flush to the start - once goTo
+    // switched to centering cards instead, that left-edge heuristic no
+    // longer agreed with where goTo actually parked the "active" card,
+    // reliably picking the *previous* card instead (confirmed empirically:
+    // dot 4 activated card 3) and meaning the last card could never win the
+    // comparison at all (nothing scrolls further left of it to make its own
+    // offsetLeft "closest" to a scrollLeft that maxes out before reaching
+    // it).
+    function activeIndex() {
+        var cards = visibleCards();
+        var viewportCenter = viewport.scrollLeft + viewport.clientWidth / 2;
+        var closestIndex = 0;
+        var closestDist = Infinity;
+        cards.forEach(function (card, i) {
+            var cardCenter = card.offsetLeft + card.offsetWidth / 2;
+            var dist = Math.abs(cardCenter - viewportCenter);
+            if (dist < closestDist) { closestDist = dist; closestIndex = i; }
+        });
+        return { cards: cards, index: closestIndex };
+    }
+
+    // Scrolls to and (optionally) focuses card `index` - the one shared
+    // path behind prev/next arrows, keyboard paging, dot taps, and tapping
+    // a peeking neighbour card directly. focusCard is skipped for the
+    // initial/reset call (home.html's rebuildReferralCarousel) - autofocus
+    // on page load or a tab switch the user didn't ask to navigate away
+    // from would be a worse surprise than not moving focus at all.
+    function goTo(index, focusCard) {
+        var cards = visibleCards();
+        var card = cards[index];
+        if (!card) return;
+        // Explicit scrollLeft, not card.scrollIntoView({inline: 'center'}) -
+        // scrollIntoView only scrolls the *minimum* needed to satisfy its
+        // own "is this already visible" heuristic, which doesn't know two
+        // overlapping cards (the stack effect, panel.css) are meant to
+        // trade places - it can decide the target card is already
+        // "visible enough" mid-stack and never actually scroll at all
+        // (confirmed empirically: scrollLeft unchanged after goTo). Always
+        // computes and sets a real target instead.
+        viewport.scrollTo({ left: card.offsetLeft - (viewport.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
+        if (focusCard) card.focus({ preventScroll: true });
+    }
+
+    function updateState() {
+        var overflowing = viewport.scrollWidth > viewport.clientWidth + 1;
+        var active = activeIndex();
+        var cards = active.cards;
+        var closestIndex = active.index;
+        var atStart = closestIndex === 0;
+        var atEnd = closestIndex === cards.length - 1;
+
+        if (prev) { prev.hidden = !overflowing; prev.disabled = atStart; }
+        if (next) { next.hidden = !overflowing; next.disabled = atEnd; }
+        if (fadeL) fadeL.style.opacity = (!overflowing || atStart) ? 0 : 1;
+        if (fadeR) fadeR.style.opacity = (!overflowing || atEnd) ? 0 : 1;
+
+        // Raises whichever card is currently "active" (nearest the
+        // viewport's centre) above its neighbours - the "stack" effect
+        // (panel.css, #my-referrals-list > li): the active card scales up
+        // front and centre (highest z-index, via --absdist below) while
+        // its neighbours shrink, dim, and tuck behind it. --dist (signed)
+        // drives left/right-specific transforms where a variant wants them
+        // (e.g. rotation); --absdist (unsigned) drives symmetric ones
+        // (scale, opacity).
+        cards.forEach(function (card, i) {
+            card.classList.toggle('is-active', i === closestIndex);
+            var dist = i - closestIndex;
+            card.style.setProperty('--dist', dist);
+            card.style.setProperty('--absdist', Math.abs(dist));
+            // Capped at 10 (was 100) - the fade/arrow chrome and the
+            // carousel-filter dropdown (panel.css) sit at fixed z-indexes
+            // above this range on purpose; a card near either edge used to
+            // outrank them outright, covering the arrow (reading as
+            // "disabled") or rendering over the dropdown.
+            card.style.zIndex = String(Math.max(1, 10 - Math.abs(dist)));
+        });
+
+        var dots = wrap.parentNode.querySelectorAll('.referral-carousel-dot');
+        dots.forEach(function (dot, i) {
+            var isActive = i === closestIndex;
+            dot.classList.toggle('active', isActive);
+            dot.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        if (countLabel && cards.length > 1) {
+            countLabel.textContent = (closestIndex + 1) + ' / ' + cards.length;
+            countLabel.classList.add('has-cards');
+            countLabel.classList.toggle('many-cards', cards.length > CAROUSEL_COUNT_LABEL_THRESHOLD);
+        } else if (countLabel) {
+            countLabel.classList.remove('has-cards', 'many-cards');
+        }
+
+        if (liveRegion && cards.length > 1 && closestIndex !== lastAnnouncedIndex) {
+            lastAnnouncedIndex = closestIndex;
+            liveRegion.textContent = 'Referral ' + (closestIndex + 1) + ' of ' + cards.length;
+        }
+    }
+
+    if (prev) prev.addEventListener('click', function () { goTo(activeIndex().index - 1, true); });
+    if (next) next.addEventListener('click', function () { goTo(activeIndex().index + 1, true); });
+    viewport.addEventListener('scroll', updateState);
+    // Instant (no smooth), not just updateState - a resize/orientation
+    // change can leave the active card off-centre at the new width, so it's
+    // re-centred outright rather than just re-syncing the fade/arrow/dot
+    // indicators around a now-stale scroll position.
+    window.addEventListener('resize', function () {
+        goTo(activeIndex().index, false);
+        updateState();
+    });
+    // Left/Right pages through the carousel whenever focus is anywhere
+    // inside it (a card, an arrow) - the arrow buttons already have their
+    // own click handlers above, so this mostly matters for a focused card.
+    wrap.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight') { e.preventDefault(); goTo(activeIndex().index + 1, true); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(activeIndex().index - 1, true); }
+    });
+
+    // Click-and-drag (mouse/pen only - touch already gets native
+    // panning/flick from the CSS overflow-x: auto). Same plain scrollLeft
+    // manipulation as the KPI carousel (main.js), not a transform, so
+    // scroll-snap still settles it on release.
+    var isPointerDown = false;
+    var dragMoved = false;
+    var startX = 0;
+    var startScrollLeft = 0;
+    // Momentum tracking: scrollLeft-per-ms sampled every ~frame during the
+    // drag, so a fast flick keeps travelling briefly after release instead
+    // of stopping dead exactly where the pointer let go - matches the free
+    // feel touch already gets natively from the browser's own panning.
+    var lastSampleScrollLeft = 0;
+    var lastSampleTime = 0;
+    var flingVelocity = 0;
+    viewport.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'touch') return;
+        // A real control (Edit/Delete, the row-remove form) needs its own
+        // native mousedown/focus/click behaviour untouched - preventDefault
+        // + setPointerCapture below (for drag-to-scroll) was hijacking that
+        // on every pointerdown regardless of target, silently breaking
+        // clicks on any button inside the carousel (live feedback:
+        // "selecting buttons does not work"). Same guard as the click
+        // handler further down.
+        if (e.target.closest('button, a, form')) return;
+        // Without this, a mousedown+move over a referral row (role="button")
+        // can kick off native drag/text-selection instead of ever reaching
+        // pointermove below with useful deltas.
+        e.preventDefault();
+        isPointerDown = true;
+        dragMoved = false;
+        startX = e.clientX;
+        startScrollLeft = viewport.scrollLeft;
+        lastSampleScrollLeft = viewport.scrollLeft;
+        lastSampleTime = performance.now();
+        flingVelocity = 0;
+    });
+    viewport.addEventListener('pointermove', function (e) {
+        if (!isPointerDown) return;
+        var dx = e.clientX - startX;
+        // setPointerCapture only once an actual drag starts, not on every
+        // pointerdown - capturing immediately retargeted the eventual
+        // click event to the viewport itself rather than whatever card was
+        // actually under the pointer (confirmed empirically:
+        // document.elementFromPoint found the right <li>, but the click
+        // event's own target was the <ul>), silently breaking "click a
+        // peeking card to activate it" for any tap/click that never moved
+        // (live feedback: "can selecting a non active card activate that
+        // card"). A real drag still needs capture so tracking continues
+        // even if the pointer leaves the element's bounds mid-drag.
+        if (!dragMoved && Math.abs(dx) > 5) {
+            dragMoved = true;
+            viewport.classList.add('is-grabbing');
+            viewport.setPointerCapture(e.pointerId);
+        }
+        if (dragMoved) {
+            viewport.scrollLeft = startScrollLeft - dx;
+            var now = performance.now();
+            var dt = now - lastSampleTime;
+            if (dt > 8) {
+                flingVelocity = (viewport.scrollLeft - lastSampleScrollLeft) / dt;
+                lastSampleScrollLeft = viewport.scrollLeft;
+                lastSampleTime = now;
+            }
+        }
+    });
+    function endPointerDrag() {
+        isPointerDown = false;
+        viewport.classList.remove('is-grabbing');
+        if (dragMoved) {
+            // Distance capped to 1.5 cards - a hard flick shouldn't be able
+            // to rocket past several at once. Projects where the fling
+            // would land, then hands off to goTo (above) for whichever
+            // card ends up nearest that point - no CSS scroll-snap (still
+            // deliberately absent, see #my-referrals-list's own "No
+            // scroll-snap" comment, panel.css: a snap point catching
+            // mid-flick felt bad), but a release with real momentum still
+            // wants to finish centred on a card rather than wherever the
+            // raw scroll happened to stop (live feedback: "on release can
+            // the active card transition to center position").
+            var distance = 0;
+            if (Math.abs(flingVelocity) > 0.05) {
+                var cap = step() * 1.5;
+                distance = Math.max(-cap, Math.min(cap, flingVelocity * 220));
+            }
+            var projectedCenter = viewport.scrollLeft + distance + viewport.clientWidth / 2;
+            var cards = visibleCards();
+            var settleIndex = 0;
+            var settleDist = Infinity;
+            cards.forEach(function (card, i) {
+                var d = Math.abs((card.offsetLeft + card.offsetWidth / 2) - projectedCenter);
+                if (d < settleDist) { settleDist = d; settleIndex = i; }
+            });
+            goTo(settleIndex, false);
+        }
+        flingVelocity = 0;
+    }
+    viewport.addEventListener('pointerup', endPointerDrag);
+    viewport.addEventListener('pointercancel', endPointerDrag);
+    // A drag that actually moved shouldn't also fire the row's own
+    // select-toggle (initSelectable, main.js) - swallow that one click in
+    // the capture phase before it reaches the list's own click listener.
+    // Tapping a *peeking* (not currently centred) card is redirected to
+    // advance to it instead of toggling its selection - you can only see a
+    // sliver of it, so selecting it outright isn't a meaningful action;
+    // properly bringing it into view is what the tap actually meant.
+    viewport.addEventListener('click', function (e) {
+        if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; return; }
+        // A real control (Edit/Delete, the row-remove form) always gets its
+        // own click through untouched, active card or not - the "advance to
+        // this neighbour" hijack below is only ever meant for taps on the
+        // card's own passive area (thumb, text, background). Missed
+        // originally when peeking cards only showed a bare sliver with no
+        // real controls to tap by accident; auto-width cards (live
+        // feedback) now show full cards side by side, so a tap actually
+        // meant for a neighbour's own Edit/Delete was being swallowed here
+        // before it ever reached the button.
+        if (e.target.closest('button, a, form')) return;
+        var li = e.target.closest('li');
+        if (!li || li.classList.contains('referral-carousel-spacer')) return;
+        var cards = visibleCards();
+        var idx = cards.indexOf(li);
+        if (idx === -1 || idx === activeIndex().index) return;
+        e.preventDefault();
+        e.stopPropagation();
+        goTo(idx, true);
+    }, true);
+
+    window.updateReferralCarouselState = updateState;
+    // true (not false) - centres the first card on initial mount, same as
+    // any other reset. Without this, initial scrollLeft was just the
+    // default 0 (flush at the start of any padding-left, live feedback:
+    // "active card should be in the middle").
+    rebuildReferralCarousel(true);
+}
+
+// Rebuilds the dots row to match whichever cards are *currently visible*
+// (tab-filtered) - one dot per visible card, none at all for 0-1 (nothing to
+// page through). resetScroll snaps back to the first card, used on a tab
+// switch (the previous scroll position belongs to a different card set) but
+// not on a delete (the remaining cards' order is still valid - #116
+// grilling: "dots track filtered set").
+function rebuildReferralCarousel(resetScroll) {
+    var dotsContainer = document.querySelector('[data-referral-dots]');
+    var viewport = document.getElementById('my-referrals-list');
+    if (!dotsContainer || !viewport) return;
+
+    var cards = Array.prototype.filter.call(viewport.children, function (li) {
+        return li.style.display !== 'none' && !li.classList.contains('empty-note')
+            && !li.classList.contains('referral-carousel-spacer');
+    });
+    // Explicit scrollLeft, not scrollIntoView - see goTo's own identical
+    // change (above) for why.
+    if (resetScroll && cards[0]) {
+        viewport.scrollTo({ left: cards[0].offsetLeft - (viewport.clientWidth - cards[0].offsetWidth) / 2 });
+    }
+
+    dotsContainer.innerHTML = '';
+    // Past CAROUSEL_COUNT_LABEL_THRESHOLD, a dot per card stops being a
+    // usable indicator (or a realistic tap target) - leave the row empty
+    // and let the "3 / 12" text label (.referral-carousel-count, styled in
+    // panel.css, kept in sync by updateState) carry the signal instead.
+    if (cards.length > 1 && cards.length <= CAROUSEL_COUNT_LABEL_THRESHOLD) {
+        cards.forEach(function (card, i) {
+            var dot = document.createElement('button');
+            dot.type = 'button';
+            dot.setAttribute('role', 'tab');
+            dot.className = 'referral-carousel-dot' + (i === 0 ? ' active' : '');
+            dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+            dot.setAttribute('aria-label', 'Go to referral ' + (i + 1) + ' of ' + cards.length);
+            dot.addEventListener('click', function () {
+                // Explicit scrollLeft, not scrollIntoView - see goTo's own
+                // identical change (wireReferralCarouselInteractions, above)
+                // for why.
+                viewport.scrollTo({ left: card.offsetLeft - (viewport.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
+                card.focus({ preventScroll: true });
+            });
+            dotsContainer.appendChild(dot);
+        });
+    }
+    if (window.updateReferralCarouselState) window.updateReferralCarouselState();
+}
+
+// My Actions carousel - mirrors wireReferralCarouselInteractions/
+// rebuildReferralCarousel above 1:1 (see panel.css's own .action-carousel-*
+// comment for why this is a parallel implementation, not a shared one).
+// The one real difference: My Actions' whole card is replaced via AJAX on
+// every status change (refreshMyActionsCard, below), discarding the old
+// #my-actions-list/.action-carousel-wrap DOM along with any listeners on it
+// - wireActionCarouselInteractions is called again there, fresh, after every
+// such swap (as well as once at DOMContentLoad), each call targeting a
+// brand-new element, so there's no double-binding risk to guard against.
+function wireActionCarouselInteractions() {
+    var wrap = document.querySelector('[data-action-carousel]');
+    var viewport = document.getElementById('my-actions-list');
+    if (!wrap || !viewport) return;
+    var prev = wrap.querySelector('.action-carousel-arrow--prev');
+    var next = wrap.querySelector('.action-carousel-arrow--next');
+    var fadeL = wrap.querySelector('.action-carousel-fade-l');
+    var fadeR = wrap.querySelector('.action-carousel-fade-r');
+    var countLabel = document.querySelector('[data-action-count]');
+    var liveRegion = document.querySelector('[data-action-live]');
+    var lastAnnouncedIndex = -1;
+
+    function visibleCards() {
+        return Array.prototype.filter.call(viewport.children, function (li) {
+            return li.style.display !== 'none' && !li.classList.contains('action-carousel-spacer');
+        });
+    }
+
+    function step() {
+        var card = visibleCards()[0];
+        if (!card) return viewport.clientWidth;
+        var style = window.getComputedStyle(viewport);
+        return card.getBoundingClientRect().width + (parseFloat(style.columnGap || style.gap) || 0);
+    }
+
+    // Card centre vs viewport centre - see My Referrals' identical change
+    // (wireReferralCarouselInteractions, above) for why.
+    function activeIndex() {
+        var cards = visibleCards();
+        var viewportCenter = viewport.scrollLeft + viewport.clientWidth / 2;
+        var closestIndex = 0;
+        var closestDist = Infinity;
+        cards.forEach(function (card, i) {
+            var cardCenter = card.offsetLeft + card.offsetWidth / 2;
+            var dist = Math.abs(cardCenter - viewportCenter);
+            if (dist < closestDist) { closestDist = dist; closestIndex = i; }
+        });
+        return { cards: cards, index: closestIndex };
+    }
+
+    function goTo(index, focusCard) {
+        var cards = visibleCards();
+        var card = cards[index];
+        if (!card) return;
+        // Explicit scrollLeft, not card.scrollIntoView({inline: 'center'}) -
+        // scrollIntoView only scrolls the *minimum* needed to satisfy its
+        // own "is this already visible" heuristic, which doesn't know two
+        // overlapping cards (the stack effect, panel.css) are meant to
+        // trade places - it can decide the target card is already
+        // "visible enough" mid-stack and never actually scroll at all
+        // (confirmed empirically: scrollLeft unchanged after goTo). Always
+        // computes and sets a real target instead.
+        viewport.scrollTo({ left: card.offsetLeft - (viewport.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
+        if (focusCard) card.focus({ preventScroll: true });
+    }
+
+    function updateState() {
+        var overflowing = viewport.scrollWidth > viewport.clientWidth + 1;
+        var active = activeIndex();
+        var cards = active.cards;
+        var closestIndex = active.index;
+        var atStart = closestIndex === 0;
+        var atEnd = closestIndex === cards.length - 1;
+
+        if (prev) { prev.hidden = !overflowing; prev.disabled = atStart; }
+        if (next) { next.hidden = !overflowing; next.disabled = atEnd; }
+        if (fadeL) fadeL.style.opacity = (!overflowing || atStart) ? 0 : 1;
+        if (fadeR) fadeR.style.opacity = (!overflowing || atEnd) ? 0 : 1;
+
+        // --dist/--absdist and z-index drive the stack effect (panel.css,
+        // #my-actions-list > li) - see My Referrals' identical addition
+        // (above) for the full reasoning.
+        cards.forEach(function (card, i) {
+            card.classList.toggle('is-active', i === closestIndex);
+            var dist = i - closestIndex;
+            card.style.setProperty('--dist', dist);
+            card.style.setProperty('--absdist', Math.abs(dist));
+            // See My Referrals' identical change (wireReferralCarouselInteractions,
+            // above) for why this is capped rather than left at 100.
+            card.style.zIndex = String(Math.max(1, 10 - Math.abs(dist)));
+        });
+
+        var dots = wrap.parentNode.querySelectorAll('.action-carousel-dot');
+        dots.forEach(function (dot, i) {
+            var isActive = i === closestIndex;
+            dot.classList.toggle('active', isActive);
+            dot.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        if (countLabel && cards.length > 1) {
+            countLabel.textContent = (closestIndex + 1) + ' / ' + cards.length;
+            countLabel.classList.add('has-cards');
+            countLabel.classList.toggle('many-cards', cards.length > CAROUSEL_COUNT_LABEL_THRESHOLD);
+        } else if (countLabel) {
+            countLabel.classList.remove('has-cards', 'many-cards');
+        }
+
+        if (liveRegion && cards.length > 1 && closestIndex !== lastAnnouncedIndex) {
+            lastAnnouncedIndex = closestIndex;
+            liveRegion.textContent = 'Action ' + (closestIndex + 1) + ' of ' + cards.length;
+        }
+    }
+
+    if (prev) prev.addEventListener('click', function () { goTo(activeIndex().index - 1, true); });
+    if (next) next.addEventListener('click', function () { goTo(activeIndex().index + 1, true); });
+    viewport.addEventListener('scroll', updateState);
+    window.addEventListener('resize', function () {
+        goTo(activeIndex().index, false);
+        updateState();
+    });
+    wrap.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight') { e.preventDefault(); goTo(activeIndex().index + 1, true); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(activeIndex().index - 1, true); }
+    });
+
+    var isPointerDown = false;
+    var dragMoved = false;
+    var startX = 0;
+    var startScrollLeft = 0;
+    var lastSampleScrollLeft = 0;
+    var lastSampleTime = 0;
+    var flingVelocity = 0;
+    viewport.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'touch') return;
+        // See My Referrals' identical guard (wireReferralCarouselInteractions,
+        // above) for why - a real control needs its own pointerdown/click
+        // untouched, not hijacked into a drag-to-scroll start.
+        if (e.target.closest('button, a, form')) return;
+        e.preventDefault();
+        isPointerDown = true;
+        dragMoved = false;
+        startX = e.clientX;
+        startScrollLeft = viewport.scrollLeft;
+        lastSampleScrollLeft = viewport.scrollLeft;
+        lastSampleTime = performance.now();
+        flingVelocity = 0;
+    });
+    viewport.addEventListener('pointermove', function (e) {
+        if (!isPointerDown) return;
+        var dx = e.clientX - startX;
+        // setPointerCapture only once an actual drag starts, not on every
+        // pointerdown - capturing immediately retargeted the eventual
+        // click event to the viewport itself rather than whatever card was
+        // actually under the pointer (confirmed empirically:
+        // document.elementFromPoint found the right <li>, but the click
+        // event's own target was the <ul>), silently breaking "click a
+        // peeking card to activate it" for any tap/click that never moved
+        // (live feedback: "can selecting a non active card activate that
+        // card"). A real drag still needs capture so tracking continues
+        // even if the pointer leaves the element's bounds mid-drag.
+        if (!dragMoved && Math.abs(dx) > 5) {
+            dragMoved = true;
+            viewport.classList.add('is-grabbing');
+            viewport.setPointerCapture(e.pointerId);
+        }
+        if (dragMoved) {
+            viewport.scrollLeft = startScrollLeft - dx;
+            var now = performance.now();
+            var dt = now - lastSampleTime;
+            if (dt > 8) {
+                flingVelocity = (viewport.scrollLeft - lastSampleScrollLeft) / dt;
+                lastSampleScrollLeft = viewport.scrollLeft;
+                lastSampleTime = now;
+            }
+        }
+    });
+    function endPointerDrag() {
+        isPointerDown = false;
+        viewport.classList.remove('is-grabbing');
+        if (dragMoved) {
+            // See My Referrals' identical change (wireReferralCarouselInteractions,
+            // above) for why this projects+settles via goTo rather than a
+            // plain momentum scrollBy.
+            var distance = 0;
+            if (Math.abs(flingVelocity) > 0.05) {
+                var cap = step() * 1.5;
+                distance = Math.max(-cap, Math.min(cap, flingVelocity * 220));
+            }
+            var projectedCenter = viewport.scrollLeft + distance + viewport.clientWidth / 2;
+            var cards = visibleCards();
+            var settleIndex = 0;
+            var settleDist = Infinity;
+            cards.forEach(function (card, i) {
+                var d = Math.abs((card.offsetLeft + card.offsetWidth / 2) - projectedCenter);
+                if (d < settleDist) { settleDist = d; settleIndex = i; }
+            });
+            goTo(settleIndex, false);
+        }
+        flingVelocity = 0;
+    }
+    viewport.addEventListener('pointerup', endPointerDrag);
+    viewport.addEventListener('pointercancel', endPointerDrag);
+    viewport.addEventListener('click', function (e) {
+        if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; return; }
+        // See #my-referrals-list's own identical guard for why - the status
+        // segmented control (Incomplete/Complete/Not Required) is a real
+        // control too, same reasoning.
+        if (e.target.closest('button, a, form')) return;
+        var li = e.target.closest('li');
+        if (!li || li.classList.contains('action-carousel-spacer')) return;
+        var cards = visibleCards();
+        var idx = cards.indexOf(li);
+        if (idx === -1 || idx === activeIndex().index) return;
+        e.preventDefault();
+        e.stopPropagation();
+        goTo(idx, true);
+    }, true);
+
+    window.updateActionCarouselState = updateState;
+    // true (not false) - see My Referrals' identical change
+    // (wireReferralCarouselInteractions, above) for why. Also re-centres
+    // after every status-change refresh (refreshMyActionsCard calls this
+    // again fresh) - consistent with "the active card is always front and
+    // centre" being the whole point of the stack effect, not just its
+    // first-load state.
+    rebuildActionCarousel(true);
+}
+
+function rebuildActionCarousel(resetScroll) {
+    var dotsContainer = document.querySelector('[data-action-dots]');
+    var viewport = document.getElementById('my-actions-list');
+    if (!dotsContainer || !viewport) return;
+
+    var cards = Array.prototype.filter.call(viewport.children, function (li) {
+        return li.style.display !== 'none' && !li.classList.contains('empty-note')
+            && !li.classList.contains('action-carousel-spacer');
+    });
+    // Explicit scrollLeft, not scrollIntoView - see goTo's own identical
+    // change (wireReferralCarouselInteractions, above) for why.
+    if (resetScroll && cards[0]) {
+        viewport.scrollTo({ left: cards[0].offsetLeft - (viewport.clientWidth - cards[0].offsetWidth) / 2 });
+    }
+
+    dotsContainer.innerHTML = '';
+    if (cards.length > 1 && cards.length <= CAROUSEL_COUNT_LABEL_THRESHOLD) {
+        cards.forEach(function (card, i) {
+            var dot = document.createElement('button');
+            dot.type = 'button';
+            dot.setAttribute('role', 'tab');
+            dot.className = 'action-carousel-dot' + (i === 0 ? ' active' : '');
+            dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+            dot.setAttribute('aria-label', 'Go to action ' + (i + 1) + ' of ' + cards.length);
+            dot.addEventListener('click', function () {
+                // Explicit scrollLeft, not scrollIntoView - see goTo's own
+                // identical change (wireReferralCarouselInteractions, above)
+                // for why.
+                viewport.scrollTo({ left: card.offsetLeft - (viewport.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
+                card.focus({ preventScroll: true });
+            });
+            dotsContainer.appendChild(dot);
+        });
+    }
+    if (window.updateActionCarouselState) window.updateActionCarouselState();
 }
 
 var actionMatchers = {
@@ -305,13 +1178,23 @@ function initActionTabs() {
             actionTabButtons.forEach(function (b) { b.classList.remove('active'); });
             button.classList.add('active');
             applyActionTab(button.dataset.actionTab);
+            // Resets the carousel to its first card - same "the just-
+            // applied filter is a different card set now" reasoning as My
+            // Referrals' own setupTabs onApply hook.
+            rebuildActionCarousel(true);
         });
     });
+    // Prefers an already-active button (set by refreshMyActionsCard,
+    // restoring whichever tab was active before this refresh) over picking
+    // a fresh default - firstUsableTabButton (skips "All" in carousel mode,
+    // see its own comment) only kicks in when nothing's active yet, i.e.
+    // the very first page load.
     var active = Array.prototype.filter.call(actionTabButtons, function (b) {
         return b.classList.contains('active') && !b.classList.contains('tab-collapsed');
-    })[0] || actionTabButtons[0];
+    })[0] || firstUsableTabButton(actionTabButtons);
     active.classList.add('active');
     applyActionTab(active.dataset.actionTab);
+    rebuildActionCarousel(true);
 }
 
 // The segmented status control's own submit posts via fetch instead of a
@@ -327,12 +1210,22 @@ function wireActionForms() {
         form.dataset.ajaxWired = 'true';
         form.addEventListener('submit', function (e) {
             e.preventDefault();
+            // Dims the segmented control it's on for the round trip - on a
+            // slow connection there was previously no feedback at all
+            // between the tap and the card refreshing, which could read as
+            // unresponsive. The success path doesn't need to remove this
+            // itself - refreshMyActionsCard replaces the whole card (this
+            // form included), so the class just goes with it; only the
+            // failure path needs to clean up manually, since then the old
+            // form is what's left on screen.
+            form.classList.add('is-submitting');
             fetch(form.action, {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 body: new FormData(form, e.submitter),
             }).then(function (res) { return res.text(); })
-                .then(function (html) { refreshMyActionsCard(html); });
+                .then(function (html) { refreshMyActionsCard(html); })
+                .catch(function () { form.classList.remove('is-submitting'); });
         });
     });
 }
@@ -369,8 +1262,16 @@ function refreshMyActionsCard(html) {
     card.replaceWith(freshCard);
 
     var newList = freshCard.querySelector('#my-actions-list');
+    // Only meaningful above the carousel breakpoint (panel.css) - #my-
+    // actions-list is a plain vertically-scrolling list there, a no-op
+    // horizontally-scrolling carousel everywhere else (wireActionCarousel
+    // Interactions, below, resets that scroll position itself).
     if (newList) newList.scrollTop = scrollTop;
     window.initSelectable(freshCard);
+    // The old wrap/list DOM (and every listener wireActionCarouselInteractions
+    // attached to it) went away with card.replaceWith above - re-wire fresh
+    // against the new one, same as a first page load.
+    wireActionCarouselInteractions();
 
     var newHeading = freshCard.querySelector('[data-heading-count]');
     if (newHeading) {
@@ -407,10 +1308,12 @@ function refreshMyActionsCard(html) {
             }
             if (key === activeKey && !isCollapsedNow) btn.classList.add('active');
         });
-        // Fall back to All if the previously active tab just collapsed away.
+        // Fall back if the previously active tab just collapsed away -
+        // firstUsableTabButton (not a hardcoded grab of "All") so this
+        // doesn't activate a hidden All button in carousel mode, same
+        // "All" is unusable there as everywhere else it's picked.
         if (!newTabRow.querySelector('button.active')) {
-            var allBtn = newTabRow.querySelector('[data-action-tab="all"]');
-            if (allBtn) allBtn.classList.add('active');
+            firstUsableTabButton(newTabRow.querySelectorAll('[data-action-tab]')).classList.add('active');
         }
         // The old row's own "More" overflow dropdown (static/js/main.js) went
         // away with it — re-init on the fresh row rather than leaving narrow
@@ -420,6 +1323,14 @@ function refreshMyActionsCard(html) {
 
     initActionTabs();
     wireActionForms();
+    // The old dropdown (and its MutationObserver, watching the old tab row
+    // that just went away with card.replaceWith above) goes with it - wire a
+    // fresh one against the new tab row, same as everything else re-wired
+    // above.
+    wireCarouselFilterDropdown('[data-action-filter]', '[data-action-tab-row]');
+    // Same reasoning - every row's own status dropdown (data-action-status-
+    // filter) is fresh DOM too, re-wire from scratch.
+    wireActionStatusFilters();
 }
 </script>
 {% endblock %}

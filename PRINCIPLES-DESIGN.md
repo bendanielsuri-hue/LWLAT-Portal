@@ -31,6 +31,7 @@ Visual design values that hold regardless of which project this is. Entries here
 
 - **H1.** How much visual weight something gets (size, boldness, contrast) should match how important that information actually is — not be picked by feel per component.
 - **H2.** When several actions sit together, the one that matters most should look the most prominent — don't give equal visual weight to a rarely-used action and the common one.
+- **H3.** A divider between same-type repeating items (list rows, table rows, thread entries) should read lighter than a divider marking an actual structural break (a header separating from its content, a card's own outer edge). Reusing one border weight for both jobs makes a real section boundary blend into the ordinary rhythm of a list instead of standing out from it.
 
 ## L — Layout
 

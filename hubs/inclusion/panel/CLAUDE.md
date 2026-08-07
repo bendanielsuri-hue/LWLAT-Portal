@@ -76,3 +76,5 @@ manage.py seed_referral_actions     # Tops up 2-3 Actions on every discussed (Co
 ```
 
 `seed_benjamin_admin` (also here) sets `is_mat_staff=True`, `is_developer=True`, `school=None` on Benjamin Suri. Depends only on `seed_dummy_data`.
+
+`seed_benjamin_referral_demo` (also here) tops up Benjamin Suri's own My Referrals (Panel Home) with a few open Awaiting Discussion and a few Discussed referrals - test data for the phone tab-filtered carousel (#116), not part of the regular seed pipeline. Depends on `seed_dummy_data`; the Discussed batch also needs an existing `Panel`/`PanelGroup` (`seed_panel_groups`/`seed_panel_meetings`).

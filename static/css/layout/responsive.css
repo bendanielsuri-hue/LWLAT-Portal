@@ -254,6 +254,24 @@ html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
 }
 
 @media (max-width: 480px) {
+    /* Phone reclaim (#116 follow-up): .main-inner's padding (layout.css)
+       is otherwise unconditional, same var(--space-2xl) on all four sides
+       as desktop - at 375px that alone eats 64px of horizontal width
+       before any page content starts. Halved to --space-md, not zero -
+       page content still needs *some* clearance from the viewport edge. */
+    .main-inner {
+        padding: var(--space-md);
+    }
+    /* .sticky-header-zone/.home-header-sticky (layout.css) cancel
+       .main-inner's own padding with a hardcoded -32px negative margin so
+       they can bleed edge-to-edge while staying sticky against main's
+       scroll - that margin must track .main-inner's padding above or it
+       overshoots, pulling the sticky header past the viewport edge. */
+    .sticky-header-zone,
+    .home-header-sticky {
+        margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) 0;
+        padding: var(--space-md) var(--space-md) var(--space-sm);
+    }
     /* Breadcrumbs just restate "Home > This Hub" info the mobile bottom
        nav's own Home/Menu buttons already cover one tap away, and the real
        header buttons (Search/+Referral/Settings/...) are redundant with the
@@ -409,59 +427,20 @@ html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
     }
     .senco-card { flex: 0 0 auto; width: 100%; }
 
-    /* Home's KPI row carousel (#116 follow-up): phone width switches from
-       "fit as many whole cards as possible" to a "peek" carousel instead -
-       one card centred, deliberately sized/positioned (main.js layout())
-       so slivers of its neighbours are visible at both edges of the
-       viewport, hinting there's more to swipe to without needing to read
-       a second card's text at this width. scroll-snap-align: center (not
-       the desktop/tablet default of start) is what actually centres the
-       current card rather than flushing it to the viewport's left edge.
-       .stat-card repeated for specificity - panel.css (loaded after this
-       file, in each panel template's own extra_head) sets start
-       unconditionally, so a plain override here would lose the cascade on
-       load order alone regardless of this media query being the more
-       specific match. */
-    .stats-carousel-slot .stat-card.stat-card {
-        scroll-snap-align: center;
-    }
-    .stats-carousel-track { gap: var(--space-xs); }
+    /* Home's KPI row carousel: same "stack" mechanism as My Referrals now
+       (panel.css, #132) at every width, not just phone - the compact
+       card padding/value size that used to live here is now unconditional
+       in panel.css (.stats-carousel-slot .stat-card), since the row
+       carousels everywhere, not just this breakpoint. */
 
-    /* KPI carousel collapse (stats-carousel-toggle, main.js): the row of
-       stat cards is useful context but permanently costs the same vertical
-       space every referral-list scroll has to clear past first at phone
-       width, where that space is scarcest. Collapsed by default here (the
-       opposite default direction from .filter-bar's is-expanded, since this
-       content is supplementary rather than a control the page needs) -
-       tapping the toggle reveals it, same class-toggle-on-click mechanism
-       as the filter bar. */
-    .stats-carousel-toggle {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        background: var(--bg-surface);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        padding: var(--space-xs) var(--space-sm);
-        margin-bottom: var(--space-xs);
-        font-size: var(--font-sm);
-        font-weight: 600;
-        color: var(--text-secondary);
-        cursor: pointer;
-    }
-    .stats-carousel-toggle-icon {
-        transition: transform var(--transition-base);
-    }
-    .stats-carousel-toggle.is-expanded .stats-carousel-toggle-icon {
-        transform: rotate(180deg);
-    }
-    .stats-carousel-wrap {
-        display: none;
-    }
-    .stats-carousel-wrap.is-expanded {
-        display: flex;
-    }
+    /* KPI carousel: tried collapsing this behind an "Overview" toggle at
+       phone width, but live-testing found the toggle itself never actually
+       rendered (panel.css's unconditional `display: none`, loaded after
+       this file, always won the cascade regardless of this media query -
+       dead code since it shipped) and grilling feedback settled on always
+       showing the carousel outright instead of fixing the toggle, so no
+       collapse/expand state to maintain here any more - the peek-mode
+       sizing above already keeps its footprint small at this width. */
 }
 
 /* Card-switcher/switch-card-group (Home Row 1, Meeting Setup's Settings/

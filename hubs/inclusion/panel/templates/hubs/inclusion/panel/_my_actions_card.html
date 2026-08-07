@@ -13,17 +13,42 @@ animate in when a count goes from 0 back up.
 <div class="panel-card" id="actions-card">
     <div class="panel-card-header">
         <h2>My Actions</h2>
-        <span class="panel-card-count count" data-heading-count data-count="{{ my_actions|length }}">({{ my_actions|length }})</span>
     </div>
     {% if show_action_tabs %}
+    {% comment %}
+    Carousel-mode-only replacement for the tab row below (hidden here via
+    panel.css, ≤820px) - see My Referrals' identical block (home.html) for
+    the full reasoning. Rebuilt fresh by wireCarouselFilterDropdown every
+    time this whole card is re-rendered (refreshMyActionsCard, home.html),
+    same as the carousel/tab-row wiring already is.
+    {% endcomment %}
+    <div class="carousel-filter" data-action-filter>
+        <button type="button" class="carousel-filter-trigger" data-filter-trigger aria-haspopup="listbox" aria-expanded="false">
+            <span data-filter-label></span>
+            <span class="carousel-filter-chevron" aria-hidden="true"></span>
+        </button>
+        <ul class="carousel-filter-menu" data-filter-menu role="listbox" hidden></ul>
+    </div>
     <div class="tab-row" data-action-tab-row>
+        {% comment %}
+        Order matches Action.STATUS_CHOICES (models.py), same order the
+        status-changer segmented control below renders its own three
+        buttons in - Incomplete/Complete/Not Required reads as the same
+        sequence in both places instead of two different orderings for the
+        same three states. Overdue isn't a real status (it's the is_overdue
+        flag, cross-cutting any of the three) - kept last, after the three
+        real statuses, rather than interleaved among them.
+        {% endcomment %}
         <button type="button" data-action-tab="all" data-count="{{ my_actions|length }}">All <span class="count">({{ my_actions|length }})</span></button>
         <button type="button" data-action-tab="incomplete" data-count="{{ actions_incomplete_count }}" class="{% if not actions_incomplete_count %}tab-collapsed{% endif %}"{% if not actions_incomplete_count %} tabindex="-1"{% endif %}>Incomplete <span class="count">({{ actions_incomplete_count }})</span></button>
-        <button type="button" data-action-tab="overdue" data-count="{{ overdue_actions }}" class="{% if not overdue_actions %}tab-collapsed{% endif %}"{% if not overdue_actions %} tabindex="-1"{% endif %}>Overdue <span class="count">({{ overdue_actions }})</span></button>
-        <button type="button" data-action-tab="not_needed" data-count="{{ actions_not_needed_count }}" class="{% if not actions_not_needed_count %}tab-collapsed{% endif %}"{% if not actions_not_needed_count %} tabindex="-1"{% endif %}>Not Required <span class="count">({{ actions_not_needed_count }})</span></button>
         <button type="button" data-action-tab="complete" data-count="{{ actions_complete_count }}" class="{% if not actions_complete_count %}tab-collapsed{% endif %}"{% if not actions_complete_count %} tabindex="-1"{% endif %}>Complete <span class="count">({{ actions_complete_count }})</span></button>
+        <button type="button" data-action-tab="not_needed" data-count="{{ actions_not_needed_count }}" class="{% if not actions_not_needed_count %}tab-collapsed{% endif %}"{% if not actions_not_needed_count %} tabindex="-1"{% endif %}>Not Required <span class="count">({{ actions_not_needed_count }})</span></button>
+        <button type="button" data-action-tab="overdue" data-count="{{ overdue_actions }}" class="{% if not overdue_actions %}tab-collapsed{% endif %}"{% if not overdue_actions %} tabindex="-1"{% endif %}>Overdue <span class="count">({{ overdue_actions }})</span></button>
     </div>
     {% endif %}
+    <div class="action-carousel-wrap" data-action-carousel role="region" aria-roledescription="carousel" aria-label="My Actions">
+    <button type="button" class="action-carousel-arrow action-carousel-arrow--prev" aria-label="Previous action">&lsaquo;</button>
+    <div class="action-carousel-fade-l"></div>
     <ul class="panel-list" id="my-actions-list" data-selectable="single">
         {% for action in my_actions %}
         <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}">
@@ -47,7 +72,25 @@ animate in when a count goes from 0 back up.
                     an option refreshes the card in place instead of a real
                     page navigation.
                     {% endcomment %}
-                    <div class="panel-item-actions">
+                    {% comment %}
+                    data-action-status-filter: carousel-mode-only dropdown
+                    replacement for the segmented control below (hidden via
+                    panel.css, ≤820px) - same "trigger + popover, delegate
+                    every option click to the real (hidden) button" pattern
+                    as the tab-row's own carousel-filter dropdown
+                    (wireCarouselFilterDropdown, home.html), just wired
+                    per-row here (wireActionStatusFilters, home.html) since
+                    every card has its own independent status rather than
+                    one shared tab row.
+                    {% endcomment %}
+                    <div class="panel-item-actions" data-action-status-filter>
+                        <div class="action-status-dropdown">
+                            <button type="button" class="carousel-filter-trigger" data-filter-trigger aria-haspopup="listbox" aria-expanded="false">
+                                <span data-filter-label></span>
+                                <span class="carousel-filter-chevron" aria-hidden="true"></span>
+                            </button>
+                            <ul class="carousel-filter-menu" data-filter-menu role="listbox" hidden></ul>
+                        </div>
                         <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" data-action-status-form>
                             {% csrf_token %}
                             <div class="ui-segmented ui-segmented--action-status">
@@ -74,4 +117,14 @@ animate in when a count goes from 0 back up.
         <li class="empty-note">No actions yet.</li>
         {% endfor %}
     </ul>
+    <div class="action-carousel-fade-r"></div>
+    <button type="button" class="action-carousel-arrow action-carousel-arrow--next" aria-label="Next action">&rsaquo;</button>
+    </div>
+    <div class="action-carousel-dots" data-action-dots role="tablist" aria-label="Choose an action card"></div>
+    <div class="action-carousel-count" data-action-count aria-hidden="true"></div>
+    {% comment %}
+    Announces the active card on every carousel navigation - see the
+    identical one on My Referrals (home.html) for the full reasoning.
+    {% endcomment %}
+    <div class="sr-only" aria-live="polite" data-action-live></div>
 </div>
