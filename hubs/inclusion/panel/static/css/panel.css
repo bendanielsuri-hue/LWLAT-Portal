@@ -2758,77 +2758,318 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .row-facts-cols { gap: 10px; }
 .row-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
 .row-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Gender/Ethnicity read fine unlabelled on desktop, where their column's
-   position in the 3-column facts row (#117) already carries the meaning -
-   hidden there, shown only once the 900px stack (below) breaks that
-   positional grouping apart. */
-.row-fact-label-mobile { display: none; }
 .action-note { margin-top: var(--space-xs); }
 .entity-list[data-selectable] > .entity-row { align-items: stretch; }
 .entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
 .row-btn-row-stacked { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-xs); }
 .row-btn-row-stacked > .action-row-buttons { align-self: flex-end; }
 
+/* No divider above the facts line, in every mode (#117 follow-up, live
+   feedback: "lose the horizontal divider above details") - overrides the
+   shared .row-facts base rule's own border-top/padding-top (above), which
+   Referrals/Actions (#118/#119) still keep for now on their own
+   not-yet-simplified rows. */
+#students-filtered-content .row-facts {
+    margin-top: var(--space-xxs);
+    padding-top: 0;
+    border-top: none;
+}
+
+/* Name Search pinned to its own full-width row, first in the bar, at every
+   width (#117 follow-up, live feedback: "the name search could always be
+   visible in a separate row") - forces "Filters · N" and every other field
+   onto their own line below it regardless of how much room they'd
+   otherwise share. Exempt from overflow measurement/collapse entirely
+   (data-filter-pinned - main.js/responsive.css) so it's never hidden
+   either, on top of always having its own row.
+   Label fused onto the input's left edge - one bordered box instead of the
+   default stacked label-above-input .filter-field look (live feedback:
+   "can Name Label be fused on the left") - same visual recipe as the
+   portal's .ui-fused-field (label segment: shaded background, border-right,
+   centered text; input: border/background stripped so it reads as part of
+   the same box) - written by hand rather than reusing that class directly,
+   since .ui-fused-field's layout is subgrid and only resolves against a
+   .ui-fused-field-group grid parent, which a single filter-bar field has no
+   reason to become. */
+form[data-ajax-target="#students-filtered-content"] .filter-field--search {
+    flex: 1 1 100%;
+    max-width: none;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 0;
+    gap: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-input);
+}
+/* --bg-surface, not --bg-choice (.ui-fused-field-label's own usual token) -
+   live feedback: "because the filter bar bg is the colour of fused label
+   bg, it all appears the same". --bg-choice resolves to --bg-well
+   (theme/light.css) - the exact same token .filter-bar itself sits on
+   (forms.css, "you're inside interactive chrome" tier) - fine for a fused
+   field sitting on an ordinary --bg-surface page (the usual case
+   elsewhere), but here it left the label segment blending straight into
+   its own surrounding bar with no visible edge. --bg-surface (white) is
+   the one token this app's depth ladder puts fully above --bg-well,
+   contrasting against the bar the same way it would against any ordinary
+   page background. */
+form[data-ajax-target="#students-filtered-content"] .filter-field--search label {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0 var(--space-sm);
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+form[data-ajax-target="#students-filtered-content"] .filter-field--search input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-base);
+    font-family: inherit;
+    color: var(--text-primary);
+}
+form[data-ajax-target="#students-filtered-content"] .filter-field--search input[type="text"]:focus {
+    outline: none;
+}
+
+/* Mobile-only compact stats line under the page title (#117 follow-up,
+   live feedback: "the stats row takes up a lot of space, can this be
+   under Students if we are keeping page name") - hidden by default
+   (desktop keeps the boxed .stats-strip at the bottom of the list as the
+   one copy), shown only at <=480px, where that bottom copy is hidden
+   instead (below) so the two never both show at once. Same .stats-strip
+   markup as the footer, so the "plain details" rules further down (which
+   target #students-filtered-content .stats-strip specifically) don't
+   reach this copy - it needs its own version of that same recipe (live
+   feedback: "I preferred the format of the footer stats, can we apply
+   this to the stats under heading"). */
+.page-subtitle-stats {
+    display: none;
+}
+@media (max-width: 480px) {
+    .page-subtitle-stats {
+        display: flex;
+        justify-content: flex-start;
+        gap: 0;
+        margin: var(--space-xs) 0 0;
+    }
+    .page-subtitle-stats .stat-card {
+        flex: 0 0 auto;
+        flex-direction: row;
+        align-items: baseline;
+        gap: var(--space-xxs);
+        background: none;
+        border: none;
+        padding: 0;
+        border-radius: 0;
+    }
+    .page-subtitle-stats .stat-card:not(:last-child)::after {
+        content: '\00b7';
+        margin: 0 var(--space-xs);
+        color: var(--text-faint);
+    }
+    .page-subtitle-stats .stat-value {
+        font-size: var(--font-md);
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .page-subtitle-stats .stat-label {
+        font-size: var(--font-sm);
+        color: var(--text-secondary);
+        margin-top: 0;
+    }
+}
+
+/* Referrals/Actions counts moved off the facts line entirely (#117
+   follow-up, live feedback) onto their own button as a small badge
+   instead, in every mode - no more separate desktop/mobile treatment. */
+.btn-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: var(--space-xxs);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 20%, transparent);
+    color: var(--primary);
+    font-size: var(--font-xs);
+    font-weight: 700;
+}
+
+/* Desktop button placement (>900px - the <=900px stacked card further down
+   always keeps buttons full-width regardless). A single dynamic per-row
+   class rather than a fixed breakpoint (live feedback: "can the buttons
+   dynamically go to next line when it causes overflow" - a row's own
+   name/pill count affects when it actually runs out of room, not just the
+   viewport). .row-measuring (below) is a short-lived class
+   wireStudentRowButtonWrap() (students.html) adds only for the instant it
+   takes to read scrollWidth vs clientWidth - forces .entity-body/.btn-row
+   to their true unwrapped, unshrunk width (flex-shrink: 0 + inherited
+   white-space: nowrap) so a genuine overflow actually shows up as
+   scrollWidth > clientWidth instead of the browser quietly wrapping text
+   or shrinking flex items to hide it. .row-buttons-wrapped is what that
+   measurement then toggles, to actually drop the button row below. No
+   border-top above it (live feedback: "not sure it needs the horizontal
+   divider above buttons") - .entity-row's own row-gap-less default
+   spacing plus margin-top alone reads as enough separation without one. */
+@media (min-width: 901px) {
+    #students-filtered-content .entity-row > .btn-row {
+        border-left: 1px solid var(--border-color);
+        padding-left: var(--space-lg);
+    }
+    #students-filtered-content .entity-row.row-measuring {
+        flex-wrap: nowrap;
+    }
+    /* min-width: max-content, not just flex-shrink: 0 (live feedback +
+       screenshot: pills/facts visibly wrapped onto 3 lines yet buttons
+       never moved - the measurement wasn't actually detecting it).
+       .entity-body's own base rule sets min-width: 0 (cards.css/panel.css)
+       specifically so it CAN shrink in normal use - flex-shrink: 0 alone
+       doesn't override that min-width during the shrink-resolution
+       algorithm, so the browser could still compress it below its true
+       nowrap content width, silently hiding the very overflow this class
+       exists to reveal. min-width: max-content is a hard floor regardless
+       of flex-shrink, forcing genuine overflow to actually show up as
+       row.scrollWidth > row.clientWidth. */
+    #students-filtered-content .entity-row.row-measuring .entity-body,
+    #students-filtered-content .entity-row.row-measuring > .btn-row {
+        flex-shrink: 0;
+        min-width: max-content;
+        white-space: nowrap;
+    }
+    #students-filtered-content .entity-row.row-buttons-wrapped {
+        flex-wrap: wrap;
+    }
+    /* No margin of its own - .entity-row's own base gap (cards.css,
+       var(--space-md)) already applies as row-gap between wrapped lines
+       once flex-wrap: wrap is on; stacking margin-top on top of that gap
+       is what doubled up the spacing above the button row (live feedback +
+       screenshot: "too much padding above buttons on narrow desktop"). */
+    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row {
+        flex: 1 1 100%;
+        border-left: none;
+        padding-left: 0;
+    }
+    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row > * {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
 /* Students list (#117): "table -> stacked card" per #113's shared
    vocabulary. Scoped to #students-filtered-content (this page's own
    AJAX-swap target, unique per list page) rather than the bare
    .entity-row/.row-facts-cols classes above - those are shared markup
    with Referrals/Actions (#118/#119), whose own stacking is a separate,
-   not-yet-designed ticket.
-   Thumb stays put beside the name (unchanged DOM order already puts it
-   there) - only the facts row and button row change shape. */
+   not-yet-designed ticket. */
 @media (max-width: 900px) {
+    /* Top corners square off in mobile mode (live feedback) - the card
+       already loses its side borders/radius entirely once it goes
+       full-bleed below 480px (see that rule further down), but between
+       480-900px it's still an inset card with all 4 corners rounded; drop
+       just the top two here so the card doesn't read as floating below
+       the sticky filter-bar header above it. .filter-bar's own top radius
+       (layout.css) is squared off the same way - .list-card's own
+       overflow: hidden clips it to match regardless, but an explicit
+       0 avoids relying on that clip alone. */
+    .list-card:has(#students-filtered-content) {
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+    .list-card:has(#students-filtered-content) .filter-bar {
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+    /* "Filters · N" label reserves layout space for its count badge even
+       at zero (.filter-bar-count--empty, forms.css) - deliberate on
+       desktop (keeps the label from changing width as filters are
+       applied/cleared), but reads as an oversized dead gap once the bar
+       itself is this narrow and the label no longer shares its row with
+       much else (live feedback: "gap for the filter count... when there
+       is no filters the gap is too big"). Collapses that reserved space
+       only when actually empty - a real non-zero count still gets its
+       normal badge width once one exists. */
+    form[data-ajax-target="#students-filtered-content"] .filter-bar-count--empty {
+        display: none;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-bar-label:has(.filter-bar-count--empty) {
+        margin-right: 0;
+    }
+    /* Dynamic overflow's own divider (setupFilterBarMoreFilters, main.js -
+       a plain 2px border-top rule between the primary row and whatever's
+       moved behind "More filters") reads as an extra bordered-off section
+       at this width - live feedback: "lose the horizontal divider in
+       filter row in mobile mode". Shared across every dynamic-mode bar
+       (SEND & Provision, Panel Actions/Meetings too), so scoped to
+       Students' own form rather than the bare .filter-divider class. */
+    form[data-ajax-target="#students-filtered-content"] .filter-divider {
+        display: none;
+    }
+    /* Year/House/Reg narrowed specifically so all three reliably land on
+       the bar's own first (always-visible) row together rather than the
+       dynamic overflow measurement splitting one of them off into "More
+       filters" once the row gets this tight (live feedback: "can Year,
+       House and Form all be on same row in mobile") - the three are early
+       enough in DOM order (right after Name Search) that they'd normally
+       fit before anything else runs out of room, this just gives that
+       margin back. */
+    form[data-ajax-target="#students-filtered-content"] .filter-field:has(#year-filter),
+    form[data-ajax-target="#students-filtered-content"] .filter-field:has(#house-filter),
+    form[data-ajax-target="#students-filtered-content"] .filter-field:has(#reg-filter) {
+        max-width: 90px;
+    }
     #students-filtered-content .entity-row {
         flex-wrap: wrap;
         align-items: flex-start;
+        row-gap: var(--space-xs);
+        column-gap: var(--space-sm);
     }
     #students-filtered-content .entity-thumb {
         width: 32px;
         height: 42px;
     }
-    /* .row-fact-col's inline `style="width: ..."` (col_widths, views.py) is
-       a desktop-only sizing hint for the 3-column layout - display:contents
-       below drops that box (and its inline width) entirely, promoting its
-       two <span> children to be direct grid items of .row-facts-cols
-       instead. Grid auto-flow then lands the 3 columns' pairs as 3 grid
-       rows of 2 - Year+House/Form+Tutor/Gender+Ethnicity/Referrals+Actions
-       reflow into the same left-to-right pairing #113 asked for (a 2-up
-       key/value grid) for free, no markup change needed beyond the two
-       labels below. */
-    #students-filtered-content .row-facts.row-facts-cols {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        align-items: start;
-        gap: var(--space-xxs) var(--space-md);
-    }
-    #students-filtered-content .row-facts-cols .row-fact-col {
-        display: contents;
-    }
-    #students-filtered-content .row-facts-cols .row-fact-col span {
-        white-space: normal;
-    }
-    /* No longer between two side-by-side columns to divide - each divider
-       would otherwise land as its own (empty) grid item. */
-    #students-filtered-content .row-facts-cols .mc-vdivider {
-        display: none;
-    }
-    #students-filtered-content .row-fact-label-mobile {
-        display: inline;
-        font-weight: 600;
-        color: var(--text-secondary);
-    }
-    /* Full-width row below the facts grid instead of a bordered column
-       beside it - three buttons no longer fit down the row's remaining
-       height at this width. */
+    /* No margin of its own - .entity-row's own row-gap (above) already
+       spaces every wrapped line, header/facts/buttons alike, consistently. */
     #students-filtered-content .btn-row {
+        order: 6;
         flex: 1 1 100%;
-        margin-top: var(--space-sm);
-        padding-top: var(--space-sm);
-        border-top: 1px solid var(--border-color);
+    }
+    /* Buttons stay on one row even with badges added (live feedback: "find
+       a way for buttons to fit on one row... badges... causes New
+       Referral to overflow"). .btn-row's own base flex-wrap: wrap
+       (buttons.css) is what let the least-fitting button (New Referral,
+       the longest label) drop to its own line the moment Referrals/
+       Actions' badges widened their neighbours - nowrap forces genuine
+       shrinking instead. min-width: 0 is required for that shrink to
+       actually happen (flex items default to min-width: auto, i.e. their
+       own content's width as a floor, which nowrap alone can't overcome).
+       Icon dropped and text/padding tightened to claim back enough room
+       for that shrink to still read comfortably rather than truncating. */
+    #students-filtered-content .btn-row {
+        flex-wrap: nowrap;
     }
     #students-filtered-content .btn-row > * {
-        flex: 1;
+        flex: 1 1 0;
+        min-width: 0;
         justify-content: center;
+        padding-left: var(--space-xs);
+        padding-right: var(--space-xs);
+        font-size: var(--font-sm);
+        white-space: nowrap;
+        position: relative;
+    }
+    #students-filtered-content .btn-row .btn-icon {
+        display: none;
     }
     /* Smaller card chrome once the fixed 3-column grid below has to fit
        inside a narrower row - same values the SEND & Provision dashboard's
@@ -2868,20 +3109,88 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    should also use full width of screen, so no margin on card on left and
    right") - same cancel-.main-inner's-padding trick #116 already uses for
    .sticky-header-zone/.home-header-sticky, just applied to the list card
-   instead of the sticky header. :has(#students-filtered-content), not a
-   bare .list-card rule - Referrals/Actions share the same .list-card class
+   instead of the sticky header. The negative margin has to land on
+   .list-page-shell, not .list-card itself - .list-page-shell's own
+   overflow: hidden (layout.css, bounds the internal-scroll list) clips
+   anything a *child* bleeds past its box via negative margin, which is
+   exactly why margin on .list-card alone had no visible effect (live
+   feedback: still inset after that first attempt). A negative margin on
+   .list-page-shell itself isn't subject to its own overflow - that
+   property only clips children overflowing the box, not the box's own
+   position relative to its parent (.main-inner). :has(#students-filtered-
+   content), not a bare rule - Referrals/Actions share both classes
    (layout.css) but haven't had this same call made for their own not-yet-
-   designed tickets (#118/#119) yet. Side borders/radius dropped since the
-   card now spans edge-to-edge with nothing beside it to read a border
-   against; top/bottom stay (still a real seam against the page above/
-   below it). */
+   designed tickets (#118/#119) yet. Side borders/radius dropped from
+   .list-card since it now spans edge-to-edge with nothing beside it to
+   read a border against; top/bottom stay (still a real seam against the
+   page above/below it). */
 @media (max-width: 480px) {
-    .list-card:has(#students-filtered-content) {
+    .list-page-shell:has(#students-filtered-content) {
         margin-left: calc(-1 * var(--space-md));
         margin-right: calc(-1 * var(--space-md));
+    }
+    .list-card:has(#students-filtered-content) {
         border-left: none;
         border-right: none;
         border-radius: 0;
+    }
+
+    /* Data cards simplify to plain details at phone width (live feedback:
+       "just details not cards") - the boxed-card treatment (background/
+       border/padding, still 3-up via the unconditional grid rule above)
+       reads as three redundant little boxes once each one is this narrow;
+       a single plain-text line carries the same 3 numbers without the
+       chrome. Still 3 items, still one row - just flex instead of grid,
+       nothing to fit-to-column here any more. */
+    #students-filtered-content .stats-strip {
+        display: flex;
+        justify-content: center;
+        gap: 0;
+    }
+    #students-filtered-content .stats-strip .stat-card {
+        flex: 0 0 auto;
+        flex-direction: row;
+        align-items: baseline;
+        gap: var(--space-xxs);
+        background: none;
+        border: none;
+        padding: 0;
+        border-radius: 0;
+    }
+    /* Interpunct separators between items instead of a card boundary each -
+       same character/role .row-title-sep already uses elsewhere for this
+       exact job (joining plain-text facts without a visual box). Only
+       between items (:not(:last-child)), not a divider floating after the
+       last one with nothing to separate. */
+    #students-filtered-content .stats-strip .stat-card:not(:last-child)::after {
+        content: '\00b7';
+        margin: 0 var(--space-xs);
+        color: var(--text-faint);
+    }
+    #students-filtered-content .stats-strip .stat-value {
+        font-size: var(--font-md);
+        font-weight: 700;
+    }
+    #students-filtered-content .stats-strip .stat-label {
+        font-size: var(--font-sm);
+        color: var(--text-secondary);
+        margin-top: 0;
+    }
+}
+
+/* Bottom .stats-strip hidden at <=480px specifically - the page-subtitle
+   line under the page title (above, students.html's page_subtitle block)
+   is the one copy shown there instead (live feedback: "the stats row
+   takes up a lot of space, can this be under Students"). Placed after
+   every other #students-filtered-content .stats-strip rule in this file
+   (the unconditional 3-column grid rule + this same <=480px block's own
+   "plain details" conversion above) so it reliably wins the cascade at
+   equal specificity - an earlier attempt at this same override, placed
+   before those rules, was silently beaten by them regardless of the media
+   query being true. */
+@media (max-width: 480px) {
+    #students-filtered-content .stats-strip {
+        display: none;
     }
 }
 

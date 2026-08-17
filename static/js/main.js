@@ -200,8 +200,13 @@ function setupFilterBarMoreFilters(bar) {
     var clearEl = bar.querySelector('.filter-bar-clear');
     var clearWrapper = clearEl && clearEl.closest('.filter-field');
     var label = bar.querySelector('.filter-bar-label');
+    // [data-filter-pinned] opts a field out of overflow measurement entirely
+    // (e.g. Students' own Name Search - #117 follow-up, live feedback: "the
+    // name search could always be visible in a separate row") - it's never
+    // moved into the auto-built secondary group regardless of width, so it
+    // needs its own always-visible placement in the template instead.
     var fields = Array.prototype.slice.call(bar.querySelectorAll('.filter-field')).filter(function (f) {
-        return f !== clearWrapper;
+        return f !== clearWrapper && !f.hasAttribute('data-filter-pinned');
     });
     if (fields.length < 2) return;
 

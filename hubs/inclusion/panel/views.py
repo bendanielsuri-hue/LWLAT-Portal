@@ -1171,7 +1171,6 @@ def inclusion_panel_students(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
     school_key = current_school_key(request)
-    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
 
     name_filter = request.GET.get('name') or ''
     year_filter = request.GET.get('year') or ''
@@ -1265,24 +1264,6 @@ def inclusion_panel_students(request):
         ) if v
     )
 
-    col_widths = {
-        'yearform': _col_width(
-            [f'Year {s.year_group}' + (f' (House {s.house})' if s.house else '') for s in students]
-            + [f'Form {s.reg_form}' + (f' ({s.form_tutor})' if s.form_tutor else '') for s in students],
-            max_ch=30,
-        ),
-        'genderethnicity': _col_width(
-            [s.get_gender_display() or '—' for s in students]
-            + [s.get_ethnicity_display() or '—' for s in students],
-            max_ch=22,
-        ),
-        'counts': _col_width(
-            [f'Referrals: {s.referrals_count}' for s in students]
-            + [f'Actions: {s.actions_count}' for s in students],
-            max_ch=16,
-        ),
-    }
-
     context = {
         **_panel_base_context(request),
         'students': students,
@@ -1314,8 +1295,6 @@ def inclusion_panel_students(request):
         'students_count': len(students),
         'referrals_count': sum(s.referrals_count for s in students),
         'actions_count': sum(s.actions_count for s in students),
-        'is_aggregate_view': is_aggregate_view,
-        'col_widths': col_widths,
     }
     template = 'hubs/inclusion/panel/_students_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/students.html'
     return render(request, template, context)

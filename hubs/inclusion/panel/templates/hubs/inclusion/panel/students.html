@@ -18,6 +18,36 @@
 
 {% block page_title %}Students{% endblock %}
 
+{% comment %}
+Mobile-only compact stats line under the page title (#117 follow-up, live
+feedback: "the stats row takes up a lot of space, can this be under
+Students if we are keeping page name" - live feedback: "I preferred the
+format of the footer stats, can we apply this to the stats under
+heading"). Same .stats-strip/.stat-card/.stat-value/.stat-label markup as
+the boxed version at the bottom of the list (unchanged, still shown there
+on desktop) - reusing the identical structure means the "plain details"
+mobile treatment (panel.css) can just be applied to both by class, rather
+than this line inventing its own separate text format. Hidden on desktop
+(panel.css) - the bottom .stats-strip stays the one copy there, this would
+otherwise duplicate it.
+{% endcomment %}
+{% block page_subtitle %}
+<div class="page-subtitle-stats stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ referrals_count }}</div>
+        <div class="stat-label">Referrals</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ actions_count }}</div>
+        <div class="stat-label">Actions</div>
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
 
 <div class="list-page-shell">
@@ -41,11 +71,19 @@ School dropped entirely (issue #9).
 {% endcomment %}
 <div class="list-card">
 <form method="get" class="filter-bar" data-ajax-target="#students-filtered-content">
-    <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
-    <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
+    {% comment %}
+    Name Search pinned first, exempt from both dynamic overflow
+    measurement (setupFilterBarMoreFilters, main.js) and the <=480px
+    tap-to-expand collapse (responsive.css) via data-filter-pinned (#117
+    follow-up, live feedback: "the name search could always be visible in
+    a separate row") - always reachable regardless of how much the rest of
+    the bar collapses.
+    {% endcomment %}
+    <div class="filter-field filter-field--search{% if name_filter %} filter-field--active{% endif %}" data-filter-pinned>
         <label for="name-search">Name Search</label>
         <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
     </div>
+    <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     <div class="filter-field{% if year_filter %} filter-field--active{% endif %}">
         <label for="year-filter">Year</label>
         <select id="year-filter" name="year" class="ui-select--center">
@@ -220,6 +258,51 @@ document.addEventListener('DOMContentLoaded', function () {
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
     // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
+
+    // Desktop button placement (#117 follow-up, live feedback: "can the
+    // buttons dynamically go to next line when it causes overflow" -
+    // replaces an earlier fixed-breakpoint attempt, which either dropped
+    // buttons too early for a row with short content or too late for one
+    // with long content, since a shared viewport-width breakpoint can't
+    // know that per-row difference). Row content is now a single short
+    // line (name+pills, then one Year/House/Form line - #117's later
+    // simplification pass dropped the old 3-column facts grid entirely),
+    // so there's no longer a specific inner column to watch the way the
+    // old .row-fact-col measurement did - genuine overflow of the whole
+    // row (name+pills+facts+buttons not fitting on one line at all) is
+    // now the only failure mode left, and the way to detect *that*
+    // reliably is to briefly force the row to its natural (unwrapped,
+    // unshrunk) width via .row-measuring (panel.css: nowrap + flex-shrink:
+    // 0 on .entity-body/.btn-row) and compare scrollWidth against
+    // clientWidth - same "reveal true content size, measure, decide"
+    // shape as wireActionStatusOverflow (home.html) and
+    // setupFilterBarMoreFilters (main.js), just reading scrollWidth
+    // instead of offsetTop since there's no longer a specific child
+    // element whose position alone would reveal a wrap.
+    function wireStudentRowButtonWrap() {
+        var container = document.getElementById('students-filtered-content');
+        if (!container) return;
+        function checkAll() {
+            container.querySelectorAll('.entity-row').forEach(function (row) {
+                row.classList.remove('row-buttons-wrapped');
+                row.classList.add('row-measuring');
+                var overflowing = row.scrollWidth > row.clientWidth + 1;
+                row.classList.remove('row-measuring');
+                row.classList.toggle('row-buttons-wrapped', overflowing);
+            });
+        }
+        checkAll();
+        window.addEventListener('resize', checkAll);
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(checkAll).observe(container);
+        // AJAX filter changes replace #students-filtered-content's whole
+        // innerHTML (setupAjaxFilterBars, main.js) without re-running any
+        // page-specific script afterward - a MutationObserver catches that
+        // swap directly instead of needing a second hook into the fetch.
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(checkAll).observe(container, { childList: true, subtree: true });
+        }
+    }
+    wireStudentRowButtonWrap();
 });
 </script>
 {% endblock %}

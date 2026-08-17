@@ -1,27 +1,26 @@
 {% load static %}
 <div class="entity-list" data-selectable="single">
     {% comment %}
-    Row-detail for Students (issue #8): school logo (aggregate views only)
-    + name + flag pills (SEN/PP/EAL/LAC/Young Carer/More Able) beside the
-    name, then one grouped facts row: Year (+House)/Form (+Tutor) merged
-    column, unlabelled Gender/Ethnicity column, Referrals/Actions-count
-    column - dynamic per-column widths sized to the widest value actually
-    present. Buttons kept, counts removed from them (now shown in the
-    facts row instead).
+    Row-detail for Students (issue #8, simplified #117 follow-up - live
+    feedback settled on the same shape in every mode rather than a
+    desktop/mobile split): pupil avatar placeholder + name + flag pills
+    (SEN/PP/EAL/LAC/Young Carer/More Able) beside the name, then one
+    dot-separated Year/House/Form line underneath. Gender/Ethnicity/Tutor
+    and the Referrals/Actions counts dropped from here entirely - the
+    counts moved onto their own button as a badge instead (below); Gender/
+    Ethnicity/Tutor weren't carried anywhere, just cut (live feedback).
+    School logo (aggregate views only) dropped too - the pupil avatar
+    placeholder already reads as "before name" on its own, a second image
+    was redundant.
     {% endcomment %}
     {% for s in students %}
     <div class="entity-row selectable" tabindex="0" role="button" aria-pressed="false">
         <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
         <div class="entity-body">
             <div class="row-title-row">
-                {% if is_aggregate_view %}
-                <span class="meeting-card-logo-inline">
-                    {% if s.school.logo_url %}<img src="{{ s.school.logo_url }}" alt="{{ s.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
-                </span>
-                {% endif %}
                 <div class="entity-title">{{ s.first_name }} {{ s.last_name }}</div>
                 {% if s.has_pills %}
-                {% if s.sen_status %}<span class="bd-pill bd-untriaged">{{ s.sen_status }}</span>{% endif %}
+                {% if s.sen_status %}<span class="bd-pill bd-untriaged">SEN {{ s.sen_status }}</span>{% endif %}
                 {% if s.is_pp %}<span class="bd-pill bd-untriaged">PP</span>{% endif %}
                 {% if s.is_eal %}<span class="bd-pill bd-untriaged">EAL</span>{% endif %}
                 {% if s.is_lac %}<span class="bd-pill bd-untriaged">LAC</span>{% endif %}
@@ -29,31 +28,18 @@
                 {% if s.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
                 {% endif %}
             </div>
-            <div class="row-facts row-facts-cols">
-                <div class="row-fact-col" style="width: {{ col_widths.yearform }}">
-                    <span>Year {{ s.year_group }}{% if s.house %} (House {{ s.house }}){% endif %}</span>
-                    <span>Form {{ s.reg_form|default:"—" }}{% if s.form_tutor %} ({{ s.form_tutor }}){% endif %}</span>
-                </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.genderethnicity }}">
-                    <span><span class="row-fact-label-mobile">Gender </span>{{ s.get_gender_display|default:"—" }}</span>
-                    <span><span class="row-fact-label-mobile">Ethnicity </span>{{ s.get_ethnicity_display|default:"—" }}</span>
-                </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.counts }}">
-                    <span>Referrals: {{ s.referrals_count }}</span>
-                    <span>Actions: {{ s.actions_count }}</span>
-                </div>
+            <div class="row-facts">
+                <span>Year {{ s.year_group }}{% if s.house %} &middot; House {{ s.house }}{% endif %}{% if s.reg_form %} &middot; Form {{ s.reg_form }}{% endif %}</span>
             </div>
         </div>
         <div class="btn-row">
             {% if s.referrals_count > 0 %}
-            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Referrals</a>
+            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
             {% else %}
             <span class="btn btn-sm btn-disabled" aria-disabled="true">Referrals</span>
             {% endif %}
             {% if s.actions_count > 0 %}
-            <a href="{% url 'inclusion_panel_actions' %}?name={{ s.id }}" class="btn btn-sm">Actions</a>
+            <a href="{% url 'inclusion_panel_actions' %}?name={{ s.id }}" class="btn btn-sm">Actions<span class="btn-count-badge">{{ s.actions_count }}</span></a>
             {% else %}
             <span class="btn btn-sm btn-disabled" aria-disabled="true">Actions</span>
             {% endif %}
