@@ -2758,11 +2758,132 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .row-facts-cols { gap: 10px; }
 .row-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
 .row-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Gender/Ethnicity read fine unlabelled on desktop, where their column's
+   position in the 3-column facts row (#117) already carries the meaning -
+   hidden there, shown only once the 900px stack (below) breaks that
+   positional grouping apart. */
+.row-fact-label-mobile { display: none; }
 .action-note { margin-top: var(--space-xs); }
 .entity-list[data-selectable] > .entity-row { align-items: stretch; }
 .entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
 .row-btn-row-stacked { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-xs); }
 .row-btn-row-stacked > .action-row-buttons { align-self: flex-end; }
+
+/* Students list (#117): "table -> stacked card" per #113's shared
+   vocabulary. Scoped to #students-filtered-content (this page's own
+   AJAX-swap target, unique per list page) rather than the bare
+   .entity-row/.row-facts-cols classes above - those are shared markup
+   with Referrals/Actions (#118/#119), whose own stacking is a separate,
+   not-yet-designed ticket.
+   Thumb stays put beside the name (unchanged DOM order already puts it
+   there) - only the facts row and button row change shape. */
+@media (max-width: 900px) {
+    #students-filtered-content .entity-row {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    #students-filtered-content .entity-thumb {
+        width: 32px;
+        height: 42px;
+    }
+    /* .row-fact-col's inline `style="width: ..."` (col_widths, views.py) is
+       a desktop-only sizing hint for the 3-column layout - display:contents
+       below drops that box (and its inline width) entirely, promoting its
+       two <span> children to be direct grid items of .row-facts-cols
+       instead. Grid auto-flow then lands the 3 columns' pairs as 3 grid
+       rows of 2 - Year+House/Form+Tutor/Gender+Ethnicity/Referrals+Actions
+       reflow into the same left-to-right pairing #113 asked for (a 2-up
+       key/value grid) for free, no markup change needed beyond the two
+       labels below. */
+    #students-filtered-content .row-facts.row-facts-cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+        gap: var(--space-xxs) var(--space-md);
+    }
+    #students-filtered-content .row-facts-cols .row-fact-col {
+        display: contents;
+    }
+    #students-filtered-content .row-facts-cols .row-fact-col span {
+        white-space: normal;
+    }
+    /* No longer between two side-by-side columns to divide - each divider
+       would otherwise land as its own (empty) grid item. */
+    #students-filtered-content .row-facts-cols .mc-vdivider {
+        display: none;
+    }
+    #students-filtered-content .row-fact-label-mobile {
+        display: inline;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+    /* Full-width row below the facts grid instead of a bordered column
+       beside it - three buttons no longer fit down the row's remaining
+       height at this width. */
+    #students-filtered-content .btn-row {
+        flex: 1 1 100%;
+        margin-top: var(--space-sm);
+        padding-top: var(--space-sm);
+        border-top: 1px solid var(--border-color);
+    }
+    #students-filtered-content .btn-row > * {
+        flex: 1;
+        justify-content: center;
+    }
+    /* Smaller card chrome once the fixed 3-column grid below has to fit
+       inside a narrower row - same values the SEND & Provision dashboard's
+       own .stats-strip--compact already settled on for its phone tier
+       (responsive.css), reused directly since the failure mode (3 cards,
+       one row, shrinking width) is identical. */
+    #students-filtered-content .stats-strip .stat-card {
+        padding: var(--space-xs) var(--space-xxs);
+        border-radius: var(--radius-sm);
+    }
+    #students-filtered-content .stats-strip .stat-card .stat-value {
+        font-size: var(--font-xl);
+    }
+    #students-filtered-content .stats-strip .stat-card .stat-label {
+        font-size: 10px;
+        line-height: 1.2;
+    }
+}
+
+/* Data cards (Students/Referrals/Actions counts, bottom of the list):
+   always one row, at every width - not just below 900px. .stats-strip's
+   own base flex-wrap (cards.css) would otherwise let these 3 cards stack
+   into 3 full-width rows the moment each card's 200px flex-basis stops
+   fitting side by side (live feedback: "Data Cards should also always be
+   one row"). Same fixed-column-count idea as .stats-strip--compact
+   (responsive.css, SEND & Provision dashboard) - that class isn't reused
+   directly since this page's markup never opted into it, but the fix is
+   identical: a real grid with a hardcoded column count doesn't have a
+   flex-basis to stop fitting in the first place. */
+#students-filtered-content .stats-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-sm);
+}
+
+/* Full-bleed card at phone width (#117 follow-up, live feedback: "mobile
+   should also use full width of screen, so no margin on card on left and
+   right") - same cancel-.main-inner's-padding trick #116 already uses for
+   .sticky-header-zone/.home-header-sticky, just applied to the list card
+   instead of the sticky header. :has(#students-filtered-content), not a
+   bare .list-card rule - Referrals/Actions share the same .list-card class
+   (layout.css) but haven't had this same call made for their own not-yet-
+   designed tickets (#118/#119) yet. Side borders/radius dropped since the
+   card now spans edge-to-edge with nothing beside it to read a border
+   against; top/bottom stay (still a real seam against the page above/
+   below it). */
+@media (max-width: 480px) {
+    .list-card:has(#students-filtered-content) {
+        margin-left: calc(-1 * var(--space-md));
+        margin-right: calc(-1 * var(--space-md));
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
+    }
+}
 
 /* Action status segmented control (Actions list row) - each state gets its own
    semantic active color instead of the generic .ui-segmented-option.active
