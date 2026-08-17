@@ -17,7 +17,7 @@ animate in when a count goes from 0 back up.
     {% if show_action_tabs %}
     {% comment %}
     Carousel-mode-only replacement for the tab row below (hidden here via
-    panel.css, ≤820px) - see My Referrals' identical block (home.html) for
+    panel.css, ≤1180px) - see My Referrals' identical block (home.html) for
     the full reasoning. Rebuilt fresh by wireCarouselFilterDropdown every
     time this whole card is re-rendered (refreshMyActionsCard, home.html),
     same as the carousel/tab-row wiring already is.
@@ -75,7 +75,7 @@ animate in when a count goes from 0 back up.
                     {% comment %}
                     data-action-status-filter: carousel-mode-only dropdown
                     replacement for the segmented control below (hidden via
-                    panel.css, ≤820px) - same "trigger + popover, delegate
+                    panel.css, ≤1180px) - same "trigger + popover, delegate
                     every option click to the real (hidden) button" pattern
                     as the tab-row's own carousel-filter dropdown
                     (wireCarouselFilterDropdown, home.html), just wired
@@ -85,9 +85,21 @@ animate in when a count goes from 0 back up.
                     {% endcomment %}
                     <div class="panel-item-actions" data-action-status-filter>
                         <div class="action-status-dropdown">
-                            <button type="button" class="carousel-filter-trigger" data-filter-trigger aria-haspopup="listbox" aria-expanded="false">
-                                <span data-filter-label></span>
-                                <span class="carousel-filter-chevron" aria-hidden="true"></span>
+                            {% comment %}
+                            Same fused label+value box as the portal's other
+                            filter fields (.ui-fused-field, forms.css) - a
+                            static "Status" title segment (background/
+                            border-right, like .ui-fused-field-label) fused
+                            onto the value segment, rather than the plain
+                            text+chevron look every other carousel-mode
+                            dropdown trigger uses.
+                            {% endcomment %}
+                            <button type="button" class="carousel-filter-trigger action-status-trigger" data-filter-trigger aria-haspopup="listbox" aria-expanded="false">
+                                <span class="action-status-trigger-title">Status</span>
+                                <span class="action-status-trigger-value">
+                                    <span data-filter-label></span>
+                                    <span class="carousel-filter-chevron" aria-hidden="true"></span>
+                                </span>
                             </button>
                             <ul class="carousel-filter-menu" data-filter-menu role="listbox" hidden></ul>
                         </div>
@@ -106,9 +118,14 @@ animate in when a count goes from 0 back up.
                     {% comment %} Same prominent row-title treatment as the Referral Details modal's own Actions section heading (_action_row.html). {% endcomment %}
                     <span class="referral-row-title">{{ action.category|default:"No category" }}</span>
                     <div class="panel-item-note">{{ action.note|default:"No description." }}</div>
-                    <div class="panel-item-meta">
-                        Due Date: {{ action.due_date|default:"—" }}
-                        {% if action.is_overdue %}&middot; <span class="status-pill danger">Overdue</span>{% endif %}
+                    <div class="panel-item-meta-group">
+                        <div class="panel-item-meta">
+                            <span class="panel-item-meta-due">Due: {{ action.due_date|default:"—" }}</span>
+                            {% if action.is_overdue %}<span class="panel-item-meta-sep">&middot;</span> <span class="status-pill danger">Overdue</span>{% endif %}
+                        </div>
+                        {% if action.status == 'complete' %}
+                        <div class="panel-item-meta">Completed: {{ action.completed_at|date:"d/m/Y"|default:"—" }}</div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

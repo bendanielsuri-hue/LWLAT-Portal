@@ -1474,7 +1474,50 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             }
         }
 
+        // "Fits without scrolling" check, independent of the carousel's own
+        // centring padding (which would otherwise force scrollWidth to
+        // overflow on its own, making a plain scrollWidth/clientWidth
+        // comparison useless for deciding *whether to carry that padding at
+        // all*). Sums each card's own offsetWidth (layout width, unaffected
+        // by the stack effect's CSS transform: scale()) + the row's real
+        // gaps against track.clientWidth, which stays ~constant regardless
+        // of which mode's padding is currently applied (that padding eats
+        // into the content box, it doesn't change the track's own outer
+        // width).
+        function fitsFlat() {
+            var cards = slots();
+            if (cards.length < 2) return true;
+            var style = window.getComputedStyle(track);
+            var gap = parseFloat(style.columnGap || style.gap) || 0;
+            var total = gap * (cards.length - 1);
+            cards.forEach(function (card) { total += card.offsetWidth; });
+            return total <= track.clientWidth + 1;
+        }
+
         function updateState() {
+            var flat = fitsFlat();
+            wrap.classList.toggle('is-flat', flat);
+
+            if (flat) {
+                // Grid mode: no active card, no stack/scale effect, no
+                // dots/arrows/fade/count - every card is equally visible at
+                // once, so there's nothing left for any of those to drive.
+                prev.hidden = true;
+                next.hidden = true;
+                if (fadeL) fadeL.style.opacity = 0;
+                if (fadeR) fadeR.style.opacity = 0;
+                slots().forEach(function (card) {
+                    card.classList.remove('is-active');
+                    card.style.removeProperty('--dist');
+                    card.style.removeProperty('--absdist');
+                    card.style.zIndex = '';
+                    card.style.marginLeft = '';
+                });
+                if (dotsContainer) dotsContainer.innerHTML = '';
+                if (countLabel) countLabel.classList.remove('has-cards', 'many-cards');
+                return;
+            }
+
             var overflowing = track.scrollWidth > track.clientWidth + 1;
             var active = activeIndex();
             var cards = active.cards;
@@ -1489,6 +1532,29 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             if (fadeL) fadeL.style.opacity = (!overflowing || atStart) ? 0 : 1;
             if (fadeR) fadeR.style.opacity = (!overflowing || atEnd) ? 0 : 1;
 
+            // Per-card overlap (margin-left) is computed here, not as a
+            // fixed panel.css value - a flat number only ever balances out
+            // against an *active* (grown, scale 1.06) neighbour; the same
+            // flat value leaves a real, visible gap between two ordinary
+            // shrunk neighbours (both scaled down, neither active), which
+            // only ever occurs once the active card sits away from either
+            // end of the row (live feedback: "still have gaps" - reproduced
+            // with the active card in the middle, not the position every
+            // earlier pass happened to test). Each card's actual own
+            // scale-driven shrink (or the active card's own extra growth)
+            // pulls its rendered edges in (or out) from its layout box by
+            // width * (1 - scale) / 2 per side - offsetWidth is the real
+            // *layout* width, unaffected by the transform below, so this
+            // works at any breakpoint without a hardcoded card-width guess.
+            var GAP = 8; // .stats-carousel-track's own `gap` (--space-xs)
+            var TARGET_OVERLAP = 14; // --radius-lg (12px) + 2px buffer - see panel.css's own comment on .stats-carousel-slot for why
+            var scales = cards.map(function (card, i) {
+                return i === closestIndex ? 1.06 : 1 - Math.abs(i - closestIndex) * 0.08;
+            });
+            var halfShrinks = cards.map(function (card, i) {
+                return card.offsetWidth * (1 - scales[i]) / 2;
+            });
+
             cards.forEach(function (card, i) {
                 card.classList.toggle('is-active', i === closestIndex);
                 var dist = i - closestIndex;
@@ -1499,6 +1565,12 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // stacked card's own z-index must stay below this row's
                 // fade/arrow chrome (panel.css: 15/20).
                 card.style.zIndex = String(Math.max(1, 10 - Math.abs(dist)));
+                // First card has no previous sibling to overlap into -
+                // matches panel.css's own :first-child override, just set
+                // here too now that margin-left is JS-driven.
+                card.style.marginLeft = i === 0
+                    ? '0px'
+                    : (-(TARGET_OVERLAP + GAP + halfShrinks[i] + halfShrinks[i - 1])) + 'px';
             });
 
             if (dotsContainer) {
@@ -1572,6 +1644,10 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var flingVelocity = 0;
         track.addEventListener('pointerdown', function (e) {
             if (e.pointerType === 'touch') return;
+            // Grid mode: everything already fits, there's nothing to drag-
+            // scroll to - skip starting a drag at all so a slightly-jittery
+            // click can never get misread as one and swallowed below.
+            if (wrap.classList.contains('is-flat')) return;
             // No "real control" guard here unlike My Referrals' identical
             // handler (home.html) - there, it protects separate Edit/Delete
             // buttons from being hijacked into a drag start. Here the whole
@@ -1650,6 +1726,10 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // active card, or dragMoved) always gets through untouched.
         track.addEventListener('click', function (e) {
             if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; return; }
+            // Grid mode: every card is already fully visible, there's no
+            // "peeking" card to advance to - let every click fall straight
+            // through to its own link.
+            if (wrap.classList.contains('is-flat')) return;
             var card = e.target.closest('.stats-carousel-slot');
             if (!card) return;
             var cards = slots();

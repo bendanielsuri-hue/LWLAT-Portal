@@ -8,11 +8,11 @@ from hubs.inclusion.panel.management.seed_helpers import backfill_referral_respo
 from hubs.inclusion.panel.models import InclusionReferral, Panel, PanelGroup, PanelReferral
 from hubs.inclusion.panel.views import _sync_referral_status
 
-# A "couple" per tab, per the ask - enough for the phone carousel (#116) to
-# actually have something to swipe/drag through in each of My Referrals'
-# Awaiting Discussion / Discussed tabs, not just prove a single card renders.
-AWAITING_TARGET = 3
-DISCUSSED_TARGET = 3
+# Enough per tab for the phone carousel (#116) to actually have something to
+# swipe/drag through in each of My Referrals' Awaiting Discussion / Discussed
+# tabs, not just prove a single card renders.
+AWAITING_TARGET = 5
+DISCUSSED_TARGET = 5
 
 
 class Command(BaseCommand):

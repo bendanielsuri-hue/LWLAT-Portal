@@ -44,8 +44,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         categories = self._ensure_categories()
 
+        # No removed_at__isnull filter - a 'discussed' row is a historical
+        # record even if later removed from that panel's live agenda (the
+        # real UI already refuses to remove one - remove_referral_from_agenda
+        # in views.py), matching _referral_detail_context's own Panel History
+        # query so a referral's "Referral Details" modal never shows a
+        # discussion with no actions attributed to it.
         discussed = (
-            PanelReferral.objects.filter(removed_at__isnull=True, discussion_status='discussed')
+            PanelReferral.objects.filter(discussion_status='discussed')
             .select_related('referral', 'panel')
             .order_by('referral_id', '-panel__date')
         )

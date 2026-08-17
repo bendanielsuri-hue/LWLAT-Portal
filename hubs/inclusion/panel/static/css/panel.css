@@ -88,7 +88,7 @@
 }
 
 /* Contains the whole carousel's own z-index layering (stacked cards 1-10,
-   fade 15, arrows 20, filter dropdown 30 - all below, ≤820px) inside its
+   fade 15, arrows 20, filter dropdown 30 - all below, ≤1180px) inside its
    own stacking context, rather than letting those values compare directly
    against the rest of the page. Without this, neither #referrals-card nor
    any of its ancestors up to <body> establishes one on its own, so a
@@ -119,17 +119,44 @@
     min-height: 0;
     position: relative;
 }
+/* Same flex-height-chain fix as .referral-carousel-wrap just above, for My
+   Actions' own wrap - this one was missed when that fix went in, so
+   #my-actions-list's flex: 1/overflow-y: auto (.list-page-shell .panel-list)
+   had nothing sized to fill above 1180px and the card just grew to the
+   list's full natural content height instead of capping/scrolling it (live
+   feedback: "My Actions still has no scroll bar"). */
+.action-carousel-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
 
 /* True default state for both carousels' "x / y" position readout -
    updateState (home.html) sets its text unconditionally whenever there's
    more than one card, at any width, so without this base rule the plain
    (unstyled outside the carousel breakpoint) <div> rendered that text as
-   plain visible page content above 820px too. The ≤820px media query below
+   plain visible page content above 1180px too. The ≤1180px media query below
    only ever re-enables it (.has-cards/.many-cards), never disables it, so
    it needs its own always-on default here rather than assuming "no rule
    outside the media query" means hidden. */
 .referral-carousel-count,
 .action-carousel-count {
+    display: none;
+}
+/* Same story for the dots row - rebuildReferralCarousel/rebuildActionCarousel
+   (home.html) populate it with one plain <button> per card unconditionally,
+   at any width, whenever there's more than one card. With no default rule
+   here they rendered as bare unstyled buttons above 1180px (their only
+   styling, .referral-carousel-dot/.action-carousel-dot, lives inside the
+   ≤1180px block below) - visible as a stray row of little boxes wedged
+   between the list and the card's bottom edge, both shrinking the list's
+   own scrollable area (live feedback: "scroll bar does not go to bottom of
+   card") and showing up as unstyled artifacts of their own (live feedback:
+   "something in the bottom left corner"). */
+.referral-carousel-dots,
+.action-carousel-dots {
     display: none;
 }
 
@@ -152,20 +179,23 @@
    order, so this can't happen again either way round. */
 #referrals-card .panel-list,
 #actions-card .panel-list,
+#meeting-card .panel-list,
 #activity-card .activity-list {
     margin-bottom: 0;
     padding-bottom: 0;
 }
-/* My Actions/Recent Activity end in a list whose own rows already carry
-   real padding (.panel-list li: var(--space-sm) var(--space-lg)) - the
-   card's own padding-bottom on top of that just doubles up as dead space
-   below the last row, now that DES-L5's bleed (above) no longer cancels
-   it out. Scoped to these two cards by id rather than every
-   .panel-home-cards .panel-card - Next Panel Meeting ends in a button
-   (View Agenda), not a self-padded row, and still wants the card's own
-   padding to keep it clear of the border. Any width - .panel-home-cards
-   wraps all four cards even at desktop, not just the stacked breakpoints. */
+/* Every card here now ends in a list whose own rows already carry real
+   padding (.panel-list li: var(--space-sm) var(--space-lg)) - Upcoming
+   Panel Meetings included, since it moved from a single centered preview to
+   a scrollable list of its own (live feedback: "Next Panel Meeting" ->
+   "Upcoming Panel Meetings", "this card should now scroll if there is
+   overflow"). The card's own padding-bottom on top of that just doubles up
+   as dead space below the last row, now that DES-L5's bleed (above) no
+   longer cancels it out. Any width - .panel-home-cards wraps all four cards
+   even at desktop, not just the stacked breakpoints. */
+#referrals-card,
 #actions-card,
+#meeting-card,
 #activity-card {
     padding-bottom: 0;
 }
@@ -180,8 +210,15 @@
    pixel: it hits the row, not the page. overflow-x: hidden (keeps the
    list's own overflow-y: auto scroll) + matching bottom radius clips the
    list itself to the card's rounded shape, since the card's own overflow
-   can't do it any more. */
+   can't do it any more.
+   #referrals-card/#meeting-card included alongside Actions/Activity, not
+   left out - #my-referrals-list is the same self-padded, edge-to-edge-
+   bleeding .panel-list every other card here ends in (live feedback: "My
+   Referrals scroll bar does not go to bottom of card corner. It does for
+   My Actions"), Edit/Delete buttons in each row don't change that. */
+#referrals-card .panel-list,
 #actions-card .panel-list,
+#meeting-card .panel-list,
 #activity-card .activity-list {
     overflow-x: hidden;
     border-bottom-left-radius: var(--radius-xl);
@@ -299,6 +336,98 @@
     }
 }
 
+/* Upcoming Panel Meetings/Recent Activity, collapsed by default in stack
+   mode (live grilling: "hide... at the carousel breakpoint, or make it an
+   expandable card" - landed on expandable, not hidden, since both still
+   carry information worth being one tap away from rather than gone
+   outright). Desktop (>1180px) never collapses - .panel-card-collapsible is
+   display: contents there, invisible to the box tree, so the real
+   .panel-list/.activity-list stays a direct flex child of the card exactly
+   as before this wrapper was added. */
+.panel-card-collapsible {
+    display: contents;
+}
+.card-collapse-toggle {
+    display: none;
+}
+@media (max-width: 1180px) {
+    /* Real grid child now (not display: contents) - a single-row grid whose
+       track animates between 0fr (collapsed) and 1fr (expanded) is the
+       standard height-less-auto-height collapse technique: no JS height
+       measurement needed, and it still adapts correctly if the content's
+       own height changes while open (e.g. a longer Recent Activity feed
+       after more actions complete). */
+    .panel-card-collapsible {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows var(--transition-base);
+    }
+    /* The grid's own single implicit child (.panel-list/.activity-list) -
+       needs its own overflow: hidden, not the grid container's, since a 0fr
+       track still reports its child's full intrinsic height for overflow
+       purposes otherwise (the technique relies on clipping *inside* the
+       track, not the track height itself, which the browser can't animate
+       between 0 and an unknown "auto" directly). min-height: 0 lets it
+       actually shrink to the 0fr track instead of flooring at content size
+       (same class of bug as every other min-height: auto flex/grid trap in
+       this file). */
+    .panel-card-collapsible > * {
+        overflow: hidden;
+        min-height: 0;
+    }
+    #meeting-card.is-expanded .panel-card-collapsible,
+    #activity-card.is-expanded .panel-card-collapsible {
+        grid-template-rows: 1fr;
+    }
+    /* Tap target for the header itself to double as the toggle would be
+       nice, but Recent Activity/Upcoming Panel Meetings' own header has no
+       spare width for a full-row hit target without crowding the h2 - a
+       small dedicated button, same "kept deliberately subtle" treatment as
+       the carousel-filter dropdown trigger elsewhere on this page. */
+    .card-collapse-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-full, 999px);
+        background: var(--bg-surface-alt);
+        color: var(--text-secondary);
+        cursor: pointer;
+        flex: 0 0 auto;
+    }
+    .card-collapse-toggle:hover {
+        background: var(--border-color);
+    }
+    .card-collapse-chevron {
+        width: 6px;
+        height: 6px;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        margin-top: -2px;
+        transition: transform var(--transition-fast);
+    }
+    /* Points down at rest (collapsed - "there's more below, tap to reveal")
+       and flips to point up once expanded ("tap to hide it again") - same
+       rotate(45deg)/rotate(-135deg) pair as .carousel-filter-chevron's own
+       open state elsewhere on this page. */
+    .card-collapse-toggle[aria-expanded="true"] .card-collapse-chevron {
+        transform: rotate(-135deg);
+        margin-top: 2px;
+    }
+    /* .panel-card-header's own base rule (justify-content: center) keeps
+       every other card's h2 centred - these two now have a second flex
+       child (the toggle) that needs pushing to the far edge instead of
+       sitting centred alongside the heading. */
+    #meeting-card .panel-card-header,
+    #activity-card .panel-card-header {
+        justify-content: space-between;
+    }
+}
+
 /* Phone reclaim (#116 reopened - "maximise space for mobile, current stack
    isn't optimised"): tightens the stack's own chrome and gives each of the
    4 cards its own space-appropriate treatment, layered on top of the
@@ -313,10 +442,41 @@
            pass) - --space-sm all round reclaims another 4px/side without
            the card reading cramped. */
         padding: var(--space-sm);
-        margin-bottom: var(--space-xs);
+        /* --space-md, not --space-xs - too tight a gap between cards read
+           as sections running into each other (live feedback: "gap
+           between sections on mobile is too small"). */
+        margin-bottom: var(--space-md);
+        /* Full-width bleed (DES-L6) - cancels .main-inner's own mobile
+           padding (--space-md, responsive.css) so the card's background/
+           border run edge-to-edge instead of floating inset within it;
+           screen space is too scarce at this width for that inset to read
+           as anything but wasted. Side border/radius go with it - a card
+           with no visible left/right edge doesn't need either - while the
+           padding above still keeps its own content clear of the viewport
+           edge. Cards already borderless in carousel mode (My Referrals/My
+           Actions, ≤1180px above) have nothing left to bleed, so this only
+           visibly affects Next Panel Meeting/Recent Activity in practice,
+           but applies to every stacked card as the default going forward. */
+        margin-left: calc(-1 * var(--space-md));
+        margin-right: calc(-1 * var(--space-md));
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
     }
     .panel-home-cards .panel-card .panel-card-header {
         margin-bottom: var(--space-xs);
+    }
+    /* My Referrals/My Actions specifically, only when there's no
+       .carousel-filter dropdown to be flush against (≤1180px block, above,
+       already zeroes this when there is one) - zeroed here too, not the
+       every-other-card --space-xs (8px) just above, so both paths end up
+       with the *same* single gap: #my-referrals-list/#my-actions-list's
+       own (reduced-for-phone) padding-top, below, and nothing stacked on
+       top of it (live feedback: "a carousel with no filter row should
+       have same size gap" + "lose the 2px if this is a necessary gap"). */
+    #referrals-card:not(:has(.carousel-filter)) .panel-card-header,
+    #actions-card:not(:has(.carousel-filter)) .panel-card-header {
+        margin-bottom: 0;
     }
     /* Tab-row bleed (the general .panel-card > .tab-row/.overflow-scroll-wrap
        rule above) is sized to .panel-card's usual --space-lg padding -
@@ -341,6 +501,18 @@
         margin-left: calc(-1 * var(--space-sm));
         margin-right: calc(-1 * var(--space-sm));
     }
+    /* #actions-card/#activity-card's own rule (above) rounds this list's
+       bottom corners to match the card's usual --radius-xl - now that the
+       card itself is square (DES-L6 bleed, .panel-home-cards .panel-card's
+       own border-radius: 0 above), a still-rounded list bottom would poke a
+       mismatched curve out from inside a square card. id selectors (not
+       just .panel-home-cards .panel-card .activity-list) to match that
+       rule's own specificity and win on source order. */
+    #actions-card .panel-list,
+    #activity-card .activity-list {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
     /* Tightened from the base --space-sm/--space-lg - same "too spaced out
        for a mobile" pass as the carousel cards' own padding above. */
     .panel-home-cards .panel-card .activity-list li {
@@ -358,12 +530,18 @@
 /* My Referrals carousel: swipe through one referral at a time instead of a
    full-height stacked list - same "native scroll + scroll-snap" idea as the
    KPI stats row (#116's earlier carousel). Its own wider breakpoint
-   (820px, matching the dev tool's Tablet Portrait preset) rather than the
-   479px phone-reclaim block above - portrait tablet has the same "one
-   referral's worth of width, tabs already own the row's other horizontal
-   affordance" shape a phone does, even though it doesn't want the phone
-   block's tighter padding/bleed-margin/height-capping treatment (#116
-   grilling: "carousel only", not the whole bundle). Originally shipped
+   (1180px, matching the stack-mode breakpoint above - "wide tablet should
+   also use carousels" grilling) rather than the 479px phone-reclaim block
+   below - originally shipped at 820px (matching the dev tool's Tablet
+   Portrait preset), but that left a gap between 820px and stack mode's own
+   1180px where cards were *already* in the single-column stack (full
+   natural height, tabs already owning the row's other horizontal
+   affordance, same shape as a phone) yet not carouseling - widened to close
+   it, so every stack-mode width gets the same carousel treatment
+   consistently instead of two different rules for the same layout shape.
+   Still doesn't want the phone block's own tighter padding/bleed-margin/
+   height-capping treatment (#116 grilling: "carousel only", not the whole
+   bundle). Originally shipped
    without its own per-breakpoint sizing/fade/drag/arrows, since it only
    ever needed to work at one fixed breakpoint - a later pass (still #116)
    added edge fade + dots (touch) or arrows (mouse/trackpad) + click-drag on
@@ -403,6 +581,19 @@
     position: relative;
     text-align: center;
     margin-bottom: 4px;
+}
+/* Same missing-default bug as .carousel-filter would have without the
+   display: none above - .action-status-dropdown (the per-row carousel-mode
+   replacement for the real status segmented control, _my_actions_card.html)
+   had no base rule of its own at all, only the ≤1180px block's `display:
+   block` (below). Above 1180px it fell back to a plain <div>'s default block
+   display, rendering directly on top of the real segmented control it's
+   meant to replace (live feedback: "My Action does not need carousel
+   trigger in desktop mode" - the "Status ..." dropdown trigger text was
+   visibly overlapping the Incomplete/Complete/Not Required/Overdue buttons
+   underneath it). */
+.action-status-dropdown {
+    display: none;
 }
 .carousel-filter-trigger {
     display: inline-flex;
@@ -479,9 +670,19 @@
 /* Selected option reads as primary-filled, not just a lightly-tinted hover
    state (live feedback: "the selected is usually a primary fill") - matches
    .ui-segmented-option.active and every other "currently chosen" control
-   portal-wide. Wins over the plain :hover rule above via source order at
-   equal specificity, and stays primary even when also hovered. */
+   portal-wide. */
 .carousel-filter-menu li.active {
+    background: var(--primary);
+    color: #fff;
+}
+/* Explicit .active:hover, not just relying on source order at equal
+   specificity against the plain :hover rule above - hovering the already-
+   active option was falling back to :hover's own --row-hover-bg fill while
+   keeping .active's white text, reading as barely-legible pale text on a
+   near-white background (live feedback: "hovering the active dropdown
+   choice, the text becomes unreadable"). Higher specificity (one extra
+   pseudo-class) removes any ambiguity about which one wins. */
+.carousel-filter-menu li.active:hover {
     background: var(--primary);
     color: #fff;
 }
@@ -520,7 +721,7 @@
     color: var(--primary);
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1180px) {
     /* Descendant, not direct-child - main.js's overflow-tab handling
        (setupOverflowTabs) can wrap the tab row in its own
        .overflow-scroll-wrap, one level deeper than #referrals-card/
@@ -549,9 +750,19 @@
        flush against it (immediately above). Scoped by id to the two cards
        that actually render a dropdown, not every .panel-card-header at
        this width (Next Panel Meeting/Recent Activity still go straight
-       from title to content, no dropdown between). */
-    #referrals-card .panel-card-header,
-    #actions-card .panel-card-header {
+       from title to content, no dropdown between) - AND by :has(), not
+       unconditionally by id alone, since .carousel-filter only renders at
+       all when show_referral_tabs/show_action_tabs is true
+       (home.html/_my_actions_card.html). A single populated bucket (no
+       tabs, no dropdown) still matched the plain id selector, zeroing the
+       header's margin-bottom even with no dropdown right under it to stay
+       flush against - the carousel wrap ended up touching the title
+       directly instead (live feedback: "there does need to be a small gap
+       above carousel"). :has(.carousel-filter) leaves the phone block's
+       own --space-xs margin-bottom (below) in charge whenever there's
+       nothing to be flush against. */
+    #referrals-card:has(.carousel-filter) .panel-card-header,
+    #actions-card:has(.carousel-filter) .panel-card-header {
         margin-bottom: 0;
     }
     /* Fades the carousel itself behind the open dropdown (:has(), reacting
@@ -568,13 +779,22 @@
        Dots/count row included too, not just the wrap - they're the
        carousel's own navigation chrome, not a separate element (live
        feedback: "can the dots have same transparency applied, it is part
-       of the carousel"). */
-    #referrals-card:has(.carousel-filter-trigger.open) .referral-carousel-wrap,
-    #referrals-card:has(.carousel-filter-trigger.open) .referral-carousel-dots,
-    #referrals-card:has(.carousel-filter-trigger.open) .referral-carousel-count,
-    #actions-card:has(.carousel-filter-trigger.open) .action-carousel-wrap,
-    #actions-card:has(.carousel-filter-trigger.open) .action-carousel-dots,
-    #actions-card:has(.carousel-filter-trigger.open) .action-carousel-count {
+       of the carousel").
+
+       Scoped to `.carousel-filter .carousel-filter-trigger.open` - just
+       `.carousel-filter-trigger.open` alone also matched My Actions' own
+       per-row status-changer trigger (wireActionStatusFilters, home.html
+       reuses the same .carousel-filter-trigger class), which lives *inside*
+       .action-carousel-wrap rather than beside it like the tab-row filter
+       does - fading the wrap then faded that trigger's own open dropdown
+       and card right along with everything else instead of leaving it
+       readable (live feedback: "this affects the open dropdown as well"). */
+    #referrals-card:has(.carousel-filter .carousel-filter-trigger.open) .referral-carousel-wrap,
+    #referrals-card:has(.carousel-filter .carousel-filter-trigger.open) .referral-carousel-dots,
+    #referrals-card:has(.carousel-filter .carousel-filter-trigger.open) .referral-carousel-count,
+    #actions-card:has(.carousel-filter .carousel-filter-trigger.open) .action-carousel-wrap,
+    #actions-card:has(.carousel-filter .carousel-filter-trigger.open) .action-carousel-dots,
+    #actions-card:has(.carousel-filter .carousel-filter-trigger.open) .action-carousel-count {
         opacity: 0.35;
         transition: opacity var(--transition-base);
     }
@@ -592,12 +812,21 @@
        (#my-referrals-list > li, each already bordered) are doing that job
        themselves - #referrals-card's own chrome (surface fill, border,
        shadow) would otherwise double it up, framing the framed cards.
-       Padding stays (still needs clearance from the page edge/other cards),
-       just the visual card boundary goes. */
+       Padding stays on every other side (still needs clearance from the
+       page edge/other cards), just the visual card boundary goes. Bottom
+       padding specifically drops to 0 - #my-referrals-list below already
+       reserves its own bottom clearance (padding-bottom/margin-bottom, for
+       the active card's shadow) sized for a *bordered* card floating on
+       bare page canvas now that this card's own border/background are
+       gone, so #referrals-card's untouched default padding-bottom stacked
+       on top of it read as unexplained extra gap before the next card
+       (live feedback: "look like extra margin") - #actions-card (below,
+       its own identical carousel) already zeroes this the same way. */
     #referrals-card {
         background: transparent;
         border: none;
         box-shadow: none;
+        padding-bottom: 0;
     }
     /* More breathing room between the tab row's own border-bottom and the
        first carousel card than the plain border-adjacent default. Also
@@ -672,6 +901,15 @@
            could only ever reach flush against that edge. */
         padding-left: 35vw;
         padding-right: 35vw;
+        /* No justify-content: center/safe center here (two earlier passes
+           tried both) - this row overflows *by design*, always, regardless
+           of card count (that's the entire point of the huge symmetric
+           padding above), so `safe center` can never actually redistribute
+           free space; it permanently degrades to plain start-alignment and
+           does nothing. Centring the first/active card is 100% JS-driven
+           instead - see goTo/rebuildReferralCarousel's own scrollTo calls
+           (home.html), which use this same padding as the room to scroll
+           any card, including the first/last, all the way to centre. */
     }
     #my-referrals-list::-webkit-scrollbar {
         display: none;
@@ -738,25 +976,9 @@
     #my-referrals-list > li .panel-item-body {
         width: 100%;
     }
-    #my-referrals-list > li .panel-item-pills {
-        justify-content: center;
-    }
     #my-referrals-list > li.empty-note {
         flex: 0 0 100%;
         border: none;
-    }
-    /* .panel-item-update's base rule (below) is a side-by-side flex row -
-       fine at the full list's normal width, but a carousel card is
-       narrower than that at every viewport this carousel is active at (not
-       just deep phone widths - the card itself is narrow throughout this
-       whole breakpoint, so this isn't gated any further). Squeezed side by
-       side there, "Actions given: 0"/"Time discussed: 0:15:00" each wrap
-       their own label from their value instead of fitting on one line -
-       stack the two lines instead, full card width each. */
-    #my-referrals-list .panel-item-update {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
     }
     /* Own row at the bottom of the (now column-direction, thumb-above-name)
        card, centered like the rest of its content. Not flex: 0 0 100% -
@@ -780,10 +1002,47 @@
     #my-referrals-list .panel-item-meta {
         display: block;
     }
-    #my-referrals-list .panel-item-pills {
+    /* Column, not the base rule's row+flex-wrap (above, home.html: "same
+       row if space, own row if not") - carousel cards are narrow enough
+       that name+details would only ever share a line for the shortest
+       names anyway, reading as inconsistent card-to-card; forced to always
+       stack here instead (live feedback: "student details should be on
+       own line in my referrals cards" - carousel mode specifically). */
+    #my-referrals-list .panel-item-header {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    /* .referral-category-row is a flex row too now (its own change, above)
+       - without this its single visible child (the pill is display: none
+       here) would sit flush left instead of picking up the centered look
+       every other row in this carousel card has via <li>'s own text-align:
+       center, same reasoning as .panel-item-header's identical override
+       just above. */
+    #my-referrals-list .referral-category-row {
+        justify-content: center;
+    }
+    /* Groups the student info (name + entity-meta, already tight via
+       entity-meta's own small base margin-top) apart from the referral
+       details below it (Category/status pill/Created date, which otherwise
+       sit flush against entity-meta with no gap at all) - a small gap after
+       entity-meta rather than margin-top on Category so the gap still lands
+       correctly even when there's no concern_category and the stacked pill
+       or Created date is the first line of that group instead. */
+    #my-referrals-list .entity-meta {
+        margin-bottom: var(--space-sm);
+    }
+    /* Carousel mode swaps which of the two pill copies (home.html) shows -
+       the header one (next to the name, desk/tablet-wide default) hides,
+       and the stacked one after the Created date takes over, own centered
+       row. */
+    #my-referrals-list .panel-item-pills--header {
+        display: none;
+    }
+    #my-referrals-list .panel-item-pills--stacked {
         display: flex;
+        justify-content: center;
         margin-top: var(--space-xs);
-        margin-left: 0;
     }
 
     /* Carousel chrome (home.html: .referral-carousel-wrap around the ul,
@@ -960,7 +1219,7 @@
     display: none;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1180px) {
     #actions-card {
         background: transparent;
         border: none;
@@ -1003,6 +1262,8 @@
            edge - see #my-referrals-list's own identical addition for why. */
         padding-left: 30vw;
         padding-right: 30vw;
+        /* No justify-content override - see #my-referrals-list's own
+           identical rule/comment (above) for why. */
     }
     #my-actions-list::-webkit-scrollbar {
         display: none;
@@ -1023,7 +1284,13 @@
         min-width: 220px;
         max-width: 320px;
         background: var(--bg-surface);
-        align-items: flex-start;
+        /* Stretch, not flex-start - lets .panel-item-body--two-col (below)
+           fill the card's full (already-stretched-to-tallest, see
+           #my-actions-list's own align-items: stretch) height, so the
+           status changer's own margin-top: auto (further below) has real
+           room to push it down to the card's actual bottom edge instead of
+           sitting wherever the shorter content above it happens to end. */
+        align-items: stretch;
         flex-wrap: wrap;
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
@@ -1093,13 +1360,50 @@
     }
     #my-actions-list .referral-row-title { order: 2; }
     #my-actions-list .panel-item-note { order: 3; }
-    #my-actions-list .panel-item-meta { order: 4; }
-    /* Status changer last (order: 5, after everything above) - see the
-       dropdown swap directly below for the other half of "move status
-       changer to last item... replace with a dropdown". */
+    /* .panel-item-meta-group (Due/Overdue +, when complete, Completed - both
+       home.html) is the flex item now, not the individual .panel-item-meta
+       lines inside it - a tight gap of its own between those two lines,
+       distinct from .panel-item-body--two-col's own wider inter-section gap
+       (thumb/category/note/etc.) that used to apply between them when each
+       was its own direct flex child (live feedback: "Due and Completed can
+       be closer together"). */
+    #my-actions-list .panel-item-meta-group {
+        order: 4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+    /* Due Date/Overdue split onto their own lines (home.html:
+       .panel-item-meta-due / the Overdue status-pill are now separate flex
+       items, not one run of inline text+pill) - a card this narrow doesn't
+       have room to read "Due Date: 07/07/2026 · Overdue" as one line
+       without an awkward wrap. The middot separator (.panel-item-meta-sep)
+       only made sense inline, so it's hidden here rather than stranded on
+       its own line. */
+    #my-actions-list .panel-item-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-xs);
+    }
+    #my-actions-list .panel-item-meta-sep {
+        display: none;
+    }
+    /* Status changer last (order: 5, after everything above) and pinned to
+       the card's actual bottom edge via margin-top: auto - wins over
+       .panel-item-col--student .panel-item-actions' own fixed margin-top
+       (cards.css) on specificity (id + class beats two classes), keeping
+       that rule's divider (border-top/padding-top) but overriding the
+       margin. See the dropdown swap directly below for the other half of
+       "move status changer to last item... replace with a dropdown", and
+       #my-actions-list > li's own align-items: stretch (above) for why
+       there's room to push into at all. */
     #my-actions-list .panel-item-actions {
         order: 5;
         width: 100%;
+        margin-top: auto;
+        justify-content: center;
     }
     /* Real segmented control hidden in favour of the dropdown
        (.action-status-dropdown, home.html markup /
@@ -1115,6 +1419,89 @@
         display: block;
         position: relative;
         text-align: center;
+    }
+    /* Opens upward (dropup), not the base rule's downward top: 100% - the
+       status changer is now pinned flush against the card's own bottom edge
+       (.panel-item-actions' margin-top: auto, above), so a menu opening
+       below it would render past the card's bottom and get clipped by
+       #my-actions-list's own overflow-y: hidden (the carousel viewport),
+       showing no visible options at all. */
+    #my-actions-list .action-status-dropdown .carousel-filter-menu {
+        top: auto;
+        bottom: 100%;
+        margin: 0 0 var(--space-xs);
+        /* Stronger than the base rule's --shadow-lg - this menu opens
+           directly over the card's own busy note/meta text rather than
+           empty space below the tab row (the referral filter dropdown's
+           usual context), and --border-strong reads as quite pale in some
+           themes (e.g. Soft/pastel's cream tones) - --shadow-emphasis gives
+           it enough depth to read as clearly floating above that content
+           instead of blending into it. */
+        box-shadow: var(--shadow-emphasis, var(--shadow-lg));
+    }
+    /* Same fused label+value box as the portal's other filter fields
+       (.ui-fused-field, forms.css) - a bordered box split into a title
+       segment (bg-choice fill, border-right divider) and a value segment,
+       not the referral tab dropdown's deliberately subtle plain-text
+       trigger (.carousel-filter-trigger's own base rule). This is a real
+       control changing the action's status, not a passive filter, so it
+       reads as the same fused control used throughout the rest of the app.
+       Scoped to this dropdown specifically so the tab-row filter elsewhere
+       keeps its own subtle look. */
+    #my-actions-list .action-status-dropdown .action-status-trigger {
+        display: inline-flex;
+        align-items: stretch;
+        padding: 0;
+        gap: 0;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        background: var(--bg-input);
+    }
+    #my-actions-list .action-status-trigger-title {
+        display: flex;
+        align-items: center;
+        padding: var(--space-xs) var(--space-sm);
+        font-size: var(--font-sm);
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: var(--bg-choice);
+        border-right: 1px solid var(--border-color);
+        white-space: nowrap;
+    }
+    #my-actions-list .action-status-trigger-value {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: var(--space-xs) var(--space-sm);
+        font-weight: 600;
+        color: var(--text-primary);
+        white-space: nowrap;
+    }
+    /* Value segment picks up the same per-status colour the real segmented
+       control uses (.ui-segmented--action-status .ui-segmented-option
+       [value=...].active, below) - trigger.dataset.status mirrors the
+       active option's own value (syncLabel, home.html), so the fused
+       dropdown reads as coloured-by-status like every other status control
+       in the app, not a plain neutral pill regardless of which status is
+       selected. Chevron included, not just the text, so it reads as one
+       coloured unit. */
+    #my-actions-list .action-status-trigger[data-status="complete"] .action-status-trigger-value {
+        background: var(--color-positive-bg);
+        color: var(--color-positive);
+    }
+    #my-actions-list .action-status-trigger[data-status="incomplete"] .action-status-trigger-value {
+        background: var(--color-negative-bg);
+        color: var(--color-negative);
+    }
+    #my-actions-list .action-status-trigger[data-status="not_needed"] .action-status-trigger-value {
+        background: color-mix(in srgb, var(--color-neutral) 20%, var(--bg-choice));
+        color: var(--color-neutral);
+    }
+    #my-actions-list .action-status-trigger[data-status="complete"] .action-status-trigger-value .carousel-filter-chevron,
+    #my-actions-list .action-status-trigger[data-status="incomplete"] .action-status-trigger-value .carousel-filter-chevron,
+    #my-actions-list .action-status-trigger[data-status="not_needed"] .action-status-trigger-value .carousel-filter-chevron {
+        border-color: currentColor;
     }
     /* No horizontal divider between what were two columns - they're one
        centred stack now, nothing left to divide (live feedback: "lose the
@@ -1218,26 +1605,67 @@
 }
 
 @media (max-width: 479px) {
-    /* Matches .action-carousel-wrap's own bleed above, just with both
-       layers of padding at their own reduced phone values - see
-       .referral-carousel-wrap's own identical override just above for the
-       full reasoning. */
+    /* Matches .referral-carousel-wrap's own bleed below, just with both
+       layers of padding at their own reduced phone values - see that
+       rule's own comment for the full reasoning. */
     .action-carousel-wrap {
         margin-left: calc(-1 * var(--space-sm) - var(--space-md));
         margin-right: calc(-1 * var(--space-sm) - var(--space-md));
     }
 
-    /* Matches .referral-carousel-wrap's own bleed above, just with both
-       layers of padding it's cancelling now at their own reduced phone
-       values instead of the desktop ones - #referrals-card's own padding
-       drops to --space-sm here (.panel-home-cards .panel-card, below), and
-       .main-inner's (layout.css) drops to --space-md at <=480px
-       (responsive.css) - without this override the wrap would overshoot
-       past the real viewport edge by exactly the difference between the
-       desktop and phone padding values on each side. */
+    /* Matches .action-carousel-wrap's own bleed above, just for My
+       Referrals - #referrals-card's own padding drops to --space-sm here
+       (.panel-home-cards .panel-card, below), and .main-inner's
+       (layout.css) drops to --space-md at <=480px (responsive.css) -
+       without this override the wrap would overshoot past the real
+       viewport edge by exactly the difference between the desktop and
+       phone padding values on each side. */
     .referral-carousel-wrap {
         margin-left: calc(-1 * var(--space-sm) - var(--space-md));
         margin-right: calc(-1 * var(--space-sm) - var(--space-md));
+    }
+    /* #my-referrals-list/#my-actions-list's own padding-top (36-38 blocks
+       above, ≤1180px) is the *one* real gap between the filter/header and
+       the carousel at this width - no separate margin stacked on top of
+       it any more (live feedback: "lose the 2px if this is a necessary
+       gap"). 24px (the ≤1180px value) read as too much once every other
+       gap on this card had already tightened down for phone (live
+       feedback: "gap after filter and count on carousels looks to be too
+       much"), but it can't drop to 0 either - it's reserved clearance for
+       the active card's own lift+scale (.is-active, translateY(-4px)
+       scale(1.06)) against this list's own overflow-y: hidden boundary,
+       and dropping it too far clips that card's top border/shadow right
+       off (live feedback: "top border not having purple focus border" -
+       measured empirically: clipping starts below ~14px). 16px leaves a
+       real, if small, 3px margin of safety past that. */
+    #referrals-card #my-referrals-list,
+    #actions-card #my-actions-list {
+        padding-top: var(--space-md);
+    }
+    /* Narrower card range than the ≤1180px tablet default (150-220px/
+       220-320px, above) - at phone width a card sized closer to the full
+       column read as just another stacked card like Next Panel Meeting
+       below it, not obviously part of a horizontally-scrollable carousel
+       with more cards waiting off-screen (live feedback: "should be
+       slimmer... more obvious that its a carousel with additional
+       cards... slimmer than Next Panel Meeting Card"). vw, not a fixed px
+       range - a fixed 130-170px read fine at a 390px-wide phone (the
+       usual dev-tools preset) but doesn't scale down for a genuinely
+       narrow device or up for a phone nearer this block's own 479px
+       ceiling (live feedback: "can it be a % of mobile width"). Floors
+       stay high enough for the content each still needs (My Actions' own
+       two-column category/description layout wants more room than My
+       Referrals' plain name/date stack, same reasoning as the ≤1180px
+       range above) - min-width still wins over a smaller max-width value
+       below it (standard CSS sizing precedence), so a very narrow phone
+       still gets a usable card, just a wider fraction of its own screen. */
+    #my-referrals-list > li {
+        min-width: 130px;
+        max-width: 44vw;
+    }
+    #my-actions-list > li {
+        min-width: 170px;
+        max-width: 56vw;
     }
 
     /* Recent Activity: open-ended by nature (a feed with no natural end),
@@ -1247,7 +1675,7 @@
        between). Next Panel Meeting is deliberately untouched: its content
        is already short/bounded, nothing to cap. My Actions got the same
        treatment originally (#116) but moved to the same carousel treatment
-       as My Referrals - see the @media (max-width: 820px) block above.
+       as My Referrals - see the @media (max-width: 1180px) block above.
 
        The cap lives on the *card* (#activity-card, below), not the list
        itself - max-height + overflow-y on the list, with the card left at
@@ -1345,6 +1773,68 @@ html:not(.nav-touch-mode) .stats-carousel-track {
 .stats-carousel-track.is-grabbing {
     cursor: grabbing;
 }
+/* Grid mode (main.js updateState) - applied once every card's own natural
+   (untransformed) width fits the row without needing to scroll. Drops the
+   carousel's centring padding/scale-headroom margin and lets the cards wrap
+   into a plain centred static row instead - main.js also skips the
+   stack/scale effect and hides the dots/arrows/fade entirely in this mode,
+   this only undoes the layout-level carousel accommodations. */
+.stats-carousel-wrap.is-flat .stats-carousel-track {
+    /* Top gap matches --space-xl, the same gap .list-page-shell's own two
+       rows use between each other (:has(.panel-columns) above) - the KPI
+       row reads as another section in the same rhythm as the rest of the
+       page, not a smaller, separately-tuned gap (live grilling: "should the
+       gap not be the same as the gap between sections?"). Plain padding,
+       not the padding+negative-margin trick tried earlier to protect
+       main's own height budget - setupListPageShellHeight (main.js)
+       ResizeObserves every .list-page-shell's trailing siblings (this row
+       included) and recomputes the shell's own explicit height to fit
+       whatever they actually measure, every time; the shell shrinking to
+       make room is the intended mechanism for exactly this, not something
+       to work around with margin tricks. Bottom stays small (--space-xs) -
+       just enough for the hover lift's shadow (below), not a second
+       section-sized gap for a row that's the last thing on the page. */
+    padding: var(--space-xl) 0 var(--space-xs);
+    margin: 0;
+    cursor: default;
+    flex-wrap: wrap;
+    justify-content: center;
+    /* Base rule's gap (--space-xs, 8px) is sized for the carousel's own
+       overlapping cards, where JS's negative margin-left already does the
+       real spacing work and this gap barely shows. Grid mode's cards don't
+       overlap at all, so that same 8px read as cramped between clearly
+       separate tiles (live feedback: "the gap between data cards is too
+       small") - --space-md gives each one real breathing room. */
+    gap: var(--space-md);
+}
+html:not(.nav-touch-mode) .stats-carousel-wrap.is-flat .stats-carousel-track {
+    cursor: default;
+}
+/* Arrows are otherwise unconditionally display: flex (html:not(.nav-touch-
+   mode) .stats-carousel-arrow, below) - author rules always beat the
+   [hidden] attribute's own UA-stylesheet display: none regardless of
+   specificity, so main.js's prev.hidden/next.hidden alone can't hide them
+   here; this rule (3 classes) outranks that one (1 class + 1 :not()) on
+   specificity, so it wins instead. Same reasoning for fade/dots, redundant
+   with main.js's own opacity: 0/emptied-innerHTML but belt-and-braces. */
+.stats-carousel-wrap.is-flat .stats-carousel-arrow,
+.stats-carousel-wrap.is-flat .stats-carousel-fade-l,
+.stats-carousel-wrap.is-flat .stats-carousel-fade-r,
+.stats-carousel-wrap.is-flat ~ .stats-carousel-dots {
+    display: none;
+}
+/* Cards grow to fill the row evenly instead of clamping at 170px - a static
+   grid with a big unused gap after the last card (min/max-width's own
+   carousel-mode reasoning no longer applies once nothing scrolls) read as
+   unfinished rather than deliberate (live feedback: "can cards be auto
+   widthed to fill available space"). */
+.stats-carousel-wrap.is-flat .stats-carousel-slot {
+    flex: 1 1 140px;
+}
+.stats-carousel-wrap.is-flat .stats-carousel-slot .stat-card {
+    max-width: none;
+    width: 100%;
+}
 .stats-carousel-slot {
     flex: 0 0 auto;
     display: flex;
@@ -1356,22 +1846,49 @@ html:not(.nav-touch-mode) .stats-carousel-track {
        height tiles side by side, where any vertical offset just reads as
        the active one floating above the row instead of sitting in it (live
        feedback: "active card seems [to] go higher, so it is above other
-       cards"). */
-    margin-left: -40px;
-    transition: transform 0.35s ease, opacity 0.35s ease;
-    transform: scale(calc(1 - var(--absdist, 0) * 0.08));
-    opacity: calc(1 - var(--absdist, 0) * 0.3);
-}
-.stats-carousel-slot:first-child {
+       cards"). Overlap can't be a fixed CSS number, flat or scaled by
+       --absdist - a flat value only balances out against an *active*
+       (grown, scale 1.06) neighbour; the same flat value leaves a real gap
+       between two ordinary shrunk neighbours (both scaled down, neither
+       active), which only happens once the active card sits away from
+       either end of the row. So margin-left is computed and set per-card
+       in JS instead (updateState, main.js) from each pair's *actual*
+       rendered widths and scales - target 14px visible overlap (12px
+       --radius-lg + a 2px buffer, since exactly matching the radius is a
+       knife-edge case some renderers show as a hairline gap - live
+       feedback: "gaps... in all modes except mobile"), comfortably short
+       of .stat-card's own 16px padding so the covered strip never reaches
+       real number/label content. The value below is only the pre-JS
+       fallback (matches this row's very first card, which JS always
+       leaves at 0 anyway - nothing rendered can flash a wrong overlap
+       before script runs). */
     margin-left: 0;
+    /* margin-left in the transition list too, not just transform - JS
+       (updateState, main.js) recomputes both together on every scroll
+       frame, but margin-left is a plain style property (snaps instantly)
+       while transform eases over 0.35s. Without this, a fast scroll left
+       the just-set margin (already sized for the *new* target scale)
+       paired against the old scale for that whole 0.35s window - visible
+       as micro gaps/overlaps flickering in and out until the transform
+       transition caught up (live feedback: "when I scroll, I can see
+       micro gaps appear and disappear"). Same duration/easing as
+       transform so the two stay in lockstep throughout. */
+    transition: transform 0.35s ease, margin-left 0.35s ease;
+    transform: scale(calc(1 - var(--absdist, 0) * 0.08));
 }
 .stats-carousel-slot .stat-card {
     min-width: 140px;
     max-width: 170px;
-    /* Stretched to the tallest card in the row (align-items: stretch above)
-       instead of each card sizing to its own content - a longer label (e.g.
-       "Safeguarding Briefings Needed") wrapping to 3 lines was making that
-       one card visibly taller than its neighbours. */
+    /* Stretched to the tallest card in the row (align-items: stretch
+       above) - a longer label (e.g. "Safeguarding Briefings Needed")
+       wrapping onto 2 lines reads better than a much wider card for one
+       stat alone (live feedback: tried full auto-sizing to content width,
+       "longer cards text looked better wrapped onto 2 lines" instead).
+       JS's own per-pair overlap (updateState, main.js) already reads each
+       card's real rendered width regardless, so wrapped cards being
+       slightly taller than others doesn't need any width-clamp change to
+       still overlap correctly - this clamp is purely a visual choice now,
+       not load-bearing for the overlap math. */
     height: 100%;
     /* Always the compact sizing (previously only ≤480px, responsive.css) -
        this row carousels at every width now, not just phone, and full
@@ -1381,6 +1898,20 @@ html:not(.nav-touch-mode) .stats-carousel-track {
     padding: var(--space-sm) var(--space-md);
     user-select: none; /* no accidental text selection while click-dragging the row */
     -webkit-user-drag: none; /* belt-and-braces alongside main.js's pointerdown preventDefault - stops Safari's own native link-drag starting before JS gets a chance to */
+}
+/* Depth cue for non-active cards is on the text/icon only, not the whole
+   card (--absdist inherited down from .stats-carousel-slot above) - fading
+   the *card* used to fade its background/border along with it, letting
+   whatever sat behind (an overlapping neighbour, the page canvas) show
+   through both (live feedback: "I do not want the cards to be
+   transparent... user can see below borders"). The card itself now always
+   stays fully opaque; only its content dims, and subtly (0.1/step, was
+   0.3) - enough to read as "further away", not washed out. */
+.stats-carousel-slot .stat-card-icon,
+.stats-carousel-slot .stat-value,
+.stats-carousel-slot .stat-label {
+    opacity: calc(1 - var(--absdist, 0) * 0.1);
+    transition: opacity 0.35s ease;
 }
 .stats-carousel-slot .stat-card .stat-value {
     font-size: var(--font-4xl);
@@ -1398,6 +1929,63 @@ html:not(.nav-touch-mode) .stats-carousel-track {
 }
 .stats-carousel-slot.is-active .stat-card {
     box-shadow: var(--shadow-lg, var(--card-shadow));
+}
+/* a.stat-card:hover's own translateY(-2px) + box-shadow bump
+   (components/cards.css) is fine for a plain, non-overlapping stat strip,
+   but doesn't fit this carousel: the lift shifts the hovered card's bottom
+   edge out of alignment with whichever neighbour it's overlapping
+   *horizontally* (margin-left, above), exposing a sliver of that
+   neighbour's rounded corner right where coverage was already thinnest
+   (live feedback: "hovering a card breaks the bottom border" - more
+   margin/spacing wouldn't fix this, the two cards' bottom edges need to
+   stay aligned, not get more room around them). The shadow bump is
+   dropped too, by request (live feedback: "I do not want the shadow on
+   hover either") - .selectable:hover's own background tint (cards.css)
+   is the only hover feedback left here.
+   .selectable:hover ALSO sets border-bottom-color: var(--border-color)
+   (cards.css) - meant for a plain divider row whose bottom border would
+   otherwise vanish into its own hover-tinted background, but these
+   accent cards have a real coloured border on *every* side
+   (.stat-card--accent-*, cards.css), so overriding just the bottom side
+   to a neutral grey mismatched it against the other three, reading as
+   the border "clipped" or "going white" right along that edge (live
+   feedback). --stat-card-border (cards.css) mirrors whichever accent
+   colour this specific card's border-color already is, so this resets
+   the bottom side back to match instead of guessing a colour here. */
+.stats-carousel-slot .stat-card:hover {
+    transform: none;
+    box-shadow: none;
+    border-bottom-color: var(--stat-card-border);
+}
+/* ...except the active card's own shadow (.is-active, above) - the
+   general rule just above would otherwise flatten it back to none while
+   hovering the one card that's *supposed* to look raised. More specific
+   selector, defined after, wins. */
+.stats-carousel-slot.is-active .stat-card:hover {
+    box-shadow: var(--shadow-lg, var(--card-shadow));
+}
+/* Grid mode: cards don't overlap any more (no negative margin, no stack
+   effect - main.js's flat branch clears --dist/--absdist/is-active on every
+   card), so the lift-suppression two rules above no longer need to guard
+   against exposing a neighbour's corner underneath a raised hover - restore
+   the plain a.stat-card:hover treatment (components/cards.css) instead of
+   flattening it (live feedback: "these are interactive so should have hover
+   transition in desktop mode"). */
+.stats-carousel-wrap.is-flat .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+/* .selectable:focus-visible's own persistent purple outline
+   (components/cards.css) is meant for a real chosen/selected state - it
+   doesn't fit a card whose only purpose is "tap it to navigate away
+   immediately". Touch taps commonly count as :focus-visible too (no
+   hover state to fall back on), so tapping a card to open it left that
+   outline sitting on the card underneath, still there after scrolling
+   past it - a stuck-looking "active" state on a plain navigation link,
+   not a real selection (live feedback: "I do not think these benefit
+   from an active status"). */
+.stats-carousel-slot .stat-card:focus-visible {
+    outline: none;
 }
 /* Positioned against .stats-carousel-wrap (position: relative, above), not
    the scrolling .stats-carousel-track - an absolutely-positioned child of
@@ -1520,16 +2108,11 @@ html.nav-touch-mode .stats-carousel-count.many-cards {
     display: block;
 }
 
-/* Next Panel Meeting's content is short relative to its now-compact Row 2
-   card — center it rather than leaving it pinned to the top with dead space
-   below. Desktop only (>1180px, matching the card-switcher breakpoint,
-   responsive.css): in tab mode (#131) this card can become the single
-   full-height active card instead, where centering would leave the preview
-   floating in the middle of a much taller box - top-aligned (the plain
-   .panel-card default) reads better there, same as every other tab. */
-@media (min-width: 1181px) {
-    .panel-card-meeting { justify-content: center; }
-}
+/* Upcoming Panel Meetings (formerly a single Next Panel Meeting preview) now
+   holds a scrollable list of however many are upcoming, same shape as every
+   other card here - no longer centered vertically, heading pinned to the
+   top like the rest (live feedback: "Heading should be at top like the
+   others"). */
 
 /* .empty-note's default padding/font-size (space-3xl + font-xl) is sized for
    a full-height list-card empty state — inside a compressed Row 2 card that
@@ -1807,9 +2390,42 @@ html.nav-touch-mode .stats-carousel-count.many-cards {
     .panel-item-actions .btn-label { display: none; }
 }
 
+/* Name + student details (.entity-meta, My Referrals row) share one row
+   when there's room, wrapping .entity-meta onto its own line once there
+   isn't (live feedback: "student details on same row as name if there is
+   space, separate row if not") - flex-wrap alone does this, no breakpoint
+   needed. Carousel mode (panel.css, #my-referrals-list's own breakpoint)
+   centers whichever arrangement results via justify-content, same as
+   before. */
+.panel-item-header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    /* row-gap 0, column-gap --space-sm (not one shared `gap` value) - a
+       single gap value applies as *row* gap too once entity-meta wraps
+       onto its own line, reading as a large, unwanted space above it (live
+       feedback: "if Name and details overflow, the details has a large gap
+       above it") even though the two sit tight together on one line at
+       full width. Only matters once wrapped - the same-line case never
+       needed a row gap in the first place. */
+    gap: 0 var(--space-sm);
+}
+
 .panel-item-title {
-    font-weight: 600;
-    font-size: var(--font-md);
+    font-weight: 700;
+    font-size: var(--font-lg);
+}
+
+/* My Referrals/My Actions specifically - .entity-meta's own base margin-top
+   (--space-xxs, 4px, cards.css) is shared with every other row that uses it
+   sitewide (Students, Directory, ...), so it's overridden here rather than
+   touched globally. Tightened to 0 (live feedback: "can Name and student
+   details be closer together") - the name's own line-height already leaves
+   enough visual breathing room below it without an extra margin on top of
+   that. */
+#my-referrals-list .entity-meta,
+#my-actions-list .entity-meta {
+    margin-top: 0;
 }
 
 .panel-item-meta {
@@ -1817,24 +2433,55 @@ html.nav-touch-mode .stats-carousel-count.many-cards {
     color: var(--text-secondary);
 }
 
-.panel-item-meta .status-pill {
-    margin-left: var(--space-sm);
+/* My Referrals: concern category and the status pill share one line
+   instead of the pill sitting next to the name (live feedback: "the
+   Referral Status pill go after the Referral Category instead" - moved in
+   home.html, .panel-item-pills--header now comes right after
+   .referral-row-title in the DOM, both wrapped in .referral-category-row).
+   A real flex row, not plain inline text + ::after (an earlier pass) - two
+   adjacent *inline* elements sharing one line-box wrap at any space,
+   including the one inside a two-word category name like "Home Life" (live
+   feedback: "if category and pill has not got enough space, can the pill
+   overflow onto its own line" - reproduced as "Home"/"Life · [pill]"
+   splitting mid-name instead). As separate flex items, wrapping only ever
+   moves the *pill* onto its own line - the category text only ever wraps
+   within itself, if it's long enough to need it regardless of the pill. */
+.referral-category-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-xxs) var(--space-sm);
+}
+/* Only when a pill is actually rendered (empty when discussed_pr is unset
+   and show_referral_tabs is True - see the {% if %}/{% elif %} in
+   home.html) - :has() rather than always-on, so a bare category with no
+   pill following it doesn't get a dangling middot with nothing after it.
+   Same middot-via-::after pattern as .entity-meta's own Year/House/Reg Form
+   separators elsewhere on this card. Scoped to #my-referrals-list
+   specifically - .referral-row-title is shared with Panel Meetings/
+   Actions' own row headings elsewhere, which don't want this. */
+#my-referrals-list .referral-row-title:has(+ .panel-item-pills--header .status-pill)::after {
+    content: "\00a0\00b7\00a0";
+    color: var(--text-faint);
+    font-weight: 400;
 }
 
-/* home.html's referral row (the only current user - see .panel-item-meta
-   above): a sibling of .panel-item-meta, not a child, so the pair of pills
-   wraps together as one unit if room runs short, rather than each pill in
-   .panel-item-meta's old inline flow wrapping independently. inline-flex by
-   default so it still sits on the same line right after the date whenever
-   there's room, same look as before the split - carousel mode (panel.css,
-   #my-referrals-list's own breakpoint) overrides this to its own full-width
-   row instead. */
+/* home.html's referral row: sits after Referral Category now (non-carousel
+   default, live feedback above), sharing its line - carousel mode
+   (panel.css, #my-referrals-list's own breakpoint) hides this copy entirely
+   and shows .panel-item-pills--stacked (after the Created date) instead. */
 .panel-item-pills {
     display: inline-flex;
     flex-wrap: wrap;
     gap: var(--space-xs);
-    vertical-align: middle;
-    margin-left: var(--space-sm);
+}
+
+/* Two copies of the pill exist (home.html) - .panel-item-pills--header
+   (after Referral Category) is the desk/tablet-wide default; .panel-item-
+   pills--stacked (after the Created date) is only ever shown by the
+   carousel-mode override below. */
+.panel-item-pills--stacked {
+    display: none;
 }
 
 .panel-item-note {
@@ -1847,13 +2494,36 @@ html.nav-touch-mode .stats-carousel-count.many-cards {
     color: var(--text-faint);
 }
 
+/* Created/Actions given/Discussed all share one left-aligned line, every
+   width (live feedback: "Actions given and time discussed should be on
+   same line as Created") - .referral-meta-row (home.html, wraps Created +
+   the conditional Actions-given block) is the real flex row;
+   .panel-item-update itself goes display: contents so its own two <span>s
+   are promoted to be direct flex children of that row alongside Created,
+   rather than nesting a second flex box inside the first. */
 .panel-item-update {
-    margin-top: var(--space-xs);
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
+    display: contents;
+}
+.panel-item-update span {
     font-size: var(--font-sm);
     color: var(--text-secondary);
+}
+.referral-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    /* Left-aligned regardless of width - carousel mode's #my-referrals-list
+       > li is text-align: center (panel.css, its own breakpoint), which
+       this would otherwise inherit. */
+    justify-content: flex-start;
+    text-align: left;
+    gap: 2px var(--space-sm);
+    /* Tightened from --space-xs (8px) - read as a large gap once actually
+       rendered next to this card's other now-tight rows (live feedback:
+       "the meta data line has a large gap above it") - same "closer
+       together" preference as entity-meta's own margin-top override
+       above. */
+    margin-top: var(--space-micro);
 }
 
 .panel-item-actions {
@@ -1861,6 +2531,38 @@ html.nav-touch-mode .stats-carousel-count.many-cards {
     display: flex;
     align-items: center;
     gap: var(--space-xs);
+}
+
+/* My Referrals, non-carousel width only (My Referrals switches to its own
+   swipe carousel at/below 1180px, panel.css above, where the row is already
+   a column layout that doesn't need this) - a plain viewport breakpoint,
+   not the flex-wrap/min-content chase an earlier pass tried (live
+   feedback: "can we use a breakpoint instead"). That approach kept
+   fighting itself: letting .panel-item-body's own min-content width decide
+   when to wrap meant either the row's own text broke internally before the
+   actions column ever gave up its spot, or (once forced atomic via
+   white-space: nowrap) the whole thing got fragile and hard to reason
+   about. A fixed number is simpler and predictable - Edit/Delete/Referral
+   Details stay in their own right-hand column above 1400px, and move to
+   their own centered row below it. 1400px is a starting point, not a
+   measured value - nudge it if the column still feels tight (or has room
+   to spare) once you've actually seen it live. */
+@media (min-width: 1181px) and (max-width: 1400px) {
+    #my-referrals-list > li {
+        flex-wrap: wrap;
+    }
+    /* flex-basis 100% is exactly right here (unlike forcing it across the
+       whole 1181px+ range, which wrapped even at a wide window with no
+       need to) - this block only ever applies inside the narrow band this
+       breakpoint defines, so unconditional wrapping is the intended
+       behaviour, not a bug. Centered (live feedback: "can the buttons be
+       horizontally centered when on their own row"), not right-aligned -
+       reads more like a deliberate own-row toolbar than a stray column
+       that ran out of space to its right. */
+    #my-referrals-list > li .panel-item-actions {
+        flex: 1 1 100%;
+        justify-content: center;
+    }
 }
 
 .status-pill.danger,

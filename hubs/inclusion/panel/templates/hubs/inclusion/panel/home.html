@@ -4,7 +4,7 @@
 {% block title %}Inclusion Panel{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=213">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=283">
 {% endblock %}
 
 
@@ -43,7 +43,7 @@ Each card's own <h2> is its own "where am I" cue.
         {% if show_referral_tabs %}
         {% comment %}
         Carousel-mode-only replacement for the tab row below (hidden here
-        via panel.css, ≤820px) - sits right under the heading so it reads as
+        via panel.css, ≤1180px) - sits right under the heading so it reads as
         one linked phrase ("My Referrals" / "Awaiting Discussion") rather
         than a control bolted onto the carousel itself. Delegates every
         click straight to the (still-present, just hidden) tab button's own
@@ -71,44 +71,98 @@ Each card's own <h2> is its own "where am I" cue.
             <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-discussed="{{ referral.discussed_pr|yesno:'discussed,awaiting' }}">
                 <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
                 <div class="panel-item-body">
-                    <div class="panel-item-title">{{ referral.student }}</div>
-                    <div class="panel-item-meta">
-                        {{ referral.created_at|date:"d/m/Y H:i" }}
+                    {% comment %}
+                    Discussed pill shows the actual review stage (Initial
+                    Discussion / 1st Review / 2nd Review / ... - referral.
+                    review_label, views.py) rather than a plain "Discussed" -
+                    that's real information the tab row doesn't carry (it
+                    only says which bucket, not which review number), so it
+                    stays visible even when show_referral_tabs is True.
+                    Awaiting Discussion has no such extra information over
+                    its own tab, so it's dropped whenever the tab row is
+                    rendered - same reasoning as before, kept for that one
+                    case only.
+
+                    Rendered twice - once after Referral Category
+                    (.panel-item-pills--header, non-carousel default) and
+                    once after the Created date (.panel-item-pills--stacked)
+                    - same "two elements, CSS picks one per breakpoint"
+                    pattern as the carousel-filter dropdown replacing the tab
+                    row above. Class names kept as-is even though "--header"
+                    no longer sits in the name's own row (live feedback:
+                    "the Referral Status pill go after the Referral Category
+                    instead") - still the same two-copies-per-breakpoint
+                    mechanism, just relocated.
+                    {% endcomment %}
+                    {% comment %}
+                    entity-meta lives inside .panel-item-header now (a flex
+                    child alongside the name, not a separate block below it)
+                    so the two share one row when there's room and entity-
+                    meta wraps to its own line only once there isn't (live
+                    feedback: "student details on same row as name if there
+                    is space, separate row if not") - flex-wrap doing that
+                    for free, no extra breakpoint needed.
+                    {% endcomment %}
+                    <div class="panel-item-header">
+                        <div class="panel-item-title">{{ referral.student }}</div>
+                        <div class="entity-meta">Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; {{ referral.student.reg_form }}{% endif %}</div>
                     </div>
-                    <div class="panel-item-pills">
-                        {% comment %}
-                        Status pill dropped whenever show_referral_tabs is
-                        True - the active tab (Awaiting/Discussed; "All" is
-                        always hidden, panel.css) already tells you which
-                        bucket every visible card is in, so repeating it per
-                        card was pure redundancy. Only shown when tabs
-                        themselves aren't rendered at all (show_referral_tabs
-                        False - one bucket empty), where it's the only status
-                        cue left.
-                        {% endcomment %}
-                        {% if not show_referral_tabs %}
-                        {% if referral.discussed_pr %}<span class="status-pill discussed">Discussed</span>{% else %}<span class="status-pill">Awaiting Discussion</span>{% endif %}
+                    {% comment %}
+                    A real flex row (not plain inline text + ::after), so
+                    wrapping only ever happens *between* Category and the
+                    pill, never inside Category's own text - two adjacent
+                    inline elements sharing one line-box wrap at any space,
+                    including the one inside a two-word category name like
+                    "Home Life" (live feedback: "if category and pill has
+                    not got enough space, can the pill overflow onto its own
+                    line" - reproduced as "Home"/"Life · [pill]" splitting
+                    mid-name instead).
+                    {% endcomment %}
+                    <div class="referral-category-row">
+                        {% if referral.concern_category %}<div class="referral-row-title">{{ referral.concern_category }}</div>{% endif %}<div class="panel-item-pills panel-item-pills--header">
+                            {% if referral.discussed_pr %}<span class="status-pill discussed">{{ referral.review_label }}</span>{% elif not show_referral_tabs %}<span class="status-pill">Awaiting Discussion</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="panel-item-pills panel-item-pills--stacked">
+                        {% if referral.discussed_pr %}<span class="status-pill discussed">{{ referral.review_label }}</span>{% elif not show_referral_tabs %}<span class="status-pill">Awaiting Discussion</span>{% endif %}
+                    </div>
+                    {% comment %}
+                    Created/Actions given/Discussed all share one left-
+                    aligned line, every width (live feedback: "Actions given
+                    and time discussed should be on same line as Created")
+                    via .panel-item-update going display: contents, promoting
+                    its two <span>s to be direct flex children of
+                    .referral-meta-row alongside Created, rather than nesting
+                    a second flex box inside the first. discussed_duration_
+                    display (views.py, _format_duration) - short form
+                    ("15m"/"2h 15m"), not the DurationField's own verbose
+                    str(timedelta) ("0:15:00") a plain {{ }} would render.
+                    {% endcomment %}
+                    <div class="referral-meta-row">
+                        <div class="panel-item-meta">Created: {{ referral.created_at|date:"d/m/Y" }}</div>
+                        {% if referral.discussed_pr %}
+                        <div class="panel-item-update">
+                            <span>Actions given: {{ referral.actions_count }}</span>
+                            {% if referral.discussed_duration_display %}<span>Discussed: {{ referral.discussed_duration_display }}</span>{% endif %}
+                        </div>
                         {% endif %}
-                        {% if referral.concern_category %}<span class="status-pill concern">{{ referral.concern_category }}</span>{% endif %}
                     </div>
-                    {% if referral.discussed_pr %}
-                    <div class="panel-item-update">
-                        <span>Actions given: {{ referral.actions_count }}</span>
-                        {% if referral.discussed_pr.duration %}<span>Time discussed: {{ referral.discussed_pr.duration }}</span>{% endif %}
-                    </div>
-                    {% endif %}
                 </div>
                 {% comment %}
                 Edit/Delete only make sense before a referral's been
                 discussed - once discussed_pr is set there's a real
                 discussion record downstream (actions, notes) that editing
-                or deleting the referral itself would orphan, so the whole
-                row is dropped rather than left clickable. Delete itself
+                or deleting the referral itself would orphan, so those two
+                are dropped rather than left clickable. Delete itself
                 (still, among Awaiting referrals) stays visible but disabled
                 once assigned to a panel (not can_delete/is_unassigned) -
                 greyed out with a reason, rather than vanishing outright,
                 so it's clear *why* it can't be deleted right now instead of
-                just not being there.
+                just not being there. Once discussed, Referral Details (the
+                same data-view-referral-trigger used by every other referral
+                row - _referrals_filtered_content.html, meeting_agenda.html,
+                etc.) replaces them - the one useful action left on a
+                discussed row.
                 {% endcomment %}
                 {% if not referral.discussed_pr %}
                 <div class="panel-item-actions">
@@ -118,6 +172,10 @@ Each card's own <h2> is its own "where am I" cue.
                         <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
                         <button type="submit" class="btn btn-delete btn-sm"{% if not referral.can_delete %} disabled title="Already assigned to a panel - remove it from the panel first to delete it"{% endif %}><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> <span class="btn-label">Delete</span></button>
                     </form>
+                </div>
+                {% else %}
+                <div class="panel-item-actions">
+                    <button type="button" class="btn btn-primary btn-sm" data-view-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}">Referral Details</button>
                 </div>
                 {% endif %}
             </li>
@@ -145,51 +203,67 @@ Each card's own <h2> is its own "where am I" cue.
 <div class="panel-columns panel-row-secondary">
     <div class="panel-card panel-card-meeting" id="meeting-card">
         <div class="panel-card-header">
-            <h2>Next Panel Meeting</h2>
+            <h2>Upcoming Panel Meetings</h2>
+            {% comment %}
+            Stack-mode-only (≤1180px, panel.css) collapse toggle - desktop
+            never renders this card collapsed (it scrolls internally like
+            every other card there), so the button is hidden outright above
+            that breakpoint rather than just inert. Collapsed by default in
+            stack mode (no server-side "was it open" state to restore -
+            every stack-mode page load starts collapsed).
+            {% endcomment %}
+            <button type="button" class="card-collapse-toggle" data-card-collapse-toggle aria-expanded="false" aria-controls="meeting-card-collapsible">
+                <span class="card-collapse-chevron" aria-hidden="true"></span>
+                <span class="sr-only">Show upcoming panel meetings</span>
+            </button>
         </div>
-        {% if next_panel_preview %}
-        <div class="panel-preview">
-            <div class="panel-preview-top">
-                <span class="panel-preview-logo">
-                    {% if next_panel_preview.school_logo_url %}<img src="{{ next_panel_preview.school_logo_url }}" alt="">
-                    {% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
-                </span>
-                <div class="panel-preview-heading">
-                    <div class="panel-preview-title">{{ next_panel_preview.school_name }} Panel Meeting
-                        {% if next_panel_preview.is_running %}<span class="status-pill in_panel">Running</span>
-                        {% elif next_panel_preview.is_today %}<span class="status-pill in_panel">Today</span>{% endif %}
+        <div class="panel-card-collapsible" id="meeting-card-collapsible">
+        <ul class="panel-list">
+            {% for preview in upcoming_panel_previews %}
+            <li class="panel-preview">
+                <div class="panel-preview-top">
+                    <span class="panel-preview-logo">
+                        {% if preview.school_logo_url %}<img src="{{ preview.school_logo_url }}" alt="">
+                        {% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+                    </span>
+                    <div class="panel-preview-heading">
+                        <div class="panel-preview-title">{{ preview.school_name }} Panel Meeting
+                            {% if preview.is_running %}<span class="status-pill in_panel">Running</span>
+                            {% elif preview.is_today %}<span class="status-pill in_panel">Today</span>{% endif %}
+                        </div>
+                        <div class="panel-preview-date">{{ preview.panel.date|date:"j F Y" }}</div>
                     </div>
-                    <div class="panel-preview-date">{{ next_panel_preview.panel.date|date:"j F Y" }}</div>
                 </div>
-            </div>
-            <div class="panel-preview-stats">
-                <span>{{ next_panel_preview.referrals_assigned }} referral{{ next_panel_preview.referrals_assigned|pluralize }} assigned</span>
-                {% if next_panel_preview.panel_group_members_count %}
-                <span>{{ next_panel_preview.panel_group_members_count }} panel group member{{ next_panel_preview.panel_group_members_count|pluralize }}</span>
-                {% endif %}
-            </div>
-            <div class="btn-row">
-                {% if next_panel_preview.is_running %}
-                <a href="{% url 'inclusion_panel_meeting_agenda' next_panel_preview.panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Resume Panel Meeting</a>
-                {% else %}
-                <a href="{% url 'inclusion_panel_meeting_agenda' next_panel_preview.panel.id %}" class="btn btn-sm">View Agenda</a>
-                {% if next_panel_preview.is_today and next_panel_preview.can_manage %}
-                <form method="post" action="{% url 'inclusion_panel_meeting_start' next_panel_preview.panel.id %}" style="display:inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Panel Meeting</button>
-                </form>
-                {% endif %}
-                {% endif %}
-            </div>
+                <div class="panel-preview-stats">
+                    <span>{{ preview.referrals_assigned }} referral{{ preview.referrals_assigned|pluralize }} assigned</span>
+                </div>
+                <div class="btn-row">
+                    {% if preview.is_running %}
+                    <a href="{% url 'inclusion_panel_meeting_agenda' preview.panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Resume Panel Meeting</a>
+                    {% elif preview.is_today and preview.can_manage %}
+                    <form method="post" action="{% url 'inclusion_panel_meeting_start' preview.panel.id %}" style="display:inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Panel Meeting</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </li>
+            {% empty %}
+            <li class="empty-note">No upcoming panel meetings.</li>
+            {% endfor %}
+        </ul>
         </div>
-        {% else %}
-        <p class="empty-note">No upcoming panel meeting.</p>
-        {% endif %}
     </div>
     <div class="panel-card panel-card-activity" id="activity-card">
         <div class="panel-card-header">
             <h2>Recent Activity</h2>
+            {% comment %} See Upcoming Panel Meetings' identical toggle above for the full reasoning. {% endcomment %}
+            <button type="button" class="card-collapse-toggle" data-card-collapse-toggle aria-expanded="false" aria-controls="activity-card-collapsible">
+                <span class="card-collapse-chevron" aria-hidden="true"></span>
+                <span class="sr-only">Show recent activity</span>
+            </button>
         </div>
+        <div class="panel-card-collapsible" id="activity-card-collapsible">
         <ul class="activity-list">
             {% for event in recent_activity %}
             <li>
@@ -201,6 +275,7 @@ Each card's own <h2> is its own "where am I" cue.
             <li class="empty-note">No recent activity.</li>
             {% endfor %}
         </ul>
+        </div>
     </div>
 </div>
 </div>
@@ -415,9 +490,18 @@ function wireActionStatusFilters() {
             return Array.prototype.slice.call(segmented.querySelectorAll('.ui-segmented-option'));
         }
 
+        // Just the value - the "Status" title is now a static fused segment
+        // in the trigger markup itself (_my_actions_card.html), not built
+        // here. data-status mirrors the active option's own value attribute
+        // (incomplete/complete/not_needed) so the trigger's value segment
+        // can pick up the same per-status colour the real segmented control
+        // uses (.ui-segmented--action-status .ui-segmented-option[value=...]
+        // .active, panel.css) instead of reading as a plain neutral pill.
         function syncLabel() {
             var active = segmented.querySelector('.ui-segmented-option.active') || options()[0];
-            if (active) label.textContent = active.textContent.trim();
+            if (!active) return;
+            label.textContent = active.textContent.trim();
+            trigger.dataset.status = active.value;
         }
 
         function onOutsideClick(e) {
@@ -494,6 +578,21 @@ document.addEventListener('DOMContentLoaded', function () {
         applyTab(defaultButton.dataset[tabDataKey]);
     }
 
+    // wireReferralCarouselInteractions before setupTabs, not after - it's
+    // what defines window.updateReferralCarouselState (and does its own
+    // initial rebuildReferralCarousel(true) call, unfiltered). setupTabs'
+    // own default-tab applyTab (below) synchronously triggers a
+    // rebuildReferralCarousel(true) of its own the moment it's called (not
+    // deferred to a later click) - with the order reversed, that first call
+    // ran with window.updateReferralCarouselState still undefined, silently
+    // no-op'ing (rebuildReferralCarousel guards the call), so the default
+    // active tab's carousel (whichever firstUsableTabButton picks - live
+    // feedback: "Awaiting Discussion, 5 cards" - never got the dots/active-
+    // card state actually recomputed against its own filtered card set.
+    // Matches My Actions' own working order (wireActionCarouselInteractions
+    // before initActionTabs, below) - live feedback: "it works on
+    // Discussed" (not the default tab, so never hit this race at all).
+    wireReferralCarouselInteractions();
     // onApply resets the carousel to its first card on every tab switch
     // (rebuildReferralCarousel(true)) - the phone-only (#my-referrals-list)
     // scroll-snap carousel dots/arrows track whichever cards the tab just
@@ -501,7 +600,6 @@ document.addEventListener('DOMContentLoaded', function () {
     setupTabs('[data-referral-tab]', 'referralTab', '#my-referrals-list li[data-discussed]', 'discussed', function () {
         rebuildReferralCarousel(true);
     });
-    wireReferralCarouselInteractions();
     wireReferralRecount();
     wireCarouselFilterDropdown('[data-referral-filter]', '[data-referral-tab-row]');
 
@@ -513,7 +611,25 @@ document.addEventListener('DOMContentLoaded', function () {
     // Overflow handling for each card's own tab row (collapsing into "More"),
     // and the My Referrals/My Actions card switcher itself, are both wired up
     // generically in static/js/main.js — nothing page-specific needed here.
+    wireCardCollapseToggles();
 });
+
+// Upcoming Panel Meetings/Recent Activity's stack-mode-only collapse toggle
+// (panel.css: .panel-card-collapsible's 0fr/1fr grid-row transition does the
+// actual animating, this just flips the two states). No-op above 1180px -
+// the button itself is display: none there (panel.css), so it's never
+// reachable to click in the first place; this only needs to handle the one
+// breakpoint where it's visible.
+function wireCardCollapseToggles() {
+    document.querySelectorAll('[data-card-collapse-toggle]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var card = button.closest('.panel-card');
+            var expanded = button.getAttribute('aria-expanded') === 'true';
+            button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+            if (card) card.classList.toggle('is-expanded', !expanded);
+        });
+    });
+}
 
 var referralMatchers = {
     all: function (row) { return true; },
@@ -854,10 +970,22 @@ function rebuildReferralCarousel(resetScroll) {
         return li.style.display !== 'none' && !li.classList.contains('empty-note')
             && !li.classList.contains('referral-carousel-spacer');
     });
-    // Explicit scrollLeft, not scrollIntoView - see goTo's own identical
-    // change (above) for why.
+    // Deferred one frame, not read/applied synchronously - this runs
+    // straight out of setupTabs' own initial applyTab call (home.html,
+    // DOMContentLoaded), before the browser has necessarily finished its
+    // first real layout pass on these auto-width flex cards. Reading
+    // offsetLeft/offsetWidth that early can catch them mid-resolution
+    // (still 0 or a stale intrinsic value), computing a centering target
+    // for card 0 that's wrong - reachable by later scrolling (goTo's own
+    // measurements, taken well after that first paint, are fine) but not
+    // actually centered on load (live feedback: "first card is not
+    // centred but can be navigated to"). requestAnimationFrame guarantees
+    // a completed layout/paint has happened before these reads.
     if (resetScroll && cards[0]) {
-        viewport.scrollTo({ left: cards[0].offsetLeft - (viewport.clientWidth - cards[0].offsetWidth) / 2 });
+        requestAnimationFrame(function () {
+            viewport.scrollTo({ left: cards[0].offsetLeft - (viewport.clientWidth - cards[0].offsetWidth) / 2 });
+            if (window.updateReferralCarouselState) window.updateReferralCarouselState();
+        });
     }
 
     dotsContainer.innerHTML = '';
@@ -1122,10 +1250,13 @@ function rebuildActionCarousel(resetScroll) {
         return li.style.display !== 'none' && !li.classList.contains('empty-note')
             && !li.classList.contains('action-carousel-spacer');
     });
-    // Explicit scrollLeft, not scrollIntoView - see goTo's own identical
-    // change (wireReferralCarouselInteractions, above) for why.
+    // Deferred one frame - see rebuildReferralCarousel's own identical
+    // change for why.
     if (resetScroll && cards[0]) {
-        viewport.scrollTo({ left: cards[0].offsetLeft - (viewport.clientWidth - cards[0].offsetWidth) / 2 });
+        requestAnimationFrame(function () {
+            viewport.scrollTo({ left: cards[0].offsetLeft - (viewport.clientWidth - cards[0].offsetWidth) / 2 });
+            if (window.updateActionCarouselState) window.updateActionCarouselState();
+        });
     }
 
     dotsContainer.innerHTML = '';

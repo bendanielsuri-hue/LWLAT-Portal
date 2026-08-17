@@ -1057,6 +1057,19 @@ def inclusion_panel_home(request):
         referral.is_unassigned = _is_referral_unassigned(referral)
         referral.can_delete = referral.is_unassigned
         referral.concern_category = _primary_concern_category(referral)
+        # Discussed count -> review label (Initial Discussion / 1st Review /
+        # 2nd Review / ...), same _review_label convention as the Referrals
+        # dashboard (inclusion_panel_referrals) - carries real information
+        # the Awaiting/Discussed tab row doesn't (which review number this
+        # is), unlike a plain "Discussed" pill which just repeats the tab.
+        discussed_count = sum(1 for pr in referral.panel_referrals.all() if pr.discussion_status == 'discussed')
+        referral.review_label = _review_label(discussed_count) if discussed_count else None
+        # Short form ("15m"/"2h 15m"), not the raw DurationField's verbose
+        # str(timedelta) ("0:15:00") - same _format_duration helper the
+        # meeting card summary elsewhere already uses for this.
+        referral.discussed_duration_display = (
+            _format_duration(referral.discussed_pr.duration) if referral.discussed_pr else None
+        )
     referrals_discussed_count = sum(1 for r in my_referrals if r.discussed_pr)
     referrals_awaiting_count = len(my_referrals) - referrals_discussed_count
 
@@ -1100,29 +1113,29 @@ def inclusion_panel_home(request):
         sum(1 for r in _safeguarding_note_rows(request) if not r['has_briefing']) if is_dsl else 0
     )
 
-    next_panel = _panels_for_school_key(
+    upcoming_panels = _panels_for_school_key(
         Panel.objects.exclude(status__in=['complete', 'delayed', 'void']).select_related('panel_group__school').order_by('date'),
         school_key,
-    ).first()
-    next_panel_preview = None
-    if next_panel:
-        school = next_panel.panel_group.school if next_panel.panel_group_id else None
-        next_panel_preview = {
-            'panel': next_panel,
+    )
+    upcoming_panel_previews = []
+    for panel in upcoming_panels:
+        school = panel.panel_group.school if panel.panel_group_id else None
+        upcoming_panel_previews.append({
+            'panel': panel,
             'school_name': (
                 school.name if school
-                else next_panel.panel_group.name if next_panel.panel_group_id
+                else panel.panel_group.name if panel.panel_group_id
                 else 'MAT-wide'
             ),
             'school_logo_url': school.logo_url if school else '',
-            'referrals_assigned': next_panel.panel_referrals.filter(removed_at__isnull=True).count(),
+            'referrals_assigned': panel.panel_referrals.filter(removed_at__isnull=True).count(),
             'panel_group_members_count': (
-                next_panel.panel_group.members.count() if next_panel.panel_group_id else 0
+                panel.panel_group.members.count() if panel.panel_group_id else 0
             ),
-            'is_today': next_panel.date == today,
-            'is_running': next_panel.status == 'running',
-            'can_manage': _is_group_member(current_staff, next_panel),
-        }
+            'is_today': panel.date == today,
+            'is_running': panel.status == 'running',
+            'can_manage': _is_group_member(current_staff, panel),
+        })
 
     return render(request, 'hubs/inclusion/panel/home.html', {
         **_panel_base_context(request),
@@ -1149,7 +1162,7 @@ def inclusion_panel_home(request):
         'is_dsl': is_dsl,
         'needs_briefing_count': needs_briefing_count,
         'needs_briefing_count_accent': 'positive' if needs_briefing_count == 0 else 'warning',
-        'next_panel_preview': next_panel_preview,
+        'upcoming_panel_previews': upcoming_panel_previews,
         'recent_activity': _recent_activity(scoped_students, school_key),
     })
 
@@ -1564,8 +1577,18 @@ def _referral_detail_context(referral, current_staff):
         .select_related('panel', 'panel__chair').order_by('-panel__date').first()
     )
 
+    # No removed_at__isnull filter here, unlike pending_pr above - a
+    # discussion that actually happened stays part of the referral's history
+    # even if the PanelReferral row was later removed from that panel's live
+    # agenda. The real UI enforces this already (remove_referral_from_agenda
+    # refuses to remove a 'discussed' row - "a historical record of this
+    # meeting, not agenda composition"), so removed_at can only ever be set
+    # on an already-discussed row by seed data faking an edge case (My
+    # Referrals' Discussed tab needs a still-'open' referral with discussion
+    # history - see seed_benjamin_referral_demo.py) - Panel History/Actions
+    # should still show it rather than reading as empty for that referral.
     discussed_prs = list(
-        referral.panel_referrals.filter(removed_at__isnull=True, discussion_status='discussed')
+        referral.panel_referrals.filter(discussion_status='discussed')
         .select_related('panel', 'panel__chair', 'panel__panel_group').order_by('-panel__date')
     )
     discussion_count = len(discussed_prs)
