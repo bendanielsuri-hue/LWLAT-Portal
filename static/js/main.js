@@ -110,6 +110,14 @@ function setupOverflowTabs(row) {
 
     tabs.forEach(function (tab) {
         tab.addEventListener('click', function () {
+            // Only when the row itself actually overflows - otherwise
+            // there's nothing for scrollIntoView to do *within* row, so it
+            // walks up to the next scrollable ancestor instead (the page
+            // itself) and scrolls that to satisfy inline:'center',
+            // shifting the whole layout sideways on desktop widths where
+            // every tab already fits (live feedback: "changing tab in My
+            // Actions shifts the whole page, cuts off the global menu").
+            if (row.scrollWidth <= row.clientWidth + 1) return;
             tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
         });
     });
@@ -1413,17 +1421,18 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         wireScrollCarousel(wrap, '.senco-carousel', '.senco-card', '.senco-carousel-arrow--prev', '.senco-carousel-arrow--next');
     });
 
-    // Home's KPI row carousel (#116, rebuilt #132 to match My Referrals' own
-    // "stack" carousel - see panel.css's own comment on .stats-carousel-wrap
-    // for why). .stats-carousel-track is both the scrolling element and the
-    // flex row (no separate viewport wrapper any more, same shape as
-    // #my-referrals-list); each .stats-carousel-slot is the "li" equivalent
-    // - overlapping (negative margin, panel.css), scaled/dimmed by distance
-    // from the active one (--dist/--absdist, set alongside z-index below).
-    // Generic per-.stats-carousel-wrap (forEach, not a singleton) - unlike
-    // My Referrals/My Actions (home.html, page-specific), this was always
-    // meant to be reusable by another KPI row.
-    var STATS_CAROUSEL_COUNT_LABEL_THRESHOLD = 8;
+    // Home's KPI row carousel (#116, rebuilt #132 for the "stack" effect,
+    // simplified again - PROTOTYPE, live feedback: "we do not have an
+    // active state for cards, it just scrolls. No dots, just a left and
+    // right arrow to indicate there is more off screen"). No active card
+    // any more - every card is always full size and fully clickable, so
+    // there's nothing to centre, no per-card state to track, and no
+    // "peeking card" to disambiguate a tap against. Arrows/fade just read
+    // raw scroll position (start/end/overflowing); nothing here needs to
+    // know which card, if any, is "the" one. Generic per-.stats-carousel-
+    // wrap (forEach, not a singleton) - unlike My Referrals/My Actions
+    // (home.html, page-specific), this was always meant to be reusable by
+    // another KPI row.
     document.querySelectorAll('.stats-carousel-wrap').forEach(function (wrap) {
         var track = wrap.querySelector('.stats-carousel-track');
         var prev = wrap.querySelector('.stats-carousel-arrow--prev');
@@ -1431,11 +1440,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var fadeL = wrap.querySelector('.stats-carousel-fade-l');
         var fadeR = wrap.querySelector('.stats-carousel-fade-r');
         if (!track || !prev || !next) return;
-
-        var dotsContainer = wrap.parentNode.querySelector('[data-stats-dots]');
-        var countLabel = wrap.parentNode.querySelector('[data-stats-count]');
-        var liveRegion = wrap.parentNode.querySelector('[data-stats-live]');
-        var lastAnnouncedIndex = -1;
 
         function slots() {
             return Array.prototype.slice.call(track.children);
@@ -1448,43 +1452,27 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             return slot.getBoundingClientRect().width + (parseFloat(style.columnGap || style.gap) || 0);
         }
 
-        // Card centre vs viewport centre - see My Referrals' identical
-        // function (wireReferralCarouselInteractions, home.html) for why.
-        function activeIndex() {
-            var cards = slots();
-            var viewportCenter = track.scrollLeft + track.clientWidth / 2;
-            var closestIndex = 0;
-            var closestDist = Infinity;
-            cards.forEach(function (card, i) {
-                var cardCenter = card.offsetLeft + card.offsetWidth / 2;
-                var dist = Math.abs(cardCenter - viewportCenter);
-                if (dist < closestDist) { closestDist = dist; closestIndex = i; }
-            });
-            return { cards: cards, index: closestIndex };
-        }
-
-        function goTo(index, focusCard) {
-            var cards = slots();
-            var card = cards[index];
-            if (!card) return;
-            track.scrollTo({ left: card.offsetLeft - (track.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
-            if (focusCard) {
-                var focusable = card.querySelector('a, button');
-                if (focusable) focusable.focus({ preventScroll: true });
-            }
-        }
-
         // "Fits without scrolling" check, independent of the carousel's own
-        // centring padding (which would otherwise force scrollWidth to
-        // overflow on its own, making a plain scrollWidth/clientWidth
-        // comparison useless for deciding *whether to carry that padding at
-        // all*). Sums each card's own offsetWidth (layout width, unaffected
-        // by the stack effect's CSS transform: scale()) + the row's real
-        // gaps against track.clientWidth, which stays ~constant regardless
-        // of which mode's padding is currently applied (that padding eats
-        // into the content box, it doesn't change the track's own outer
-        // width).
+        // edge inset (which would otherwise force scrollWidth to overflow
+        // on its own, making a plain scrollWidth/clientWidth comparison
+        // useless for deciding *whether to carry that inset at all*). Sums
+        // each card's own offsetWidth + the row's real gaps against
+        // track.clientWidth, which stays ~constant regardless of which
+        // mode's padding is currently applied (that padding eats into the
+        // content box, it doesn't change the track's own outer width).
+        //
+        // PROTOTYPE: never true at <=900px (matches panel.css's own
+        // ≤900px auto-width block) - live feedback, screenshot: shrinking
+        // the cards there (auto width + smaller everything) made all 6
+        // technically fit unwrapped, which this function correctly
+        // detected and switched to grid/wrap mode over - but that's the
+        // wrong call at this width. Grid mode was meant for a couple of
+        // KPI cards on a wide desktop screen where scrolling would be
+        // silly, not for phone/tablet, where the carousel (arrows, fade,
+        // drag) is the deliberately-built experience regardless of
+        // whether the shrunk cards happen to squeeze in unwrapped.
         function fitsFlat() {
+            if (window.matchMedia('(max-width: 900px)').matches) return false;
             var cards = slots();
             if (cards.length < 2) return true;
             var style = window.getComputedStyle(track);
@@ -1499,31 +1487,18 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             wrap.classList.toggle('is-flat', flat);
 
             if (flat) {
-                // Grid mode: no active card, no stack/scale effect, no
-                // dots/arrows/fade/count - every card is equally visible at
-                // once, so there's nothing left for any of those to drive.
+                // Grid mode: every card is already visible at once, so
+                // there's nothing left for arrows/fade to drive.
                 prev.hidden = true;
                 next.hidden = true;
                 if (fadeL) fadeL.style.opacity = 0;
                 if (fadeR) fadeR.style.opacity = 0;
-                slots().forEach(function (card) {
-                    card.classList.remove('is-active');
-                    card.style.removeProperty('--dist');
-                    card.style.removeProperty('--absdist');
-                    card.style.zIndex = '';
-                    card.style.marginLeft = '';
-                });
-                if (dotsContainer) dotsContainer.innerHTML = '';
-                if (countLabel) countLabel.classList.remove('has-cards', 'many-cards');
                 return;
             }
 
             var overflowing = track.scrollWidth > track.clientWidth + 1;
-            var active = activeIndex();
-            var cards = active.cards;
-            var closestIndex = active.index;
-            var atStart = closestIndex === 0;
-            var atEnd = closestIndex === cards.length - 1;
+            var atStart = track.scrollLeft <= 1;
+            var atEnd = track.scrollLeft >= track.scrollWidth - track.clientWidth - 1;
 
             prev.hidden = !overflowing;
             next.hidden = !overflowing;
@@ -1531,146 +1506,44 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             next.disabled = atEnd;
             if (fadeL) fadeL.style.opacity = (!overflowing || atStart) ? 0 : 1;
             if (fadeR) fadeR.style.opacity = (!overflowing || atEnd) ? 0 : 1;
-
-            // Per-card overlap (margin-left) is computed here, not as a
-            // fixed panel.css value - a flat number only ever balances out
-            // against an *active* (grown, scale 1.06) neighbour; the same
-            // flat value leaves a real, visible gap between two ordinary
-            // shrunk neighbours (both scaled down, neither active), which
-            // only ever occurs once the active card sits away from either
-            // end of the row (live feedback: "still have gaps" - reproduced
-            // with the active card in the middle, not the position every
-            // earlier pass happened to test). Each card's actual own
-            // scale-driven shrink (or the active card's own extra growth)
-            // pulls its rendered edges in (or out) from its layout box by
-            // width * (1 - scale) / 2 per side - offsetWidth is the real
-            // *layout* width, unaffected by the transform below, so this
-            // works at any breakpoint without a hardcoded card-width guess.
-            var GAP = 8; // .stats-carousel-track's own `gap` (--space-xs)
-            var TARGET_OVERLAP = 14; // --radius-lg (12px) + 2px buffer - see panel.css's own comment on .stats-carousel-slot for why
-            var scales = cards.map(function (card, i) {
-                return i === closestIndex ? 1.06 : 1 - Math.abs(i - closestIndex) * 0.08;
-            });
-            var halfShrinks = cards.map(function (card, i) {
-                return card.offsetWidth * (1 - scales[i]) / 2;
-            });
-
-            cards.forEach(function (card, i) {
-                card.classList.toggle('is-active', i === closestIndex);
-                var dist = i - closestIndex;
-                card.style.setProperty('--dist', dist);
-                card.style.setProperty('--absdist', Math.abs(dist));
-                // Capped at 10, not left at z-index:auto/high - see My
-                // Referrals' identical reasoning (home.html) for why a
-                // stacked card's own z-index must stay below this row's
-                // fade/arrow chrome (panel.css: 15/20).
-                card.style.zIndex = String(Math.max(1, 10 - Math.abs(dist)));
-                // First card has no previous sibling to overlap into -
-                // matches panel.css's own :first-child override, just set
-                // here too now that margin-left is JS-driven.
-                card.style.marginLeft = i === 0
-                    ? '0px'
-                    : (-(TARGET_OVERLAP + GAP + halfShrinks[i] + halfShrinks[i - 1])) + 'px';
-            });
-
-            if (dotsContainer) {
-                var dots = dotsContainer.querySelectorAll('.stats-carousel-dot');
-                dots.forEach(function (dot, i) {
-                    var isActive = i === closestIndex;
-                    dot.classList.toggle('active', isActive);
-                    dot.setAttribute('aria-selected', isActive ? 'true' : 'false');
-                });
-            }
-
-            if (countLabel && cards.length > 1) {
-                countLabel.textContent = (closestIndex + 1) + ' / ' + cards.length;
-                countLabel.classList.add('has-cards');
-                countLabel.classList.toggle('many-cards', cards.length > STATS_CAROUSEL_COUNT_LABEL_THRESHOLD);
-            } else if (countLabel) {
-                countLabel.classList.remove('has-cards', 'many-cards');
-            }
-
-            if (liveRegion && cards.length > 1 && closestIndex !== lastAnnouncedIndex) {
-                lastAnnouncedIndex = closestIndex;
-                liveRegion.textContent = 'Stat card ' + (closestIndex + 1) + ' of ' + cards.length;
-            }
         }
 
-        function rebuildDots() {
-            if (!dotsContainer) return;
-            var cards = slots();
-            dotsContainer.innerHTML = '';
-            if (cards.length > 1 && cards.length <= STATS_CAROUSEL_COUNT_LABEL_THRESHOLD) {
-                cards.forEach(function (card, i) {
-                    var dot = document.createElement('button');
-                    dot.type = 'button';
-                    dot.setAttribute('role', 'tab');
-                    dot.className = 'stats-carousel-dot' + (i === 0 ? ' active' : '');
-                    dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-                    dot.setAttribute('aria-label', 'Go to stat card ' + (i + 1) + ' of ' + cards.length);
-                    dot.addEventListener('click', function () { goTo(i, true); });
-                    dotsContainer.appendChild(dot);
-                });
-            }
-        }
-
-        prev.addEventListener('click', function () { goTo(activeIndex().index - 1, true); });
-        next.addEventListener('click', function () { goTo(activeIndex().index + 1, true); });
+        prev.addEventListener('click', function () { track.scrollBy({ left: -step(), behavior: 'smooth' }); });
+        next.addEventListener('click', function () { track.scrollBy({ left: step(), behavior: 'smooth' }); });
         track.addEventListener('scroll', updateState);
-        window.addEventListener('resize', function () {
-            goTo(activeIndex().index, false);
-            updateState();
-        });
+        window.addEventListener('resize', updateState);
         wrap.addEventListener('keydown', function (e) {
-            if (e.key === 'ArrowRight') { e.preventDefault(); goTo(activeIndex().index + 1, true); }
-            else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(activeIndex().index - 1, true); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); track.scrollBy({ left: step(), behavior: 'smooth' }); }
+            else if (e.key === 'ArrowLeft') { e.preventDefault(); track.scrollBy({ left: -step(), behavior: 'smooth' }); }
         });
 
         // Click-and-drag (mouse/pen only - touch already gets native
-        // panning/flick from overflow-x: auto). Same mechanics as My
-        // Referrals' own drag (home.html) - see its comments for the fuller
-        // reasoning on each piece, in particular why setPointerCapture only
-        // happens once an actual drag starts (pointermove, below), not on
-        // every pointerdown - capturing immediately would retarget the
-        // eventual click to the track itself instead of whichever card was
-        // actually under the pointer, breaking "click a peeking card to
-        // activate it" for any tap that never moved.
+        // panning/flick from overflow-x: auto). No fling-to-settle any
+        // more (that projected a release's momentum onto the nearest
+        // card's centre - meaningless now that no card is "the" one to
+        // settle on) - a mouse drag just stops wherever it's released,
+        // same as touch already does.
         var isPointerDown = false;
         var dragMoved = false;
         var startX = 0;
         var startScrollLeft = 0;
-        var lastSampleScrollLeft = 0;
-        var lastSampleTime = 0;
-        var flingVelocity = 0;
         track.addEventListener('pointerdown', function (e) {
             if (e.pointerType === 'touch') return;
             // Grid mode: everything already fits, there's nothing to drag-
             // scroll to - skip starting a drag at all so a slightly-jittery
             // click can never get misread as one and swallowed below.
             if (wrap.classList.contains('is-flat')) return;
-            // No "real control" guard here unlike My Referrals' identical
-            // handler (home.html) - there, it protects separate Edit/Delete
-            // buttons from being hijacked into a drag start. Here the whole
-            // card *is* the one link (.stat-card), covering the entire
-            // clickable area - excluding "a" targets left nothing left to
-            // ever start a drag from (confirmed empirically: dragging did
-            // nothing anywhere on the row - live feedback: "it does not
-            // have drag to scroll"). A real click still reaches the link
-            // normally; only an actual drag (dragMoved) gets swallowed by
-            // the click-capture guard below.
-            //
             // Without this preventDefault, a mousedown+move over a
             // .stat-card (a real <a>) kicks off the browser's own native
             // link drag-and-drop instead of ever reaching pointermove below
-            // with useful deltas.
+            // with useful deltas. A real click still reaches the link
+            // normally; only an actual drag (dragMoved) gets swallowed by
+            // the click-capture guard below.
             e.preventDefault();
             isPointerDown = true;
             dragMoved = false;
             startX = e.clientX;
             startScrollLeft = track.scrollLeft;
-            lastSampleScrollLeft = track.scrollLeft;
-            lastSampleTime = performance.now();
-            flingVelocity = 0;
         });
         track.addEventListener('pointermove', function (e) {
             if (!isPointerDown) return;
@@ -1680,68 +1553,23 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 track.classList.add('is-grabbing');
                 track.setPointerCapture(e.pointerId);
             }
-            if (dragMoved) {
-                track.scrollLeft = startScrollLeft - dx;
-                var now = performance.now();
-                var dt = now - lastSampleTime;
-                if (dt > 8) {
-                    flingVelocity = (track.scrollLeft - lastSampleScrollLeft) / dt;
-                    lastSampleScrollLeft = track.scrollLeft;
-                    lastSampleTime = now;
-                }
-            }
+            if (dragMoved) track.scrollLeft = startScrollLeft - dx;
         });
         function endPointerDrag() {
             isPointerDown = false;
             track.classList.remove('is-grabbing');
-            if (dragMoved) {
-                // Projects the fling distance, then settles smoothly on
-                // whichever card ends up nearest that point - no CSS
-                // scroll-snap (a snap point catching mid-flick felt bad on
-                // My Referrals, same reasoning applies here), but a release
-                // with real momentum still finishes centred on a card
-                // rather than wherever the raw scroll happened to stop.
-                var distance = 0;
-                if (Math.abs(flingVelocity) > 0.05) {
-                    var cap = step() * 1.5;
-                    distance = Math.max(-cap, Math.min(cap, flingVelocity * 220));
-                }
-                var projectedCenter = track.scrollLeft + distance + track.clientWidth / 2;
-                var cards = slots();
-                var settleIndex = 0;
-                var settleDist = Infinity;
-                cards.forEach(function (card, i) {
-                    var d = Math.abs((card.offsetLeft + card.offsetWidth / 2) - projectedCenter);
-                    if (d < settleDist) { settleDist = d; settleIndex = i; }
-                });
-                goTo(settleIndex, false);
-            }
-            flingVelocity = 0;
         }
         track.addEventListener('pointerup', endPointerDrag);
         track.addEventListener('pointercancel', endPointerDrag);
-        // Tapping a *peeking* (not currently centred) card advances to it
-        // instead of following its link - see My Referrals' identical guard
-        // (home.html) for the fuller reasoning. A real link click (the
-        // active card, or dragMoved) always gets through untouched.
+        // Swallows the click that follows a drag (dragMoved) so releasing
+        // a drag over a card doesn't also fire its link navigation - every
+        // other click (no drag happened) falls straight through to the
+        // card's own <a>, no exceptions, since there's no "peeking card"
+        // needing a tap-to-advance any more.
         track.addEventListener('click', function (e) {
-            if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; return; }
-            // Grid mode: every card is already fully visible, there's no
-            // "peeking" card to advance to - let every click fall straight
-            // through to its own link.
-            if (wrap.classList.contains('is-flat')) return;
-            var card = e.target.closest('.stats-carousel-slot');
-            if (!card) return;
-            var cards = slots();
-            var idx = cards.indexOf(card);
-            if (idx === -1 || idx === activeIndex().index) return;
-            e.preventDefault();
-            e.stopPropagation();
-            goTo(idx, true);
+            if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; }
         }, true);
 
-        rebuildDots();
-        goTo(0, false);
         updateState();
     });
 

@@ -115,13 +115,15 @@ animate in when a count goes from 0 back up.
                 </div>
                 <span class="mc-vdivider"></span>
                 <div class="panel-item-col panel-item-col--centered">
-                    {% comment %} Same prominent row-title treatment as the Referral Details modal's own Actions section heading (_action_row.html). {% endcomment %}
-                    <span class="referral-row-title">{{ action.category|default:"No category" }}</span>
+                    {% comment %} Same prominent row-title treatment as the Referral Details modal's own Actions section heading (_action_row.html). Overdue now shares this line with the category (reusing .referral-category-row, home.html's own My Referrals category+pill row) rather than sitting on the Due Date line below - live feedback: "the Overdue Pill should move to the Action Category row". {% endcomment %}
+                    <div class="referral-category-row">
+                        <span class="referral-row-title">{{ action.category|default:"No category" }}</span>
+                        {% if action.is_overdue %}<div class="panel-item-pills"><span class="status-pill danger">Overdue</span></div>{% endif %}
+                    </div>
                     <div class="panel-item-note">{{ action.note|default:"No description." }}</div>
                     <div class="panel-item-meta-group">
                         <div class="panel-item-meta">
                             <span class="panel-item-meta-due">Due: {{ action.due_date|default:"—" }}</span>
-                            {% if action.is_overdue %}<span class="panel-item-meta-sep">&middot;</span> <span class="status-pill danger">Overdue</span>{% endif %}
                         </div>
                         {% if action.status == 'complete' %}
                         <div class="panel-item-meta">Completed: {{ action.completed_at|date:"d/m/Y"|default:"—" }}</div>

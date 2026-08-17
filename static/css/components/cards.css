@@ -244,11 +244,36 @@
 /* Clickable stat cards (e.g. Inclusion Panel home) are rendered as <a> so they
    need the link defaults undone; .selectable supplies the hover/focus state. */
 a.stat-card { text-decoration: none; color: inherit; transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast); }
-a.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+/* box-shadow dropped (was var(--shadow-md)) - its vertical extent varies
+   by theme (dark mode needs ~32px of clearance below the card) and kept
+   getting clipped by ancestor overflow:hidden containers (KPI carousel
+   track, list-page-shell) at some width/theme combos - transform alone
+   needs no clearance since it doesn't paint outside the card's own box
+   (well, barely - see .stats-carousel-track's own padding/margin pair,
+   panel.css, sized to match this exact lift).
+   translateY only, no scale() - tried scale(1.02) for extra punch, but it
+   grows the card outward on every side including left, and the carousel's
+   own first card sits flush against the track's scroll boundary at
+   scrollLeft: 0 (the row's padding-left is clearance for the fade overlay,
+   not real scroll room) - nothing to grow into, so its left border/corner
+   clipped there specifically. Vertical-only avoids that; the row's own
+   padding/margin pair already protects the vertical growth. */
+a.stat-card:hover { transform: translateY(-6px); }
 /* Stat cards keep their own fill on hover — .selectable's neutral hover
    tint would otherwise wash it out, so reassert the card's own background
    (tracked in --stat-card-bg so accent variants aren't lost on hover). */
 a.stat-card.selectable:hover { background: var(--stat-card-bg); }
+/* .selectable:hover (above) sets border-bottom-color: var(--border-color)
+   unconditionally - a plain neutral tone meant for borderless rows, but it
+   outranks .stat-card--accent-*'s own border-color (single class vs this
+   rule's class+pseudo) for that one side, so an accent card's vivid border
+   flattened to grey on just its bottom edge the moment it was hovered,
+   reading as a missing/clipped border (not an overflow bug at all, despite
+   how it looked - every accent card in every layout mode did this,
+   carousel and grid alike). --stat-card-border (set per accent-* variant,
+   above) is exactly for this - reassert it here the same way the
+   background gets reasserted just above. */
+a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
 
 /* Scoped to dashboards (e.g. SEND & Provision) where the KPI strip should
    read as a summary rather than compete with the charts below it. */

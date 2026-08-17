@@ -427,20 +427,17 @@ html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
     }
     .senco-card { flex: 0 0 auto; width: 100%; }
 
-    /* Home's KPI row carousel: same "stack" mechanism as My Referrals now
-       (panel.css, #132) at every width, not just phone - the compact
-       card padding/value size that used to live here is now unconditional
-       in panel.css (.stats-carousel-slot .stat-card), since the row
-       carousels everywhere, not just this breakpoint. */
-
-    /* KPI carousel: tried collapsing this behind an "Overview" toggle at
-       phone width, but live-testing found the toggle itself never actually
-       rendered (panel.css's unconditional `display: none`, loaded after
-       this file, always won the cascade regardless of this media query -
-       dead code since it shipped) and grilling feedback settled on always
-       showing the carousel outright instead of fixing the toggle, so no
-       collapse/expand state to maintain here any more - the peek-mode
-       sizing above already keeps its footprint small at this width. */
+    /* Home's KPI row carousel: all of this row's own responsive treatment
+       (auto width + smaller padding/value/label/icon at this same
+       breakpoint) lives in panel.css instead, not here - panel.css loads
+       *after* this file (style.css's own link, then panel.css via {%
+       block extra_head %}, layout.html), so on equal specificity a rule
+       written here always lost the cascade to panel.css's own
+       unconditional .stats-carousel-slot .stat-card rule regardless of
+       this media query (confirmed the hard way: written here first, had
+       no visible effect - live feedback screenshot still showed the full
+       fixed-width/fixed-padding card). See panel.css's own ≤480px block
+       for the real rules. */
 }
 
 /* Card-switcher/switch-card-group (Home Row 1, Meeting Setup's Settings/

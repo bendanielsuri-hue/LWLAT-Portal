@@ -595,6 +595,79 @@
 .action-status-dropdown {
     display: none;
 }
+/* Fused-trigger visuals for the dropdown that replaces the real segmented
+   control (_my_actions_card.html) whenever there isn't room for it -
+   ≤1180px carousel mode (below) and the narrower slice of desktop width
+   where the card itself is too narrow for three full-size buttons
+   (@media 1181-1400px, below - same "shrinking desktop" band My Referrals'
+   own action column already gets its own fix for, live feedback: "the
+   status changer becomes too big" in that band). Kept width-independent
+   and unscoped by breakpoint - only the swap itself (which control is
+   display:none) needs to change per band, not how the dropdown looks once
+   it's the one showing. */
+/* Same fused label+value box as the portal's other filter fields
+   (.ui-fused-field, forms.css) - a bordered box split into a title segment
+   (bg-choice fill, border-right divider) and a value segment, not the
+   referral tab dropdown's deliberately subtle plain-text trigger
+   (.carousel-filter-trigger's own base rule). This is a real control
+   changing the action's status, not a passive filter, so it reads as the
+   same fused control used throughout the rest of the app. Scoped to this
+   dropdown specifically so the tab-row filter elsewhere keeps its own
+   subtle look. */
+#my-actions-list .action-status-dropdown .action-status-trigger {
+    display: inline-flex;
+    align-items: stretch;
+    padding: 0;
+    gap: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-input);
+}
+#my-actions-list .action-status-trigger-title {
+    display: flex;
+    align-items: center;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-choice);
+    border-right: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+#my-actions-list .action-status-trigger-value {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: var(--space-xs) var(--space-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+/* Value segment picks up the same per-status colour the real segmented
+   control uses (.ui-segmented--action-status .ui-segmented-option
+   [value=...].active, below) - trigger.dataset.status mirrors the active
+   option's own value (syncLabel, home.html), so the fused dropdown reads
+   as coloured-by-status like every other status control in the app, not a
+   plain neutral pill regardless of which status is selected. Chevron
+   included, not just the text, so it reads as one coloured unit. */
+#my-actions-list .action-status-trigger[data-status="complete"] .action-status-trigger-value {
+    background: var(--color-positive-bg);
+    color: var(--color-positive);
+}
+#my-actions-list .action-status-trigger[data-status="incomplete"] .action-status-trigger-value {
+    background: var(--color-negative-bg);
+    color: var(--color-negative);
+}
+#my-actions-list .action-status-trigger[data-status="not_needed"] .action-status-trigger-value {
+    background: color-mix(in srgb, var(--color-neutral) 20%, var(--bg-choice));
+    color: var(--color-neutral);
+}
+#my-actions-list .action-status-trigger[data-status="complete"] .action-status-trigger-value .carousel-filter-chevron,
+#my-actions-list .action-status-trigger[data-status="incomplete"] .action-status-trigger-value .carousel-filter-chevron,
+#my-actions-list .action-status-trigger[data-status="not_needed"] .action-status-trigger-value .carousel-filter-chevron {
+    border-color: currentColor;
+}
 .carousel-filter-trigger {
     display: inline-flex;
     align-items: center;
@@ -1358,7 +1431,21 @@
         align-items: center;
         order: 1;
     }
-    #my-actions-list .referral-row-title { order: 2; }
+    /* .referral-category-row (Category + the Overdue pill, now sharing one
+       line - _my_actions_card.html), not .referral-row-title directly any
+       more - that title is nested a level deeper inside it now, no longer
+       a direct child of the flattened .panel-item-col--centered above, so
+       it's no longer a flex item order can act on. */
+    /* Column, not the base rule's row - Overdue on its own line under the
+       category, not sharing it (live feedback: "in carousel mode can the
+       overdue pill be on own line") - a narrow carousel card doesn't have
+       the horizontal room #my-actions-list's wider stacked-desktop sibling
+       (1181-1400px, below) does for the two to sit side by side. */
+    #my-actions-list .referral-category-row {
+        order: 2;
+        flex-direction: column;
+        align-items: center;
+    }
     #my-actions-list .panel-item-note { order: 3; }
     /* .panel-item-meta-group (Due/Overdue +, when complete, Completed - both
        home.html) is the flex item now, not the individual .panel-item-meta
@@ -1374,21 +1461,11 @@
         align-items: center;
         gap: 2px;
     }
-    /* Due Date/Overdue split onto their own lines (home.html:
-       .panel-item-meta-due / the Overdue status-pill are now separate flex
-       items, not one run of inline text+pill) - a card this narrow doesn't
-       have room to read "Due Date: 07/07/2026 · Overdue" as one line
-       without an awkward wrap. The middot separator (.panel-item-meta-sep)
-       only made sense inline, so it's hidden here rather than stranded on
-       its own line. */
     #my-actions-list .panel-item-meta {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: var(--space-xs);
-    }
-    #my-actions-list .panel-item-meta-sep {
-        display: none;
     }
     /* Status changer last (order: 5, after everything above) and pinned to
        the card's actual bottom edge via margin-top: auto - wins over
@@ -1438,70 +1515,6 @@
            it enough depth to read as clearly floating above that content
            instead of blending into it. */
         box-shadow: var(--shadow-emphasis, var(--shadow-lg));
-    }
-    /* Same fused label+value box as the portal's other filter fields
-       (.ui-fused-field, forms.css) - a bordered box split into a title
-       segment (bg-choice fill, border-right divider) and a value segment,
-       not the referral tab dropdown's deliberately subtle plain-text
-       trigger (.carousel-filter-trigger's own base rule). This is a real
-       control changing the action's status, not a passive filter, so it
-       reads as the same fused control used throughout the rest of the app.
-       Scoped to this dropdown specifically so the tab-row filter elsewhere
-       keeps its own subtle look. */
-    #my-actions-list .action-status-dropdown .action-status-trigger {
-        display: inline-flex;
-        align-items: stretch;
-        padding: 0;
-        gap: 0;
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        overflow: hidden;
-        background: var(--bg-input);
-    }
-    #my-actions-list .action-status-trigger-title {
-        display: flex;
-        align-items: center;
-        padding: var(--space-xs) var(--space-sm);
-        font-size: var(--font-sm);
-        font-weight: 600;
-        color: var(--text-secondary);
-        background: var(--bg-choice);
-        border-right: 1px solid var(--border-color);
-        white-space: nowrap;
-    }
-    #my-actions-list .action-status-trigger-value {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: var(--space-xs) var(--space-sm);
-        font-weight: 600;
-        color: var(--text-primary);
-        white-space: nowrap;
-    }
-    /* Value segment picks up the same per-status colour the real segmented
-       control uses (.ui-segmented--action-status .ui-segmented-option
-       [value=...].active, below) - trigger.dataset.status mirrors the
-       active option's own value (syncLabel, home.html), so the fused
-       dropdown reads as coloured-by-status like every other status control
-       in the app, not a plain neutral pill regardless of which status is
-       selected. Chevron included, not just the text, so it reads as one
-       coloured unit. */
-    #my-actions-list .action-status-trigger[data-status="complete"] .action-status-trigger-value {
-        background: var(--color-positive-bg);
-        color: var(--color-positive);
-    }
-    #my-actions-list .action-status-trigger[data-status="incomplete"] .action-status-trigger-value {
-        background: var(--color-negative-bg);
-        color: var(--color-negative);
-    }
-    #my-actions-list .action-status-trigger[data-status="not_needed"] .action-status-trigger-value {
-        background: color-mix(in srgb, var(--color-neutral) 20%, var(--bg-choice));
-        color: var(--color-neutral);
-    }
-    #my-actions-list .action-status-trigger[data-status="complete"] .action-status-trigger-value .carousel-filter-chevron,
-    #my-actions-list .action-status-trigger[data-status="incomplete"] .action-status-trigger-value .carousel-filter-chevron,
-    #my-actions-list .action-status-trigger[data-status="not_needed"] .action-status-trigger-value .carousel-filter-chevron {
-        border-color: currentColor;
     }
     /* No horizontal divider between what were two columns - they're one
        centred stack now, nothing left to divide (live feedback: "lose the
@@ -1746,23 +1759,35 @@
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    gap: var(--space-xs);
-    /* Room for the active card's own scale-up + shadow, same reasoning as
-       #my-referrals-list's own identical padding/margin pair (above) -
-       negative margin cancels the visual gap the padding would otherwise
-       leave before/after the row. */
-    padding-top: 24px;
-    padding-bottom: 36px;
-    margin-top: -16px;
-    margin-bottom: -20px;
-    /* Room to scroll the first/last card to the row's own centre - half
-       this container's width minus roughly half a card's (~170px, see
-       .stats-carousel-slot .stat-card's own min/max-width below), not a
-       viewport-relative value like #my-referrals-list's 35vw - this row is
-       already close to full page width itself, so a viewport-relative
-       figure would leave a huge, visibly empty gap at either end at rest. */
-    padding-left: calc(50% - 85px);
-    padding-right: calc(50% - 85px);
+    /* PROTOTYPE: --space-xs was sized for overlapping cards, where JS's
+       negative margin-left did the real spacing work and this gap barely
+       showed. Cards no longer overlap (see .stats-carousel-slot below), so
+       reuse is-flat mode's own --space-md - same "clearly separate tiles"
+       reasoning applies now at every width, not just the flat breakpoint. */
+    gap: var(--space-md);
+    /* PROTOTYPE (live feedback: "we do not have an active state for cards,
+       it just scrolls"): no more active-card scale-up to budget room for -
+       this small pair now only protects the plain a.stat-card:hover lift
+       (translateY(-6px), cards.css - box-shadow dropped from the hover
+       state entirely, it kept getting clipped by overflow-y: hidden here
+       at some width/theme combos; scale() dropped too, see cards.css's own
+       comment - it clipped the first card's left edge against the track's
+       scroll boundary) from getting clipped by overflow-y: hidden, same
+       reasoning as #my-referrals-list's own identical padding/margin pair
+       (above) - negative margin cancels the visual gap the padding would
+       otherwise leave before/after the row. Bottom no longer needs extra
+       room now the shadow's gone - the lift only moves cards up, so top
+       and bottom match. */
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-top: -8px;
+    margin-bottom: -8px;
+    /* PROTOTYPE: no more centring - card 0 just needs to clear
+       .stats-carousel-fade-l (40px wide, below) so it isn't sitting flush
+       against the physical screen edge on mobile with the fade eating
+       straight into it. */
+    padding-left: 40px;
+    padding-right: 40px;
 }
 .stats-carousel-track::-webkit-scrollbar {
     display: none;
@@ -1774,11 +1799,10 @@ html:not(.nav-touch-mode) .stats-carousel-track {
     cursor: grabbing;
 }
 /* Grid mode (main.js updateState) - applied once every card's own natural
-   (untransformed) width fits the row without needing to scroll. Drops the
-   carousel's centring padding/scale-headroom margin and lets the cards wrap
-   into a plain centred static row instead - main.js also skips the
-   stack/scale effect and hides the dots/arrows/fade entirely in this mode,
-   this only undoes the layout-level carousel accommodations. */
+   width fits the row without needing to scroll. Drops the carousel's edge
+   inset/hover-headroom margin and lets the cards wrap into a plain centred
+   static row instead - main.js also hides the arrows/fade entirely in this
+   mode, this only undoes the layout-level carousel accommodations. */
 .stats-carousel-wrap.is-flat .stats-carousel-track {
     /* Top gap matches --space-xl, the same gap .list-page-shell's own two
        rows use between each other (:has(.panel-columns) above) - the KPI
@@ -1815,12 +1839,11 @@ html:not(.nav-touch-mode) .stats-carousel-wrap.is-flat .stats-carousel-track {
    [hidden] attribute's own UA-stylesheet display: none regardless of
    specificity, so main.js's prev.hidden/next.hidden alone can't hide them
    here; this rule (3 classes) outranks that one (1 class + 1 :not()) on
-   specificity, so it wins instead. Same reasoning for fade/dots, redundant
-   with main.js's own opacity: 0/emptied-innerHTML but belt-and-braces. */
+   specificity, so it wins instead. Same reasoning for fade, redundant with
+   main.js's own opacity: 0 but belt-and-braces. */
 .stats-carousel-wrap.is-flat .stats-carousel-arrow,
 .stats-carousel-wrap.is-flat .stats-carousel-fade-l,
-.stats-carousel-wrap.is-flat .stats-carousel-fade-r,
-.stats-carousel-wrap.is-flat ~ .stats-carousel-dots {
+.stats-carousel-wrap.is-flat .stats-carousel-fade-r {
     display: none;
 }
 /* Cards grow to fill the row evenly instead of clamping at 170px - a static
@@ -1838,43 +1861,6 @@ html:not(.nav-touch-mode) .stats-carousel-wrap.is-flat .stats-carousel-track {
 .stats-carousel-slot {
     flex: 0 0 auto;
     display: flex;
-    /* "Stack" effect - see #my-referrals-list > li's own identical
-       addition (above) for the full reasoning; --absdist/--dist set
-       alongside z-index in updateState (main.js). Scale/opacity only, no
-       translateY - unlike My Referrals' own cards (tall enough that a
-       neighbour sinking slightly reads as "behind"), these are short, even-
-       height tiles side by side, where any vertical offset just reads as
-       the active one floating above the row instead of sitting in it (live
-       feedback: "active card seems [to] go higher, so it is above other
-       cards"). Overlap can't be a fixed CSS number, flat or scaled by
-       --absdist - a flat value only balances out against an *active*
-       (grown, scale 1.06) neighbour; the same flat value leaves a real gap
-       between two ordinary shrunk neighbours (both scaled down, neither
-       active), which only happens once the active card sits away from
-       either end of the row. So margin-left is computed and set per-card
-       in JS instead (updateState, main.js) from each pair's *actual*
-       rendered widths and scales - target 14px visible overlap (12px
-       --radius-lg + a 2px buffer, since exactly matching the radius is a
-       knife-edge case some renderers show as a hairline gap - live
-       feedback: "gaps... in all modes except mobile"), comfortably short
-       of .stat-card's own 16px padding so the covered strip never reaches
-       real number/label content. The value below is only the pre-JS
-       fallback (matches this row's very first card, which JS always
-       leaves at 0 anyway - nothing rendered can flash a wrong overlap
-       before script runs). */
-    margin-left: 0;
-    /* margin-left in the transition list too, not just transform - JS
-       (updateState, main.js) recomputes both together on every scroll
-       frame, but margin-left is a plain style property (snaps instantly)
-       while transform eases over 0.35s. Without this, a fast scroll left
-       the just-set margin (already sized for the *new* target scale)
-       paired against the old scale for that whole 0.35s window - visible
-       as micro gaps/overlaps flickering in and out until the transform
-       transition caught up (live feedback: "when I scroll, I can see
-       micro gaps appear and disappear"). Same duration/easing as
-       transform so the two stay in lockstep throughout. */
-    transition: transform 0.35s ease, margin-left 0.35s ease;
-    transform: scale(calc(1 - var(--absdist, 0) * 0.08));
 }
 .stats-carousel-slot .stat-card {
     min-width: 140px;
@@ -1883,98 +1869,28 @@ html:not(.nav-touch-mode) .stats-carousel-wrap.is-flat .stats-carousel-track {
        above) - a longer label (e.g. "Safeguarding Briefings Needed")
        wrapping onto 2 lines reads better than a much wider card for one
        stat alone (live feedback: tried full auto-sizing to content width,
-       "longer cards text looked better wrapped onto 2 lines" instead).
-       JS's own per-pair overlap (updateState, main.js) already reads each
-       card's real rendered width regardless, so wrapped cards being
-       slightly taller than others doesn't need any width-clamp change to
-       still overlap correctly - this clamp is purely a visual choice now,
-       not load-bearing for the overlap math. */
+       "longer cards text looked better wrapped onto 2 lines" instead). */
     height: 100%;
     /* Always the compact sizing (previously only ≤480px, responsive.css) -
        this row carousels at every width now, not just phone, and full
-       desktop stat-card padding/value size read as oversized once cards
-       are peeking/stacked rather than laid out in a wide flat strip (live
-       feedback: "data cards look too big, can they autosize"). */
+       desktop stat-card padding/value size read as oversized against the
+       row's own tighter card width (live feedback: "data cards look too
+       big, can they autosize"). */
     padding: var(--space-sm) var(--space-md);
     user-select: none; /* no accidental text selection while click-dragging the row */
     -webkit-user-drag: none; /* belt-and-braces alongside main.js's pointerdown preventDefault - stops Safari's own native link-drag starting before JS gets a chance to */
 }
-/* Depth cue for non-active cards is on the text/icon only, not the whole
-   card (--absdist inherited down from .stats-carousel-slot above) - fading
-   the *card* used to fade its background/border along with it, letting
-   whatever sat behind (an overlapping neighbour, the page canvas) show
-   through both (live feedback: "I do not want the cards to be
-   transparent... user can see below borders"). The card itself now always
-   stays fully opaque; only its content dims, and subtly (0.1/step, was
-   0.3) - enough to read as "further away", not washed out. */
-.stats-carousel-slot .stat-card-icon,
-.stats-carousel-slot .stat-value,
-.stats-carousel-slot .stat-label {
-    opacity: calc(1 - var(--absdist, 0) * 0.1);
-    transition: opacity 0.35s ease;
-}
 .stats-carousel-slot .stat-card .stat-value {
     font-size: var(--font-4xl);
 }
-/* Active card: full size (overriding the slot's own --absdist-driven
-   shrink), stronger shadow - see #my-referrals-list > li.is-active's own
-   identical addition for the full reasoning. No translateY lift (see the
-   base rule's own comment above for why) and no border-colour override
-   like that rule also has - these cards already carry a meaningful
-   semantic accent border (components/cards.css, .stat-card--accent-*),
-   forcing it to --primary on every active card regardless of type would
-   lose that signal. */
-.stats-carousel-slot.is-active {
-    transform: scale(1.06);
-}
-.stats-carousel-slot.is-active .stat-card {
-    box-shadow: var(--shadow-lg, var(--card-shadow));
-}
-/* a.stat-card:hover's own translateY(-2px) + box-shadow bump
-   (components/cards.css) is fine for a plain, non-overlapping stat strip,
-   but doesn't fit this carousel: the lift shifts the hovered card's bottom
-   edge out of alignment with whichever neighbour it's overlapping
-   *horizontally* (margin-left, above), exposing a sliver of that
-   neighbour's rounded corner right where coverage was already thinnest
-   (live feedback: "hovering a card breaks the bottom border" - more
-   margin/spacing wouldn't fix this, the two cards' bottom edges need to
-   stay aligned, not get more room around them). The shadow bump is
-   dropped too, by request (live feedback: "I do not want the shadow on
-   hover either") - .selectable:hover's own background tint (cards.css)
-   is the only hover feedback left here.
-   .selectable:hover ALSO sets border-bottom-color: var(--border-color)
-   (cards.css) - meant for a plain divider row whose bottom border would
-   otherwise vanish into its own hover-tinted background, but these
-   accent cards have a real coloured border on *every* side
-   (.stat-card--accent-*, cards.css), so overriding just the bottom side
-   to a neutral grey mismatched it against the other three, reading as
-   the border "clipped" or "going white" right along that edge (live
-   feedback). --stat-card-border (cards.css) mirrors whichever accent
-   colour this specific card's border-color already is, so this resets
-   the bottom side back to match instead of guessing a colour here. */
-.stats-carousel-slot .stat-card:hover {
-    transform: none;
-    box-shadow: none;
-    border-bottom-color: var(--stat-card-border);
-}
-/* ...except the active card's own shadow (.is-active, above) - the
-   general rule just above would otherwise flatten it back to none while
-   hovering the one card that's *supposed* to look raised. More specific
-   selector, defined after, wins. */
-.stats-carousel-slot.is-active .stat-card:hover {
-    box-shadow: var(--shadow-lg, var(--card-shadow));
-}
-/* Grid mode: cards don't overlap any more (no negative margin, no stack
-   effect - main.js's flat branch clears --dist/--absdist/is-active on every
-   card), so the lift-suppression two rules above no longer need to guard
-   against exposing a neighbour's corner underneath a raised hover - restore
-   the plain a.stat-card:hover treatment (components/cards.css) instead of
-   flattening it (live feedback: "these are interactive so should have hover
-   transition in desktop mode"). */
-.stats-carousel-wrap.is-flat .stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
+/* PROTOTYPE (live feedback: "we do not have an active state for cards, it
+   just scrolls"): every card is now a plain, equal, always-fully-visible
+   tile - no more is-active scale/shadow, no per-card opacity dim, and no
+   carousel-specific hover override. a.stat-card:hover's own default lift
+   (components/cards.css) just applies uniformly here now, same as
+   anywhere else a stat-card appears - the override that used to flatten
+   it existed only to protect an overlapping active neighbour's edge
+   alignment, and there's no overlap or active neighbour left to protect. */
 /* .selectable:focus-visible's own persistent purple outline
    (components/cards.css) is meant for a real chosen/selected state - it
    doesn't fit a card whose only purpose is "tap it to navigate away
@@ -1998,9 +1914,8 @@ html:not(.nav-touch-mode) .stats-carousel-wrap.is-flat .stats-carousel-track {
     bottom: 0;
     width: 40px;
     pointer-events: none;
-    /* Above the stacked slots' own z-index range (updateState, main.js,
-       capped at 10) - see .referral-carousel-fade-l/-r's own identical
-       reasoning (above) for why. */
+    /* Above the row's own cards - see .referral-carousel-fade-l/-r's own
+       identical reasoning (above) for why. */
     z-index: 15;
     opacity: 0;
     transition: opacity var(--transition-base);
@@ -2023,13 +1938,16 @@ html:not(.nav-touch-mode) .stats-carousel-wrap.is-flat .stats-carousel-track {
    for a one-word difference. Bigger than My Referrals' own 36px
    (.referral-carousel-arrow, above) - this row sits directly on the page
    canvas with room to spare either side, not squeezed next to a tab row
-   inside a card. Desktop/mouse-only (html:not(.nav-touch-mode)), same
-   split as My Referrals' own arrows - touch gets dots instead, below. */
-html:not(.nav-touch-mode) .stats-carousel-arrow {
-    display: flex;
-}
+   inside a card. Shown on every device (PROTOTYPE, live feedback: fade
+   alone can silently fail to signal overflow - a card edge can land clear
+   of the 40px fade zone with nothing visibly cut off, and there's no
+   backup cue on touch once that happens). Full button on desktop; touch
+   gets a much smaller, chrome-free version instead of this same button
+   shrunk verbatim (below) - live feedback: "small... more an indicator
+   than an interactive button", since the fade is usually enough there and
+   this only needs to catch the cases where it isn't. */
 .stats-carousel-arrow {
-    display: none;
+    display: flex;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
@@ -2045,7 +1963,7 @@ html:not(.nav-touch-mode) .stats-carousel-arrow {
     cursor: pointer;
     align-items: center;
     justify-content: center;
-    transition: background var(--transition-fast), opacity var(--transition-fast);
+    transition: background var(--transition-fast), opacity var(--transition-fast), color var(--transition-fast);
     /* Above the fade layer and the stacked slots' own z-index range - see
        .referral-carousel-arrow's own identical reasoning (above). */
     z-index: 20;
@@ -2054,59 +1972,36 @@ html:not(.nav-touch-mode) .stats-carousel-arrow {
 .stats-carousel-arrow:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
 .stats-carousel-arrow--prev { left: -8px; }
 .stats-carousel-arrow--next { right: -8px; }
-
-/* Dots (touch)/count (mouse) - see My Referrals' identical pair
-   (.referral-carousel-dots/-count, above) for the full reasoning; same
-   CAROUSEL_COUNT_LABEL_THRESHOLD swap-to-text-label past 8 cards, mirrored
-   in main.js. Unconditional (not inside a max-width media query) - this
-   row carousels at every width, not just a narrow-card breakpoint. */
-html.nav-touch-mode .stats-carousel-dots {
-    display: flex;
+/* Touch: 32px pill, no shadow, soft primary-tinted fill instead of the
+   baseline's solid bg-surface + shadow-md - small enough to read as a
+   hint, not a "press me" button, but still enough presence to actually
+   find (tried a bare chrome-free chevron first - too easy to miss
+   entirely, live feedback: "B was better"; sized up from an initial 26px
+   and given a border, live feedback: "a little bigger... can they also
+   get a border"). --accent-border, not --border-strong (the desktop
+   button's own border) - keeps it tied to the same primary tint as the
+   fill, rather than the neutral border a plain chrome button would use.
+   Tint ties it to the same accent already used elsewhere on the row (e.g.
+   the active-referral card's border), so it doesn't read as a random
+   extra control. */
+html.nav-touch-mode .stats-carousel-arrow {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--accent-border);
+    background: color-mix(in srgb, var(--primary) 12%, var(--bg-surface));
+    box-shadow: none;
+    color: var(--primary);
+    /* font-md read small once the circle grew to 32px (live feedback:
+       "chevrons look smaller compared to buttons") - closer to the
+       desktop button's own font-2xl now, scaled down a touch rather than
+       matched exactly since this circle is still 2/3 its size. */
+    font-size: var(--font-xl);
 }
-.stats-carousel-dots {
-    display: none;
-    justify-content: center;
-    align-items: center;
-    /* Negative - see .referral-carousel-dots' own identical change (above)
-       for why (overlaps the active card's own trailing shadow). */
-    margin-top: -14px;
+html.nav-touch-mode .stats-carousel-arrow:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary) 22%, var(--bg-surface));
 }
-.stats-carousel-dot {
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.stats-carousel-dot::after {
-    content: '';
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--border-strong);
-    transition: background var(--transition-fast), transform var(--transition-fast);
-}
-.stats-carousel-dot.active::after {
-    background: var(--primary);
-    transform: scale(1.25);
-}
-.stats-carousel-count {
-    display: none;
-    margin-top: var(--space-xs);
-    text-align: center;
-    font-size: var(--font-sm);
-    color: var(--text-secondary);
-}
-html:not(.nav-touch-mode) .stats-carousel-count.has-cards {
-    display: block;
-}
-html.nav-touch-mode .stats-carousel-count.many-cards {
-    display: block;
-}
+html.nav-touch-mode .stats-carousel-arrow--prev { left: 4px; }
+html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 
 /* Upcoming Panel Meetings (formerly a single Next Panel Meeting preview) now
    holds a scrollable list of however many are upcoming, same shape as every
@@ -2349,11 +2244,24 @@ html.nav-touch-mode .stats-carousel-count.many-cards {
 
 /* My Actions card only: student (thumb+name/details, tight together) and the
    status switch underneath on the left; Category/Description/Due Date on the
-   right - see _my_actions_card.html. Student side is narrower - it's just a
-   name/status switch, not worth matching the wider Category/Description text. */
+   right - see _my_actions_card.html. */
 .panel-item-body--two-col { display: flex; gap: var(--space-lg); }
 .panel-item-col { flex: 1; min-width: 0; }
-.panel-item-col--student { flex: 0 0 38%; }
+/* Shrink-wrapped to its own content (the real segmented status control,
+   Incomplete/Complete/Not Required, is the widest thing in it) rather than
+   a proportional split of the row - went through flex: 0 0 38%, then a
+   plain 50/50 (both sides sharing the base .panel-item-col flex: 1, for a
+   dead-centred .mc-vdivider), before landing here on live feedback: "the
+   left column [should be] the width of the three status fused selector".
+   flex-shrink: 0 too, not just flex-grow: 0 - unlike .panel-item-col--
+   centered (flex: 1, takes whatever's left), this column must never give
+   up width once sized to its content, or the segmented control would be
+   right back to overflowing it. The dynamic dropdown fallback
+   (action-status-narrow, wireActionStatusOverflow - home.html) stays
+   wired regardless - this only fixes the *common* case; a card genuinely
+   too narrow for even a shrink-wrapped column (rare above 1400px, this
+   component's own stacked band below that width) still needs it. */
+.panel-item-col--student { flex: 0 0 auto; }
 /* Category/Description/Due Date reads as one shorter block next to the
    taller student side (thumb-row + status switch stacked) - centre it
    vertically against the row's full height instead of pinning to the top. */
@@ -2388,6 +2296,57 @@ html.nav-touch-mode .stats-carousel-count.many-cards {
        label, staying inline next to the thumb/title instead of wrapping to
        a second row or forcing the row taller. */
     .panel-item-actions .btn-label { display: none; }
+}
+
+/* KPI carousel cards: auto width + a size down on everything, from phone
+   up through portrait tablet (live feedback: "can this also apply to
+   portrait tablet mode" - the dev breakpoint tool's own "Tablet Portrait"
+   preset is 820×1180, layout.html, hence 900px here rather than 480 - the
+   same threshold the hub sidebar already auto-collapses at, not a new
+   number invented for this row alone). PROTOTYPE, live feedback: "can the
+   cards be auto width" then "can the cards be smaller on a narrower
+   screen" - both were first written into static/css/layout/responsive.css's
+   own ≤480px block, but never actually took effect: that file loads via
+   style.css, which layout.html links *before* this one (panel.css, via {%
+   block extra_head %}) - same specificity, later source order wins, so
+   this file's own unconditional .stats-carousel-slot .stat-card rule
+   (above) always beat it regardless of the media query. Moved here
+   instead so there's no cross-file load-order race to lose. Every label
+   is forced onto two lines already (home.html, hardcoded <br> splits), so
+   each card's intrinsic content width is predictable once un-clamped - a
+   short label like "Overdue/Actions" ends up narrower than
+   "Safeguarding/Briefings Needed" instead of both clamped into the same
+   band. Value stays the largest element on the card (font-xl vs the
+   label's font-sm) - still the thing being scanned first, just smaller in
+   absolute terms like everything else here. Its own block, not folded
+   into the ≤480px one above - that one holds phone-only rules unrelated
+   to this row, and 900px would have widened their reach too. */
+@media (max-width: 900px) {
+    .stats-carousel-slot .stat-card {
+        min-width: 0;
+        max-width: none;
+        width: auto;
+        padding: var(--space-xs) var(--space-sm);
+    }
+    .stats-carousel-slot .stat-card .stat-value {
+        font-size: var(--font-xl);
+    }
+    .stats-carousel-slot .stat-label {
+        font-size: var(--font-sm);
+    }
+    /* Above the value, not floating top-right (cards.css base rule,
+       position: absolute) - PROTOTYPE, tried between value/label and
+       under the label too (live feedback each round), settled back here
+       (live feedback: "above number was best"). Icon already comes first
+       in the DOM (home.html, before .stat-value), so position: static
+       alone stacks it there via the card's own flex-direction: column -
+       no explicit order needed, natural DOM order already puts it above. */
+    .stats-carousel-slot .stat-card-icon {
+        position: static;
+        margin-bottom: var(--space-xxs);
+        width: 16px;
+        height: 16px;
+    }
 }
 
 /* Name + student details (.entity-meta, My Referrals row) share one row
@@ -2563,6 +2522,93 @@ html.nav-touch-mode .stats-carousel-count.many-cards {
         flex: 1 1 100%;
         justify-content: center;
     }
+    /* My Actions, same band as My Referrals' own fix just above: stacks the
+       row's two columns (student + status changer, then Category/
+       Description/Due Date) into one instead of continuing to squeeze a
+       50/50 split - live feedback: "can My Actions switch to one column
+       when My Referrals does, in medium desktop mode". Mirrors the
+       existing <=480px stack treatment (below, .panel-item-body--two-col's
+       own base rule) rather than the carousel's centred version - this is
+       still a normal list row at this width, not a small swipeable
+       carousel card, so it stays left-aligned like every other non-stacked
+       row. The segmented status control (action-status-narrow,
+       wireActionStatusOverflow - home.html) keeps measuring live against
+       whatever width .panel-item-col--student actually has - now the full
+       row width, comfortably enough room that the dropdown fallback goes
+       back to being the rare case here too. */
+    #my-actions-list .panel-item-body--two-col {
+        flex-direction: column;
+        gap: var(--space-sm);
+    }
+    /* No dividers at all in this stacked layout (live feedback: "lose the
+       horizontal dividers... this is only for one column setup") - not
+       just the vertical .mc-vdivider between what used to be two columns,
+       but also the status changer's own top border (below), which existed
+       to separate it from the name/details sitting directly above it in
+       the *side-by-side* layout - now that other content (Category/
+       Description) sits between them (order, below), that border would
+       read as an orphaned rule with nothing to divide. */
+    #my-actions-list .panel-item-body--two-col .mc-vdivider {
+        display: none;
+    }
+    /* display: contents on the student column only (not centered) -
+       flattens its own two children (thumb-row, status changer) out into
+       the row's own flex flow so they can be reordered independently
+       around the centered column, rather than only being able to move the
+       whole student side as one block. */
+    #my-actions-list .panel-item-col--student {
+        display: contents;
+    }
+    #my-actions-list .panel-item-thumb-row {
+        order: 1;
+    }
+    #my-actions-list .panel-item-col--centered {
+        order: 2;
+    }
+    /* Status changer last, at the card's own bottom (live feedback: "can
+       the status change be at bottom of card") - overrides its own
+       side-by-side-layout top border/spacing (.panel-item-col--student
+       .panel-item-actions, below) now that it's not sitting directly
+       under the name/details any more. Centred (live feedback: "can the
+       Status changer be centred") - .panel-item-body--two-col's own
+       flex-direction: column (above) stretches every child to the row's
+       full width by default (no align-items override), so without this
+       the control just sits at that full width's flex-start instead of
+       actually centred within it. */
+    #my-actions-list .panel-item-actions {
+        order: 3;
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+        justify-content: center;
+    }
+}
+
+/* My Actions: the Incomplete/Complete/Not Required segmented control
+   (three full-size buttons) doesn't fit .panel-item-col--student's fixed
+   38% column at every desktop width - unlike My Referrals' own fix
+   directly above (a fixed 1181-1400px breakpoint band), a plain viewport
+   breakpoint can't work here because the column's *available* width
+   doesn't track viewport width alone (live feedback: "this does not work
+   for all widths, can it change dynamically if not enough space" - a fixed
+   band was tried first and missed widths where the card itself is
+   narrower for other reasons, e.g. sidebar/column layout). wireActionStatusOverflow
+   (home.html) measures each row's real fit via ResizeObserver and toggles
+   this class instead. Swaps to the same fused-trigger dropdown already
+   built and wired for carousel mode (.action-status-dropdown,
+   wireActionStatusFilters - home.html) rather than a wrap/shrink attempt -
+   three segmented buttons read wrong split across two lines the way plain
+   individual buttons (My Referrals' own fix) don't. Opens downward (the
+   dropdown's own base rule), not the carousel breakpoint's dropup override
+   - this row isn't pinned to the card's bottom edge here. Higher-specificity
+   #my-actions-list ... rules (≤1180px, above) win over this regardless of
+   whether the class is (stale-)present, so carousel mode's own dropup
+   dropdown is never affected by it. */
+[data-action-status-filter].action-status-narrow form {
+    display: none;
+}
+[data-action-status-filter].action-status-narrow .action-status-dropdown {
+    display: block;
 }
 
 .status-pill.danger,
