@@ -2841,49 +2841,113 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
     }
 }
 
-/* Mobile-only compact stats line under the page title (#117 follow-up,
-   live feedback: "the stats row takes up a lot of space, can this be
-   under Students if we are keeping page name") - hidden by default
-   (desktop keeps the boxed .stats-strip at the bottom of the list as the
-   one copy), shown only at <=480px, where that bottom copy is hidden
-   instead (below) so the two never both show at once. Same .stats-strip
-   markup as the footer, so the "plain details" rules further down (which
-   target #students-filtered-content .stats-strip specifically) don't
-   reach this copy - it needs its own version of that same recipe (live
-   feedback: "I preferred the format of the footer stats, can we apply
-   this to the stats under heading"). */
+/* Mobile-only compact stats line, sharing the title's own row instead of
+   stacking under it (#132 - a round of prototype variants on the
+   throwaway prototype/132-mobile-header-variants branch compared boxed
+   cards, a fused sentence, badge chips, single-line pills and a grouped
+   box against this plain right-aligned layout; live feedback settled on
+   this one). Hidden by default (desktop keeps the boxed .stats-strip at
+   the bottom of the list as the one copy), shown only at <=480px, where
+   that bottom copy is hidden instead (below) so the two never both show
+   at once. Same .stats-strip markup as the footer, so the "plain
+   details" rules further down (which target
+   #students-filtered-content .stats-strip specifically) don't reach
+   this copy - it needs its own version of that same recipe.
+
+   Scoped to body:has(.students-page-shell) - Students is this ticket's
+   base/reference page, not yet the portal-wide default (every other
+   mobile-only rule in this file is either Students-specific by its own
+   #students-filtered-content selector already, or intentionally shared;
+   .page-header/.page-heading/.page-header-main below are shared classes
+   every hub page's sticky header uses, so they need this extra guard to
+   stay Students-only). */
 .page-subtitle-stats {
     display: none;
 }
 @media (max-width: 480px) {
+    /* Symmetric 8px zone padding for Students only (live feedback: "more
+       padding at top than bottom, can both be 8px" - was --space-md top/
+       --space-xs bottom, inherited unmodified from the shared rule every
+       hub page uses; trimmed evenly here rather than in that shared rule
+       since Students hasn't been confirmed as the portal-wide default
+       yet). */
+    body:has(.students-page-shell) .sticky-header-zone {
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-xs);
+    }
+    /* .page-header-main/.page-heading are flex items with no flex-grow
+       in their own parent (.page-header-main in .page-header, .page-
+       heading in .page-heading-wrap) - without claiming the full row
+       width here, .page-subtitle-stats's own margin-left: auto (below)
+       has no spare space to push into and everything just bunches up
+       left instead of splitting the row. .page-header's gap: 0 removes
+       the space its layout otherwise reserves for the (empty but still-
+       present, see its own dialog comment above) .page-header-extras
+       sibling - left at the default gap, the stats' right edge lands
+       short of the real content edge. h1 shrunk from --font-5xl so the
+       title + three stat entries still fit one row at 375px. */
+    body:has(.students-page-shell) .page-header-main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    body:has(.students-page-shell) .page-header {
+        gap: 0;
+    }
+    body:has(.students-page-shell) .page-heading {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: var(--space-xs);
+        width: 100%;
+    }
+    body:has(.students-page-shell) .page-heading h1 {
+        font-size: var(--font-2xl);
+        flex-shrink: 0;
+    }
     .page-subtitle-stats {
         display: flex;
-        justify-content: flex-start;
-        gap: 0;
-        margin: var(--space-xs) 0 0;
-    }
-    .page-subtitle-stats .stat-card {
-        flex: 0 0 auto;
-        flex-direction: row;
-        align-items: baseline;
+        flex-wrap: nowrap;
+        margin: 0 0 0 auto;
+        flex-shrink: 1;
+        min-width: 0;
+        justify-content: flex-end;
         gap: var(--space-xxs);
+    }
+    /* Plain - no card background/border/padding (live feedback: "if we
+       lose the cards, plain on background can this reduce vertical
+       space" - a divider line between pairs was tried and dropped again:
+       "lose the divider altogether, not needed"; the row's own gap plus
+       each stat's own horizontal padding is separation enough). */
+    .page-subtitle-stats .stat-card {
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
         background: none;
         border: none;
-        padding: 0;
-        border-radius: 0;
+        padding: 0 var(--space-xs);
+        text-align: center;
     }
+    .page-subtitle-stats .stat-card:first-child {
+        padding-left: 0;
+    }
+    .page-subtitle-stats .stat-card:last-child {
+        padding-right: 0;
+    }
+    /* Kills the dot separator this rule used to render between pairs -
+       dropped along with the divider line above. */
     .page-subtitle-stats .stat-card:not(:last-child)::after {
-        content: '\00b7';
-        margin: 0 var(--space-xs);
-        color: var(--text-faint);
+        content: none;
     }
     .page-subtitle-stats .stat-value {
         font-size: var(--font-md);
+        line-height: 1.2;
         font-weight: 700;
         color: var(--text-primary);
     }
     .page-subtitle-stats .stat-label {
-        font-size: var(--font-sm);
+        font-size: 10px;
+        line-height: 1.2;
         color: var(--text-secondary);
         margin-top: 0;
     }
@@ -3288,7 +3352,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         flex: 1 1 100%;
         width: 100%;
-        padding: var(--space-xxs) 0;
+        padding: 0;
         position: sticky;
         top: 0;
         z-index: 1;
@@ -3305,6 +3369,28 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         min-width: 0;
         max-width: none;
     }
+    /* Compact mode (#132 follow-up, live feedback: "slim the filter bar
+       in compact mode") - the search input owns 100% of its own vertical
+       centring via a fixed height + zero padding + line-height filling
+       the whole content box (24px height - 1px border each side = 22px),
+       rather than padding and line-height each contributing part of the
+       box: splitting the centring across two separate box-model
+       properties left a couple of px of rounding play that rendered
+       visibly off-centre against "FILTERS" beside it in at least one
+       browser/device, even though bounding-rect math called it centred.
+       A single mechanism is symmetric by spec, not by arithmetic that
+       can round unevenly per-font. */
+    form[data-ajax-target="#students-filtered-content"] .filter-field--search input[type="text"] {
+        height: 24px;
+        padding-top: 0;
+        padding-bottom: 0;
+        line-height: 22px;
+        font-size: var(--font-sm);
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-search-icon svg {
+        width: 14px;
+        height: 14px;
+    }
     /* "Filters" label/badge left-aligned rather than centred (live
        feedback: "Filters label and badge left aligned") and auto width
        rather than the shared mobile rule's own width: 100% (responsive.css
@@ -3312,10 +3398,14 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        everything else collapsed away) - .filter-bar-sticky-row's own flex
        row (above) is what now claims the full row width, so the label
        itself just needs to sit at that row's start rather than stretching
-       to fill it. */
+       to fill it. Font size/gap/margin tightened to match the shorter
+       search field beside it (#132 compact mode). */
     form[data-ajax-target="#students-filtered-content"] .filter-bar-label {
         width: auto;
         justify-content: flex-start;
+        font-size: var(--font-sm);
+        gap: var(--space-xxs);
+        margin-right: var(--space-xs);
     }
     /* Everything below the sticky row slides open/closed as one unit
        (live feedback: "can the filter slide down like a shelf") - the
@@ -3338,21 +3428,22 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         width: 100%;
         transition: grid-template-rows var(--transition-slide);
     }
-    /* Cancels .filter-bar's own flex gap (--space-xs, forms.css) between
-       this wrapper and the sticky row above it while collapsed only (live
-       feedback + screenshot: "extra padding when not expanded") - gap only
-       ever applies between flex items that are actually still
-       participating in layout, which every individual field used to
-       opt out of via display: none while collapsed (responsive.css's
-       shared rule) before this page had one single wrapper standing in
-       for all of them. That wrapper is never display: none (it needs to
-       stay a real, measurable box for the grid-rows animation to
-       animate to/from), so it still counts as a participating flex item
-       even fully collapsed at 0fr height - unlike the fields it now
-       contains, there's nothing already hiding it from the bar's own gap
-       calculation. */
-    form[data-ajax-target="#students-filtered-content"].filter-bar:not(.is-expanded) .filter-bar-collapsible {
-        margin-top: calc(-1 * var(--space-xs));
+    /* Cancels .filter-fields-wrap's own flex gap (--space-xs, forms.css)
+       between the sticky row and this (0fr, invisible) wrapper while
+       collapsed (live feedback + screenshot: "extra padding when not
+       expanded"; later re-surfaced as "Filter row, nothing is center
+       aligned. Filter Field Wrap has a margin" once the row itself
+       shrank in #132's compact mode, making the same dead space
+       proportionally more noticeable). A negative margin-top on
+       .filter-bar-collapsible was tried first and doesn't work: row-gap
+       in a wrapped flex container reserves real space between line boxes
+       that a child's own margin can't subtract from - confirmed by
+       measuring the wrapper's total height staying 8px taller than the
+       sticky row regardless of the child's margin. gap: 0 on the actual
+       flex container that declares the gap is the only thing that
+       removes it. */
+    form[data-ajax-target="#students-filtered-content"].filter-bar:not(.is-expanded) .filter-fields-wrap {
+        gap: 0;
     }
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-collapsible {
         grid-template-rows: 1fr;
