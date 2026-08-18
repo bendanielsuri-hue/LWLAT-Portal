@@ -3243,6 +3243,12 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     align-items: center;
     gap: var(--space-sm);
 }
+/* .filter-section-label (students.html: Class Info / SEN & Support /
+   Demographics) - hidden everywhere except the mobile 3-up grid (the
+   [max-width: 480px].is-expanded override, below). Not a .filter-field, so
+   the shared collapse rule that hides those (.filter-bar .filter-field,
+   responsive.css) doesn't reach it - needs its own explicit default. */
+.filter-section-label { display: none; }
 /* Mobile filter fields: single column, fused-label-left rows (#133
    grilling, live feedback: "in mobile the filters use a fused label to
    the left, 1 column") - overrides the shared 2-up grid
@@ -3357,6 +3363,12 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         top: 0;
         z-index: 1;
         background: var(--bg-well);
+        /* 4px, matching the field grid's own gap below (live feedback:
+           "should search line up, so be two columns wide?") - Search's own
+           left edge otherwise sat a few px further right than the grid
+           column below it once "Filters"' width was pinned to exactly one
+           grid column (.filter-bar-label, below). */
+        gap: 4px;
     }
     /* Search claims whatever width "Filters" doesn't need, rather than the
        fixed ~200px cap .filter-field carries everywhere else (live
@@ -3386,21 +3398,55 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         padding-bottom: 0;
         line-height: 22px;
         font-size: var(--font-sm);
+        /* Declared on the collapsed/base state, not only on the expanded
+           override below, so it's present for both directions of the state
+           change - a transition added only to the override rule would
+           animate the grow but snap instantly on collapse, since the
+           override (and its transition declaration) stops applying the
+           moment .is-expanded is removed. */
+        transition: height var(--transition-slide), padding var(--transition-slide);
+    }
+    /* Expanded: grows to the portal's standard single-line control height
+       (live feedback: "can the height of the Search transform to match
+       button height") - the same padding: var(--space-xs) var(--space-sm)
+       recipe DesignLanguage.md's "control height matches button height"
+       rule already gives every other .filter-field input/select/.ui-
+       select-trigger; the 24px compact height above is Search's one
+       deliberate exception, kept for the collapsed row where it sits
+       beside the short "Filters" label. Longhand, not the padding
+       shorthand - padding-left stays the unconditional rule's own 34px
+       (above), reserved for the search icon; the shorthand would reset it
+       back to var(--space-sm) and run the icon into the typed text. */
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field--search input[type="text"] {
+        height: 35px;
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-xs);
+        padding-right: var(--space-sm);
+        line-height: normal;
     }
     form[data-ajax-target="#students-filtered-content"] .filter-search-icon svg {
         width: 14px;
         height: 14px;
     }
     /* "Filters" label/badge left-aligned rather than centred (live
-       feedback: "Filters label and badge left aligned") and auto width
-       rather than the shared mobile rule's own width: 100% (responsive.css
-       - written for a bar where the label was the only thing left once
-       everything else collapsed away) - .filter-bar-sticky-row's own flex
-       row (above) is what now claims the full row width, so the label
-       itself just needs to sit at that row's start rather than stretching
-       to fill it. Font size/gap/margin tightened to match the shorter
-       search field beside it (#132 compact mode). */
+       feedback: "Filters label and badge left aligned") - .filter-bar-
+       sticky-row's own flex row (above) is what claims the full row width,
+       so the label just needs to sit at that row's start rather than
+       stretching to fill it. Font size/gap/margin tightened to match the
+       shorter search field beside it (#132 compact mode). Pinned to
+       exactly one field-grid column's width (live feedback: "should search
+       line up, so be two columns wide?" - the same calc() the grid cells
+       below use, not the shared mobile rule's own width: 100%/auto) so
+       Search (flex: 1, filling whatever's left of the row) lands at
+       exactly column 2+3's combined width below it - both rows share the
+       same left/right bar padding, so their edges align without either
+       row needing to know the other's layout directly. Not gated on
+       .is-expanded (live feedback: "can search when not expanded be same
+       width" - collapsed, nothing below it to align with, but Search still
+       visibly resized between the two states otherwise) - Search is the
+       same width collapsed or expanded. */
     form[data-ajax-target="#students-filtered-content"] .filter-bar-label {
+        flex: 0 0 calc(100% / 3 - 4px * 2 / 3);
         width: auto;
         justify-content: flex-start;
         font-size: var(--font-sm);
@@ -3467,8 +3513,22 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         min-height: 0;
         display: flex;
         flex-wrap: wrap;
-        gap: var(--space-xs);
-        column-gap: 0;
+        /* 4px (live feedback: "reduce gaps between grid to be small like
+           4px") - each cell already carries its own border/radius (below),
+           so a small real gap reads as separate chips rather than needing
+           the border-collapse "one continuous block" trick an earlier,
+           zero-gap version of this grid used. */
+        gap: 4px;
+        /* Top/bottom breathing room for the grid itself, independent of
+           the tight 4px inter-cell gap (live feedback: "filter bar looks
+           too thin on expand... just visually cramped") - .filter-bar
+           itself only has --space-xxs top/bottom padding at this width
+           (sized for the collapsed single-row state, applied
+           unconditionally rather than per collapsed/expanded state, above)
+           so without this the grid butted straight up against the sticky
+           search row above and the Clear/Close footer below. */
+        padding-top: var(--space-md);
+        padding-bottom: var(--space-md);
     }
     /* display: flex, unconditionally (not gated on .is-expanded like every
        other .filter-field rule below still is) - overrides the shared
@@ -3581,57 +3641,28 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        source order - that rule's own 90px cap was meant for the dynamic-
        overflow tablet range it shares a (max-width: 900px) block with, but
        the query also (unintentionally) reached down into this phone-only
-       accordion, squeezing these three fields inside the 2-up grid. Full
-       width here instead, same as every other field in the new 1-column
-       layout. */
+       accordion. */
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter),
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter),
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter) {
         max-width: none;
     }
-    /* Year/House/Reg share one 3-up row instead of each claiming a full
-       fused-label-left row to itself (live feedback: "a lot of these
-       filters are taking up too much space... Year, House and Reg on one
-       row with label fused above") - flex: 1 1 0 (not the general rule's
-       own flex: 1 1 100%) so all three sit side by side rather than each
-       forcing a line-wrap; consecutive in DOM order (students.html) and
-       nothing between them, so they naturally land on the same flex line
-       together, with Search's own full-width row above forcing the first
-       of the three onto a fresh line and SEN Status's own full-width row
-       below forcing the next field after the group onto another. Column,
-       not the general rule's row - label sits above the value instead of
-       to its left, since three consecutive fused-left labels of unequal
-       text width ("Year" vs "House" vs "Reg") wouldn't otherwise line up
-       into a clean 3-up grid the way a single shared-width column of
-       labels normally does. */
-    /* flex: 0 1 <precise 1/3> (grow: 0, not 1) - flex-grow: 1 let each of
-       the three absorb leftover line space, but since SEN Status (next
-       rule block down) also has a non-zero flex-basis of its own with
-       nothing forcing a hard line break between the two groups, all four
-       ended up sharing one flex line together and growing to fill it
-       (live feedback screenshot: Year/House/Reg squeezed to ~38px each,
-       SEN Status stretched to fill the rest instead of getting its own
-       row). basis: 0 with grow: 1 (the old rule) can't reliably force "list
-       these first N together, then wrap" on its own; a precise, non-
-       growing basis does - three basis-only children summing to 100%
-       leave no leftover room on the line for a fourth item to join. Plain
-       100% / 3, no gap subtracted - unlike the fields above/below this
-       grid, these columns no longer have a gap between them at all (live
-       feedback: "is it worth losing the gaps between the filters
-       horizontally" - column-gap: 0 on .filter-bar-collapsible-inner,
-       above, plus border-left: none on every column but the first, so
-       adjacent cells share one border line instead of two). */
-    /* Grid cells square off (all four corners) and drop their left border
-       on every column but the first (live feedback, same "lose the gaps...
-       horizontally" call above) - the whole 3-up group now reads as one
-       continuous bordered block/table rather than 3 (or 9) separate boxed
-       chips, since there's no gap left between columns to read them as
-       separate. The two rules below then round just the outer-left corners
-       of each row's first cell and the outer-right corners of its last
-       (live feedback: "add a radius to the first and last filter on each
-       row") - only those four corners actually sit on the block's true
-       outer edge; every other corner here is an internal seam between two
-       touching cells, which stays square either way. */
+    /* Every field (Year/House/Reg, SEN Status through More Able, Has
+       Referrals) shares one 3-up grid, label above value (live feedback:
+       "a lot of these filters are taking up too much space... on one row
+       with label fused above"; later "3 columns and sectioned" settled on
+       keeping this density rather than loosening to 2-up once the tray
+       could scroll further to make room). flex: 0 1 <precise third>
+       (grow: 0, not 1) - flex-grow: 1 would let whichever field starts a
+       fresh line absorb the rest of that line's space instead of leaving
+       it for a genuine 4th column neighbour; a precise, non-growing basis
+       for every field keeps three-to-a-row regardless of which fields
+       happen to share a line. calc() subtracts this grid's own 4px gap
+       (live feedback: "reduce gaps between grid to be small like 4px")
+       across the 2 gaps a 3-column row has - each cell keeps its own full
+       border/radius (the base rule above) rather than the border-collapse
+       "square off and share one border line" trick an earlier, zero-gap
+       version of this grid needed instead. */
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter),
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter),
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter),
@@ -3644,102 +3675,13 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-young-carer-filter),
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter),
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(.filter-toggle-wrap) {
-        border-radius: 0;
-    }
-    /* First cell of each row - outer-left corners only. */
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-pp-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-young-carer-filter) {
-        border-top-left-radius: var(--radius-sm);
-        border-bottom-left-radius: var(--radius-sm);
-    }
-    /* Last cell of each row - outer-right corners only. */
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-lac-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(.filter-toggle-wrap) {
-        border-top-right-radius: var(--radius-sm);
-        border-bottom-right-radius: var(--radius-sm);
-    }
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-eal-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-lac-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(.filter-toggle-wrap) {
-        border-left: none;
-    }
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter) {
-        flex: 0 1 calc(100% / 3);
+        flex: 0 1 calc(100% / 3 - 4px * 2 / 3);
         flex-direction: column;
         align-items: stretch;
-    }
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter) label {
-        width: auto;
-        flex: 0 0 auto;
-        justify-content: center;
-        text-align: center;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
     }
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter) .ui-select,
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter) .ui-select,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter) .ui-select {
-        width: 100%;
-        flex: none;
-    }
-    /* The remaining selects (SEN Status through More Able), plus Has
-       Referrals (the one toggle - live feedback: "change the toggle
-       format so that it has label above", joining this grid rather than
-       staying its own row also fills the one empty slot the group's 9
-       items leave after 8 selects), get the same label-above/N-up
-       treatment as Year/House/Reg - 3 columns, matching (live feedback:
-       first landed on 2 given how much longer these names/values run than
-       "Year"/"House"/"Reg" or "All"/a single letter, e.g. "Pupil
-       Premium"/"SEN Support (K)", then reconsidered back to 3 for
-       consistency with the group above - the per-trigger min-width
-       override below keeps long option text from forcing a wrap either
-       way, truncating with ellipsis instead if a column is genuinely too
-       narrow for it). flex: 0 1 <precise 1/3>, not flex-grow: 1 - same
-       "don't let this group's own items absorb line space meant for the
-       next field's fresh row" fix as Year/House/Reg above (live feedback
-       screenshot: SEN Status stretching to fill space Year/House/Reg
-       should have kept, because grow: 1 let it). */
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-pp-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-eal-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-lac-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-young-carer-filter),
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter) {
-        flex: 0 1 calc(100% / 3);
-        max-width: none;
-        flex-direction: column;
-        align-items: stretch;
-    }
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-pp-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-eal-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-lac-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-young-carer-filter) label,
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter) label {
-        width: auto;
-        flex: 0 0 auto;
-        justify-content: center;
-        text-align: center;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-    }
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter) .ui-select,
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter) .ui-select,
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter) .ui-select,
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter) .ui-select,
@@ -3753,17 +3695,17 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     }
     /* !important: enhanceSelect (main.js) sets each trigger's own min-width
        as an inline style, sized to its widest *option* text and capped at
-       FILTER_FIELD_TRIGGER_MAX_WIDTH - a budget computed for the old
-       1-column layout's own ~200px-wide field, not this 2-up grid's ~155px
-       column. SEN Status's own inline 147px (its longest option, "SEN
-       Support (K)") overflowed the column and forced the whole row to wrap
-       instead of pairing with Gender (live feedback screenshot: a lone
-       full-width SEN Status row, throwing off every pair after it). A
-       plain stylesheet rule can't win against an inline style at all
-       regardless of specificity - only !important can - so the trigger
-       shrinks to the column's real width instead, falling back to its own
-       already-built ellipsis truncation (forms.css) for whichever option
-       text doesn't fit. */
+       FILTER_FIELD_TRIGGER_MAX_WIDTH - a budget computed for an older
+       single-column layout's own ~200px-wide field, not this 3-up grid's
+       ~110px column. SEN Status's own inline 147px (its longest option,
+       "SEN Support (K)") overflowed the column and forced the whole row to
+       wrap instead of sitting with its neighbours (live feedback
+       screenshot: a lone full-width SEN Status row, throwing off every
+       group after it). A plain stylesheet rule can't win against an inline
+       style at all regardless of specificity - only !important can - so
+       the trigger shrinks to the column's real width instead, falling
+       back to its own already-built ellipsis truncation (forms.css) for
+       whichever option text doesn't fit. */
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter) .ui-select-trigger,
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter) .ui-select-trigger,
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter) .ui-select-trigger,
@@ -3774,36 +3716,77 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter) .ui-select-trigger {
         min-width: 0 !important;
     }
+    /* Sections regroup fields visually (live feedback: "3 columns and
+       sectioned! ... Can you rearrange filter to the sections" - Class
+       Info / SEN & Support / Demographics, .filter-section-label below)
+       without moving them in the DOM - flex `order` instead, so the
+       :has(#field-id) selectors above/below keep working regardless of
+       visual position. Class Info (Year/House/Reg, order: 0 - the
+       default) needs no override, it's already first by DOM position.
+       SEN & Support pulls SEN Status/Looked After/Young Carer/More Able
+       up to sit with Has Referrals (its own order: 1, further below) even
+       though all four sit later in DOM order; Demographics does the same
+       for Gender/Ethnicity/Pupil Premium/EAL. */
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter),
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-lac-filter),
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-young-carer-filter),
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter) {
+        order: 1;
+    }
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter),
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter),
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-pp-filter),
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-eal-filter) {
+        order: 2;
+    }
+    /* Section headers (students.html: Class Info / SEN & Support /
+       Demographics) - full-width rows breaking the grid into three
+       shorter, labeled groups instead of one long undifferentiated list.
+       "Class Info"/"SEN & Support" each sit first in DOM among their own
+       group already, so no order override is needed for them;
+       "Demographics" (before Gender) needs order: 2 explicitly - its DOM
+       position falls inside the order: 1 SEN & Support group's DOM range,
+       so without this it would render at that DOM-implied order: 1 slot
+       instead. */
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-section-label {
+        display: block;
+        flex: 1 1 100%;
+        margin-top: var(--space-sm);
+        font-size: var(--font-sm);
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-section-label:first-child {
+        margin-top: 0;
+    }
+    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-section-label--demographics {
+        order: 2;
+    }
     /* --bg-surface, not --bg-choice (.ui-fused-field-label's usual token) -
        same reasoning the old Search-only fused box used (--bg-choice
        resolves to --bg-well, the exact token .filter-bar itself sits on -
-       the label would blend into its own bar with no visible edge). */
-    /* Fixed width (not flex:0 0 auto sized to each label's own text) so
-       every row's control starts at the same x position instead of
-       jogging left/right with "Year" vs "Overdue Actions" (live feedback:
-       "fused labels when expanded be same width") - wide enough for the
-       longest label ("Overdue Actions"/"Pupil Premium"); the base
-       .filter-field label rule's own nowrap+ellipsis (forms.css) is the
-       fallback for anything that somehow still doesn't fit. */
-    /* Right-aligned (live feedback: "fused labels be right aligned") - reads
-       as the label leaning in toward the divider/value next to it, rather
-       than toward the field's own outer edge. justify-content, not just
-       text-align - the label is display:flex, so its text is flex content,
-       not inline content text-align alone would move. */
+       the label would blend into its own bar with no visible edge).
+       Centred, label above value, for every field now (not fused-left) -
+       every field is grouped into the 3-up grid above, and three
+       consecutive fused-left labels of unequal text width ("Year" vs
+       "Pupil Premium") wouldn't line up into a clean N-up grid the way a
+       centred column does. */
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field label {
         display: flex;
         align-items: center;
-        justify-content: flex-end;
-        text-align: right;
-        flex: 0 0 130px;
-        width: 130px;
+        justify-content: center;
+        text-align: center;
+        width: auto;
+        flex: 0 0 auto;
         margin: 0;
         padding: 0 var(--space-sm);
         font-size: var(--font-sm);
         font-weight: 600;
         color: var(--text-secondary);
         background: var(--bg-surface);
-        border-right: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
         white-space: nowrap;
     }
     /* Active filter -> primary label chip (live feedback: "if a filter is
@@ -3819,15 +3802,12 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field--active label {
         background: var(--primary);
         color: #fff;
-        border-right-color: var(--primary);
     }
     /* Dropdown values left-aligned (live feedback: "dropdowns left
        aligned") - the trigger's own base rule (forms.css) already defaults
        to left, this only needs to override Year's own .ui-select--center
-       (forms.css, higher-specificity two-class rule) so every select reads
-       the same way in this list, matching the right-aligned label beside
-       it: label leans in from the left, value starts right after the
-       divider, mirroring each other across it. */
+       (forms.css, higher-specificity two-class rule) so every select
+       reads the same way in this list. */
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .ui-select-trigger.ui-select--center {
         text-align: left;
     }
@@ -3858,55 +3838,23 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         border-radius: 0;
         background-color: transparent;
     }
-    /* Toggle fields get the same label-above/3-up treatment as the SEN
-       Status-through-More Able grid, rather than the general fused-
-       label-left row (live feedback: "change the toggle format so that it
-       has label above") - centred label over a centred pill, same recipe,
-       same flex-basis. Joining that grid rather than staying its own
-       full-width row also fills the one empty slot the grid's own 8 items
-       leave in their last row of 3 (live feedback: "the empty gap ... Has
-       Referrals is orphaned") - `order: 1` (below) places it after every
-       select regardless of DOM position, and a matching flex-basis is
-       what actually lets it pack into that leftover third column instead
-       of wrapping to a new row of its own. */
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(.filter-toggle-wrap) {
-        /* calc(100% / 3), matching the other grid cells exactly (not the
-           gap-subtracting formula this rule was first written with, back
-           when the grid still had a gap between columns) - left stale when
-           column-gap: 0 landed above, so Has Referrals was still reserving
-           room for a gap that no longer exists, reading visibly narrower
-           than Looked After/every other cell (live feedback: "Has
-           Referrals should be same width of Looked After above"). */
-        flex: 0 1 calc(100% / 3);
-        flex-direction: column;
-        align-items: stretch;
-    }
-    form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(.filter-toggle-wrap) label {
-        width: auto;
-        flex: 0 0 auto;
-        justify-content: center;
-        text-align: center;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-    }
+    /* Toggle fields get the same label-above/3-up treatment as every
+       select (live feedback: "change the toggle format so that it has
+       label above"), and are grouped with SEN Status/Looked After/Young
+       Carer/More Able (order: 1, above and below) rather than the general
+       fused-label-left row. */
     /* flex: 0 0 35px (not just height: 35px) - .filter-field:has(.filter-
        toggle-wrap) is a column flex container (above), and the earlier
        shared rule (.filter-field .filter-toggle-wrap { flex: 1 }, this
        file) sets flex-basis: 0% via that shorthand, which wins over any
-       plain height on the main (vertical) axis - a first attempt at just
-       height: 35px was silently overridden by it, leaving the toggle
-       stretched to fill the field's own remaining height instead (live
-       feedback + screenshot: "Has Referrals is now shorter" - inverted
-       from the original too-tall bug once flex: 1 won and stretched it
-       past 35px in the other direction). flex-basis: 35px matches the
-       select fields' own box height (.ui-select, forms.css) exactly,
+       plain height on the main (vertical) axis. flex-basis: 35px matches
+       the select fields' own box height (.ui-select, forms.css) exactly,
        since equal padding alone doesn't: the pill itself (24px, pills.css)
        is taller than a select trigger's single line of text, so the same
        padding around each still left this row visibly taller than its
-       neighbours (the original live feedback this rule exists for).
-       flex-grow/shrink: 0 stops it from growing again the way flex: 1
-       did. align-items: center (already set) centres the 24px pill inside
-       the fixed box. */
+       neighbours. flex-grow/shrink: 0 stops it from growing again the way
+       flex: 1 did. align-items: center (already set) centres the 24px
+       pill inside the fixed box. */
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .filter-toggle-wrap {
         display: flex;
         align-items: center;
@@ -3914,15 +3862,12 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         flex: 0 0 35px;
         padding: 0 var(--space-sm);
     }
-    /* Toggle fields grouped at the end of the list, after every select
-       (live feedback: "toggles move to end") - flex `order` rather than a
-       template reorder: every other field (label, Search, the selects)
-       stays at the default order:0 and keeps its own relative/template
-       order among itself, this just sorts anything holding a
-       .filter-toggle-wrap into a second group after all of them. Visual
-       order only - doesn't change tab/DOM order, deliberate here since
-       these are independent single-purpose toggles with no fixed reading
-       relationship to the selects above them. */
+    /* Has Referrals sorts to sit with the rest of the SEN & Support group
+       (order: 1, matching the section it's grouped under, above) - flex
+       `order` rather than a template reorder, since its actual DOM
+       position (right after Reg) is what the "SEN & Support" section
+       header (students.html) needs to precede in order to land first in
+       that group. */
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(.filter-toggle-wrap) {
         order: 1;
     }

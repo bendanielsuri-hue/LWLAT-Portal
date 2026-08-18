@@ -119,6 +119,18 @@ School dropped entirely (issue #9).
     <div class="filter-bar-collapsible">
     <div class="filter-bar-collapsible-inner">
     {% comment %}
+    Section headers breaking the mobile field grid into Class Info / SEN &
+    Support / Demographics (live feedback: "3 columns and sectioned! ...
+    Can you rearrange filter to the sections") - hidden except in the
+    mobile 3-up grid (panel.css). Each header sits first in DOM among its
+    own group's fields (SEN & Support here, before Has Referrals - the
+    CSS `order` rules below, panel.css, pull SEN Status/Looked After/Young
+    Carer/More Able up into this same group even though they sit later in
+    DOM order); "Demographics" (below, before Gender) needs its own
+    order override for the same reason - see panel.css's own comment there.
+    {% endcomment %}
+    <div class="filter-section-label">Class Info</div>
+    {% comment %}
     Year/House/Reg grouped into one 3-up row with each label above its
     own value, rather than each taking a full fused-label-left row to
     itself (live feedback: "a lot of these filters are taking up too
@@ -157,6 +169,7 @@ School dropped entirely (issue #9).
             {% endfor %}
         </select>
     </div>
+    <div class="filter-section-label">SEN & Support</div>
     <div class="filter-field">
         <label>Has Referrals</label>
         <div class="filter-toggle-wrap">
@@ -173,6 +186,8 @@ School dropped entirely (issue #9).
             {% endfor %}
         </select>
     </div>
+    {% comment %}Precedes the Demographics group (Gender, Ethnicity, Pupil Premium, EAL) - see panel.css's own comment on .filter-section-label--demographics for why this one needs an explicit order override.{% endcomment %}
+    <div class="filter-section-label filter-section-label--demographics">Demographics</div>
     <div class="filter-field{% if gender_filter %} filter-field--active{% endif %}">
         <label for="gender-filter">Gender</label>
         <select id="gender-filter" name="gender">
