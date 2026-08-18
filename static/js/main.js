@@ -238,11 +238,26 @@ function setupFilterBarMoreFilters(bar) {
     // need to be found and reparented into fieldsWrap same as always, or
     // tablet/desktop's own dynamic-overflow behaviour has nothing to
     // measure and never runs at all.
-    var allFields = Array.prototype.slice.call(bar.querySelectorAll('.filter-field')).filter(function (f) {
+    // .filter-section-label (Students' own mobile-only section headers,
+    // e.g. "Group Info"/"Inclusion Panel" - #135 follow-up, live feedback:
+    // "Year House and Reg needs to move to Group Info") - included here so
+    // the appendChild pass below (allFields.forEach) carries each header
+    // along interspersed with its neighbouring fields, in original
+    // template order, instead of leaving it behind: this function only
+    // used to know about .filter-field, so every field got physically
+    // moved to the end of fieldsHost while headers (not .filter-field, so
+    // never touched) stayed put - visually bunching every header at the
+    // top and every field below them regardless of which section they
+    // belonged to. Never a candidate for the overflow measurement/
+    // secondary-group logic further down (`fields`, below, stays
+    // .filter-field-only) - a header is never itself too wide to fit, and
+    // hiding it behind "More filters" would strand its own group's fields
+    // without the label explaining them.
+    var allFields = Array.prototype.slice.call(bar.querySelectorAll('.filter-field, .filter-section-label')).filter(function (f) {
         return f !== clearWrapper && !(label && label.contains(f));
     });
     var fields = allFields.filter(function (f) {
-        return !f.hasAttribute('data-filter-pinned');
+        return f.classList.contains('filter-field') && !f.hasAttribute('data-filter-pinned');
     });
     if (fields.length < 2) return;
 
@@ -322,17 +337,26 @@ function setupFilterBarMoreFilters(bar) {
     bar.appendChild(actionsRight);
 
     function measure() {
-        // Move every field back into the primary row, in original order,
-        // before remeasuring - appendChild reparents in place, so this
-        // recovers fields that ended up in the secondary group on a
-        // previous, narrower pass. fieldsHost, matching secondaryRow's own
-        // parent above. insertBefore(f, secondaryRow) here would otherwise
-        // also march every field past collapsibleInner's own footer (it
-        // sits between the fields and secondaryRow after the reanchor
-        // above) right back to the top again, same failure mode as
-        // appendChild - reanchorCollapsibleFooter() undoes that each time
-        // measure() runs, not just once at setup.
-        fields.forEach(function (f) { fieldsHost.insertBefore(f, secondaryRow); });
+        // Move every field (and section-label header, #135 follow-up -
+        // allFields, not just fields) back into the primary row, in
+        // original order, before remeasuring - appendChild reparents in
+        // place, so this recovers fields that ended up in the secondary
+        // group on a previous, narrower pass. fieldsHost, matching
+        // secondaryRow's own parent above. insertBefore(f, secondaryRow)
+        // here would otherwise also march every field past
+        // collapsibleInner's own footer (it sits between the fields and
+        // secondaryRow after the reanchor above) right back to the top
+        // again, same failure mode as appendChild - reanchorCollapsible
+        // Footer() undoes that each time measure() runs, not just once at
+        // setup. allFields, not fields, here specifically - fields alone
+        // (·filter-field only) would pull every field into one contiguous
+        // block right before secondaryRow, stranding each section-label
+        // header behind wherever it happened to already be (live feedback:
+        // "Year House and Reg needs to move to Group Info" - every header
+        // bunched at the top, every field below them, headers no longer
+        // interspersed with their own group). allFields carries the
+        // headers along in their own original relative position instead.
+        allFields.forEach(function (f) { fieldsHost.insertBefore(f, secondaryRow); });
         reanchorCollapsibleFooter();
         secondaryRow.hidden = true;
         moreFiltersBtn.hidden = true;

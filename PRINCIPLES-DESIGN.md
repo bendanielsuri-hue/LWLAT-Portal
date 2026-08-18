@@ -59,6 +59,7 @@ Visual design values that hold regardless of which project this is. Entries here
 
 - **S1.** All single-line controls (buttons, text inputs, dropdowns) should be the same height as each other.
 - **S2.** Don't mix a taller, multi-line-shaped component into the same row as single-line controls — it will look misaligned.
+- **S3.** On a real touch device, every single-line control needs a taller minimum height (~44px) than its desktop default, to stay a comfortable tap target — apply the same bump to all of them together so S1's "same height as each other" still holds at touch size, not just on desktop.
 
 ## T — Typography
 

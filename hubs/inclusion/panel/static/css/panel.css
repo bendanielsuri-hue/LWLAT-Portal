@@ -3928,11 +3928,15 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         justify-content: flex-start;
         gap: var(--space-xs);
         flex: 1 1 100%;
-        margin-top: var(--space-sm);
+        margin-top: var(--space-md);
         margin-bottom: var(--space-xs);
         font-size: var(--font-2xs);
         font-weight: 600;
-        color: var(--text-tertiary);
+        /* --text-tertiary (was) measured 3.9:1 against this tray's cream
+           background - under WCAG AA's 4.5:1 floor for text this size.
+           --text-secondary clears ~6.5:1 while keeping the same token
+           system (no one-off hex). */
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.04em;
     }
@@ -4080,8 +4084,17 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     body:has(.students-page-shell) .main-inner {
         padding-bottom: 0 !important;
     }
+    /* calc(47px + 18px) matches exactly how far the FAB's top edge sits
+       above the viewport bottom (measured live: bar height 47px + the
+       FAB's own 18px overhang above the bar's top edge) - no extra
+       breathing room added on top (live feedback: "too much extra space
+       at bottom... should only be the amount the FAB sticks into
+       content"). The general .main-inner formula this was copied from
+       (comment above) adds var(--space-lg) on top of that for pages where
+       the last row just needs to clear the bar with some margin; here the
+       bar+FAB height alone is the whole budget. */
     #students-filtered-content .entity-list {
-        padding-bottom: calc(47px + 18px + var(--space-lg));
+        padding-bottom: calc(47px + 18px);
     }
     .list-page-shell:has(#students-filtered-content) {
         margin-left: calc(-1 * var(--space-sm));

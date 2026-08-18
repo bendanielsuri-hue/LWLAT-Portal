@@ -40,6 +40,22 @@
 .btn-secondary:hover { background: var(--btn-secondary-hover-bg); border-color: var(--btn-secondary-hover-border); color: var(--btn-secondary-hover-text); }
 .btn-sm { padding: var(--space-xs) var(--space-sm); font-size: var(--font-sm); }
 
+/* (DES-S1 touch) Real touch devices (html.nav-touch-mode, see main.js's
+   isTouchNav()) get a taller vertical padding than the shared button/
+   filter-field default above - --space-xs (8px) top/bottom lands every
+   control around 36px tall, under the ~44px minimum tap target both iOS
+   HIG and Material call for. --space-sm (12px) top/bottom clears that
+   floor for both .btn and .btn-sm (measured ~44px live) without touching
+   horizontal padding/font-size - html.nav-touch-mode .btn's specificity
+   beats .btn-sm's own shorthand regardless of source order, so one rule
+   covers every button variant. Filter-field inputs/selects get the same
+   bump in forms.css, keeping DES-S1's "control height matches button
+   height" true at touch sizes too, not just desktop. */
+html.nav-touch-mode .btn {
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
+}
+
 /* Tertiary-tier action button — neutral outline (no accent fill or tint). Hover
    reveals the accent to signal interactivity via --btn-secondary-border/text. */
 .btn-tertiary {
