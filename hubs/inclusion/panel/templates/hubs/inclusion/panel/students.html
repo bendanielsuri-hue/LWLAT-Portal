@@ -119,17 +119,21 @@ School dropped entirely (issue #9).
     <div class="filter-bar-collapsible">
     <div class="filter-bar-collapsible-inner">
     {% comment %}
-    Section headers breaking the mobile field grid into Class Info / SEN &
-    Support / Demographics (live feedback: "3 columns and sectioned! ...
-    Can you rearrange filter to the sections") - hidden except in the
-    mobile 3-up grid (panel.css). Each header sits first in DOM among its
-    own group's fields (SEN & Support here, before Has Referrals - the
-    CSS `order` rules below, panel.css, pull SEN Status/Looked After/Young
-    Carer/More Able up into this same group even though they sit later in
-    DOM order); "Demographics" (below, before Gender) needs its own
-    order override for the same reason - see panel.css's own comment there.
+    Section headers breaking the mobile field grid into Group Info / SEN &
+    Support / Inclusion Panel / Demographics, in that order (live feedback:
+    "3 columns and sectioned! ... Can you rearrange filter to the
+    sections", later "What order would you recommend the groups" - Group
+    Info first as basic cohort identity; SEN & Support (the reason this
+    panel exists) right after it rather than after activity/demographic
+    filters; Inclusion Panel's referral/action activity third, since it's
+    workflow data about a student rather than an identity attribute;
+    Demographics last as broad cross-cutting characteristics not specific
+    to this panel's purpose) - hidden except in the mobile 3-up grid
+    (panel.css). No CSS `order` needed to reshuffle anything (unlike an
+    earlier version of this grouping) - this template order already is the
+    visual order, so plain DOM/flex-wrap sequencing gets there on its own.
     {% endcomment %}
-    <div class="filter-section-label">Class Info</div>
+    <div class="filter-section-label">Group Info</div>
     {% comment %}
     Year/House/Reg grouped into one 3-up row with each label above its
     own value, rather than each taking a full fused-label-left row to
@@ -170,13 +174,6 @@ School dropped entirely (issue #9).
         </select>
     </div>
     <div class="filter-section-label">SEN & Support</div>
-    <div class="filter-field">
-        <label>Has Referrals</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="has-referrals-input" name="has_referrals" value="1" hidden {% if has_referrals_filter %}checked{% endif %}>
-            <button type="button" id="has-referrals-toggle" class="toggle-pill{% if has_referrals_filter %} on{% endif %}" aria-pressed="{% if has_referrals_filter %}true{% else %}false{% endif %}" aria-label="Has Referrals"><span class="toggle-knob"></span></button>
-        </div>
-    </div>
     <div class="filter-field{% if sen_status_filter %} filter-field--active{% endif %}">
         <label for="sen-status-filter">SEN Status</label>
         <select id="sen-status-filter" name="sen_status">
@@ -186,8 +183,38 @@ School dropped entirely (issue #9).
             {% endfor %}
         </select>
     </div>
-    {% comment %}Precedes the Demographics group (Gender, Ethnicity, Pupil Premium, EAL) - see panel.css's own comment on .filter-section-label--demographics for why this one needs an explicit order override.{% endcomment %}
-    <div class="filter-section-label filter-section-label--demographics">Demographics</div>
+    <div class="filter-field{% if is_lac_filter %} filter-field--active{% endif %}">
+        <label for="is-lac-filter">Looked After</label>
+        <select id="is-lac-filter" name="is_lac">
+            <option value="">All</option>
+            <option value="1" {% if is_lac_filter == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if is_lac_filter == '0' %}selected{% endif %}>N</option>
+        </select>
+    </div>
+    <div class="filter-field{% if is_young_carer_filter %} filter-field--active{% endif %}">
+        <label for="is-young-carer-filter">Young Carer</label>
+        <select id="is-young-carer-filter" name="is_young_carer">
+            <option value="">All</option>
+            <option value="1" {% if is_young_carer_filter == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if is_young_carer_filter == '0' %}selected{% endif %}>N</option>
+        </select>
+    </div>
+    <div class="filter-section-label">Inclusion Panel</div>
+    <div class="filter-field">
+        <label>Has Referrals</label>
+        <div class="filter-toggle-wrap">
+            <input type="checkbox" id="has-referrals-input" name="has_referrals" value="1" hidden {% if has_referrals_filter %}checked{% endif %}>
+            <button type="button" id="has-referrals-toggle" class="toggle-pill{% if has_referrals_filter %} on{% endif %}" aria-pressed="{% if has_referrals_filter %}true{% else %}false{% endif %}" aria-label="Has Referrals"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-field">
+        <label>Overdue Actions</label>
+        <div class="filter-toggle-wrap">
+            <input type="checkbox" id="overdue-actions-input" name="overdue_actions" value="1" hidden {% if overdue_actions_filter %}checked{% endif %}>
+            <button type="button" id="overdue-actions-toggle" class="toggle-pill{% if overdue_actions_filter %} on{% endif %}" aria-pressed="{% if overdue_actions_filter %}true{% else %}false{% endif %}" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
+        </div>
+    </div>
+    <div class="filter-section-label">Demographics</div>
     <div class="filter-field{% if gender_filter %} filter-field--active{% endif %}">
         <label for="gender-filter">Gender</label>
         <select id="gender-filter" name="gender">
@@ -222,22 +249,14 @@ School dropped entirely (issue #9).
             <option value="0" {% if is_eal_filter == '0' %}selected{% endif %}>N</option>
         </select>
     </div>
-    <div class="filter-field{% if is_lac_filter %} filter-field--active{% endif %}">
-        <label for="is-lac-filter">Looked After</label>
-        <select id="is-lac-filter" name="is_lac">
-            <option value="">All</option>
-            <option value="1" {% if is_lac_filter == '1' %}selected{% endif %}>Y</option>
-            <option value="0" {% if is_lac_filter == '0' %}selected{% endif %}>N</option>
-        </select>
-    </div>
-    <div class="filter-field{% if is_young_carer_filter %} filter-field--active{% endif %}">
-        <label for="is-young-carer-filter">Young Carer</label>
-        <select id="is-young-carer-filter" name="is_young_carer">
-            <option value="">All</option>
-            <option value="1" {% if is_young_carer_filter == '1' %}selected{% endif %}>Y</option>
-            <option value="0" {% if is_young_carer_filter == '0' %}selected{% endif %}>N</option>
-        </select>
-    </div>
+    {% comment %}
+    More Able moved here from SEN & Support (live feedback: "Should More
+    Able be in SEN?" - Looked After/Young Carer are support/vulnerability
+    flags, what "SEN & Support" actually means; More Able is an attainment-
+    tracking characteristic, grouped with SEND only by the "schools track
+    it as a monitored group" convention, the same category as Pupil
+    Premium/EAL rather than a support need).
+    {% endcomment %}
     <div class="filter-field{% if is_more_able_filter %} filter-field--active{% endif %}">
         <label for="is-more-able-filter">More Able</label>
         <select id="is-more-able-filter" name="is_more_able">
@@ -335,6 +354,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     setupToggle(document.getElementById('has-referrals-toggle'), document.getElementById('has-referrals-input'));
+    setupToggle(document.getElementById('overdue-actions-toggle'), document.getElementById('overdue-actions-input'));
 
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);

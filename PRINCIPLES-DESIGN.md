@@ -62,7 +62,8 @@ Visual design values that hold regardless of which project this is. Entries here
 
 ## T — Typography
 
-- **T1.** Don't use uppercase text for normal writing. It's fine for short labels like badges or tags, but never for anything meant to be read as a sentence.
+- **T1.** Don't use uppercase text for normal writing. It's fine for short labels like badges or tags, or a small, letter-spaced, muted-colour ALL CAPS heading dividing a group of fields/content — but never for anything meant to be read as a sentence.
+- **T2.** Two casing rules, by role: Chrome — nav labels, buttons, modal/dialog titles, table headers, section labels, status pills, and code-defined choice labels — uses Title Case: capitalize each major word, but keep short connecting words (a, an, the, and, or, of, to, in, on, for...) lowercase unless first or last. Prose — empty-state messages, help text, placeholder text, and any error/toast/notification copy — uses sentence case: capitalize only the first word.
 
 ## U — Usability
 

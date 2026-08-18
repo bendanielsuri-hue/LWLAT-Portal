@@ -3,7 +3,7 @@ import json
 from collections import Counter
 from urllib.parse import quote
 
-from django.db.models import Count, Max, Prefetch, Q
+from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -1176,6 +1176,7 @@ def inclusion_panel_students(request):
     house_filter = request.GET.get('house') or ''
     reg_filter = request.GET.get('reg') or ''
     has_referrals_filter = request.GET.get('has_referrals') == '1'
+    overdue_actions_filter = request.GET.get('overdue_actions') == '1'
     # Candidate filters behind "More filters" (issue #9).
     sen_status_filter = request.GET.get('sen_status') or ''
     gender_filter = request.GET.get('gender') or ''
@@ -1186,6 +1187,7 @@ def inclusion_panel_students(request):
     is_young_carer_filter = request.GET.get('is_young_carer') or ''
     is_more_able_filter = request.GET.get('is_more_able') or ''
 
+    today = timezone.localdate()
     base_students = student_queryset_for_school_key(school_key)
 
     # Option lists computed from the school-scoped set, before the filters
@@ -1207,9 +1209,21 @@ def inclusion_panel_students(request):
     # join fan-out from combining referrals and actions in one annotate()
     # call - each COUNT(DISTINCT <that table's pk>) dedupes on its own
     # column regardless of how many joined rows precede it.
+    overdue_actions_subquery = Action.objects.filter(
+        referral__student=OuterRef('pk'), status='incomplete', due_date__lt=today,
+    )
     students = base_students.annotate(
         referrals_count=Count('referrals', distinct=True),
         actions_count=Count('referrals__actions', distinct=True),
+        # Exists(), not a further Count(..., distinct=True) - a plain
+        # .filter('referrals__actions__...') on this same relation path
+        # would apply its WHERE clause to the join the two Count()s above
+        # already share, throwing off their aggregation (rows the overdue
+        # filter excludes would also disappear from the counts). A
+        # correlated subquery sidesteps that entirely - it's evaluated
+        # independently per student, so it can't interact with the joins
+        # above at all.
+        has_overdue_actions=Exists(overdue_actions_subquery),
     ).select_related('school')
     if name_filter:
         students = students.filter(Q(first_name__icontains=name_filter) | Q(last_name__icontains=name_filter))
@@ -1221,6 +1235,8 @@ def inclusion_panel_students(request):
         students = students.filter(reg_form=reg_filter)
     if has_referrals_filter:
         students = students.filter(referrals_count__gt=0)
+    if overdue_actions_filter:
+        students = students.filter(has_overdue_actions=True)
     if sen_status_filter:
         students = students.filter(sen_status=sen_status_filter)
     if gender_filter:
@@ -1256,7 +1272,7 @@ def inclusion_panel_students(request):
 
     active_filter_count = sum(
         1 for v in (
-            name_filter, year_filter, house_filter, reg_filter, has_referrals_filter,
+            name_filter, year_filter, house_filter, reg_filter, has_referrals_filter, overdue_actions_filter,
             sen_status_filter, gender_filter, ethnicity_filter,
             is_pp_filter, is_eal_filter, is_lac_filter, is_young_carer_filter, is_more_able_filter,
         ) if v
@@ -1275,6 +1291,7 @@ def inclusion_panel_students(request):
         'house_filter': house_filter,
         'reg_filter': reg_filter,
         'has_referrals_filter': has_referrals_filter,
+        'overdue_actions_filter': overdue_actions_filter,
         'sen_status_filter': sen_status_filter,
         'sen_status_choices': Student.SEN_STATUS_CHOICES,
         'gender_filter': gender_filter,
