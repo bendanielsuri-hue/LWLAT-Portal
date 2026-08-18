@@ -197,31 +197,103 @@ function setupFilterBarMoreFilters(bar) {
         return;
     }
 
-    var clearEl = bar.querySelector('.filter-bar-clear');
+    // :not(.filter-bar-clear--sticky) - Students' own mobile sticky header
+    // (#133 follow-up) carries a second Clear Filters instance of its own
+    // (same class, so the AJAX Clear handling elsewhere in this file picks
+    // either up identically), sitting earlier in the DOM than the original
+    // bottom-of-list one below. A bare querySelector would grab that sticky
+    // instance instead and rip it out of its own header wrapper into the
+    // desktop-only actionsRight group built further down - excluded here so
+    // this logic always keeps operating on the original, wherever a second
+    // instance like this exists.
+    var clearEl = bar.querySelector('.filter-bar-clear:not(.filter-bar-clear--sticky)');
     var clearWrapper = clearEl && clearEl.closest('.filter-field');
-    var label = bar.querySelector('.filter-bar-label');
+    // .filter-bar-sticky-row (students.html, #133 follow-up) bundles the
+    // label with a close button/second Clear Filters instance into one
+    // sticky-able unit with one shared background - falls back to the bare
+    // label on every other page, which has no such wrapper.
+    var label = bar.querySelector('.filter-bar-sticky-row') || bar.querySelector('.filter-bar-label');
     // [data-filter-pinned] opts a field out of overflow measurement entirely
-    // (e.g. Students' own Name Search - #117 follow-up, live feedback: "the
-    // name search could always be visible in a separate row") - it's never
-    // moved into the auto-built secondary group regardless of width, so it
-    // needs its own always-visible placement in the template instead.
-    var fields = Array.prototype.slice.call(bar.querySelectorAll('.filter-field')).filter(function (f) {
-        return f !== clearWrapper && !f.hasAttribute('data-filter-pinned');
+    // (e.g. Students' own Search - #117/#133 follow-up, live feedback: "the
+    // name search could always be visible") - it's never moved into the
+    // auto-built secondary group regardless of width. allFields (below) still
+    // reparents it into fieldsWrap alongside label/fields, just in its
+    // original relative position, so it keeps its own place in the visual
+    // order (e.g. "Filters, Search, Year, House, ...") rather than always
+    // landing before or after the whole group - only `fields` (excluding
+    // pinned) feeds the overflow-measurement/secondary-group logic below.
+    // !(label && label.contains(f)) - Students' own Search lives nested
+    // inside .filter-bar-sticky-row itself (#133 follow-up, live feedback:
+    // "search going back to a constant filter that always lives on the
+    // filters label and badge row"), which is styled to work as its own
+    // small flex row at every width (not just this dynamic-overflow
+    // system's own fieldsWrap) - so it's carried along automatically once
+    // that whole wrapper is appended into fieldsWrap below, and matching
+    // it again here would instead re-append (move) it individually,
+    // ripping it back out. Everything else - including fields nested
+    // inside Students' own .filter-bar-collapsible (#133 follow-up, "can
+    // the filter slide down like a shelf") - still needs to match here
+    // despite the extra nesting: that wrapper only has real layout styling
+    // at phone width (panel.css), so at every other width its fields still
+    // need to be found and reparented into fieldsWrap same as always, or
+    // tablet/desktop's own dynamic-overflow behaviour has nothing to
+    // measure and never runs at all.
+    var allFields = Array.prototype.slice.call(bar.querySelectorAll('.filter-field')).filter(function (f) {
+        return f !== clearWrapper && !(label && label.contains(f));
+    });
+    var fields = allFields.filter(function (f) {
+        return !f.hasAttribute('data-filter-pinned');
     });
     if (fields.length < 2) return;
 
     var fieldsWrap = document.createElement('div');
     fieldsWrap.className = 'filter-fields-wrap';
-    bar.insertBefore(fieldsWrap, label || fields[0]);
+    bar.insertBefore(fieldsWrap, label || allFields[0]);
     if (label) fieldsWrap.appendChild(label);
-    fields.forEach(function (f) { fieldsWrap.appendChild(f); });
+    // Students' own collapsible slide-down wrapper (#133 follow-up, "can
+    // the filter slide down like a shelf") - when present, fields land
+    // inside its own inner element (which keeps its separate grid-rows
+    // slide animation, panel.css) instead of becoming fieldsWrap's own
+    // direct children; the outer wrapper itself still becomes part of
+    // fieldsWrap (appendChild here, right where fields would otherwise
+    // have landed) so it sits in the correct place relative to the
+    // secondary group/actions built below on every other page, this is
+    // simply absent and fieldsHost falls back to fieldsWrap itself,
+    // unchanged from before.
+    var collapsible = bar.querySelector('.filter-bar-collapsible');
+    var collapsibleInner = collapsible && collapsible.querySelector('.filter-bar-collapsible-inner');
+    if (collapsible) fieldsWrap.appendChild(collapsible);
+    var fieldsHost = collapsibleInner || fieldsWrap;
+    // collapsibleInner's own footer (students.html - Clear/Close, already
+    // its last child in the template) needs re-appending to the true end
+    // any time fields get individually appended/inserted into fieldsHost
+    // elsewhere (immediately below, and again inside measure() every time
+    // it runs) - appendChild/insertBefore always move relative to
+    // wherever their target *currently* sits, and the footer is never
+    // itself part of allFields/fields (it's not a .filter-field) for any
+    // of that repositioning to naturally carry it along - left to itself,
+    // each field lands wherever the footer already happens to be instead
+    // of the other way round, stranding the footer at the top of the
+    // field grid instead of the bottom.
+    function reanchorCollapsibleFooter() {
+        if (!collapsibleInner) return;
+        var footer = collapsibleInner.querySelector('.filter-bar-sticky-footer');
+        if (footer) collapsibleInner.appendChild(footer);
+    }
+    allFields.forEach(function (f) { fieldsHost.appendChild(f); });
+    reanchorCollapsibleFooter();
 
     secondaryRow = document.createElement('div');
     secondaryRow.className = 'filter-secondary-fields';
     var divider = document.createElement('span');
     divider.className = 'filter-divider';
     secondaryRow.appendChild(divider);
-    fieldsWrap.appendChild(secondaryRow);
+    // fieldsHost, not always fieldsWrap - has to be the same element
+    // fields themselves live in (above), since measure() below uses
+    // secondaryRow as an insertBefore reference point among them; a
+    // reference node has to actually be a child of whichever element
+    // insertBefore is called on, or it throws.
+    fieldsHost.appendChild(secondaryRow);
 
     var actionsRight = document.createElement('div');
     actionsRight.className = 'filter-actions-right';
@@ -253,8 +325,15 @@ function setupFilterBarMoreFilters(bar) {
         // Move every field back into the primary row, in original order,
         // before remeasuring - appendChild reparents in place, so this
         // recovers fields that ended up in the secondary group on a
-        // previous, narrower pass.
-        fields.forEach(function (f) { fieldsWrap.insertBefore(f, secondaryRow); });
+        // previous, narrower pass. fieldsHost, matching secondaryRow's own
+        // parent above. insertBefore(f, secondaryRow) here would otherwise
+        // also march every field past collapsibleInner's own footer (it
+        // sits between the fields and secondaryRow after the reanchor
+        // above) right back to the top again, same failure mode as
+        // appendChild - reanchorCollapsibleFooter() undoes that each time
+        // measure() runs, not just once at setup.
+        fields.forEach(function (f) { fieldsHost.insertBefore(f, secondaryRow); });
+        reanchorCollapsibleFooter();
         secondaryRow.hidden = true;
         moreFiltersBtn.hidden = true;
         moreFiltersBtn.setAttribute('aria-expanded', 'false');
@@ -1629,12 +1708,52 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // tapping the "Filters · count" label toggles `.is-expanded`, which is
     // what actually reveals the fields below that width. No-op above 480px
     // since the CSS there ignores the class and shows fields unconditionally.
+    // [data-filter-bar-close] (#133 follow-up, live feedback: "an obvious
+    // close") is the same idea but one-directional - always collapses,
+    // never toggles open, since a close button's only job is closing.
     document.addEventListener('click', function (e) {
         var label = closest(e.target, '.filter-bar-label');
-        if (!label) return;
-        var bar = closest(label, '.filter-bar');
+        var closeBtn = closest(e.target, '[data-filter-bar-close]');
+        if (!label && !closeBtn) return;
+        // closeBtn's own closest('.filter-bar') covers a close control
+        // nested inside the bar itself (the Close button); the
+        // document.querySelector fallback covers one that deliberately
+        // isn't - Students' own backdrop overlay (#133 follow-up) lives
+        // beside #students-filtered-content instead, not inside .filter-bar,
+        // specifically so a semi-transparent layer never has to render
+        // inside the bar's own box (where its padding/gaps would otherwise
+        // let it visibly dim the bar's own background too - live feedback:
+        // "the overlay is affecting the expanded filter bg"). Only one bar
+        // is ever realistically .is-expanded at a time, so this is safe
+        // without the overlay needing to name which bar it belongs to.
+        var bar = closest(label || closeBtn, '.filter-bar') || (closeBtn && document.querySelector('.filter-bar.is-expanded'));
         if (!bar) return;
-        bar.classList.toggle('is-expanded');
+        if (closeBtn) {
+            bar.classList.remove('is-expanded');
+        } else {
+            bar.classList.toggle('is-expanded');
+        }
+    });
+
+    // Clicking a filter field's own label activates its control the same
+    // as clicking the control itself (live feedback: "can clicking on
+    // dropdown label also open dropdown or select the toggle - this will
+    // help mobile usage") - a plain <label for="..."> already focuses its
+    // target natively, but the actual interactive control for an
+    // enhanceSelect()'d field is the separate .ui-select-trigger button
+    // beside it, not the real <select> the label points at (that one's
+    // hidden/inert - see enhanceSelect's own selectEl.tabIndex = -1
+    // above), so native label-click behaviour alone never opened anything.
+    // Forwarding the click to whichever control the field actually holds
+    // (a select's trigger, or a toggle's pill) covers both with one
+    // handler, and reads as a much bigger tap target on a touch screen
+    // than the control alone.
+    document.addEventListener('click', function (e) {
+        var label = closest(e.target, '.filter-field label');
+        if (!label) return;
+        var field = closest(label, '.filter-field');
+        var control = field && field.querySelector('.ui-select-trigger, .toggle-pill');
+        if (control) control.click();
     });
 
 
@@ -1674,6 +1793,27 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                         window.enhanceFormControls(target);
                         target.classList.remove('is-loading');
                         history.replaceState(null, '', url);
+                        // Header stat strip (.page-subtitle-stats, e.g.
+                        // Students' "240 Students · 59 Referrals · 82
+                        // Actions") lives outside the ajax-target, so the
+                        // innerHTML swap above never touches it - it'd stay
+                        // showing the unfiltered totals after a filter
+                        // change (live feedback: "adding filters should
+                        // update the stats"). Synced here instead of
+                        // duplicating the numbers into the response some
+                        // other way: every page using this pattern already
+                        // repeats the identical .stats-strip .stat-value
+                        // markup inside the swapped fragment (its own
+                        // footer stats-strip), in the same order - copy
+                        // those freshly-rendered values across by position.
+                        // No-op wherever the counts don't match 1:1 (a page
+                        // with this filter-bar pattern but no header stat
+                        // strip, or a mismatched one).
+                        var freshStats = target.querySelectorAll('.stats-strip .stat-value');
+                        var headerStats = document.querySelectorAll('.page-subtitle-stats .stat-value');
+                        if (freshStats.length && freshStats.length === headerStats.length) {
+                            headerStats.forEach(function (el, i) { el.textContent = freshStats[i].textContent; });
+                        }
                     })
                     .catch(function (err) {
                         if (err.name === 'AbortError') return;
@@ -1934,6 +2074,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         }
 
         selectEl.classList.add('ui-select-native');
+        // tabIndex = -1: visually hidden (opacity: 0, 1x1px, forms.css) is
+        // not the same as out of the tab order - a plain <select> stays
+        // natively focusable regardless of how it's styled, so without this
+        // Tab would stop on it AND the visible trigger button separately,
+        // one invisible stop per field (live feedback: "why do I need to
+        // hit tab twice to get to next filter"). Doesn't affect anything
+        // else this element still needs to do scripted (reading/setting
+        // .value, dispatching change, participating in form submission) -
+        // tabindex only ever affects keyboard Tab traversal.
+        selectEl.tabIndex = -1;
         selectEl.parentNode.insertBefore(wrap, selectEl);
         wrap.appendChild(selectEl);
         wrap.appendChild(trigger);

@@ -310,7 +310,10 @@
    default and only gained emphasis via .filter-field--active's text-stroke,
    so an inactive filter label read lighter than every other label on the
    page for no real reason (see grilling session 2026-07-12). */
-.filter-field label { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+/* cursor: pointer - clicking this label activates the field's own control
+   too (main.js), same affordance a native <label for="..."> already
+   implies visually. */
+.filter-field label { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; cursor: pointer; }
 .filter-field input, .filter-field select {
     /* (DES-S1) Single-line control height matches button height: same vertical
        padding as .btn (--space-xs), not a more generous default. Doesn't apply
@@ -461,8 +464,18 @@ select.ui-select-native, input.ui-select-native {
 }
 /* Resting border is now --border-strong too (see above), so this can no
    longer signal focus by switching border colour - a real outline instead,
-   same convention as .selectable:focus-visible (cards.css). */
-.ui-select-trigger:focus {
+   same convention as .selectable:focus-visible (cards.css). Also applies
+   while its popover is open (.open, main.js), not just on native :focus -
+   showModal() moves real focus onto the <dialog> itself the instant it
+   opens, so :focus alone drops the outline for as long as the popover
+   stays open (live feedback, spotted on a field whose overflow: hidden
+   - Students' own mobile grid, panel.css - clips most of this outline
+   away, leaving just the sliver bleeding into the label above visible; the
+   full outline disappearing was easy to miss anywhere the field isn't
+   clipped like that, but the same focus loss happens everywhere selects
+   are used - "can the border stay if dropdown is ... expanded"). */
+.ui-select-trigger:focus,
+.ui-select-trigger.open {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
 }
@@ -503,6 +516,16 @@ dialog.ui-popover::backdrop { background: transparent; }
 }
 .ui-popover .ui-option:first-child { border-top-left-radius: var(--radius-md); border-top-right-radius: var(--radius-md); }
 .ui-popover .ui-option:last-child { border-bottom-left-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md); }
+/* (INT-U18) Every custom select's own option list scrolls internally past
+   260px (max-height/overflow-y above) - touch mode hides that scrollbar
+   the same way .entity-list's own reference rule does (layout.css), since
+   a real touch device never shows one here either. */
+html.nav-touch-mode .ui-popover {
+    scrollbar-width: none;
+}
+html.nav-touch-mode .ui-popover::-webkit-scrollbar {
+    display: none;
+}
 
 .ui-option {
     position: relative;

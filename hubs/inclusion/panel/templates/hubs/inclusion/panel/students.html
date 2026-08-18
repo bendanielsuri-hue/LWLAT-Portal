@@ -4,7 +4,7 @@
 {% block title %}Students{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=212">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=230">
 {% endblock %}
 
 
@@ -72,18 +72,59 @@ School dropped entirely (issue #9).
 <div class="list-card">
 <form method="get" class="filter-bar" data-ajax-target="#students-filtered-content">
     {% comment %}
-    Name Search pinned first, exempt from both dynamic overflow
-    measurement (setupFilterBarMoreFilters, main.js) and the <=480px
-    tap-to-expand collapse (responsive.css) via data-filter-pinned (#117
-    follow-up, live feedback: "the name search could always be visible in
-    a separate row") - always reachable regardless of how much the rest of
-    the bar collapses.
+    Sticky header row: "Filters" label plus a constant Search field that
+    never leaves this row, collapsed or expanded (#133 follow-up, live
+    feedback: "search going back to a constant filter that always lives
+    on the filters label and badge row" - a return to an idea tried once
+    before and reverted only because Search then had to share the row
+    with a close-X; that X has since moved to the sticky footer below, so
+    the squeeze that forced the reversion no longer applies). Icon +
+    placeholder only, no visible text label - "FILTERS" alongside it
+    already says what the row is for, a second text label would be
+    redundant. Moved into .filter-fields-wrap as a single unit by
+    setupFilterBarMoreFilters (main.js, which now also excludes anything
+    already nested in this wrapper - i.e. Search - from its own separate
+    per-field reparenting, so Search stays inside rather than being
+    pulled back out to sit alongside the other fields), so the whole row
+    stays sticky at the top of the list once expanded. Search keeps
+    data-filter-pinned/.filter-field as before - still counted in the
+    active-filter badge (wireFilterBarActiveState, panel.js, matches on
+    .filter-field regardless of nesting depth) and still never sent to
+    the dynamic-overflow "More filters" measurement on tablet/desktop.
     {% endcomment %}
-    <div class="filter-field filter-field--search{% if name_filter %} filter-field--active{% endif %}" data-filter-pinned>
-        <label for="name-search">Name Search</label>
-        <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
+    <div class="filter-bar-sticky-row">
+        <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+        <div class="filter-field filter-field--search{% if name_filter %} filter-field--active{% endif %}" data-filter-pinned>
+            <span class="filter-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
+            <label for="name-search" class="sr-only">Search</label>
+            <input type="text" id="name-search" name="name" placeholder="Student" value="{{ name_filter }}">
+        </div>
     </div>
-    <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+    {% comment %}
+    Everything below the sticky row - the field grid and Clear/Close -
+    wrapped as one animatable unit (live feedback: "can the filter slide
+    down like a shelf") so the whole group can slide open/closed together
+    via the CSS grid-rows 0fr->1fr technique (panel.css) instead of the
+    instant display:none/flex swap responsive.css's shared collapse rule
+    normally does - that technique needs a single element whose own
+    height can be transitioned, which no plain display toggle on each
+    field individually could ever provide. main.js's :scope > .filter-field
+    field-reparenting (setupFilterBarMoreFilters) already only touches true
+    direct children of the bar, so nesting the fields here instead doesn't
+    need any further JS change to keep working.
+    {% endcomment %}
+    <div class="filter-bar-collapsible">
+    <div class="filter-bar-collapsible-inner">
+    {% comment %}
+    Year/House/Reg grouped into one 3-up row with each label above its
+    own value, rather than each taking a full fused-label-left row to
+    itself (live feedback: "a lot of these filters are taking up too
+    much space... Year, House and Reg on one row with label fused
+    above") - scoped in panel.css via the same :has(#year-filter) etc.
+    hooks the tablet-range override already uses, not a template wrapper,
+    so dynamic overflow measurement (main.js) still treats each as its
+    own independently-measured field on every other width.
+    {% endcomment %}
     <div class="filter-field{% if year_filter %} filter-field--active{% endif %}">
         <label for="year-filter">Year</label>
         <select id="year-filter" name="year" class="ui-select--center">
@@ -120,13 +161,6 @@ School dropped entirely (issue #9).
             <button type="button" id="has-referrals-toggle" class="toggle-pill{% if has_referrals_filter %} on{% endif %}" aria-pressed="{% if has_referrals_filter %}true{% else %}false{% endif %}" aria-label="Has Referrals"><span class="toggle-knob"></span></button>
         </div>
     </div>
-    <div class="filter-field">
-        <label>Overdue Actions</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="overdue-actions-input" name="overdue_actions" value="1" hidden {% if overdue_actions_filter %}checked{% endif %}>
-            <button type="button" id="overdue-actions-toggle" class="toggle-pill{% if overdue_actions_filter %} on{% endif %}" aria-pressed="{% if overdue_actions_filter %}true{% else %}false{% endif %}" aria-label="Overdue Actions"><span class="toggle-knob"></span></button>
-        </div>
-    </div>
     <div class="filter-field{% if sen_status_filter %} filter-field--active{% endif %}">
         <label for="sen-status-filter">SEN Status</label>
         <select id="sen-status-filter" name="sen_status">
@@ -154,54 +188,89 @@ School dropped entirely (issue #9).
             {% endfor %}
         </select>
     </div>
-    <div class="filter-field{% if tutor_filter %} filter-field--active{% endif %}">
-        <label for="tutor-filter">Tutor</label>
-        <select id="tutor-filter" name="tutor">
+    <div class="filter-field{% if is_pp_filter %} filter-field--active{% endif %}">
+        <label for="is-pp-filter">Pupil Premium</label>
+        <select id="is-pp-filter" name="is_pp">
             <option value="">All</option>
-            {% for t in tutors %}
-            <option value="{{ t.id }}" {% if tutor_filter == t.id|stringformat:'s' %}selected{% endif %}>{{ t.first_name }} {{ t.last_name }}</option>
-            {% endfor %}
+            <option value="1" {% if is_pp_filter == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if is_pp_filter == '0' %}selected{% endif %}>N</option>
         </select>
     </div>
-    <div class="filter-field">
-        <label>Pupil Premium</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="is-pp-input" name="is_pp" value="1" hidden {% if is_pp_filter %}checked{% endif %}>
-            <button type="button" id="is-pp-toggle" class="toggle-pill{% if is_pp_filter %} on{% endif %}" aria-pressed="{% if is_pp_filter %}true{% else %}false{% endif %}" aria-label="Pupil Premium"><span class="toggle-knob"></span></button>
-        </div>
+    <div class="filter-field{% if is_eal_filter %} filter-field--active{% endif %}">
+        <label for="is-eal-filter">EAL</label>
+        <select id="is-eal-filter" name="is_eal">
+            <option value="">All</option>
+            <option value="1" {% if is_eal_filter == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if is_eal_filter == '0' %}selected{% endif %}>N</option>
+        </select>
     </div>
-    <div class="filter-field">
-        <label>EAL</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="is-eal-input" name="is_eal" value="1" hidden {% if is_eal_filter %}checked{% endif %}>
-            <button type="button" id="is-eal-toggle" class="toggle-pill{% if is_eal_filter %} on{% endif %}" aria-pressed="{% if is_eal_filter %}true{% else %}false{% endif %}" aria-label="EAL"><span class="toggle-knob"></span></button>
-        </div>
+    <div class="filter-field{% if is_lac_filter %} filter-field--active{% endif %}">
+        <label for="is-lac-filter">Looked After</label>
+        <select id="is-lac-filter" name="is_lac">
+            <option value="">All</option>
+            <option value="1" {% if is_lac_filter == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if is_lac_filter == '0' %}selected{% endif %}>N</option>
+        </select>
     </div>
-    <div class="filter-field">
-        <label>Looked After</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="is-lac-input" name="is_lac" value="1" hidden {% if is_lac_filter %}checked{% endif %}>
-            <button type="button" id="is-lac-toggle" class="toggle-pill{% if is_lac_filter %} on{% endif %}" aria-pressed="{% if is_lac_filter %}true{% else %}false{% endif %}" aria-label="Looked After Child"><span class="toggle-knob"></span></button>
-        </div>
+    <div class="filter-field{% if is_young_carer_filter %} filter-field--active{% endif %}">
+        <label for="is-young-carer-filter">Young Carer</label>
+        <select id="is-young-carer-filter" name="is_young_carer">
+            <option value="">All</option>
+            <option value="1" {% if is_young_carer_filter == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if is_young_carer_filter == '0' %}selected{% endif %}>N</option>
+        </select>
     </div>
-    <div class="filter-field">
-        <label>Young Carer</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="is-young-carer-input" name="is_young_carer" value="1" hidden {% if is_young_carer_filter %}checked{% endif %}>
-            <button type="button" id="is-young-carer-toggle" class="toggle-pill{% if is_young_carer_filter %} on{% endif %}" aria-pressed="{% if is_young_carer_filter %}true{% else %}false{% endif %}" aria-label="Young Carer"><span class="toggle-knob"></span></button>
-        </div>
-    </div>
-    <div class="filter-field">
-        <label>More Able</label>
-        <div class="filter-toggle-wrap">
-            <input type="checkbox" id="is-more-able-input" name="is_more_able" value="1" hidden {% if is_more_able_filter %}checked{% endif %}>
-            <button type="button" id="is-more-able-toggle" class="toggle-pill{% if is_more_able_filter %} on{% endif %}" aria-pressed="{% if is_more_able_filter %}true{% else %}false{% endif %}" aria-label="More Able"><span class="toggle-knob"></span></button>
-        </div>
+    <div class="filter-field{% if is_more_able_filter %} filter-field--active{% endif %}">
+        <label for="is-more-able-filter">More Able</label>
+        <select id="is-more-able-filter" name="is_more_able">
+            <option value="">All</option>
+            <option value="1" {% if is_more_able_filter == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if is_more_able_filter == '0' %}selected{% endif %}>N</option>
+        </select>
     </div>
     <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    {% comment %}
+    Clear + Close, side by side (#133 follow-up, live feedback: "Clear and
+    Close should be sticky buttons at the bottom" - no longer sticky, see
+    panel.css's own .filter-bar-collapsible comment, but still one footer
+    bar). Last child inside .filter-bar-collapsible-inner (above), so it
+    slides in/out with the rest of the field grid rather than needing any
+    reparenting of its own. Clear reuses the same .filter-bar-clear class
+    as the two other instances on this page (shared AJAX Clear handling,
+    main.js, picks up any of them identically) - only one of the three
+    ever shows at a time, per width/state (panel.css). Close:
+    data-filter-bar-close is a second case the shared delegated click
+    listener (main.js) handles, alongside data-filter-pinned - collapses
+    unconditionally rather than toggling, since closing is its only job.
+    {% endcomment %}
+    <div class="filter-bar-sticky-footer">
+        <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear</a>
+        <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
+    </div>
+    </div>
+    </div>
 </form>
 
 <div id="students-filtered-content" class="filtered-content">
+    {% comment %}
+    Backdrop behind the expanded filter panel (live feedback: "the page
+    beneath filters have an overlay like a modal which when clicked will
+    close the filters") - positioned absolute against this content area
+    specifically (panel.css), not fixed against the whole viewport nested
+    inside .filter-bar itself, which was tried first and reverted: a
+    position: fixed layer inside the bar still rendered above the bar's
+    own background wherever the bar's own padding/gaps left no field
+    content to paint over it, visibly dimming the bar itself too (live
+    feedback: "the overlay is affecting the expanded filter bg"). Scoped
+    to exactly this element's own box instead sidesteps that entirely -
+    nothing here needs measuring or excluding, it just naturally never
+    overlaps the bar above it. data-filter-bar-close is handled by the
+    same delegated click listener Close already wires up (main.js) - now
+    with a fallback lookup for whichever .filter-bar is currently
+    .is-expanded, since this element no longer lives inside one for
+    closest() to walk up to directly.
+    {% endcomment %}
+    <div class="filter-bar-overlay" data-filter-bar-close aria-hidden="true"></div>
     {% include 'hubs/inclusion/panel/_students_filtered_content.html' %}
 </div>
 </div>
@@ -248,12 +317,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     setupToggle(document.getElementById('has-referrals-toggle'), document.getElementById('has-referrals-input'));
-    setupToggle(document.getElementById('overdue-actions-toggle'), document.getElementById('overdue-actions-input'));
-    setupToggle(document.getElementById('is-pp-toggle'), document.getElementById('is-pp-input'));
-    setupToggle(document.getElementById('is-eal-toggle'), document.getElementById('is-eal-input'));
-    setupToggle(document.getElementById('is-lac-toggle'), document.getElementById('is-lac-input'));
-    setupToggle(document.getElementById('is-young-carer-toggle'), document.getElementById('is-young-carer-input'));
-    setupToggle(document.getElementById('is-more-able-toggle'), document.getElementById('is-more-able-input'));
 
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);

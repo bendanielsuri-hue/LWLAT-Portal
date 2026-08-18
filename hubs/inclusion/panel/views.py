@@ -1169,7 +1169,6 @@ def inclusion_panel_home(request):
 
 def inclusion_panel_students(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-    today = timezone.localdate()
     school_key = current_school_key(request)
 
     name_filter = request.GET.get('name') or ''
@@ -1177,17 +1176,15 @@ def inclusion_panel_students(request):
     house_filter = request.GET.get('house') or ''
     reg_filter = request.GET.get('reg') or ''
     has_referrals_filter = request.GET.get('has_referrals') == '1'
-    overdue_actions_filter = request.GET.get('overdue_actions') == '1'
     # Candidate filters behind "More filters" (issue #9).
     sen_status_filter = request.GET.get('sen_status') or ''
     gender_filter = request.GET.get('gender') or ''
     ethnicity_filter = request.GET.get('ethnicity') or ''
-    tutor_filter = request.GET.get('tutor') or ''
-    is_pp_filter = request.GET.get('is_pp') == '1'
-    is_eal_filter = request.GET.get('is_eal') == '1'
-    is_lac_filter = request.GET.get('is_lac') == '1'
-    is_young_carer_filter = request.GET.get('is_young_carer') == '1'
-    is_more_able_filter = request.GET.get('is_more_able') == '1'
+    is_pp_filter = request.GET.get('is_pp') or ''
+    is_eal_filter = request.GET.get('is_eal') or ''
+    is_lac_filter = request.GET.get('is_lac') or ''
+    is_young_carer_filter = request.GET.get('is_young_carer') or ''
+    is_more_able_filter = request.GET.get('is_more_able') or ''
 
     base_students = student_queryset_for_school_key(school_key)
 
@@ -1213,12 +1210,7 @@ def inclusion_panel_students(request):
     students = base_students.annotate(
         referrals_count=Count('referrals', distinct=True),
         actions_count=Count('referrals__actions', distinct=True),
-        overdue_actions_count=Count(
-            'referrals__actions',
-            filter=Q(referrals__actions__status='incomplete', referrals__actions__due_date__lt=today),
-            distinct=True,
-        ),
-    ).select_related('school', 'form_tutor')
+    ).select_related('school')
     if name_filter:
         students = students.filter(Q(first_name__icontains=name_filter) | Q(last_name__icontains=name_filter))
     if year_filter:
@@ -1229,26 +1221,32 @@ def inclusion_panel_students(request):
         students = students.filter(reg_form=reg_filter)
     if has_referrals_filter:
         students = students.filter(referrals_count__gt=0)
-    if overdue_actions_filter:
-        students = students.filter(overdue_actions_count__gt=0)
     if sen_status_filter:
         students = students.filter(sen_status=sen_status_filter)
     if gender_filter:
         students = students.filter(gender=gender_filter)
     if ethnicity_filter:
         students = students.filter(ethnicity=ethnicity_filter)
-    if tutor_filter:
-        students = students.filter(form_tutor_id=tutor_filter)
-    if is_pp_filter:
+    if is_pp_filter == '1':
         students = students.filter(is_pp=True)
-    if is_eal_filter:
+    elif is_pp_filter == '0':
+        students = students.filter(is_pp=False)
+    if is_eal_filter == '1':
         students = students.filter(is_eal=True)
-    if is_lac_filter:
+    elif is_eal_filter == '0':
+        students = students.filter(is_eal=False)
+    if is_lac_filter == '1':
         students = students.filter(is_lac=True)
-    if is_young_carer_filter:
+    elif is_lac_filter == '0':
+        students = students.filter(is_lac=False)
+    if is_young_carer_filter == '1':
         students = students.filter(is_young_carer=True)
-    if is_more_able_filter:
+    elif is_young_carer_filter == '0':
+        students = students.filter(is_young_carer=False)
+    if is_more_able_filter == '1':
         students = students.filter(is_more_able=True)
+    elif is_more_able_filter == '0':
+        students = students.filter(is_more_able=False)
     students = list(students.order_by('last_name', 'first_name'))
     for student in students:
         student.has_pills = bool(
@@ -1258,8 +1256,8 @@ def inclusion_panel_students(request):
 
     active_filter_count = sum(
         1 for v in (
-            name_filter, year_filter, house_filter, reg_filter, has_referrals_filter, overdue_actions_filter,
-            sen_status_filter, gender_filter, ethnicity_filter, tutor_filter,
+            name_filter, year_filter, house_filter, reg_filter, has_referrals_filter,
+            sen_status_filter, gender_filter, ethnicity_filter,
             is_pp_filter, is_eal_filter, is_lac_filter, is_young_carer_filter, is_more_able_filter,
         ) if v
     )
@@ -1277,15 +1275,12 @@ def inclusion_panel_students(request):
         'house_filter': house_filter,
         'reg_filter': reg_filter,
         'has_referrals_filter': has_referrals_filter,
-        'overdue_actions_filter': overdue_actions_filter,
         'sen_status_filter': sen_status_filter,
         'sen_status_choices': Student.SEN_STATUS_CHOICES,
         'gender_filter': gender_filter,
         'gender_choices': Student.GENDER_CHOICES,
         'ethnicity_filter': ethnicity_filter,
         'ethnicity_choices': Student.ETHNICITY_CHOICES,
-        'tutor_filter': tutor_filter,
-        'tutors': staff_queryset_for_school_key(school_key).filter(tutees__isnull=False).distinct().order_by('last_name', 'first_name'),
         'is_pp_filter': is_pp_filter,
         'is_eal_filter': is_eal_filter,
         'is_lac_filter': is_lac_filter,
