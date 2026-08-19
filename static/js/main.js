@@ -1752,12 +1752,120 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // without the overlay needing to name which bar it belongs to.
         var bar = closest(label || closeBtn, '.filter-bar') || (closeBtn && document.querySelector('.filter-bar.is-expanded'));
         if (!bar) return;
+        // Students' own slide-down tray (.filter-bar-collapsible) -
+        // grid-template-rows: 0fr <-> minmax(0, 1fr) is what actually
+        // establishes the correct final height instantly (bounded to
+        // whatever's available, scrolling internally if the field grid is
+        // taller - see that rule's own comment, panel.css) - a plain
+        // height/max-height value alone can't express that up front (no
+        // fixed height to target - Has Houses, long option text wrapping,
+        // etc. all affect it per-render). No CSS transition on that grid
+        // property, though (tried, along with a max-height variant - live
+        // feedback "I do not see it", then "I am still seeing no
+        // animation" - checked via getAnimations()/computed-style probing,
+        // the browser was resolving the target height in a single frame
+        // regardless of declared duration; a Web Animations API keyframe
+        // was tried next and still only visibly animated the CLOSE
+        // direction, not open, live feedback "it jumps open" - by the time
+        // that animate() call ran, the class was already toggled and the
+        // grid had already resolved its real height, so open had nothing
+        // committed to visually animate FROM). A FLIP-pattern plain height
+        // transition was tried next (pin *before* as an inline style, force
+        // the browser to commit it via an offsetHeight read, then hand
+        // *after* to a genuine CSS transition on the next frame) and still
+        // only opened instantly (live feedback: "it jumps open" again) -
+        // root cause, found by checking box.style.height mid-transition
+        // against its actual rendered height: this element also carries
+        // flex: 1 1 0% (needed for the "grow to fill .list-card's
+        // available space" bounding, panel.css) - flex-basis: 0% makes the
+        // flex algorithm ignore an explicit height entirely and recompute
+        // purely from flex-grow every frame, so the inline height this code
+        // sets was always being silently overridden back to full size.
+        // flexOverride below opts the box out of flex sizing for the
+        // animation's duration (flex-grow/shrink: 0, flex-basis: auto, so
+        // its own height property actually governs it), then restores the
+        // real flex: 1 1 0% once the transition ends so the resting,
+        // scroll-bounded state (below) still works exactly as before.
+        var box = bar.querySelector('.filter-bar-collapsible');
+        var before = box ? box.getBoundingClientRect().height : 0;
         if (closeBtn) {
             bar.classList.remove('is-expanded');
         } else {
             bar.classList.toggle('is-expanded');
         }
+        if (box) {
+            var after = box.getBoundingClientRect().height;
+            if (before !== after) {
+                box.style.flex = '0 0 auto';
+                box.style.height = before + 'px';
+                box.style.transition = 'none';
+                void box.offsetHeight;
+                box.style.transition = 'height 360ms cubic-bezier(.2, .8, .2, 1)';
+                requestAnimationFrame(function () {
+                    box.style.height = after + 'px';
+                });
+                box.addEventListener('transitionend', function handler(e) {
+                    if (e.target !== box || e.propertyName !== 'height') return;
+                    box.style.height = '';
+                    box.style.transition = '';
+                    box.style.flex = '';
+                    box.removeEventListener('transitionend', handler);
+                });
+            }
+        }
     });
+
+    // Students' mobile filter tray: the sticky header row/footer (above)
+    // only get their own divider border while they're actually covering
+    // scrolled-past content (live feedback: "the button border should only
+    // be visible if there is overflow" - and, for the header row
+    // specifically, "when closed I can see the sticky border... the filter
+    // bar has a border anyway" - collapsed, the row is the bar's only
+    // visible content, sitting flush against .list-card .filter-bar's own
+    // existing bottom border (layout.css), so an unconditional border here
+    // just doubled it up for no reason, nothing is ever scrolled under a
+    // collapsed row). Plain scroll listener on .filter-bar-collapsible-inner
+    // (the actual scrolling box), not the .sticky-zone-sentinel/
+    // IntersectionObserver convention (setupStickyZoneSentinels, above) -
+    // that pattern answers "has this sticky element passed one fixed
+    // point," where this needs both ends of a single scrollable box (row:
+    // has anything scrolled past the top; footer: is there still anything
+    // left below) off the same element's scrollTop/scrollHeight/
+    // clientHeight, gated on .is-expanded too since a collapsed tray's
+    // scrollTop can be a stale non-zero leftover from before it was closed.
+    (function setupFilterBarStickyDividers() {
+        document.querySelectorAll('.filter-bar-collapsible-inner').forEach(function (inner) {
+            var bar = closest(inner, '.filter-bar');
+            if (!bar) return;
+            var row = bar.querySelector('.filter-bar-sticky-row');
+            var footer = bar.querySelector('.filter-bar-sticky-footer');
+            function update() {
+                var expanded = bar.classList.contains('is-expanded');
+                if (row) row.classList.toggle('is-covering', expanded && inner.scrollTop > 0);
+                if (footer) footer.classList.toggle('is-covering', expanded && inner.scrollTop + inner.clientHeight < inner.scrollHeight - 1);
+            }
+            inner.addEventListener('scroll', update);
+            // Re-check whenever the tray opens/closes - a fresh expand can
+            // start at a different scroll position (e.g. after Clear reset
+            // it), and content height (so scrollHeight itself, and whether
+            // a scrollbar even exists at all) can change between opens too.
+            // Deferred to the next frame (not called directly) - a
+            // MutationObserver callback fires as a microtask, before the
+            // browser has painted anything for the style change that
+            // triggered it; update()'s own layout reads (scrollTop/
+            // clientHeight/scrollHeight) forced a synchronous layout flush
+            // at exactly that moment, which silently killed .filter-bar-
+            // collapsible's own slide-open transition (live feedback: "it
+            // used to work but has broken from further developing the
+            // filters" - this was the regression, not the transition CSS
+            // itself) - the browser never got a chance to commit the
+            // pre-toggle frame as the transition's starting point.
+            new MutationObserver(function () {
+                requestAnimationFrame(update);
+            }).observe(bar, { attributes: true, attributeFilter: ['class'] });
+            update();
+        });
+    })();
 
     // Clicking a filter field's own label activates its control the same
     // as clicking the control itself (live feedback: "can clicking on
