@@ -286,9 +286,21 @@ Menu switcher instead - see its own comment below.
             z-index: 40;
             width: 100%;
             background: var(--bg-nav);
-            border-top: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-strong);
             box-shadow: var(--shadow-lg);
             overflow: visible;
+        }
+        /* No border/shadow here on a .list-card page (Students/Referrals/
+           Actions) - the card (and, expanded, the filter tray inside it)
+           already ends in its own border-strong edge just above this bar;
+           stacking this bar's own border-top AND shadow-lg's own blurred
+           edge right underneath that real border read as a doubled-up/
+           thickened border rather than two separate ones (live feedback -
+           border-top alone wasn't enough, the shadow reads as a second
+           line too). Home has no .list-card, so it keeps both. */
+        body:has(.list-card) .mobile-tabbar {
+            border-top: none;
+            box-shadow: none;
         }
         .mobile-tab {
             flex: 1 1 0;
@@ -328,7 +340,7 @@ Menu switcher instead - see its own comment below.
             background: var(--btn-add-bg);
             border: none;
             color: var(--btn-add-text);
-            box-shadow: 0 0 0 4px var(--bg-nav), var(--shadow-lg);
+            box-shadow: 0 0 0 4px var(--bg-nav), 0 0 0 5px var(--border-strong), var(--shadow-lg);
             cursor: pointer;
         }
         .mobile-tab-fab svg { width: 26px; height: 26px; display: block; }

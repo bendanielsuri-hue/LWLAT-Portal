@@ -392,9 +392,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 row.classList.toggle('row-buttons-wrapped', overflowing);
             });
         }
+        // Whether a row's buttons wrap depends only on the row's available
+        // *width* - but checkAll() toggling row-buttons-wrapped changes
+        // each row's *height* (wrapped = 2 lines), which changes
+        // container's own height, which re-fires a ResizeObserver watching
+        // container regardless of dimension. That fed straight back into
+        // checkAll() again on every single pass, thrashing for ~800ms after
+        // every load before it happened to settle (live feedback: "page has
+        // a shift as it loads"). Recording container's own width and
+        // skipping the re-check whenever a resize notification didn't
+        // actually change it (a pure height change from checkAll()'s own
+        // last pass) breaks that feedback loop at the source - width
+        // changes (the only thing a wrap decision can depend on) still
+        // trigger a fresh check as normal.
+        var lastWidth = null;
+        function checkAllIfWidthChanged() {
+            var width = container.clientWidth;
+            if (width === lastWidth) return;
+            lastWidth = width;
+            checkAll();
+        }
         checkAll();
-        window.addEventListener('resize', checkAll);
-        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(checkAll).observe(container);
+        lastWidth = container.clientWidth;
+        window.addEventListener('resize', checkAllIfWidthChanged);
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(checkAllIfWidthChanged).observe(container);
         // AJAX filter changes replace #students-filtered-content's whole
         // innerHTML (setupAjaxFilterBars, main.js) without re-running any
         // page-specific script afterward - a MutationObserver catches that

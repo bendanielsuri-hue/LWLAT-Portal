@@ -197,6 +197,21 @@ function setupFilterBarMoreFilters(bar) {
         return;
     }
 
+    // Dynamic mode is a no-op below 480px (see the comment above this
+    // function - phone width already gets its own full collapse via
+    // .is-expanded/responsive.css), but bailing out only inside measure()
+    // wasn't enough: everything from here down still ran regardless,
+    // reparenting the bar's own real fields - Students' .filter-bar-
+    // sticky-row (the "Filters / Search" row) included - into a freshly
+    // built .filter-fields-wrap purely to set up a measurement system
+    // whose result was always going to be thrown away at this width. That
+    // reparenting is a real DOM mutation, and since this runs from a
+    // deferred script (main.js) it can land visibly after first paint on
+    // a heavy page - live feedback: "I see the Filter row as being taller
+    // then snapping shorter". Bailing out up front means a phone-width
+    // load never touches these fields at all.
+    if (window.matchMedia('(max-width: 480px)').matches) return;
+
     // :not(.filter-bar-clear--sticky) - Students' own mobile sticky header
     // (#133 follow-up) carries a second Clear Filters instance of its own
     // (same class, so the AJAX Clear handling elsewhere in this file picks
@@ -1235,6 +1250,35 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // overflows main outright. At phone width the collapsed carousel
         // itself measures 0, so this sums to just the small toggle - the
         // card still gets everything else.
+        // Only the shells that actually have trailing content taking up
+        // real space (Panel Home's KPI carousel, etc.) need their height
+        // pinned in JS at all - a shell with nothing trailing it already
+        // gets exactly the same result for free from its own flex: 1
+        // (layout.css), no JS involved. Forcing the JS height anyway (as
+        // this used to, unconditionally) meant a plain page like Students
+        // still carried a live ResizeObserver on the header - and that
+        // observer firing again later at a very slightly different
+        // headerBottom (bisected live: confirmed as the actual trigger,
+        // not a web-font swap) reset shell.style.height a second time,
+        // which is exactly the visible snap that got reported ("the
+        // filtered content shift upwards... white line effect over the
+        // nav"). Checking rendered height rather than just
+        // nextElementSibling's presence matters here - every page's own
+        // {% block content %} (students.html included) ends with its own
+        // inline <script>, which *is* a real trailing sibling element but
+        // renders at zero height, so a plain existence check still left
+        // Students routed through the JS path this was meant to skip.
+        function hasTrailingContent(shell) {
+            var sib = shell.nextElementSibling;
+            while (sib) {
+                if (sib.getBoundingClientRect().height > 0) return true;
+                sib = sib.nextElementSibling;
+            }
+            return false;
+        }
+        shells = Array.prototype.filter.call(shells, hasTrailingContent);
+        if (!shells.length) return;
+
         function applyHeight() {
             var headerBottom = header.getBoundingClientRect().bottom;
             shells.forEach(function (shell) {
@@ -1275,16 +1319,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 var sib = shell.nextElementSibling;
                 while (sib) { ro.observe(sib); sib = sib.nextElementSibling; }
             });
-        }
-        // Belt-and-braces recompute once web fonts actually finish loading -
-        // the very first applyHeight() above can run against a fallback
-        // font's metrics (FOUT), and if the real font reflows text by a few
-        // px in a way none of the observed elements individually resize
-        // enough to trigger (or the swap lands in the same tick the
-        // observers are still being wired up), the shell's height is set
-        // once, correctly for the wrong font, and never revisited.
-        if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(applyHeight);
         }
     })();
 

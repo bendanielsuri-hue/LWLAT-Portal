@@ -3519,24 +3519,43 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         display: grid;
         grid-template-rows: 0fr;
         flex: 1 1 100%;
+        /* min-height: 0 - .filter-bar-collapsible used to sit inside
+           .filter-fields-wrap (a JS-built wrapper, main.js), which carried
+           its own flex: 1 1 auto; min-height: 0 and was what actually
+           bounded this element to .filter-bar's remaining height. Now that
+           setupFilterBarMoreFilters skips phone width entirely (no more
+           fieldsWrap there), this is a direct flex child of
+           .filter-bar.is-expanded's own column instead - and a flex item's
+           default min-height: auto refuses to shrink below its content's
+           natural size, so without this it grew to its full ~530px content
+           height regardless of how little space was actually left,
+           breaking the containment .filter-bar-collapsible-inner's own
+           scroll (and the sticky footer inside it) depends on (live
+           feedback: "header and footer of open filter tray is no longer
+           sticky"). */
+        min-height: 0;
         width: 100%;
         overflow: hidden;
     }
-    /* Cancels .filter-fields-wrap's own flex gap (--space-xs, forms.css)
-       between the sticky row and this (0fr, invisible) wrapper while
-       collapsed (live feedback + screenshot: "extra padding when not
-       expanded"; later re-surfaced as "Filter row, nothing is center
-       aligned. Filter Field Wrap has a margin" once the row itself
-       shrank in #132's compact mode, making the same dead space
-       proportionally more noticeable). A negative margin-top on
+    /* Cancels .filter-bar's own flex gap (--space-xs, forms.css) between
+       the sticky row and this (0fr, invisible) wrapper while collapsed
+       (live feedback + screenshot: "extra padding when not expanded";
+       later re-surfaced as "Filter row, nothing is center aligned. Filter
+       Field Wrap has a margin" once the row itself shrank in #132's
+       compact mode, making the same dead space proportionally more
+       noticeable; re-surfaced again once setupFilterBarMoreFilters
+       stopped running at this width at all - main.js - and with it the
+       .filter-fields-wrap this rule used to target, live feedback: "Filter
+       has too much space under search"). A negative margin-top on
        .filter-bar-collapsible was tried first and doesn't work: row-gap
        in a wrapped flex container reserves real space between line boxes
        that a child's own margin can't subtract from - confirmed by
        measuring the wrapper's total height staying 8px taller than the
        sticky row regardless of the child's margin. gap: 0 on the actual
        flex container that declares the gap is the only thing that
-       removes it. */
-    form[data-ajax-target="#students-filtered-content"].filter-bar:not(.is-expanded) .filter-fields-wrap {
+       removes it - .filter-bar itself now that it's the one directly
+       holding both as flex children. */
+    form[data-ajax-target="#students-filtered-content"].filter-bar:not(.is-expanded) {
         gap: 0;
     }
     form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-collapsible {
