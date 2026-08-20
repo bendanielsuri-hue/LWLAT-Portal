@@ -272,12 +272,21 @@ School dropped entirely (issue #9).
     Close should be sticky buttons at the bottom"). Sibling of
     .filter-bar-collapsible-inner (above), not nested inside it - see the
     #134 follow-up comment just below for why. Clear reuses the same
-    .filter-bar-clear class as the two other instances on this page (shared
-    AJAX Clear handling, main.js, picks up any of them identically) - only
-    one of the three ever shows at a time, per width/state (panel.css).
-    Close: data-filter-bar-close is a second case the shared delegated
-    click listener (main.js) handles, alongside data-filter-pinned -
-    collapses unconditionally rather than toggling, since closing is its
+    .filter-bar-clear class as the field grid's own Clear Filters button
+    above (shared AJAX Clear handling, main.js, picks up any of them
+    identically) - that one is desktop/tablet's only Clear control
+    (setupFilterBarMoreFilters, main.js, physically moves it into
+    .filter-actions-right above 480px, paired with "More filters"), but is
+    a no-op below 480px, so on mobile it stays put inside the field grid
+    and both this footer button and that one showed at once once expanded
+    (live feedback: "I have to clear buttons") - panel.css now hides the
+    field-grid one specifically below 480px so only this footer instance
+    remains there. Labelled "Clear Filters" rather than plain "Clear" (same
+    live feedback) - unambiguous on its own now that it's the only Clear
+    button mobile ever shows, rather than needing "Close" alongside it for
+    contrast. Close: data-filter-bar-close is a second case the shared
+    delegated click listener (main.js) handles, alongside data-filter-pinned
+    - collapses unconditionally rather than toggling, since closing is its
     only job.
     {% endcomment %}
     {% comment %}
@@ -297,7 +306,7 @@ School dropped entirely (issue #9).
     simply never behind anything scrollable in the first place.
     {% endcomment %}
     <div class="filter-bar-sticky-footer">
-        <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear</a>
+        <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
         <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
     </div>
     </div>

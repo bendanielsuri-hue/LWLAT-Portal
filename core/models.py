@@ -200,8 +200,14 @@ class Student(models.Model):
 
     GENDER_CHOICES = [('M', 'Male'), ('F', 'Female')]
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
+    # Short-label variant for filter dropdowns (Students/Safeguarding Notes
+    # filter bars) - GENDER_CHOICES itself stays spelled out since it also
+    # drives the SEN & Provision dashboard's gender breakdown table
+    # (hubs/inclusion/views.py's gender_labels) and Django admin/form
+    # display, where "Male"/"Female" reads better than a bare letter.
+    GENDER_FILTER_CHOICES = [('M', 'M'), ('F', 'F')]
 
-    SEN_STATUS_CHOICES = [('K', 'SEN Support (K)'), ('E', 'EHCP (E)')]
+    SEN_STATUS_CHOICES = [('K', 'K'), ('E', 'E')]
     sen_status = models.CharField(max_length=1, choices=SEN_STATUS_CHOICES, blank=True)
 
     is_more_able = models.BooleanField('More Able', default=False)

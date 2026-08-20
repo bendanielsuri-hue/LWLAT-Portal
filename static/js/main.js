@@ -276,6 +276,27 @@ function setupFilterBarMoreFilters(bar) {
     });
     if (fields.length < 2) return;
 
+    // Atomic overflow groups (#135 - bringing Students' category grouping
+    // to tablet/desktop): a .filter-section-label plus every field up to
+    // the next one moves to "More filters" as one unit in measure() below,
+    // rather than splitting a category across the primary/secondary
+    // boundary field-by-field. Pages with no section labels (Referrals/
+    // Actions/Meetings today) never hit the `classList.contains` branch,
+    // so every field falls into its own singleton group - identical to the
+    // old per-field behaviour there.
+    var groups = [];
+    var currentGroup = null;
+    allFields.forEach(function (f) {
+        if (f.classList.contains('filter-section-label')) {
+            currentGroup = { header: f, fields: [] };
+            groups.push(currentGroup);
+        } else if (currentGroup) {
+            currentGroup.fields.push(f);
+        } else {
+            groups.push({ header: null, fields: [f] });
+        }
+    });
+
     var fieldsWrap = document.createElement('div');
     fieldsWrap.className = 'filter-fields-wrap';
     bar.insertBefore(fieldsWrap, label || allFields[0]);
@@ -318,6 +339,37 @@ function setupFilterBarMoreFilters(bar) {
     var divider = document.createElement('span');
     divider.className = 'filter-divider';
     secondaryRow.appendChild(divider);
+    // #135 follow-up: the category strip (measure(), below) scrolls
+    // horizontally as one line rather than wrapping - secondaryRow itself
+    // stays the non-scrolling panel (position/background/border, forms.css,
+    // back in normal page flow rather than floating), and this inner track
+    // is the actual overflow-x: auto box the categories scroll inside,
+    // same wrap/track split .stats-carousel-wrap already uses
+    // (home.html) so wireScrollCarousel (below) can be reused unmodified.
+    // display: contents by default (forms.css) at every other width, same
+    // no-op convention as .filter-group.
+    var secondaryTrack = document.createElement('div');
+    secondaryTrack.className = 'filter-secondary-fields-track';
+    secondaryRow.appendChild(secondaryTrack);
+    // Left/right nudge buttons (live feedback: "add left and right arrows
+    // like we do with carousels as well") - reuses wireScrollCarousel
+    // (below) rather than reimplementing the same nudge/hide logic; hidden
+    // by default (forms.css) everywhere except narrow tablet, and further
+    // auto-hidden there by wireScrollCarousel itself whenever the strip
+    // doesn't actually overflow.
+    var secondaryPrevBtn = document.createElement('button');
+    secondaryPrevBtn.type = 'button';
+    secondaryPrevBtn.className = 'filter-secondary-fields-arrow filter-secondary-fields-arrow--prev';
+    secondaryPrevBtn.setAttribute('aria-label', 'Scroll filter categories left');
+    secondaryPrevBtn.textContent = '‹';
+    secondaryRow.appendChild(secondaryPrevBtn);
+    var secondaryNextBtn = document.createElement('button');
+    secondaryNextBtn.type = 'button';
+    secondaryNextBtn.className = 'filter-secondary-fields-arrow filter-secondary-fields-arrow--next';
+    secondaryNextBtn.setAttribute('aria-label', 'Scroll filter categories right');
+    secondaryNextBtn.textContent = '›';
+    secondaryRow.appendChild(secondaryNextBtn);
+    var updateSecondaryArrows = wireScrollCarousel(secondaryRow, '.filter-secondary-fields-track', '.filter-group', '.filter-secondary-fields-arrow--prev', '.filter-secondary-fields-arrow--next');
     // fieldsHost, not always fieldsWrap - has to be the same element
     // fields themselves live in (above), since measure() below uses
     // secondaryRow as an insertBefore reference point among them; a
@@ -371,21 +423,116 @@ function setupFilterBarMoreFilters(bar) {
         // bunched at the top, every field below them, headers no longer
         // interspersed with their own group). allFields carries the
         // headers along in their own original relative position instead.
+        var wasExpanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
         allFields.forEach(function (f) { fieldsHost.insertBefore(f, secondaryRow); });
+        // Reclaiming a field above pulls it out of whatever .filter-group
+        // wrapper (below) held it on a previous pass, leaving that wrapper
+        // behind as an empty shell still parented under secondaryRow -
+        // insertBefore reparents the field itself but has no reason to also
+        // clean up the div it just vacated. Without this they'd pile up, one
+        // extra empty node per remeasure.
+        Array.prototype.forEach.call(secondaryRow.querySelectorAll('.filter-group'), function (g) { g.remove(); });
         reanchorCollapsibleFooter();
         secondaryRow.hidden = true;
         moreFiltersBtn.hidden = true;
         moreFiltersBtn.setAttribute('aria-expanded', 'false');
 
         if (!window.matchMedia('(max-width: 480px)').matches) {
-            var firstTop = fields[0].offsetTop;
-            var overflowed = fields.filter(function (f) { return f.offsetTop > firstTop; });
-            if (overflowed.length) {
-                overflowed.forEach(function (f) { secondaryRow.appendChild(f); });
+            // #135 follow-up (2026-08-20, live feedback: "can we make this
+            // the setup for all modes except mobile") - every width above
+            // mobile now goes straight to "everything lives behind View
+            // Filters," the same model narrow tablet already settled on
+            // (categories as a horizontally-scrolling strip inside the
+            // panel, live feedback "all the filters in one line...
+            // horizontally scrolled") - desktop/wide-tablet's own older
+            // measure-the-overflow-and-split-at-the-boundary approach (an
+            // atomic per-category version of it, previously here) is gone;
+            // it was already left with primary holding nothing but Search
+            // in practice, for the same reason narrow tablet dropped it
+            // first.
+            if (groups.length) {
+                groups.forEach(function (g) {
+                    // #135 follow-up: "if a filter category can fit on the
+                    // same row as another it does" - wrapping each group in
+                    // its own box lets narrow tablet's CSS (panel.css) treat
+                    // it as one flex item that only wraps to a new line when
+                    // it doesn't fit, instead of every header forcing a full-
+                    // width break regardless of how little content (e.g.
+                    // Inclusion Panel's 2 toggles) actually sits under it.
+                    // display: contents at every other width (base rule,
+                    // forms.css) makes this wrapper a no-op there, so desktop/
+                    // wide-tablet's existing always-full-row header layout is
+                    // unaffected.
+                    var groupEl = document.createElement('div');
+                    groupEl.className = 'filter-group';
+                    if (g.header) groupEl.appendChild(g.header);
+                    // Fields live inside their own inner wrap now, not as
+                    // groupEl's own direct flex-wrap children (live feedback:
+                    // "now it is too narrow. The line should stop at the edge
+                    // of Reg dropdown etc" - the header's own flex: 1 1 100%
+                    // used to force it onto its own row inside a flex-wrap
+                    // .filter-group, but with .filter-group itself auto-
+                    // sized (flex: 0 0 auto) inside an effectively
+                    // unconstrained scrollable track, a percentage flex-basis
+                    // has no definite size to resolve against while the
+                    // browser is still figuring out how wide .filter-group
+                    // even is - it was falling back to the header's own,
+                    // often narrower, natural content width instead of
+                    // genuinely spanning the group. Nesting fields in their
+                    // own column sibling sidesteps that circularity
+                    // entirely: .filter-group is display: flex; flex-
+                    // direction: column now (panel.css), so the header just
+                    // stretches to match this fields box's own resolved
+                    // width via ordinary cross-axis stretch (a non-circular,
+                    // two-pass computation) instead of a percentage basis.
+                    var groupFields = document.createElement('div');
+                    groupFields.className = 'filter-group-fields';
+                    g.fields.forEach(function (f) { groupFields.appendChild(f); });
+                    groupEl.appendChild(groupFields);
+                    secondaryTrack.appendChild(groupEl);
+                });
                 moreFiltersBtn.hidden = false;
             }
+            // Groups just got rebuilt into secondaryTrack above - re-checks
+            // whether the strip still overflows (a filter clearing down to
+            // fewer/shorter categories can un-overflow it) without re-
+            // registering the arrow buttons' click handlers a second time,
+            // which a fresh wireScrollCarousel call here would do.
+            if (updateSecondaryArrows) updateSecondaryArrows();
         }
-        openIfSecondaryActive(moreFiltersBtn, secondaryRow);
+        // Preserve the user's own explicit open/closed state across a
+        // remeasure instead of resetting it back to closed - live
+        // feedback: "still reopening. Also it loads open" - the
+        // unconditional secondaryRow.hidden = true/aria-expanded = 'false'
+        // at the top of this function runs on every remeasure regardless of
+        // the panel's actual current state, so a resize firing mid-close-
+        // animation (which the close animation's own page-height shrink can
+        // itself trigger, via a vertical scrollbar disappearing and
+        // changing bar.clientWidth) would otherwise look indistinguishable
+        // from "reopening" once the reset ran again a moment later. No
+        // auto-open-if-already-active case any more, at any width above
+        // mobile (live feedback: "can we make this setup for all modes
+        // except mobile") - this panel behaves like mobile's own overlay
+        // tray everywhere else now too (dims the results behind it, purely
+        // click-driven), which never auto-opened on load either.
+        if (wasExpanded && !moreFiltersBtn.hidden) {
+            secondaryRow.hidden = false;
+            moreFiltersBtn.setAttribute('aria-expanded', 'true');
+        }
+        // Width-dependent wording ("View filters" vs "More filters", #135)
+        // needs recomputing on every resize-driven remeasure, not just at
+        // the click handler that otherwise owns this - a resize can cross
+        // the mobile/non-mobile threshold without the button ever being
+        // clicked.
+        setMoreFiltersLabel(moreFiltersBtn);
+        // Narrow tablet positions actionsRight absolutely (forms.css) so it
+        // no longer reserves its own column, and reserves that same real
+        // width back on the sticky row's own padding instead so Search
+        // doesn't render underneath it - measured live off the actual
+        // button box (its label text/count badge can change its width)
+        // rather than a guessed fixed number that would silently drift out
+        // of sync.
+        bar.style.setProperty('--filter-actions-right-width', actionsRight.offsetWidth + 'px');
     }
 
     measure();
@@ -401,26 +548,165 @@ function setupFilterBarMoreFilters(bar) {
         new ResizeObserver(handleResize).observe(bar);
     }
 
-    wireMoreFiltersToggle(moreFiltersBtn, secondaryRow);
+    wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar);
 }
 window.setupFilterBarMoreFilters = setupFilterBarMoreFilters;
 
-function openIfSecondaryActive(moreFiltersBtn, secondaryRow) {
-    var hasActiveSecondary = secondaryRow.querySelector('.filter-field--active')
-        || Array.prototype.some.call(secondaryRow.querySelectorAll('input[type=checkbox]'), function (i) { return i.checked; });
-    if (!hasActiveSecondary) return;
-    secondaryRow.hidden = false;
-    moreFiltersBtn.setAttribute('aria-expanded', 'true');
+// Horizontal scroll-snap carousel: a .*-carousel-wrap holding a scrolling
+// track plus prev/next arrow buttons that nudge scrollLeft by one card
+// width, auto-hiding themselves when the track doesn't actually overflow.
+// Top-level (not nested in the DOMContentLoaded sweep, unlike its own
+// original call sites below) so setupFilterBarMoreFilters (above) can reuse
+// it directly for the narrow-tablet filter panel's own category carousel
+// (#135 follow-up, live feedback: "add left and right arrows like we do
+// with carousels") instead of reimplementing the same nudge/hide logic a
+// third time. Returns updateArrows so a caller whose track content changes
+// after setup (measure()'s own remeasure/rebuild, unlike the senco/stats
+// carousels' static card lists) can re-run just the overflow check without
+// re-registering the click handlers each time - re-calling this whole
+// function on every remeasure would stack a fresh, duplicate click listener
+// on the same prev/next buttons instead.
+function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nextSelector) {
+    var track = wrap.querySelector(trackSelector);
+    var prevBtn = wrap.querySelector(prevSelector);
+    var nextBtn = wrap.querySelector(nextSelector);
+    if (!track || !prevBtn || !nextBtn) return;
+
+    function step() {
+        var card = track.querySelector(cardSelector);
+        return card ? card.offsetWidth + 12 : track.clientWidth;
+    }
+
+    prevBtn.addEventListener('click', function () { track.scrollBy({ left: -step(), behavior: 'smooth' }); });
+    nextBtn.addEventListener('click', function () { track.scrollBy({ left: step(), behavior: 'smooth' }); });
+
+    function updateArrows() {
+        var overflowing = track.scrollWidth > track.clientWidth + 1;
+        prevBtn.hidden = !overflowing;
+        nextBtn.hidden = !overflowing;
+    }
+    updateArrows();
+    window.addEventListener('resize', updateArrows);
+    return updateArrows;
 }
 
-function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow) {
-    openIfSecondaryActive(moreFiltersBtn, secondaryRow);
+function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar) {
+    // No auto-open-if-already-active at any width above mobile any more
+    // (live feedback: "can we make this the setup for all modes except
+    // mobile") - this panel always loads closed regardless of width now,
+    // purely click-driven, matching mobile's own overlay tray.
     setMoreFiltersLabel(moreFiltersBtn);
     moreFiltersBtn.addEventListener('click', function () {
         var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
-        secondaryRow.hidden = expanded;
+        // #135: animates the reveal at every width above mobile now (live
+        // feedback: "the filters [should] animate down like mobile mode",
+        // then "can we make this the setup for all modes except mobile") -
+        // everything behind this button IS the field list at these widths
+        // (measure(), above), so instantly popping it in reads as a jump.
+        // secondaryRow itself is in normal flow (forms.css, live feedback:
+        // "the filter shelf pushes the content down as this can be kept
+        // open") - this animation just grows/shrinks it in place.
+        if (!window.matchMedia('(max-width: 480px)').matches) {
+            animateSecondaryFieldsToggle(secondaryRow, !expanded);
+        } else {
+            secondaryRow.hidden = expanded;
+        }
         moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
         setMoreFiltersLabel(moreFiltersBtn);
+    });
+}
+
+// #135 follow-up: wraps a genuinely multi-word field label in the narrow-
+// tablet category strip onto 2 balanced lines - live feedback corrected an
+// earlier version of this (which force-split every label, even single
+// words like "Year", down to individual characters): "a single word should
+// be on one line. But if there are two short words, they should flow onto
+// two lines... I am seeing one word flowing onto 3 lines". A single word
+// (no space in it) is left alone entirely - no space means no valid break
+// point, so any width cap can only ever force an ugly mid-word split, which
+// is exactly the "one word on 3 lines" bug. A multi-word label instead gets
+// its own real single-line width measured and halved, the same "narrower
+// than its own content" trick as before, but now purely to force a break at
+// one of its *existing* spaces - text-wrap: balance (panel.css) then
+// chooses whichever of those spaces splits it most evenly, matching live
+// feedback's own example ("A B" -> "A" / "B"). Clears any previous inline
+// max-width before measuring, or a second call would just measure its own
+// already-halved width and halve it again.
+function balanceFilterGroupLabels(box) {
+    box.querySelectorAll('.filter-group-fields .filter-field label').forEach(function (label) {
+        label.style.maxWidth = '';
+        if (!/\s/.test(label.textContent.trim())) return;
+        var natural = label.getBoundingClientRect().width;
+        label.style.maxWidth = Math.max(1, Math.ceil(natural / 2)) + 'px';
+    });
+}
+
+// Same FLIP technique (measure the real before/after height, pin it via an
+// inline style, then hand off to a genuine CSS transition) the mobile tray's
+// own .filter-bar-collapsible toggle handler already solved, below - a bare
+// CSS transition on height/grid-template-rows alone was already found not
+// to animate reliably there (see that handler's own comment), so this
+// reuses the same battle-tested approach against `box` instead of
+// rediscovering it. box.hidden has to come off *before* measuring `after`
+// (opening) - scrollHeight only reflects real content once the element is
+// actually rendered - and only go back on *after* the closing transition
+// finishes, or the box would vanish (and its content un-render) before the
+// shrink itself ever gets to play.
+function animateSecondaryFieldsToggle(box, opening) {
+    if (opening) {
+        box.hidden = false;
+        balanceFilterGroupLabels(box);
+    }
+    var before = opening ? 0 : box.getBoundingClientRect().height;
+    var after = opening ? box.scrollHeight : 0;
+    // box-sizing: border-box (global reset, layout.css) only means padding/
+    // border get SUBTRACTED from a set height to find the content box - the
+    // content box itself floors at 0, but padding/border are never
+    // compressed below their own stylesheet size just because height is
+    // set low. Animating height alone toward 0 therefore bottoms out at
+    // padding-top + padding-bottom + border-top (this box's own
+    // `padding: var(--space-sm) var(--space-lg); border-top: 1px solid...`,
+    // forms.css) instead of a genuine 0 - the close transition really did
+    // finish on schedule, it just wasn't animating toward zero to begin
+    // with (live feedback: "I would guess there is some padding or margin
+    // causing the filter shelf to not transition to 0px. And then it is
+    // made invisible" - exactly right). Closing now pins padding/border to
+    // their real current px values (not the CSS var - a var isn't a valid
+    // transition end value on its own inline style start point the way a
+    // resolved px is) and transitions them to 0 alongside height; opening
+    // reverses it, animating in from 0 back up to their stylesheet values
+    // (read via getComputedStyle before this box's own padding/border ever
+    // get touched) so a reopen isn't left permanently flattened.
+    var cs = getComputedStyle(box);
+    var padTop = cs.paddingTop, padBottom = cs.paddingBottom, borderTop = cs.borderTopWidth;
+    box.style.height = before + 'px';
+    if (!opening) {
+        box.style.paddingTop = padTop;
+        box.style.paddingBottom = padBottom;
+        box.style.borderTopWidth = borderTop;
+    } else {
+        box.style.paddingTop = '0px';
+        box.style.paddingBottom = '0px';
+        box.style.borderTopWidth = '0px';
+    }
+    box.style.transition = 'none';
+    void box.offsetHeight;
+    box.style.transition = 'height 360ms cubic-bezier(.2, .8, .2, 1), padding-top 360ms cubic-bezier(.2, .8, .2, 1), padding-bottom 360ms cubic-bezier(.2, .8, .2, 1), border-top-width 360ms cubic-bezier(.2, .8, .2, 1)';
+    requestAnimationFrame(function () {
+        box.style.height = after + 'px';
+        box.style.paddingTop = opening ? padTop : '0px';
+        box.style.paddingBottom = opening ? padBottom : '0px';
+        box.style.borderTopWidth = opening ? borderTop : '0px';
+    });
+    box.addEventListener('transitionend', function handler(e) {
+        if (e.target !== box || e.propertyName !== 'height') return;
+        box.style.transition = '';
+        box.style.height = '';
+        box.style.paddingTop = '';
+        box.style.paddingBottom = '';
+        box.style.borderTopWidth = '';
+        if (!opening) box.hidden = true;
+        box.removeEventListener('transitionend', handler);
     });
 }
 
@@ -429,11 +715,21 @@ function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow) {
 // does, see above). Curated-mode templates that haven't added the span
 // yet just keep their static "More filters" text - the chevron rotation
 // (components/forms.css) still communicates the state either way.
+// "View"/"Hide", not "More", at every width above mobile (#135, widened
+// 2026-08-20: "can we make this the setup for all modes except mobile") -
+// this button no longer discloses *additional* fields beyond what's already
+// showing (measure(), above, always empties primary entirely there), it's
+// the only way to see any of them, so "More filters" would misdescribe what
+// clicking it actually does.
 function setMoreFiltersLabel(moreFiltersBtn) {
     var labelSpan = moreFiltersBtn.querySelector('[data-more-filters-label]');
     if (!labelSpan) return;
     var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
-    labelSpan.textContent = expanded ? 'Hide filters' : 'More filters';
+    if (!window.matchMedia('(max-width: 480px)').matches) {
+        labelSpan.textContent = expanded ? 'Hide filters' : 'View filters';
+    } else {
+        labelSpan.textContent = expanded ? 'Hide filters' : 'More filters';
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1543,36 +1839,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         });
     });
 
-    // Horizontal scroll-snap carousel: a .*-carousel-wrap holding a scrolling
-    // track plus prev/next arrow buttons that nudge scrollLeft by one card
-    // width, auto-hiding themselves when the track doesn't actually
-    // overflow. Currently just the SENCo contacts carousel (SEND & Provision
-    // hub home, #114) - Home's own KPI carousel (#116) needed a
-    // fundamentally different interaction (focused/centred card, drag) and
-    // has its own wiring below instead of reusing this.
-    function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nextSelector) {
-        var track = wrap.querySelector(trackSelector);
-        var prevBtn = wrap.querySelector(prevSelector);
-        var nextBtn = wrap.querySelector(nextSelector);
-        if (!track || !prevBtn || !nextBtn) return;
-
-        function step() {
-            var card = track.querySelector(cardSelector);
-            return card ? card.offsetWidth + 12 : track.clientWidth;
-        }
-
-        prevBtn.addEventListener('click', function () { track.scrollBy({ left: -step(), behavior: 'smooth' }); });
-        nextBtn.addEventListener('click', function () { track.scrollBy({ left: step(), behavior: 'smooth' }); });
-
-        function updateArrows() {
-            var overflowing = track.scrollWidth > track.clientWidth + 1;
-            prevBtn.hidden = !overflowing;
-            nextBtn.hidden = !overflowing;
-        }
-        updateArrows();
-        window.addEventListener('resize', updateArrows);
-    }
-
     document.querySelectorAll('.senco-carousel-wrap').forEach(function (wrap) {
         wireScrollCarousel(wrap, '.senco-carousel', '.senco-card', '.senco-carousel-arrow--prev', '.senco-carousel-arrow--next');
     });
@@ -1916,6 +2182,22 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // without the overlay needing to name which bar it belongs to.
         var bar = closest(label || closeBtn, '.filter-bar') || (closeBtn && document.querySelector('.filter-bar.is-expanded'));
         if (!bar) return;
+        // #135: at every width above mobile (widened 2026-08-20 - "can we
+        // make this the setup for all modes except mobile") this bar's own
+        // trigger is "View filters"/"Hide filters" (moreFiltersBtn), not
+        // this label - the label is just descriptive text there now, so a
+        // click on it should do nothing rather than silently toggling
+        // .is-expanded without also updating aria-expanded/secondaryRow.
+        // hidden (the state wireMoreFiltersToggle's own click handler
+        // actually owns). No closeBtn case to handle here any more - the
+        // dimmed click-to-close overlay this used to redirect through only
+        // ever existed briefly (panel.css), and the filter panel itself is
+        // in normal flow now (live feedback: "the filter shelf pushes the
+        // content down... this can be kept open"), so there's no overlay
+        // left to close.
+        if (!window.matchMedia('(max-width: 480px)').matches) {
+            return;
+        }
         // Students' own slide-down tray (.filter-bar-collapsible) -
         // grid-template-rows: 0fr <-> minmax(0, 1fr) is what actually
         // establishes the correct final height instantly (bounded to
@@ -2141,13 +2423,54 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                     });
             }
 
-            form.addEventListener('change', function () {
+            function loadCurrent() {
                 // form.action (no action="" attribute set) resolves to the
                 // *current* document URL, query string included — strip it
                 // before appending the freshly-built one, or every change
                 // after the first would double up the querystring.
                 var baseUrl = form.action.split('?')[0];
                 load(baseUrl + '?' + new URLSearchParams(new FormData(form)).toString());
+            }
+
+            form.addEventListener('change', function (e) {
+                // Text/search fields fire live on 'input' below instead —
+                // still reacting to their own 'change' here would just
+                // re-run the same query a second time on blur.
+                if (e.target.matches('input[type=text], input[type=search]')) return;
+                loadCurrent();
+            });
+
+            // Live-as-typed search (INT-U13's debounced-search precedent,
+            // applied to this page-level filter rather than a picker):
+            // 250ms after the last keystroke, not on blur/Enter like a
+            // plain 'change' would give a text input.
+            var searchDebounce = null;
+            form.querySelectorAll('input[type=text], input[type=search]').forEach(function (input) {
+                input.addEventListener('input', function () {
+                    clearTimeout(searchDebounce);
+                    searchDebounce = setTimeout(function () {
+                        loadCurrent();
+                        // A page-level 'change' listener (e.g. Students'
+                        // own refreshFilterBarState, wireFilterBarActiveState
+                        // in panel.js) is what recomputes the active-filter
+                        // count badge - typing alone never fires a real
+                        // 'change' event (only blur/Enter do), so without
+                        // this the AJAX result already reflected the typed
+                        // search while the badge stayed stuck at whatever it
+                        // showed before typing started (live feedback: "it
+                        // auto filters but does not count in the badge till
+                        // I press enter"). Dispatched on the input itself,
+                        // not the form (Clear's own synthetic dispatch,
+                        // below, targets the form since nothing there needs
+                        // to distinguish it) - bubbling still reaches
+                        // Students' own filterBar 'change' listener, but
+                        // this file's own AJAX 'change' listener (above)
+                        // explicitly skips text/search e.target so it
+                        // doesn't also re-run loadCurrent() a second,
+                        // redundant time right after the one two lines up.
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }, 250);
+                });
             });
             form.addEventListener('click', function (e) {
                 var clear = closest(e.target, '.filter-bar-clear');

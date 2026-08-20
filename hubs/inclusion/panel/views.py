@@ -1226,7 +1226,7 @@ def inclusion_panel_students(request):
         has_overdue_actions=Exists(overdue_actions_subquery),
     ).select_related('school')
     if name_filter:
-        students = students.filter(Q(first_name__icontains=name_filter) | Q(last_name__icontains=name_filter))
+        students = students.filter(_token_name_filter(name_filter.split(), 'first_name', 'last_name'))
     if year_filter:
         students = students.filter(year_group=year_filter)
     if house_filter:
@@ -1295,7 +1295,7 @@ def inclusion_panel_students(request):
         'sen_status_filter': sen_status_filter,
         'sen_status_choices': Student.SEN_STATUS_CHOICES,
         'gender_filter': gender_filter,
-        'gender_choices': Student.GENDER_CHOICES,
+        'gender_choices': Student.GENDER_FILTER_CHOICES,
         'ethnicity_filter': ethnicity_filter,
         'ethnicity_choices': Student.ETHNICITY_CHOICES,
         'is_pp_filter': is_pp_filter,
@@ -3652,7 +3652,7 @@ def inclusion_panel_safeguarding_notes(request):
     reg_choices = sorted({row['student'].reg_form for row in rows if row['student'].reg_form})
     # Fixed choice sets, not derived from the row set - same convention as
     # students.html's gender_choices/sen_status_choices/ethnicity_choices.
-    gender_choices = Student.GENDER_CHOICES
+    gender_choices = Student.GENDER_FILTER_CHOICES
     sen_status_choices = Student.SEN_STATUS_CHOICES
     ethnicity_choices = Student.ETHNICITY_CHOICES
     # Reg narrows to the selected Year Group, same dependent-filter convention

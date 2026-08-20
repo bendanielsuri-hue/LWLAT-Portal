@@ -108,6 +108,190 @@
 }
 .filter-actions-right .filter-bar-clear { margin-left: 0; }
 .filter-actions-right .btn { width: 100%; }
+/* #135: at every width from 481px up (min-width: 481px so this never
+   touches sub-480 mobile, which uses a wholly different collapsible-tray
+   markup and relies on .filter-bar's own flex-wrap to stack .filter-bar-
+   sticky-row/.filter-bar-collapsible full-width, one per line - forcing
+   nowrap there would break that; no upper bound any more - 2026-08-20, live
+   feedback: "can we make this the setup for all modes except mobile" -
+   this used to stop at max-width: 900px, matching setupFilterBarMoreFilters,
+   main.js, which put every field behind "View filters" only up to that
+   width and used a different, older always-visible-inline model above it)
+   View filters/Clear Filters read as one header row, not two buttons
+   stacked on top of each other - row instead of the default column.
+   flex-wrap: nowrap on the bar itself stops that row dropping onto its own
+   line below the fields when the two together don't quite fit -
+   .filter-fields-wrap's own flex: 1; min-width: 0 (above) already lets its
+   own content (just "Filters"/Search at this width, once every other field
+   is behind the button) shrink or wrap internally instead, so the bar
+   itself never needs to. */
+@media (min-width: 481px) {
+    /* View filters/Clear Filters pinned to the bar's own top-right corner
+       (live feedback: "the buttons are dropping down but should stay in
+       the header. Use that space for more filters!") - .filter-actions-
+       right was a plain flex sibling of .filter-fields-wrap (base rule,
+       above), which reserves its own full-height column down the whole
+       bar regardless of align-self: stretched to match however tall the
+       expanded field list grows, dragging the buttons down to sit
+       vertically centred against that full height instead of staying put
+       at the top; even fixing that alignment would still leave a
+       permanently reserved blank column beside the fields, since flex
+       columns share a row's width regardless of each item's own content
+       height. position: absolute removes it from flex flow entirely
+       instead, so it never claims width/height from its siblings at all -
+       .filter-fields-wrap (below) is free to use the bar's full width, and
+       the buttons stay visually anchored to the header regardless of how
+       tall the field list grows beneath them. */
+    form[data-ajax-target="#students-filtered-content"].filter-bar {
+        position: relative;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-actions-right {
+        position: absolute;
+        top: var(--space-xs);
+        right: var(--space-lg);
+        flex-direction: row;
+        align-items: center;
+        border-left: none;
+        padding-left: 0;
+    }
+    /* Fields claim the bar's full width now that .filter-actions-right (a
+       plain sibling before, above) no longer reserves its own column. */
+    form[data-ajax-target="#students-filtered-content"] .filter-fields-wrap {
+        flex-basis: 100%;
+    }
+    /* Search fills whatever room "Filters" and the absolutely-positioned
+       buttons don't need (live feedback: "should use all available
+       space") - .filter-field's own shared max-width: 200px (forms.css) is
+       sized for a dense multi-column field grid, not this width's now much
+       sparser header row (every other field lives behind "View filters").
+       padding-right on the row itself (not the buttons' own reserved
+       width, which position: absolute takes them out of layout flow
+       entirely for) - --filter-actions-right-width is measured live
+       (measure(), main.js) off the buttons' own real rendered width, so
+       this stays correct if their label/count badge ever changes it,
+       rather than a guessed fixed number that silently drifts out of sync. */
+    form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
+        flex: 1 1 auto;
+        padding-right: calc(var(--filter-actions-right-width, 180px) + var(--space-md));
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row .filter-field--search {
+        flex: 1 1 auto;
+        max-width: none;
+    }
+    /* #135: the revealed field list animates open/closed at this width
+       (live feedback: "the filters [should] animate down like mobile
+       mode") - needs a real box to animate the height of, so
+       .filter-secondary-fields drops the plain display: contents
+       flattening it normally gets (forms.css base rule) in favour of its
+       own flex-wrap layout. Its own .filter-bar-collapsible/-inner
+       ancestors stay display: contents regardless (panel.css) - they're
+       transparent to layout, so this still lands as a genuine flex child
+       of .filter-fields-wrap despite the nesting. overflow: hidden clips
+       the field grid while its own height is pinned mid-transition
+       (animateSecondaryFieldsToggle, main.js) - flex-basis: 100% still
+       forces it onto its own line the same way .filter-divider (its own
+       first child) already did when flattened. */
+    /* :not([hidden]), not a bare .filter-secondary-fields - this selector's
+       own extra `form[...]` type selector already outranks the base
+       .filter-secondary-fields[hidden] { display: none } rule's
+       specificity (forms.css, below) on ids/classes/attributes alone, so
+       without this qualifier display: flex here was winning outright even
+       while hidden - the element was never actually display: none
+       underneath, so animateSecondaryFieldsToggle's closing transition
+       played once but then "reopened" the instant its own cleanup cleared
+       the inline height back to auto (live feedback: "the Filters shelf
+       reopens immediately when I close it"). */
+    /* flex-basis: 100% (not position: absolute any more, 2026-08-20 -
+       live feedback: "for this mode, not mobile, the filter shelf pushes
+       the content down as this can be kept open" - reverses an earlier
+       decision that took it out of flow entirely to float over
+       #students-filtered-content instead, mirroring mobile's own tray; kept
+       for mobile itself, max-width: 480px below, unchanged) - forces this
+       onto its own new line within .filter-fields-wrap's own flex-wrap the
+       same way .filter-divider already does, so .filter-bar genuinely
+       grows to contain it and the entity list below is pushed down in
+       normal flow rather than being covered. position: relative (not the
+       default static) purely so its own absolutely-positioned descendants
+       (the edge fades and carousel arrows, panel.css) still anchor to
+       *this* box's edges rather than falling through to .filter-bar's own
+       position: sticky further up. No height cap any more either (the
+       floating version's own max-height/overflow-y - "this can be kept
+       open" reads as no longer wanting an artificial scroll-bounded lid on
+       it now that it isn't competing with the viewport for space) - it
+       just grows to its natural content height and the page scrolls with
+       it like anything else in normal flow. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) {
+        display: flex;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        align-items: flex-end;
+        gap: var(--space-xs);
+        flex-basis: 100%;
+        position: relative;
+        padding: var(--space-sm) var(--space-lg);
+        background: var(--bg-well);
+        border-top: 1px solid var(--border-strong);
+        /* No bottom radius - even back in normal flow, this band sits
+           inside .list-card with the entity list continuing directly below
+           it (live feedback that first established this, still true here:
+           "lose the bottom corner radius on open Filter shelf as it is
+           within a card") - a rounded corner reads as "this is an edge",
+           which would look wrong with more of the same card's content
+           right underneath. */
+        border-radius: 0;
+    }
+    /* No scrollbar on a touch device (portal convention - every
+       overflow: auto element gets this pair) - html.nav-touch-mode is set
+       live off a real hover: none match or the dev breakpoint preview's
+       forced-touch override (main.js), not a bare pointer/hover media
+       query directly, for the same reason every other instance of this
+       pattern uses it (a resized desktop browser window is still a real
+       mouse, so a plain media query would never actually match there).
+       Targets -track now, not secondaryRow itself - the horizontal category
+       carousel (its own overflow-x: auto, panel.css) is the only thing that
+       still scrolls here since secondaryRow itself went back to normal flow
+       (immediately above) and dropped its own overflow-y entirely. */
+    html.nav-touch-mode form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-track {
+        scrollbar-width: none;
+    }
+    html.nav-touch-mode form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-track::-webkit-scrollbar {
+        display: none;
+    }
+    /* .filter-divider (main.js's own first child of secondaryRow, marking
+       the seam between the primary/secondary rows when they used to share
+       one flowing fieldsWrap) is redundant now that secondaryRow is its
+       own self-contained floating panel - its own border-top above already
+       draws that seam, so this would just be a second, pointless line
+       right under it. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields .filter-divider {
+        display: none;
+    }
+    /* FOUC prevention (live feedback: "the page loads with it open and I
+       see it snap close, can it load closed?") - at this width every
+       non-pinned field/header always ends up behind "View filters"
+       (narrowTablet branch, measure(), main.js), a deterministic outcome
+       rather than one depending on live overflow measurement the way
+       desktop's placement does - so unlike desktop, this can be decided by
+       plain CSS before JS ever runs at all, rather than starting visible
+       (the template's own plain, un-JS'd markup has nothing hiding these
+       yet) and only getting hidden a beat later once setupFilterBarMore
+       Filters's first measure() finishes. */
+    form[data-ajax-target="#students-filtered-content"] .filter-field:not([data-filter-pinned]),
+    form[data-ajax-target="#students-filtered-content"] .filter-section-label {
+        display: none;
+    }
+    /* ...but visible again once actually inside the revealed panel - the
+       extra .filter-secondary-fields ancestor class here already outranks
+       the bare hide rule immediately above on specificity alone, so this
+       wins regardless of source order once measure()/the click handler
+       moves a field there and clears secondaryRow's own [hidden]. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field {
+        display: flex;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label {
+        display: flex;
+    }
+}
 /* Secondary fields are direct flex items of .filter-fields-wrap
    (display:contents - no box/border of their own), so they wrap onto a
    new line inside that same wrap's own flex-wrap. A divider marks the
@@ -115,6 +299,27 @@
 .filter-secondary-fields { display: contents; }
 .filter-secondary-fields[hidden] { display: none; }
 .filter-divider { flex-basis: 100%; height: 0; border-top: 2px solid var(--border-strong); }
+/* #135 follow-up: the wrapper setupFilterBarMoreFilters() (main.js) now puts
+   around every category (header + its fields) - display: contents by
+   default flattens it out of layout entirely, so at every width except
+   narrow tablet (panel.css's own override, min-width:481px and
+   max-width:900px) this is a no-op and each field/header still lays out as
+   a direct flex item exactly as before this wrapper existed. */
+.filter-group { display: contents; }
+/* #135 follow-up: the inner scrolling box setupFilterBarMoreFilters()
+   (main.js) now wraps every category in, so narrow tablet's category strip
+   (panel.css) can scroll independently of secondaryRow itself, which stays
+   the non-scrolling floating panel (position/background/border/shadow).
+   display: contents by default, same no-op convention as .filter-group -
+   at every other width this flattens away and categories still land as
+   direct flex items of .filter-fields-wrap exactly as before this wrapper
+   existed. */
+.filter-secondary-fields-track { display: contents; }
+/* Carousel nudge buttons (main.js's wireScrollCarousel) - hidden by default
+   everywhere; panel.css's narrow-tablet block is the only place that shows
+   them (further gated there on :not([hidden]), since wireScrollCarousel
+   itself also auto-hides them whenever the strip doesn't overflow). */
+.filter-secondary-fields-arrow { display: none; }
 .more-filters-toggle { display: flex; align-items: center; gap: 6px; width: 100%; }
 .more-filters-toggle-icon { display: inline-flex; transition: transform var(--transition-fast); }
 .more-filters-toggle-icon svg { width: 14px; height: 14px; }
@@ -131,6 +336,13 @@
        cluster than a filter chip, and reads cramped sitting only 8px from
        the first field at that weight. */
     margin-right: var(--space-sm);
+    /* Animates alongside the badge itself (live feedback: "when I add a
+       filter the badge suddenly appears and shifts things. Can we make it
+       animate in") - narrow widths collapse this margin to 0 while the
+       badge is empty (Students' own max-width: 900px block, panel.css),
+       so without this transition too the label would still snap sideways
+       the instant the badge's own width/opacity finished animating in. */
+    transition: margin-right var(--transition-base);
     font-size: var(--font-base);
     font-weight: 700;
     /* --text-secondary by default - "Filters" is chrome describing an empty
@@ -166,13 +378,38 @@
     background: var(--primary);
     color: #fff;
     font-size: var(--font-2xs);
+    /* Pops in/out rather than snapping (live feedback: "when I add a
+       filter the badge suddenly appears and shifts things. Can we make it
+       animate in") - transform-origin: center so the scale grows from the
+       badge's own middle, not its top-left corner. min-width/width/
+       padding/margin included alongside opacity/transform so the narrow-
+       width collapse-to-zero-width variant (.filter-bar-count--empty
+       below, and Students' own max-width: 900px override, panel.css)
+       animates its own shrink too, not just the desktop variant's opacity
+       fade. */
+    transform-origin: center;
+    transition: opacity var(--transition-base), transform var(--transition-base),
+        min-width var(--transition-base), width var(--transition-base),
+        padding var(--transition-base), margin var(--transition-base);
 }
 
-/* Always occupies its layout space (see hub.html, which now always renders
-   this span) so the "Filters" label doesn't change width — and shove every
-   field after it sideways — as the active count goes from/to zero. */
+/* Always occupies its layout space by default (see hub.html, which now
+   always renders this span) so the "Filters" label doesn't change width —
+   and shove every field after it sideways — as the active count goes
+   from/to zero. Narrow widths override this to collapse instead (Students'
+   own max-width: 900px block, panel.css - a reserved gap reads as
+   oversized dead space once the bar no longer shares its row with much
+   else) - opacity/scale here still plays underneath that collapse either
+   way, so both variants animate through the same transition above rather
+   than needing two separate ones. pointer-events: none, not
+   visibility: hidden - visibility can't transition smoothly (it's a
+   discrete step, not an interpolatable value), and this badge was never
+   itself a focusable/interactive target for visibility's usual "remove
+   from tab order" job to matter. */
 .filter-bar-count--empty {
-    visibility: hidden;
+    opacity: 0;
+    transform: scale(0.4);
+    pointer-events: none;
 }
 
 /* Fields with a non-default value read as an inset chip, so it's obvious at
@@ -182,12 +419,24 @@
    every other "active" signal in the app (status pills, priority chips),
    which are all inset chips, and didn't compose with merging adjacent
    actives below (see grilling session 2026-07-12, "go back to option B").
-   No padding override here - the base .filter-field rule already carries
-   the vertical padding this chip needs (bumped to --space-xs there
-   specifically so activating/deactivating a field never changes its own
-   size, only its background/border/radius/colour - a padding-only override
-   here used to make an inactive field 4px shorter than an active one,
-   shifting it against .filter-bar's align-items: flex-end on every toggle).
+   Padding-left/-right DO grow here now (2026-08-20, #135 follow-up -
+   "there is a lot space between each filter... reduced when the filter is
+   not active" then, once vertical padding turned out to be the wrong axis,
+   "it is the padding to the left and right that I thought we could drop to
+   0px when not active. Leave height a constant") - an inactive field rests
+   at 0 horizontal padding instead of the base rule's old flat --space-sm,
+   saving real horizontal room across a whole panel of mostly-"All" fields
+   (which is also what lets two categories actually fit side by side now,
+   panel.css's own .filter-group), and only grows to --space-sm on
+   activation. Vertical padding stays the flat --space-xs it always was -
+   the original version of this comment explained why *that* axis was never
+   touched (an inactive field sized shorter than active, snapping against
+   .filter-bar's align-items: flex-end the instant a select's value
+   changed); horizontal padding sidesteps that concern entirely since it
+   doesn't move anything on the cross axis. The base rule's own
+   `transition: padding ...` (below) still eases this axis's change too, so
+   even the small remaining shift on the main (horizontal) axis glides
+   rather than lands in one frame.
    Border is --primary mixed 22% into --bg-well rather than a flat
    --border-strong or a full-strength --primary - enough definition to read
    as "framed" without competing with the fill itself (see grilling session
@@ -204,6 +453,8 @@
    here would tie with it on specificity and lose to it on source order
    since the base rule appears later in this file. */
 .filter-field.filter-field--active {
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
     background: var(--primary-light);
     border-color: color-mix(in srgb, var(--primary) 22%, var(--bg-well));
     border-radius: var(--radius-sm);
@@ -231,6 +482,14 @@
 .filter-field.filter-field--active:has(.toggle-pill) {
     background: none;
     border-color: transparent;
+    /* No fill to reserve room for (live feedback: "the toggle do not need
+       the extra padding as they do not have a bg fill") - the horizontal
+       grow-on-activate above exists to keep an active select/text chip's
+       fill clear of its own border edge; a toggle-pill field never paints
+       that fill at all (immediately above), so there's nothing for the
+       extra space to frame. */
+    padding-left: 0;
+    padding-right: 0;
 }
 .filter-field.filter-field--active:has(.toggle-pill) label {
     color: var(--text-secondary);
@@ -296,7 +555,7 @@
       if this row also holds single-line controls, Upper Fused's taller shape
       will misalign against them -- fall back to plain there instead.
    4. Neither fits at all? -> Fall back to a plain label-above .field-group. */
-.filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); padding: var(--space-xs) var(--space-sm); max-width: 200px; border: 1px solid transparent; }
+.filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); padding: var(--space-xs) 0; max-width: 200px; border: 1px solid transparent; transition: padding var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast); }
 /* Left, not centred: matches every other label in the app (.field-group
    label, .ui-fused-field-label - neither overrides text-align, both plain
    left) - .filter-field was the one place centering labels at all. Left also
@@ -422,6 +681,18 @@ select.ui-select-native, input.ui-select-native {
 }
 .ui-select-trigger {
     width: 100%;
+    /* Smooths a dependent select's own width changing when its parent
+       narrows its option list (e.g. Reg Group re-scoped by Year Group) -
+       live feedback: "if I select a year, the reg dropdown gets thinner...
+       can we make the change in width for these dynamic filters transition
+       smoothly". render() (main.js) recomputes trigger.style.minWidth to
+       fit the widest *option currently in the list* every time refresh()
+       runs (resolveTriggerMinWidth, same file) - a plain inline style
+       change like that still transitions like any other, as long as a
+       transition is declared here; the trigger's own auto-width ancestors
+       (.ui-select, .filter-field) reflow in step with it each frame rather
+       than needing a transition of their own. */
+    transition: min-width var(--transition-fast);
     /* (DES-A2) Left-aligned by default - most selects hold names or
        descriptions/categories, which read left like any other text.
        (DES-S1) Vertical padding matches .btn's own (--space-xs) - dropdowns

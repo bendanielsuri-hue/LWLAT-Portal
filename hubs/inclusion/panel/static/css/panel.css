@@ -3038,23 +3038,18 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
    with Referrals/Actions (#118/#119), whose own stacking is a separate,
    not-yet-designed ticket. */
 @media (max-width: 900px) {
-    /* Top corners square off in mobile mode (live feedback) - the card
-       already loses its side borders/radius entirely once it goes
-       full-bleed below 480px (see that rule further down), but between
-       480-900px it's still an inset card with all 4 corners rounded; drop
-       just the top two here so the card doesn't read as floating below
-       the sticky filter-bar header above it. .filter-bar's own top radius
-       (layout.css) is squared off the same way - .list-card's own
-       overflow: hidden clips it to match regardless, but an explicit
-       0 avoids relying on that clip alone. */
-    .list-card:has(#students-filtered-content) {
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
-    }
-    .list-card:has(#students-filtered-content) .filter-bar {
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
-    }
+    /* Top corners square off below 480px only (mobile's own full-bleed
+       rule, further down, which zeroes every corner unconditionally
+       regardless of anything here) - this width band's own version of
+       that squaring (live feedback at the time: "the card doesn't read as
+       floating below the sticky filter-bar header above it") was removed
+       (live feedback, #135 follow-up: "this is the first thing on the
+       page so it is not floating under anything. It [is] the first item
+       so needs rounded corners" - the filter bar IS the card's own first
+       element with nothing above it to read as detached from, so the
+       original reasoning didn't actually apply to it in the first place).
+       .filter-bar keeps whatever top radius it already had (layout.css)
+       between 480-900px now. */
     /* "Filters · N" label reserves layout space for its count badge even
        at zero (.filter-bar-count--empty, forms.css) - deliberate on
        desktop (keeps the label from changing width as filters are
@@ -3063,9 +3058,20 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
        much else (live feedback: "gap for the filter count... when there
        is no filters the gap is too big"). Collapses that reserved space
        only when actually empty - a real non-zero count still gets its
-       normal badge width once one exists. */
+       normal badge width once one exists. width/min-width/padding/margin
+       animate to 0 rather than an instant display: none (live feedback,
+       #135 follow-up: "when I add a filter the badge suddenly appears and
+       shifts things... make it animate in") - display: none can't be
+       transitioned at all, so the badge (and everything after it) used to
+       jump straight to its new position the instant a filter was
+       added/cleared; forms.css's own .filter-bar-count already carries the
+       matching transition for these same properties. */
     form[data-ajax-target="#students-filtered-content"] .filter-bar-count--empty {
-        display: none;
+        min-width: 0;
+        width: 0;
+        padding: 0;
+        margin: 0;
+        overflow: hidden;
     }
     form[data-ajax-target="#students-filtered-content"] .filter-bar-label:has(.filter-bar-count--empty) {
         margin-right: 0;
@@ -3254,12 +3260,342 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     gap: var(--space-sm);
 }
 /* .filter-section-label (students.html: Group Info / SEN & Support /
-   Inclusion Panel / Demographics) - hidden everywhere except the mobile 3-up
-   grid (the [max-width: 480px].is-expanded override, below). Not a
-   .filter-field, so the shared collapse rule that hides those
-   (.filter-bar .filter-field, responsive.css) doesn't reach it - needs its
-   own explicit default. */
+   Inclusion Panel / Demographics) - hidden by default. Not a .filter-field,
+   so the shared collapse rule that hides those (.filter-bar .filter-field,
+   responsive.css) doesn't reach it - needs its own explicit default. Two
+   widths re-enable it below: the mobile 3-up grid ([max-width: 480px]
+   .is-expanded override) and the shared category-strip panel at every
+   other width (#135, [min-width: 481px] below). */
 .filter-section-label { display: none; }
+/* #135: gated on .filter-secondary-fields:not([hidden]) - every header
+   lives inside the "View filters" panel (measure(), main.js) at every
+   width from 481px up now (2026-08-20, live feedback: "can we make this
+   the setup for all modes except mobile" - an earlier version split this
+   into two rules, an unconditional one for 901px+ where headers used to
+   sit in an always-visible primary row, and this gated one for narrower
+   tablet where they only ever lived behind the panel; the 901px+ model is
+   gone, so only this gated version remains), so it needs to stay hidden
+   until that panel actually opens - forms.css's own FOUC-prevention
+   default (.filter-section-label {display: none}, inside its own
+   (min-width:481px) block) already does that; the extra
+   .filter-secondary-fields:not([hidden]) ancestor here outranks it once
+   the panel is open, the same way forms.css's own field-reveal rule
+   already does. */
+@media (min-width: 481px) {
+    /* #135 follow-up (2026-08-20): "all the filters (not search) in one
+       line... keep the filter category label above, dynamically the width
+       of the relevant filters and it horizontally scrolled" - replaces the
+       row-pairing/wrap approach (see git history) with a single
+       non-wrapping row of categories, each auto-sized to its own content,
+       that scrolls horizontally when the total is wider than the panel.
+       overflow-x auto (not the wrap+overflow-y forms.css's own base rule
+       uses at this width - overridden here) - overflow-y stays hidden since
+       every category now sits on the one line, nothing to scroll
+       vertically for. */
+    /* secondaryRow itself stays the non-scrolling panel (position/
+       background/border, forms.css) - flex: 1 1 100% claims the panel's
+       full width for the track (its only real flex item; the divider is
+       display: none here, forms.css, and the arrow buttons below are
+       position: absolute, so neither competes for space). */
+    /* gap: --space-2xl (32px), not the field-level --space-xs - live
+       feedback: "what is causing the enormous gap between filter
+       categories... this should be same as page margin width... that's
+       32px". The categories themselves used to inflate far past their own
+       content (next comment), which read as a much bigger gap than this
+       32px alone accounts for - now that they size correctly, this is the
+       one deliberate value actually separating one category from the
+       next. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-secondary-fields-track {
+        display: flex;
+        flex: 1 1 100%;
+        flex-wrap: nowrap;
+        align-items: flex-start;
+        gap: var(--space-2xl);
+        overflow-x: auto;
+    }
+    /* display: flex; flex-direction: column (not flex-wrap: wrap with the
+       header forced onto its own line via flex: 1 1 100%, which is what
+       this used to be) - live feedback: "now it is too narrow. The line
+       should stop at the edge of Reg dropdown etc": a percentage flex-basis
+       needs a definite size to resolve against, but .filter-group's own
+       width is itself being computed as fit-content (flex: 0 0 auto) inside
+       an effectively unconstrained scrollable track - during that specific
+       computation the browser can't actually resolve "100%" to anything
+       real, so the header was falling back to its own (often narrower)
+       natural content width instead of genuinely spanning the group,
+       leaving its divider line short of the fields row beneath it. Column
+       direction sidesteps the circularity: the header (first child) and
+       .filter-group-fields (second child, below) each get sized/stretched
+       via ordinary two-pass cross-axis stretch instead of a percentage
+       basis, so the header always ends up exactly as wide as whichever
+       actually determines the group's width (in practice, the fields row -
+       main.js's own header font is never the widest thing in a category). */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-xs);
+        flex: 0 0 auto;
+        position: relative;
+    }
+    /* Vertical divider between categories (live feedback: "add a vertical
+       divider between each filter category") - centred in the track's own
+       32px gap (right: half that, negative) rather than adding a border/
+       padding of its own, so it doesn't disturb the gap value that's
+       already deliberately matched to the page margin (previous live
+       feedback). position: relative on .filter-group (above) is what this
+       anchors against. :not(:last-child) - no trailing divider after the
+       final category with nothing to its right. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-group:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: calc(-1 * var(--space-2xl) / 2);
+        width: 1px;
+        /* --text-faint, same token/opacity as the section label's own text
+           colour and its underline ticks (::before/::after, above) - live
+           feedback: "can vertical line be same colour as the filter
+           section label colour" - was --border-strong, a mismatched
+           chrome/border token instead of this row's own label colour. */
+        background: var(--text-faint);
+        opacity: 0.4;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-group-fields {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: var(--space-xs);
+    }
+    /* Left/right nudge buttons (live feedback: "add left and right arrows
+       like we do with carousels as well") - position: absolute against
+       secondaryRow itself (already the containing block for the edge
+       fades, same reasoning: excluded from the track's own scrollable
+       region, so these stay pinned to the panel's visible edges regardless
+       of scroll offset). Sized/styled like .senco-carousel-arrow (cards.css)
+       rather than .stats-carousel-arrow's larger 48px treatment - this
+       panel is a compact filter chrome, not a card carousel, so the
+       smaller size reads more as chrome than as a card-swiping control.
+       :not([hidden]) - wireScrollCarousel (main.js) sets the real hidden
+       attribute when the strip doesn't overflow; forms.css's own default
+       display: none would otherwise tie with this rule's display: flex on
+       specificity and win on source order (this file loads after), the
+       same bug already fixed once for secondaryRow's own [hidden] state
+       (see that comment, forms.css). */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-arrow:not([hidden]) {
+        display: flex;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-surface);
+        color: var(--text-primary);
+        box-shadow: var(--shadow-sm);
+        font-size: var(--font-lg);
+        line-height: 1;
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        z-index: 4;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-arrow:hover {
+        background: var(--border-color);
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-arrow--prev {
+        left: 4px;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-arrow--next {
+        right: 4px;
+    }
+    /* Edge fades hinting there's more to scroll to (live feedback: "add a
+       fade affect on the left and right to suggest there are more") -
+       position: absolute on a pseudo-element of an overflow:auto box is
+       positioned relative to that box's own padding edges but excluded
+       from the region that actually scrolls, so these stay pinned to the
+       panel's visible left/right edges regardless of scroll offset, no JS
+       scroll listener needed. Always shown rather than hidden at the true
+       start/end of the scroll range - simpler, and the affordance still
+       reads correctly even mid-scroll where the far edge doesn't
+       necessarily mean "no more content" (a category can be wider than the
+       fade's own 32px). */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::before,
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 32px;
+        pointer-events: none;
+        z-index: 3;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::before {
+        left: 0;
+        background: linear-gradient(to right, var(--bg-well), transparent);
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::after {
+        right: 0;
+        background: linear-gradient(to left, var(--bg-well), transparent);
+    }
+    /* Centred, not DES-A2's usual left-align (live feedback: "horizontally
+       center the labels of the filters and toggles") - scoped to this
+       narrow-tablet panel rather than the shared .filter-field label rule
+       (forms.css), which stays left-aligned everywhere else per that
+       principle. align-items: center on the field itself centres its
+       control (select/toggle) to match, since a field's own width is set by
+       its widest child (forms.css's 200px cap aside) - without it the label
+       would centre over a control still sitting flush left below it. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field {
+        align-items: center;
+    }
+    /* white-space: normal (not forms.css's own nowrap/ellipsis default) -
+       live feedback: "make labels take up two lines like we did with stat
+       cards on the homepage", clarified further: "the dropdown label can
+       take up two lines... this would allow labels to be narrower". A
+       single-word label (Year, Reg, Ethnicity) stays on its own one line -
+       no space in it means no valid place to break, so nothing here
+       constrains its width at all (an earlier version force-split every
+       label including single words, down to individual characters - live
+       feedback: "a single word should be on one line... I am seeing one
+       word flowing onto 3 lines" - genuinely wrong). A multi-word label
+       ("SEN Status", "Pupil Premium") gets its own real single-line width
+       measured and halved inline (balanceFilterGroupLabels, main.js) every
+       time the panel opens, forcing a break at one of its own existing
+       spaces rather than overflowing on one line - a flat CSS max-width
+       can't do this on its own since one number is never simultaneously
+       right for both a short two-word label and a long one. text-wrap:
+       balance then picks whichever of a label's spaces splits it most
+       evenly (live feedback's own example: "A B" -> "A" / "B") rather than
+       always breaking at the first one. */
+    /* line-height/min-height reserve exactly 2 lines' worth of box for
+       every label, whether it actually wraps to 2 lines or stays on 1 -
+       live feedback: "this looks great. But I want the vertical placement
+       to be the same" (screenshot: Year/House/Reg's own single-line labels
+       left their selects sitting higher than SEN Status/Looked After's two-
+       line ones beside them). Without a fixed reservation, .filter-field's
+       column layout just places the control directly after however tall
+       the label happens to render, so a category with only 1-line labels
+       (Group Info) ends up shorter overall than one with 2-line labels
+       (SEN & Support) sitting right beside it in the same row. min-height
+       (not a fixed height) still lets a genuinely 2-line label render
+       normally; a 1-line label's own text simply sits at the top of this
+       now-taller box (default block/flex top alignment, unchanged) with
+       blank space below it standing in for the second line it isn't
+       using - which is exactly what makes the control that follows land at
+       the same Y regardless of which label happens to be short. */
+    /* display: flex; flex-direction: column; justify-content: flex-end -
+       live feedback: "can one line dropdown labels be same distance from
+       the dropdown". Top-aligning a short label's text inside its own
+       reserved 2-line box (the min-height fix, immediately above) kept
+       every control's own Y position equal, but left a short label's text
+       sitting further from its control than a genuinely 2-line label's
+       text does - the blank unused line landed *below* the text (between
+       it and the control) rather than above it. Making the label itself a
+       (single-item) flex column and bottom-justifying pushes that blank
+       space above the text instead, so the text always sits flush against
+       the gap before the control regardless of how many lines it actually
+       used - box height, and so control alignment, is unchanged. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field label {
+        text-align: center;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        text-wrap: balance;
+        line-height: 1.2;
+        min-height: 2.4em;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+    /* Drops the "chip" treatment (primary-light fill, padding grow,
+       rounded corners, adjacent-active corner-squaring) an active field
+       gets everywhere else (forms.css) - live feedback: "I like this but I
+       think its going to conflict with the active filter bg fill style. I
+       think we lose the Primary fill and the added padding. This will
+       simplify things a lot. No transition needed. No radius calculations
+       if filters are next to each other." The chip's own padding-grow
+       animation was built (this same session) specifically to avoid a
+       jump against .filter-bar's align-items: flex-end on the old inline
+       primary row - irrelevant here, where every field's own vertical
+       position is already pinned by the label's fixed min-height (above)
+       regardless of active state, so there's nothing left for a transition
+       to smooth over. The active-label colour swap (.filter-field--active
+       label, forms.css) is left as the sole indicator - it never touched
+       padding/box size to begin with, so it can't reintroduce the same
+       conflict. No override needed for the adjacent-active corner-squaring
+       rules themselves (forms.css) - they only ever draw anything when
+       there's a border/radius to square in the first place, which this
+       removes, so they're already inert here. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field.filter-field--active {
+        background: none;
+        border-color: transparent;
+        padding-left: 0;
+        padding-right: 0;
+        border-radius: 0;
+        transition: none;
+    }
+    /* Margin trimmed from --space-sm/--space-xxs (2026-08-20, live feedback:
+       "there is a lot space between each filter") - with 4 headers now each
+       only owning their own group's width rather than a guaranteed full
+       row (immediately above), the old top margin's job of separating one
+       full-width band from the next matters less; --space-xs reclaims some
+       of that vertical run without losing the header's own breathing room
+       from the fields directly below it.
+       flex: 0 0 auto, not 1 1 100% - .filter-group is a column now (its own
+       comment, above), so flex-basis governs this item's HEIGHT, not its
+       width; a leftover 100% basis here would size the header to the
+       column's own height instead of its natural text height. Width comes
+       for free from cross-axis stretch, the column direction's own
+       default. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label {
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+        flex: 0 0 auto;
+        margin: var(--space-xs) 0 var(--space-xxs);
+        font-size: var(--font-2xs);
+        font-weight: 600;
+        color: var(--text-faint);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::before,
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::after {
+        content: "";
+        height: 1px;
+        background: var(--text-faint);
+        opacity: 0.4;
+    }
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::before {
+        flex: 0 0 54px;
+    }
+    /* Back to flex: 1 1 auto (2026-08-20) - fixing it at 24px was a stopgap
+       for the previous flex-wrap .filter-group, where the header's own
+       intrinsic size fed back into the group's own auto-width computation
+       (::after's comment history explains that circularity). Now that
+       .filter-group is display: flex; flex-direction: column with fields
+       in their own sibling box (that comment, above), the header no longer
+       participates in sizing the group at all - it just stretches to match
+       whatever width the fields row already settled on, so ::after can
+       safely fill the header's own now-correct width again instead of
+       stopping short of it (live feedback: "the line on the filter section
+       label stops before the right edge of the div"). */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::after {
+        flex: 1 1 auto;
+    }
+}
+/* #135 follow-up (2026-08-20, live feedback: "lose the overlay on the
+   filtered content for all modes but mobile") - narrow tablet briefly
+   reused mobile's own dimmed click-to-close backdrop here (widened to this
+   width range when the revealed field list first became a floating panel
+   instead of pushing content down), but that's been dropped again -
+   .filter-bar-overlay now only ever displays at true mobile width (max-
+   width: 480px, below). bar.classList's own .is-expanded toggle
+   (wireMoreFiltersToggle, main.js) still fires at this width regardless -
+   it's also what the click-to-close handler and the "View"/"Hide filters"
+   label swap key off - this only removes the CSS rule that turned it into
+   a visible dimmed layer here. */
 /* Mobile filter fields: single column, fused-label-left rows (#133
    grilling, live feedback: "in mobile the filters use a fused label to
    the left, 1 column") - overrides the shared 2-up grid
@@ -3831,6 +4167,18 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible .filter-bar-clear {
         display: flex;
     }
+    /* ...but not the field grid's own Clear Filters button specifically -
+       live feedback: "I have to clear buttons" (both this one and the
+       sticky footer's own Clear Filters showed at once once expanded,
+       since the rule above and responsive.css's shared .is-expanded
+       .filter-bar-clear rule don't otherwise distinguish the two
+       instances). The sticky footer's stays the one Clear control mobile
+       shows - see its own comment in students.html for why this one can't
+       just be deleted outright (desktop/tablet still reuses this exact
+       element, moved via setupFilterBarMoreFilters in main.js). */
+    form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible .filter-bar-clear:not(.filter-bar-clear--sticky) {
+        display: none;
+    }
     /* Clear + Close, side by side (live feedback: "Clear and Close should
        be sticky buttons at the bottom" - no longer sticky, see below, but
        still one footer bar rather than the two other Clear Filters
@@ -4297,7 +4645,17 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            tuned by eye - stays correct if the FAB's size/offset ever
            changes. 47px fallback only covers the (practically unreachable)
            case where the custom property hasn't been set yet. */
-        flex: 0 0 var(--list-endcap-height, 47px);
+        /* flex-grow: 1, not 0 - live feedback (prototype B): a short result
+           list should have the band fill the rest of the card down to the
+           tabbar instead of stopping at a small fixed-height strip, so a
+           short list still reads as visually "closed off" rather than
+           leaving bare page background beneath a tiny marker. flex-shrink
+           stays 0 though - the height above is also the FAB's own
+           clearance floor (setupListEndCapHeight, main.js); a long,
+           already-overflowing list must never squeeze this box smaller
+           than that floor just to make room, or the FAB goes back to
+           overlapping the last real row. */
+        flex: 1 0 var(--list-endcap-height, 47px);
         /* var(--list-endcap-clearance, main.js) - live feedback: "slightly
            less overlap. This is for both!" (the tray's own gap got the same
            treatment, positionFilterTray). Without this the box sits flush
@@ -4327,13 +4685,14 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            of primary colour") - the same neutral already used for the
            mobile tabbar's own border-top (_hub_sidebar.html) and every
            other structural line on this page, rather than a second,
-           branded colour language just for this stripe. Mixed down to
-           35% (live feedback: "Make the stripe very subtle") - the solid
-           border-strong stripe read at full structural-line strength;
-           this is meant to be a quiet texture, not another divider. */
+           branded colour language just for this stripe. Mixed down to 15%
+           (live feedback: "stripes can be much fainter" - a second pass
+           down from the original 35%, which read as too strong once the
+           band itself was made taller by the fill-to-bottom change above
+           and so covers noticeably more of the screen on a short list). */
         background-image: repeating-linear-gradient(
             45deg,
-            color-mix(in srgb, var(--border-strong) 35%, transparent) 0 5px,
+            color-mix(in srgb, var(--border-strong) 15%, transparent) 0 5px,
             transparent 5px 11px
         );
     }
@@ -4345,6 +4704,25 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         border-left: none;
         border-right: none;
         border-radius: 0;
+    }
+    /* .filter-bar's own top radius (layout.css) needs its own explicit
+       zero here too, not just .list-card's above (live feedback, #135
+       follow-up: "the filter bar now has radius in mobile mode... seems
+       to affect the bg fill not the border" - a real, correctly-spotted
+       leak, not a false alarm: .list-card's overflow: hidden only clips
+       content that actually extends PAST its own edge, and .filter-bar
+       sits flush with it, never overflowing at all, so there was nothing
+       for that clip to catch - .filter-bar's own rounded corner fill just
+       painted as-is, cutting into its own cream --bg-well background and
+       revealing the white card underneath in each corner instead. An
+       earlier version of this exact rule existed for this reason but got
+       deleted as a side effect of un-squaring the 480-900px tablet band
+       above it - tablet's own overflow situation is identical (no clip
+       help there either), it's just that tablet is meant to show the
+       rounding now, where mobile still isn't. */
+    .list-card:has(#students-filtered-content) .filter-bar {
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
     }
 
     /* Data cards simplify to plain details at phone width (live feedback:
