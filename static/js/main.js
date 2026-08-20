@@ -1229,13 +1229,25 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // so measuring just the header undercounts that gap and leaves the shell a
     // few pixels too tall (a permanent, near-invisible overflow scrollbar on
     // main even though nothing looks cut off). The trailing subtraction must
-    // match .main-inner's own bottom padding (--space-2xl, 32px) exactly — that
-    // padding is rendered unconditionally after the shell regardless of the
-    // shell's own height, so subtracting anything less than the full 32px
-    // leaves main's content 32-minus-that-much taller than the viewport,
-    // forcing a scrollbar even though every card looks perfectly laid out
-    // above it (confirmed: shrinking this constant from 16 to 32 removed a
-    // reproducible bottom-of-page scroll on Inclusion Panel Home).
+    // match .main-inner's own bottom padding exactly — that padding is
+    // rendered unconditionally after the shell regardless of the shell's own
+    // height, so subtracting anything less leaves main's content that much
+    // taller than the viewport, forcing a scrollbar even though every card
+    // looks perfectly laid out above it (confirmed: shrinking a hardcoded
+    // 16-then-32 constant here removed a reproducible bottom-of-page scroll
+    // on Inclusion Panel Home). Read live off .main-inner's own computed
+    // padding-bottom now, not a hardcoded 32px (git history) - that constant
+    // only ever matched the desktop --space-2xl value; Students zeroes
+    // .main-inner's own bottom padding at phone width entirely (panel.css,
+    // body:has(.students-page-shell) .main-inner, moving the FAB/tabbar
+    // clearance onto .entity-list's own padding instead), so hardcoding 32
+    // there left the shell ~32px short of main's real usable bottom edge -
+    // a visible gap of page background between the list-card and the mobile
+    // tab bar (live feedback: "I can see a white line or white shadow on
+    // the top edge of the Mobile bottom nav... only shows on student page").
+    // Reading the actual padding avoids this class of page-specific
+    // override silently drifting out of sync with a constant duplicated
+    // here.
     (function setupListPageShellHeight() {
         var header = document.querySelector('.sticky-header-zone') || document.querySelector('.page-header');
         var shells = document.querySelectorAll('.list-page-shell');
@@ -1250,35 +1262,22 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // overflows main outright. At phone width the collapsed carousel
         // itself measures 0, so this sums to just the small toggle - the
         // card still gets everything else.
-        // Only the shells that actually have trailing content taking up
-        // real space (Panel Home's KPI carousel, etc.) need their height
-        // pinned in JS at all - a shell with nothing trailing it already
-        // gets exactly the same result for free from its own flex: 1
-        // (layout.css), no JS involved. Forcing the JS height anyway (as
-        // this used to, unconditionally) meant a plain page like Students
-        // still carried a live ResizeObserver on the header - and that
-        // observer firing again later at a very slightly different
-        // headerBottom (bisected live: confirmed as the actual trigger,
-        // not a web-font swap) reset shell.style.height a second time,
-        // which is exactly the visible snap that got reported ("the
-        // filtered content shift upwards... white line effect over the
-        // nav"). Checking rendered height rather than just
-        // nextElementSibling's presence matters here - every page's own
-        // {% block content %} (students.html included) ends with its own
-        // inline <script>, which *is* a real trailing sibling element but
-        // renders at zero height, so a plain existence check still left
-        // Students routed through the JS path this was meant to skip.
-        function hasTrailingContent(shell) {
-            var sib = shell.nextElementSibling;
-            while (sib) {
-                if (sib.getBoundingClientRect().height > 0) return true;
-                sib = sib.nextElementSibling;
-            }
-            return false;
-        }
-        shells = Array.prototype.filter.call(shells, hasTrailingContent);
-        if (!shells.length) return;
-
+        // Every list-page-shell gets its height pinned in JS, trailing
+        // content or not - a shell with nothing trailing it does NOT
+        // already get the same result for free from its own flex: 1
+        // (layout.css): that only bounds a flex item to its container's
+        // definite size, and .main-inner (this shell's flex parent) is
+        // deliberately min-height: 100%, not height: 100% (see that rule's
+        // own comment - other pages' sticky headers need main-inner able to
+        // grow past one screen), so main-inner has no definite height of
+        // its own to distribute in the first place whenever a shell's real
+        // content (e.g. Students' full unfiltered row count) is taller than
+        // the viewport - flex: 1 alone just lets the shell grow to fit that
+        // content instead of capping it, and .entity-list's own internal
+        // overflow-y: auto never gets a bounded box to scroll within either
+        // (confirmed: Students' 240 seeded rows produced a ~29000px-tall
+        // main scrolling the whole page - filter bar included - instead of
+        // the entity list alone).
         function applyHeight() {
             var headerBottom = header.getBoundingClientRect().bottom;
             shells.forEach(function (shell) {
@@ -1296,13 +1295,28 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // (e.g. the mobile bottom nav bar) eats into innerHeight
                 // without main actually having that space to give.
                 var mainBottom = shell.closest('main').getBoundingClientRect().bottom;
+                var mainInner = shell.closest('.main-inner');
+                var mainInnerPaddingBottom = mainInner ? parseFloat(getComputedStyle(mainInner).paddingBottom || 0) : 0;
+                var next = mainBottom - headerBottom - mainInnerPaddingBottom - trailing;
+                // Skip a no-op (sub-px difference) re-apply - the actual
+                // fix for the on-load snap a previous version of this code
+                // hit and dodged by routing Students around this whole
+                // function instead (git history): the ResizeObserver below
+                // is guaranteed to fire once immediately on ro.observe(),
+                // redoing the same computation the explicit applyHeight()
+                // call a few lines below this function just made by hand -
+                // and any later re-fire at a genuinely unchanged
+                // headerBottom hits the same no-op. Only a real, >=1px
+                // difference (an actual header reflow) should ever touch
+                // shell.style.height again.
+                if (Math.abs(next - (parseFloat(shell.style.height) || 0)) < 1) return;
                 // flex: none (not just flexGrow/flexShrink: 0) - the base
                 // CSS's flex: 1 shorthand also sets flex-basis: 0%, which
                 // wins over an explicit height for a flex item's main size
                 // even with grow/shrink zeroed out, so leaving flex-basis
                 // alone would still ignore the pixel height set below.
                 shell.style.flex = 'none';
-                shell.style.height = (mainBottom - headerBottom - 32 - trailing) + 'px';
+                shell.style.height = next + 'px';
             });
         }
 
@@ -1762,6 +1776,122 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         });
     })();
 
+    // #134: positions the floating tray (panel.css: .filter-bar-collapsible,
+    // position: fixed) against its own .filter-bar's current bottom edge,
+    // capped to clear the mobile tabbar. Factored out of the click handler
+    // below so the visualViewport listener further down can re-run the
+    // exact same calculation live, not just once at open time - a real
+    // mobile browser's address-bar/toolbar chrome can show/hide *after* the
+    // tray's already open (e.g. scrolling inside it), changing how much
+    // screen is actually visible without firing any DOM resize of its own;
+    // a one-time-at-open measurement goes stale the moment that happens.
+    //
+    // Caps against .mobile-tabbar's own top edge, not the true bottom of
+    // the screen - live feedback: an earlier version of this reached the
+    // full screen and painted over the tabbar (a deliberate main:has() +
+    // z-index escalation, git history), but that meant the tabbar's own
+    // icon row could end up covering the tray's sticky Clear/Close footer
+    // depending on how much of the tabbar the tray's bottom edge actually
+    // overlapped ("the mobile nav is covering the bottom button on the
+    // filter tray when its full screen"). Landing the cap just above the
+    // tabbar instead means the footer is never behind it, full stop - the
+    // FAB (.mobile-tab-fab, a separate circular button that already floats
+    // above the tabbar's own top edge by design) can still visually poke
+    // over the tray's edge without covering interactive content the same
+    // way ("I like the FAB overlaying it but not the whole bar").
+    // How far .mobile-tab-fab's own top edge actually pokes above
+    // .mobile-tabbar's top edge, measured live rather than assumed off its
+    // CSS (margin-top: -28px, _hub_sidebar.html) - the tabbar's own
+    // padding eats into that margin, so the real on-screen protrusion is
+    // smaller than the margin alone suggests. Shared by positionFilterTray
+    // and setupListEndCapHeight (below) so both "how much should the FAB
+    // overlap X" calculations stay in step with each other and with any
+    // future FAB/tabbar sizing change, instead of two separately-tuned
+    // numbers that happen to agree today.
+    function fabProtrusionAboveTabbar() {
+        var fab = document.querySelector('.mobile-tab-fab');
+        var tabbar = document.querySelector('.mobile-tabbar');
+        return (fab && tabbar) ? (tabbar.getBoundingClientRect().top - fab.getBoundingClientRect().top) : 19;
+    }
+    // Extra clearance trimmed off however much the FAB would otherwise
+    // overlap - live feedback: "adjust the math so there is slightly less
+    // overlap. This is for both!", then "a bit more... fab should be about
+    // halfway into padding of last entity" (0.2 left the FAB nearly flush
+    // against the last entity row's own buttons). Expressed as a fraction of
+    // the FAB's own protrusion (not a flat px number) so it scales the same
+    // way the protrusion-based math it's trimming does, rather than
+    // drifting out of proportion if the FAB's size/offset ever changes.
+    function fabOverlapClearance() {
+        return fabProtrusionAboveTabbar() * 0.35;
+    }
+    function positionFilterTray(bar, box) {
+        var barBottom = bar.getBoundingClientRect().bottom;
+        var tabbar = document.querySelector('.mobile-tabbar');
+        var bottomLimit = tabbar ? tabbar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+        box.style.top = barBottom + 'px';
+        // Half the FAB's own protrusion above the tabbar, not a fixed number
+        // - live feedback: "it should be based on math... the amount of Fab
+        // that sticks out, the bottom padding of tray so this can be dynamic
+        // if we change any of these settings." So this stays correct if the
+        // FAB's size or offset ever changes. Landed on half - a small sliver
+        // of tray bottom padding stays clear of the FAB rather than the
+        // FAB's whole reach overlapping it. Plus fabOverlapClearance() on
+        // top (live feedback: "slightly less overlap") - a bigger reserve
+        // here means the FAB's own top edge sits that much further below
+        // the tray's own bottom edge, i.e. less of the FAB overlaps it.
+        box.style.maxHeight = Math.max(0, bottomLimit - barBottom - (fabProtrusionAboveTabbar() / 2) - fabOverlapClearance()) + 'px';
+        // #134 follow-up (live feedback: "if filter tray is max size, can it
+        // lose the bottom radius corners") - a rounded corner sitting right
+        // at the tray's own hard-capped edge (where the field grid is
+        // genuinely being clipped/scrolled, not just ending on its own)
+        // reads as a deliberate stopping point rather than a soft, natural
+        // end. .filter-bar-collapsible-inner's own scrollHeight vs
+        // clientHeight is the standard "does this actually need to scroll"
+        // check - inner (not box) because box's own scrollHeight always
+        // just matches whatever flex: 1 handed inner (box's only child), it
+        // never reflects inner's own internal overflow. Re-checked on every
+        // call (open and the visualViewport listener, above), so a tray
+        // that WAS maxed out un-squares itself again if the screen grows
+        // back (e.g. the browser's own chrome collapsing) enough to fit
+        // everything without scrolling.
+        var inner = box.querySelector('.filter-bar-collapsible-inner');
+        box.classList.toggle('is-maxed', !!inner && inner.scrollHeight > inner.clientHeight + 1);
+    }
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', function () {
+            document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
+                var box = bar.querySelector('.filter-bar-collapsible');
+                if (box) positionFilterTray(bar, box);
+            });
+        });
+    }
+
+    // .entity-list::after's own "end of content" stripe (panel.css) - live
+    // feedback: "same for the last entity of filtered content... should be
+    // based on math", the same complaint as positionFilterTray's own gap
+    // above. Twice fabProtrusionAboveTabbar(), not half - the FAB should
+    // cover roughly half of this box, so the box itself is twice however
+    // far the FAB actually reaches. Exposed as a CSS custom property (not
+    // set inline on the element, unlike the tray) because this is a
+    // ::after - there's no real element for JS to style directly.
+    (function setupListEndCapHeight() {
+        function apply() {
+            document.documentElement.style.setProperty('--list-endcap-height', (fabProtrusionAboveTabbar() * 2) + 'px');
+            // Pushes the cap's own bottom edge up off the tabbar by the same
+            // fabOverlapClearance() positionFilterTray now reserves (live
+            // feedback: "slightly less overlap. This is for both!") - the
+            // cap is otherwise flush with the scroll container's bottom, so
+            // margin-bottom is what actually trims the FAB's overlap into it
+            // rather than just changing its own height (which only changes
+            // how much unobscured stripe shows above the overlap, not the
+            // overlap itself).
+            document.documentElement.style.setProperty('--list-endcap-clearance', fabOverlapClearance() + 'px');
+        }
+        apply();
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', apply);
+        window.addEventListener('resize', apply);
+    })();
+
     // Mobile filter bar collapse (see responsive.css's ≤480px block, #114):
     // tapping the "Filters · count" label toggles `.is-expanded`, which is
     // what actually reveals the fields below that width. No-op above 480px
@@ -1828,6 +1958,23 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             bar.classList.toggle('is-expanded');
         }
         if (box) {
+            // #134: the floating tray (panel.css: position: fixed, viewport-
+            // anchored) has nothing left bounding its top/height once it's
+            // out of .filter-bar's own flex flow - CSS alone can't target
+            // either up front (top depends on the sticky row's own rendered
+            // height; the max-height cap on the tray's own resulting top and
+            // the tabbar's own rendered position, itself only known after
+            // that - see positionFilterTray, above). Persists past the
+            // animation (not reset in the transitionend handler below,
+            // unlike height/transition/flex) so the resting expanded state
+            // stays positioned/capped too, letting .filter-bar-collapsible-
+            // inner's own overflow-y: auto do the actual scrolling for a
+            // field grid taller than the cap - and stays live afterwards
+            // too, via the visualViewport listener above, if the browser's
+            // own chrome changes size while the tray's still open.
+            if (bar.classList.contains('is-expanded')) {
+                positionFilterTray(bar, box);
+            }
             var after = box.getBoundingClientRect().height;
             if (before !== after) {
                 box.style.flex = '0 0 auto';
@@ -1871,11 +2018,18 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         document.querySelectorAll('.filter-bar-collapsible-inner').forEach(function (inner) {
             var bar = closest(inner, '.filter-bar');
             if (!bar) return;
-            var row = bar.querySelector('.filter-bar-sticky-row');
             var footer = bar.querySelector('.filter-bar-sticky-footer');
             function update() {
                 var expanded = bar.classList.contains('is-expanded');
-                if (row) row.classList.toggle('is-covering', expanded && inner.scrollTop > 0);
+                // .filter-bar-sticky-row itself no longer gets an is-covering
+                // toggle (panel.css) - .list-card .filter-bar's own permanent
+                // border-bottom already sits at that exact boundary
+                // unconditionally, so a second, JS-driven fade-in border
+                // there was just redundant (live feedback: "The filter bar
+                // has a permanent bottom border, so the border that fades in
+                // when there is overflow is redundant"). Only the footer
+                // still needs one - nothing permanent sits at its own
+                // boundary the same way.
                 if (footer) footer.classList.toggle('is-covering', expanded && inner.scrollTop + inner.clientHeight < inner.scrollHeight - 1);
             }
             inner.addEventListener('scroll', update);

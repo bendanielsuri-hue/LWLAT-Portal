@@ -266,24 +266,39 @@ School dropped entirely (issue #9).
         </select>
     </div>
     <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
     {% comment %}
     Clear + Close, side by side (#133 follow-up, live feedback: "Clear and
-    Close should be sticky buttons at the bottom" - no longer sticky, see
-    panel.css's own .filter-bar-collapsible comment, but still one footer
-    bar). Last child inside .filter-bar-collapsible-inner (above), so it
-    slides in/out with the rest of the field grid rather than needing any
-    reparenting of its own. Clear reuses the same .filter-bar-clear class
-    as the two other instances on this page (shared AJAX Clear handling,
-    main.js, picks up any of them identically) - only one of the three
-    ever shows at a time, per width/state (panel.css). Close:
-    data-filter-bar-close is a second case the shared delegated click
-    listener (main.js) handles, alongside data-filter-pinned - collapses
-    unconditionally rather than toggling, since closing is its only job.
+    Close should be sticky buttons at the bottom"). Sibling of
+    .filter-bar-collapsible-inner (above), not nested inside it - see the
+    #134 follow-up comment just below for why. Clear reuses the same
+    .filter-bar-clear class as the two other instances on this page (shared
+    AJAX Clear handling, main.js, picks up any of them identically) - only
+    one of the three ever shows at a time, per width/state (panel.css).
+    Close: data-filter-bar-close is a second case the shared delegated
+    click listener (main.js) handles, alongside data-filter-pinned -
+    collapses unconditionally rather than toggling, since closing is its
+    only job.
+    {% endcomment %}
+    {% comment %}
+    #134 follow-up (live feedback: "I can see the filters through the gap" -
+    a real, confirmed leak, not a false alarm: position: sticky inside
+    .filter-bar-collapsible-inner's own display: flex; flex-wrap: wrap
+    layout doesn't reliably paint opaque on every browser, so scrolled-past
+    field content stayed visible through what was meant to be a fully-
+    covered band above/below the footer). Sibling of .filter-bar-
+    collapsible-inner now, not its last child - .filter-bar-collapsible
+    (panel.css) is already display: flex; flex-direction: column with
+    inner as its flex: 1 scrolling child, so this footer just needs to be
+    a second, plain (flex: 0 0 auto, no position: sticky at all) child of
+    that same column to permanently occupy its own slot below inner,
+    genuinely never part of any scrolling content for a browser to get
+    wrong - no clipping/z-index/margin-transparency trick required, it's
+    simply never behind anything scrollable in the first place.
     {% endcomment %}
     <div class="filter-bar-sticky-footer">
         <a href="{% url 'inclusion_panel_students' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear</a>
         <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
-    </div>
     </div>
     </div>
 </form>
