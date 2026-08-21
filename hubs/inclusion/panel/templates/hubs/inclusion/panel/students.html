@@ -407,9 +407,86 @@ document.addEventListener('DOMContentLoaded', function () {
     function wireStudentRowButtonWrap() {
         var container = document.getElementById('students-filtered-content');
         if (!container) return;
+        var rows = null;
+        function measureOverflow() {
+            var anyOverflow = false;
+            rows.forEach(function (row) {
+                row.classList.add('row-measuring');
+            });
+            rows.forEach(function (row) {
+                if (row.scrollWidth > row.clientWidth + 1) anyOverflow = true;
+            });
+            rows.forEach(function (row) {
+                row.classList.remove('row-measuring');
+            });
+            return anyOverflow;
+        }
+        // Two passes, not one (live feedback: "hide the data stat columns
+        // so that buttons fit without overflowing... I want all the
+        // columns to have the same contents. So if one has to hide, it
+        // should hide in all", then "I was thinking it could cut off the
+        // last column of data, not immediately go to basic info" - every
+        // row must agree on the same set of columns, but that set shrinks
+        // one column at a time from the end (5 down to 0, panel.css's
+        // data-detail-level), not straight from all 5 to none. Pass 1
+        // walks the levels from the top, measuring every row at each one,
+        // and stops at the first (highest) level where nothing overflows.
+        // Pass 2 is the pre-existing per-row wrap fallback, run against
+        // whatever that level leaves each row with - still needed for a
+        // genuinely long name/pill count that overflows even at level 0.
+        // Each button slot (Referrals/Actions/New Referral) pinned to the
+        // widest that same slot actually needs across the whole list (live
+        // feedback: "force action buttons to be the same size as largest
+        // Action button" - a fixed total .btn-row width alone (an earlier
+        // idea, same conversation) would keep the group's outer edge
+        // aligned but not each individual button, since a 1-digit vs a
+        // 3-digit badge still shifts everything after it within that same
+        // group). Custom properties, not a per-element inline width - one
+        // read/write per slot for the whole list rather than one per row.
+        function alignButtonSlots() {
+            ['referrals', 'actions', 'new-referral'].forEach(function (slot) {
+                // Cleared before measuring, not just overwritten after -
+                // otherwise a slot's own previously-set fixed width would
+                // be what gets measured back on a re-run (e.g. after an
+                // AJAX refresh drops every badge to a shorter digit count),
+                // never letting the constraint shrink again.
+                container.style.removeProperty('--btn-w-' + slot);
+            });
+            ['referrals', 'actions', 'new-referral'].forEach(function (slot) {
+                var max = 0;
+                container.querySelectorAll('[data-btn-slot="' + slot + '"]').forEach(function (el) {
+                    max = Math.max(max, el.getBoundingClientRect().width);
+                });
+                if (max > 0) container.style.setProperty('--btn-w-' + slot, max + 'px');
+            });
+        }
         function checkAll() {
-            container.querySelectorAll('.entity-row').forEach(function (row) {
+            rows = Array.prototype.slice.call(container.querySelectorAll('.entity-row'));
+            // .row-buttons-wrapped cleared here, before anything else runs -
+            // live feedback: "still getting an overflow when I shrink"
+            // and "if I shrink to portrait tablet and then enlarge again,
+            // it keeps the buttons on their own row even when full width".
+            // Both traced to the same cause: a row left over in
+            // .row-buttons-wrapped (full-width, flex: 1 stretched buttons)
+            // from a previous, narrower run was still wearing that class
+            // the moment alignButtonSlots() measured it, so getBoundingClientRect()
+            // read each button's *stretched* width instead of its true
+            // compact one - poisoning --btn-w-* for the whole list with
+            // widths too large to ever fit inline again, which in turn
+            // made every row look like it still needed to be wrapped even
+            // once the window widened back out. Resetting the class before
+            // any measurement runs guarantees alignButtonSlots() (and the
+            // level search below) always measures each row's genuine
+            // inline-layout size.
+            rows.forEach(function (row) {
                 row.classList.remove('row-buttons-wrapped');
+            });
+            alignButtonSlots();
+            for (var level = 5; level >= 0; level--) {
+                container.setAttribute('data-detail-level', level);
+                if (!measureOverflow()) break;
+            }
+            rows.forEach(function (row) {
                 row.classList.add('row-measuring');
                 var overflowing = row.scrollWidth > row.clientWidth + 1;
                 row.classList.remove('row-measuring');

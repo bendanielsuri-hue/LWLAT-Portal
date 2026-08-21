@@ -1224,7 +1224,7 @@ def inclusion_panel_students(request):
         # independently per student, so it can't interact with the joins
         # above at all.
         has_overdue_actions=Exists(overdue_actions_subquery),
-    ).select_related('school')
+    ).select_related('school', 'form_tutor').prefetch_related('attendance_days', 'behaviour_incidents')
     if name_filter:
         students = students.filter(_token_name_filter(name_filter.split(), 'first_name', 'last_name'))
     if year_filter:
@@ -1270,6 +1270,37 @@ def inclusion_panel_students(request):
             or student.is_lac or student.is_young_carer or student.is_more_able
         )
 
+    # Head of Year, for the row-detail column below - seed_staff_groups
+    # (core) creates a "Head of Year N" StaffGroup per school/year group but
+    # deliberately seeds it with zero members ("real holder TBD"), so this
+    # resolves to nobody for every student today; wired up properly now
+    # (rather than hardcoding an em dash) so it starts showing real names
+    # the moment someone's actually added to one of those groups.
+    # year_group__isnull=False is what's unique to Head of Year among
+    # StaffGroup's other rows (SENCo Team/Careers Team never set it) - see
+    # core/CONTEXT.md.
+    hoy_by_school_year = {}
+    for group in StaffGroup.objects.filter(year_group__isnull=False).prefetch_related('members__staff'):
+        member = next(iter(group.members.all()), None)
+        hoy_by_school_year[(group.school_id, group.year_group)] = member.staff if member else None
+    for student in students:
+        student.head_of_year = hoy_by_school_year.get((student.school_id, student.year_group))
+    # Attendance % / Behaviour incident count, for the row-detail column
+    # below (live feedback: "pair Prior Attainment Band with... Attendance
+    # %", then "Lose Attainment and add in Negative Behaviour Points" ->
+    # "Incident count" once it turned out BehaviourIncident has no summable
+    # points field, only a severity tier - core.student_history.
+    # behaviour_summary() is the existing "N incidents logged" derived
+    # view). Both always derived at query time via core.student_history
+    # (see docs/adr/0007), never a stored field - attendance_percentage()/
+    # behaviour_summary() read student.attendance_days.all()/
+    # student.behaviour_incidents.all(), which the queryset's own
+    # prefetch_related(...) above already warms, so this is one query per
+    # relation for the whole list, not one per row.
+    for student in students:
+        student.attendance_pct = attendance_percentage(student)
+        student.behaviour_incidents_summary = behaviour_summary(student)
+
     active_filter_count = sum(
         1 for v in (
             name_filter, year_filter, house_filter, reg_filter, has_referrals_filter, overdue_actions_filter,
@@ -1278,9 +1309,49 @@ def inclusion_panel_students(request):
         ) if v
     )
 
+    # DOB/YOA, Gender/Ethnicity, Tutor/HoY columns (live feedback: "add in
+    # addition details if there is room. Gender, DOB... styled like
+    # Referrals page", then "DOB should have a DOB: label. Go with
+    # Ethnicity, Lets add Tutor name and Head of Year name", then "pair DOB
+    # with YOA" (year_arrived) instead of Gender - same _col_width helper
+    # Referrals/Actions use for their own row-fact-col pairs. Gender/
+    # Ethnicity stay unlabelled (self-describing values, same convention
+    # this exact pairing used pre-#117 - git history); DOB/YOA/Tutor/HoY
+    # get an explicit label since a bare date, a bare year, or a bare
+    # person's name isn't self-explanatory on its own the way "White
+    # British" or "Male" is.
+    col_widths = {
+        'yearreg': _col_width(
+            [f'Year {s.year_group}' + (f' (House {s.house})' if s.house else '') for s in students]
+            + [f'Reg {s.reg_form}' if s.reg_form else 'Reg —' for s in students],
+            max_ch=26,
+        ),
+        'dobyoa': _col_width(
+            [f'DOB: {s.date_of_birth:%d %b %Y}' if s.date_of_birth else 'DOB: —' for s in students]
+            + [f'YOA: {s.year_arrived}' if s.year_arrived else 'YOA: —' for s in students],
+            max_ch=20,
+        ),
+        'genderethnicity': _col_width(
+            [s.get_gender_display() or '—' for s in students]
+            + [s.get_ethnicity_display() or '—' for s in students],
+            max_ch=24,
+        ),
+        'tutorhoy': _col_width(
+            [f'Tutor: {s.form_tutor.first_name} {s.form_tutor.last_name}' if s.form_tutor else 'Tutor: —' for s in students]
+            + [f'HoY: {s.head_of_year.first_name} {s.head_of_year.last_name}' if s.head_of_year else 'HoY: —' for s in students],
+            max_ch=26,
+        ),
+        'behaviourattendance': _col_width(
+            [f'Behaviour: {s.behaviour_incidents_summary}' for s in students]
+            + [f'Attendance: {s.attendance_pct}%' if s.attendance_pct is not None else 'Attendance: —' for s in students],
+            max_ch=28,
+        ),
+    }
+
     context = {
         **_panel_base_context(request),
         'students': students,
+        'col_widths': col_widths,
         'years': years,
         'forms': forms,
         'forms_by_year_json': json.dumps(forms_by_year),

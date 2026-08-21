@@ -210,7 +210,28 @@ function setupFilterBarMoreFilters(bar) {
     // a heavy page - live feedback: "I see the Filter row as being taller
     // then snapping shorter". Bailing out up front means a phone-width
     // load never touches these fields at all.
-    if (window.matchMedia('(max-width: 480px)').matches) return;
+    //
+    // A bare return here used to leave "View filters" missing for the rest
+    // of the page's life the moment a mobile-width load never got a chance
+    // to build it (live feedback + DOM inspection: "the disappearing More
+    // filters bug... switched to Mobile mode then to Portrait Tablet mode"
+    // - this function only ever runs once, at DOMContentLoaded, and the dev
+    // breakpoint preview's own switch between two already-loaded presets,
+    // main.js #135, resizes the same live iframe rather than reloading it,
+    // so nothing ever called this again to retry). Registers a one-time
+    // retry instead - the moment a real resize (or the same dev preview)
+    // actually crosses back above mobile width, this whole function runs
+    // again from scratch and, this time, gets past this line to build the
+    // button for real.
+    if (window.matchMedia('(max-width: 480px)').matches) {
+        var aboveMobileMql = window.matchMedia('(min-width: 481px)');
+        function retrySetupAboveMobile() {
+            aboveMobileMql.removeEventListener('change', retrySetupAboveMobile);
+            setupFilterBarMoreFilters(bar);
+        }
+        aboveMobileMql.addEventListener('change', retrySetupAboveMobile);
+        return;
+    }
 
     // :not(.filter-bar-clear--sticky) - Students' own mobile sticky header
     // (#133 follow-up) carries a second Clear Filters instance of its own

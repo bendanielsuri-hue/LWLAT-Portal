@@ -6,9 +6,16 @@
     desktop/mobile split): pupil avatar placeholder + name + flag pills
     (SEN/PP/EAL/LAC/Young Carer/More Able) beside the name, then one
     dot-separated Year/House/Form line underneath. Gender/Ethnicity/Tutor
-    and the Referrals/Actions counts dropped from here entirely - the
-    counts moved onto their own button as a badge instead (below); Gender/
-    Ethnicity/Tutor weren't carried anywhere, just cut (live feedback).
+    and the Referrals/Actions counts dropped from here entirely at the
+    time - the counts moved onto their own button as a badge instead
+    (below); Gender/Ethnicity/Tutor weren't carried anywhere, just cut.
+    Gender/DOB reintroduced later (live feedback: "add in addition details
+    if there is room... styled like Referrals page" - it was styled this
+    way pre-#117 too, .row-fact-col/.mc-vdivider is the same pattern
+    Referrals/Actions still use for their own columns) as a .row-fact-col
+    hidden below 1400px (panel.css) rather than shown at every width like
+    the original #8 version - only genuinely wide desktop has room to
+    spare for it now that the row also carries the buttons beside it.
     School logo (aggregate views only) dropped too - the pupil avatar
     placeholder already reads as "before name" on its own, a second image
     was redundant.
@@ -28,26 +35,50 @@
                 {% if s.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
                 {% endif %}
             </div>
-            <div class="row-facts">
-                <span>Year {{ s.year_group }}{% if s.house %} &middot; House {{ s.house }}{% endif %}{% if s.reg_form %} &middot; Form {{ s.reg_form }}{% endif %}</span>
+            <div class="row-facts row-facts-cols">
+                <span class="row-facts-primary-plain">Year {{ s.year_group }}{% if s.house %} &middot; House {{ s.house }}{% endif %}{% if s.reg_form %} &middot; Form {{ s.reg_form }}{% endif %}</span>
+                <div class="row-fact-col row-facts-extra row-detail-col-1" style="width: {{ col_widths.yearreg }}">
+                    <span>Year {{ s.year_group }}{% if s.house %} (House {{ s.house }}){% endif %}</span>
+                    <span>Reg {{ s.reg_form|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider row-facts-extra row-detail-col-2"></span>
+                <div class="row-fact-col row-facts-extra row-detail-col-2" style="width: {{ col_widths.dobyoa }}">
+                    <span>DOB: {{ s.date_of_birth|date:"d M Y"|default:"—" }}</span>
+                    <span>YOA: {{ s.year_arrived|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider row-facts-extra row-detail-col-3"></span>
+                <div class="row-fact-col row-facts-extra row-detail-col-3" style="width: {{ col_widths.genderethnicity }}">
+                    <span>{{ s.get_gender_display|default:"—" }}</span>
+                    <span>{{ s.get_ethnicity_display|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider row-facts-extra row-detail-col-4"></span>
+                <div class="row-fact-col row-facts-extra row-detail-col-4" style="width: {{ col_widths.tutorhoy }}">
+                    <span>Tutor: {% if s.form_tutor %}{{ s.form_tutor.first_name }} {{ s.form_tutor.last_name }}{% else %}—{% endif %}</span>
+                    <span>HoY: {% if s.head_of_year %}{{ s.head_of_year.first_name }} {{ s.head_of_year.last_name }}{% else %}—{% endif %}</span>
+                </div>
+                <span class="mc-vdivider row-facts-extra row-detail-col-5"></span>
+                <div class="row-fact-col row-facts-extra row-detail-col-5" style="width: {{ col_widths.behaviourattendance }}">
+                    <span>Behaviour: {{ s.behaviour_incidents_summary }}</span>
+                    <span>Attendance: {% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% else %}—{% endif %}</span>
+                </div>
             </div>
         </div>
         <div class="btn-row">
             {% if s.referrals_count > 0 %}
-            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
+            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm" data-btn-slot="referrals">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
             {% else %}
-            <span class="btn btn-sm btn-disabled" aria-disabled="true">Referrals</span>
+            <span class="btn btn-sm btn-disabled" aria-disabled="true" data-btn-slot="referrals">Referrals</span>
             {% endif %}
             {% if s.actions_count > 0 %}
-            <a href="{% url 'inclusion_panel_actions' %}?name={{ s.id }}" class="btn btn-sm">Actions<span class="btn-count-badge">{{ s.actions_count }}</span></a>
+            <a href="{% url 'inclusion_panel_actions' %}?name={{ s.id }}" class="btn btn-sm" data-btn-slot="actions">Actions<span class="btn-count-badge">{{ s.actions_count }}</span></a>
             {% else %}
-            <span class="btn btn-sm btn-disabled" aria-disabled="true">Actions</span>
+            <span class="btn btn-sm btn-disabled" aria-disabled="true" data-btn-slot="actions">Actions</span>
             {% endif %}
-            <button type="button" class="btn btn-add btn-sm" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Referral</button>
+            <button type="button" class="btn btn-add btn-sm" data-btn-slot="new-referral" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Referral</button>
         </div>
     </div>
     {% empty %}
-    <p class="empty-note">No students yet.</p>
+    <p class="empty-note">No results.</p>
     {% endfor %}
 </div>
 

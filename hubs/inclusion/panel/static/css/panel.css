@@ -2773,6 +2773,18 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     margin-top: var(--space-xxs);
     padding-top: 0;
     border-top: none;
+    /* Safety net, not a fix in itself (live feedback: "I am still getting
+       an overflow at a very specific width... Is there a way to stop it
+       ever being able to overflow? If it's clipped by buttons that is
+       still better than the layout overflowing" - the level search
+       (students.html) already tries to prevent this, but a resize-driven
+       recheck can still land on a transient frame where the fixed-width
+       row-detail columns momentarily don't fit before JS settles on the
+       right level). Clips any leftover horizontal overflow instead of
+       letting it push the row wider or force a visible reflow - a cut-off
+       edge on the last column for one frame reads far better than the
+       whole row jumping width. */
+    overflow: hidden;
 }
 
 /* Search: a plain field, not a fused-left label box (#133 grilling
@@ -2971,12 +2983,16 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
     font-weight: 700;
 }
 
-/* Desktop button placement (>900px - the <=900px stacked card further down
-   always keeps buttons full-width regardless). A single dynamic per-row
-   class rather than a fixed breakpoint (live feedback: "can the buttons
-   dynamically go to next line when it causes overflow" - a row's own
-   name/pill count affects when it actually runs out of room, not just the
-   viewport). .row-measuring (below) is a short-lived class
+/* Tablet + desktop button placement (>480px - only true mobile, further
+   down, always keeps buttons full-width regardless; live feedback:
+   "would [buttons] fit next to student info like in wide tablet mode" -
+   widened from the original >900px-only gate since the same dynamic
+   per-row measurement below is width-agnostic and tablet often has the
+   room too, it just wasn't being given the chance). A single dynamic
+   per-row class rather than a fixed breakpoint (live feedback: "can the
+   buttons dynamically go to next line when it causes overflow" - a row's
+   own name/pill count affects when it actually runs out of room, not just
+   the viewport). .row-measuring (below) is a short-lived class
    wireStudentRowButtonWrap() (students.html) adds only for the instant it
    takes to read scrollWidth vs clientWidth - forces .entity-body/.btn-row
    to their true unwrapped, unshrunk width (flex-shrink: 0 + inherited
@@ -2987,10 +3003,35 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
    border-top above it (live feedback: "not sure it needs the horizontal
    divider above buttons") - .entity-row's own row-gap-less default
    spacing plus margin-top alone reads as enough separation without one. */
-@media (min-width: 901px) {
+@media (min-width: 481px) {
+    /* No border-left divider (live feedback: "lose the horizontal divider") -
+       the row's own gap (cards.css) plus this padding already read as
+       enough separation from the student info without a drawn line. */
     #students-filtered-content .entity-row > .btn-row {
-        border-left: 1px solid var(--border-color);
         padding-left: var(--space-lg);
+    }
+    /* Each button pinned to a fixed width - the widest that same button
+       (Referrals/Actions/New Referral) actually needs across the whole
+       list, set as a --btn-w-<slot> custom property by alignButtonSlots()
+       (students.html) - live feedback: "force action buttons to be the
+       same size as largest Action button", so every row's buttons start
+       and end at the same x position regardless of that row's own badge
+       digit count. flex: 0 0 <width> (not just width alone) - .btn-row's
+       own base rule (buttons.css) doesn't force flex-shrink: 0 on its
+       children, so a tight row could otherwise still compress a button
+       below its own fixed width. */
+    #students-filtered-content .btn-row [data-btn-slot] {
+        flex-grow: 0;
+        flex-shrink: 0;
+    }
+    #students-filtered-content .btn-row [data-btn-slot="referrals"] {
+        flex-basis: var(--btn-w-referrals, auto);
+    }
+    #students-filtered-content .btn-row [data-btn-slot="actions"] {
+        flex-basis: var(--btn-w-actions, auto);
+    }
+    #students-filtered-content .btn-row [data-btn-slot="new-referral"] {
+        flex-basis: var(--btn-w-new-referral, auto);
     }
     #students-filtered-content .entity-row.row-measuring {
         flex-wrap: nowrap;
@@ -3012,6 +3053,24 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
         min-width: max-content;
         white-space: nowrap;
     }
+    /* .row-facts' own base rule (shared with Referrals/Actions) carries
+       its own flex-wrap: wrap - live feedback + screenshot: badges widening
+       the button row made the row-detail columns wrap onto a second line
+       internally instead of the whole row ever actually overflowing
+       horizontally, so scrollWidth > clientWidth never fired and the level
+       search (students.html) never dropped a column for that row. nowrap
+       alone (tried first) still wasn't enough - live feedback: "when
+       resizing I can still do this, Tutor and HoY forced to a new row
+       instead of disappearing" - .entity-body's own min-width: max-content
+       (above) doesn't reliably cascade a "lay out as one line" size
+       through a NESTED flex-wrap container's own intrinsic sizing;
+       width: max-content here forces .row-facts to compute and hold that
+       true single-line width directly on itself instead of depending on
+       its ancestor to derive it correctly. */
+    #students-filtered-content .entity-row.row-measuring .row-facts {
+        flex-wrap: nowrap;
+        width: max-content;
+    }
     #students-filtered-content .entity-row.row-buttons-wrapped {
         flex-wrap: wrap;
     }
@@ -3031,8 +3090,147 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
     }
 }
 
+/* Gender/DOB column - hidden by default (live feedback: "add in addition
+   details if there is room. Gender, DOB... styled like Referrals page" -
+   "wider modes only", then "it was styled this way in the past", then
+   "Landscape tablet may benefit as well" - the .row-facts-cols/.row-fact-
+   col/.mc-vdivider trio this reuses is the exact pattern Students itself
+   used before #117 simplified it down to one plain Year/House/Form line,
+   and that Referrals/Actions still use for their own row-detail columns
+   today). Un-hidden from 1180px, inclusive (below) - the dev breakpoint
+   preview's own "Tablet Wide" preset (layout.html) is exactly 1180px wide;
+   min-width: 1181px (this file's other 1181-1400px tier boundary) would
+   exclude that exact preset (live feedback + screenshot: "not seeing it on
+   tablet" - it was landing 1px short). Narrower than 1180px, the row has
+   no room to spare for it without crowding the buttons back into
+   overflow. */
+#students-filtered-content .row-facts-extra {
+    display: none;
+}
+@media (min-width: 1180px) {
+    /* Explicit display values, not `revert` - revert would also roll back
+       .mc-vdivider/.row-fact-col's own base display rules (both author-
+       origin, same as this one), not just this hiding rule. */
+    #students-filtered-content .mc-vdivider.row-facts-extra {
+        display: block;
+    }
+    #students-filtered-content .row-fact-col.row-facts-extra {
+        display: flex;
+    }
+    /* Year/House/Reg swaps to the same two-row .row-fact-col format as
+       Gender/DOB beside it (live feedback: "have the group info in same
+       two row info format. Year (House) / Reg") - the plain single-line
+       version (still the only one that exists below 1180px) hides in
+       favour of it here instead of both rendering at once. */
+    #students-filtered-content .row-facts-primary-plain {
+        display: none;
+    }
+    /* Same two dividers Referrals/Actions carry at every width - a
+       vertical line before the buttons (.entity-row > .row-btn-row's own
+       base rule, above, which Students' plain .btn-row never matched) and
+       a horizontal line above the facts (.row-facts' own base rule,
+       overridden off for Students at every width below by the #117
+       follow-up two blocks up) - restored for Students too, but only
+       alongside the Gender/DOB column (live feedback: "for the wider
+       setups... divider lines like on Referrals page. A vertical before
+       buttons and a horizontal above the info") rather than at every
+       width like Referrals: the earlier "lose the divider" feedback this
+       overrides was about a bare row with nothing but Year/House/Form
+       next to it, not this now-busier wide-only layout. */
+    #students-filtered-content .entity-row > .btn-row {
+        border-left: 1px solid var(--border-color);
+    }
+    #students-filtered-content .row-facts {
+        margin-top: var(--space-xs);
+        padding-top: var(--space-xs);
+        border-top: 1px solid var(--border-color);
+    }
+    /* [data-detail-level] (wireStudentRowButtonWrap, students.html) - the
+       JS measures every row at each level from 5 (all 5 columns above)
+       down to 0 (none) and picks the highest one where no row overflows,
+       rather than jumping straight from "all 5" to "none" the moment any
+       row doesn't fit (live feedback: "hide the data stat columns so that
+       buttons fit without overflowing... if one has to hide, it should
+       hide in all", then "I was thinking it could cut off the last column
+       of data, not immediately go to basic info" - .row-detail-col-N on
+       both a column and its own leading divider is what lets a single
+       level drop the *last* column (and only that one) rather than all-
+       or-nothing; every row in the list shares the one level the container
+       carries, so they still all agree on the same columns, just not
+       necessarily zero of them). Reactive rather than a second, narrower
+       breakpoint - live feedback: "This is for Desktop wide as well, not
+       just tablet wide" - so this is automatic at any width in this
+       min-width: 1180px range, not a hardcoded sub-range. */
+    #students-filtered-content[data-detail-level="4"] .row-detail-col-5,
+    #students-filtered-content[data-detail-level="3"] .row-detail-col-4,
+    #students-filtered-content[data-detail-level="3"] .row-detail-col-5,
+    #students-filtered-content[data-detail-level="2"] .row-detail-col-3,
+    #students-filtered-content[data-detail-level="2"] .row-detail-col-4,
+    #students-filtered-content[data-detail-level="2"] .row-detail-col-5,
+    #students-filtered-content[data-detail-level="1"] .row-detail-col-2,
+    #students-filtered-content[data-detail-level="1"] .row-detail-col-3,
+    #students-filtered-content[data-detail-level="1"] .row-detail-col-4,
+    #students-filtered-content[data-detail-level="1"] .row-detail-col-5,
+    #students-filtered-content[data-detail-level="0"] .row-detail-col-1,
+    #students-filtered-content[data-detail-level="0"] .row-detail-col-2,
+    #students-filtered-content[data-detail-level="0"] .row-detail-col-3,
+    #students-filtered-content[data-detail-level="0"] .row-detail-col-4,
+    #students-filtered-content[data-detail-level="0"] .row-detail-col-5 {
+        display: none;
+    }
+    /* Only level 0 (every column gone) falls back to the plain single-line
+       Year/House/Form and drops both dividers - level 1 still has that
+       exact info showing as its own .row-detail-col-1, just nothing after
+       it, so the plain fallback/dividers stay irrelevant until the row
+       genuinely has no columns left at all. */
+    #students-filtered-content[data-detail-level="0"] .row-facts-primary-plain {
+        display: inline;
+    }
+    #students-filtered-content[data-detail-level="0"] .entity-row > .btn-row {
+        border-left: none;
+    }
+    #students-filtered-content[data-detail-level="0"] .row-facts {
+        margin-top: var(--space-xxs);
+        padding-top: 0;
+        border-top: none;
+    }
+}
+
+/* Tablet-only tightening of the wrapped-fallback button row above (481-900px
+   band): once a row's buttons genuinely don't fit beside its content (the
+   .row-buttons-wrapped case, previous block) and drop to their own full-width
+   row, tablet is narrow enough that badges can still overflow the row the
+   same way old fixed-mobile once did (live feedback then: "find a way for
+   buttons to fit on one row... badges... causes New Referral to overflow").
+   Desktop's own wrapped fallback (900px+) has enough width that it never
+   needed this - scoped to max-width: 900px so desktop keeps its icon +
+   normal padding. nowrap + min-width: 0 forces genuine shrinking instead of
+   the least-fitting button (New Referral, the longest label) dropping to its
+   own line; icon dropped and text/padding tightened to claim back enough
+   room for that shrink to still read comfortably rather than truncating. */
+@media (min-width: 481px) and (max-width: 900px) {
+    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row {
+        flex-wrap: nowrap;
+    }
+    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row > * {
+        min-width: 0;
+        padding-left: var(--space-xs);
+        padding-right: var(--space-xs);
+        font-size: var(--font-sm);
+        white-space: nowrap;
+    }
+    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row .btn-icon {
+        display: none;
+    }
+}
+
 /* Students list (#117): "table -> stacked card" per #113's shared
-   vocabulary. Scoped to #students-filtered-content (this page's own
+   vocabulary - now just the leftover bits of that band still shared by
+   tablet and mobile alike (smaller thumb, compact Data cards); the row's
+   own stacking/button-wrap behaviour moved to the dynamic-overflow block
+   above (tablet) and the true-mobile-only block below (<=480px), per live
+   feedback that tablet should try the same "buttons beside content" layout
+   desktop uses. Scoped to #students-filtered-content (this page's own
    AJAX-swap target, unique per list page) rather than the bare
    .entity-row/.row-facts-cols classes above - those are shared markup
    with Referrals/Actions (#118/#119), whose own stacking is a separate,
@@ -3099,74 +3297,9 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
     form[data-ajax-target="#students-filtered-content"] .filter-field:has(#reg-filter) {
         max-width: 90px;
     }
-    #students-filtered-content .entity-row {
-        flex-wrap: wrap;
-        align-items: flex-start;
-        row-gap: var(--space-xs);
-        column-gap: var(--space-sm);
-        /* Left/right narrowed to var(--space-sm), matching the page's own
-           margin at this width (.main-inner's padding, responsive.css) -
-           the base --space-lg (cards.css) reads as desktop-sized dead
-           space once the row is this narrow (live feedback: "reduce the
-           left and right padding in the entity rows to match page margin
-           in mobile mode"). Top/bottom to match, not the base --space-md
-           (cards.css) - live feedback: "Can the top and bottom padding
-           match the left and right padding on mobile" once the sides
-           above were already narrowed. */
-        padding: var(--space-sm);
-    }
     #students-filtered-content .entity-thumb {
         width: 32px;
         height: 42px;
-    }
-    /* No margin of its own - .entity-row's own row-gap (above) already
-       spaces every wrapped line, header/facts/buttons alike, consistently. */
-    #students-filtered-content .btn-row {
-        order: 6;
-        flex: 1 1 100%;
-    }
-    /* Buttons stay on one row even with badges added (live feedback: "find
-       a way for buttons to fit on one row... badges... causes New
-       Referral to overflow"). .btn-row's own base flex-wrap: wrap
-       (buttons.css) is what let the least-fitting button (New Referral,
-       the longest label) drop to its own line the moment Referrals/
-       Actions' badges widened their neighbours - nowrap forces genuine
-       shrinking instead. min-width: 0 is required for that shrink to
-       actually happen (flex items default to min-width: auto, i.e. their
-       own content's width as a floor, which nowrap alone can't overcome).
-       Icon dropped and text/padding tightened to claim back enough room
-       for that shrink to still read comfortably rather than truncating. */
-    #students-filtered-content .btn-row {
-        flex-wrap: nowrap;
-    }
-    #students-filtered-content .btn-row > * {
-        flex: 1 1 0;
-        min-width: 0;
-        justify-content: center;
-        padding-left: var(--space-xs);
-        padding-right: var(--space-xs);
-        font-size: var(--font-sm);
-        white-space: nowrap;
-        position: relative;
-    }
-    #students-filtered-content .btn-row .btn-icon {
-        display: none;
-    }
-    /* Smaller card chrome once the fixed 3-column grid below has to fit
-       inside a narrower row - same values the SEND & Provision dashboard's
-       own .stats-strip--compact already settled on for its phone tier
-       (responsive.css), reused directly since the failure mode (3 cards,
-       one row, shrinking width) is identical. */
-    #students-filtered-content .stats-strip .stat-card {
-        padding: var(--space-xs) var(--space-xxs);
-        border-radius: var(--radius-sm);
-    }
-    #students-filtered-content .stats-strip .stat-card .stat-value {
-        font-size: var(--font-xl);
-    }
-    #students-filtered-content .stats-strip .stat-card .stat-label {
-        font-size: 10px;
-        line-height: 1.2;
     }
 }
 
@@ -3608,6 +3741,65 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
    consistency (live feedback: "uneven mix looks inconsistent" between
    selects and toggle-pills in the old 2-up grid). */
 @media (max-width: 480px) {
+    /* Left/right narrowed to var(--space-sm), matching the page's own
+       margin at this width (.main-inner's padding, responsive.css) - the
+       base --space-lg (cards.css) reads as desktop-sized dead space once
+       the row is this narrow (live feedback: "reduce the left and right
+       padding in the entity rows to match page margin in mobile mode").
+       Top/bottom to match, not the base --space-md (cards.css) - live
+       feedback: "Can the top and bottom padding match the left and right
+       padding on mobile" once the sides above were already narrowed.
+       Mobile-only (this block, not the shared <=900px tablet/mobile block
+       above) - the reduced padding was mobile-specific feedback that had
+       leaked into tablet width too. flex-wrap/row-gap/column-gap also
+       moved here from that shared block (live feedback: "would [buttons]
+       fit next to student info like in wide tablet mode" - true mobile is
+       the one band never wide enough to attempt that, so it keeps the
+       always-stacked layout unconditionally; tablet now uses the same
+       dynamic overflow measurement as desktop instead, above). */
+    #students-filtered-content .entity-row {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        row-gap: var(--space-xs);
+        column-gap: var(--space-sm);
+        padding: var(--space-sm);
+    }
+    /* No margin of its own - .entity-row's own row-gap (above) already
+       spaces every wrapped line, header/facts/buttons alike, consistently.
+       order: 6/flex: 1 1 100% also moved here from the shared <=900px
+       block - true mobile always stacks buttons full-width regardless of
+       fit, unlike tablet's new dynamic measurement (above). */
+    #students-filtered-content .btn-row {
+        order: 6;
+        flex: 1 1 100%;
+    }
+    /* Buttons stay on one row even with badges added (live feedback: "find
+       a way for buttons to fit on one row... badges... causes New
+       Referral to overflow"). .btn-row's own base flex-wrap: wrap
+       (buttons.css) is what let the least-fitting button (New Referral,
+       the longest label) drop to its own line the moment Referrals/
+       Actions' badges widened their neighbours - nowrap forces genuine
+       shrinking instead. min-width: 0 is required for that shrink to
+       actually happen (flex items default to min-width: auto, i.e. their
+       own content's width as a floor, which nowrap alone can't overcome).
+       Icon dropped and text/padding tightened to claim back enough room
+       for that shrink to still read comfortably rather than truncating. */
+    #students-filtered-content .btn-row {
+        flex-wrap: nowrap;
+    }
+    #students-filtered-content .btn-row > * {
+        flex: 1 1 0;
+        min-width: 0;
+        justify-content: center;
+        padding-left: var(--space-xs);
+        padding-right: var(--space-xs);
+        font-size: var(--font-sm);
+        white-space: nowrap;
+        position: relative;
+    }
+    #students-filtered-content .btn-row .btn-icon {
+        display: none;
+    }
     /* Dims and covers the entity list while filters are expanded, closing
        them on click (live feedback: "the page beneath filters [should]
        have an overlay like a modal which when clicked will close the
@@ -4582,6 +4774,100 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     }
 }
 
+/* "End of content" striped end-cap - every width now, not just mobile (live
+   feedback: "I want to use the striped no content that we use in mobile
+   when list is smaller than window... for all modes"). A real generated
+   box, not a background gradient tied to the whole scrollable height
+   (tried, reverted - live feedback: "This is perfect for the end of the
+   scroll, but I did not want an overlay when scrolling the rest of the
+   page. this is why I was suggesting a static object for the bottom of the
+   scrollable content"). .entity-list is already display: flex;
+   flex-direction: column (cards.css), so a ::after here becomes a genuine
+   last flex child in normal flow, sized by flex-basis like any real row -
+   not a background positioned by calc(100% - 47px) against .entity-list's
+   own full (thousands-of-px, 240 rows) scrollHeight, which is what
+   actually caused it to render like an overlay while scrolling rather than
+   a fixed object sitting at the true end.
+   Solid var(--primary) fill read as "harsh" once seen live (live
+   feedback) - prototyped six textless alternatives (diagonal
+   stripes, soft tint, fade, dot grid, accent-edge-plus-fill, centred
+   glow) plus a neutral variant in the mobile tabbar's own border
+   colour, checked all three shortlisted ones against the real page,
+   then landed on a combination of two: a solid var(--primary)
+   border-top (from the "accent edge + fill" prototype - keeps a
+   definite, deliberate boundary line) over a diagonal-stripe fill
+   (from the "diagonal stripes" prototype - subtler than a flat
+   colour statement, reads as texture/pattern rather than a loud
+   block) instead of either alone. */
+#students-filtered-content .entity-list::after {
+    content: "";
+    display: block;
+    /* var(--list-endcap-height, 47px), not a bare 47px - live feedback:
+       "based on math... same for the last entity of filtered content".
+       Set live (setupListEndCapHeight, main.js) to twice how far the
+       FAB's own top edge actually pokes above the mobile tabbar, so the
+       FAB overlaps roughly half of this box rather than a fixed number
+       tuned by eye - stays correct if the FAB's size/offset ever
+       changes. Above mobile width, .mobile-tab-fab/.mobile-tabbar exist
+       in the DOM but are display: none (_hub_sidebar.html), so this same
+       live JS math naturally resolves to 0 there instead of needing a
+       separate width check - flex-grow: 1 (below) is what actually fills
+       the leftover space regardless of that basis. 47px fallback only
+       covers the (practically unreachable) case where the custom
+       property hasn't been set yet. */
+    /* flex-grow: 1, not 0 - live feedback (prototype B): a short result
+       list should have the band fill the rest of the card down to the
+       tabbar instead of stopping at a small fixed-height strip, so a
+       short list still reads as visually "closed off" rather than
+       leaving bare page background beneath a tiny marker. flex-shrink
+       stays 0 though - the height above is also the FAB's own
+       clearance floor (setupListEndCapHeight, main.js) on mobile; a
+       long, already-overflowing list must never squeeze this box smaller
+       than that floor just to make room, or the FAB goes back to
+       overlapping the last real row. */
+    flex: 1 0 var(--list-endcap-height, 47px);
+    /* var(--list-endcap-clearance, main.js) - live feedback: "slightly
+       less overlap. This is for both!" (the tray's own gap got the same
+       treatment, positionFilterTray). Without this the box sits flush
+       with the scroll container's own bottom, so the FAB's full
+       protrusion overlaps it; this margin lifts the box's bottom edge
+       clear of the tabbar by a small amount instead, trimming the
+       overlap without shrinking the box's own visible height. Resolves to
+       0 above mobile width, same reasoning as the height above. */
+    margin-bottom: var(--list-endcap-clearance, 4px);
+    /* var(--border-strong), not var(--accent-border) (live feedback:
+       "Change the boundary line to also not be primary colour") -
+       --accent-border is still a softened primary tint under the
+       hood (themes.css), so this drops primary entirely rather than
+       just diluting it, landing on the same neutral the stripe below
+       already uses and the mobile tabbar's own border-top uses too. */
+    border-top: 1px solid var(--border-strong);
+    /* var(--bg-surface), not var(--bg-page) - live feedback: "it
+       should be the same colour as the thing it is indicating is
+       ended. So in this case it should be white as that is the bg of
+       the filtered content" - .entity-list's own rows sit on
+       --bg-surface (cards.css), not the page canvas behind the card;
+       this box is capping off THAT surface, so the gap colour should
+       read as a literal continuation of it, not the page's own
+       (differently-tinted) background peeking through instead. */
+    background-color: var(--bg-surface);
+    /* var(--border-strong), not a primary tint (live feedback: "Can
+       we try swapping out the colour so its more neutral. Lose use
+       of primary colour") - the same neutral already used for the
+       mobile tabbar's own border-top (_hub_sidebar.html) and every
+       other structural line on this page, rather than a second,
+       branded colour language just for this stripe. Mixed down to 15%
+       (live feedback: "stripes can be much fainter" - a second pass
+       down from the original 35%, which read as too strong once the
+       band itself was made taller by the fill-to-bottom change above
+       and so covers noticeably more of the screen on a short list). */
+    background-image: repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--border-strong) 15%, transparent) 0 5px,
+        transparent 5px 11px
+    );
+}
+
 @media (max-width: 480px) {
     /* Moves the app-wide bottom-nav scroll clearance (_hub_sidebar.html:
        padding-bottom: calc(47px + 18px + var(--space-lg)) on .main-inner,
@@ -4607,94 +4893,6 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        (which still needs it, for the reason given where it's declared). */
     body:has(.students-page-shell) .main-inner {
         padding-bottom: 0 !important;
-    }
-    /* "End of content" is a real generated box, not a background gradient
-       tied to the whole scrollable height (tried, reverted - live
-       feedback: "This is perfect for the end of the scroll, but I did
-       not want an overlay when scrolling the rest of the page. this is
-       why I was suggesting a static object for the bottom of the
-       scrollable content"). .entity-list is already display: flex;
-       flex-direction: column (cards.css), so a ::after here becomes a
-       genuine last flex child in normal flow, sized by flex-basis like
-       any real row - not a background positioned by calc(100% - 47px)
-       against .entity-list's own full (thousands-of-px, 240 rows)
-       scrollHeight, which is what actually caused it to render like an
-       overlay while scrolling rather than a fixed object sitting at the
-       true end. No padding-bottom needed any more either - this box's
-       own 47px flex-basis is what reserves the tabbar's clearance now,
-       the same job the padding used to do.
-       Solid var(--primary) fill read as "harsh" once seen live (live
-       feedback) - prototyped six textless alternatives (diagonal
-       stripes, soft tint, fade, dot grid, accent-edge-plus-fill, centred
-       glow) plus a neutral variant in the mobile tabbar's own border
-       colour, checked all three shortlisted ones against the real page,
-       then landed on a combination of two: a solid var(--primary)
-       border-top (from the "accent edge + fill" prototype - keeps a
-       definite, deliberate boundary line) over a diagonal-stripe fill
-       (from the "diagonal stripes" prototype - subtler than a flat
-       colour statement, reads as texture/pattern rather than a loud
-       block) instead of either alone. */
-    #students-filtered-content .entity-list::after {
-        content: "";
-        display: block;
-        /* var(--list-endcap-height, 47px), not a bare 47px - live feedback:
-           "based on math... same for the last entity of filtered content".
-           Set live (setupListEndCapHeight, main.js) to twice how far the
-           FAB's own top edge actually pokes above the mobile tabbar, so the
-           FAB overlaps roughly half of this box rather than a fixed number
-           tuned by eye - stays correct if the FAB's size/offset ever
-           changes. 47px fallback only covers the (practically unreachable)
-           case where the custom property hasn't been set yet. */
-        /* flex-grow: 1, not 0 - live feedback (prototype B): a short result
-           list should have the band fill the rest of the card down to the
-           tabbar instead of stopping at a small fixed-height strip, so a
-           short list still reads as visually "closed off" rather than
-           leaving bare page background beneath a tiny marker. flex-shrink
-           stays 0 though - the height above is also the FAB's own
-           clearance floor (setupListEndCapHeight, main.js); a long,
-           already-overflowing list must never squeeze this box smaller
-           than that floor just to make room, or the FAB goes back to
-           overlapping the last real row. */
-        flex: 1 0 var(--list-endcap-height, 47px);
-        /* var(--list-endcap-clearance, main.js) - live feedback: "slightly
-           less overlap. This is for both!" (the tray's own gap got the same
-           treatment, positionFilterTray). Without this the box sits flush
-           with the scroll container's own bottom, so the FAB's full
-           protrusion overlaps it; this margin lifts the box's bottom edge
-           clear of the tabbar by a small amount instead, trimming the
-           overlap without shrinking the box's own visible height. */
-        margin-bottom: var(--list-endcap-clearance, 4px);
-        /* var(--border-strong), not var(--accent-border) (live feedback:
-           "Change the boundary line to also not be primary colour") -
-           --accent-border is still a softened primary tint under the
-           hood (themes.css), so this drops primary entirely rather than
-           just diluting it, landing on the same neutral the stripe below
-           already uses and the mobile tabbar's own border-top uses too. */
-        border-top: 1px solid var(--border-strong);
-        /* var(--bg-surface), not var(--bg-page) - live feedback: "it
-           should be the same colour as the thing it is indicating is
-           ended. So in this case it should be white as that is the bg of
-           the filtered content" - .entity-list's own rows sit on
-           --bg-surface (cards.css), not the page canvas behind the card;
-           this box is capping off THAT surface, so the gap colour should
-           read as a literal continuation of it, not the page's own
-           (differently-tinted) background peeking through instead. */
-        background-color: var(--bg-surface);
-        /* var(--border-strong), not a primary tint (live feedback: "Can
-           we try swapping out the colour so its more neutral. Lose use
-           of primary colour") - the same neutral already used for the
-           mobile tabbar's own border-top (_hub_sidebar.html) and every
-           other structural line on this page, rather than a second,
-           branded colour language just for this stripe. Mixed down to 15%
-           (live feedback: "stripes can be much fainter" - a second pass
-           down from the original 35%, which read as too strong once the
-           band itself was made taller by the fill-to-bottom change above
-           and so covers noticeably more of the screen on a short list). */
-        background-image: repeating-linear-gradient(
-            45deg,
-            color-mix(in srgb, var(--border-strong) 15%, transparent) 0 5px,
-            transparent 5px 11px
-        );
     }
     .list-page-shell:has(#students-filtered-content) {
         margin-left: calc(-1 * var(--space-sm));
@@ -4725,22 +4923,53 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         border-top-right-radius: 0;
     }
 
-    /* Data cards simplify to plain details at phone width (live feedback:
-       "just details not cards") - the boxed-card treatment (background/
-       border/padding, still 3-up via the unconditional grid rule above)
-       reads as three redundant little boxes once each one is this narrow;
-       a single plain-text line carries the same 3 numbers without the
-       chrome. Still 3 items, still one row - just flex instead of grid,
-       nothing to fit-to-column here any more. */
+}
+
+/* Data cards simplify to plain details at every width except true mobile
+   (live feedback: "just details not cards" (phone), then "can this not
+   look like data cards inside a footer, it is taking up too much space"
+   (tablet), then "apply this style of footer to all modes but mobile" -
+   widened phone-only -> <=900px -> >=481px, i.e. every width the footer
+   itself still shows at all: true mobile replaces this footer entirely
+   with .page-subtitle-stats in the header instead, see the <=480px rule
+   further below) - the boxed-card treatment (background/border/padding,
+   still 3-up via the unconditional grid rule above) reads as three
+   redundant little boxes; a single plain-text line carries the same 3
+   numbers without the chrome. Still 3 items, still one row - just flex
+   instead of grid, nothing to fit-to-column here any more. */
+@media (min-width: 481px) {
+    /* Same chrome as .filter-bar (live feedback: "can the footer also have
+       same chrome as the filter bar") - --bg-well, not the card's own
+       --bg-surface white (layout.css's .list-card .stats-strip base rule),
+       so the footer reads as the same "you're inside interactive chrome"
+       strip bookending the list, top and bottom, as the filter bar already
+       does above it. The individual .stat-cards below already lost their
+       own background in this same plain-details pass, so this is the only
+       fill left behind them. */
     #students-filtered-content .stats-strip {
         display: flex;
         justify-content: center;
         gap: 0;
+        background: var(--bg-well);
+        /* Less top/bottom than the base .list-card .stats-strip rule's
+           var(--space-md) (layout.css) - live feedback: "reduce the padding
+           above and below stats" once this was single-line plain text
+           rather than a taller boxed-card grid, --space-md read like dead
+           space it no longer needed. Horizontal stays --space-md. */
+        padding: var(--space-xs) var(--space-md);
     }
+    /* Back to one line (live feedback: "better but too tall. Maybe go back
+       to one line but have the label vertically centered. Last time it was
+       bottom aligned" - the stacked value-above-label version above was
+       tried and reverted for height; align-items: center instead of the
+       original row layout's baseline is the actual fix for the "bottom
+       aligned" complaint, baseline had put the label's own baseline level
+       with the value's, which reads as bottom-heavy once the two are such
+       different font sizes). */
     #students-filtered-content .stats-strip .stat-card {
         flex: 0 0 auto;
         flex-direction: row;
-        align-items: baseline;
+        align-items: center;
         gap: var(--space-xxs);
         background: none;
         border: none;
