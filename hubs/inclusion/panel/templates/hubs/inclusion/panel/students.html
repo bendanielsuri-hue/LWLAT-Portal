@@ -397,72 +397,133 @@ document.addEventListener('DOMContentLoaded', function () {
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
     // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
 
-    // Desktop button placement (#117 follow-up, live feedback: "can the
-    // buttons dynamically go to next line when it causes overflow" -
-    // replaces an earlier fixed-breakpoint attempt, which either dropped
-    // buttons too early for a row with short content or too late for one
-    // with long content, since a shared viewport-width breakpoint can't
-    // know that per-row difference). Row content is now a single short
-    // line (name+pills, then one Year/House/Form line - #117's later
-    // simplification pass dropped the old 3-column facts grid entirely),
-    // so there's no longer a specific inner column to watch the way the
-    // old .row-fact-col measurement did - genuine overflow of the whole
-    // row (name+pills+facts+buttons not fitting on one line at all) is
-    // now the only failure mode left, and the way to detect *that*
-    // reliably is to briefly force the row to its natural (unwrapped,
-    // unshrunk) width via .row-measuring (panel.css: nowrap + flex-shrink:
-    // 0 on .entity-body/.btn-row) and compare scrollWidth against
-    // clientWidth - same "reveal true content size, measure, decide"
-    // shape as wireActionStatusOverflow (home.html) and
-    // setupFilterBarMoreFilters (main.js), just reading scrollWidth
-    // instead of offsetTop since there's no longer a specific child
-    // element whose position alone would reveal a wrap.
-    function wireStudentRowButtonWrap() {
+    // Desktop/tablet button placement (#117 follow-up) and the row-detail
+    // columns (Year/Reg, DOB/YOA, Gender/Ethnicity, Tutor/HoY, Behaviour/
+    // Attendance) both used to be decided by JS here - a per-row/per-list
+    // scrollWidth measurement re-run on every resize tick (live feedback
+    // originally: "can the buttons dynamically go to next line when it
+    // causes overflow", "hide the data stat columns so that buttons fit
+    // without overflowing"). Both moved to plain CSS (panel.css: native
+    // flex-wrap for the buttons, fixed width breakpoints for the detail
+    // columns) - live feedback: "animations are stuttery... isolated to
+    // student page... maybe this needs simplifying" - re-measuring up to
+    // 240 rows on every single resize/ResizeObserver tick was the actual
+    // main-thread cost fighting the side-nav's own width transition, not
+    // just how often it ran. Both replacements trade a little JS-computed
+    // polish (equal button widths across the list, exact per-row content
+    // fit) for zero JS cost on resize - see panel.css's own comments at
+    // each rule for the specifics.
+
+    // Infinite scroll (live feedback: "maybe its the number of students?
+    // When I add a filter to reduce, it is much faster!... cap the number
+    // of results. This will be for a MAT so roughly 4000 students
+    // eventually!" - confirmed by the zero-JS resize test still being slow
+    // that the whole earlier stutter chase was actually plain DOM-size
+    // layout cost, not fixable by any JS/CSS trick on an unbounded row
+    // count). Server renders STUDENTS_PAGE_SIZE (views.py) students per
+    // page; .students-load-sentinel (_students_rows.html) marks the bottom
+    // of whatever's currently rendered, carrying the next page's URL. An
+    // IntersectionObserver (rootMargin below fires the fetch before the
+    // sentinel is actually on screen, so the next batch is usually already
+    // in by the time the user scrolls to where it was) fetches that URL
+    // the same way setupAjaxFilterBars (main.js) does - X-Requested-With
+    // header, same AJAX convention - and splices the response in directly
+    // before the sentinel, then removes it; the response's own trailing
+    // sentinel (if that page has a further next one) becomes the new
+    // observation target automatically, since it arrives as part of the
+    // same fetched fragment. A MutationObserver re-finds the current
+    // sentinel after every DOM change to this container - covers both this
+    // function's own splice-and-remove above AND a filter change
+    // (setupAjaxFilterBars replaces the whole container's innerHTML
+    // wholesale, resetting back to page 1's own sentinel or none at all).
+    (function wireStudentsInfiniteScroll() {
+        var container = document.getElementById('students-filtered-content');
+        if (!container || typeof IntersectionObserver === 'undefined') return;
+        var io = null;
+        var loading = false;
+        function observeSentinel() {
+            if (io) io.disconnect();
+            var sentinel = container.querySelector('.students-load-sentinel');
+            if (!sentinel) return;
+            io = new IntersectionObserver(function (entries) {
+                if (loading) return;
+                var visible = entries.some(function (entry) { return entry.isIntersecting; });
+                if (visible) loadMore(sentinel);
+            }, { rootMargin: '400px' });
+            io.observe(sentinel);
+        }
+        function loadMore(sentinel) {
+            var url = sentinel.dataset.nextPageUrl;
+            if (!url) return;
+            loading = true;
+            if (io) io.disconnect();
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (res) {
+                    if (!res.ok) throw new Error('Request failed: ' + res.status);
+                    return res.text();
+                })
+                .then(function (html) {
+                    sentinel.insertAdjacentHTML('beforebegin', html);
+                    sentinel.remove();
+                    loading = false;
+                    observeSentinel();
+                })
+                .catch(function () {
+                    loading = false;
+                    observeSentinel();
+                });
+        }
+        observeSentinel();
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(observeSentinel).observe(container, { childList: true, subtree: true });
+        }
+    })();
+
+    // Equal button widths (panel.css, live feedback: "the buttons with
+    // badges takes up more space so goes to new line, but other entitys do
+    // not... make buttons same size as max width of that type") - pins
+    // each button slot (Referrals/Actions/New Referral) to the widest that
+    // same slot needs across the currently rendered rows, as a
+    // --btn-w-<slot> custom property, so a row's own badge digit count
+    // can't make its wrap decision differ from its neighbours'. Plus a
+    // "did this row's buttons actually wrap" class (live feedback: "if
+    // buttons overflow to a new line, can they auto width to fill the
+    // width! Like in mobile mode" - panel.css's .row-buttons-wrapped rule
+    // gives a wrapped .btn-row the same full-width/centred treatment
+    // mobile's own always-wrapped block uses), detected the cheap way -
+    // one offsetTop comparison per row (does .btn-row share
+    // .entity-thumb's line, or has it fallen to its own) rather than the
+    // old scrollWidth-vs-clientWidth overflow probe this replaced.
+    // Re-measures on content change (page load, filter change, infinite-
+    // scroll append - MutationObserver, same convention as the scroll
+    // wiring above) AND on resize/ResizeObserver, rAF-throttled
+    // (window.rafThrottle, main.js) - safe to react to resize again here,
+    // unlike the detail-column/wrap systems earlier in this same session,
+    // because pagination (views.py, same session) now caps this at
+    // STUDENTS_PAGE_SIZE rows and each row only costs one cheap offsetTop
+    // read, not a multi-pass scrollWidth probe across an unbounded list.
+    (function wireStudentButtonLayout() {
         var container = document.getElementById('students-filtered-content');
         if (!container) return;
-        var rows = null;
-        function measureOverflow() {
-            var anyOverflow = false;
-            rows.forEach(function (row) {
-                row.classList.add('row-measuring');
+        function refresh() {
+            // .row-buttons-wrapped cleared from every row before anything
+            // else runs - a row left over in that class (full-width,
+            // flex: 1 stretched buttons) from a previous, narrower pass
+            // would otherwise have its *stretched* width measured below
+            // instead of its true compact one, poisoning --btn-w-* for the
+            // WHOLE list with widths too large to ever fit inline again -
+            // which then wraps more rows next pass, poisoning it further
+            // still. Same self-reinforcing bug the original per-resize
+            // version of this (git history) hit and fixed the same way.
+            container.querySelectorAll('.entity-row.row-buttons-wrapped').forEach(function (row) {
+                row.classList.remove('row-buttons-wrapped');
             });
-            rows.forEach(function (row) {
-                if (row.scrollWidth > row.clientWidth + 1) anyOverflow = true;
-            });
-            rows.forEach(function (row) {
-                row.classList.remove('row-measuring');
-            });
-            return anyOverflow;
-        }
-        // Two passes, not one (live feedback: "hide the data stat columns
-        // so that buttons fit without overflowing... I want all the
-        // columns to have the same contents. So if one has to hide, it
-        // should hide in all", then "I was thinking it could cut off the
-        // last column of data, not immediately go to basic info" - every
-        // row must agree on the same set of columns, but that set shrinks
-        // one column at a time from the end (5 down to 0, panel.css's
-        // data-detail-level), not straight from all 5 to none. Pass 1
-        // walks the levels from the top, measuring every row at each one,
-        // and stops at the first (highest) level where nothing overflows.
-        // Pass 2 is the pre-existing per-row wrap fallback, run against
-        // whatever that level leaves each row with - still needed for a
-        // genuinely long name/pill count that overflows even at level 0.
-        // Each button slot (Referrals/Actions/New Referral) pinned to the
-        // widest that same slot actually needs across the whole list (live
-        // feedback: "force action buttons to be the same size as largest
-        // Action button" - a fixed total .btn-row width alone (an earlier
-        // idea, same conversation) would keep the group's outer edge
-        // aligned but not each individual button, since a 1-digit vs a
-        // 3-digit badge still shifts everything after it within that same
-        // group). Custom properties, not a per-element inline width - one
-        // read/write per slot for the whole list rather than one per row.
-        function alignButtonSlots() {
             ['referrals', 'actions', 'new-referral'].forEach(function (slot) {
                 // Cleared before measuring, not just overwritten after -
                 // otherwise a slot's own previously-set fixed width would
-                // be what gets measured back on a re-run (e.g. after an
-                // AJAX refresh drops every badge to a shorter digit count),
-                // never letting the constraint shrink again.
+                // be what gets measured back on a re-run (e.g. after a
+                // filter change drops every badge to a shorter digit
+                // count), never letting the constraint shrink again.
                 container.style.removeProperty('--btn-w-' + slot);
             });
             ['referrals', 'actions', 'new-referral'].forEach(function (slot) {
@@ -472,86 +533,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 if (max > 0) container.style.setProperty('--btn-w-' + slot, max + 'px');
             });
-        }
-        function checkAll() {
-            rows = Array.prototype.slice.call(container.querySelectorAll('.entity-row'));
-            // .row-buttons-wrapped cleared here, before anything else runs -
-            // live feedback: "still getting an overflow when I shrink"
-            // and "if I shrink to portrait tablet and then enlarge again,
-            // it keeps the buttons on their own row even when full width".
-            // Both traced to the same cause: a row left over in
-            // .row-buttons-wrapped (full-width, flex: 1 stretched buttons)
-            // from a previous, narrower run was still wearing that class
-            // the moment alignButtonSlots() measured it, so getBoundingClientRect()
-            // read each button's *stretched* width instead of its true
-            // compact one - poisoning --btn-w-* for the whole list with
-            // widths too large to ever fit inline again, which in turn
-            // made every row look like it still needed to be wrapped even
-            // once the window widened back out. Resetting the class before
-            // any measurement runs guarantees alignButtonSlots() (and the
-            // level search below) always measures each row's genuine
-            // inline-layout size.
-            rows.forEach(function (row) {
-                row.classList.remove('row-buttons-wrapped');
-            });
-            alignButtonSlots();
-            for (var level = 5; level >= 0; level--) {
-                container.setAttribute('data-detail-level', level);
-                if (!measureOverflow()) break;
-            }
-            // One shared decision for the whole list, not a per-row one
-            // (live feedback: "if there is any row where it does not fit,
-            // can all rows then wrap" - a mixed list where only the rows
-            // with a long name or a badge wrap their buttons while their
-            // neighbours stay inline read as inconsistent/broken rather
-            // than as each row genuinely needing different treatment).
-            // Any single row overflowing still wraps every row, same as
-            // pass 1's detail-level search above already does for the data
-            // stat columns.
-            rows.forEach(function (row) {
-                row.classList.add('row-measuring');
-            });
-            var anyRowOverflowing = rows.some(function (row) {
-                return row.scrollWidth > row.clientWidth + 1;
-            });
-            rows.forEach(function (row) {
-                row.classList.remove('row-measuring');
-                row.classList.toggle('row-buttons-wrapped', anyRowOverflowing);
+            container.querySelectorAll('.entity-row').forEach(function (row) {
+                var thumb = row.querySelector('.entity-thumb');
+                var btnRow = row.querySelector('.btn-row');
+                if (!thumb || !btnRow) return;
+                row.classList.toggle('row-buttons-wrapped', btnRow.offsetTop > thumb.offsetTop + 2);
             });
         }
-        // Whether a row's buttons wrap depends only on the row's available
-        // *width* - but checkAll() toggling row-buttons-wrapped changes
-        // each row's *height* (wrapped = 2 lines), which changes
-        // container's own height, which re-fires a ResizeObserver watching
-        // container regardless of dimension. That fed straight back into
-        // checkAll() again on every single pass, thrashing for ~800ms after
-        // every load before it happened to settle (live feedback: "page has
-        // a shift as it loads"). Recording container's own width and
-        // skipping the re-check whenever a resize notification didn't
-        // actually change it (a pure height change from checkAll()'s own
-        // last pass) breaks that feedback loop at the source - width
-        // changes (the only thing a wrap decision can depend on) still
-        // trigger a fresh check as normal.
+        // Width-only guard - refresh() toggling .row-buttons-wrapped
+        // changes a row's height (wrapped = 2 lines), which changes
+        // container's own height, which would re-fire the ResizeObserver
+        // below watching container regardless of dimension, feeding
+        // straight back into refresh() again (same thrashing-on-load
+        // feedback loop the old wireStudentRowButtonWrap documented and
+        // guarded against). Only a genuine width change - the only thing a
+        // wrap decision can actually depend on - re-runs it.
         var lastWidth = null;
-        function checkAllIfWidthChanged() {
+        function refreshIfWidthChanged() {
             var width = container.clientWidth;
             if (width === lastWidth) return;
             lastWidth = width;
-            checkAll();
+            refresh();
         }
-        checkAll();
+        var refreshOnResize = window.rafThrottle ? window.rafThrottle(refreshIfWidthChanged) : refreshIfWidthChanged;
+        refresh();
         lastWidth = container.clientWidth;
-        window.addEventListener('resize', checkAllIfWidthChanged);
-        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(checkAllIfWidthChanged).observe(container);
-        // AJAX filter changes replace #students-filtered-content's whole
-        // innerHTML (setupAjaxFilterBars, main.js) without re-running any
-        // page-specific script afterward - a MutationObserver catches that
-        // swap directly instead of needing a second hook into the fetch.
         if (typeof MutationObserver !== 'undefined') {
-            new MutationObserver(checkAll).observe(container, { childList: true, subtree: true });
+            new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
         }
-    }
-    wireStudentRowButtonWrap();
+        window.addEventListener('resize', refreshOnResize);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(refreshOnResize).observe(container);
+        }
+    })();
 });
 </script>
 {% endblock %}

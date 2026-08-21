@@ -1,0 +1,86 @@
+{% comment %}
+Row markup only, no .entity-list wrapper - shared by the initial/filtered
+render (_students_filtered_content.html, wraps this in .entity-list) and
+the infinite-scroll continuation response (inclusion_panel_students,
+views.py: a page>1 AJAX request renders just this template, and
+wireStudentsInfiniteScroll, students.html, inserts the result directly
+into the existing .entity-list before the old sentinel). Keeping the row
+markup in one place means both call sites can never drift apart.
+{% endcomment %}
+{% for s in students %}
+<div class="entity-row selectable" tabindex="0" role="button" aria-pressed="false">
+    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+    <div class="entity-body">
+        <div class="row-title-row">
+            <div class="entity-title">{{ s.first_name }} {{ s.last_name }}</div>
+            {% if s.has_pills %}
+            {% if s.sen_status %}<span class="bd-pill bd-untriaged">SEN {{ s.sen_status }}</span>{% endif %}
+            {% if s.is_pp %}<span class="bd-pill bd-untriaged">PP</span>{% endif %}
+            {% if s.is_eal %}<span class="bd-pill bd-untriaged">EAL</span>{% endif %}
+            {% if s.is_lac %}<span class="bd-pill bd-untriaged">LAC</span>{% endif %}
+            {% if s.is_young_carer %}<span class="bd-pill bd-untriaged">YC</span>{% endif %}
+            {% if s.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
+            {% endif %}
+        </div>
+        <div class="row-facts row-facts-cols">
+            <span class="row-facts-primary-plain">Year {{ s.year_group }}{% if s.house %} &middot; House {{ s.house }}{% endif %}{% if s.reg_form %} &middot; Form {{ s.reg_form }}{% endif %}</span>
+            <div class="row-fact-col row-facts-extra row-detail-col-1" style="width: {{ col_widths.yearreg }}">
+                <span>Year {{ s.year_group }}{% if s.house %} (House {{ s.house }}){% endif %}</span>
+                <span>Reg {{ s.reg_form|default:"—" }}</span>
+            </div>
+            <span class="mc-vdivider row-facts-extra row-detail-col-2"></span>
+            <div class="row-fact-col row-facts-extra row-detail-col-2" style="width: {{ col_widths.dobyoa }}">
+                <span>DOB: {{ s.date_of_birth|date:"d M Y"|default:"—" }}</span>
+                <span>YOA: {{ s.year_arrived|default:"—" }}</span>
+            </div>
+            <span class="mc-vdivider row-facts-extra row-detail-col-3"></span>
+            <div class="row-fact-col row-facts-extra row-detail-col-3" style="width: {{ col_widths.genderethnicity }}">
+                <span>{{ s.get_gender_display|default:"—" }}</span>
+                <span>{{ s.get_ethnicity_display|default:"—" }}</span>
+            </div>
+            <span class="mc-vdivider row-facts-extra row-detail-col-4"></span>
+            <div class="row-fact-col row-facts-extra row-detail-col-4" style="width: {{ col_widths.tutorhoy }}">
+                <span>Tutor: {% if s.form_tutor %}{{ s.form_tutor.first_name }} {{ s.form_tutor.last_name }}{% else %}—{% endif %}</span>
+                <span>HoY: {% if s.head_of_year %}{{ s.head_of_year.first_name }} {{ s.head_of_year.last_name }}{% else %}—{% endif %}</span>
+            </div>
+            <span class="mc-vdivider row-facts-extra row-detail-col-5"></span>
+            <div class="row-fact-col row-facts-extra row-detail-col-5" style="width: {{ col_widths.behaviourattendance }}">
+                <span>Behaviour: {{ s.behaviour_incidents_summary }}</span>
+                <span>Attendance: {% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% else %}—{% endif %}</span>
+            </div>
+        </div>
+    </div>
+    <div class="btn-row">
+        {% if s.referrals_count > 0 %}
+        <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm" data-btn-slot="referrals">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
+        {% else %}
+        <span class="btn btn-sm btn-disabled" aria-disabled="true" data-btn-slot="referrals">Referrals</span>
+        {% endif %}
+        {% if s.actions_count > 0 %}
+        <a href="{% url 'inclusion_panel_actions' %}?name={{ s.id }}" class="btn btn-sm" data-btn-slot="actions">Actions<span class="btn-count-badge">{{ s.actions_count }}</span></a>
+        {% else %}
+        <span class="btn btn-sm btn-disabled" aria-disabled="true" data-btn-slot="actions">Actions</span>
+        {% endif %}
+        <button type="button" class="btn btn-add btn-sm" data-btn-slot="new-referral" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Referral</button>
+    </div>
+</div>
+{% empty %}
+{% if not page_obj or page_obj.number == 1 %}
+<p class="empty-note">No results.</p>
+{% endif %}
+{% endfor %}
+{% if page_obj.has_next %}
+{% comment %}
+Infinite scroll (live feedback: "cap the number of results... roughly 4000
+students eventually" - #134 follow-up, the stutter this replaced turned
+out to be plain DOM-size layout cost, confirmed by testing with all JS
+disabled and it still being slow). wireStudentsInfiniteScroll
+(students.html) watches this via IntersectionObserver; once it scrolls
+into view, it fetches next_page_url and splices the response in right
+before this element, then removes it - the response's own trailing
+sentinel (if that page also has a next one) becomes the new observation
+target automatically, since it's inserted as part of the same fetched
+fragment.
+{% endcomment %}
+<div class="students-load-sentinel" data-next-page-url="{{ next_page_url }}"></div>
+{% endif %}

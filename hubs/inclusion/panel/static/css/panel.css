@@ -2783,7 +2783,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        right level). Clips any leftover horizontal overflow instead of
        letting it push the row wider or force a visible reflow - a cut-off
        edge on the last column for one frame reads far better than the
-       whole row jumping width. */
+       whole row jumping width. Widened to cover vertical growth too (live
+       feedback: "I still see row increase with overflow then
+       disappearing") - overflow: hidden alone only clips what doesn't fit
+       on one line, it does nothing to stop the base .row-facts rule's own
+       flex-wrap: wrap from accepting a second line in the first place, so
+       the row's height itself still visibly grew then shrank back across
+       the same transient frame this rule already exists to smooth over.
+       nowrap forces every fact onto the one line overflow: hidden is
+       already clipping, so a leftover column gets cut off instead of
+       ever pushing the row taller. */
+    flex-wrap: nowrap;
     overflow: hidden;
 }
 
@@ -2988,37 +2998,67 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
 }
 
 /* Tablet + desktop button placement (>480px - only true mobile, further
-   down, always keeps buttons full-width regardless; live feedback:
-   "would [buttons] fit next to student info like in wide tablet mode" -
-   widened from the original >900px-only gate since the same dynamic
-   per-row measurement below is width-agnostic and tablet often has the
-   room too, it just wasn't being given the chance). A single dynamic
-   per-row class rather than a fixed breakpoint (live feedback: "can the
-   buttons dynamically go to next line when it causes overflow" - a row's
-   own name/pill count affects when it actually runs out of room, not just
-   the viewport). .row-measuring (below) is a short-lived class
-   wireStudentRowButtonWrap() (students.html) adds only for the instant it
-   takes to read scrollWidth vs clientWidth - forces .entity-body/.btn-row
-   to their true unwrapped, unshrunk width (flex-shrink: 0 + inherited
-   white-space: nowrap) so a genuine overflow actually shows up as
-   scrollWidth > clientWidth instead of the browser quietly wrapping text
-   or shrinking flex items to hide it. .row-buttons-wrapped is what that
-   measurement then toggles, to actually drop the button row below. No
-   border-top above it (live feedback: "not sure it needs the horizontal
-   divider above buttons") - .entity-row's own row-gap-less default
-   spacing plus margin-top alone reads as enough separation without one. */
+   down, always keeps buttons full-width regardless). Was a dynamic per-row
+   JS measurement (wireStudentRowButtonWrap, students.html - live feedback
+   at the time: "can the buttons dynamically go to next line when it
+   causes overflow", "force action buttons to be the same size as largest
+   Action button") - scrollWidth-read every row on every resize tick to
+   decide (a) whether ANY row's buttons needed to wrap, applied to every
+   row uniformly, and (b) a --btn-w-<slot> custom property pinning every
+   row's buttons to one shared width. (a) replaced with plain native
+   flex-wrap (live feedback: "breakpoints are still not snappy on this
+   page only" - even after the detail-column search moved to CSS, this
+   remaining O(rows) measurement was still enough to stutter against the
+   side-nav's own width transition on an unbounded row count) -
+   flex-wrap: wrap on the row itself lets the browser decide per-row, for
+   free, whether .btn-row fits beside .entity-body or needs its own line.
+   (b) came back afterward (live feedback: "the buttons with badges takes
+   up more space so goes to new line, but other entitys do not... make
+   buttons same size as max width of that type" - once (a) went pure CSS,
+   a row's wrap decision started depending on that row's OWN badge digit
+   count, so two rows at the same width could wrap inconsistently just
+   because one had a badge and the other didn't; pinning every row's
+   buttons to one shared width removes that per-row variance, so wrap
+   becomes consistent again too, as a side effect) - safe to reintroduce
+   now that pagination (views.py, same session) caps the DOM at
+   STUDENTS_PAGE_SIZE rows: alignButtonSlots() (students.html) only needs
+   to re-run when the rendered rows actually change (page load, filter
+   change, an infinite-scroll append), never on resize, so there's no
+   per-frame cost left to fight the side-nav's transition. */
 @media (min-width: 481px) {
-    /* No border-left divider (live feedback: "lose the horizontal divider") -
-       the row's own gap (cards.css) plus this padding already read as
-       enough separation from the student info without a drawn line. */
+    #students-filtered-content .entity-row {
+        flex-wrap: wrap;
+    }
+    /* entity-thumb never wraps away on its own - fixed width/height already
+       gives it a natural flex-basis, flex-shrink: 0 here just makes sure it
+       can't be squeezed either, so it's never a candidate to fall onto a
+       line by itself the way a shrinkable item could be. */
+    #students-filtered-content .entity-thumb {
+        flex-shrink: 0;
+    }
+    /* flex-basis (not just min-width) is what actually reserves this as
+       .entity-body's asking size before the flex algorithm decides whether
+       .btn-row still fits on the same line - a plain min-width alone still
+       lets .entity-body start from a 0 basis and only grow after wrap is
+       already decided, which resolves wrap one step too late. 200px, not
+       the wider figure tried first (live feedback caught it live: the
+       avatar itself wrapped onto its own line above the name on a ~500px
+       tablet width - too large a floor made .entity-thumb + .entity-body
+       together not fit on line 1 at all, so .entity-body wrapped away from
+       the avatar too, not just the buttons). 200px comfortably fits the
+       "Year 10 · House D · Form 10A" facts line without forcing that. */
+    #students-filtered-content .entity-body {
+        flex: 1 1 200px;
+        min-width: 200px;
+    }
     #students-filtered-content .entity-row > .btn-row {
+        flex: 0 0 auto;
         padding-left: var(--space-lg);
     }
     /* Each button pinned to a fixed width - the widest that same button
-       (Referrals/Actions/New Referral) actually needs across the whole
-       list, set as a --btn-w-<slot> custom property by alignButtonSlots()
-       (students.html) - live feedback: "force action buttons to be the
-       same size as largest Action button", so every row's buttons start
+       (Referrals/Actions/New Referral) actually needs across the currently
+       rendered rows, set as a --btn-w-<slot> custom property by
+       alignButtonSlots() (students.html) - so every row's buttons start
        and end at the same x position regardless of that row's own badge
        digit count. flex: 0 0 <width> (not just width alone) - .btn-row's
        own base rule (buttons.css) doesn't force flex-shrink: 0 on its
@@ -3037,52 +3077,19 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
     #students-filtered-content .btn-row [data-btn-slot="new-referral"] {
         flex-basis: var(--btn-w-new-referral, auto);
     }
-    #students-filtered-content .entity-row.row-measuring {
-        flex-wrap: nowrap;
-    }
-    /* min-width: max-content, not just flex-shrink: 0 (live feedback +
-       screenshot: pills/facts visibly wrapped onto 3 lines yet buttons
-       never moved - the measurement wasn't actually detecting it).
-       .entity-body's own base rule sets min-width: 0 (cards.css/panel.css)
-       specifically so it CAN shrink in normal use - flex-shrink: 0 alone
-       doesn't override that min-width during the shrink-resolution
-       algorithm, so the browser could still compress it below its true
-       nowrap content width, silently hiding the very overflow this class
-       exists to reveal. min-width: max-content is a hard floor regardless
-       of flex-shrink, forcing genuine overflow to actually show up as
-       row.scrollWidth > row.clientWidth. */
-    #students-filtered-content .entity-row.row-measuring .entity-body,
-    #students-filtered-content .entity-row.row-measuring > .btn-row {
-        flex-shrink: 0;
-        min-width: max-content;
-        white-space: nowrap;
-    }
-    /* .row-facts' own base rule (shared with Referrals/Actions) carries
-       its own flex-wrap: wrap - live feedback + screenshot: badges widening
-       the button row made the row-detail columns wrap onto a second line
-       internally instead of the whole row ever actually overflowing
-       horizontally, so scrollWidth > clientWidth never fired and the level
-       search (students.html) never dropped a column for that row. nowrap
-       alone (tried first) still wasn't enough - live feedback: "when
-       resizing I can still do this, Tutor and HoY forced to a new row
-       instead of disappearing" - .entity-body's own min-width: max-content
-       (above) doesn't reliably cascade a "lay out as one line" size
-       through a NESTED flex-wrap container's own intrinsic sizing;
-       width: max-content here forces .row-facts to compute and hold that
-       true single-line width directly on itself instead of depending on
-       its ancestor to derive it correctly. */
-    #students-filtered-content .entity-row.row-measuring .row-facts {
-        flex-wrap: nowrap;
-        width: max-content;
-    }
-    #students-filtered-content .entity-row.row-buttons-wrapped {
-        flex-wrap: wrap;
-    }
-    /* No margin of its own - .entity-row's own base gap (cards.css,
-       var(--space-md)) already applies as row-gap between wrapped lines
-       once flex-wrap: wrap is on; stacking margin-top on top of that gap
-       is what doubled up the spacing above the button row (live feedback +
-       screenshot: "too much padding above buttons on narrow desktop"). */
+    /* Full-width/centred when a row's buttons actually fell to their own
+       line (live feedback: "if buttons overflow to a new line, can they
+       auto width to fill the width! Like in mobile mode" - same
+       flex: 1 1 100% + evenly-stretched children treatment true mobile's
+       own always-wrapped block already uses below, applied here only when
+       wireStudentButtonLayout (students.html) has actually detected the
+       wrap, not unconditionally). Overrides the fixed --btn-w-<slot>
+       pinning above - once alone on its own line, there's nothing left to
+       align WITH, so filling the available width reads better than
+       leaving it pinned to a size chosen to match the row above it. No
+       margin of its own - .entity-row's own base gap (cards.css) already
+       applies as row-gap between wrapped lines once flex-wrap: wrap is on,
+       stacking margin-top on top of that gap would double it up. */
     #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row {
         flex: 1 1 100%;
         border-left: none;
@@ -3111,6 +3118,30 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
 #students-filtered-content .row-facts-extra {
     display: none;
 }
+/* Was a JS-measured "level 0-5" system (wireStudentRowButtonWrap,
+   students.html): every resize/ResizeObserver tick re-measured all ~240
+   rows against all 6 levels to find the highest one where nothing
+   overflowed (live feedback originally: "hide the data stat columns so
+   that buttons fit without overflowing... if one has to hide, it should
+   hide in all", refined to drop the *last* column only, not jump straight
+   to none). Simplified to plain width breakpoints (live feedback:
+   "animations are stuttery... maybe this needs simplifying" - that
+   per-resize full-list remeasure, not just how often it ran, was the
+   actual cost fighting the side-nav's own width transition for main-
+   thread time). Each column's width is already capped server-side (ch
+   units, _col_width() in views.py) rather than truly unbounded, so a
+   row's genuine max content width is predictable enough for a fixed
+   breakpoint per column to be a reasonable, if not pixel-perfect, stand-in
+   for the old per-row measurement - trades exactness for costing the
+   browser nothing at all on resize (no JS on this path any more). Widest-
+   first cascade: each threshold below adds back one more column as the
+   viewport widens; .row-detail-col-N on both a column and its own leading
+   divider is what still lets one threshold add/drop just the *last*
+   column rather than all-or-nothing. Thresholds picked empirically
+   (Playwright width sweep, no live per-row overflow check any more to
+   fall back on) - if a genuinely long name/tutor value overflows at a
+   specific width, nudge that column's own threshold up a bit rather than
+   reintroducing JS measurement. */
 @media (min-width: 1180px) {
     /* Explicit display values, not `revert` - revert would also roll back
        .mc-vdivider/.row-fact-col's own base display rules (both author-
@@ -3149,67 +3180,122 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
         padding-top: var(--space-xs);
         border-top: 1px solid var(--border-color);
     }
-    /* [data-detail-level] (wireStudentRowButtonWrap, students.html) - the
-       JS measures every row at each level from 5 (all 5 columns above)
-       down to 0 (none) and picks the highest one where no row overflows,
-       rather than jumping straight from "all 5" to "none" the moment any
-       row doesn't fit (live feedback: "hide the data stat columns so that
-       buttons fit without overflowing... if one has to hide, it should
-       hide in all", then "I was thinking it could cut off the last column
-       of data, not immediately go to basic info" - .row-detail-col-N on
-       both a column and its own leading divider is what lets a single
-       level drop the *last* column (and only that one) rather than all-
-       or-nothing; every row in the list shares the one level the container
-       carries, so they still all agree on the same columns, just not
-       necessarily zero of them). Reactive rather than a second, narrower
-       breakpoint - live feedback: "This is for Desktop wide as well, not
-       just tablet wide" - so this is automatic at any width in this
-       min-width: 1180px range, not a hardcoded sub-range. */
-    #students-filtered-content[data-detail-level="4"] .row-detail-col-5,
-    #students-filtered-content[data-detail-level="3"] .row-detail-col-4,
-    #students-filtered-content[data-detail-level="3"] .row-detail-col-5,
-    #students-filtered-content[data-detail-level="2"] .row-detail-col-3,
-    #students-filtered-content[data-detail-level="2"] .row-detail-col-4,
-    #students-filtered-content[data-detail-level="2"] .row-detail-col-5,
-    #students-filtered-content[data-detail-level="1"] .row-detail-col-2,
-    #students-filtered-content[data-detail-level="1"] .row-detail-col-3,
-    #students-filtered-content[data-detail-level="1"] .row-detail-col-4,
-    #students-filtered-content[data-detail-level="1"] .row-detail-col-5,
-    #students-filtered-content[data-detail-level="0"] .row-detail-col-1,
-    #students-filtered-content[data-detail-level="0"] .row-detail-col-2,
-    #students-filtered-content[data-detail-level="0"] .row-detail-col-3,
-    #students-filtered-content[data-detail-level="0"] .row-detail-col-4,
-    #students-filtered-content[data-detail-level="0"] .row-detail-col-5 {
+    /* Fades rather than an instant display:none snap (live feedback: "can
+       we have the data fade in or out rather than disapear"). Briefly
+       stripped to a plain display:none for the stutter bisection (ruled
+       out - the zero-JS test still stuttered, proving it was DOM row count
+       /layout cost, not this) and restored once that was confirmed.
+       transition-behavior: allow-discrete + @starting-style is what lets
+       `display` itself take part: hiding fades opacity to 0 first and only
+       then (transition end) drops to display: none, instead of vanishing
+       before the fade can be seen; showing flips to its normal display
+       immediately and fades in from the @starting-style opacity: 0 below. */
+    #students-filtered-content .row-detail-col-1,
+    #students-filtered-content .row-detail-col-2,
+    #students-filtered-content .row-detail-col-3,
+    #students-filtered-content .row-detail-col-4,
+    #students-filtered-content .row-detail-col-5 {
+        transition: opacity var(--transition-base), display var(--transition-base) allow-discrete;
         display: none;
+        opacity: 0;
     }
-    /* Only level 0 (every column gone) falls back to the plain single-line
-       Year/House/Form and drops both dividers - level 1 still has that
-       exact info showing as its own .row-detail-col-1, just nothing after
-       it, so the plain fallback/dividers stay irrelevant until the row
-       genuinely has no columns left at all. */
-    #students-filtered-content[data-detail-level="0"] .row-facts-primary-plain {
+    @starting-style {
+        #students-filtered-content .row-detail-col-1,
+        #students-filtered-content .row-detail-col-2,
+        #students-filtered-content .row-detail-col-3,
+        #students-filtered-content .row-detail-col-4,
+        #students-filtered-content .row-detail-col-5 {
+            opacity: 0;
+        }
+    }
+    /* Below every column's own threshold (further down), no columns are
+       shown at all - same "every column gone" fallback the old level 0
+       used: plain single-line Year/House/Form, both dividers dropped. */
+    #students-filtered-content .row-facts-primary-plain {
         display: inline;
     }
-    #students-filtered-content[data-detail-level="0"] .entity-row > .btn-row {
+    #students-filtered-content .entity-row > .btn-row {
         border-left: none;
     }
-    #students-filtered-content[data-detail-level="0"] .row-facts {
+    #students-filtered-content .row-facts {
         margin-top: var(--space-xxs);
         padding-top: 0;
         border-top: none;
     }
 }
+@media (min-width: 1180px) {
+    #students-filtered-content .row-detail-col-1 {
+        display: flex;
+        opacity: 1;
+    }
+    #students-filtered-content .row-facts-primary-plain {
+        display: none;
+    }
+    #students-filtered-content .entity-row > .btn-row {
+        border-left: 1px solid var(--border-color);
+    }
+    #students-filtered-content .row-facts {
+        margin-top: var(--space-xs);
+        padding-top: var(--space-xs);
+        border-top: 1px solid var(--border-color);
+    }
+}
+@media (min-width: 1280px) {
+    #students-filtered-content .mc-vdivider.row-detail-col-2 {
+        display: block;
+        opacity: 1;
+    }
+    #students-filtered-content .row-fact-col.row-detail-col-2 {
+        display: flex;
+        opacity: 1;
+    }
+}
+@media (min-width: 1400px) {
+    #students-filtered-content .mc-vdivider.row-detail-col-3 {
+        display: block;
+        opacity: 1;
+    }
+    #students-filtered-content .row-fact-col.row-detail-col-3 {
+        display: flex;
+        opacity: 1;
+    }
+}
+@media (min-width: 1520px) {
+    #students-filtered-content .mc-vdivider.row-detail-col-4 {
+        display: block;
+        opacity: 1;
+    }
+    #students-filtered-content .row-fact-col.row-detail-col-4 {
+        display: flex;
+        opacity: 1;
+    }
+}
+@media (min-width: 1640px) {
+    #students-filtered-content .mc-vdivider.row-detail-col-5 {
+        display: block;
+        opacity: 1;
+    }
+    #students-filtered-content .row-fact-col.row-detail-col-5 {
+        display: flex;
+        opacity: 1;
+    }
+}
 
-/* Tablet-only tightening of the wrapped-fallback button row above (481-900px
+/* Tablet-only tightening of the wrapped-fallback button row (481-900px
    band): once a row's buttons genuinely don't fit beside its content (the
-   .row-buttons-wrapped case, previous block) and drop to their own full-width
-   row, tablet is narrow enough that badges can still overflow the row the
-   same way old fixed-mobile once did (live feedback then: "find a way for
-   buttons to fit on one row... badges... causes New Referral to overflow").
-   Desktop's own wrapped fallback (900px+) has enough width that it never
-   needed this - scoped to max-width: 900px so desktop keeps its icon +
-   normal padding. nowrap + min-width: 0 forces genuine shrinking instead of
-   the least-fitting button (New Referral, the longest label) dropping to its
+   .row-buttons-wrapped case, wireStudentButtonLayout/panel.css above) and
+   drop to their own full-width row, tablet is narrow enough that badges
+   can still overflow the row the same way old fixed-mobile once did (live
+   feedback then: "find a way for buttons to fit on one row... badges...
+   causes New Referral to overflow"). Desktop's own wrapped fallback
+   (900px+) has enough width that it never needed this - scoped to
+   max-width: 900px so desktop keeps its icon + normal padding. Back to
+   being scoped to .row-buttons-wrapped specifically (was briefly
+   unconditional while that class didn't exist, mid-session) - now that
+   wireStudentButtonLayout detects wrap again, applying this compact/no-
+   icon treatment to rows that never actually wrapped would be needlessly
+   cramped. nowrap + min-width: 0 forces genuine shrinking instead of the
+   least-fitting button (New Referral, the longest label) dropping to its
    own line; icon dropped and text/padding tightened to claim back enough
    room for that shrink to still read comfortably rather than truncating. */
 @media (min-width: 481px) and (max-width: 900px) {
@@ -3816,29 +3902,30 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         display: none;
     }
 }
-/* Unconditional (every width, not gated) - transition needs to live on a
-   rule the browser sees at BOTH ends of the change, or a value that only
-   ever exists inside a media-query-scoped selector has nothing to animate
-   FROM the instant that selector stops matching (live feedback: "could the
-   change transition" - crossing the width threshold below was an instant
-   snap otherwise). */
 #students-filtered-content .entity-row {
-    transition: padding var(--transition-base);
+    /* Re-enabled (live feedback: "maybe its the number of students? When I
+       add a filter to reduce, it is much faster!" - confirms the cost
+       scales with row count, exactly what content-visibility: auto exists
+       to fix: it skips layout/paint for off-screen rows entirely, so the
+       side-nav's width transition only has to relayout the rows actually
+       on screen, not all 240. Briefly disabled for the JS/CSS bisection
+       above and put back once the "scales with row count" evidence came
+       in - nothing left forces a layout read on off-screen rows any more
+       (the old JS measurement that used to defeat this is gone), so this
+       should get its full intended benefit now. contain-intrinsic-size is
+       a rough single-line-row estimate so the list's scrollbar/height
+       doesn't jump as rows enter/exit the skip state. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 68px;
 }
-/* Narrow desktop only (html.filter-bar-mobile-mode, main.js - same <=900px
-   + hover-capable, portrait-tablet-excluded band as the filter bar above) -
-   live feedback: "can we reduce entity padding if desktop mode is this
-   narrow" - just the padding, not the full phone-only flex-wrap/stacked
-   layout the <=480px block above still owns alone (per the earlier "I only
-   want the filter treatment to be same as mobile" correction - this one
-   line is explicitly requested on top of that, not a reversal of it). Same
-   var(--space-sm) value the true-mobile block above and .main-inner's own
-   narrow-desktop override (below) already use, so every reclaimed edge
-   reads as one consistent inset rather than several different guesses. */
-@media (max-width: 900px) {
-    html.filter-bar-mobile-mode #students-filtered-content .entity-row {
-        padding: var(--space-sm) var(--space-lg);
-    }
+/* Infinite scroll (views.py: inclusion_panel_students, students.html:
+   wireStudentsInfiniteScroll) - a real, non-zero box for the
+   IntersectionObserver to actually have something to intersect; some
+   browsers don't reliably fire for a genuinely zero-size target. No visual
+   presence otherwise (rootMargin on the observer fires the next fetch well
+   before this would ever be scrolled into view). */
+#students-filtered-content .students-load-sentinel {
+    height: 1px;
 }
 /* Widened from max-width: 480px to max-width: 900px (live feedback: "I
    basically want everything to be the same as mobile except we keep the
@@ -5191,18 +5278,14 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
    proxy to fall back on at desktop width the way they do on true mobile
    (responsive.css's own <=480px version of this same pair of rules relies
    on that fallback existing - this page's own version deliberately doesn't
-   touch .page-header-extras for that reason). Unconditional transition
-   rule first, same reasoning as .entity-row's own copy above - a value
-   that only exists inside the media-query-scoped rule below has nothing to
-   animate from the instant that rule stops matching (live feedback: "could
-   the change transition"). */
-body:has(.students-page-shell) .main-inner {
-    transition: padding var(--transition-base);
-}
+   touch .page-header-extras for that reason). The page-margin reduction
+   this block used to also apply (.main-inner padding, animated) was
+   dropped (live feedback: "keep the number of changes manageable on
+   resizing", same session as the checkAll() resize-stutter fix above) -
+   breadcrumbs still hide outright (a discrete, one-time toggle, not
+   something that animates/recomputes across a resize the way an animated
+   padding value does). */
 @media (max-width: 900px) {
-    html.filter-bar-mobile-mode body:has(.students-page-shell) .main-inner {
-        padding: var(--space-sm);
-    }
     html.filter-bar-mobile-mode body:has(.students-page-shell) .breadcrumbs {
         display: none;
     }

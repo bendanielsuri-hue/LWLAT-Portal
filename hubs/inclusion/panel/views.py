@@ -3,6 +3,7 @@ import json
 from collections import Counter
 from urllib.parse import quote
 
+from django.core.paginator import Paginator
 from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -1263,7 +1264,46 @@ def inclusion_panel_students(request):
         students = students.filter(is_more_able=True)
     elif is_more_able_filter == '0':
         students = students.filter(is_more_able=False)
-    students = list(students.order_by('last_name', 'first_name'))
+    students = students.order_by('last_name', 'first_name')
+
+    # Totals for the header/footer stats strip ("240 Students · 59
+    # Referrals · 82 Actions") - computed against the full filtered
+    # queryset before pagination slices it down (live feedback: "maybe its
+    # the number of students?... cap the number of results. This will be
+    # for a MAT so roughly 4000 students eventually!" - the stutter turned
+    # out to be plain DOM-size layout cost, confirmed by testing with all
+    # page JS disabled and it still being slow, so rendering only one
+    # page's worth of rows at a time is the actual fix). Separate direct
+    # counts against Referral/Action, not Sum() over the referrals_count/
+    # actions_count annotations already on `students` - those are each
+    # their own Count(..., distinct=True) specifically to dodge a join
+    # fan-out between the two relations (see the comment above where
+    # they're defined); aggregating Sum() on top of them in the same query
+    # risks reopening exactly that bug. Three simple COUNT queries instead,
+    # each against its own table, filtered by the same student set.
+    total_students_count = students.count()
+    total_referrals_count = InclusionReferral.objects.filter(student__in=students).count()
+    total_actions_count = Action.objects.filter(referral__student__in=students).count()
+
+    # STUDENTS_PAGE_SIZE students per page (infinite scroll,
+    # wireStudentsInfiniteScroll in students.html) - only this page's
+    # students go through the per-row lookups below (Head of Year,
+    # attendance %, behaviour incidents), not the full filtered set.
+    STUDENTS_PAGE_SIZE = 50
+    paginator = Paginator(students, STUDENTS_PAGE_SIZE)
+    try:
+        page_number = int(request.GET.get('page') or 1)
+    except ValueError:
+        page_number = 1
+    page_obj = paginator.get_page(page_number)
+    # Infinite-scroll continuation request - page > 1 only ever happens via
+    # wireStudentsInfiniteScroll's own fetch (a fresh filter change always
+    # omits `page`, resetting to 1), so this is never a real user-facing
+    # URL. Renders just the row markup + next sentinel, no .entity-list
+    # wrapper or stats-strip - the target is an insert-before-the-sentinel
+    # splice into the list already on the page, not a full replace.
+    is_continuation = is_ajax and page_number > 1
+    students = list(page_obj.object_list)
     for student in students:
         student.has_pills = bool(
             student.sen_status or student.is_pp or student.is_eal
@@ -1375,11 +1415,21 @@ def inclusion_panel_students(request):
         'is_young_carer_filter': is_young_carer_filter,
         'is_more_able_filter': is_more_able_filter,
         'active_filter_count': active_filter_count,
-        'students_count': len(students),
-        'referrals_count': sum(s.referrals_count for s in students),
-        'actions_count': sum(s.actions_count for s in students),
+        'students_count': total_students_count,
+        'referrals_count': total_referrals_count,
+        'actions_count': total_actions_count,
+        'page_obj': page_obj,
     }
-    template = 'hubs/inclusion/panel/_students_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/students.html'
+    if page_obj.has_next():
+        next_params = request.GET.copy()
+        next_params['page'] = page_obj.next_page_number()
+        context['next_page_url'] = request.path + '?' + next_params.urlencode()
+    if is_continuation:
+        template = 'hubs/inclusion/panel/_students_rows.html'
+    elif is_ajax:
+        template = 'hubs/inclusion/panel/_students_filtered_content.html'
+    else:
+        template = 'hubs/inclusion/panel/students.html'
     return render(request, template, context)
 
 

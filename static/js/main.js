@@ -6,6 +6,31 @@ function closest(el, selector) {
     return null;
 }
 
+// Coalesces a resize/visualViewport-resize handler to at most once per
+// animation frame - live feedback: "animations are now very stuttery...
+// may be due to the amount of calculations". A live window-resize drag
+// dispatches 'resize' repeatedly, and Students' filter-bar work
+// (positionFilterTray, setupListEndCapHeight, the actions-right-width
+// remeasure) added several handlers that each force a synchronous layout
+// read (getBoundingClientRect/offsetWidth) on every single one of those
+// events - competing with the side-nav's own CSS width transition
+// (layout.css, crosses the 900px breakpoint on the same resize) for main-
+// thread budget mid-drag. Rate-limiting each handler to one run per frame
+// doesn't remove any individual layout read, but stops them from piling
+// up faster than the browser can paint.
+function rafThrottle(fn) {
+    var scheduled = false;
+    return function () {
+        if (scheduled) return;
+        scheduled = true;
+        requestAnimationFrame(function () {
+            scheduled = false;
+            fn();
+        });
+    };
+}
+window.rafThrottle = rafThrottle;
+
 // Selectable cards/rows: clicking (or Enter/Space on) a card toggles a "chosen"
 // state, without triggering when the click lands on an inner link/button.
 // Pulled out of the DOMContentLoaded sweep and exposed on window so a page
@@ -568,12 +593,12 @@ function setupFilterBarMoreFilters(bar) {
 
     measure();
     var lastWidth = bar.clientWidth;
-    function handleResize() {
+    var handleResize = rafThrottle(function () {
         var width = bar.clientWidth;
         if (width === lastWidth) return;
         lastWidth = width;
         measure();
-    }
+    });
     window.addEventListener('resize', handleResize);
     if (typeof ResizeObserver !== 'undefined') {
         new ResizeObserver(handleResize).observe(bar);
@@ -884,7 +909,23 @@ document.addEventListener('DOMContentLoaded', function () {
         // sync since only one is ever visible at a time.
         var toggleIconEls = toggle.querySelectorAll('.icon-tooltip-host');
         var toggleLabelEl = document.getElementById('sidebar-collapse-toggle-label');
-        var narrowMql = window.matchMedia('(max-width: 900px)');
+        // 1200px, not the shared 900px band other things in this file still
+        // use (studentsNarrowMql etc.) - live feedback: "can the desktop
+        // compact side menu happen as a wider breakpoint", then "the
+        // change to an arrow needs to be at that breakpoint aswell... as
+        // does the extra icons being added" - this mql (via locked(),
+        // below) is what actually adds/removes .side-nav.collapsed, which
+        // drives the exit-hub label hiding to an arrow-only icon, the
+        // .hub-rail visibility, and everything else CSS keys off
+        // .collapsed - moving responsive.css's own @media(max-width:1200px)
+        // rail-width rule alone left this JS mql still flipping at 900px,
+        // so between 900-1200px the rail was visually narrow (CSS) but
+        // .collapsed hadn't actually been added yet (JS), leaving the
+        // label/hub-rail in their expanded state crammed into the now-
+        // narrow rail. Must match responsive.css's own threshold exactly -
+        // the two aren't otherwise linked to each other in any way that
+        // would catch a mismatch automatically.
+        var narrowMql = window.matchMedia('(max-width: 1200px)');
         var hoverCapableMql = window.matchMedia('(hover: hover) and (pointer: fine)');
         var touchRailMql = window.matchMedia('(min-width: 480px) and (max-width: 1180px)');
 
