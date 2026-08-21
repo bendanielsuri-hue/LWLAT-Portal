@@ -223,13 +223,23 @@ function setupFilterBarMoreFilters(bar) {
     // actually crosses back above mobile width, this whole function runs
     // again from scratch and, this time, gets past this line to build the
     // button for real.
-    if (window.matchMedia('(max-width: 480px)').matches) {
-        var aboveMobileMql = window.matchMedia('(min-width: 481px)');
+    // Students' own filter tray now also treats a narrowed, hover-capable
+    // desktop window as "mobile" (window.isFilterBarMobile, below - live
+    // feedback: "I basically want everything to be the same as mobile
+    // except we keep the side nav and do not have the bottom mobile nav").
+    // Scoped to Students specifically (the ajax-target check) rather than
+    // every `.filter-bar` on the page - every other page's filter bar
+    // keeps the exact 480px threshold unchanged.
+    var isStudentsBar = bar.matches('form[data-ajax-target="#students-filtered-content"]');
+    if (window.matchMedia('(max-width: 480px)').matches || (isStudentsBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
+        var retryMqls = isStudentsBar
+            ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 900px)')]
+            : [window.matchMedia('(min-width: 481px)')];
         function retrySetupAboveMobile() {
-            aboveMobileMql.removeEventListener('change', retrySetupAboveMobile);
+            retryMqls.forEach(function (mql) { mql.removeEventListener('change', retrySetupAboveMobile); });
             setupFilterBarMoreFilters(bar);
         }
-        aboveMobileMql.addEventListener('change', retrySetupAboveMobile);
+        retryMqls.forEach(function (mql) { mql.addEventListener('change', retrySetupAboveMobile); });
         return;
     }
 
@@ -792,6 +802,59 @@ document.addEventListener('DOMContentLoaded', function () {
         document.documentElement.classList.toggle('force-touch-nav', !!touch);
         syncTouchNavClass();
     };
+
+    // Students filter bar: "mobile" treatment now also covers a narrowed
+    // desktop browser window, not just a true phone (live feedback: "I
+    // basically want everything to be the same as mobile except we keep
+    // the side nav and do not have the bottom mobile nav" - after two
+    // narrower bespoke-narrow-desktop attempts both still read as
+    // unfinished). isTouchNav()/nav-touch-mode (above) is what keeps a
+    // real portrait tablet - hover:none, same 481-900px width band - OUT
+    // of this (live feedback, earlier in the same thread: "I did not want
+    // the filter change on narrow mobile to affect portrait tablet. It is
+    // only on very narrow desktop that had issues"): only a hover-capable
+    // pointer this narrow (a shrunk desktop browser window) counts.
+    // html.filter-bar-mobile-mode (panel.css, the Students-scoped
+    // selectors it gates) is the single switch every affected CSS rule
+    // keys off, rather than each rule re-deriving this same OR condition
+    // from raw media features. Scoped to Students deliberately - the
+    // shared filter-bar system every other page's own `.filter-bar` also
+    // uses (setupFilterBarMoreFilters, below) is untouched by this class
+    // entirely, so Referrals/Actions/Meetings keep their existing
+    // View-filters behaviour unchanged at every width.
+    var trueMobileMql = window.matchMedia('(max-width: 480px)');
+    var studentsNarrowMql = window.matchMedia('(max-width: 900px)');
+    function isFilterBarMobile() {
+        return trueMobileMql.matches || (studentsNarrowMql.matches && !isTouchNav());
+    }
+    // The narrow-desktop sub-case specifically (filter-bar-mobile-mode minus
+    // true phone width) - live feedback: "all I can see is the overlay" -
+    // the tray's own position: fixed; left: 0; right: 0 (panel.css) is a
+    // viewport-anchored floating tray, correct on a real phone (no side nav,
+    // full-bleed card flush with the viewport edge) but wrong once the side
+    // nav stays put: the tray span no longer matches the (inset) filter bar
+    // above it. panel.css keys its own "push the list down instead of
+    // floating over it" override off this class, and the JS below skips
+    // positionFilterTray (which computes fixed-position top/max-height) for
+    // any Students bar in this state - a push-down panel just grows to its
+    // natural content height in normal flow, nothing to compute.
+    function isFilterBarNarrowDesktop() {
+        return !trueMobileMql.matches && studentsNarrowMql.matches && !isTouchNav();
+    }
+    function syncFilterBarMobileClass() {
+        document.documentElement.classList.toggle('filter-bar-mobile-mode', isFilterBarMobile());
+        document.documentElement.classList.toggle('filter-bar-narrow-desktop', isFilterBarNarrowDesktop());
+    }
+    syncFilterBarMobileClass();
+    trueMobileMql.addEventListener('change', syncFilterBarMobileClass);
+    studentsNarrowMql.addEventListener('change', syncFilterBarMobileClass);
+    touchNavListeners.push(syncFilterBarMobileClass);
+    // Exposed globally - setupFilterBarMoreFilters/the Students tray click
+    // handler (below) are both defined outside this DOMContentLoaded
+    // closure, so they can't see these locals directly.
+    window.isFilterBarMobile = isFilterBarMobile;
+    window.isFilterBarNarrowDesktop = isFilterBarNarrowDesktop;
+    window.studentsNarrowMql = studentsNarrowMql;
 
     // Icon-only rail behaviour for the hub sidebar. Desktop has no manual
     // control here at all - below the narrow-window breakpoint a
@@ -2147,6 +2210,10 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', function () {
             document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
+                // Narrow-desktop Students tray is a push-down panel now, not
+                // the viewport-fixed floating one this computes top/max-height
+                // for (see isFilterBarNarrowDesktop's own comment, above).
+                if (window.isFilterBarNarrowDesktop && window.isFilterBarNarrowDesktop() && bar.matches('form[data-ajax-target="#students-filtered-content"]')) return;
                 var box = bar.querySelector('.filter-bar-collapsible');
                 if (box) positionFilterTray(bar, box);
             });
@@ -2216,7 +2283,13 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // in normal flow now (live feedback: "the filter shelf pushes the
         // content down... this can be kept open"), so there's no overlay
         // left to close.
-        if (!window.matchMedia('(max-width: 480px)').matches) {
+        // Students' own tray now also opens this way at a narrowed,
+        // hover-capable desktop width (window.isFilterBarMobile, above) -
+        // scoped to the Students bar specifically so every other page's
+        // filter bar keeps the exact 480px threshold unchanged.
+        var isStudentsBar = bar.matches('form[data-ajax-target="#students-filtered-content"]');
+        var barIsMobile = window.matchMedia('(max-width: 480px)').matches || (isStudentsBar && window.isFilterBarMobile && window.isFilterBarMobile());
+        if (!barIsMobile) {
             return;
         }
         // Students' own slide-down tray (.filter-bar-collapsible) -
@@ -2275,7 +2348,14 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // field grid taller than the cap - and stays live afterwards
             // too, via the visualViewport listener above, if the browser's
             // own chrome changes size while the tray's still open.
-            if (bar.classList.contains('is-expanded')) {
+            // Narrow-desktop Students tray pushes the list down in normal
+            // flow instead of floating (isFilterBarNarrowDesktop's own
+            // comment, above) - nothing to compute, it just grows to its
+            // natural content height, which the getBoundingClientRect()
+            // read below already reflects once .is-expanded's height: auto
+            // (panel.css) is in effect.
+            var isNarrowDesktopStudentsBar = window.isFilterBarNarrowDesktop && window.isFilterBarNarrowDesktop() && bar.matches('form[data-ajax-target="#students-filtered-content"]');
+            if (bar.classList.contains('is-expanded') && !isNarrowDesktopStudentsBar) {
                 positionFilterTray(bar, box);
             }
             var after = box.getBoundingClientRect().height;

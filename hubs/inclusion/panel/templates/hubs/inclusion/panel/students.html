@@ -96,7 +96,20 @@ School dropped entirely (issue #9).
     the dynamic-overflow "More filters" measurement on tablet/desktop.
     {% endcomment %}
     <div class="filter-bar-sticky-row">
-        <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+        {% comment %}
+        Expand/collapse chevron - live feedback: "There is no chevron next to
+        filters when it switches" (a pre-existing gap: neither true mobile
+        nor the new narrow-desktop mode ever had one, .filter-bar-label was
+        plain clickable text with no visual affordance). Real element, not a
+        ::after (panel.css) - the label's own count badge is already a real
+        sibling span, so a pseudo-element chevron would either have to land
+        before it (wrong reading order: count before the arrow that toggles
+        it) or need its own extra ordering rule; a plain span in template
+        order beside the badge needs neither. Rotates via
+        .filter-bar.is-expanded (panel.css), same open/close language as
+        every other chevron in the app.
+        {% endcomment %}
+        <span class="filter-bar-label">Filters <span class="filter-bar-toggle-icon" aria-hidden="true">{% include 'icons/arrow_down_svg.html' %}</span> <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
         <div class="filter-field filter-field--search{% if name_filter %} filter-field--active{% endif %}" data-filter-pinned>
             <span class="filter-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
             <label for="name-search" class="sr-only">Search</label>
@@ -486,11 +499,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 container.setAttribute('data-detail-level', level);
                 if (!measureOverflow()) break;
             }
+            // One shared decision for the whole list, not a per-row one
+            // (live feedback: "if there is any row where it does not fit,
+            // can all rows then wrap" - a mixed list where only the rows
+            // with a long name or a badge wrap their buttons while their
+            // neighbours stay inline read as inconsistent/broken rather
+            // than as each row genuinely needing different treatment).
+            // Any single row overflowing still wraps every row, same as
+            // pass 1's detail-level search above already does for the data
+            // stat columns.
             rows.forEach(function (row) {
                 row.classList.add('row-measuring');
-                var overflowing = row.scrollWidth > row.clientWidth + 1;
+            });
+            var anyRowOverflowing = rows.some(function (row) {
+                return row.scrollWidth > row.clientWidth + 1;
+            });
+            rows.forEach(function (row) {
                 row.classList.remove('row-measuring');
-                row.classList.toggle('row-buttons-wrapped', overflowing);
+                row.classList.toggle('row-buttons-wrapped', anyRowOverflowing);
             });
         }
         // Whether a row's buttons wrap depends only on the row's available
