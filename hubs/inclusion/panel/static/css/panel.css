@@ -4820,7 +4820,37 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         color: var(--text-secondary);
         background: var(--bg-surface);
         border-bottom: 1px solid var(--border-color);
-        white-space: nowrap;
+        /* Not nowrap any more - live feedback: "Labels are off on certain
+           filter categories" (SEN Status/Looked After/Young Carer showing
+           as "N Stat"/"oked At"/"ung Ca"). This 3-up grid's own column is
+           ~110px (flex: 0 1 calc(100%/3 - ...) on .filter-field, above),
+           narrower than several of these labels' natural nowrap width;
+           centred (justify-content: center, this rule) text wider than its
+           own box overflows equally both sides, then gets clipped there by
+           .filter-field's own overflow: hidden (a separate, earlier rule,
+           :not(.filter-field--search) above - shared with every other
+           width, not specific to this grid) - symmetric clipping from both
+           ends, worse the longer the label, which is why only some labels
+           ever showed it. Wrapping onto a second line instead keeps every
+           character on screen; the field's own flex-direction: column
+           height is auto (above), so a taller label just grows that one
+           field/row rather than needing a truncation strategy. */
+        white-space: normal;
+        line-height: 1.15;
+        /* !important, same reasoning as .ui-select-trigger's own min-width
+           override below - live feedback: "it seems to happen if I open
+           filters in a different mode and then open again in mobile".
+           balanceFilterGroupLabels (main.js) sets an inline max-width on
+           any multi-word label - these same labels, not clones - the
+           moment the tablet/desktop "View filters" panel is opened, to
+           force its own 2-line balanced wrap there; it only clears that
+           inline style the *next* time it itself runs, never when the
+           viewport instead narrows down to true mobile. Without
+           !important that stale, much-narrower max-width from a wider
+           mode kept constraining the label here too, undoing the wrap fix
+           above (or reintroducing clipping, depending on the leftover
+           value) until the tablet panel happened to reopen and clear it. */
+        max-width: none !important;
     }
     /* Active filter -> primary label chip (live feedback: "if a filter is
        active, can the fused label bg be primary") - .filter-field--active

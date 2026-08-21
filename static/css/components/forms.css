@@ -228,6 +228,21 @@
         gap: var(--space-xs);
         flex-basis: 100%;
         position: relative;
+        /* Live feedback: "when I close the filter tray, the filters stay
+           put and do not move with the tray"/"the filters hover" - this
+           rule's own comment above already claimed overflow: hidden clips
+           the field grid mid-transition, but the 2026-08-20 rewrite that
+           comment describes (position: absolute -> flex-basis: 100%) never
+           actually carried the property itself over - the field grid
+           doesn't shrink (nothing here or on .filter-field forces it to),
+           so animateSecondaryFieldsToggle's height animation (main.js) was
+           shrinking an unclipped box: the fields just overflowed it and
+           sat visibly on top of the entity list below for the whole
+           transition, in every mode/width that hits this rule (i.e.
+           everywhere except Students' own mobile/narrow-desktop tray,
+           panel.css, which does carry overflow: hidden on its equivalent
+           box). */
+        overflow: hidden;
         padding: var(--space-sm) var(--space-lg);
         background: var(--bg-well);
         border-top: 1px solid var(--border-strong);
