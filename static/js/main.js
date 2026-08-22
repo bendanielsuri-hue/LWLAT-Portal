@@ -672,28 +672,62 @@ function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar) {
     });
 }
 
-// #135 follow-up: wraps a genuinely multi-word field label in the narrow-
-// tablet category strip onto 2 balanced lines - live feedback corrected an
-// earlier version of this (which force-split every label, even single
-// words like "Year", down to individual characters): "a single word should
-// be on one line. But if there are two short words, they should flow onto
-// two lines... I am seeing one word flowing onto 3 lines". A single word
-// (no space in it) is left alone entirely - no space means no valid break
-// point, so any width cap can only ever force an ugly mid-word split, which
-// is exactly the "one word on 3 lines" bug. A multi-word label instead gets
-// its own real single-line width measured and halved, the same "narrower
-// than its own content" trick as before, but now purely to force a break at
-// one of its *existing* spaces - text-wrap: balance (panel.css) then
-// chooses whichever of those spaces splits it most evenly, matching live
-// feedback's own example ("A B" -> "A" / "B"). Clears any previous inline
-// max-width before measuring, or a second call would just measure its own
-// already-halved width and halve it again.
+// #135 follow-up (DES-L7): wraps a genuinely multi-word field label onto 2
+// lines - live feedback corrected an earlier version of this (which force-split
+// every label, even single words like "Year", down to individual
+// characters): "a single word should be on one line. But if there are two
+// short words, they should flow onto two lines... I am seeing one word
+// flowing onto 3 lines". A single word (no space in it) is left alone
+// entirely - no space means no valid break point. A real <br> forced
+// between the word groups, not a measured max-width relying on the browser
+// to wrap at the right spot (two rounds of that: first a plain halved
+// max-width, live feedback "Referrals is not centered horizontally" - a
+// lopsided pair like "Has"/"Referrals" (3 vs. 9 characters) made the boxed
+// width narrower than "Referrals" needs on its own, so it overflowed its
+// own centred box instead of centring; then a canvas-measured floor to fix
+// that - "Surely we can use a line break and just centred!" was the right
+// call, a forced break needs no width measurement or fallback logic at
+// all, every line is exactly as wide as its own text and centres cleanly
+// regardless). Split point is by WORD COUNT, not pixel width - for every
+// label actually in use here (all 2 words) that's just "the one space",
+// matching live feedback's own example ("A B" -> "A" / "B"); a 3+-word
+// label (none currently exist) would split roughly in half by word count
+// too rather than needing pixel measurement to "balance" it.
+// No longer scoped to just the narrow-tablet category strip (live
+// feedback: "labels that have at least two words [should be] on two
+// lines... we do this in other modes") - plain `.filter-field label`
+// reaches Students' own mobile 3-up grid too (students.html), which
+// otherwise only wrapped a multi-word label once it was already too wide
+// for its ~110px column (naturally, via white-space: normal), not
+// unconditionally the way the tablet strip already did.
+// Original text cached on the span itself (data-label-text) rather than
+// read back from its own textContent - a <br> contributes nothing to
+// textContent, so a second call would otherwise see "HasReferrals" (no
+// space) and misjudge the word count. Idempotent: rebuilds from that
+// cached original every time rather than re-splitting whatever's already
+// there, so a second call on an already-split label is a no-op, not a
+// re-split of a re-split.
 function balanceFilterGroupLabels(box) {
-    box.querySelectorAll('.filter-group-fields .filter-field label').forEach(function (label) {
-        label.style.maxWidth = '';
-        if (!/\s/.test(label.textContent.trim())) return;
-        var natural = label.getBoundingClientRect().width;
-        label.style.maxWidth = Math.max(1, Math.ceil(natural / 2)) + 'px';
+    box.querySelectorAll('.filter-field label').forEach(function (label) {
+        var span = label.querySelector('.filter-field-label-text');
+        if (!span) {
+            span = document.createElement('span');
+            span.className = 'filter-field-label-text';
+            while (label.firstChild) span.appendChild(label.firstChild);
+            label.appendChild(span);
+        }
+        var original = span.dataset.labelText || span.textContent.trim();
+        span.dataset.labelText = original;
+        var words = original.split(/\s+/);
+        span.textContent = '';
+        if (words.length < 2) {
+            span.textContent = original;
+            return;
+        }
+        var mid = Math.ceil(words.length / 2);
+        span.appendChild(document.createTextNode(words.slice(0, mid).join(' ')));
+        span.appendChild(document.createElement('br'));
+        span.appendChild(document.createTextNode(words.slice(mid).join(' ')));
     });
 }
 
@@ -1758,7 +1792,19 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     })();
 
     document.querySelectorAll('.panel-card .tab-row, .card-switcher, [data-overflow-tabs]').forEach(setupOverflowTabs);
-    document.querySelectorAll('.filter-bar').forEach(setupFilterBarMoreFilters);
+    // balanceFilterGroupLabels alongside setupFilterBarMoreFilters, not just
+    // inside the Students mobile tray/tablet-strip open handlers that used
+    // to be its only callers (live feedback: "Can we do this on all
+    // filters" - every filter bar's labels, at every width, not only
+    // Students'). Word-count splitting (not pixel measurement, this
+    // function's own comment) doesn't depend on the field's current width
+    // or which bar it's in, so a single run here at setup covers every
+    // page's filter bar in one pass - no per-width/per-bar special-casing
+    // needed the way the old measured-max-width approach would have.
+    document.querySelectorAll('.filter-bar').forEach(function (bar) {
+        setupFilterBarMoreFilters(bar);
+        balanceFilterGroupLabels(bar);
+    });
 
     // Page-header actions (the {% block page_extras %} buttons/links beside
     // the page title, e.g. "Add Referral") crowd the title on narrow
@@ -2369,10 +2415,35 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // scroll-bounded state (below) still works exactly as before.
         var box = bar.querySelector('.filter-bar-collapsible');
         var before = box ? box.getBoundingClientRect().height : 0;
-        if (closeBtn) {
-            bar.classList.remove('is-expanded');
-        } else {
-            bar.classList.toggle('is-expanded');
+        var wasExpanded = bar.classList.contains('is-expanded');
+        var willExpand = closeBtn ? false : !wasExpanded;
+        // Closing keeps .is-expanded on through the whole animation instead
+        // of stripping it up front (live feedback: "reverts back to an old
+        // format which is no longer used in any mode") - virtually every
+        // mobile-tray style (the 3-up field grid, label backgrounds, the
+        // touch scrollbar-hide pair) is scoped to `.filter-bar.is-expanded`
+        // in panel.css. Removing the class before the height animation even
+        // starts meant the whole multi-hundred-ms shrink played out with
+        // none of those rules applied - the box visibly fell back to
+        // whatever bare, non-mobile styling `.filter-field` etc. have
+        // outside that class the entire time it was shrinking, not just a
+        // one-frame flash. Opening never had this problem (the class is
+        // added first, before its own natural-height read below), so only
+        // the close path needed reordering: class removal now happens in
+        // the transitionend handler once the box has actually reached 0,
+        // matching what open already did in spirit.
+        // Closing (either via the label toggle or the Close button) leaves
+        // the class alone here - deferred removal, once the box hits 0
+        // (below), covers both.
+        if (willExpand) {
+            bar.classList.add('is-expanded');
+            // Same forced 2-line break the narrow-tablet category strip
+            // already gets (live feedback: "labels that have at least two
+            // words [should be] on two lines... we do this in other
+            // modes") - run before the natural-height read below so the
+            // measured "after" height already accounts for any label that
+            // just gained a second line, not the pre-wrap shorter one.
+            if (box) balanceFilterGroupLabels(box);
         }
         if (box) {
             // #134: the floating tray (panel.css: position: fixed, viewport-
@@ -2396,10 +2467,15 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // read below already reflects once .is-expanded's height: auto
             // (panel.css) is in effect.
             var isNarrowDesktopStudentsBar = window.isFilterBarNarrowDesktop && window.isFilterBarNarrowDesktop() && bar.matches('form[data-ajax-target="#students-filtered-content"]');
-            if (bar.classList.contains('is-expanded') && !isNarrowDesktopStudentsBar) {
+            if (willExpand && !isNarrowDesktopStudentsBar) {
                 positionFilterTray(bar, box);
             }
-            var after = box.getBoundingClientRect().height;
+            // Closing always lands on the base rule's literal 0 (panel.css's
+            // border-box zero-height fix, above) - .is-expanded is still on
+            // the class list at this point (deferred removal, above) so a
+            // real DOM read here would just report the same full height as
+            // "before" again, not the collapsed target.
+            var after = willExpand ? box.getBoundingClientRect().height : 0;
             if (before !== after) {
                 box.style.flex = '0 0 auto';
                 box.style.height = before + 'px';
@@ -2414,9 +2490,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                     box.style.height = '';
                     box.style.transition = '';
                     box.style.flex = '';
+                    if (!willExpand) {
+                        bar.classList.remove('is-expanded');
+                    }
                     box.removeEventListener('transitionend', handler);
                 });
+            } else if (!willExpand) {
+                bar.classList.remove('is-expanded');
             }
+        } else if (!willExpand) {
+            bar.classList.remove('is-expanded');
         }
     });
 

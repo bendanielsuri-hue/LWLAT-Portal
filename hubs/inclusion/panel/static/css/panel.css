@@ -4488,11 +4488,21 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        forced-touch override both set this class on <html>) - a touch
        device's own native momentum-scroll affordance makes a visible
        scrollbar redundant chrome, where a mouse/trackpad user still relies
-       on seeing one to know the tray scrolls at all. */
-    html.filter-bar-mobile-mode html.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner {
+       on seeing one to know the tray scrolls at all.
+       html.filter-bar-mobile-mode.nav-touch-mode - ONE compound selector,
+       not two separate `html...` selectors space-joined (that was a real
+       bug here: a space between them is a descendant combinator, and
+       there is only one <html> element in any document - it can never be
+       its own descendant, so that form of the rule silently never matched
+       anything, on any device, since the day it was written. layout.css's
+       own html.nav-touch-mode .list-card .entity-list rule (correct, one
+       compound selector followed by real descendants) is the pattern to
+       match - verify any new one against it rather than copy-pasting this
+       file's own now-fixed version, in case it drifts again. */
+    html.filter-bar-mobile-mode.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner {
         scrollbar-width: none;
     }
-    html.filter-bar-mobile-mode html.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner::-webkit-scrollbar {
+    html.filter-bar-mobile-mode.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner::-webkit-scrollbar {
         display: none;
     }
     /* Narrow desktop specifically (html.filter-bar-narrow-desktop, main.js -
@@ -4899,9 +4909,15 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         justify-content: center;
         text-align: center;
         width: auto;
-        flex: 0 0 auto;
+        flex: 1 1 auto;
         margin: 0;
-        padding: 0 var(--space-sm);
+        /* var(--space-xxs) top/bottom, not the old 0 - live feedback: "Text
+           looks a little tight to edges. Could we add a tiny padding above
+           and below" - the label's own height is now flex-grown to fill
+           its row (above), which centres the text vertically but still let
+           it sit flush against the box's own top/bottom edges with no
+           breathing room of its own. */
+        padding: var(--space-xxs) var(--space-sm);
         font-size: var(--font-sm);
         font-weight: 600;
         color: var(--text-secondary);
@@ -4924,20 +4940,50 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            field/row rather than needing a truncation strategy. */
         white-space: normal;
         line-height: 1.15;
-        /* !important, same reasoning as .ui-select-trigger's own min-width
-           override below - live feedback: "it seems to happen if I open
-           filters in a different mode and then open again in mobile".
-           balanceFilterGroupLabels (main.js) sets an inline max-width on
-           any multi-word label - these same labels, not clones - the
-           moment the tablet/desktop "View filters" panel is opened, to
-           force its own 2-line balanced wrap there; it only clears that
-           inline style the *next* time it itself runs, never when the
-           viewport instead narrows down to true mobile. Without
-           !important that stale, much-narrower max-width from a wider
-           mode kept constraining the label here too, undoing the wrap fix
-           above (or reintroducing clipping, depending on the leftover
-           value) until the tablet panel happened to reopen and clear it. */
-        max-width: none !important;
+        /* Row-matched height via real flex stretch, not a fixed number -
+           live feedback: "filter labels being different sizes... labels on
+           a row [should] match the tallest", then, after a fixed min-height
+           (30px, "two lines' worth") shipped first: "rows with only single
+           line could be shorter. But I want the labels on a row to match
+           the tallest" - a flat floor treated every row as if it needed 2
+           lines' worth of height even when none of that row's labels
+           actually wrapped, and (live feedback: "want to make sure it does
+           not clip") sat close enough to the real 2-line content height
+           that a font-metric difference could clip a descender with zero
+           margin for it. flex: 1 1 auto (above, not the old flex: 0 0
+           auto) lets the label itself grow to fill whatever height the
+           field's own row-stretch (.filter-bar-collapsible-inner's
+           flex-wrap default cross-axis stretch, matching every field in a
+           line to the row's tallest one) actually hands it, while the
+           value/control below keeps its own fixed flex: none height
+           (:has(#year-filter) .ui-select etc., below) - so a label never
+           has to reserve more than its row's tallest neighbour genuinely
+           needs, and never has a hard height to be clipped against either.
+           align-items/justify-content: center (above) still centre
+           whatever text ends up inside that grown box. */
+        /* overflow: visible, not forms.css's own base overflow: hidden (this
+           rule never touched that property before, so the base value was
+           quietly still in effect) - belt-and-braces alongside the flex
+           change above: forms.css's overflow: hidden + text-overflow:
+           ellipsis pairing exists for a single-line truncation strategy,
+           and this rule deliberately shows a label's full text across
+           however many real lines it needs instead (DES-L7), so there's
+           nothing left for the hidden/ellipsis pairing to usefully do
+           here. */
+        overflow: visible;
+        /* No !important/max-width: none override any more (was needed
+           because balanceFilterGroupLabels, main.js, only ever balanced the
+           narrow-tablet category strip - a stale inline max-width left
+           behind from THAT mode would otherwise leak into mobile's own
+           narrower column). balanceFilterGroupLabels now also runs on this
+           grid's own open (main.js, live feedback: "labels that have at
+           least two words [should be] on two lines... we do this in other
+           modes"), recomputing every multi-word label's max-width fresh
+           for mobile's own ~110px column each time the tray opens - the
+           inline value is never stale here any more, so nothing needs to
+           override it, and the same mechanism (clear-then-recompute) that
+           used to fix the leaked-over-from-desktop case still fixes it,
+           just from the mobile side now too. */
     }
     /* Active filter -> primary label chip (live feedback: "if a filter is
        active, can the fused label bg be primary") - .filter-field--active
@@ -4997,7 +5043,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        itself taller for no gain here - reverts it back to desktop's
        --space-xs so the control reads shorter without shrinking the actual
        combined tap target. */
-    html.filter-bar-mobile-mode html.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .ui-select-trigger {
+    html.filter-bar-mobile-mode.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .ui-select-trigger {
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
     }

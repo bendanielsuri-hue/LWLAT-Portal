@@ -41,6 +41,7 @@ Visual design values that hold regardless of which project this is. Entries here
 - **L4.** Keep an app- or hub-wide action visually separate from an action specific to this screen — don't merge them into one row — and give the screen-specific action more visual weight.
 - **L5.** When a card's content can outgrow its available height, split it into a fixed header/footer and one scrolling body — never let the whole card grow past the viewport. The scrolling body's edges should run flush against whichever of the card's boundaries it's the last thing before (no dead padding trapping the scrollbar short of that edge).
 - **L6.** On mobile, a stacked card/section should bleed to the screen's full width — no left/right margin floating it inset within the page's own padding. Screen space is too scarce there for that inset to read as breathing room rather than waste; keep just enough padding *inside* the card for its own content to clear the edge.
+- **L7.** A multi-word label sitting above a narrow control (a filter field's own label) should wrap onto two lines rather than force the control wider to fit it on one line — the vertical room is already there, so use it instead of spending horizontal space just to keep text on a single line.
 
 ## M — Meaning
 
