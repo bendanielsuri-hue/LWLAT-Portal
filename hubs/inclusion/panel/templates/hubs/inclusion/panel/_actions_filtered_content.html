@@ -18,56 +18,7 @@
     column }` rule elsewhere in panel.css (a referral-history-style
     component), which silently broke this row's thumb-beside-body layout.
     {% endcomment %}
-    {% for action in actions %}
-    <div class="entity-row selectable actions-list-row" tabindex="0" role="button" aria-pressed="false">
-        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-        <div class="entity-body">
-            <div class="row-title-row">
-                {% if is_aggregate_view %}
-                <span class="meeting-card-logo-inline">
-                    {% if action.referral.student.school.logo_url %}<img src="{{ action.referral.student.school.logo_url }}" alt="{{ action.referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
-                </span>
-                {% endif %}
-                <div class="entity-title">{{ action.referral.student }}</div>
-                <span class="row-title-sep">&middot;</span>
-                <div class="entity-title row-secondary-text">Category: {{ action.category|default:"—" }}</div>
-                <span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span>
-                {% if action.is_overdue %}
-                <span class="status-pill overdue_review">Overdue {{ action.days_overdue }}d</span>
-                {% endif %}
-            </div>
-            {% if action.note %}<div class="entity-meta action-note">{{ action.note }}</div>{% endif %}
-            <div class="row-facts row-facts-cols">
-                <div class="row-fact-col" style="width: {{ col_widths.created }}">
-                    <span>Created At: {{ action.created_at|date:"d M Y"|default:"—" }}</span>
-                    <span>Created By: {{ action.created_by|default:"—" }}</span>
-                </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.assigned }}">
-                    <span>Assigned to: {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}</span>
-                    <span>Due: {{ action.due_date|date:"d M Y"|default:"—" }}</span>
-                </div>
-            </div>
-        </div>
-        <div class="row-btn-row row-btn-row-stacked">
-            <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
-                <div class="ui-segmented ui-segmented--action-status">
-                    {% for value, label in status_choices %}
-                    <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
-                    {% endfor %}
-                </div>
-            </form>
-            <div class="btn-row action-row-buttons">
-                <button type="button" class="btn btn-sm btn-secondary" data-view-referral-trigger data-referral-id="{{ action.referral.id }}" data-next="{% url 'inclusion_panel_actions' %}">Referral Details</button>
-                <button type="button" class="btn btn-primary btn-sm" data-add-action-trigger data-referral-id="{{ action.referral.id }}" data-edit-action-id="{{ action.id }}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Action</button>
-            </div>
-        </div>
-    </div>
-    {% empty %}
-    <p class="empty-note">No actions yet.</p>
-    {% endfor %}
+    {% include 'hubs/inclusion/panel/_actions_rows.html' %}
 </div>
 
 <div class="stats-strip">

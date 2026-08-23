@@ -10,48 +10,49 @@
 {% block hub_sidebar %}{% include 'hubs/_hub_sidebar.html' with hide_mobile_fab=True %}{% endblock %}
 
 {% block breadcrumbs_wrapper %}
-{% comment %}
-Prototype (issue #114 follow-up): this dashboard's own stats are a nice
-extra, but the hub's actual job is getting to Provision & Strategies /
-Inclusion Panel / SEND Diagnosis Tracker - the sidebar auto-collapses
-behind a toggle below 900px (responsive.css), which buried that primary
-task behind a click. This surfaces the same local_menu destinations as a
-visible row so the main action doesn't depend on opening the sidebar.
-Placed before Filters, not inside block content - it's the primary action
-on this page, so it reads before the dashboard's own filtering/stats, not
-after.
-{% endcomment %}
-<nav class="hub-quick-nav" aria-label="{{ hub_title }} sections">
-    {% for item in local_menu %}
-    <a href="{{ item.url }}" class="hub-quick-nav-card">
-        <span class="hub-quick-nav-icon">{% include item.icon %}</span>
-        <span class="hub-quick-nav-text">
-            <span class="hub-quick-nav-label">{{ item.name }}</span>
-            {% if item.description %}
-            <span class="hub-quick-nav-description">{{ item.description }}</span>
-            {% endif %}
-        </span>
-    </a>
-    {% endfor %}
-</nav>
-<hr class="hub-quick-nav-divider">
-<h2 class="hub-quick-nav-dashboard-title">SEND Hub Dashboard</h2>
-{% block page_filters %}
 <div class="sticky-zone-sentinel"></div>
+{% block page_filters %}
 {% comment %}
-Filter bar: flat field list, one row - setupFilterBarMoreFilters() (main.js)
-measures which fields fit and dynamically moves whatever overflows behind a
-"More filters" disclosure, same visual/interaction language as Inclusion
-Panel Students/Referrals' curated version (components/forms.css) but
-without a hardcoded primary/secondary split, since this dashboard's 9
-fields don't have that kind of settled "always vs. rarely used" call yet.
+Moved above the hub-quick-nav (live feedback: "filters should move to top
+of page and be sticky in all modes") and wrapped in .sticky-header-zone
+(layout.css) - the same generic position: sticky; top: 0 wrapper the
+default breadcrumbs/page-title header uses, reused here since this page's
+own breadcrumbs_wrapper block override replaces that header entirely
+rather than extending it (no h1/breadcrumb trail on this page - see the
+hub-quick-nav comment below for why). Every width already collapses this
+bar to just the "Filters" label + View Filters trigger (forms.css's
+min-width: 481px block, #135 - "can we make this the setup for all modes
+except mobile"; true mobile/narrow-desktop use their own slide-tray/
+push-down instead) - sticky here just keeps that compact bar pinned at
+the top of the viewport while scrolling, at every one of those widths,
+rather than scrolling away with the stats beneath it.
 {% endcomment %}
-<form method="get" class="filter-bar" data-ajax-target="#dashboard-filtered-content">
-    <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+<div class="sticky-header-zone">
+{% comment %}
+Ported to the same responsive slide-over tray as Students/Referrals/
+Actions/Meetings (.filter-bar-tray, panel.css/main.js) - the last of the
+5 pages in that port. No .list-card here (this is a stats dashboard, not
+an entity list), so #dashboard-filtered-content carries its own
+.filter-tray-content class instead of .filtered-content - see that class's
+comment in panel.css for why the two aren't just merged. Grouped the same
+way as Students itself (Group Info / SEN & Support / Demographics), same
+3 field groups. Live feedback: SEN needed more than just SEN Status alone
+to be worth its own group, so Looked After/Young Carer moved here from
+Demographics too - Area of Need (send_need) was also considered but
+skipped, no filter for it yet. No pinned search field, none of these 11
+fields are free text.
+{% endcomment %}
+<form method="get" class="filter-bar filter-bar-tray" data-ajax-target="#dashboard-filtered-content">
+    <div class="filter-bar-sticky-row">
+        <span class="filter-bar-label">Filters <span class="filter-bar-toggle-icon" aria-hidden="true">{% include 'icons/arrow_down_svg.html' %}</span> <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+    </div>
+    <div class="filter-bar-collapsible">
+    <div class="filter-bar-collapsible-inner">
+    <div class="filter-section-label">Group Info</div>
     <div class="filter-field{% if selected_year_group %} filter-field--active{% endif %}">
         <label for="year-filter">Year</label>
         <select name="year_group" id="year-filter">
-            <option value="">All Years</option>
+            <option value="">All</option>
             {% for yg in year_group_choices %}
             <option value="{{ yg }}" {% if selected_year_group == yg|stringformat:"s" %}selected{% endif %}>Year {{ yg }}</option>
             {% endfor %}
@@ -77,6 +78,7 @@ fields don't have that kind of settled "always vs. rarely used" call yet.
             {% endfor %}
         </select>
     </div>
+    <div class="filter-section-label">SEN</div>
     <div class="filter-field{% if selected_send_code %} filter-field--active{% endif %}">
         <label for="code-filter">SEN</label>
         <select name="send_code" id="code-filter">
@@ -86,6 +88,23 @@ fields don't have that kind of settled "always vs. rarely used" call yet.
             <option value="N" {% if selected_send_code == 'N' %}selected{% endif %}>N</option>
         </select>
     </div>
+    <div class="filter-field{% if selected_is_lac %} filter-field--active{% endif %}">
+        <label for="is-lac-filter">Looked After</label>
+        <select name="is_lac" id="is-lac-filter">
+            <option value="">All</option>
+            <option value="1" {% if selected_is_lac == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if selected_is_lac == '0' %}selected{% endif %}>N</option>
+        </select>
+    </div>
+    <div class="filter-field{% if selected_is_young_carer %} filter-field--active{% endif %}">
+        <label for="is-young-carer-filter">Young Carer</label>
+        <select name="is_young_carer" id="is-young-carer-filter">
+            <option value="">All</option>
+            <option value="1" {% if selected_is_young_carer == '1' %}selected{% endif %}>Y</option>
+            <option value="0" {% if selected_is_young_carer == '0' %}selected{% endif %}>N</option>
+        </select>
+    </div>
+    <div class="filter-section-label">Demographics</div>
     <div class="filter-field{% if selected_pp %} filter-field--active{% endif %}">
         <label for="pp-filter">PP</label>
         <select name="pp" id="pp-filter">
@@ -129,13 +148,49 @@ fields don't have that kind of settled "always vs. rarely used" call yet.
         </select>
     </div>
     <a href="{% url 'inclusion_hub' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
+    <div class="filter-bar-sticky-footer">
+        <a href="{% url 'inclusion_hub' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
+        <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
+    </div>
+    </div>
 </form>
+</div>
 {% endblock %}
+{% comment %}
+Prototype (issue #114 follow-up): this dashboard's own stats are a nice
+extra, but the hub's actual job is getting to Provision & Strategies /
+Inclusion Panel / SEND Diagnosis Tracker - the sidebar auto-collapses
+behind a toggle below 900px (responsive.css), which buried that primary
+task behind a click. This surfaces the same local_menu destinations as a
+visible row so the main action doesn't depend on opening the sidebar. Now
+below Filters (moved above it, live feedback: "filters should move to top
+of page") rather than above - the filter bar's own sticky top position
+means whichever comes second here is the one that actually scrolls out of
+view first, and quick access to the other hub pages matters less once
+you're already using this page's own filters/stats.
+{% endcomment %}
+<nav class="hub-quick-nav" aria-label="{{ hub_title }} sections">
+    {% for item in local_menu %}
+    <a href="{{ item.url }}" class="hub-quick-nav-card">
+        <span class="hub-quick-nav-icon">{% include item.icon %}</span>
+        <span class="hub-quick-nav-text">
+            <span class="hub-quick-nav-label">{{ item.name }}</span>
+            {% if item.description %}
+            <span class="hub-quick-nav-description">{{ item.description }}</span>
+            {% endif %}
+        </span>
+    </a>
+    {% endfor %}
+</nav>
+<hr class="hub-quick-nav-divider">
+<h2 class="hub-quick-nav-dashboard-title">SEND Hub Dashboard</h2>
 {% endblock %}
 
 {% block content %}
 <dialog id="new-referral-dialog" class="modal-dialog"></dialog>
-<div id="dashboard-filtered-content">
+<div id="dashboard-filtered-content" class="filter-tray-content">
+    <div class="filter-bar-overlay" data-filter-bar-close aria-hidden="true"></div>
 {% include 'hubs/inclusion/_hub_dashboard_content.html' %}
 </div>
 

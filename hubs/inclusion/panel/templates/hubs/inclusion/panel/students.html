@@ -73,7 +73,7 @@ into "Filters · count", responsive.css, is unaffected either way).
 School dropped entirely (issue #9).
 {% endcomment %}
 <div class="list-card">
-<form method="get" class="filter-bar" data-ajax-target="#students-filtered-content">
+<form method="get" class="filter-bar filter-bar-tray" data-ajax-target="#students-filtered-content">
     {% comment %}
     Sticky header row: "Filters" label plus a constant Search field that
     never leaves this row, collapsed or expanded (#133 follow-up, live
@@ -414,6 +414,20 @@ document.addEventListener('DOMContentLoaded', function () {
     // fit) for zero JS cost on resize - see panel.css's own comments at
     // each rule for the specifics.
 
+    // Shared by wireStudentsInfiniteScroll and wireStudentButtonLayout below
+    // - both used to run their own separate MutationObserver on the same
+    // #students-filtered-content (childList/subtree), which is redundant
+    // work on every DOM change to the container. One observer here notifies
+    // both callbacks instead.
+    var studentsContentObservers = [];
+    (function () {
+        var container = document.getElementById('students-filtered-content');
+        if (!container || typeof MutationObserver === 'undefined') return;
+        new MutationObserver(function () {
+            studentsContentObservers.forEach(function (fn) { fn(); });
+        }).observe(container, { childList: true, subtree: true });
+    })();
+
     // Infinite scroll (live feedback: "maybe its the number of students?
     // When I add a filter to reduce, it is much faster!... cap the number
     // of results. This will be for a MAT so roughly 4000 students
@@ -421,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // that the whole earlier stutter chase was actually plain DOM-size
     // layout cost, not fixable by any JS/CSS trick on an unbounded row
     // count). Server renders STUDENTS_PAGE_SIZE (views.py) students per
-    // page; .students-load-sentinel (_students_rows.html) marks the bottom
+    // page; .list-load-sentinel (_students_rows.html) marks the bottom
     // of whatever's currently rendered, carrying the next page's URL. An
     // IntersectionObserver (rootMargin below fires the fetch before the
     // sentinel is actually on screen, so the next batch is usually already
@@ -443,7 +457,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var loading = false;
         function observeSentinel() {
             if (io) io.disconnect();
-            var sentinel = container.querySelector('.students-load-sentinel');
+            var sentinel = container.querySelector('.list-load-sentinel');
             if (!sentinel) return;
             io = new IntersectionObserver(function (entries) {
                 if (loading) return;
@@ -474,9 +488,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         }
         observeSentinel();
-        if (typeof MutationObserver !== 'undefined') {
-            new MutationObserver(observeSentinel).observe(container, { childList: true, subtree: true });
-        }
+        studentsContentObservers.push(observeSentinel);
     })();
 
     // Equal button widths (panel.css, live feedback: "the buttons with
@@ -558,9 +570,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var refreshOnResize = window.rafThrottle ? window.rafThrottle(refreshIfWidthChanged) : refreshIfWidthChanged;
         refresh();
         lastWidth = container.clientWidth;
-        if (typeof MutationObserver !== 'undefined') {
-            new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
-        }
+        studentsContentObservers.push(refresh);
         window.addEventListener('resize', refreshOnResize);
         if (typeof ResizeObserver !== 'undefined') {
             new ResizeObserver(refreshOnResize).observe(container);

@@ -1453,6 +1453,13 @@ def inclusion_panel_referrals(request):
     priority_filter = request.GET.get('priority') or ''
     panel_group_filter = request.GET.get('panel_group') or ''
     overdue_actions_filter = request.GET.get('overdue_actions') == '1'
+    # Group Info (live feedback: "too many groups with one or two items" -
+    # broadens the category strip with the referred student's own cohort
+    # fields, same params/choices as inclusion_panel_students' own Group
+    # Info group above).
+    year_filter = request.GET.get('year') or ''
+    house_filter = request.GET.get('house') or ''
+    reg_filter = request.GET.get('reg') or ''
     # No `or ''` here - absence of the param entirely (first load) is
     # distinguished from an explicit "All Years" selection, same convention
     # as inclusion_panel_meetings' academic_year_filter.
@@ -1473,6 +1480,21 @@ def inclusion_panel_referrals(request):
         academic_year_filter = str(current_academic_year)
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
         academic_year_filter = ''
+
+    # Option lists computed from the school-scoped set, before the filters
+    # below are applied - same convention as inclusion_panel_students' own
+    # years/forms/forms_by_year/houses (views.py, above), so Year/Reg don't
+    # shrink each other's dropdowns as other filters change.
+    years = sorted({y for y in scoped_students.values_list('year_group', flat=True) if y is not None})
+    forms = sorted({f for f in scoped_students.values_list('reg_form', flat=True) if f})
+    forms_by_year = {
+        year: sorted({
+            f for f in scoped_students.filter(year_group=year).values_list('reg_form', flat=True) if f
+        })
+        for year in years
+    }
+    houses = sorted({h for h in scoped_students.values_list('house', flat=True) if h})
+    has_houses = bool(houses)
 
     referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related(
         'student', 'student__school', 'raised_by', 'referral',
@@ -1505,14 +1527,51 @@ def inclusion_panel_referrals(request):
         referrals_qs = referrals_qs.filter(panel_referrals__panel__panel_group_id=panel_group_filter)
     if overdue_actions_filter:
         referrals_qs = referrals_qs.filter(actions__status='incomplete', actions__due_date__lt=today)
+    if year_filter:
+        referrals_qs = referrals_qs.filter(student__year_group=year_filter)
+    if house_filter:
+        referrals_qs = referrals_qs.filter(student__house=house_filter)
+    if reg_filter:
+        referrals_qs = referrals_qs.filter(student__reg_form=reg_filter)
     referrals_qs = referrals_qs.distinct()
+
+    # Totals for the stats-strip ("59 Referrals · 240 Students · 82
+    # Actions") - computed against the full filtered queryset before
+    # pagination slices it down, same convention as inclusion_panel_students'
+    # own total_students_count/etc (views.py, above). student_id/actions
+    # counted via direct queries against referrals_qs rather than summing
+    # the per-row Python counts below (those only ever run over the current
+    # page once pagination is applied).
+    total_referrals_count = referrals_qs.count()
+    total_students_count = referrals_qs.values('student_id').distinct().count()
+    total_actions_count = Action.objects.filter(referral__in=referrals_qs).count()
+
+    # REFERRALS_PAGE_SIZE referrals per page (infinite scroll,
+    # wireListInfiniteScroll in referrals.html - shared with Students'
+    # inclusion_panel_students, above) - only this page's referrals go
+    # through the per-row lookups below (actions counts, panel history),
+    # not the full filtered set.
+    REFERRALS_PAGE_SIZE = 50
+    paginator = Paginator(referrals_qs, REFERRALS_PAGE_SIZE)
+    try:
+        page_number = int(request.GET.get('page') or 1)
+    except ValueError:
+        page_number = 1
+    page_obj = paginator.get_page(page_number)
+    # Infinite-scroll continuation request - page > 1 only ever happens via
+    # wireListInfiniteScroll's own fetch (a fresh filter change always omits
+    # `page`, resetting to 1), so this is never a real user-facing URL.
+    # Renders just the row markup + next sentinel, no .entity-list wrapper
+    # or stats-strip - the target is an insert-before-the-sentinel splice
+    # into the list already on the page, not a full replace.
+    is_continuation = is_ajax and page_number > 1
 
     # is_unassigned reads the already-prefetched panel_referrals in Python
     # (same as before) rather than an ORM filter - it needs an exclude()
     # across a multi-valued relation that's easy to get subtly wrong, and
     # referrals_qs is already narrowed by the filters above first, so this
     # loop runs over a bounded set, not every referral.
-    referrals = list(referrals_qs)
+    referrals = list(page_obj.object_list)
     for referral in referrals:
         referral.is_unassigned = _is_referral_unassigned(referral)
         referral.actions_count = referral.actions.count()
@@ -1562,6 +1621,7 @@ def inclusion_panel_referrals(request):
         1 for v in (
             name_filter, status_filter, stage_filter, raised_by_filter, concern_filter,
             priority_filter, panel_group_filter, overdue_actions_filter, academic_year_filter,
+            year_filter, house_filter, reg_filter,
         ) if v
     )
 
@@ -1594,11 +1654,25 @@ def inclusion_panel_referrals(request):
         'panel_group_filter': panel_group_filter,
         'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school').order_by('name'),
         'overdue_actions_filter': overdue_actions_filter,
+        'years': years,
+        'year_filter': year_filter,
+        'forms': forms,
+        'forms_by_year_json': json.dumps(forms_by_year),
+        'has_houses': has_houses,
+        'houses': houses,
+        'house_filter': house_filter,
+        'reg_filter': reg_filter,
         'active_filter_count': active_filter_count,
-        'students_count': len({r.student_id for r in referrals}),
-        'actions_count': sum(r.actions_count for r in referrals),
+        'students_count': total_students_count,
+        'referrals_count': total_referrals_count,
+        'actions_count': total_actions_count,
         'is_aggregate_view': is_aggregate_view,
+        'page_obj': page_obj,
     }
+    if page_obj.has_next():
+        next_params = request.GET.copy()
+        next_params['page'] = page_obj.next_page_number()
+        context['next_page_url'] = request.path + '?' + next_params.urlencode()
     context['col_widths'] = {
         'raisedby': _col_width(
             [f'Raised by: {r.raised_by.first_name} {r.raised_by.last_name}' if r.raised_by else 'Raised by: Unassigned' for r in referrals]
@@ -1621,7 +1695,12 @@ def inclusion_panel_referrals(request):
             max_ch=22,
         ),
     }
-    template = 'hubs/inclusion/panel/_referrals_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/referrals.html'
+    if is_continuation:
+        template = 'hubs/inclusion/panel/_referrals_rows.html'
+    elif is_ajax:
+        template = 'hubs/inclusion/panel/_referrals_filtered_content.html'
+    else:
+        template = 'hubs/inclusion/panel/referrals.html'
     return render(request, template, context)
 
 
@@ -2039,6 +2118,12 @@ def inclusion_panel_actions(request):
     name_filter = request.GET.get('name') or ''
     category_filter = request.GET.get('category') or ''
     assigned_filter = request.GET.get('assigned') or ''
+    # Who raised the referral this action belongs to - not the action's own
+    # Assigned To (who's doing the task). Replaces the old Name dropdown in
+    # the Referrals group (live feedback: "lose name from Referrals, could
+    # have Referred by added instead" - Name itself moved to the sticky-row
+    # Search field below instead of staying a bounded dropdown).
+    referred_by_filter = request.GET.get('referred_by') or ''
     status_filter = request.GET.get('status') or ''
     # Due Date consolidates the old separate Overdue Only/Due This Week
     # toggles into one dropdown with a few more tiers (issue #13).
@@ -2048,10 +2133,31 @@ def inclusion_panel_actions(request):
     # as inclusion_panel_meetings' academic_year_filter.
     academic_year_param = request.GET.get('academic_year')
     academic_year_filter = academic_year_param or ''
+    # Group Info (live feedback, same as Referrals - #grill-with-docs
+    # session): the referred student's own cohort fields, same params/
+    # choices as inclusion_panel_students' own Group Info group.
+    year_filter = request.GET.get('year') or ''
+    house_filter = request.GET.get('house') or ''
+    reg_filter = request.GET.get('reg') or ''
 
     scoped_students = student_queryset_for_school_key(school_key)
+    # Option lists computed from the school-scoped set, before the filters
+    # below are applied - same convention as inclusion_panel_students' own
+    # years/forms/forms_by_year/houses (views.py, above).
+    years = sorted({y for y in scoped_students.values_list('year_group', flat=True) if y is not None})
+    forms = sorted({f for f in scoped_students.values_list('reg_form', flat=True) if f})
+    forms_by_year = {
+        year: sorted({
+            f for f in scoped_students.filter(year_group=year).values_list('reg_form', flat=True) if f
+        })
+        for year in years
+    }
+    houses = sorted({h for h in scoped_students.values_list('house', flat=True) if h})
+    has_houses = bool(houses)
+
     actions_qs = Action.objects.filter(referral__student__in=scoped_students).select_related(
-        'referral__student', 'referral__student__school', 'assigned_to_staff', 'category', 'created_by',
+        'referral__student', 'referral__student__school', 'referral__raised_by',
+        'assigned_to_staff', 'category', 'created_by',
     )
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
@@ -2072,13 +2178,19 @@ def inclusion_panel_actions(request):
         actions_qs = actions_qs.filter(academic_year_id=academic_year_filter)
 
     if name_filter:
-        actions_qs = actions_qs.filter(referral__student_id=name_filter)
+        actions_qs = actions_qs.filter(
+            _token_name_filter(name_filter.split(), 'referral__student__first_name', 'referral__student__last_name')
+        )
     if category_filter:
         actions_qs = actions_qs.filter(category_id=category_filter)
     if assigned_filter == 'unassigned':
         actions_qs = actions_qs.filter(assigned_to_staff__isnull=True)
     elif assigned_filter:
         actions_qs = actions_qs.filter(assigned_to_staff_id=assigned_filter)
+    if referred_by_filter == 'unassigned':
+        actions_qs = actions_qs.filter(referral__raised_by__isnull=True)
+    elif referred_by_filter:
+        actions_qs = actions_qs.filter(referral__raised_by_id=referred_by_filter)
     if status_filter:
         actions_qs = actions_qs.filter(status=status_filter)
     if due_filter == 'overdue':
@@ -2091,8 +2203,39 @@ def inclusion_panel_actions(request):
         actions_qs = actions_qs.filter(due_date__gte=next_week_start, due_date__lte=next_week_end)
     elif due_filter == 'no_due_date':
         actions_qs = actions_qs.filter(due_date__isnull=True)
+    if year_filter:
+        actions_qs = actions_qs.filter(referral__student__year_group=year_filter)
+    if house_filter:
+        actions_qs = actions_qs.filter(referral__student__house=house_filter)
+    if reg_filter:
+        actions_qs = actions_qs.filter(referral__student__reg_form=reg_filter)
 
-    actions = list(actions_qs)
+    # Totals for the stats-strip - computed against the full filtered
+    # queryset before pagination slices it down, same convention as
+    # inclusion_panel_students'/inclusion_panel_referrals' own totals
+    # (views.py, above).
+    total_actions_count = actions_qs.count()
+    total_students_count = actions_qs.values('referral__student_id').distinct().count()
+    total_referrals_count = actions_qs.values('referral_id').distinct().count()
+
+    # ACTIONS_PAGE_SIZE actions per page (infinite scroll,
+    # wireListInfiniteScroll in actions.html - shared with Students/
+    # Referrals, above) - only this page's actions go through the per-row
+    # lookups below.
+    ACTIONS_PAGE_SIZE = 50
+    paginator = Paginator(actions_qs, ACTIONS_PAGE_SIZE)
+    try:
+        page_number = int(request.GET.get('page') or 1)
+    except ValueError:
+        page_number = 1
+    page_obj = paginator.get_page(page_number)
+    # Infinite-scroll continuation request - page > 1 only ever happens via
+    # wireListInfiniteScroll's own fetch (a fresh filter change always
+    # omits `page`, resetting to 1), so this is never a real user-facing
+    # URL. Renders just the row markup + next sentinel, no .entity-list
+    # wrapper or stats-strip.
+    is_continuation = is_ajax and page_number > 1
+    actions = list(page_obj.object_list)
 
     # Row-detail candidates (issue #12): title row + facts row + an
     # Overdue callout pill.
@@ -2102,7 +2245,8 @@ def inclusion_panel_actions(request):
 
     active_filter_count = sum(
         1 for v in (
-            name_filter, category_filter, assigned_filter, status_filter, due_filter, academic_year_filter,
+            name_filter, category_filter, assigned_filter, referred_by_filter, status_filter, due_filter,
+            academic_year_filter, year_filter, house_filter, reg_filter,
         ) if v
     )
 
@@ -2129,31 +2273,39 @@ def inclusion_panel_actions(request):
         'week_start': week_start,
         'week_end': week_end,
         'name_filter': name_filter,
-        # Name is a dropdown of students who actually have an action,
-        # scoped to the current school selection, rather than a free-text
-        # search - bounded list, not every student (issue #13). Filtered
-        # through visible_actions_for so a student whose only actions are
-        # sensitive-category ones invisible to this viewer doesn't show up
-        # with an empty result when selected.
-        'students_with_actions': Student.objects.filter(
-            pk__in=visible_actions_for(
-                current_staff, Action.objects.filter(referral__student__in=scoped_students)
-            ).values('referral__student_id')
-        ).order_by('last_name', 'first_name'),
         'category_filter': category_filter,
         'assigned_filter': assigned_filter,
+        'referred_by_filter': referred_by_filter,
         'status_filter': status_filter,
         'due_filter': due_filter,
         'academic_year_filter': academic_year_filter,
         'academic_year_choices': academic_year_choices,
+        'years': years,
+        'year_filter': year_filter,
+        'forms': forms,
+        'forms_by_year_json': json.dumps(forms_by_year),
+        'has_houses': has_houses,
+        'houses': houses,
+        'house_filter': house_filter,
+        'reg_filter': reg_filter,
         'active_filter_count': active_filter_count,
-        'actions_count': len(actions),
-        'students_count': len({a.referral.student_id for a in actions}),
-        'referrals_count': len({a.referral_id for a in actions}),
+        'actions_count': total_actions_count,
+        'students_count': total_students_count,
+        'referrals_count': total_referrals_count,
         'is_aggregate_view': is_aggregate_view,
         'col_widths': col_widths,
+        'page_obj': page_obj,
     }
-    template = 'hubs/inclusion/panel/_actions_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/actions.html'
+    if page_obj.has_next():
+        next_params = request.GET.copy()
+        next_params['page'] = page_obj.next_page_number()
+        context['next_page_url'] = request.path + '?' + next_params.urlencode()
+    if is_continuation:
+        template = 'hubs/inclusion/panel/_actions_rows.html'
+    elif is_ajax:
+        template = 'hubs/inclusion/panel/_actions_filtered_content.html'
+    else:
+        template = 'hubs/inclusion/panel/actions.html'
     return render(request, template, context)
 
 
@@ -2678,6 +2830,28 @@ def inclusion_panel_meetings(request):
     past_meetings.reverse()
     meetings = upcoming_meetings + past_meetings
 
+    # MEETINGS_PAGE_SIZE meetings per page (infinite scroll,
+    # wireListInfiniteScroll in meetings.html - shared with Students/
+    # Referrals/Actions, above). Paginated as a plain Python list (Paginator
+    # works on either), not a queryset slice before the per-panel loop above
+    # the way the other pages do it - is_next/discussed_panels_by_referral
+    # and the upcoming-then-past reordering all genuinely need the full
+    # filtered set first, so this only trims what gets rendered/sent, not
+    # what gets computed. Fine at today's meeting volumes (nowhere near
+    # Students' ~4000-row scale); revisit if that changes.
+    MEETINGS_PAGE_SIZE = 50
+    paginator = Paginator(meetings, MEETINGS_PAGE_SIZE)
+    try:
+        page_number = int(request.GET.get('page') or 1)
+    except ValueError:
+        page_number = 1
+    page_obj = paginator.get_page(page_number)
+    # Infinite-scroll continuation request - page > 1 only ever happens via
+    # wireListInfiniteScroll's own fetch (a fresh filter change always omits
+    # `page`, resetting to 1), so this is never a real user-facing URL.
+    is_continuation = is_ajax and page_number > 1
+    meetings = list(page_obj.object_list)
+
     panel_groups = PanelGroup.objects.filter(is_active=True).select_related('school').order_by('name')
     if not is_aggregate_view:
         panel_groups = panel_groups.filter(Q(school_id=school_key) | Q(school__isnull=True))
@@ -2706,8 +2880,18 @@ def inclusion_panel_meetings(request):
         # zero active Panel Groups - same omission convention as
         # Start/Continue/Edit/Delete's can_manage above (#69).
         'can_create_meeting': bool(my_group_ids),
+        'page_obj': page_obj,
     }
-    template = 'hubs/inclusion/panel/_meetings_filtered_content.html' if is_ajax else 'hubs/inclusion/panel/meetings.html'
+    if page_obj.has_next():
+        next_params = request.GET.copy()
+        next_params['page'] = page_obj.next_page_number()
+        context['next_page_url'] = request.path + '?' + next_params.urlencode()
+    if is_continuation:
+        template = 'hubs/inclusion/panel/_meetings_rows.html'
+    elif is_ajax:
+        template = 'hubs/inclusion/panel/_meetings_filtered_content.html'
+    else:
+        template = 'hubs/inclusion/panel/meetings.html'
     return render(request, template, context)
 
 

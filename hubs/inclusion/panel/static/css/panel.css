@@ -2814,13 +2814,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    Search always lives in .filter-bar-sticky-row (students.html) rather
    than switching between a pinned desktop field and an accordion-list
    mobile one. */
-form[data-ajax-target="#students-filtered-content"] .filter-field--search {
+.filter-bar-tray .filter-field--search {
     padding: 0;
     gap: 0;
     border: none;
     position: relative;
 }
-form[data-ajax-target="#students-filtered-content"] .filter-search-icon {
+.filter-bar-tray .filter-search-icon {
     position: absolute;
     left: 10px;
     top: 50%;
@@ -2829,11 +2829,11 @@ form[data-ajax-target="#students-filtered-content"] .filter-search-icon {
     color: var(--text-faint);
     pointer-events: none;
 }
-form[data-ajax-target="#students-filtered-content"] .filter-search-icon svg {
+.filter-bar-tray .filter-search-icon svg {
     width: 16px;
     height: 16px;
 }
-form[data-ajax-target="#students-filtered-content"] .filter-field--search input[type="text"] {
+.filter-bar-tray .filter-field--search input[type="text"] {
     width: 100%;
     min-width: 0;
     padding-left: 34px;
@@ -2846,10 +2846,10 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search input[
    server on every AJAX filter change rather than tracking live typing -
    same "has a value -> reads as active" language as every other filter
    field's own label already carries (.filter-field--active label, below). */
-form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter-field--active input[type="text"] {
+.filter-bar-tray .filter-field--search.filter-field--active input[type="text"] {
     border-color: var(--primary);
 }
-form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter-field--active .filter-search-icon {
+.filter-bar-tray .filter-field--search.filter-field--active .filter-search-icon {
     color: var(--primary);
 }
 @media (max-width: 900px) {
@@ -2861,7 +2861,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
        the big filter-tray block above - true phones unconditionally, a
        narrowed hover-capable desktop window too, never a real portrait
        tablet. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-field--search input[type="text"] {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-field--search input[type="text"] {
         padding-top: var(--space-xxs);
         padding-bottom: var(--space-xxs);
     }
@@ -3222,8 +3222,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
         padding-top: 0;
         border-top: none;
     }
-}
-@media (min-width: 1180px) {
+
     #students-filtered-content .row-detail-col-1 {
         display: flex;
         opacity: 1;
@@ -3354,14 +3353,14 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
        jump straight to its new position the instant a filter was
        added/cleared; forms.css's own .filter-bar-count already carries the
        matching transition for these same properties. */
-    form[data-ajax-target="#students-filtered-content"] .filter-bar-count--empty {
+    .filter-bar-tray .filter-bar-count--empty {
         min-width: 0;
         width: 0;
         padding: 0;
         margin: 0;
         overflow: hidden;
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-bar-label:has(.filter-bar-count--empty) {
+    .filter-bar-tray .filter-bar-label:has(.filter-bar-count--empty) {
         margin-right: 0;
     }
     /* Dynamic overflow's own divider (setupFilterBarMoreFilters, main.js -
@@ -3371,7 +3370,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
        filter row in mobile mode". Shared across every dynamic-mode bar
        (SEND & Provision, Panel Actions/Meetings too), so scoped to
        Students' own form rather than the bare .filter-divider class. */
-    form[data-ajax-target="#students-filtered-content"] .filter-divider {
+    .filter-bar-tray .filter-divider {
         display: none;
     }
     /* Year/House/Reg narrowed specifically so all three reliably land on
@@ -3382,9 +3381,9 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
        enough in DOM order (right after Name Search) that they'd normally
        fit before anything else runs out of room, this just gives that
        margin back. */
-    form[data-ajax-target="#students-filtered-content"] .filter-field:has(#year-filter),
-    form[data-ajax-target="#students-filtered-content"] .filter-field:has(#house-filter),
-    form[data-ajax-target="#students-filtered-content"] .filter-field:has(#reg-filter) {
+    .filter-bar-tray .filter-field:has(#year-filter),
+    .filter-bar-tray .filter-field:has(#house-filter),
+    .filter-bar-tray .filter-field:has(#reg-filter) {
         max-width: 90px;
     }
     #students-filtered-content .entity-thumb {
@@ -3403,7 +3402,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
    directly since this page's markup never opted into it, but the fix is
    identical: a real grid with a hardcoded column count doesn't have a
    flex-basis to stop fitting in the first place. */
-#students-filtered-content .stats-strip {
+.filtered-content .stats-strip {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-sm);
@@ -3436,7 +3435,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-field--search.filter
    original Clear Filters link already covers desktop). The <=480px block's
    own .filter-bar.is-expanded .filter-bar-sticky-footer rule re-enables it
    there. */
-form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-footer {
+.filter-bar-tray .filter-bar-sticky-footer {
     display: none;
 }
 /* Base hide for the expanded-only backdrop (students.html) - same
@@ -3446,10 +3445,18 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-footer {
    the show rule (below, scoped off .filter-bar.is-expanded as a preceding
    sibling) for why. position: relative here is what anchors that rule's
    position: absolute against exactly this element's own box. */
-#students-filtered-content {
+/* .filter-tray-content (SEND & Provision dashboard, hub.html): same tray
+   overlay hooks as .filtered-content, but a distinct class - the dashboard's
+   own .stats-strip (KPI cards) would otherwise pick up .filtered-content
+   .stats-strip's unrelated 3-col grid rule below (Students/Referrals/
+   Actions/Meetings' entity-count footer), which isn't what the KPI strip
+   wants at every width. */
+.filtered-content,
+.filter-tray-content {
     position: relative;
 }
-#students-filtered-content .filter-bar-overlay {
+.filtered-content .filter-bar-overlay,
+.filter-tray-content .filter-bar-overlay {
     display: none;
 }
 /* .filter-bar-collapsible/-inner (students.html): display: contents at
@@ -3467,8 +3474,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-footer {
    tree entirely, so its children behave exactly as if they were
    .filter-fields-wrap's own direct children for both layout and geometry
    at those widths - the nesting becomes invisible. */
-form[data-ajax-target="#students-filtered-content"] .filter-bar-collapsible,
-form[data-ajax-target="#students-filtered-content"] .filter-bar-collapsible-inner {
+.filter-bar-tray .filter-bar-collapsible,
+.filter-bar-tray .filter-bar-collapsible-inner {
     display: contents;
 }
 /* .filter-bar-sticky-row (students.html): "Filters" label + the constant
@@ -3477,7 +3484,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-collapsible-inne
    (where this wrapper is just a plain, non-sticky flex row sitting inline
    with the bar's other fields) lay the two out the same way rather than
    the label stacking above Search under the default block flow. */
-form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
+.filter-bar-tray .filter-bar-sticky-row {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
@@ -3534,7 +3541,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        slightly") - with no line marking the seam any more, the whitespace
        itself needs to read as more deliberately spacious to still
        communicate a clear separation on its own. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-secondary-fields-track {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-secondary-fields-track {
         display: flex;
         flex: 1 1 100%;
         flex-wrap: nowrap;
@@ -3579,7 +3586,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        basis, so the header always ends up exactly as wide as whichever
        actually determines the group's width (in practice, the fields row -
        main.js's own header font is never the widest thing in a category). */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-group {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-group {
         display: flex;
         /* column-reverse, not column - live feedback: "the filter section
            should go below the dropdowns" - .filter-section-label is still the
@@ -3609,7 +3616,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        communicates on its own, especially now each category also carries
        its own section label). .filter-group no longer needs its own
        position: relative either - that existed purely to anchor this. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-group-fields {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-group-fields {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-end;
@@ -3638,7 +3645,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        specificity and win on source order (this file loads after), the
        same bug already fixed once for secondaryRow's own [hidden] state
        (see that comment, forms.css). */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-arrow:not([hidden]) {
+    .filter-bar-tray .filter-secondary-fields-arrow:not([hidden]) {
         display: flex;
         position: absolute;
         top: 50%;
@@ -3657,13 +3664,13 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         justify-content: center;
         z-index: 4;
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-arrow:hover {
+    .filter-bar-tray .filter-secondary-fields-arrow:hover {
         background: var(--border-color);
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-arrow--prev {
+    .filter-bar-tray .filter-secondary-fields-arrow--prev {
         left: 4px;
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-arrow--next {
+    .filter-bar-tray .filter-secondary-fields-arrow--next {
         right: 4px;
     }
     /* Edge fades hinting there's more to scroll to (live feedback: "add a
@@ -3677,8 +3684,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        reads correctly even mid-scroll where the far edge doesn't
        necessarily mean "no more content" (a category can be wider than the
        fade's own 32px). */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::before,
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::after {
+    .filter-bar-tray .filter-secondary-fields:not([hidden])::before,
+    .filter-bar-tray .filter-secondary-fields:not([hidden])::after {
         content: "";
         position: absolute;
         top: 0;
@@ -3687,11 +3694,11 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         pointer-events: none;
         z-index: 3;
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::before {
+    .filter-bar-tray .filter-secondary-fields:not([hidden])::before {
         left: 0;
         background: linear-gradient(to right, var(--bg-well), transparent);
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::after {
+    .filter-bar-tray .filter-secondary-fields:not([hidden])::after {
         right: 0;
         background: linear-gradient(to left, var(--bg-well), transparent);
     }
@@ -3702,8 +3709,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        entirely (html.nav-touch-mode ::-webkit-scrollbar, forms.css) and so
        still needs this fade as its only affordance; only a hover-capable
        pointer actually has a visible scrollbar to make the fade redundant. */
-    html:not(.nav-touch-mode) form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::before,
-    html:not(.nav-touch-mode) form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::after {
+    html:not(.nav-touch-mode) .filter-bar-tray .filter-secondary-fields:not([hidden])::before,
+    html:not(.nav-touch-mode) .filter-bar-tray .filter-secondary-fields:not([hidden])::after {
         display: none;
     }
     /* Centred, not DES-A2's usual left-align (live feedback: "horizontally
@@ -3714,7 +3721,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        control (select/toggle) to match, since a field's own width is set by
        its widest child (forms.css's 200px cap aside) - without it the label
        would centre over a control still sitting flush left below it. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field {
         align-items: center;
         /* --space-xxs, not forms.css's own --space-xs top/bottom (shared by
            every filter bar sitewide) - live feedback: "lose top and bottom
@@ -3778,7 +3785,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        space above the text instead, so the text always sits flush against
        the gap before the control regardless of how many lines it actually
        used - box height, and so control alignment, is unchanged. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field label {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field label {
         text-align: center;
         white-space: normal;
         overflow: visible;
@@ -3809,7 +3816,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        rules themselves (forms.css) - they only ever draw anything when
        there's a border/radius to square in the first place, which this
        removes, so they're already inert here. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field.filter-field--active {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field.filter-field--active {
         background: none;
         border-color: transparent;
         padding-left: 0;
@@ -3827,7 +3834,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        .filter-field--active's own base chip fill uses everywhere else
        (forms.css) - reused rather than a fresh colour, so "active" still
        means the same fill throughout the app, just relocated here. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field.filter-field--active .ui-select-trigger {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field.filter-field--active .ui-select-trigger {
         background-color: var(--primary-light);
         /* Full --primary, not a muted mix - live feedback: "can the border
            of the active filter dropdown be primary colour" - the fill above
@@ -3843,7 +3850,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        to just this property rather than the whole .filter-field--active
        label rule, so the colour swap itself still comes from the one shared
        definition everywhere else. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field--active label {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field--active label {
         -webkit-text-stroke: 0;
     }
     /* Margin trimmed from --space-sm/--space-xxs (2026-08-20, live feedback:
@@ -3859,7 +3866,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        column's own height instead of its natural text height. Width comes
        for free from cross-axis stretch, the column direction's own
        default. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-section-label {
         display: flex;
         align-items: center;
         gap: var(--space-xs);
@@ -3903,8 +3910,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            width the text itself never needed). */
         white-space: nowrap;
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::before,
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::after {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-section-label::before,
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-section-label::after {
         content: "";
         height: 1px;
         background: var(--text-faint);
@@ -3954,8 +3961,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        real field row while never disappearing. flex-grow: 1 is untouched -
        still grows symmetrically into any leftover space once the fields
        row IS wider than label text + 24px, keeping the label centred. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::before,
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::after {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-section-label::before,
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-section-label::after {
         flex: 1 0 12px;
     }
 }
@@ -4069,7 +4076,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
    browsers don't reliably fire for a genuinely zero-size target. No visual
    presence otherwise (rootMargin on the observer fires the next fetch well
    before this would ever be scrolled into view). */
-#students-filtered-content .students-load-sentinel {
+.filtered-content .list-load-sentinel {
     height: 1px;
 }
 /* Widened from max-width: 480px to max-width: 900px (live feedback: "I
@@ -4132,7 +4139,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        out through opacity") instead of the instant display: none <-> block
        swap this used to be gated behind - display alone can't be
        transitioned. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar ~ #students-filtered-content .filter-bar-overlay {
+    html.filter-bar-mobile-mode .filter-bar-tray ~ .filtered-content .filter-bar-overlay,
+    html.filter-bar-mobile-mode .filter-bar-tray ~ .filter-tray-content .filter-bar-overlay {
         display: block;
         position: absolute;
         inset: 0;
@@ -4187,7 +4195,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        clicked, in both directions, so this transition (above) runs
        concurrently with the tray's own open/close animation instead of
        being masked by it. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.overlay-visible ~ #students-filtered-content .filter-bar-overlay {
+    html.filter-bar-mobile-mode .filter-bar-tray.overlay-visible ~ .filtered-content .filter-bar-overlay,
+    html.filter-bar-mobile-mode .filter-bar-tray.overlay-visible ~ .filter-tray-content .filter-bar-overlay {
         opacity: 1;
         pointer-events: auto;
     }
@@ -4203,7 +4212,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         position: relative;
         z-index: 2;
     }
-    html.filter-bar-mobile-mode [data-theme-mode="dark"] form[data-ajax-target="#students-filtered-content"].filter-bar.overlay-visible ~ #students-filtered-content .filter-bar-overlay {
+    html.filter-bar-mobile-mode [data-theme-mode="dark"] .filter-bar-tray.overlay-visible ~ .filtered-content .filter-bar-overlay,
+    html.filter-bar-mobile-mode [data-theme-mode="dark"] .filter-bar-tray.overlay-visible ~ .filter-tray-content .filter-bar-overlay {
         background: rgba(0, 0, 0, 0.65);
     }
     /* .filter-bar's own base rule (forms.css) bottom-aligns its direct
@@ -4217,7 +4227,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        not right after it). flex-start works for both states - the
        fields-wrap simply starts at the top of whatever height the bar
        has, rather than being pushed down to align its bottom edge. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar {
+    html.filter-bar-mobile-mode .filter-bar-tray {
         justify-content: flex-start;
         align-items: flex-start;
         /* Tighter vertical rhythm collapsed on mobile (live feedback: "more
@@ -4257,7 +4267,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        .filter-bar-mobile-mode already hides outright a few rules below -
        so this reservation is pure dead space in this mode, not just too
        generous a value). */
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-sticky-row {
         padding-right: 0;
     }
     /* Narrow desktop only, collapsed only (:not(.is-expanded) - once
@@ -4271,7 +4281,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        one has any content, so this 8px (plus the 1px border-bottom) was
        dead space that align-items: flex-start (above) put entirely below
        the row instead of splitting it evenly). */
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar:not(.is-expanded) {
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray:not(.is-expanded) {
         gap: 0;
     }
     /* .filter-bar-sticky-row (students.html) bundles the "Filters" label
@@ -4284,7 +4294,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        (flex: 1 1 100%, matching every other field's own row-per-item
        rule below) whether collapsed (the only visible content at that
        point) or expanded (pinned to the top of the list, next rule). */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-sticky-row {
         flex: 1 1 100%;
         width: 100%;
         /* No horizontal padding of its own (used to carry its own
@@ -4348,7 +4358,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        expanded field grid's own 2-column span) at every width wide enough to
        afford it, and only actually compresses Search once the row is
        narrower than any real phone would ever be. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row .filter-field--search {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-sticky-row .filter-field--search {
         flex: 1 1 calc(2 * (100% / 3 - 4px * 2 / 3) + 4px);
         min-width: 0;
         max-width: none;
@@ -4365,7 +4375,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        filter-bar-narrow-desktop, both set together, main.js), not one, so
        this naturally outranks the shared mobile rule above on specificity
        regardless of source order. */
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row .filter-field--search {
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-sticky-row .filter-field--search {
         flex: 1 1 auto;
         max-width: none;
         margin-left: 0;
@@ -4373,7 +4383,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     /* Never shrinks/wraps - "Filters" + its count badge must always render in
        full; Search (above) is what yields room first once the row is tighter
        than any real phone. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row .filter-bar-label {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-sticky-row .filter-bar-label {
         flex-shrink: 0;
         white-space: nowrap;
     }
@@ -4399,7 +4409,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        own 34px (above), reserved for the search icon; the shorthand would
        reset it back to var(--space-sm) and run the icon into the typed
        text. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-field--search input[type="text"] {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-field--search input[type="text"] {
         height: 35px;
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
@@ -4407,7 +4417,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         line-height: normal;
         font-size: var(--font-sm);
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-search-icon svg {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-search-icon svg {
         width: 14px;
         height: 14px;
     }
@@ -4425,7 +4435,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        needs to sit at that row's start rather than stretching to fill it.
        Font size/gap/margin tightened to match the shorter search field
        beside it (#132 compact mode). */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-bar-label {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-label {
         width: auto;
         justify-content: flex-start;
         font-size: var(--font-sm);
@@ -4451,16 +4461,16 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        (.more-filters-toggle-icon, forms.css; .card-collapse-chevron,
        above) - points down at rest ("more below, tap to reveal"), flips to
        point up once .filter-bar.is-expanded ("tap to hide it again"). */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-bar-toggle-icon {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-toggle-icon {
         display: inline-flex;
         flex: 0 0 auto;
         transition: transform var(--transition-fast);
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"] .filter-bar-toggle-icon svg {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-toggle-icon svg {
         width: 14px;
         height: 14px;
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-toggle-icon {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-toggle-icon {
         transform: rotate(180deg);
     }
     /* #134: the tray floats over the entity list instead of resizing
@@ -4483,7 +4493,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        back separately in JS as a height keyframe; the box's own
        positioning scheme is irrelevant to that, it only ever animates an
        explicit height. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar {
+    html.filter-bar-mobile-mode .filter-bar-tray {
         position: relative;
     }
     /* position: fixed, not absolute against .filter-bar (an earlier version
@@ -4530,7 +4540,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        match (below, not full border-radius) - flush against the
        full-bleed bar above, the same reasoning that originally put
        border-top: none here. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible {
         display: flex;
         flex-direction: column;
         position: fixed;
@@ -4646,7 +4656,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        on .filter-bar-collapsible-inner below: "it has inadvertently
        caused the border to not actually be on the edge of what is being
        clipped... I see line then about 4px of bg then the content"). */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-collapsible {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-collapsible {
         border-bottom-color: var(--border-strong);
     }
     /* .is-maxed (main.js, positionFilterTray) - a rounded corner reads as
@@ -4660,7 +4670,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        border and corner radius" - then, once border-bottom on its own
        was seen back at max size: "Lose the radius on corners if full
        screen" - so border-bottom stays (above), only the radius goes). */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible.is-maxed {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible.is-maxed {
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
     }
@@ -4678,7 +4688,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        animation ends, so a genuinely-tall field grid still scrolls
        internally against it via .filter-bar-collapsible-inner's own
        overflow-y: auto rather than overflowing past the tabbar. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.tray-open .filter-bar-collapsible {
+    html.filter-bar-mobile-mode .filter-bar-tray.tray-open .filter-bar-collapsible {
         height: auto;
     }
     /* Fades the fields/label in and out with the same .tray-open toggle
@@ -4690,8 +4700,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        only the fields/label content fades - var(--transition-slide-lg),
        same token/duration as the height transition, so both finish
        together instead of the fade trailing or leading it. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.tray-open .filter-bar-collapsible-inner,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.tray-open .filter-bar-sticky-footer {
+    html.filter-bar-mobile-mode .filter-bar-tray.tray-open .filter-bar-collapsible-inner,
+    html.filter-bar-mobile-mode .filter-bar-tray.tray-open .filter-bar-sticky-footer {
         opacity: 1;
     }
     /* .filter-bar-sticky-row and .filter-bar-collapsible are grandchildren
@@ -4706,7 +4716,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        own children top-to-bottom and hand the second one whatever's left,
        the same job .filter-bar.is-expanded's own flex-direction: column
        does one level up. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-fields-wrap {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-fields-wrap {
         display: flex;
         flex-direction: column;
         flex: 1 1 auto;
@@ -4733,7 +4743,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        hundred px actually available). flex: 0 0 auto pins it back to its
        own short content height so .filter-bar-collapsible is the only
        child left claiming the grow. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-sticky-row {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-sticky-row {
         flex: 0 0 auto;
     }
     /* overflow: hidden + min-height: 0 are what actually let the grid
@@ -4750,7 +4760,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        merge the field grid itself asks for (below) - moved here from its
        old home directly on .filter-fields-wrap now that the fields don't
        live there any more. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible-inner {
         /* overflow-y: auto, not plain hidden - this is the element that
            actually needs to scroll once .filter-bar-collapsible's own
            track (above) bounds it to less than the field grid's natural
@@ -4816,7 +4826,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        leak), so it needs its own base opacity: 0/transition here for the
        .tray-open override (below, this file) to have anything to fade
        to/from, same reasoning as -inner's own base rule. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-sticky-footer {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-sticky-footer {
         opacity: 0;
         transition: opacity var(--transition-slide-lg);
     }
@@ -4838,10 +4848,10 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        compound selector followed by real descendants) is the pattern to
        match - verify any new one against it rather than copy-pasting this
        file's own now-fixed version, in case it drifts again. */
-    html.filter-bar-mobile-mode.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner {
+    html.filter-bar-mobile-mode.nav-touch-mode .filter-bar-tray .filter-bar-collapsible-inner {
         scrollbar-width: none;
     }
-    html.filter-bar-mobile-mode.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner::-webkit-scrollbar {
+    html.filter-bar-mobile-mode.nav-touch-mode .filter-bar-tray .filter-bar-collapsible-inner::-webkit-scrollbar {
         display: none;
     }
     /* Narrow desktop/portrait tablet (html.filter-bar-narrow-desktop, main.js
@@ -4873,7 +4883,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        bottom there reads as an odd leftover rather than a deliberate edge,
        since nothing else about this tray's shape says "card" the way true
        mobile's full-bleed span does. */
-    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible {
+    html.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-collapsible {
         border-radius: 0;
     }
     /* Squared off, not matched to .list-card's own rounded bottom corners -
@@ -4889,7 +4899,8 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        corner, nowhere near it, so a matching radius here no longer has
        anything to line up with; live feedback confirmed squared is
        correct now ("can the bottom of overlay lose the bottom radius"). */
-    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar ~ #students-filtered-content .filter-bar-overlay {
+    html.filter-bar-narrow-desktop .filter-bar-tray ~ .filtered-content .filter-bar-overlay,
+    html.filter-bar-narrow-desktop .filter-bar-tray ~ .filter-tray-content .filter-bar-overlay {
         border-radius: 0;
     }
     /* Padding restored to the base .filter-bar/.filter-bar-collapsible-
@@ -4907,10 +4918,10 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        rules' own values (forms.css/above) rather than inventing new ones,
        so this mode's padding matches genuine desktop width exactly, not
        just "less tight than mobile". */
-    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar {
+    html.filter-bar-narrow-desktop .filter-bar-tray {
         padding: var(--space-xs) var(--space-lg);
     }
-    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner {
+    html.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-collapsible-inner {
         padding-left: var(--space-lg);
         padding-right: var(--space-lg);
     }
@@ -4946,7 +4957,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        around the buttons (below) - stacking a second gap on top of that
        read as dead space past a footer that already looks like a clear
        stopping point. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-collapsible-inner {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-collapsible-inner {
         padding-bottom: var(--space-xxs);
     }
     /* display: flex, unconditionally (not gated on .is-expanded like every
@@ -4960,9 +4971,9 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        these three selectors just need to always participate in normal
        layout so the slide has real content to reveal as it opens, rather
        than popping in only once already fully expanded. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible .filter-field,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible .filter-bar-sticky-footer,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible .filter-bar-clear {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible .filter-field,
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible .filter-bar-sticky-footer,
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible .filter-bar-clear {
         display: flex;
     }
     /* ...but not the field grid's own Clear Filters button specifically -
@@ -4974,7 +4985,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        shows - see its own comment in students.html for why this one can't
        just be deleted outright (desktop/tablet still reuses this exact
        element, moved via setupFilterBarMoreFilters in main.js). */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible .filter-bar-clear:not(.filter-bar-clear--sticky) {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible .filter-bar-clear:not(.filter-bar-clear--sticky) {
         display: none;
     }
     /* Clear + Close, side by side (live feedback: "Clear and Close should
@@ -5005,7 +5016,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        at all. No position: sticky, no z-index fight, no margin/box-shadow
        trick needed - it is simply never behind anything scrollable in the
        first place, so there's nothing left for a browser to get wrong. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-sticky-footer {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-sticky-footer {
         display: flex;
         flex: 0 0 auto;
         gap: var(--space-sm);
@@ -5074,7 +5085,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        earlier version of this override sat further up the file, before the
        rule above, and silently lost to it on source order despite matching
        specificity exactly. */
-    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-sticky-footer {
+    html.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-bar-sticky-footer {
         padding-left: var(--space-lg);
         padding-right: var(--space-lg);
     }
@@ -5083,10 +5094,10 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        (DES-F1) - only lands once .is-covering (setupFilterBarFooterDivider,
        main.js) says there's genuinely still content below this footer to
        divide from. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-sticky-footer.is-covering {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-sticky-footer.is-covering {
         border-top-color: var(--border-strong);
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-sticky-footer .btn {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-sticky-footer .btn {
         flex: 1;
     }
     /* Expanded: auto-sized to its own content (live feedback: "no longer
@@ -5121,7 +5132,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        floating in the middle of the list" live feedback flagged) - both
        problems now moot with the wrapper simply never shown on mobile at
        all, expanded or not. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-actions-right {
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-actions-right {
         display: none;
     }
     /* Search stays inside .filter-bar-sticky-row at every state now (live
@@ -5135,7 +5146,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        descendant of .filter-bar (nested inside the sticky row), so a plain
        .filter-field selector would otherwise still reach it despite living
        outside the accordion's own field list. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:not(.filter-field--search) {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) {
         flex: 1 1 100%;
         max-width: none;
         flex-direction: row;
@@ -5153,9 +5164,9 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        overflow tablet range it shares a (max-width: 900px) block with, but
        the query also (unintentionally) reached down into this phone-only
        accordion. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter) {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:has(#year-filter),
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:has(#house-filter),
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:has(#reg-filter) {
         max-width: none;
     }
     /* Every field (Year/House/Reg, SEN Status through More Able, Has
@@ -5174,33 +5185,27 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        border/radius (the base rule above) rather than the border-collapse
        "square off and share one border line" trick an earlier, zero-gap
        version of this grid needed instead. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-pp-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-eal-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-lac-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-young-carer-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter),
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(.filter-toggle-wrap) {
+    /* :not(.filter-field--search), not an enumerated :has(#field-id) list
+       (was: year/house/reg/sen-status/gender/ethnicity/is-pp/is-eal/is-lac/
+       is-young-carer/is-more-able, one entry per Students field, plus
+       .filter-toggle-wrap for the two toggles) - that list happened to be
+       coextensive with Students' entire field set (nothing was ever
+       deliberately excluded from the grid), so it was really "every field"
+       spelled out one ID at a time, which silently stopped applying to any
+       other page's own fields - live feedback: "the vertical [tray] is not
+       loading the grid setup correctly... others are 1 column only" once
+       Referral/Assignment's own fields (Status, Panel Stage, Raised By, ...)
+       hit this same block and found no matching :has() entry. Same
+       :not(.filter-field--search) tail as the base bordered-box rule above
+       - equal specificity, but this rule comes later in the file so it
+       still wins the flex-direction: row -> column override on source order
+       alone, without needing :has(#id)'s extra ID-bucket specificity. */
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) {
         flex: 0 1 calc(100% / 3 - 4px * 2 / 3);
         flex-direction: column;
         align-items: stretch;
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#year-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#house-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#reg-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-pp-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-eal-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-lac-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-young-carer-filter) .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter) .ui-select {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select {
         width: 100%;
         flex: none;
     }
@@ -5217,14 +5222,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        the trigger shrinks to the column's real width instead, falling
        back to its own already-built ellipsis truncation (forms.css) for
        whichever option text doesn't fit. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#sen-status-filter) .ui-select-trigger,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#gender-filter) .ui-select-trigger,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#ethnicity-filter) .ui-select-trigger,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-pp-filter) .ui-select-trigger,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-eal-filter) .ui-select-trigger,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-lac-filter) .ui-select-trigger,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-young-carer-filter) .ui-select-trigger,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:has(#is-more-able-filter) .ui-select-trigger {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger {
         min-width: 0 !important;
     }
     /* Sections (students.html: Group Info / SEN & Support / Inclusion
@@ -5264,7 +5262,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        prototype/students-filter-divider-variants branch for the full
        set of rejected variants (A/B/C/E/F/H/I/J and centred "D"/"K") this
        replaced. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-section-label {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-section-label {
         display: flex;
         align-items: center;
         justify-content: flex-start;
@@ -5282,17 +5280,17 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         text-transform: uppercase;
         letter-spacing: 0.04em;
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-section-label::before,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-section-label::after {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-section-label::before,
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-section-label::after {
         content: "";
         height: 1px;
         background: var(--text-faint);
         opacity: 0.4;
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-section-label::before {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-section-label::before {
         flex: 0 0 54px;
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-section-label::after {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-section-label::after {
         flex: 1 1 auto;
     }
     /* --bg-surface, not --bg-choice (.ui-fused-field-label's usual token) -
@@ -5304,7 +5302,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        consecutive fused-left labels of unequal text width ("Year" vs
        "Pupil Premium") wouldn't line up into a clean N-up grid the way a
        centred column does. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field label {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field label {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -5396,7 +5394,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        status") - the pill's own on/off state (panel.css) already carries
        that signal, so highlighting the label too was double-signalling
        the same thing. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field--active label {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field--active label {
         background: var(--primary);
         color: #fff;
     }
@@ -5405,12 +5403,12 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        to left, this only needs to override Year's own .ui-select--center
        (forms.css, higher-specificity two-class rule) so every select
        reads the same way in this list. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .ui-select-trigger.ui-select--center {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field .ui-select-trigger.ui-select--center {
         text-align: left;
     }
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field input,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .ui-select,
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .filter-toggle-wrap {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field input,
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field .ui-select,
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field .filter-toggle-wrap {
         flex: 1;
         min-width: 0;
     }
@@ -5419,7 +5417,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        (the unconditional .filter-field--search rules above, which reserve
        left padding for the search icon) rather than having them stripped
        to blend into a wrapper border it doesn't have. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field:not(.filter-field--search) input {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) input {
         border: none;
         background: transparent;
         padding: var(--space-xs) var(--space-sm);
@@ -5430,7 +5428,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        including that image, silently deleting the chevron (live feedback:
        "dropdowns should have a down arrow to indicate they are dropdowns" -
        they always did, this had just wiped it out here specifically). */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .ui-select-trigger {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field .ui-select-trigger {
         border: none;
         border-radius: 0;
         background-color: transparent;
@@ -5444,7 +5442,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        itself taller for no gain here - reverts it back to desktop's
        --space-xs so the control reads shorter without shrinking the actual
        combined tap target. */
-    html.filter-bar-mobile-mode.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .ui-select-trigger {
+    html.filter-bar-mobile-mode.nav-touch-mode .filter-bar-tray.is-expanded .filter-field .ui-select-trigger {
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
     }
@@ -5467,7 +5465,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        neighbours. flex-grow/shrink: 0 stops it from growing again the way
        flex: 1 did. align-items: center (already set) centres the 24px
        pill inside the fixed box. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-field .filter-toggle-wrap {
+    html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field .filter-toggle-wrap {
         display: flex;
         align-items: center;
         justify-content: center;

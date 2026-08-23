@@ -62,6 +62,68 @@ window.wireFilterBarActiveState = function (filterBar) {
     return refresh;
 };
 
+// Infinite scroll for a paginated .entity-list, generic across every page
+// built on the Students pattern (Students originally, #134 follow-up - now
+// also Referrals/Actions/Meetings). Server renders PAGE_SIZE rows per page;
+// .list-load-sentinel (the page's own _<name>_rows.html partial) marks the
+// bottom of whatever's currently rendered, carrying the next page's URL. An
+// IntersectionObserver (rootMargin fires the fetch before the sentinel is
+// actually on screen, so the next batch is usually already in by the time
+// the user scrolls to where it was) fetches that URL the same AJAX way
+// setupAjaxFilterBars does - X-Requested-With header - and splices the
+// response in directly before the sentinel, then removes it; the response's
+// own trailing sentinel (if that page also has a further next one) becomes
+// the new observation target automatically, since it arrives as part of the
+// same fetched fragment. A MutationObserver re-finds the current sentinel
+// after every DOM change to this container - covers both this function's
+// own splice-and-remove above AND a filter change (setupAjaxFilterBars
+// replaces the whole container's innerHTML wholesale, resetting back to
+// page 1's own sentinel or none at all). containerId is the page's own
+// #<name>-filtered-content id (students-filtered-content, referrals-
+// filtered-content, ...).
+window.wireListInfiniteScroll = function (containerId) {
+    var container = document.getElementById(containerId);
+    if (!container || typeof IntersectionObserver === 'undefined') return;
+    var io = null;
+    var loading = false;
+    function observeSentinel() {
+        if (io) io.disconnect();
+        var sentinel = container.querySelector('.list-load-sentinel');
+        if (!sentinel) return;
+        io = new IntersectionObserver(function (entries) {
+            if (loading) return;
+            var visible = entries.some(function (entry) { return entry.isIntersecting; });
+            if (visible) loadMore(sentinel);
+        }, { rootMargin: '400px' });
+        io.observe(sentinel);
+    }
+    function loadMore(sentinel) {
+        var url = sentinel.dataset.nextPageUrl;
+        if (!url) return;
+        loading = true;
+        if (io) io.disconnect();
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) {
+                if (!res.ok) throw new Error('Request failed: ' + res.status);
+                return res.text();
+            })
+            .then(function (html) {
+                sentinel.insertAdjacentHTML('beforebegin', html);
+                sentinel.remove();
+                loading = false;
+                observeSentinel();
+            })
+            .catch(function () {
+                loading = false;
+                observeSentinel();
+            });
+    }
+    observeSentinel();
+    if (typeof MutationObserver !== 'undefined') {
+        new MutationObserver(observeSentinel).observe(container, { childList: true, subtree: true });
+    }
+};
+
 // Closes a dialog.modal-dialog instantly (dialog.close() fires synchronously
 // - see closeModal() below for why: a showModal() dialog blocks every click
 // on the rest of the page for as long as it's still open, regardless of its

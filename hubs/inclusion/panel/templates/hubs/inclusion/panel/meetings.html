@@ -32,9 +32,25 @@
 
 <div class="list-page-shell">
 
+{% comment %}
+Ported to Students/Referrals/Actions' own responsive slide-over tray
+(live feedback, /grill-with-docs session) - .filter-bar-tray is the
+shared opt-in hook (panel.css/main.js). One flat "Panel" category (live
+feedback: "let's have everything under panel for now") rather than a
+multi-group split - Meetings isn't tied to one student the way Referrals/
+Actions are (a meeting covers many students' referrals), so the Year/
+House/Reg Group Info pattern doesn't apply here, and there aren't enough
+naturally distinct concepts left to justify more than one group yet. No
+pinned search field - none of these 5 fields are free text.
+{% endcomment %}
 <div class="list-card">
-<form method="get" class="filter-bar" data-ajax-target="#meetings-filtered-content">
-    <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+<form method="get" class="filter-bar filter-bar-tray" data-ajax-target="#meetings-filtered-content">
+    <div class="filter-bar-sticky-row">
+        <span class="filter-bar-label">Filters <span class="filter-bar-toggle-icon" aria-hidden="true">{% include 'icons/arrow_down_svg.html' %}</span> <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+    </div>
+    <div class="filter-bar-collapsible">
+    <div class="filter-bar-collapsible-inner">
+    <div class="filter-section-label">Panel</div>
     <div class="filter-field{% if panel_group_filter %} filter-field--active{% endif %}">
         <label for="panel-group-filter">Panel Group</label>
         <select id="panel-group-filter" name="panel_group">
@@ -84,9 +100,16 @@
     academic year right back (see inclusion_panel_meetings' academic_year_param).
     {% endcomment %}
     <a href="{% url 'inclusion_panel_meetings' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
+    <div class="filter-bar-sticky-footer">
+        <a href="{% url 'inclusion_panel_meetings' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
+        <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
+    </div>
+    </div>
 </form>
 
-<div id="meetings-filtered-content" class="meetings-scroll">
+<div id="meetings-filtered-content" class="meetings-scroll filtered-content">
+    <div class="filter-bar-overlay" data-filter-bar-close aria-hidden="true"></div>
     {% include 'hubs/inclusion/panel/_meetings_filtered_content.html' %}
 </div>
 </div>
@@ -99,6 +122,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var myMeetingsToggle = document.getElementById('my-meetings-toggle');
     var myMeetingsInput = document.getElementById('my-meetings-input');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+    if (window.wireListInfiniteScroll) window.wireListInfiniteScroll('meetings-filtered-content');
 
     if (myMeetingsToggle && myMeetingsInput) {
         myMeetingsToggle.addEventListener('click', function () {

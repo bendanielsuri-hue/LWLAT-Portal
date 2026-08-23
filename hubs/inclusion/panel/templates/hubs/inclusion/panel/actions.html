@@ -23,41 +23,76 @@
 <div class="list-page-shell">
 
 {% comment %}
-Filter-bar merged into the list-card as its header (issue #7). Name is a
-dropdown scoped to students who actually have an action (not every
-student); Priority/Concern Category/Assigned to Me dropped entirely;
-Overdue Only + Due This Week merged into one Due Date dropdown with more
-tiers (issue #13). Five simple fields fit inline with no disclosure
-needed, unlike Students/Referrals.
+Filter-bar merged into the list-card as its header (issue #7).
+Priority/Concern Category/Assigned to Me dropped entirely; Overdue Only +
+Due This Week merged into one Due Date dropdown with more tiers (issue
+#13).
+
+Ported to Students/Referrals' own responsive slide-over tray + category
+strip (live feedback, /grill-with-docs session) - .filter-bar-tray is the
+shared opt-in hook (panel.css/main.js). Group Info (Year/House/Reg, the
+referred student's own cohort fields) / Actions (Category/Status/Due
+Date/Assigned To, the task's own state) / Referrals (Referred By/Academic
+Year, context about whose referral this is and when) - live-feedback-
+chosen split, not a semantically "clean" one (Assigned To reads as much
+"assignment" as "the task's state", but the user's call). Name moved from
+a bounded dropdown of students-with-actions into the sticky-row's own
+pinned free-text Search (live feedback: "Actions would benefit from a
+search... lose name from Referrals") - same _token_name_filter multi-word
+matching Students/Referrals' own Search already uses, against
+referral__student__first_name/last_name. Referred By (who raised the
+referral - core.Staff, same field/choices as inclusion_panel_referrals'
+own raised_by_filter) replaces Name in the Referrals group.
 {% endcomment %}
 <div class="list-card">
-<form method="get" class="filter-bar" data-ajax-target="#actions-filtered-content">
-    <span class="filter-bar-label">Filters <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
-    <div class="filter-field{% if name_filter %} filter-field--active{% endif %}">
-        <label for="name-filter">Name</label>
-        <select id="name-filter" name="name">
-            <option value="" {% if not name_filter %}selected{% endif %}>All</option>
-            {% for student in students_with_actions %}
-            <option value="{{ student.id }}" {% if name_filter == student.id|stringformat:'s' %}selected{% endif %}>{{ student }}</option>
+<form method="get" class="filter-bar filter-bar-tray" data-ajax-target="#actions-filtered-content">
+    <div class="filter-bar-sticky-row">
+        <span class="filter-bar-label">Filters <span class="filter-bar-toggle-icon" aria-hidden="true">{% include 'icons/arrow_down_svg.html' %}</span> <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+        <div class="filter-field filter-field--search{% if name_filter %} filter-field--active{% endif %}" data-filter-pinned>
+            <span class="filter-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
+            <label for="name-search" class="sr-only">Name Search</label>
+            <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
+        </div>
+    </div>
+    <div class="filter-bar-collapsible">
+    <div class="filter-bar-collapsible-inner">
+    <div class="filter-section-label">Group Info</div>
+    <div class="filter-field{% if year_filter %} filter-field--active{% endif %}">
+        <label for="year-filter">Year</label>
+        <select id="year-filter" name="year" class="ui-select--center">
+            <option value="">All</option>
+            {% for year in years %}
+            <option value="{{ year }}" {% if year_filter == year|stringformat:'s' %}selected{% endif %}>{{ year }}</option>
             {% endfor %}
         </select>
     </div>
+    {% if has_houses %}
+    <div class="filter-field{% if house_filter %} filter-field--active{% endif %}">
+        <label for="house-filter">House</label>
+        <select id="house-filter" name="house">
+            <option value="">All</option>
+            {% for h in houses %}
+            <option value="{{ h }}" {% if house_filter == h %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    <div class="filter-field{% if reg_filter %} filter-field--active{% endif %}">
+        <label for="reg-filter">Reg</label>
+        <select id="reg-filter" name="reg">
+            <option value="">All</option>
+            {% for form in forms %}
+            <option value="{{ form }}" {% if reg_filter == form %}selected{% endif %}>{{ form }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-section-label">Actions</div>
     <div class="filter-field{% if category_filter %} filter-field--active{% endif %}">
         <label for="category-filter">Category</label>
         <select id="category-filter" name="category">
             <option value="" {% if not category_filter %}selected{% endif %}>All</option>
             {% for category in categories %}
             <option value="{{ category.id }}" {% if category_filter == category.id|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="filter-field{% if assigned_filter %} filter-field--active{% endif %}">
-        <label for="assigned-filter">Assigned To</label>
-        <select id="assigned-filter" name="assigned">
-            <option value="" {% if not assigned_filter %}selected{% endif %}>All</option>
-            <option value="unassigned" {% if assigned_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
-            {% for staff in staff_list %}
-            <option value="{{ staff.id }}" {% if assigned_filter == staff.id|stringformat:'s' %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -81,6 +116,27 @@ needed, unlike Students/Referrals.
             <option value="no_due_date" {% if due_filter == 'no_due_date' %}selected{% endif %}>No Due Date</option>
         </select>
     </div>
+    <div class="filter-field{% if assigned_filter %} filter-field--active{% endif %}">
+        <label for="assigned-filter">Assigned To</label>
+        <select id="assigned-filter" name="assigned">
+            <option value="" {% if not assigned_filter %}selected{% endif %}>All</option>
+            <option value="unassigned" {% if assigned_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
+            {% for staff in staff_list %}
+            <option value="{{ staff.id }}" {% if assigned_filter == staff.id|stringformat:'s' %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-section-label">Referrals</div>
+    <div class="filter-field{% if referred_by_filter %} filter-field--active{% endif %}">
+        <label for="referred-by-filter">Referred By</label>
+        <select id="referred-by-filter" name="referred_by">
+            <option value="" {% if not referred_by_filter %}selected{% endif %}>All</option>
+            <option value="unassigned" {% if referred_by_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
+            {% for staff in staff_list %}
+            <option value="{{ staff.id }}" {% if referred_by_filter == staff.id|stringformat:'s' %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
     <div class="filter-field{% if academic_year_filter %} filter-field--active{% endif %}">
         <label for="academic-year-filter">Academic Year</label>
         <select id="academic-year-filter" name="academic_year">
@@ -96,9 +152,16 @@ needed, unlike Students/Referrals.
     academic year right back (see inclusion_panel_actions' academic_year_param).
     {% endcomment %}
     <a href="{% url 'inclusion_panel_actions' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
+    <div class="filter-bar-sticky-footer">
+        <a href="{% url 'inclusion_panel_actions' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
+        <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
+    </div>
+    </div>
 </form>
 
 <div id="actions-filtered-content" class="filtered-content">
+    <div class="filter-bar-overlay" data-filter-bar-close aria-hidden="true"></div>
     {% include 'hubs/inclusion/panel/_actions_filtered_content.html' %}
 </div>
 </div>
@@ -108,7 +171,32 @@ needed, unlike Students/Referrals.
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
+    var yearFilter = document.getElementById('year-filter');
+    var regFilter = document.getElementById('reg-filter');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+    if (window.wireListInfiniteScroll) window.wireListInfiniteScroll('actions-filtered-content');
+
+    // Year -> Reg cascading (same pattern as inclusion_panel_students/
+    // inclusion_panel_referrals).
+    var allForms = Array.prototype.slice.call(regFilter.options).slice(1).map(function (o) { return o.value; });
+    var formsByYear = JSON.parse('{{ forms_by_year_json|escapejs }}');
+
+    function refreshRegOptions() {
+        var year = yearFilter.value;
+        var forms = year ? (formsByYear[year] || []) : allForms;
+        var previous = regFilter.value;
+        regFilter.innerHTML = '<option value="">All</option>';
+        forms.forEach(function (form) {
+            var opt = document.createElement('option');
+            opt.value = form;
+            opt.textContent = form;
+            regFilter.appendChild(opt);
+        });
+        regFilter.value = forms.indexOf(previous) !== -1 ? previous : '';
+        if (regFilter._uiSelect) regFilter._uiSelect.refresh();
+    }
+
+    if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
 });
 </script>

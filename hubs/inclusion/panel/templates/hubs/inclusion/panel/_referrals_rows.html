@@ -1,0 +1,61 @@
+{% comment %}
+Row markup only, no .entity-list wrapper - shared by the initial/filtered
+render (_referrals_filtered_content.html, wraps this in .entity-list) and
+the infinite-scroll continuation response (inclusion_panel_referrals,
+views.py: a page>1 AJAX request renders just this template, and
+wireListInfiniteScroll, referrals.html, inserts the result directly into
+the existing .entity-list before the old sentinel). Keeping the row
+markup in one place means both call sites can never drift apart - same
+convention as Students' own _students_rows.html.
+{% endcomment %}
+{% for referral in referrals %}
+<div class="entity-row selectable referral-row" tabindex="0" role="button" aria-pressed="false">
+    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+    <div class="entity-body">
+        <div class="row-title-row">
+            {% if is_aggregate_view %}
+            <span class="meeting-card-logo-inline">
+                {% if referral.student.school.logo_url %}<img src="{{ referral.student.school.logo_url }}" alt="{{ referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+            </span>
+            {% endif %}
+            <div class="entity-title">{{ referral.student }}</div>
+            <span class="row-title-sep">&middot;</span>
+            <div class="entity-title row-secondary-text">Concern: {{ referral.concern_category|default:"—" }}</div>
+            <span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>
+            <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
+        </div>
+        <div class="row-facts row-facts-cols">
+            <div class="row-fact-col" style="width: {{ col_widths.raisedby }}">
+                <span>Raised by: {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}</span>
+                <span>Raised on: {{ referral.created_at|date:"d M Y" }}</span>
+            </div>
+            <span class="mc-vdivider"></span>
+            <div class="row-fact-col" style="width: {{ col_widths.panels }}">
+                <span>Prev Panel: {{ referral.previous_panel_date|date:"d M Y"|default:"—" }}</span>
+                <span>Next Panel: {{ referral.next_panel_date|date:"d M Y"|default:"—" }}</span>
+            </div>
+            <span class="mc-vdivider"></span>
+            <div class="row-fact-col" style="width: {{ col_widths.priorityreview }}">
+                <span>Priority: {{ referral.get_priority_display|default:"—" }}</span>
+                <span>Review Due: {{ referral.next_review_date|date:"d M Y"|default:"—" }}</span>
+            </div>
+            <span class="mc-vdivider"></span>
+            <div class="row-fact-col" style="width: {{ col_widths.actionsstatus }}">
+                <span>Completed Actions: {{ referral.completed_actions_count }}</span>
+                <span>Incomplete Actions: {{ referral.incomplete_actions_count }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="btn-row row-btn-row">
+        <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student.id }}" class="btn btn-sm">View Actions</a>
+        <button type="button" class="btn btn-primary btn-sm" data-view-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel_referrals' %}">Referral Details</button>
+    </div>
+</div>
+{% empty %}
+{% if not page_obj or page_obj.number == 1 %}
+<p class="empty-note">No referrals yet.</p>
+{% endif %}
+{% endfor %}
+{% if page_obj.has_next %}
+<div class="list-load-sentinel" data-next-page-url="{{ next_page_url }}"></div>
+{% endif %}

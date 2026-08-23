@@ -167,8 +167,15 @@
        instead, so it never claims width/height from its siblings at all -
        .filter-fields-wrap (below) is free to use the bar's full width, and
        the buttons stay visually anchored to the header regardless of how
-       tall the field list grows beneath them. */
-    form[data-ajax-target="#students-filtered-content"].filter-bar {
+       tall the field list grows beneath them. form.filter-bar.filter-bar-tray,
+       not a bare .filter-bar-tray - layout.css's own unconditional
+       .list-card .filter-bar { position: static } is (0,2,0) specificity,
+       higher than a single class; this needs the extra type+class to
+       reliably outrank it regardless of source order (bug: the button
+       positioned itself against the wrong ancestor - live feedback, "the
+       view filter and clear button is not showing" - once this lost that
+       tie and .list-card .filter-bar's own position: static won instead). */
+    form.filter-bar.filter-bar-tray {
         position: relative;
         /* Clips .filter-secondary-fields' own now-square bottom corners
            (below, its bleed-to-flush margin-bottom) to this bar's own
@@ -177,7 +184,7 @@
            .list-card/.entity-list (panel.css). */
         overflow: hidden;
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-actions-right {
+    .filter-bar-tray .filter-actions-right {
         position: absolute;
         top: var(--space-xs);
         right: var(--space-lg);
@@ -188,7 +195,7 @@
     }
     /* Fields claim the bar's full width now that .filter-actions-right (a
        plain sibling before, above) no longer reserves its own column. */
-    form[data-ajax-target="#students-filtered-content"] .filter-fields-wrap {
+    .filter-bar-tray .filter-fields-wrap {
         flex-basis: 100%;
     }
     /* Search fills whatever room "Filters" and the absolutely-positioned
@@ -202,11 +209,11 @@
        (measure(), main.js) off the buttons' own real rendered width, so
        this stays correct if their label/count badge ever changes it,
        rather than a guessed fixed number that silently drifts out of sync. */
-    form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
+    .filter-bar-tray .filter-bar-sticky-row {
         flex: 1 1 auto;
         padding-right: calc(var(--filter-actions-right-width, 180px) + var(--space-md));
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row .filter-field--search {
+    .filter-bar-tray .filter-bar-sticky-row .filter-field--search {
         flex: 1 1 auto;
         max-width: none;
     }
@@ -252,7 +259,7 @@
        it now that it isn't competing with the viewport for space) - it
        just grows to its natural content height and the page scrolls with
        it like anything else in normal flow. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) {
         display: flex;
         flex-wrap: wrap;
         align-content: flex-start;
@@ -349,10 +356,10 @@
        carousel (its own overflow-x: auto, panel.css) is the only thing that
        still scrolls here since secondaryRow itself went back to normal flow
        (immediately above) and dropped its own overflow-y entirely. */
-    html.nav-touch-mode form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-track {
+    html.nav-touch-mode .filter-bar-tray .filter-secondary-fields-track {
         scrollbar-width: none;
     }
-    html.nav-touch-mode form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields-track::-webkit-scrollbar {
+    html.nav-touch-mode .filter-bar-tray .filter-secondary-fields-track::-webkit-scrollbar {
         display: none;
     }
     /* .filter-divider (main.js's own first child of secondaryRow, marking
@@ -361,7 +368,7 @@
        own self-contained floating panel - its own border-top above already
        draws that seam, so this would just be a second, pointless line
        right under it. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields .filter-divider {
+    .filter-bar-tray .filter-secondary-fields .filter-divider {
         display: none;
     }
     /* FOUC prevention (live feedback: "the page loads with it open and I
@@ -374,8 +381,8 @@
        (the template's own plain, un-JS'd markup has nothing hiding these
        yet) and only getting hidden a beat later once setupFilterBarMore
        Filters's first measure() finishes. */
-    form[data-ajax-target="#students-filtered-content"] .filter-field:not([data-filter-pinned]),
-    form[data-ajax-target="#students-filtered-content"] .filter-section-label {
+    .filter-bar-tray .filter-field:not([data-filter-pinned]),
+    .filter-bar-tray .filter-section-label {
         display: none;
     }
     /* ...but visible again once actually inside the revealed panel - the
@@ -383,10 +390,10 @@
        the bare hide rule immediately above on specificity alone, so this
        wins regardless of source order once measure()/the click handler
        moves a field there and clears secondaryRow's own [hidden]. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field {
         display: flex;
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label {
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-section-label {
         display: flex;
     }
 }
@@ -429,6 +436,18 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-xs);
+    /* (DES-S1) Same vertical padding as a control/button - on every other
+       tray page this row's height came for free from the pinned Search
+       input beside it (its own DES-S1 padding, .filter-field input above),
+       but a page with no free-text field (Meetings - "let's have
+       everything under panel for now", #grill-with-docs) has nothing else
+       in .filter-bar-sticky-row to establish that height, so the label
+       alone rendered visibly shorter/off against the bar's own Clear/View
+       filters buttons beside it (live feedback: "the filter bar height is
+       off... is this because it has no search"). Matching height directly
+       on the label keeps every tray-page filter bar the same height
+       whether or not it has a Search field. */
+    padding: var(--space-xs) 0;
     /* Extra right margin beyond the bar's own (now tighter, --space-xs)
        gap - "Filters" + its count badge is a heavier, differently-styled
        cluster than a filter chip, and reads cramped sitting only 8px from

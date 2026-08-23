@@ -248,16 +248,18 @@ function setupFilterBarMoreFilters(bar) {
     // actually crosses back above mobile width, this whole function runs
     // again from scratch and, this time, gets past this line to build the
     // button for real.
-    // Students' own filter tray now also treats a narrowed, hover-capable
-    // desktop window as "mobile" (window.isFilterBarMobile, below - live
-    // feedback: "I basically want everything to be the same as mobile
+    // The responsive slide-over tray now also treats a narrowed, hover-
+    // capable desktop window as "mobile" (window.isFilterBarMobile, below -
+    // live feedback: "I basically want everything to be the same as mobile
     // except we keep the side nav and do not have the bottom mobile nav").
-    // Scoped to Students specifically (the ajax-target check) rather than
-    // every `.filter-bar` on the page - every other page's filter bar
-    // keeps the exact 480px threshold unchanged.
-    var isStudentsBar = bar.matches('form[data-ajax-target="#students-filtered-content"]');
-    if (window.matchMedia('(max-width: 480px)').matches || (isStudentsBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
-        var retryMqls = isStudentsBar
+    // Scoped to any opted-in tray bar (.filter-bar-tray class, added per-
+    // page alongside .filter-bar - Students originally, now also Referrals/
+    // Actions/Meetings) rather than every `.filter-bar` on the page - a
+    // plain `.filter-bar` with no tray keeps the exact 480px threshold
+    // unchanged.
+    var isTrayBar = bar.matches('.filter-bar-tray');
+    if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
+        var retryMqls = isTrayBar
             ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 768px)'), window.studentsPortraitMql || window.matchMedia('(orientation: portrait)')]
             : [window.matchMedia('(min-width: 481px)')];
         function retrySetupAboveMobile() {
@@ -493,7 +495,7 @@ function setupFilterBarMoreFilters(bar) {
         moreFiltersBtn.hidden = true;
         moreFiltersBtn.setAttribute('aria-expanded', 'false');
 
-        // isStudentsBar && isFilterBarMobile() - Students' own wider mobile
+        // isTrayBar && isFilterBarMobile() - a tray bar's own wider mobile
         // range (narrow desktop/portrait tablet up to 768px, not just this
         // literal <=480px) also shows every field directly rather than
         // behind "More filters" (its .filter-actions-right is unconditionally
@@ -502,7 +504,7 @@ function setupFilterBarMoreFilters(bar) {
         // range buried every field in the hidden .filter-secondary-fields
         // group with no way left to reveal it - the reported bug (fields
         // missing, only the sticky Clear/Close footer visible).
-        if (!window.matchMedia('(max-width: 480px)').matches && !(isStudentsBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
+        if (!window.matchMedia('(max-width: 480px)').matches && !(isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
             // #135 follow-up (2026-08-20, live feedback: "can we make this
             // the setup for all modes except mobile") - every width above
             // mobile now goes straight to "everything lives behind View
@@ -1096,7 +1098,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function syncFilterBarMobileClass() {
         document.documentElement.classList.toggle('filter-bar-mobile-mode', isFilterBarMobile());
         document.documentElement.classList.toggle('filter-bar-narrow-desktop', isFilterBarNarrowDesktop());
-        // Re-run the Students bar's own dynamic-overflow measurement
+        // Re-run each tray bar's own dynamic-overflow measurement
         // (setupFilterBarMoreFilters's measure(), exposed as
         // bar._filterBarMeasure) on every call here, not just a genuine
         // bar.clientWidth change - this function also fires from a touch-
@@ -1108,9 +1110,13 @@ document.addEventListener('DOMContentLoaded', function () {
         // control that could reveal it again - live feedback: "lost the
         // close and clear button" (they render, just via the wrong,
         // desktop-only .filter-actions-right placement, because the field
-        // grid itself never made it back into the tray).
-        var studentsBar = document.querySelector('form[data-ajax-target="#students-filtered-content"]');
-        if (studentsBar && studentsBar._filterBarMeasure) studentsBar._filterBarMeasure();
+        // grid itself never made it back into the tray). Only one tray bar
+        // is ever on screen per page, but querySelectorAll here (not a
+        // single querySelector) costs nothing and needs no per-page change
+        // if that ever stops being true.
+        document.querySelectorAll('.filter-bar-tray').forEach(function (trayBar) {
+            if (trayBar._filterBarMeasure) trayBar._filterBarMeasure();
+        });
     }
     syncFilterBarMobileClass();
     trueMobileMql.addEventListener('change', syncFilterBarMobileClass);
@@ -2617,8 +2623,13 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // (open, and the visualViewport listener, above) alongside the
         // tray's own maxHeight, for the same "screen size can change while
         // open" reasoning that recheck already exists for.
-        var statsStrip = document.querySelector('#students-filtered-content .stats-strip');
-        var overlayEl = document.querySelector('#students-filtered-content .filter-bar-overlay');
+        // Scoped to the tray's own .list-card (already read above for its
+        // border width), not a hardcoded #students-filtered-content - keeps
+        // this reusable for any page built on the same .list-card >
+        // .filter-bar / .filter-bar-overlay / .stats-strip structure, not
+        // just Students.
+        var statsStrip = listCard ? listCard.querySelector('.stats-strip') : null;
+        var overlayEl = listCard ? listCard.querySelector('.filter-bar-overlay') : null;
         if (overlayEl) overlayEl.style.bottom = statsStrip ? statsStrip.getBoundingClientRect().height + 'px' : '';
     }
     if (window.visualViewport) {
@@ -2693,12 +2704,12 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // in normal flow now (live feedback: "the filter shelf pushes the
         // content down... this can be kept open"), so there's no overlay
         // left to close.
-        // Students' own tray now also opens this way at a narrowed,
-        // hover-capable desktop width (window.isFilterBarMobile, above) -
-        // scoped to the Students bar specifically so every other page's
-        // filter bar keeps the exact 480px threshold unchanged.
-        var isStudentsBar = bar.matches('form[data-ajax-target="#students-filtered-content"]');
-        var barIsMobile = window.matchMedia('(max-width: 480px)').matches || (isStudentsBar && window.isFilterBarMobile && window.isFilterBarMobile());
+        // Any opted-in tray bar (.filter-bar-tray) now also opens this way
+        // at a narrowed, hover-capable desktop width (window.isFilterBarMobile,
+        // above) - a plain `.filter-bar` with no tray keeps the exact 480px
+        // threshold unchanged.
+        var isTrayBar = bar.matches('.filter-bar-tray');
+        var barIsMobile = window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile());
         if (!barIsMobile) {
             return;
         }

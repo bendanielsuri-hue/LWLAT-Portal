@@ -171,6 +171,8 @@ def inclusion_hub(request):
     selected_gender = request.GET.get('gender') or ''
     selected_send_code = request.GET.get('send_code') or ''
     selected_prior_attainment = request.GET.get('prior_attainment') or ''
+    selected_is_lac = request.GET.get('is_lac') or ''
+    selected_is_young_carer = request.GET.get('is_young_carer') or ''
 
     students = base_students
     if selected_year_group:
@@ -193,6 +195,10 @@ def inclusion_hub(request):
         students = students.filter(sen_status='')
     if selected_prior_attainment:
         students = students.filter(prior_attainment_band=selected_prior_attainment)
+    if selected_is_lac in ('1', '0'):
+        students = students.filter(is_lac=(selected_is_lac == '1'))
+    if selected_is_young_carer in ('1', '0'):
+        students = students.filter(is_young_carer=(selected_is_young_carer == '1'))
 
     total_students = students.count()
     send_students = students.exclude(sen_status='')
@@ -295,6 +301,7 @@ def inclusion_hub(request):
     active_filter_count = sum(1 for v in (
         selected_year_group, selected_reg_group, selected_house, selected_pp, selected_ethnicity,
         selected_more_able, selected_gender, selected_send_code, selected_prior_attainment,
+        selected_is_lac, selected_is_young_carer,
     ) if v)
 
     context = {
@@ -334,6 +341,8 @@ def inclusion_hub(request):
         'selected_gender': selected_gender,
         'selected_send_code': selected_send_code,
         'selected_prior_attainment': selected_prior_attainment,
+        'selected_is_lac': selected_is_lac,
+        'selected_is_young_carer': selected_is_young_carer,
         'active_filter_count': active_filter_count,
     }
     template = 'hubs/inclusion/_hub_dashboard_content.html' if is_ajax else 'hubs/inclusion/hub.html'
