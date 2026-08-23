@@ -260,7 +260,7 @@ function setupFilterBarMoreFilters(bar) {
     var isTrayBar = bar.matches('.filter-bar-tray');
     if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
         var retryMqls = isTrayBar
-            ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 768px)'), window.studentsPortraitMql || window.matchMedia('(orientation: portrait)')]
+            ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 768px)'), window.studentsPortraitMql || window.matchMedia('(orientation: portrait)'), window.studentsPortraitWideMql || window.matchMedia('(min-width: 900px)')]
             : [window.matchMedia('(min-width: 481px)')];
         function retrySetupAboveMobile() {
             retryMqls.forEach(function (mql) { mql.removeEventListener('change', retrySetupAboveMobile); });
@@ -810,6 +810,19 @@ function balanceFilterGroupLabels(box) {
             span.textContent = original;
             return;
         }
+        // A 2-word label whose second word is a bare 2-letter word (To/By/
+        // Of/...) reads as an orphan once the first word is long enough -
+        // "Raised By" (6/2) splits fine, "Assigned To"/"Referred By" (8/2)
+        // don't (live feedback 2026-08-23, Actions filter bar: "if the
+        // second line is two characters and the first line is more than
+        // 6" - comparing against "Raised By" as the accepted case). Single
+        // line here means this field's own column reads wider than its
+        // 2-line siblings, same tradeoff every other un-split single word
+        // label (Year, Reg, ...) already makes.
+        if (words.length === 2 && words[1].length === 2 && words[0].length > 6) {
+            span.textContent = original;
+            return;
+        }
         var mid = Math.ceil(words.length / 2);
         span.appendChild(document.createTextNode(words.slice(0, mid).join(' ')));
         span.appendChild(document.createElement('br'));
@@ -1075,8 +1088,17 @@ document.addEventListener('DOMContentLoaded', function () {
        narrowed *desktop* window is never orientation: portrait in the OS
        sense, so this can't misfire there). */
     var portraitMql = window.matchMedia('(orientation: portrait)');
+    /* 900px - live feedback: "some bigger tablets in portrait may benefit
+       from seeing the filters" - a portrait iPad Pro 12.9" (1024px) has
+       exactly the room to show the inline bar like desktop does, so the
+       touch+portrait branch above (which otherwise has no width floor at
+       all) needs its own separate cap here, wider than studentsNarrowMql's
+       768px - that number is tuned for narrowed *desktop* windows and would
+       still catch a standard portrait iPad (768-834px) if reused here,
+       which is exactly the tray behaviour this cap exists to keep. */
+    var portraitWideMql = window.matchMedia('(min-width: 900px)');
     function isFilterBarMobile() {
-        return trueMobileMql.matches || (studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches);
+        return trueMobileMql.matches || (studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches);
     }
     // The narrow-desktop sub-case specifically (filter-bar-mobile-mode minus
     // true phone width) - live feedback: "all I can see is the overlay" -
@@ -1093,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // does (neither is a true phone), so it takes this same push-down
     // branch too, not the true-mobile fixed-overlay one.
     function isFilterBarNarrowDesktop() {
-        return !trueMobileMql.matches && ((studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches));
+        return !trueMobileMql.matches && ((studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches));
     }
     function syncFilterBarMobileClass() {
         document.documentElement.classList.toggle('filter-bar-mobile-mode', isFilterBarMobile());
@@ -1122,6 +1144,7 @@ document.addEventListener('DOMContentLoaded', function () {
     trueMobileMql.addEventListener('change', syncFilterBarMobileClass);
     studentsNarrowMql.addEventListener('change', syncFilterBarMobileClass);
     portraitMql.addEventListener('change', syncFilterBarMobileClass);
+    portraitWideMql.addEventListener('change', syncFilterBarMobileClass);
     touchNavListeners.push(syncFilterBarMobileClass);
     // Exposed globally - setupFilterBarMoreFilters/the Students tray click
     // handler (below) are both defined outside this DOMContentLoaded
@@ -1130,6 +1153,7 @@ document.addEventListener('DOMContentLoaded', function () {
     window.isFilterBarNarrowDesktop = isFilterBarNarrowDesktop;
     window.studentsNarrowMql = studentsNarrowMql;
     window.studentsPortraitMql = portraitMql;
+    window.studentsPortraitWideMql = portraitWideMql;
 
     // Icon-only rail behaviour for the hub sidebar. Desktop has no manual
     // control here at all - below the narrow-window breakpoint a
@@ -3294,7 +3318,14 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     function positionPopover(panel, anchorEl, opts) {
         opts = opts || {};
         panel.style.position = 'fixed';
-        if (opts.matchWidth) panel.style.width = anchorEl.getBoundingClientRect().width + 'px';
+        // matchWidth is a floor, not an exact match: opts.contentWidth (the
+        // widest option's own text, .ui-select-panel callers only) can push
+        // the open panel wider than the closed trigger - a .filter-field
+        // trigger is now sized to its label, not its widest option (main.js
+        // resolveTriggerMinWidth, live feedback 2026-08-23), so the popover
+        // still needs to be wide enough to show a long option on one line
+        // rather than wrapping it just because the closed control is narrow.
+        if (opts.matchWidth) panel.style.width = Math.max(anchorEl.getBoundingClientRect().width, opts.contentWidth || 0) + 'px';
         var rect = anchorEl.getBoundingClientRect();
         var panelHeight = panel.offsetHeight;
         var spaceBelow = window.innerHeight - rect.bottom;
@@ -3324,7 +3355,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // exists to avoid (see grilling session 2026-07-12).
     var FILTER_FIELD_TRIGGER_MAX_WIDTH = 176;
     var selectWidthGhost = null;
-    function maxOptionTextWidth(selectEl, font) {
+    function textWidth(text, font) {
         if (!selectWidthGhost) {
             selectWidthGhost = document.createElement('span');
             selectWidthGhost.style.position = 'absolute';
@@ -3334,10 +3365,13 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             document.body.appendChild(selectWidthGhost);
         }
         selectWidthGhost.style.font = font;
+        selectWidthGhost.textContent = text;
+        return selectWidthGhost.offsetWidth;
+    }
+    function maxOptionTextWidth(selectEl, font) {
         var max = 0;
         Array.prototype.forEach.call(selectEl.options, function (opt) {
-            selectWidthGhost.textContent = opt.textContent;
-            max = Math.max(max, selectWidthGhost.offsetWidth);
+            max = Math.max(max, textWidth(opt.textContent, font));
         });
         return max;
     }
@@ -3349,22 +3383,45 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     //   or the full row once stacked), so this is skipped entirely and the
     //   trigger just fills its cell via width: 100%, truncating with an
     //   ellipsis if a value doesn't fit.
-    // - .filter-field: has its own smaller, fixed cap (FILTER_FIELD_TRIGGER_
-    //   MAX_WIDTH, see above) - sized to the widest *option* rather than
-    //   whichever one happens to be selected (so picking a short option
-    //   doesn't narrow the control down enough to clip a longer one next
-    //   time it's opened), same as the generic case, just capped tighter to
-    //   match the field's own budget.
-    // - everywhere else: the generic SELECT_TRIGGER_MAX_WIDTH cap.
+    // - .filter-field: sized to its own *label*, not the widest option - a
+    //   filter bar wants as many fields visible on screen as possible, so a
+    //   field only grows past its label when the value actually picked needs
+    //   more room (live feedback 2026-08-23: "filters should be the width of
+    //   the label unless a wide selection has actually been selected"). Still
+    //   capped at FILTER_FIELD_TRIGGER_MAX_WIDTH so one very long option
+    //   value doesn't blow the field out past the field's own budget - it
+    //   just clips with the trigger's existing ellipsis instead.
+    // - everywhere else: sized to the widest *option* (so picking a short
+    //   option doesn't narrow the control down enough to clip a longer one
+    //   next time it's opened), capped at the generic SELECT_TRIGGER_MAX_WIDTH.
     // An inline min-width always wins over max-width/width: 100% when they
     // conflict, which is exactly why .ui-fused-field and .filter-field each
-    // need their own cap rather than the generic one (see grilling session
-    // 2026-07-12).
+    // need their own handling rather than the generic one (see grilling
+    // session 2026-07-12).
     function resolveTriggerMinWidth(selectEl, trigger) {
         if (selectEl.closest('.ui-fused-field')) return '';
-        var maxWidth = selectEl.closest('.filter-field') ? FILTER_FIELD_TRIGGER_MAX_WIDTH : SELECT_TRIGGER_MAX_WIDTH;
-        var widest = maxOptionTextWidth(selectEl, window.getComputedStyle(trigger).font);
-        return Math.min(widest + SELECT_TRIGGER_PADDING, maxWidth) + 'px';
+        var font = window.getComputedStyle(trigger).font;
+        var filterField = selectEl.closest('.filter-field');
+        if (filterField) {
+            var label = filterField.querySelector(':scope > label');
+            var labelWidth = label ? label.offsetWidth : 0;
+            var selectedOpt = selectEl.options[selectEl.selectedIndex];
+            var selectedWidth = selectedOpt ? textWidth(selectedOpt.textContent, font) + SELECT_TRIGGER_PADDING : 0;
+            return Math.min(Math.max(labelWidth, selectedWidth), FILTER_FIELD_TRIGGER_MAX_WIDTH) + 'px';
+        }
+        var widest = maxOptionTextWidth(selectEl, font);
+        return Math.min(widest + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH) + 'px';
+    }
+
+    // The open popover's own width floor - always the generic
+    // SELECT_TRIGGER_MAX_WIDTH cap regardless of context, never the tighter
+    // FILTER_FIELD_TRIGGER_MAX_WIDTH: a .filter-field's closed trigger is
+    // deliberately capped to its own column budget, but the popover is an
+    // overlay positioned on top of the page, not confined to that column, so
+    // a wide option (a long Panel Group name, say) can still show in full
+    // instead of wrapping just because the closed control reads narrow.
+    function popoverContentWidth(selectEl, trigger) {
+        return Math.min(maxOptionTextWidth(selectEl, window.getComputedStyle(trigger).font) + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH);
     }
 
     window.enhanceSelect = function (selectEl) {
@@ -3491,7 +3548,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             } else {
                 panel.showModal();
                 trigger.classList.add('open');
-                positionPopover(panel, trigger, { matchWidth: true });
+                positionPopover(panel, trigger, { matchWidth: true, contentWidth: popoverContentWidth(selectEl, trigger) });
             }
         });
 
@@ -3530,7 +3587,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 closeAllUiPopovers(panel);
                 panel.showModal();
                 trigger.classList.add('open');
-                positionPopover(panel, trigger, { matchWidth: true });
+                positionPopover(panel, trigger, { matchWidth: true, contentWidth: popoverContentWidth(selectEl, trigger) });
                 return;
             }
             var rows = Array.prototype.slice.call(panel.querySelectorAll('.ui-option'));
