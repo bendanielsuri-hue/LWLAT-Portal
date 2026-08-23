@@ -59,8 +59,34 @@
    data-ajax-target while a fetch is in flight, instead of the full-page
    loading indicator a real navigation would show. */
 .is-loading {
-    opacity: 0.6;
     pointer-events: none;
+}
+/* > *, not opacity on .is-loading itself - Students' own filter tray
+   backdrop (.filter-bar-overlay, panel.css) is a permanent child of this
+   same data-ajax-target (main.js's setupAjaxFilterBars() detaches/
+   reinserts it across every swap so it survives, rather than getting wiped
+   out with the old content - see that function's own comment) - plain
+   opacity on the target composited the overlay's own already-dark 0.45/
+   0.65 alpha down to 60% of that for the fetch's duration too, then
+   snapped back the instant it finished, reading as an extra flash/pulse on
+   top of the overlay every time a filter changed while the tray was open
+   (live feedback: "I am seeing the overlay flash... is there two overlays
+   one on top of each other" - visually similar to a second layer, but
+   actually this same dimming compositing twice: once from the overlay's
+   own rgba background, once again from opacity thinning the whole stack).
+   Scoping the dim to non-overlay children only leaves the overlay's own
+   opacity purely under its own .overlay-visible transition, unaffected by
+   how many fetches happen while it's showing.
+   :not(.stats-strip) alongside it for the same reason - the stats footer
+   (Students/Referrals/Actions counts) already stays undimmed *through* the
+   tray's own overlay via its own z-index: 2 (panel.css, live feedback:
+   "overlay should not overlay the stats footer") - it's still a plain
+   sibling of that overlay inside this same data-ajax-target, though, so
+   this dim (a completely separate mechanism) was still catching it every
+   fetch regardless (live feedback: "the stats footer is also affected by
+   filter load"). */
+.is-loading > *:not(.filter-bar-overlay):not(.stats-strip) {
+    opacity: 0.6;
     transition: opacity var(--transition-fast);
 }
 
@@ -144,6 +170,12 @@
        tall the field list grows beneath them. */
     form[data-ajax-target="#students-filtered-content"].filter-bar {
         position: relative;
+        /* Clips .filter-secondary-fields' own now-square bottom corners
+           (below, its bleed-to-flush margin-bottom) to this bar's own
+           border-radius instead of them poking past the curve - same
+           radius-lives-on-the-non-scrolling-wrapper convention as
+           .list-card/.entity-list (panel.css). */
+        overflow: hidden;
     }
     form[data-ajax-target="#students-filtered-content"] .filter-actions-right {
         position: absolute;
@@ -226,7 +258,23 @@
         align-content: flex-start;
         align-items: flex-end;
         gap: var(--space-xs);
-        flex-basis: 100%;
+        /* calc(100% + 2 * --space-lg), not a plain 100% - this tray's real
+           flex parent is .filter-fields-wrap (a genuine flex box, not one of
+           the display: contents wrappers above it), and flex-basis pins the
+           item's own MAIN-AXIS (width) size outright - unlike the cross-axis
+           (margin-bottom bleed below, which works fine as plain negative
+           margin), a flex item's width from a resolved basis doesn't grow to
+           account for extra margin. A plain 100% + the left/right bleed
+           margins below only ever bled the left edge (margin-left shifts
+           where the box STARTS) while the right edge stayed pinned at
+           start+100%, ignoring margin-right entirely (live feedback: "width
+           is not full width, it needs to meet right edge" - confirmed via
+           direct measurement, not guesswork: filter-fields-wrap's own
+           right edge sat 20px short of the tray's actual rendered right
+           edge). Baking the two --space-lg bleeds directly into the basis
+           itself, instead of leaving them to unreliable margin growth, gives
+           the box the true full width up front. */
+        flex-basis: calc(100% + 2 * var(--space-lg));
         position: relative;
         /* Live feedback: "when I close the filter tray, the filters stay
            put and do not move with the tray"/"the filters hover" - this
@@ -243,9 +291,44 @@
            panel.css, which does carry overflow: hidden on its equivalent
            box). */
         overflow: hidden;
-        padding: var(--space-sm) var(--space-lg);
+        /* Top/bottom dropped to 0 entirely (live feedback: "lose top and
+           bottom padding of filter-secondary-fields") - was --space-xxs, a
+           trim from the original --space-sm before that (history, this
+           comment). --space-lg stays horizontal-only - that's the category
+           strip's own visual inset, deliberately matched to the page margin
+           (.filter-secondary-fields-track's own comment, panel.css), not
+           part of this vertical-compactness pass. */
+        padding: 0 var(--space-lg);
+        /* Bleeds the bottom out to cancel .filter-bar's own bottom padding
+           (--space-xs, base rule) too - without this, the tray's scrollbar
+           (already flush against ITS OWN bottom edge via
+           .filter-secondary-fields-track's negative margin, panel.css) still
+           sat a further --space-xs above the bar's true bottom edge/border,
+           reading as a leftover gap (live feedback: "I am also seeing a gap
+           under the scrollbar still" - this second, outer padding layer was
+           the actual remaining cause, not the tray's own). form.filter-bar's
+           own Students-scoped override (above, this file) now carries
+           overflow: hidden so the tray's resulting square bottom corners get
+           clipped to the bar's rounded shape instead of poking past it -
+           same radius-lives-on-the-non-scrolling-wrapper convention as
+           .list-card/.entity-list (panel.css). Left/right bleed the same
+           way against .filter-bar's own --space-lg side padding (live
+           feedback: "I do not like that it is not to the edge on the left
+           and right") - this tray's own --space-lg padding (kept, below)
+           already provides the category strip's visual inset on its own,
+           deliberately matched to the page margin (.filter-secondary-fields-
+           track's own comment, panel.css); stacking .filter-bar's side
+           padding on top of that (uncancelled, before this fix) was doubling
+           it rather than genuinely reaching the bar's edge. */
+        margin: 0 calc(-1 * var(--space-lg)) calc(-1 * var(--space-xs));
         background: var(--bg-well);
-        border-top: 1px solid var(--border-strong);
+        /* border-top removed (live feedback: "we do not need the divider
+           between filter bar and filter tray... this might be a border") -
+           both this tray and .filter-bar itself already share the exact
+           same --bg-well fill, so the line was the only thing marking the
+           seam; dropping it reads as one continuous surface, which is also
+           a hair more compact (a border still occupies visual weight even
+           though it doesn't consume layout space). */
         /* No bottom radius - even back in normal flow, this band sits
            inside .list-card with the entity list continuing directly below
            it (live feedback that first established this, still true here:

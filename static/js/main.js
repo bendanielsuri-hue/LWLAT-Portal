@@ -258,7 +258,7 @@ function setupFilterBarMoreFilters(bar) {
     var isStudentsBar = bar.matches('form[data-ajax-target="#students-filtered-content"]');
     if (window.matchMedia('(max-width: 480px)').matches || (isStudentsBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
         var retryMqls = isStudentsBar
-            ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 900px)')]
+            ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 768px)'), window.studentsPortraitMql || window.matchMedia('(orientation: portrait)')]
             : [window.matchMedia('(min-width: 481px)')];
         function retrySetupAboveMobile() {
             retryMqls.forEach(function (mql) { mql.removeEventListener('change', retrySetupAboveMobile); });
@@ -493,7 +493,16 @@ function setupFilterBarMoreFilters(bar) {
         moreFiltersBtn.hidden = true;
         moreFiltersBtn.setAttribute('aria-expanded', 'false');
 
-        if (!window.matchMedia('(max-width: 480px)').matches) {
+        // isStudentsBar && isFilterBarMobile() - Students' own wider mobile
+        // range (narrow desktop/portrait tablet up to 768px, not just this
+        // literal <=480px) also shows every field directly rather than
+        // behind "More filters" (its .filter-actions-right is unconditionally
+        // display: none there, panel.css). Without this, a bar that first
+        // measured at a normal desktop width and then narrowed into that
+        // range buried every field in the hidden .filter-secondary-fields
+        // group with no way left to reveal it - the reported bug (fields
+        // missing, only the sticky Clear/Close footer visible).
+        if (!window.matchMedia('(max-width: 480px)').matches && !(isStudentsBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
             // #135 follow-up (2026-08-20, live feedback: "can we make this
             // the setup for all modes except mobile") - every width above
             // mobile now goes straight to "everything lives behind View
@@ -592,6 +601,18 @@ function setupFilterBarMoreFilters(bar) {
     }
 
     measure();
+    // Exposed so a touch/orientation-only transition into or out of
+    // Students' filter-bar-mobile-mode (syncFilterBarMobileClass, above -
+    // e.g. the dev breakpoint preview's touch toggle, or a hybrid device
+    // resolving hover:none after load) can force a remeasure too, not just
+    // a genuine bar.clientWidth change (handleResize, below). Without this,
+    // switching into mobile-mode after an initial non-mobile measure() had
+    // already buried every field behind the hidden "More filters" group
+    // left them stuck there - filter-bar-mobile-mode's own CSS hides
+    // .filter-actions-right (the only control that would reveal it)
+    // unconditionally, and nothing else was listening for a width-less
+    // mobile-mode transition to run measure() again.
+    bar._filterBarMeasure = measure;
     var lastWidth = bar.clientWidth;
     var handleResize = rafThrottle(function () {
         var width = bar.clientWidth;
@@ -636,10 +657,73 @@ function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nex
     prevBtn.addEventListener('click', function () { track.scrollBy({ left: -step(), behavior: 'smooth' }); });
     nextBtn.addEventListener('click', function () { track.scrollBy({ left: step(), behavior: 'smooth' }); });
 
+    // A mouse wheel only ever reports deltaY, so without this a horizontal-
+    // only track (nothing to scroll vertically) just ignores the user's wheel
+    // entirely - the arrows/drag-scroll were the only way to move it. Redirects
+    // vertical wheel input into horizontal scroll, same convention browsers
+    // themselves use for a horizontal <select>/overflow-x region. Only when
+    // deltaY actually dominates deltaX - a real trackpad two-finger horizontal
+    // swipe already reports deltaX and should pass through untouched rather
+    // than being doubled up. { passive: false } so preventDefault can actually
+    // stop the page itself from scrolling vertically while this redirects it.
+    track.addEventListener('wheel', function (e) {
+        if (track.scrollWidth <= track.clientWidth) return;
+        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+        track.scrollLeft += e.deltaY;
+        e.preventDefault();
+    }, { passive: false });
+
+    // Click-and-drag scroll for a mouse (touch already gets native
+    // momentum-scroll from overflow-x: auto, and a pen isn't a horizontal-
+    // drag gesture users expect here) - a strip this narrow relative to its
+    // content otherwise only moves via the arrows or the wheel redirect
+    // above, neither of which is how a mouse user instinctively tries to pan
+    // a horizontal strip first (grabbing and dragging it). DRAG_THRESHOLD
+    // defers "is this actually a drag" until real movement happens, so a
+    // plain click still reaches whatever's under the pointer (a filter's
+    // <select> trigger, a toggle) untouched - only once threshold is crossed
+    // does this (a) start actually moving scrollLeft and (b) arm the one-shot
+    // capturing click-suppressor below, so the click a real drag would
+    // otherwise fire on release never reaches - and spuriously activates -
+    // whatever the drag happened to start on top of.
+    var DRAG_THRESHOLD = 6;
+    var drag = null;
+    track.addEventListener('pointerdown', function (e) {
+        if (e.pointerType !== 'mouse' || e.button !== 0) return;
+        if (track.scrollWidth <= track.clientWidth) return;
+        drag = { startX: e.clientX, startScroll: track.scrollLeft, moved: false, id: e.pointerId };
+    });
+    track.addEventListener('pointermove', function (e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        var dx = e.clientX - drag.startX;
+        if (!drag.moved) {
+            if (Math.abs(dx) < DRAG_THRESHOLD) return;
+            drag.moved = true;
+            track.setPointerCapture(drag.id);
+            track.classList.add('is-dragging');
+        }
+        track.scrollLeft = drag.startScroll - dx;
+    });
+    function endDrag(e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        if (drag.moved) {
+            track.classList.remove('is-dragging');
+            var suppressClick = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+            track.addEventListener('click', suppressClick, { capture: true, once: true });
+        }
+        drag = null;
+    }
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+
     function updateArrows() {
         var overflowing = track.scrollWidth > track.clientWidth + 1;
         prevBtn.hidden = !overflowing;
         nextBtn.hidden = !overflowing;
+        // Grab cursor only advertises drag when there's actually something to
+        // drag - an unaffordanced default cursor on a track that's already
+        // fully visible would be a lie.
+        track.classList.toggle('is-draggable', overflowing);
     }
     updateArrows();
     window.addEventListener('resize', updateArrows);
@@ -747,6 +831,17 @@ function animateSecondaryFieldsToggle(box, opening) {
         box.hidden = false;
         balanceFilterGroupLabels(box);
     }
+    // Fields/labels fade with the same open/close toggle (live feedback:
+    // "add a fade to the filters and label as the tray opens and closes...
+    // the tray should not get this effect, only the contents") - opacity
+    // goes on these leaf elements directly, not `box` itself, so the box's
+    // own background/border (panel.css) stays fully opaque throughout and
+    // only its contents fade. Queried up front, before anything else here
+    // mutates the DOM - .filter-field/.filter-section-label are real
+    // rendered elements even though several ancestors between them and
+    // `box` are display: contents (setupFilterBarMoreFilters's wrappers),
+    // so querySelectorAll still finds them regardless of that flattening.
+    var contentEls = box.querySelectorAll('.filter-field, .filter-section-label');
     var before = opening ? 0 : box.getBoundingClientRect().height;
     var after = opening ? box.scrollHeight : 0;
     // box-sizing: border-box (global reset, layout.css) only means padding/
@@ -769,24 +864,95 @@ function animateSecondaryFieldsToggle(box, opening) {
     // get touched) so a reopen isn't left permanently flattened.
     var cs = getComputedStyle(box);
     var padTop = cs.paddingTop, padBottom = cs.paddingBottom, borderTop = cs.borderTopWidth;
+    // marginBottom, alongside the padding/border already pinned above -
+    // this box also carries a NEGATIVE bottom margin (forms.css: margin: 0
+    // ... calc(-1 * var(--space-xs)), cancelling .filter-bar's own bottom
+    // padding so the tray's scrollbar sits flush against the bar's real
+    // edge) that this animation never touched at all - a box with height:
+    // 0 still pulls its next sibling up by however much negative margin it
+    // still carries, so the layout stayed shifted by that full amount for
+    // the entire close transition regardless of how far height/padding/
+    // border had already animated, only snapping back the instant `box.
+    // hidden = true` (below) finally removed the margin's effect
+    // outright - live feedback: "smooth animation of the filter tray
+    // closing but it stops and then it has a snap close effect... maybe
+    // 8px" (var(--space-xs) itself, confirmed by the fixed 8px size
+    // regardless of how tall the field grid closing was). Animated
+    // alongside the rest now, real px value <-> 0 same as padding/border.
+    var marginBottom = cs.marginBottom;
+    // rowGap - box.parentElement isn't necessarily the flex container
+    // actually applying a gap around this row: Students' own tray nests
+    // this box inside .filter-bar-collapsible-inner (setupFilterBarMoreFilters,
+    // above), which is display: contents at this width (panel.css) -
+    // display:contents flattens an element out of the render/layout tree
+    // entirely, so the gap genuinely being applied is .filter-fields-wrap's
+    // (one or two levels further up), not that flattened element's own.
+    // Walking up past any display: contents ancestor finds the real one
+    // generically - every other filter-bar page has no such wrapper at
+    // all, so this is a no-op loop there, box.parentElement already being
+    // the real flex container on the first try.
+    // Animated on the PARENT itself (gapParent's own row-gap, 0 <-> its
+    // real value), not by fighting it from this child's own margin - a
+    // first attempt at this did exactly that (an animated margin-top,
+    // 0 <-> -rowGap, meant to cancel the gap the same way marginBottom
+    // already cancels .filter-bar's own padding) and it visibly failed
+    // partway through: live colour test (.filter-bar one debug colour,
+    // this box another) showed a growing gap-coloured band that still
+    // snapped away at the very end. Root cause, confirmed by sampling
+    // .filter-bar's own rect during the animation: browsers floor a flex
+    // item's own contribution to its line's size at 0 - once this box's
+    // combined margin-top + height + margin-bottom went net negative
+    // (around 60% through the close), the flex algorithm simply stopped
+    // shrinking .filter-bar any further even though margin-top kept
+    // animating toward -rowGap, so the row-gap itself (applied
+    // unconditionally between any two PRESENT flex items, regardless of
+    // their own computed size) stayed fully in effect right up until
+    // `box.hidden = true` (below) removed the row from the flex layout
+    // altogether - the same snap, just moved to a different threshold.
+    // Changing the gap value itself sidesteps that floor entirely: it's
+    // not a margin fighting the layout algorithm's own space reservation,
+    // it *is* the space reservation.
+    var gapParent = box.parentElement;
+    while (gapParent && getComputedStyle(gapParent).display === 'contents') {
+        gapParent = gapParent.parentElement;
+    }
+    var rowGap = gapParent ? getComputedStyle(gapParent).rowGap : null;
     box.style.height = before + 'px';
     if (!opening) {
         box.style.paddingTop = padTop;
         box.style.paddingBottom = padBottom;
         box.style.borderTopWidth = borderTop;
+        box.style.marginBottom = marginBottom;
+        if (gapParent) gapParent.style.rowGap = rowGap;
     } else {
         box.style.paddingTop = '0px';
         box.style.paddingBottom = '0px';
         box.style.borderTopWidth = '0px';
+        box.style.marginBottom = '0px';
+        if (gapParent) gapParent.style.rowGap = '0px';
     }
+    contentEls.forEach(function (el) {
+        el.style.opacity = opening ? '0' : '1';
+        el.style.transition = 'none';
+    });
     box.style.transition = 'none';
+    if (gapParent) gapParent.style.transition = 'none';
     void box.offsetHeight;
-    box.style.transition = 'height 360ms cubic-bezier(.2, .8, .2, 1), padding-top 360ms cubic-bezier(.2, .8, .2, 1), padding-bottom 360ms cubic-bezier(.2, .8, .2, 1), border-top-width 360ms cubic-bezier(.2, .8, .2, 1)';
+    box.style.transition = 'height 360ms cubic-bezier(.2, .8, .2, 1), padding-top 360ms cubic-bezier(.2, .8, .2, 1), padding-bottom 360ms cubic-bezier(.2, .8, .2, 1), border-top-width 360ms cubic-bezier(.2, .8, .2, 1), margin-bottom 360ms cubic-bezier(.2, .8, .2, 1)';
+    if (gapParent) gapParent.style.transition = 'row-gap 360ms cubic-bezier(.2, .8, .2, 1)';
+    contentEls.forEach(function (el) {
+        el.style.transition = 'opacity 360ms cubic-bezier(.2, .8, .2, 1)';
+    });
     requestAnimationFrame(function () {
         box.style.height = after + 'px';
         box.style.paddingTop = opening ? padTop : '0px';
         box.style.paddingBottom = opening ? padBottom : '0px';
         box.style.borderTopWidth = opening ? borderTop : '0px';
+        box.style.marginBottom = opening ? marginBottom : '0px';
+        if (gapParent) gapParent.style.rowGap = opening ? rowGap : '0px';
+        contentEls.forEach(function (el) {
+            el.style.opacity = opening ? '1' : '0';
+        });
     });
     box.addEventListener('transitionend', function handler(e) {
         if (e.target !== box || e.propertyName !== 'height') return;
@@ -795,6 +961,15 @@ function animateSecondaryFieldsToggle(box, opening) {
         box.style.paddingTop = '';
         box.style.paddingBottom = '';
         box.style.borderTopWidth = '';
+        box.style.marginBottom = '';
+        if (gapParent) {
+            gapParent.style.transition = '';
+            gapParent.style.rowGap = '';
+        }
+        contentEls.forEach(function (el) {
+            el.style.opacity = '';
+            el.style.transition = '';
+        });
         if (!opening) box.hidden = true;
         box.removeEventListener('transitionend', handler);
     });
@@ -867,24 +1042,39 @@ document.addEventListener('DOMContentLoaded', function () {
     // basically want everything to be the same as mobile except we keep
     // the side nav and do not have the bottom mobile nav" - after two
     // narrower bespoke-narrow-desktop attempts both still read as
-    // unfinished). isTouchNav()/nav-touch-mode (above) is what keeps a
-    // real portrait tablet - hover:none, same 481-900px width band - OUT
-    // of this (live feedback, earlier in the same thread: "I did not want
-    // the filter change on narrow mobile to affect portrait tablet. It is
-    // only on very narrow desktop that had issues"): only a hover-capable
-    // pointer this narrow (a shrunk desktop browser window) counts.
-    // html.filter-bar-mobile-mode (panel.css, the Students-scoped
-    // selectors it gates) is the single switch every affected CSS rule
-    // keys off, rather than each rule re-deriving this same OR condition
-    // from raw media features. Scoped to Students deliberately - the
-    // shared filter-bar system every other page's own `.filter-bar` also
-    // uses (setupFilterBarMoreFilters, below) is untouched by this class
-    // entirely, so Referrals/Actions/Meetings keep their existing
+    // unfinished). html.filter-bar-mobile-mode (panel.css, the Students-
+    // scoped selectors it gates) is the single switch every affected CSS
+    // rule keys off, rather than each rule re-deriving this same OR
+    // condition from raw media features. Scoped to Students deliberately -
+    // the shared filter-bar system every other page's own `.filter-bar`
+    // also uses (setupFilterBarMoreFilters, below) is untouched by this
+    // class entirely, so Referrals/Actions/Meetings keep their existing
     // View-filters behaviour unchanged at every width.
     var trueMobileMql = window.matchMedia('(max-width: 480px)');
-    var studentsNarrowMql = window.matchMedia('(max-width: 900px)');
+    /* 768px, not 900px - live feedback: "narrow desktop mode activates a
+       little early, is there a narrower breakpoint" - a tablet-portrait-
+       width boundary, kept as this single source of truth (isFilterBarMobile/
+       isFilterBarNarrowDesktop below and the retry fallback near the top of
+       this file all read from this one query rather than each hardcoding
+       their own number). Width-gated branch is now non-touch only (below) -
+       a real portrait tablet is covered separately, by orientation. */
+    var studentsNarrowMql = window.matchMedia('(max-width: 768px)');
+    /* Real portrait tablets used to be deliberately excluded from all of
+       this (live feedback, earlier in this same thread: "I did not want the
+       filter change on narrow mobile to affect portrait tablet. It is only
+       on very narrow desktop that had issues") - reversed on further live
+       feedback once the tablet's own category-strip tray turned out to mean
+       "a lot of scrolling" in practice ("I think I want this to apply to
+       portrait tablet as it is narrow"). Width alone can't reliably catch
+       "a portrait tablet" the way it can "a narrowed desktop window" - a
+       portrait iPad (768-834px) or iPad Pro 12.9" (1024px) would need a much
+       wider threshold than a genuinely narrow desktop should ever trigger at
+       - so this checks orientation instead, only for touch devices (a
+       narrowed *desktop* window is never orientation: portrait in the OS
+       sense, so this can't misfire there). */
+    var portraitMql = window.matchMedia('(orientation: portrait)');
     function isFilterBarMobile() {
-        return trueMobileMql.matches || (studentsNarrowMql.matches && !isTouchNav());
+        return trueMobileMql.matches || (studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches);
     }
     // The narrow-desktop sub-case specifically (filter-bar-mobile-mode minus
     // true phone width) - live feedback: "all I can see is the overlay" -
@@ -896,17 +1086,36 @@ document.addEventListener('DOMContentLoaded', function () {
     // floating over it" override off this class, and the JS below skips
     // positionFilterTray (which computes fixed-position top/max-height) for
     // any Students bar in this state - a push-down panel just grows to its
-    // natural content height in normal flow, nothing to compute.
+    // natural content height in normal flow, nothing to compute. A portrait
+    // tablet's side nav persists exactly like a narrowed desktop window's
+    // does (neither is a true phone), so it takes this same push-down
+    // branch too, not the true-mobile fixed-overlay one.
     function isFilterBarNarrowDesktop() {
-        return !trueMobileMql.matches && studentsNarrowMql.matches && !isTouchNav();
+        return !trueMobileMql.matches && ((studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches));
     }
     function syncFilterBarMobileClass() {
         document.documentElement.classList.toggle('filter-bar-mobile-mode', isFilterBarMobile());
         document.documentElement.classList.toggle('filter-bar-narrow-desktop', isFilterBarNarrowDesktop());
+        // Re-run the Students bar's own dynamic-overflow measurement
+        // (setupFilterBarMoreFilters's measure(), exposed as
+        // bar._filterBarMeasure) on every call here, not just a genuine
+        // bar.clientWidth change - this function also fires from a touch-
+        // nav-only transition (touchNavListeners, below), which flips
+        // filter-bar-mobile-mode without necessarily resizing anything.
+        // Skipping this left fields that measure() had already buried
+        // behind the hidden "More filters" group (built while still non-
+        // mobile) stuck there once mobile-mode's own CSS hid the only
+        // control that could reveal it again - live feedback: "lost the
+        // close and clear button" (they render, just via the wrong,
+        // desktop-only .filter-actions-right placement, because the field
+        // grid itself never made it back into the tray).
+        var studentsBar = document.querySelector('form[data-ajax-target="#students-filtered-content"]');
+        if (studentsBar && studentsBar._filterBarMeasure) studentsBar._filterBarMeasure();
     }
     syncFilterBarMobileClass();
     trueMobileMql.addEventListener('change', syncFilterBarMobileClass);
     studentsNarrowMql.addEventListener('change', syncFilterBarMobileClass);
+    portraitMql.addEventListener('change', syncFilterBarMobileClass);
     touchNavListeners.push(syncFilterBarMobileClass);
     // Exposed globally - setupFilterBarMoreFilters/the Students tray click
     // handler (below) are both defined outside this DOMContentLoaded
@@ -914,6 +1123,7 @@ document.addEventListener('DOMContentLoaded', function () {
     window.isFilterBarMobile = isFilterBarMobile;
     window.isFilterBarNarrowDesktop = isFilterBarNarrowDesktop;
     window.studentsNarrowMql = studentsNarrowMql;
+    window.studentsPortraitMql = portraitMql;
 
     // Icon-only rail behaviour for the hub sidebar. Desktop has no manual
     // control here at all - below the narrow-window breakpoint a
@@ -1748,8 +1958,31 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // Budget against main's own rendered bottom edge, not
                 // window.innerHeight - anything below main in the layout
                 // (e.g. the mobile bottom nav bar) eats into innerHeight
-                // without main actually having that space to give.
-                var mainBottom = shell.closest('main').getBoundingClientRect().bottom;
+                // without main actually having that space to give. Clamped
+                // to the mobile tabbar's own top (when it's genuinely
+                // visible - getClientRects().length, not offsetParent,
+                // which is always null for a position: fixed element like
+                // this one regardless of visibility) rather than trusting
+                // main's own edge to already exclude it - true for most
+                // pages (the app-wide .main-inner padding-bottom reserves
+                // it, _hub_sidebar.html), but Students zeroes that padding
+                // specifically (this file, below, "moves the app-wide
+                // bottom-nav scroll clearance... onto .entity-list itself")
+                // and nothing then re-reserved it here, so the shell (and
+                // the entity-list scrolling inside it) silently grew to
+                // reach past the tabbar's own top, behind its opaque,
+                // higher-stacked bar - live feedback: "meant to have a
+                // bottom of list diagonal stripes" (.entity-list::after,
+                // below) - the end-cap was genuinely rendering, just
+                // entirely hidden behind the tabbar instead of sitting
+                // visibly above it the way its own "FAB covers roughly
+                // half of this box" design assumes. A plain Math.min is a
+                // no-op wherever main's edge is already above the tabbar
+                // (every other page, via that padding), so this only ever
+                // changes something for a shell that actually needs it.
+                var tabbar = document.querySelector('.mobile-tabbar');
+                var tabbarTop = (tabbar && tabbar.getClientRects().length !== 0) ? tabbar.getBoundingClientRect().top : Infinity;
+                var mainBottom = Math.min(shell.closest('main').getBoundingClientRect().bottom, tabbarTop);
                 var mainInner = shell.closest('.main-inner');
                 var mainInnerPaddingBottom = mainInner ? parseFloat(getComputedStyle(mainInner).paddingBottom || 0) : 0;
                 var next = mainBottom - headerBottom - mainInnerPaddingBottom - trailing;
@@ -2248,7 +2481,27 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     function fabProtrusionAboveTabbar() {
         var fab = document.querySelector('.mobile-tab-fab');
         var tabbar = document.querySelector('.mobile-tabbar');
-        return (fab && tabbar) ? (tabbar.getBoundingClientRect().top - fab.getBoundingClientRect().top) : 19;
+        // getClientRects().length, not offsetParent - same display: none-
+        // stays-in-the-DOM gap as positionFilterTray's own tabbar check,
+        // below: both elements are always present, only hidden by width via
+        // CSS, so an existence-only check would read two display: none
+        // boxes as "both visible at (0,0)" and return 0 instead of falling
+        // back. offsetParent (an earlier version of this check) breaks for
+        // a genuinely-visible .mobile-tabbar specifically because it's
+        // position: fixed - offsetParent is defined to be null for any
+        // fixed-position element regardless of visibility (confirmed live:
+        // tabbarRect had real, on-screen coordinates while offsetParent
+        // still read null), so that check silently treated the tabbar as
+        // always hidden, ballooning the tray's own available height and
+        // the list's own end-cap height calculations past the tabbar
+        // entirely - live feedback: "the tray is meant to have a gap to
+        // the bottom nav so that nothing is clipped... also meant to have
+        // a bottom of list diagonal stripes" (the same broken tabbarVisible
+        // read feeding both). getClientRects().length is 0 for display:
+        // none (or detached) regardless of position, and non-zero for
+        // anything actually rendered, fixed positioning included.
+        var visible = fab && tabbar && fab.getClientRects().length !== 0 && tabbar.getClientRects().length !== 0;
+        return visible ? (tabbar.getBoundingClientRect().top - fab.getBoundingClientRect().top) : 19;
     }
     // Extra clearance trimmed off however much the FAB would otherwise
     // overlap - live feedback: "adjust the math so there is slightly less
@@ -2262,10 +2515,62 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         return fabProtrusionAboveTabbar() * 0.35;
     }
     function positionFilterTray(bar, box) {
-        var barBottom = bar.getBoundingClientRect().bottom;
+        var barRect = bar.getBoundingClientRect();
+        var barBottom = barRect.bottom;
+        // .getClientRects().length check, not just querySelector -
+        // .mobile-tabbar stays in the DOM at every width (CSS alone hides
+        // it below <=480px via display: none, layout.css), so a bare
+        // existence check found it "present" for narrow-desktop/portrait-
+        // tablet too once this function started running there - a display:
+        // none element's own getBoundingClientRect() resolves to all
+        // zeros, not where it would render if visible, which silently
+        // capped maxHeight at 0 (top: 0, bar already well below that).
+        // offsetParent (an earlier version of this check) isn't the right
+        // tool here - it's null for a display: none ancestor chain, but
+        // ALSO null for any position: fixed element regardless of
+        // visibility, which .mobile-tabbar always is (layout.css) - so
+        // that check was reading a genuinely visible tabbar as hidden at
+        // every true-mobile width, live feedback: "the tray is meant to
+        // have a gap to the bottom nav so that nothing is clipped" (this
+        // fell back to the full viewport height instead of stopping above
+        // the tabbar). getClientRects().length is 0 for display: none (or
+        // detached) regardless of position, non-zero for anything actually
+        // rendered - the correct general-purpose "is this really on
+        // screen" check fabProtrusionAboveTabbar (above) now also uses.
         var tabbar = document.querySelector('.mobile-tabbar');
-        var bottomLimit = tabbar ? tabbar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+        var tabbarVisible = tabbar && tabbar.getClientRects().length !== 0;
+        var bottomLimit = tabbarVisible ? tabbar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
         box.style.top = barBottom + 'px';
+        // left/width anchored to the bar's own rect, not the base CSS rule's
+        // left: 0; right: 0 (panel.css) - true phone width has no side nav,
+        // so the bar already spans edge to edge and this is a no-op there,
+        // but narrow-desktop/portrait-tablet still show the icon rail beside
+        // an inset card (live feedback: "I like the slide over the top that
+        // mobile does... can we do this for portrait tablet as well") - an
+        // edge-to-edge tray there would float under/over the nav rail
+        // instead of over the actual filter bar, the exact misalignment that
+        // originally kept this mode on a push-down layout instead. Setting
+        // width explicitly (not just left) makes the CSS right: 0 irrelevant
+        // for a position: fixed box - left + width alone fully determine its
+        // horizontal extent.
+        // Widened by .list-card's own left/right border width (live
+        // feedback: "I am noticing a border around the filter tray... it is
+        // likely within an element that probably already has border" -
+        // exactly right: bar's own rect already sits inset from .list-card's
+        // true edge by that border's width (.list-card .filter-bar, layout.
+        // css, has no border of its own - the card's outer 1px border is
+        // what bar's rect is inset from), so anchoring box to bar's rect
+        // verbatim left it floating flush against, not over, that border -
+        // confirmed via computed styles: .list-card's own border rendered
+        // exactly along the tray's left/right edges, reading as if the tray
+        // had a border of its own when it never did. Reading the border
+        // width off .list-card directly (not a hardcoded px guess) so this
+        // keeps working if that token's value ever changes.
+        var listCard = bar.closest('.list-card');
+        var cardBorderLeft = listCard ? parseFloat(getComputedStyle(listCard).borderLeftWidth) || 0 : 0;
+        var cardBorderRight = listCard ? parseFloat(getComputedStyle(listCard).borderRightWidth) || 0 : 0;
+        box.style.left = (barRect.left - cardBorderLeft) + 'px';
+        box.style.width = (barRect.width + cardBorderLeft + cardBorderRight) + 'px';
         // Half the FAB's own protrusion above the tabbar, not a fixed number
         // - live feedback: "it should be based on math... the amount of Fab
         // that sticks out, the bottom padding of tray so this can be dynamic
@@ -2293,14 +2598,32 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // everything without scrolling.
         var inner = box.querySelector('.filter-bar-collapsible-inner');
         box.classList.toggle('is-maxed', !!inner && inner.scrollHeight > inner.clientHeight + 1);
+        // Overlay's own bottom edge pinned to stop right above the stats
+        // footer (Students/Referrals/Actions counts, last child of
+        // #students-filtered-content, sibling of the overlay) instead of
+        // its base inset: 0 (panel.css) reaching all the way down behind
+        // it - the footer already stays undimmed/clickable through the
+        // overlay via its own z-index (panel.css, live feedback: "overlay
+        // should not overlay the stats footer"), but the overlay was still
+        // painting behind it, and the entity-list content directly above
+        // the footer's own border was still getting dimmed right up
+        // against it - live feedback, on a tray short enough to leave that
+        // gap exposed: "the border gets slightly darker" (confirmed via
+        // pixel sampling: the border's own colour never actually changes -
+        // this reads as darker purely from contrast against the newly-dark
+        // strip sitting directly above it) - then "really the overlay
+        // should not affect the stats bar at all. Are we not able to size
+        // the overlay so it stops short?" Recomputed on every call here
+        // (open, and the visualViewport listener, above) alongside the
+        // tray's own maxHeight, for the same "screen size can change while
+        // open" reasoning that recheck already exists for.
+        var statsStrip = document.querySelector('#students-filtered-content .stats-strip');
+        var overlayEl = document.querySelector('#students-filtered-content .filter-bar-overlay');
+        if (overlayEl) overlayEl.style.bottom = statsStrip ? statsStrip.getBoundingClientRect().height + 'px' : '';
     }
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', function () {
             document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
-                // Narrow-desktop Students tray is a push-down panel now, not
-                // the viewport-fixed floating one this computes top/max-height
-                // for (see isFilterBarNarrowDesktop's own comment, above).
-                if (window.isFilterBarNarrowDesktop && window.isFilterBarNarrowDesktop() && bar.matches('form[data-ajax-target="#students-filtered-content"]')) return;
                 var box = bar.querySelector('.filter-bar-collapsible');
                 if (box) positionFilterTray(bar, box);
             });
@@ -2414,90 +2737,197 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // real flex: 1 1 0% once the transition ends so the resting,
         // scroll-bounded state (below) still works exactly as before.
         var box = bar.querySelector('.filter-bar-collapsible');
-        var before = box ? box.getBoundingClientRect().height : 0;
         var wasExpanded = bar.classList.contains('is-expanded');
         var willExpand = closeBtn ? false : !wasExpanded;
-        // Closing keeps .is-expanded on through the whole animation instead
-        // of stripping it up front (live feedback: "reverts back to an old
-        // format which is no longer used in any mode") - virtually every
-        // mobile-tray style (the 3-up field grid, label backgrounds, the
-        // touch scrollbar-hide pair) is scoped to `.filter-bar.is-expanded`
-        // in panel.css. Removing the class before the height animation even
-        // starts meant the whole multi-hundred-ms shrink played out with
-        // none of those rules applied - the box visibly fell back to
-        // whatever bare, non-mobile styling `.filter-field` etc. have
-        // outside that class the entire time it was shrinking, not just a
-        // one-frame flash. Opening never had this problem (the class is
-        // added first, before its own natural-height read below), so only
-        // the close path needed reordering: class removal now happens in
-        // the transitionend handler once the box has actually reached 0,
-        // matching what open already did in spirit.
-        // Closing (either via the label toggle or the Close button) leaves
-        // the class alone here - deferred removal, once the box hits 0
-        // (below), covers both.
+        // The dimmed backdrop (.filter-bar-overlay, panel.css) has its own
+        // opacity transition keyed off this class (live feedback: "can
+        // overlay transition in and out through opacity" - tying it to
+        // .is-expanded technically had a transition property, but with
+        // .is-expanded persisting for the whole close, below, the overlay
+        // stayed fully opaque that whole time and only ever visibly
+        // snapped, never actually faded). Toggled immediately, same tick,
+        // in both directions - both this and the tray's own height
+        // transition (below) now start on the literal same synchronous
+        // frame (no more measure-then-animate gap, this rewrite's own
+        // comment below), so a flat 360ms on both (panel.css) keeps them
+        // finishing together too, live feedback: "check it is timed to
+        // start and end same as the tray height animation". bar.parentElement,
+        // not a #students-filtered-content-specific query, since every
+        // other filter-bar page using this same click handler has no such
+        // overlay to find (null there, harmless).
+        var overlayEl = bar.parentElement && bar.parentElement.querySelector('.filter-bar-overlay');
+        bar.classList.toggle('overlay-visible', willExpand);
+        // Height itself now animates via plain CSS (panel.css:
+        // .filter-bar-collapsible's own height: 0/auto + transition,
+        // gated by .tray-open, plus the site-wide interpolate-size:
+        // allow-keywords opt-in, layout.css) instead of the JS FLIP
+        // dance this replaced - live feedback: "I do not like this delay
+        // [before the tray visibly starts opening]. Is there another
+        // way of doing this?" That delay was main.js measuring the
+        // tray's true natural height itself (a ResizeObserver + debounce
+        // wait, box hidden the whole time, git history) - genuinely
+        // needed under the OLD technique, where a browser can't animate
+        // a plain height transition to/from "auto" at all (it resolves
+        // the target in a single frame regardless of declared duration,
+        // this whole block's now-deleted git history covers three earlier
+        // attempts at working around exactly that), so main.js had to
+        // read the real pixel height itself first and hand CSS a fixed
+        // number to animate to instead - and that read was ALSO
+        // unreliable for a frame or two on a genuinely auto-sized tray
+        // (the "bounce" bug, same git history), which is what the
+        // ResizeObserver settle-wait was for in the first place.
+        // interpolate-size: allow-keywords (Chromium, confirmed supported
+        // in this dev environment) removes the whole problem at its root
+        // instead of working around it - the browser computes the tray's
+        // real height itself, every frame, the same way it always could
+        // for any other animatable property, so there's nothing left for
+        // main.js to measure, wait for, or get transiently wrong. Kept:
+        // .is-expanded (styling only, removed on close only once the
+        // shrink has genuinely finished, transitionend below - unrelated
+        // to what drives the height value now) and positionFilterTray's
+        // own top/left/width/max-height (still genuinely un-knowable to
+        // CSS alone - that function's own comment).
+        var inner = box && box.querySelector('.filter-bar-collapsible-inner');
+        // Commits the PRE-toggle frame as a real, rendered "before" state
+        // ahead of any class change below - live feedback: "Can the buttons
+        // fade in and out rather than vanish or appear", confirmed via
+        // computed-style sampling as a genuine bug, not a request for a
+        // feature that didn't exist yet: .filter-bar-collapsible-inner/
+        // .filter-bar-sticky-footer's own opacity fade (panel.css, gated on
+        // .tray-open) was snapping straight to its end value on close with
+        // no transition at all - opacity read 0 from the very first sampled
+        // frame, never fading through any intermediate value. Root cause:
+        // the OTHER forced reflow below (`void box.offsetHeight`, its own
+        // comment) runs immediately AFTER the class change, in the same
+        // synchronous tick, with no rendering opportunity in between - fine
+        // for box's own height (calc-size() explicitly needs exactly that
+        // forced-reflow-after-the-change pattern to register a transition
+        // at all, that rule's own comment), but for a normal property like
+        // opacity it means the browser never gets to paint/commit a
+        // genuine "before" frame first, so it collapses the whole before-
+        // after cycle into one synchronous batch and skips the transition
+        // outright. Forcing a reflow HERE too, before anything changes,
+        // gives opacity a real committed starting frame regardless of what
+        // the later, class-change-triggering reflow does to calc-size.
+        if (box) void box.offsetHeight;
         if (willExpand) {
             bar.classList.add('is-expanded');
-            // Same forced 2-line break the narrow-tablet category strip
-            // already gets (live feedback: "labels that have at least two
-            // words [should be] on two lines... we do this in other
-            // modes") - run before the natural-height read below so the
-            // measured "after" height already accounts for any label that
-            // just gained a second line, not the pre-wrap shorter one.
-            if (box) balanceFilterGroupLabels(box);
-        }
-        if (box) {
-            // #134: the floating tray (panel.css: position: fixed, viewport-
-            // anchored) has nothing left bounding its top/height once it's
-            // out of .filter-bar's own flex flow - CSS alone can't target
-            // either up front (top depends on the sticky row's own rendered
-            // height; the max-height cap on the tray's own resulting top and
-            // the tabbar's own rendered position, itself only known after
-            // that - see positionFilterTray, above). Persists past the
-            // animation (not reset in the transitionend handler below,
-            // unlike height/transition/flex) so the resting expanded state
-            // stays positioned/capped too, letting .filter-bar-collapsible-
-            // inner's own overflow-y: auto do the actual scrolling for a
-            // field grid taller than the cap - and stays live afterwards
-            // too, via the visualViewport listener above, if the browser's
-            // own chrome changes size while the tray's still open.
-            // Narrow-desktop Students tray pushes the list down in normal
-            // flow instead of floating (isFilterBarNarrowDesktop's own
-            // comment, above) - nothing to compute, it just grows to its
-            // natural content height, which the getBoundingClientRect()
-            // read below already reflects once .is-expanded's height: auto
-            // (panel.css) is in effect.
-            var isNarrowDesktopStudentsBar = window.isFilterBarNarrowDesktop && window.isFilterBarNarrowDesktop() && bar.matches('form[data-ajax-target="#students-filtered-content"]');
-            if (willExpand && !isNarrowDesktopStudentsBar) {
+            bar.classList.add('tray-open');
+            if (box) {
+                // Same forced 2-line break the narrow-tablet category strip
+                // already gets (live feedback: "labels that have at least
+                // two words [should be] on two lines... we do this in other
+                // modes") - run before positionFilterTray, below, so its own
+                // max-height reservation already accounts for any label
+                // that just gained a second line, not the pre-wrap shorter
+                // one.
+                balanceFilterGroupLabels(box);
+                // #134: the floating tray (panel.css: position: fixed,
+                // viewport-anchored) has nothing left bounding its top/
+                // height once it's out of .filter-bar's own flex flow - CSS
+                // alone can't target either up front (top depends on the
+                // sticky row's own rendered height; the max-height cap on
+                // the tray's own resulting top and the tabbar's own
+                // rendered position, itself only known after that). Persists
+                // past the animation (nothing here resets it) so the
+                // resting expanded state stays positioned/capped too,
+                // letting .filter-bar-collapsible-inner's own overflow-y:
+                // auto do the actual scrolling for a field grid taller than
+                // the cap - and stays live afterwards too, via the
+                // visualViewport listener above, if the browser's own
+                // chrome changes size while the tray's still open.
                 positionFilterTray(bar, box);
             }
-            // Closing always lands on the base rule's literal 0 (panel.css's
-            // border-box zero-height fix, above) - .is-expanded is still on
-            // the class list at this point (deferred removal, above) so a
-            // real DOM read here would just report the same full height as
-            // "before" again, not the collapsed target.
-            var after = willExpand ? box.getBoundingClientRect().height : 0;
-            if (before !== after) {
-                box.style.flex = '0 0 auto';
-                box.style.height = before + 'px';
-                box.style.transition = 'none';
-                void box.offsetHeight;
-                box.style.transition = 'height 360ms cubic-bezier(.2, .8, .2, 1)';
-                requestAnimationFrame(function () {
-                    box.style.height = after + 'px';
-                });
-                box.addEventListener('transitionend', function handler(e) {
-                    if (e.target !== box || e.propertyName !== 'height') return;
-                    box.style.height = '';
-                    box.style.transition = '';
-                    box.style.flex = '';
-                    if (!willExpand) {
-                        bar.classList.remove('is-expanded');
-                    }
-                    box.removeEventListener('transitionend', handler);
-                });
-            } else if (!willExpand) {
-                bar.classList.remove('is-expanded');
+        } else {
+            bar.classList.remove('tray-open');
+        }
+        // Forces the browser to actually commit/resolve the height this
+        // class toggle just implied before anything else runs - without
+        // this, a transition triggered by toggling .tray-open sometimes
+        // never starts at all (confirmed via getAnimations(): 0 running
+        // animations, and a stale, pre-toggle computed height still being
+        // reported straight after) - a genuine engine quirk specific to
+        // interpolate-size: allow-keywords' calc-size()-based auto-height
+        // resolution, not anything wrong with the transition/class logic
+        // itself. positionFilterTray's own getBoundingClientRect() reads
+        // (above) already force this incidentally for an open, but close
+        // has no other reason to touch layout at all, so needs it
+        // explicitly here too.
+        if (box) void box.offsetHeight;
+        if (box) {
+            // inner's own overflow-y: auto (panel.css) is what makes it
+            // scroll once genuinely too tall for the resting, settled state
+            // - but for most of the transition (either direction) box's own
+            // height is smaller than that settled height, so inner's
+            // content overflows its own shrunk bounds the whole way
+            // through, however briefly, regardless of whether the resting
+            // tray needs to scroll at all (live feedback: "scrollbar
+            // briefly shows... tray is not long enough to require
+            // scrolling"). Pinned to hidden for the animation's duration
+            // only, restored below - box's own max-height (positionFilterTray)
+            // still caps the resting state exactly as before, so a tray
+            // that genuinely does need to scroll still gets overflow-y:
+            // auto back the moment the animation ends.
+            if (inner) inner.style.overflowY = 'hidden';
+            var cleanupDone = false;
+            function cleanup() {
+                if (cleanupDone) return;
+                cleanupDone = true;
+                if (inner) inner.style.overflowY = '';
+                // Closing keeps .is-expanded on through the whole animation
+                // instead of stripping it up front (live feedback: "reverts
+                // back to an old format which is no longer used in any
+                // mode") - virtually every mobile-tray style (the 3-up
+                // field grid, label backgrounds, the touch scrollbar-hide
+                // pair) is scoped to `.filter-bar.is-expanded` in panel.css.
+                // Removing the class before the height animation even
+                // starts would mean the whole shrink plays out with none of
+                // those rules applied - the box visibly falling back to
+                // whatever bare, non-mobile styling `.filter-field` etc.
+                // have outside that class the entire time it's shrinking,
+                // not just a one-frame flash.
+                if (!willExpand) {
+                    bar.classList.remove('is-expanded');
+                }
+                box.removeEventListener('transitionend', onTransitionEnd);
             }
+            function onTransitionEnd(e) {
+                if (e.target !== box || e.propertyName !== 'height') return;
+                cleanup();
+            }
+            box.addEventListener('transitionend', onTransitionEnd);
+            // Fallback in case transitionend never fires (box's height
+            // genuinely doesn't change - e.g. an empty field grid - so no
+            // transition ever actually starts to end) - without this,
+            // that edge case would leave .is-expanded stuck on forever
+            // once willExpand is false. Read off box's own actual computed
+            // transition-duration rather than a hardcoded guess (used to be
+            // a flat 400ms, "comfortably" clearing what was then a flat
+            // 360ms) - that guess silently went stale the moment box's own
+            // transition duration grew to var(--transition-slide-lg)
+            // (720ms, doubled again from panel.css/tokens/effects.css) and
+            // was never updated alongside it, so this fallback had been
+            // firing a full transition-length early on every close for a
+            // while: live feedback "The open is perfect, only close is
+            // seeing issues" (a border flash, a height snap/stall, section
+            // labels vanishing mid-shrink, fields shifting horizontally),
+            // confirmed via Playwright sampling - .is-expanded flipped
+            // false at t=440ms while the close transition (slowed to 4000ms
+            // for the same debugging session) was still running, stripping
+            // every is-expanded-gated style (field/label display, the
+            // border-bottom-width fade, above) and restoring inner's
+            // overflow-y mid-animation, which fed back into corrupting
+            // calc-size()'s own live "auto" height recomputation for the
+            // rest of the close. Longest of box's own declared durations
+            // (height/border-bottom-width share one value today, but this
+            // stays correct if that ever changes) plus a small buffer for
+            // a slow frame or two, not the duration alone.
+            var closeDurations = getComputedStyle(box).transitionDuration.split(',').map(function (s) {
+                s = s.trim();
+                var n = parseFloat(s) || 0;
+                return s.indexOf('ms') !== -1 ? n : n * 1000;
+            });
+            setTimeout(cleanup, Math.max.apply(null, closeDurations.concat([0])) + 100);
         } else if (!willExpand) {
             bar.classList.remove('is-expanded');
         }
@@ -2610,6 +3040,23 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 var controller = new AbortController();
                 pendingController = controller;
                 target.classList.add('is-loading');
+                // Students' own dimmed tray backdrop (.filter-bar-overlay,
+                // panel.css) lives inside this same target so it visually
+                // anchors (position: absolute; inset: 0) against its box -
+                // but that means the plain target.innerHTML swap below wipes
+                // it out along with the old list every time, and the
+                // server's AJAX partial response never re-renders it (that
+                // markup isn't part of the swapped fragment) - live
+                // feedback: "when I apply a filter, the overlay disappears.
+                // It should stay till filter tray is closed". Detached here
+                // and reinserted after the swap (below) instead of
+                // recreating it from a string - keeps the exact same node,
+                // including any inline style state main.js's own filter-bar
+                // click handler may have set on it (e.g. transitionDuration,
+                // above) rather than starting fresh every filter change.
+                // null on any other page using this same AJAX mechanism
+                // with no such overlay in its markup - harmless no-op below.
+                var overlayEl = target.querySelector('.filter-bar-overlay');
                 fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: controller.signal })
                     .then(function (res) {
                         if (!res.ok) throw new Error('Request failed: ' + res.status);
@@ -2617,6 +3064,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                     })
                     .then(function (html) {
                         target.innerHTML = html;
+                        if (overlayEl) target.insertBefore(overlayEl, target.firstChild);
                         window.enhanceFormControls(target);
                         target.classList.remove('is-loading');
                         history.replaceState(null, '', url);

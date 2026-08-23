@@ -3526,21 +3526,41 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        full width for the track (its only real flex item; the divider is
        display: none here, forms.css, and the arrow buttons below are
        position: absolute, so neither competes for space). */
-    /* gap: --space-2xl (32px), not the field-level --space-xs - live
-       feedback: "what is causing the enormous gap between filter
-       categories... this should be same as page margin width... that's
-       32px". The categories themselves used to inflate far past their own
-       content (next comment), which read as a much bigger gap than this
-       32px alone accounts for - now that they size correctly, this is the
-       one deliberate value actually separating one category from the
-       next. */
+    /* gap: --space-3xl (40px), not --space-2xl (32px) - originally matched
+       to the page margin width (live feedback, history: "this should be
+       same as page margin width... that's 32px"), bumped one more step
+       once the vertical divider between categories was dropped entirely
+       (live feedback: "increasing the gap between filter sections
+       slightly") - with no line marking the seam any more, the whitespace
+       itself needs to read as more deliberately spacious to still
+       communicate a clear separation on its own. */
     form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-secondary-fields-track {
         display: flex;
         flex: 1 1 100%;
         flex-wrap: nowrap;
-        align-items: flex-start;
-        gap: var(--space-2xl);
+        /* flex-end, not flex-start - live feedback: "Referrals label does
+           not line up" on wide tablet - the Has Referrals/Overdue Actions
+           toggles are shorter than a dropdown field, so that whole category
+           box is shorter too; flex-start only pinned every category's TOP
+           edge level, letting a shorter category's bottom (and so its
+           label, which sits there via .filter-group's column-reverse) ride
+           higher than its neighbours'. Aligning bottoms instead keeps every
+           category's label level, which is the thing that actually needs
+           to read as a single row here - a shorter category's fields simply
+           start lower instead. */
+        align-items: flex-end;
+        gap: var(--space-3xl);
         overflow-x: auto;
+        /* Bleed out to the tray's own left/right padding (.filter-secondary-
+           fields, forms.css: padding 0 var(--space-lg)) so the horizontal
+           scrollbar sits flush against the tray's edges instead of inset by
+           it - same technique as .setup-col-body's edge-to-edge bleed
+           further below. No vertical bleed any more - the tray's own
+           top/bottom padding was dropped to 0 entirely (forms.css, live
+           feedback: "lose top and bottom padding of filter-secondary-
+           fields"), so there's nothing left to cancel on that axis. */
+        margin: 0 calc(-1 * var(--space-lg));
+        padding: 0 var(--space-lg);
     }
     /* display: flex; flex-direction: column (not flex-wrap: wrap with the
        header forced onto its own line via flex: 1 1 100%, which is what
@@ -3561,39 +3581,47 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        main.js's own header font is never the widest thing in a category). */
     form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-group {
         display: flex;
-        flex-direction: column;
-        gap: var(--space-xs);
+        /* column-reverse, not column - live feedback: "the filter section
+           should go below the dropdowns" - .filter-section-label is still the
+           first DOM child (students.html, template order = visual grouping
+           order across categories), so reversing only the cross-axis stacking
+           direction puts .filter-group-fields on top and the label underneath
+           without touching that template order or the category-to-category
+           sequence (no CSS `order` needed there either, same as before). */
+        flex-direction: column-reverse;
+        /* --space-micro (2px), not --space-xxs - live feedback: "too much
+           space above filter category labels", then "can filter labels be
+           closer to the dropdowns and the space above them reduced" -
+           this gap plus the label's own top margin used to stack to 12px
+           total; the margin was dropped to 0 entirely (below, this label
+           already gets its own "close to its own fields" spacing purely
+           from this one gap now), and this is now the ONLY thing
+           separating the two boxes, tightened to the smallest step this
+           spacing scale has above a bare hairline (tokens/spacing.css). */
+        gap: var(--space-micro);
         flex: 0 0 auto;
-        position: relative;
     }
-    /* Vertical divider between categories (live feedback: "add a vertical
-       divider between each filter category") - centred in the track's own
-       32px gap (right: half that, negative) rather than adding a border/
-       padding of its own, so it doesn't disturb the gap value that's
-       already deliberately matched to the page margin (previous live
-       feedback). position: relative on .filter-group (above) is what this
-       anchors against. :not(:last-child) - no trailing divider after the
-       final category with nothing to its right. */
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-group:not(:last-child)::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        right: calc(-1 * var(--space-2xl) / 2);
-        width: 1px;
-        /* --text-faint, same token/opacity as the section label's own text
-           colour and its underline ticks (::before/::after, above) - live
-           feedback: "can vertical line be same colour as the filter
-           section label colour" - was --border-strong, a mismatched
-           chrome/border token instead of this row's own label colour. */
-        background: var(--text-faint);
-        opacity: 0.4;
-    }
+    /* Vertical divider between categories removed entirely (live feedback,
+       after a wide-desktop review: "removing the vertical dividers and
+       increasing the gap between filter sections slightly" - after several
+       rounds getting its height/position right (git history), it was still
+       a fussy extra element for what the inter-category gap below already
+       communicates on its own, especially now each category also carries
+       its own section label). .filter-group no longer needs its own
+       position: relative either - that existed purely to anchor this. */
     form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-group-fields {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-end;
-        gap: var(--space-xs);
+        /* --space-sm, not --space-xs - a touch more breathing room between
+           fields within a category (wide-desktop review: "Overdue Actions
+           sits noticeably close to Gender" - a narrow, 2-toggle category
+           like Referrals reads tighter next to its neighbour than a wider
+           one does, even though the actual inter-category gap, above, is
+           identical for all of them; widening every category's own internal
+           field spacing slightly gives a narrow category more presence of
+           its own instead). */
+        gap: var(--space-sm);
     }
     /* Left/right nudge buttons (live feedback: "add left and right arrows
        like we do with carousels as well") - position: absolute against
@@ -3667,6 +3695,17 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         right: 0;
         background: linear-gradient(to left, var(--bg-well), transparent);
     }
+    /* Device, not width, decides whether the fade above is redundant (live
+       feedback: "on desktop mode we do not need the fade as the scrollbar
+       makes it clear" - explicitly not a breakpoint call: a real touch
+       tablet at this exact same width still hides its native scrollbar
+       entirely (html.nav-touch-mode ::-webkit-scrollbar, forms.css) and so
+       still needs this fade as its only affordance; only a hover-capable
+       pointer actually has a visible scrollbar to make the fade redundant. */
+    html:not(.nav-touch-mode) form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::before,
+    html:not(.nav-touch-mode) form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden])::after {
+        display: none;
+    }
     /* Centred, not DES-A2's usual left-align (live feedback: "horizontally
        center the labels of the filters and toggles") - scoped to this
        narrow-tablet panel rather than the shared .filter-field label rule
@@ -3677,6 +3716,20 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        would centre over a control still sitting flush left below it. */
     form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field {
         align-items: center;
+        /* --space-xxs, not forms.css's own --space-xs top/bottom (shared by
+           every filter bar sitewide) - live feedback: "lose top and bottom
+           filter-field padding, its 8px" - scoped to just this tray rather
+           than trimmed at the source, so Referrals/Actions/every other
+           filter bar's own field spacing is unaffected. */
+        padding-top: var(--space-xxs);
+        padding-bottom: var(--space-xxs);
+        /* Same --space-xxs override for the label-to-control gap (forms.css'
+           own gap: var(--space-xs), between each field's own label - "Year",
+           "SEN Status" - and its dropdown/toggle beneath it) - live
+           feedback: "there is still a gap between filter labels and
+           filters. This can be greatly reduced" - same scoped-not-shared
+           reasoning as the padding trim just above. */
+        gap: var(--space-xxs);
     }
     /* white-space: normal (not forms.css's own nowrap/ellipsis default) -
        live feedback: "make labels take up two lines like we did with stat
@@ -3764,6 +3817,35 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         border-radius: 0;
         transition: none;
     }
+    /* Active state's own signal moves onto the dropdown itself instead (live
+       feedback: "active filters in horizontal filter scroll have the
+       dropdown bg a subtle primary colour fill") - the chip background this
+       replaces was dropped above, leaving only the label colour swap as a
+       signal; this adds a second, more visible one back without
+       reintroducing the chip (padding-grow/radius) live feedback rejected
+       when this tray was built. --primary-light, the same token
+       .filter-field--active's own base chip fill uses everywhere else
+       (forms.css) - reused rather than a fresh colour, so "active" still
+       means the same fill throughout the app, just relocated here. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field.filter-field--active .ui-select-trigger {
+        background-color: var(--primary-light);
+        /* Full --primary, not a muted mix - live feedback: "can the border
+           of the active filter dropdown be primary colour" - the fill above
+           is deliberately subtle, but the border is this control's own edge
+           definition (like any other field's --border-strong default,
+           forms.css), so it can afford to read as a stronger, more literal
+           "active" signal without competing with the subtler fill. */
+        border-color: var(--primary);
+    }
+    /* Label keeps its colour swap (forms.css: color: var(--primary)) but not
+       its text-stroke fake-bold (live feedback: "lose the bolden effect on
+       active filter labels, but keep the colour change") - scoped narrowly
+       to just this property rather than the whole .filter-field--active
+       label rule, so the colour swap itself still comes from the one shared
+       definition everywhere else. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-field--active label {
+        -webkit-text-stroke: 0;
+    }
     /* Margin trimmed from --space-sm/--space-xxs (2026-08-20, live feedback:
        "there is a lot space between each filter") - with 4 headers now each
        only owning their own group's width rather than a guaranteed full
@@ -3782,12 +3864,44 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         align-items: center;
         gap: var(--space-xs);
         flex: 0 0 auto;
-        margin: var(--space-xs) 0 var(--space-xxs);
-        font-size: var(--font-2xs);
+        /* Top margin dropped to 0 (live feedback: "too much space above
+           filter category labels") - .filter-group's own row-gap (above)
+           already puts --space-xxs between the fields box and this label,
+           so a second, separate top margin here was only ever doubling
+           that same "close to its own fields" spacing rather than adding
+           anything new. Bottom margin is a different job - breathing room
+           between the label text and the now-flush scrollbar underneath it
+           - bumped from --space-xxs to --space-xs (live feedback: "worth
+           adding a little more breathing space under filter category
+           labels" - the font-size/colour bump just above made the text a
+           touch more prominent, which read as crowding the scrollbar at the
+           old, tighter gap). */
+        margin: 0 0 var(--space-xs);
+        /* --font-xs/--text-secondary, not --font-2xs/--text-faint - wide-
+           desktop review: "the section labels are quite faint/small... easy
+           to miss at a glance". One step up on each scale (tokens/
+           typography.css, theme/light.css) is enough to read clearly
+           without competing with the actual field labels above it
+           (.filter-field label, still --font-sm/--text-secondary) - the
+           tick lines either side (::before/::after, below) stay at the old
+           --text-faint/opacity: 0.4, so the decorative accent doesn't
+           compete with the now more-legible text either. */
+        font-size: var(--font-xs);
         font-weight: 600;
-        color: var(--text-faint);
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.04em;
+        /* Live feedback: "the category label is going over two lines" - the
+           tick shrink fix above (12px basis, was a fixed 54px) means the
+           label's own flex row is no longer guaranteed more width than its
+           text needs, so the bare text node (no white-space of its own)
+           started wrapping once a narrow-fields group (Inclusion Panel)
+           made that row tight. nowrap forces it back to one line - the
+           label's own min width is now genuinely just its text's single-
+           line width plus the two small ticks, which is the real floor for
+           showing this text at all (unlike the old fixed 54px, which added
+           width the text itself never needed). */
+        white-space: nowrap;
     }
     form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::before,
     form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::after {
@@ -3796,22 +3910,53 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         background: var(--text-faint);
         opacity: 0.4;
     }
-    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::before {
-        flex: 0 0 54px;
-    }
-    /* Back to flex: 1 1 auto (2026-08-20) - fixing it at 24px was a stopgap
-       for the previous flex-wrap .filter-group, where the header's own
-       intrinsic size fed back into the group's own auto-width computation
-       (::after's comment history explains that circularity). Now that
-       .filter-group is display: flex; flex-direction: column with fields
-       in their own sibling box (that comment, above), the header no longer
-       participates in sizing the group at all - it just stretches to match
-       whatever width the fields row already settled on, so ::after can
-       safely fill the header's own now-correct width again instead of
-       stopping short of it (live feedback: "the line on the filter section
-       label stops before the right edge of the div"). */
+    /* flex: 1 1 12px on both ticks (not a fixed 54px ::before) - live
+       feedback: "Inclusion Panel is too wide as it has only two items...
+       lines on either side should not force the width to be wider". The
+       2026-08-20 comment this replaces claimed the header "no longer
+       participates in sizing the group at all", but that was never
+       actually true: .filter-group has no explicit width of its own (flex:
+       0 0 auto, above), so its rendered width is a plain shrink-to-fit over
+       BOTH children - the label row's own max-content width (54px fixed
+       ::before + gap + text + gap + ::after) counted just as much as the
+       fields row's, and whichever was wider won. A category with a short
+       label but few/narrow fields (Inclusion Panel: two toggles) had its
+       fields row dragged wide purely to make room for a tick that could
+       never shrink below 54px. 12px, not 0 - a first pass dropped the tick's
+       basis to 0 entirely, which fixed the width but then drew no visible
+       line at all once the fields row was barely wider than the label's own
+       text (live feedback: "it does look a little odd... enforce a tiny bit
+       of line on either side") - 12px is small enough that two of them
+       (24px total, worth far less than the old 54px on ::before alone) can
+       almost never out-drag a real field row, while still always rendering
+       as a visible tick even in that narrowest case. Whenever the fields row
+       IS wider than label text + 24px (the common case), the two ticks still
+       grow symmetrically (flex-grow: 1 each) to fill the leftover space and
+       keep the label centred exactly as before. Desktop/tablet's own
+       horizontal category strip only (.filter-secondary-fields, this file) -
+       the separate mobile 3-up grid version of this same selector (below,
+       html.filter-bar-mobile-mode) is untouched, its fixed 54px tick was
+       never part of this bug (that grid's own .filter-field-driven column
+       width doesn't shrink-to-fit around the label the way this
+       flex-basis: 0 0 auto group does). */
+    /* flex-shrink: 0 (the "1 1 12px" this replaced allowed shrinking) - live
+       feedback: "I do not see the small tick now" - the label text just
+       got white-space: nowrap (above), so it can no longer give up any of
+       its own width under pressure; a flex row's shrink algorithm takes
+       whatever a maxed-out sibling can't give first from whichever item
+       CAN still shrink, which was these ticks, so a group whose fields
+       row was only barely wider than the label's text zeroed the ticks
+       out entirely trying to make room. Disallowing shrink is exactly the
+       tiny guaranteed-floor tradeoff live feedback already asked for two
+       rounds ago ("enforce a tiny bit of line on either side") - 12px each
+       (24px total) is still far short of the old 54px-on-::before-alone
+       floor this whole fix replaced, so it stays negligible next to any
+       real field row while never disappearing. flex-grow: 1 is untouched -
+       still grows symmetrically into any leftover space once the fields
+       row IS wider than label text + 24px, keeping the label centred. */
+    form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::before,
     form[data-ajax-target="#students-filtered-content"] .filter-secondary-fields:not([hidden]) .filter-section-label::after {
-        flex: 1 1 auto;
+        flex: 1 0 12px;
     }
 }
 /* #135 follow-up (2026-08-20, live feedback: "lose the overlay on the
@@ -3979,7 +4124,15 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        absolute against .filter-bar), the entity list never needs to yield
        height in the first place; it stays exactly where it is, dimmed
        underneath by the overlay rule below. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded ~ #students-filtered-content .filter-bar-overlay {
+    /* Unconditional on .is-expanded (unlike the old version of this rule) -
+       display/position/background/z-index now live here so the overlay is
+       always present (just invisible/inert) whenever the bar's own mobile-
+       mode CSS is active, letting opacity do the actual show/hide below as
+       a genuine transition (live feedback: "can overlay transition in and
+       out through opacity") instead of the instant display: none <-> block
+       swap this used to be gated behind - display alone can't be
+       transitioned. */
+    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar ~ #students-filtered-content .filter-bar-overlay {
         display: block;
         position: absolute;
         inset: 0;
@@ -3998,8 +4151,59 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            explicit z-index establishes a real stacking level that beats
            any z-index: auto sibling outright, order aside. */
         z-index: 1;
+        /* opacity 0 + pointer-events: none at rest (not expanded) - same
+           show/hide-via-opacity convention .global-backdrop already uses
+           (layout.css) for the same "temporary layer over the real page"
+           role, this rule's own original comment above. Duration/easing
+           matches the tray's own height transition exactly (var(--transition-
+           tray-slide), .filter-bar-collapsible below) rather than the
+           shorter var(--transition-base) (160ms) this started as - live
+           feedback: "can the opacity change be linked to the tray sliding
+           open and close, it seems to start when tray is closed" - at the
+           faster 160ms duration the overlay finished fading well before
+           the tray itself finished sliding, reading as two separate,
+           unsynchronised motions instead of one. Not var(--transition-
+           slide) (tokens/effects.css, this one's own source originally) -
+           that token is shared by unrelated, genuinely-quick motion
+           elsewhere (.side-nav, .global-backdrop, button/card hovers),
+           so a large sliding panel reading "too snappy" at that speed
+           (live feedback: "a bit too snappy", then "even slower") uses
+           the double-length scale step instead (--transition-slide-lg,
+           tokens/effects.css - "side nav is small so can stay the same,
+           but big slides like filters or settings in mobile mode should
+           use the longer one") rather than bumping the shared token and
+           slowing all of that smaller motion down too. */
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--transition-slide-lg);
     }
-    html.filter-bar-mobile-mode [data-theme-mode="dark"] form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded ~ #students-filtered-content .filter-bar-overlay {
+    /* .overlay-visible, not .is-expanded (main.js toggles both, but not in
+       lockstep - see that toggle's own comment) - .is-expanded persists for
+       the entire close animation so the field grid/labels keep their
+       expanded styling while visibly shrinking, but that would leave the
+       overlay fully opaque the whole time too if it kept using the same
+       class, only snapping transparent at the very end instead of actually
+       fading. .overlay-visible flips the instant Close/the label is
+       clicked, in both directions, so this transition (above) runs
+       concurrently with the tray's own open/close animation instead of
+       being masked by it. */
+    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.overlay-visible ~ #students-filtered-content .filter-bar-overlay {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    /* Stats footer (students.html: Students/Referrals/Actions counts,
+       .stats-strip, bottom of the list) stays undimmed and clickable
+       through the overlay above it (live feedback: "overlay should not
+       overlay the stats footer") - position: relative + a z-index above
+       the overlay's own 1 (not a change to the overlay's own bounds/inset)
+       is enough to lift it visually and for pointer events, the same
+       z-index-beats-DOM-order mechanism the overlay's own z-index: 1
+       already relies on above, one level further up the stack. */
+    #students-filtered-content .stats-strip {
+        position: relative;
+        z-index: 2;
+    }
+    html.filter-bar-mobile-mode [data-theme-mode="dark"] form[data-ajax-target="#students-filtered-content"].filter-bar.overlay-visible ~ #students-filtered-content .filter-bar-overlay {
         background: rgba(0, 0, 0, 0.65);
     }
     /* .filter-bar's own base rule (forms.css) bottom-aligns its direct
@@ -4042,6 +4246,33 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            extra width no other content on the page does. */
         padding-left: var(--space-sm);
         padding-right: var(--space-sm);
+    }
+    /* Narrow desktop only (not true mobile - that has its own rules, and
+       doesn't need this: it's <=480px, entirely outside the min-width:481px
+       block that reserves this padding-right in the first place, see the
+       comment there). Live feedback (measured, not guessed - Playwright
+       inspection confirmed padding-right: 196px on the row eating exactly
+       the gap live feedback flagged: "the search is not filling available
+       space", the exact width of .filter-actions-right, forms.css, which
+       .filter-bar-mobile-mode already hides outright a few rules below -
+       so this reservation is pure dead space in this mode, not just too
+       generous a value). */
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
+        padding-right: 0;
+    }
+    /* Narrow desktop only, collapsed only (:not(.is-expanded) - once
+       expanded, the gap below actually separates the row from the real,
+       visible field grid, so it should stay). Live feedback: "there is more
+       space beneath than above" (measured, not guessed - Playwright
+       inspection found .filter-bar's own gap: var(--space-xs) (8px, base
+       rule) landing between the sticky row and .filter-bar-collapsible even
+       while the latter is collapsed to a genuine 0px height - flex gap
+       always inserts between wrapped lines regardless of whether the next
+       one has any content, so this 8px (plus the 1px border-bottom) was
+       dead space that align-items: flex-start (above) put entirely below
+       the row instead of splitting it evenly). */
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar:not(.is-expanded) {
+        gap: 0;
     }
     /* .filter-bar-sticky-row (students.html) bundles the "Filters" label
        with a Close button and a second Clear Filters instance into one
@@ -4122,6 +4353,22 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         min-width: 0;
         max-width: none;
         margin-left: auto;
+    }
+    /* Narrow desktop overrides that 2-of-3-column basis back to a plain fill
+       (live feedback: "the search is not filling available space") - the
+       calc() above deliberately matches true mobile's own 3-up field grid
+       width, but narrow desktop never uses that grid (its fields stay the
+       desktop-style horizontal category strip, above), so there's no column
+       span to align against - it can just claim whatever room "Filters" and
+       the absolutely-positioned buttons don't need, the same way it already
+       does at full desktop width. Two classes (.filter-bar-mobile-mode.
+       filter-bar-narrow-desktop, both set together, main.js), not one, so
+       this naturally outranks the shared mobile rule above on specificity
+       regardless of source order. */
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row .filter-field--search {
+        flex: 1 1 auto;
+        max-width: none;
+        margin-left: 0;
     }
     /* Never shrinks/wraps - "Filters" + its count badge must always render in
        full; Search (above) is what yields room first once the row is tighter
@@ -4318,8 +4565,60 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            minimum height at once, so height: 0 collapsed is finally a
            literal, un-clamped 0 regardless of border-box's own rules. */
         border: none;
+        /* border-bottom-color fades transparent -> var(--border-strong)
+           (below), not a flat border-bottom snapped on the instant
+           .is-expanded is added - live feedback: "a dark horizontal line
+           appear[s]... near the top of the filter tray when opening",
+           confirmed by slowing the transition way down. First attempt at
+           this animated border-bottom-WIDTH (0 -> 1px) instead of colour,
+           reasoning the line was a hard snap of a flat, already-1px border -
+           live feedback afterwards: "I do still see that dark horizontal
+           line" - it wasn't fixed, because that attempt introduced the same
+           bug one layer deeper. box-sizing: border-box (global reset) means
+           a box's RENDERED height can never legally go below its own
+           border's width (this exact rule already fixed one version of this
+           - the padding-top sliver bug, this rule's own git history) -
+           border-bottom-width transitions on its own plain, immediately-
+           smooth timeline, but height's 0 <-> auto transition (below,
+           interpolate-size: allow-keywords/calc-size()) does not resolve
+           smoothly for this box's complex content (confirmed separately,
+           live feedback "Maybe a clue" / the close-animation fallback-
+           timer bug this led to): it stalls flat for a stretch before
+           jumping. For that whole stall, border-bottom-width had already
+           grown to a fraction of 1px while calc-size's own height was still
+           pinned at 0 - border-box's floor then forced the box's real
+           rendered height up to match the border alone, i.e. the box
+           WAS, literally, just that border line for a visible stretch.
+           Colour has no effect on layout/height at all, so this sidesteps
+           the interaction entirely: border-bottom-width stays a flat,
+           permanent 1px (present even collapsed, but invisible - it's fully
+           transparent then) instead of transitioning, so there's nothing
+           for calc-size's own stall to ever desync against. */
+        border-bottom-width: 1px;
+        border-bottom-style: solid;
+        border-bottom-color: transparent;
         box-shadow: none;
         padding-top: 0;
+        /* Declared here (not set/removed inline by main.js, git history) -
+           interpolate-size: allow-keywords (layout.css, site-wide opt-in)
+           is what makes a plain height transition between this 0 and
+           .tray-open's own auto (below) actually animate through real,
+           per-frame computed values instead of resolving instantly - see
+           that rule's own comment for why this replaced the old JS-driven
+           version (live feedback: "I do not like this delay [before the
+           tray visibly opens]. Is there another way of doing this?").
+           var(--transition-slide-lg) (tokens/effects.css), not the
+           shorter var(--transition-slide) both this and .filter-bar-overlay's
+           own opacity transition (above) originally shared with .side-nav
+           - live feedback, once this rewrite landed: "a bit too snappy"
+           (removing the JS measuring delay made the whole open/close read
+           faster overall even at the same 360ms), then "even slower, but
+           side nav is small so can stay the same, [only] big slides...
+           in mobile mode should use the longer one" - the double-length
+           scale step exists for exactly that: a large mobile-mode slide
+           reading right at a speed the app's smaller motion shouldn't
+           also inherit. */
+        transition: height var(--transition-slide-lg), border-bottom-color var(--transition-slide-lg);
     }
     /* Restores what the base rule (above) zeroes out collapsed - the
        divider below the sticky row. Must land before .is-maxed (below):
@@ -4348,7 +4647,7 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
        caused the border to not actually be on the edge of what is being
        clipped... I see line then about 4px of bg then the content"). */
     html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-collapsible {
-        border-bottom: 1px solid var(--border-strong);
+        border-bottom-color: var(--border-strong);
     }
     /* .is-maxed (main.js, positionFilterTray) - a rounded corner reads as
        a soft, natural stopping point; once the field grid is genuinely
@@ -4365,18 +4664,35 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
     }
-    /* Expanded resting height is height: auto, capped by an inline
-       max-height main.js sets right before animating open (measured off
-       the DOM at open time: the space between the sticky row's own bottom
-       edge and the mobile tabbar's own top edge isn't a fixed value CSS can
-       target - depends on the tray's own on-screen top and the tabbar's own
-       rendered position, neither knowable up front). That inline max-height
-       persists after the animation ends (only height/transition/flex get
-       reset, see main.js), so a genuinely-tall field grid still scrolls
+    /* .tray-open, not .is-expanded - a separate class specifically for
+       what drives the height value (main.js toggles both together on
+       open, but only .tray-open comes off immediately on close - see that
+       click handler's own comment for why .is-expanded itself has to
+       linger through the whole close animation instead). Resting height is
+       auto, capped by an inline max-height main.js sets right before
+       animating open (measured off the DOM at open time: the space between
+       the sticky row's own bottom edge and the mobile tabbar's own top
+       edge isn't a fixed value CSS can target - depends on the tray's own
+       on-screen top and the tabbar's own rendered position, neither
+       knowable up front). That inline max-height persists after the
+       animation ends, so a genuinely-tall field grid still scrolls
        internally against it via .filter-bar-collapsible-inner's own
        overflow-y: auto rather than overflowing past the tabbar. */
-    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-collapsible {
+    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.tray-open .filter-bar-collapsible {
         height: auto;
+    }
+    /* Fades the fields/label in and out with the same .tray-open toggle
+       that drives the height transition (above) - live feedback: "add a
+       fade to the filters and label as the tray opens and closes... the
+       tray should not get this effect, only the contents". Scoped to
+       -inner, not the outer .filter-bar-collapsible box itself, so the
+       tray's own background/border stays fully opaque the whole time and
+       only the fields/label content fades - var(--transition-slide-lg),
+       same token/duration as the height transition, so both finish
+       together instead of the fade trailing or leading it. */
+    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.tray-open .filter-bar-collapsible-inner,
+    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar.tray-open .filter-bar-sticky-footer {
+        opacity: 1;
     }
     /* .filter-bar-sticky-row and .filter-bar-collapsible are grandchildren
        of the form, not direct children - main.js (setupFilterBarMoreFilters)
@@ -4468,6 +4784,16 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            the border-collapse "one continuous block" trick an earlier,
            zero-gap version of this grid used. */
         gap: 4px;
+        /* Base (collapsed) state for the .tray-open fade rule below - opacity
+           0 plus its own transition has to live here, not just on the
+           .tray-open override, or there's nothing for that rule's opacity: 1
+           to actually fade FROM/TO (a bug in the first version of this: only
+           the .tray-open rule existed, so opacity sat permanently at its
+           un-set default of 1 the whole time and toggling the class visibly
+           did nothing). var(--transition-slide-lg), same token as the outer
+           box's own height transition (above), so both finish together. */
+        opacity: 0;
+        transition: opacity var(--transition-slide-lg);
         /* left/right var(--space-sm) - the tray itself went back to full
            screen width (.filter-bar-collapsible, above, live feedback:
            "the filter tray is meant to be screen width"), which otherwise
@@ -4480,6 +4806,19 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            the same pattern applied one level in. */
         padding-left: var(--space-sm);
         padding-right: var(--space-sm);
+    }
+    /* Same fade as .filter-bar-collapsible-inner (above) but for the
+       Clear/Close sticky footer - live feedback: "This should affect the
+       buttons as well". A genuinely separate rule, not folded into the
+       inner one above: the footer is .filter-bar-collapsible's own sibling
+       of -inner (students.html/that element's own comment - moved out of
+       -inner entirely to dodge a position: sticky + flex-wrap rendering
+       leak), so it needs its own base opacity: 0/transition here for the
+       .tray-open override (below, this file) to have anything to fade
+       to/from, same reasoning as -inner's own base rule. */
+    html.filter-bar-mobile-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-sticky-footer {
+        opacity: 0;
+        transition: opacity var(--transition-slide-lg);
     }
     /* Hides the scrollbar on touch devices only (live feedback: "on touch
        can we hide the scroll bar") - same html.nav-touch-mode convention
@@ -4505,43 +4844,75 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
     html.filter-bar-mobile-mode.nav-touch-mode form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner::-webkit-scrollbar {
         display: none;
     }
-    /* Narrow desktop specifically (html.filter-bar-narrow-desktop, main.js -
-       filter-bar-mobile-mode minus true phone width) - push the entity list
-       down in normal flow instead of floating a viewport-fixed tray over it
-       (live feedback: "clicking filters does not open tray, all I can see
-       is the overlay" - the base rules above's position: fixed; left: 0;
-       right: 0 spans the true viewport edge to edge, correct on a real
-       phone with no side nav and a full-bleed card, but the side nav is
-       still showing at this width and the card sits inset from it, so the
-       fixed tray was rendering behind/misaligned with the sidebar instead
-       of over the actual filter bar). Same approach the pre-#134 tablet/
-       desktop category strip already used successfully (git history: "the
-       filter shelf pushes the content down as this can be kept open") -
-       .list-page-shell's own JS-pinned total height
-       (setupListPageShellHeight, main.js) already redistributes flex space
-       between .filter-bar and #students-filtered-content whenever the
-       bar's own content grows, and the entity list handles its own
-       overflow via its existing internal scroll, so nothing here needs a
-       height cap of its own - main.js skips positionFilterTray (which
-       computes that cap) for this same state. flex/overflow overrides
-       below undo the base rules' "shrink to fit within a bounded floating
-       tray" sizing on .filter-fields-wrap/.filter-bar-collapsible-inner,
-       letting both just grow to their natural content height instead. */
+    /* Narrow desktop/portrait tablet (html.filter-bar-narrow-desktop, main.js
+       - filter-bar-mobile-mode minus true phone width) used to push the
+       entity list down in normal flow instead of floating a viewport-fixed
+       tray over it, because the side nav stays visible at this width/
+       orientation (unlike true phone, which swaps to a bottom tab bar with
+       no side nav) and the base rules' position: fixed; left: 0; right: 0
+       spans the true viewport edge to edge - misaligned with/rendering
+       behind the nav rather than over the actual (inset) filter bar (live
+       feedback at the time: "clicking filters does not open tray, all I can
+       see is the overlay"). Reversed on later live feedback ("I like the
+       slide over the top that mobile does... can we do this for portrait
+       tablet as well") - narrow-desktop/portrait-tablet now shares the
+       exact same floating overlay as true mobile below, no override left
+       here at all; the side-nav misalignment that originally ruled this out
+       is solved instead by anchoring the floating tray's left/width to the
+       filter bar's own rect (positionFilterTray, main.js) rather than the
+       raw viewport edge, so it still respects the inset the nav rail
+       leaves - main.js no longer skips that positioning call for this
+       state either. */
+    /* Square bottom corners here specifically (live feedback: "bottom
+       border of tray should not have radius") - the base rule's own
+       border-radius (above) reads right on true mobile, where the tray is
+       full-bleed against the viewport edge and the rounding is what marks
+       it as a distinct floating layer; narrow-desktop/portrait-tablet's
+       tray sits inset from the side nav instead, width-matched to the
+       filter bar above it (positionFilterTray, main.js) - a rounded
+       bottom there reads as an odd leftover rather than a deliberate edge,
+       since nothing else about this tray's shape says "card" the way true
+       mobile's full-bleed span does. */
     html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible {
-        position: static;
-        left: auto;
-        right: auto;
-        z-index: auto;
         border-radius: 0;
     }
-    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-fields-wrap {
-        flex: 0 0 auto;
-        overflow: visible;
+    /* Squared off, not matched to .list-card's own rounded bottom corners -
+       live feedback first asked for the opposite ("the bottom corners of
+       the stats bar has an odd grey on the edge" - the overlay's own plain
+       rectangle painting square into what should read as a rounded bottom
+       edge), fixed by matching the radius here. Superseded almost
+       immediately once positionFilterTray (main.js) started pinning the
+       overlay's own bottom edge above the stats strip entirely instead
+       (live feedback: "really the overlay should not affect the stats bar
+       at all... size the overlay so it stops short") - the overlay's
+       bottom edge is now a flat line well above the card's actual rounded
+       corner, nowhere near it, so a matching radius here no longer has
+       anything to line up with; live feedback confirmed squared is
+       correct now ("can the bottom of overlay lose the bottom radius"). */
+    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar ~ #students-filtered-content .filter-bar-overlay {
+        border-radius: 0;
+    }
+    /* Padding restored to the base .filter-bar/.filter-bar-collapsible-
+       inner desktop values here (live feedback: "the filter bar and filter
+       tray seems to have reduced margin or padding... this is correct in
+       mobile mode, but for desktop this should be consistent at all
+       widths") - the tightened var(--space-sm)/var(--space-xxs) rhythm two
+       rules above (html.filter-bar-mobile-mode, its own comment explains
+       why) was written for true mobile's full-bleed, edge-to-edge card,
+       where desktop's usual --space-lg reads as wasted width the cramped
+       3-up grid could use instead; narrow-desktop/portrait-tablet's card
+       keeps its normal desktop-width margins throughout (never goes full-
+       bleed), so that same justification doesn't carry over - this restores
+       the plain, unconditional .filter-bar/.filter-bar-collapsible-inner
+       rules' own values (forms.css/above) rather than inventing new ones,
+       so this mode's padding matches genuine desktop width exactly, not
+       just "less tight than mobile". */
+    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar {
+        padding: var(--space-xs) var(--space-lg);
     }
     html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar .filter-bar-collapsible-inner {
-        flex: 0 0 auto;
-        min-height: auto;
-        overflow-y: visible;
+        padding-left: var(--space-lg);
+        padding-right: var(--space-lg);
     }
     /* Bottom breathing room for the grid itself, independent of the tight
        4px inter-cell gap (live feedback: "filter bar looks too thin on
@@ -4666,7 +5037,21 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            footer no longer visually overlaps that scrolled content the
            way a sticky version would. */
         border-top: 1px solid transparent;
-        transition: border-color var(--transition-fast);
+        /* Both properties in ONE declaration, not left as two separate
+           `transition:` rules (this one plus the base rule's own
+           opacity transition, above) - live feedback: "Can the buttons
+           fade in and out rather than vanish or appear", confirmed via
+           getAnimations() as a genuine bug: `transition` is a shorthand,
+           not additive across rules - a second, later/higher-specificity
+           `transition: border-color ...` here was silently REPLACING the
+           base rule's `transition: opacity ...` outright for as long as
+           .is-expanded applies (i.e. the whole close animation, since
+           .is-expanded lingers through it), not adding to it, so opacity
+           had no transition property covering it at all for that entire
+           window and just snapped straight to its end value. Combining
+           them here keeps both transitions in effect regardless of which
+           rule's specificity wins. */
+        transition: opacity var(--transition-slide-lg), border-color var(--transition-fast);
         /* var(--space-sm) top/bottom, not the plain padding: var(--space-xxs)
            shorthand this used to be (git history, and it was also silently
            overriding the left/right padding-left/right set above it - same
@@ -4676,6 +5061,22 @@ form[data-ajax-target="#students-filtered-content"] .filter-bar-sticky-row {
            padding again the same way. */
         padding-top: var(--space-sm);
         padding-bottom: var(--space-sm);
+    }
+    /* Narrow-desktop/portrait-tablet override, matching the field grid's
+       own padding-left/right: var(--space-lg) above - live feedback: "the
+       filter tray buttons needs same left and right margin" (this rule's
+       own var(--space-sm) above is the true-mobile-tightened value; missed
+       when the field grid/outer bar were widened, leaving the footer
+       narrower than the fields sitting right above it). Placed after the
+       rule it overrides, not just matching its specificity (both are
+       html.filter-bar-mobile-mode-vs-narrow-desktop, form[...].filter-bar,
+       is-expanded, filter-bar-sticky-footer - equal specificity) - an
+       earlier version of this override sat further up the file, before the
+       rule above, and silently lost to it on source order despite matching
+       specificity exactly. */
+    html.filter-bar-narrow-desktop form[data-ajax-target="#students-filtered-content"].filter-bar.is-expanded .filter-bar-sticky-footer {
+        padding-left: var(--space-lg);
+        padding-right: var(--space-lg);
     }
     /* --border-strong, same "flat fill alone doesn't read as pinned over
        scrolling content" fix as .filter-bar-sticky-row's own border-bottom
