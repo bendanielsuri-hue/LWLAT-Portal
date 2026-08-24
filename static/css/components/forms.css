@@ -193,10 +193,106 @@
         border-left: none;
         padding-left: 0;
     }
+    /* .filter-bar-no-search (Meetings AND the SEND & Provision hub) - live
+       feedback: "Clear filters button should line up with dropdowns in
+       this style of filter bar" (Meetings), then "Clear Filters looks
+       misplaced" on the hub too once seen there. The fixed top: var(--
+       space-xs) above pins this to the bar's top edge, correct for every
+       other tray bar (Clear/View filters sit in the same short "Filters"/
+       Search row there, nothing below to line up with instead) - this
+       bar's dropdowns are the row that matters now (inline beside
+       "Filters", forms.css/panel.css's own .filter-bar-no-search rules),
+       so centring against the bar's own height lines this up with them.
+       Originally Meetings-only: the hub's field panel used to size itself
+       narrower than the row's real available width (flex: 0 1 auto's own
+       resolution quirk against an internally-scrolling child, this file's
+       own comment above), so its reserved padding-right corner only ever
+       cleared the button at the panel's own top edge, not down at this
+       centred height - fixed by making that panel flex-grow to genuinely
+       fill the row instead (above), which clears the whole corner now,
+       not just its top strip. */
+    .filter-bar-tray.filter-bar-no-search .filter-actions-right {
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    /* Fill - same fix, same reasoning, as the .filter-bar-sticky-row rule
+       below ("I want the Filter/badge and clear filters to have a fill
+       behind it to hide the scrolled content"). top: --space-xs plus an
+       explicit height (replacing the top: 50%/transform centring above),
+       not top/bottom: 0 - live feedback after a first full-bar-height
+       version: "it is covering scrollbar". space-xs/--filter-bar-fields-
+       content-height (main.js) matches exactly where the fields panel's
+       own visible (non-scrollbar) area sits, same values .filter-bar-
+       sticky-row now uses on the opposite corner, so this fill spans that
+       same range and stops before the scrollbar starts rather than
+       painting over it. */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-actions-right {
+        top: var(--space-xs);
+        height: var(--filter-bar-fields-content-height, auto);
+        transform: none;
+        /* box-shadow bleed (mirrors .filter-bar-sticky-row's identical
+           fix, rule below, same reasoning) - a first version instead used
+           right: 0 + padding-right to reach the bar's true right edge,
+           which grew this element's own offsetWidth the same way that
+           sticky-row's padding-left version did - --filter-actions-right-
+           width (main.js) measures THIS box, and every formula downstream
+           of it (the fields panel's own padding-right, panel.css) assumed
+           it meant Clear Filters's own width, not width-plus-20px. right
+           stays var(--space-lg) (base rule, unchanged) - only the paint
+           bleeds further, not the box itself. */
+        /* Second shadow (mirrors .filter-bar-sticky-row's identical pair,
+           rule below, same reasoning) closes the gap on THIS box's inner
+           edge too, reaching the cut-off line's own position on this side
+           (right: --filter-actions-right-width + --space-sm, the ::after
+           rule below) instead of stopping short of it. */
+        box-shadow: var(--space-lg) 0 0 0 var(--bg-well), calc(-1 * var(--space-sm)) 0 0 0 var(--bg-well);
+        /* z-index: 1 - unlike .filter-bar-sticky-row (already lifted, its
+           own rule above), this box never needed it before: nothing used
+           to bleed underneath it. Now the field panel's own scrollable
+           content can sit behind this fill at any scroll position, so it
+           needs the same explicit lift to actually paint over it rather
+           than lose a z-index: auto vs. auto tie on DOM order alone. */
+        z-index: 1;
+        background: var(--bg-well);
+    }
+    /* "Clear" / "Filters" on two lines, not one - live feedback, on the
+       SEND & Provision hub specifically ("this page's filters" - Meetings
+       stayed "perfect" as-is, its own Clear Filters already read fine as a
+       normal single-line button once centred, above): "Clear Filters
+       looks misplaced. It could have Filters on new line" - flagged in the
+       same breath as "this would create a tall narrower button", which is
+       deliberately what this does: width caps it to roughly one word's
+       worth so "Clear Filters" wraps at its own space instead of forcing
+       white-space: normal to just barely re-wrap at the container edge.
+       :not(.filter-bar-flat) - Meetings keeps the shared .filter-bar-clear
+       rule's normal wide/short button. */
+    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-actions-right .filter-bar-clear {
+        width: 62px;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.3;
+    }
     /* Fields claim the bar's full width now that .filter-actions-right (a
        plain sibling before, above) no longer reserves its own column. */
     .filter-bar-tray .filter-fields-wrap {
         flex-basis: 100%;
+    }
+    /* .filter-bar-no-search only - live feedback: "when there are too many
+       filters to fit, the filters should be scrollable, but I do not want
+       the layout to change. Filters should not wrap underneath". The base
+       .filter-fields-wrap rule (forms.css, above) is flex-wrap: wrap - for
+       a search-bearing bar that's harmless (nothing else lives on this row
+       to wrap away from), but a no-search bar's own field panel would
+       otherwise drop onto its own new line the moment "Filters" + the
+       panel's shrunk minimum width together exceed the row, instead of
+       just scrolling in place next to "Filters" the way the panel's own
+       track/overflow-x: auto (panel.css) already lets it. nowrap forces
+       both to stay on the one row at every width this bar reaches (mobile/
+       narrow-desktop/portrait-tablet - main.js's own isFilterBarMobile() -
+       take over with their own wholly different push-down tray markup
+       before this would ever matter). */
+    .filter-bar-tray.filter-bar-no-search .filter-fields-wrap {
+        flex-wrap: nowrap;
     }
     /* Search fills whatever room "Filters" and the absolutely-positioned
        buttons don't need (live feedback: "should use all available
@@ -216,6 +312,33 @@
     .filter-bar-tray .filter-bar-sticky-row .filter-field--search {
         flex: 1 1 auto;
         max-width: none;
+    }
+    /* .filter-bar-no-search (opt-in template class - Panel Meetings today,
+       the only tray bar with no pinned Search field) - live feedback: "no
+       search on filter bar, without one there is space for the filters to
+       not be underneath the bar... we can lose the show/hide filters".
+       The rule above sizes .filter-bar-sticky-row to flex: 1 1 auto purely
+       so Search has room to grow into whatever "Filters"/the pinned
+       buttons don't need; with no Search field, that same rule just let
+       the otherwise-empty row claim the bar's whole width for itself,
+       pushing the field panel onto its own line below regardless of how
+       much space was actually free. flex: 0 0 auto shrinks the row back
+       down to "Filters"'s own natural width instead, so the field panel
+       (below) sits on the SAME line right after it. */
+    .filter-bar-tray.filter-bar-no-search .filter-bar-sticky-row {
+        flex: 0 0 auto;
+        padding-right: 0;
+        /* align-self: center, not the .filter-fields-wrap default (flex-end,
+           base rule below) - live feedback: "can the Filter and badge be
+           vertically centered". flex-end bottom-aligns every item against
+           the tallest one on the line so a field's own label-above-control
+           column always keeps its control flush with Clear Filters/the
+           other fields' controls; "Filters" has no control to line up
+           against, so bottom-aligning it there just reads as sitting low
+           against the field row beside it. Scoped to this row only, not
+           the whole wrap - the field row itself still needs the shared
+           flex-end so every .filter-field's own control stays level. */
+        align-self: center;
     }
     /* #135: the revealed field list animates open/closed at this width
        (live feedback: "the filters [should] animate down like mobile
@@ -345,6 +468,105 @@
            right underneath. */
         border-radius: 0;
     }
+    /* .filter-bar-no-search (main.js pairs with this - the panel is forced
+       permanently open there instead of toggle-gated) - live feedback: "no
+       search on filter bar, without one there is space for the filters to
+       not be underneath the bar... we can lose the show/hide filters". The
+       rule above bleeds this panel edge-to-edge onto its own full-width
+       row below "Filters" - correct for a toggle-revealed shelf, wrong
+       once it's meant to just sit inline beside "Filters" on the one row a
+       page like Meetings has room for. flex-basis: auto (not the forced
+       100%+bleed) shrinks it to its own content width; margin/padding/
+       border-radius reset (not the edge-bleed/square-corner versions above,
+       which only make sense spanning the bar's full width) so it reads as
+       one rounded chip sitting on the bar's own --bg-well backdrop rather
+       than a second, visually disconnected box card cut into it.
+       padding-right reserves the same corner the pinned View filters/Clear
+       Filters buttons occupy (measure(), main.js) - this panel is what
+       actually reaches that corner now that it shares "Filters"'s own row,
+       not .filter-bar-sticky-row (0'd out above). */
+    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden]) {
+        /* flex-shrink: 1 shared by both; flex-grow differs (below) - Meetings
+           (.filter-bar-flat) never needs to grow past its own short content
+           (growing it would reintroduce the dead-space-to-the-right problem
+           this whole variant exists to avoid), while the SEND & Provision
+           hub's 11 fields already overflow whatever room is available, so
+           growing it there only ever claims real, otherwise-empty row space
+           rather than manufacturing any. */
+        flex: 0 1 auto;
+        /* min-width, paired with .filter-fields-wrap's own nowrap (above) -
+           without a floor, flex-shrink: 1 on a nowrap row will happily
+           crush this panel toward 0 rather than ever letting the row
+           itself overflow, squeezing the field panel down to an
+           unusably narrow sliver before its own track/overflow-x: auto
+           (panel.css) gets a chance to take over and scroll instead. */
+        min-width: 240px;
+        margin: 0;
+        /* 0 vertical (was --space-xxs) - live feedback: "filter-field and
+           filter-secondary-fields does not need 4px of padding" - this
+           panel already sits on the bar's own --bg-well backdrop rather
+           than reading as a separate floating card the way the toggle-
+           revealed shelf does (comment above), so it has no visual
+           "breathing room from its own edge" left to justify spending on
+           top of .filter-field's own now-zeroed padding (panel.css). */
+        padding: 0 var(--space-sm);
+        padding-right: calc(var(--filter-actions-right-width, 180px) + var(--space-md));
+        border-radius: var(--radius-md);
+    }
+    /* .filter-bar-no-search but NOT .filter-bar-flat (the SEND & Provision
+       hub) - live feedback: "I would like the scroll bar to be full width
+       of filter bar". flex: 0 1 auto (above) sizes this panel to its own
+       shrunk content width, which (depending on how the browser resolves a
+       flex-basis: auto item containing an internally-scrolling child) can
+       land narrower than the row's actual available width - the panel's
+       own border stopped well short of the pinned Clear Filters button,
+       and its track's scrollbar (panel.css) stopped exactly as short.
+       flex-grow: 1 grows it to genuinely fill whatever room "Filters" + the
+       reserved button corner don't need, every time.
+       margin - live feedback, after flex-grow alone still wasn't enough:
+       "not edge to edge... not at bottom edge and not full width". The
+       shared rule above resets margin to plain 0 (it only ever needed to
+       cancel the base .filter-secondary-fields rule's own bleed, further
+       up this file, for a chip that was never meant to reach the bar's
+       true edges at all) - restores that bleed on 3 sides (right/bottom
+       against the bar's own base padding, same as the original full-width
+       shelf design always did) and adds a 4th on the left, compounding in
+       "Filters"'s own measured width too (main.js) so this box starts at
+       the bar's true left edge, under "Filters", not just after it.
+       padding-right drops back to the plain --space-sm every other side
+       already gets - the Clear Filters corner reservation moves to the
+       TRACK's own padding instead (panel.css), so it protects the visible
+       FIELDS without also shrinking this outer box (and so its track's
+       native scrollbar) short of the bar's true right edge the same way
+       leaving it here would have. */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden]) {
+        flex-grow: 1;
+        margin: 0 calc(-1 * var(--space-lg)) calc(-1 * var(--space-xs)) calc(-1 * var(--filter-bar-label-width, 0px) - var(--space-xs) - var(--space-lg));
+        padding-right: var(--space-sm);
+    }
+    /* .filter-bar-flat (Meetings only - opts in alongside .filter-bar-no-
+       search, not a synonym for it: the SEND & Provision hub landing page
+       is also .filter-bar-no-search but keeps its own 3 real groups/Group
+       Info/SEN & Support/Demographics headers and their scroll carousel,
+       both still genuinely needed there). The category-strip header
+       (panel.css: "PANEL") reads as redundant right next to the bar's own
+       "Filters" label with nothing else to distinguish it from - Meetings
+       only ever has this one flat group (template comment, meetings.html).
+       Scroll arrows/divider (panel.css) are for the multi-category
+       horizontal carousel this bar never has more than one entry in either
+       - hidden for the same reason. .filter-secondary-fields:not([hidden])
+       repeated in the section-label selector (not just .filter-bar-flat
+       .filter-section-label) to match - and, with the extra .filter-bar-
+       flat class, outrank - the specificity of the rule below this @media
+       block that re-shows it (":not([hidden]) .filter-section-label {
+       display: flex }"); a plain 3-class selector here loses that fight
+       regardless of source order, which is exactly what shipped once and
+       silently kept "PANEL" visible. */
+    .filter-bar-tray.filter-bar-flat .filter-secondary-fields:not([hidden]) .filter-section-label,
+    .filter-bar-tray.filter-bar-flat .filter-secondary-fields-arrow,
+    .filter-bar-tray.filter-bar-flat .filter-divider {
+        display: none;
+    }
     /* No scrollbar on a touch device (portal convention - every
        overflow: auto element gets this pair) - html.nav-touch-mode is set
        live off a real hover: none match or the dev breakpoint preview's
@@ -361,6 +583,144 @@
     }
     html.nav-touch-mode .filter-bar-tray .filter-secondary-fields-track::-webkit-scrollbar {
         display: none;
+    }
+    /* z-index: 1 (paired with position: relative, base .filter-bar-sticky-
+       row rule) - "Filters" is earlier in DOM/paint order than
+       secondaryRow (main.js), so once that panel's own margin-left (above)
+       pulls it visually underneath "Filters" instead of only ever
+       starting after it, normal paint order alone would let the panel's
+       own content paint OVER "Filters" instead. Lifted above it here
+       instead - both already share the same --bg-well fill (base .filter-
+       bar rule/forms.css's own .filter-secondary-fields background), so
+       there's no visible seam where one stops covering the other, "Filters"
+       just always wins the overlap. */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-bar-sticky-row {
+        position: relative;
+        z-index: 1;
+        /* Live feedback, after the old 1px cut-off line still let a
+           scrolled field peek out top/bottom of "Filters"'s own shorter
+           content box: "I want the Filter/badge and clear filters to have
+           a fill behind it to hide the scrolled content... I do not want
+           to see the dropdown if its been scrolled behind Filters and
+           badge". align-self: flex-start (was: center, rule above) plus an
+           explicit height turns this row into a solid mask spanning the
+           fields panel's own visible height, not just "Filters"'s own
+           label+badge height - align-items: center below re-does the
+           vertical centering that align-self: center used to provide, now
+           via flex instead of box height, so nothing shifts visually.
+           height: --filter-bar-fields-content-height (main.js), not
+           stretch - live feedback again, once this first version instead
+           filled the bar's full flex-line height: "it is covering
+           scrollbar". That line height includes .filter-secondary-fields'
+           own native horizontal scrollbar strip at the bottom
+           (offsetHeight, main.js comment) - stretch painted straight over
+           it. clientHeight excludes that strip, so this box's top (flex-
+           start, same cross-start the tallest/line-defining sibling - the
+           fields panel itself - already sits at) plus this height stops
+           exactly where the scrollbar begins, leaving it visible and
+           clickable under this corner too. align-items: center below
+           re-does the vertical centering that align-self: center used to
+           provide, now via flex instead of box height, so nothing shifts
+           visually - live feedback tried flex-start instead once ("Top
+           should line up with top of dropdown labels"), then corrected:
+           "I did not want filters top aligned. It should be vertically
+           middle" - centered against this box's own full height (which
+           already lines up with the fields panel's own top/bottom, height
+           comment above) is what was wanted all along. */
+        align-self: flex-start;
+        height: var(--filter-bar-fields-content-height, auto);
+        display: flex;
+        align-items: center;
+        /* box-shadow bleed, not margin-left/padding-left - live feedback:
+           "does not get to left edge" got a margin/padding version first,
+           which then broke a DIFFERENT thing: --filter-bar-label-width
+           (main.js) measures this element's own offsetWidth, and every
+           formula downstream of that var (.filter-secondary-fields' own
+           margin-left bleed and panel.css's track padding-left, both
+           already tuned/confirmed working before this fill existed)
+           assumes it means "Filters"'s own text width, not text-plus-20px-
+           of-invisible-padding. The inflated width fed back into those
+           formulas over-bled the fields panel another 20px past the bar's
+           true edge, clipping it under overflow: hidden - live feedback,
+           the actual symptom: "can't see left edge of scrollbar, its
+           clipped. I should [see] the tiny left chevron that is part of
+           the actual scrollbar". A box-shadow doesn't participate in
+           layout at all (no offsetWidth change), so it can bleed the
+           paint the same --space-lg leftward with zero effect on any of
+           those measurements. */
+        /* Second shadow extends the fill the other direction too, right up
+           to the cut-off line's own position (label-width + --space-sm,
+           the ::before rule below) - live feedback: "the fill also needs
+           to start here [at the line] and not overlap the scrollbar".
+           Without it the fill still stopped at this box's own unpadded
+           edge (label-width), short of the line by that --space-sm gap -
+           the scrollbar (genuinely full-width across the whole bar, live
+           feedback from an earlier round: "I would like the scroll bar to
+           be full width") was then visible through that gap, under
+           "Filters" itself instead of only from the line rightward. Same
+           box-shadow-not-padding reasoning as the first shadow - this
+           can't be padding either without re-inflating --filter-bar-label-
+           width and re-breaking the fields panel's own bleed math. */
+        box-shadow: calc(-1 * var(--space-lg)) 0 0 0 var(--bg-well), var(--space-sm) 0 0 0 var(--bg-well);
+        /* Same --bg-well as the bar itself (base .filter-bar rule) - a
+           scrolled field's OWN box uses the lighter --bg-input (theme
+           tokens), so this fill still needs to be genuinely opaque against
+           that, not just against the bar's backdrop. */
+        background: var(--bg-well);
+        /* No padding-right/border-right here for the "gap before the cut-
+           off line"/the line itself any more - either one, being real box
+           content, would grow this element's own offsetWidth the exact
+           same way the padding-left version above just did, re-triggering
+           that bug. Both instead live on .filter-bar-tray's own ::before/
+           ::after (below), positioned purely by calc() off --filter-bar-
+           label-width - reading that var, never contributing to it. */
+    }
+    /* Cut-off line (main.js's wireFilterCutoffEdges toggles the two
+       classes below) - live feedback: "Filters and Clear Filters should
+       hide the filters that scroll underneath it... there should be a
+       line or border where the cut off is... should not be visible if
+       there is nothing underneath", then, once the fill itself moved onto
+       .filter-bar-sticky-row/.filter-actions-right directly (above): "Is
+       the cut off line a border? Can it be colour of the overall cards
+       border?" (var(--border-strong), the same token .filter-bar's own 2px
+       outer border uses, base rule this file) plus "There also should be
+       padding between Filters Label and the divider line" - both live on
+       .filter-bar-tray's own ::before/::after rather than as a border on
+       the fill elements themselves, so the gap-before-the-line and the
+       line's position can both be tuned via calc() off --filter-bar-
+       label-width/--filter-actions-right-width (main.js) without adding
+       any real padding/border to the fill elements' own boxes - either
+       would grow their offsetWidth, which those same two vars measure
+       (see the box-shadow comment on .filter-bar-sticky-row, above). */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat)::before,
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat)::after {
+        content: "";
+        position: absolute;
+        top: var(--space-xs);
+        height: var(--filter-bar-fields-content-height, auto);
+        width: 1px;
+        background: var(--border-strong);
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+        /* Above the track (z-index: auto) but positioned over the TRACK's
+           own area, not over "Filters"/Clear Filters themselves (left/
+           right, below, sit past those fills' own unpadded edges) - so it
+           never needs to out-rank their z-index: 1 the way a full-width
+           fill would have. */
+        z-index: 2;
+        pointer-events: none;
+    }
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat)::before {
+        left: calc(var(--space-lg) + var(--filter-bar-label-width, 0px) + var(--space-sm));
+    }
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat)::after {
+        right: calc(var(--space-lg) + var(--filter-actions-right-width, 180px) + var(--space-sm));
+    }
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-left:not(.filter-bar-flat)::before {
+        opacity: 1;
+    }
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-right:not(.filter-bar-flat)::after {
+        opacity: 1;
     }
     /* .filter-divider (main.js's own first child of secondaryRow, marking
        the seam between the primary/secondary rows when they used to share
@@ -474,6 +834,100 @@
 }
 .filter-bar-label:not(:has(.filter-bar-count--empty)) {
     color: var(--primary);
+}
+/* .filter-bar-no-search only (Meetings/the SEND & Provision hub landing
+   page - "not the search style filters") - live feedback: "in this version
+   of search there is space for the Filter badge to be on new line beneath
+   Filters", clarified afterwards to mean the non-search bars specifically.
+   These bars' "Filters" label now sits beside a multi-row field group
+   (forms.css: .filter-bar-no-search .filter-bar-sticky-row/.filter-
+   secondary-fields, above) rather than a fixed-height Search input, so
+   there's real spare height to stack the count badge into rather than
+   crowding it onto the same line as the word "Filters". Search-bearing
+   bars (Students/Referrals/Actions) keep the single-line label - their
+   row's height is deliberately pinned to Search's own (base rule's own
+   comment, above), with no comparable spare room to stack into.
+   html:not(.filter-bar-mobile-mode) - mobile/narrow-desktop/portrait-tablet
+   (panel.css's own html.filter-bar-mobile-mode block) is a wholly separate
+   axis from search-vs-no-search and already has its own purpose-built
+   "Filters ⌄ [badge]" inline tap-target design there; without this guard
+   the column stack here still won on this one property regardless (mobile
+   mode's own .filter-bar-label rule never touched flex-direction) - live
+   feedback: "it looks off in mobile mode and portrait tablet mode".
+   panel.css also carries a belt-and-suspenders flex-direction: row reset
+   inside that block itself, in case a future mobile-mode rule ever loads
+   before this file and would otherwise need to out-specificity it. */
+html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-bar-label {
+    flex-direction: column;
+    align-items: center;
+    /* justify-content: center - live feedback: "Filter should be vertically
+       centre. If the badge is hidden then it looks too high". The empty-
+       badge state (.filter-bar-count--empty, below) only ever fades/scales
+       the count visually - it deliberately keeps reserving its own real
+       layout height (so the badge popping back in doesn't shove "Filters"
+       around, that rule's own comment) - so this box's own height stays
+       the same whether the badge is shown or hidden either way. Without
+       justify-content, flex-direction: column's own default (flex-start)
+       stacks both children from the box's top edge regardless, so an
+       empty/invisible badge still visually reads as "Filters sits too high
+       above the dropdowns" even though the BOX itself is correctly
+       centred - centering the children as a group inside that box instead
+       moves "Filters" down into the middle of its own now-invisible
+       second line whenever the badge is empty; a non-empty badge already
+       fills that same height, so this is a no-op there. */
+    justify-content: center;
+    gap: 2px;
+}
+/* .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision hub)
+   only - a three-part round trip of live feedback: "I did not want filters
+   top aligned. It should be vertically middle" -> (a position: absolute
+   badge, pulled out of flow so "Filters" text alone always centres in
+   .filter-bar-sticky-row regardless of the badge) -> "I am not seeing
+   filters label be vertically middle with hidden badge" fixed, but then:
+   "When there is a badge it should stay vertically center as it animates
+   in!" - an absolutely-positioned badge never moves the text at all, so
+   once a filter's applied and the badge scales in, "Filters" alone stays
+   centred and the GROUP (Filters + badge) reads as sitting too high,
+   uncentred, badge dangling below it. What's actually wanted: the group
+   centres together whenever the badge is real, and "Filters" alone
+   centres when it isn't - i.e. the label's own height should genuinely
+   shrink to just the text's height when empty (not just fade/scale the
+   badge in place, the portal-wide default below, which keeps reserving
+   its full height so the group LOOKS off-centre with nothing visible in
+   that reserved space) and grow back as it fills in, animated so
+   .filter-bar-sticky-row's own align-items: center (rule above) can
+   recentre the shrinking/growing label smoothly every frame instead of
+   snapping. Scoped here only - the portal-wide "always reserve full
+   height" default (.filter-bar-count--empty, below) still stands
+   everywhere else, where .filter-bar-label's own box is roughly group-
+   height already and there's no comparable tall outer box recentring it. */
+html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-bar-count {
+    /* height/margin-top join the shared rule's own opacity/transform
+       transition (below) - both real, animatable layout properties (not
+       auto), so the label's own height genuinely tweens between the two
+       states frame-by-frame rather than jumping, letting the outer
+       align-items: center track it smoothly throughout. */
+    transition: opacity var(--transition-base), transform var(--transition-base),
+        height var(--transition-base), margin-top var(--transition-base);
+}
+html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-bar-count--empty {
+    height: 0;
+    /* -2px, matching .filter-bar-label's own gap: 2px (rule above) exactly
+       - flex gap reserves its space even between a shown item and a
+       zero-height one, so cancelling it here is what actually gets the
+       label's total height down to just the text line. */
+    margin-top: -2px;
+}
+/* Bigger than the shared 18px badge (below) - live feedback: "the badge can
+   be bigger in this search format" (the .filter-bar-no-search stacked
+   layout just above, which is what "this" referred to - the badge now
+   owns a whole second line instead of squeezing beside "Filters" on one,
+   so it has genuine room to read as a more prominent count rather than
+   matching the compact inline badge every other filter bar still needs). */
+html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-bar-count {
+    min-width: 22px;
+    height: 22px;
+    font-size: var(--font-xs);
 }
 
 .filter-bar-count {

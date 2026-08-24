@@ -258,6 +258,15 @@ function setupFilterBarMoreFilters(bar) {
     // plain `.filter-bar` with no tray keeps the exact 480px threshold
     // unchanged.
     var isTrayBar = bar.matches('.filter-bar-tray');
+    // No pinned Search field (Meetings today) - live feedback: "no search on
+    // filter bar, without one there is space for the filters to not be
+    // underneath the bar" - a bar with a pinned Search (Students/Referrals/
+    // Actions) always needs the toggle at every width above mobile so
+    // Search itself has somewhere to sit alone; a bar with nothing pinned
+    // has no such reason to hide its (usually few, short) fields behind a
+    // click at wide desktop just because that's what search-bearing bars
+    // do. Read once here, reused inside measure() below.
+    var hasSearchField = !!bar.querySelector('[data-filter-pinned]');
     if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
         var retryMqls = isTrayBar
             ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 768px)'), window.studentsPortraitMql || window.matchMedia('(orientation: portrait)'), window.studentsPortraitWideMql || window.matchMedia('(min-width: 900px)')]
@@ -435,6 +444,20 @@ function setupFilterBarMoreFilters(bar) {
     // insertBefore is called on, or it throws.
     fieldsHost.appendChild(secondaryRow);
 
+    // .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision
+    // hub) - live feedback: "Filters and Clear Filters should hide the
+    // filters that scroll underneath it. I think there should be a line or
+    // border where the cut off is... should not be visible if there is
+    // nothing underneath". "Filters"/Clear Filters sit above this bar's
+    // now-full-bar-width scrollable track (z-index, forms.css) rather than
+    // beside it, so scrolled fields genuinely pass underneath them - these
+    // two classes (CSS: forms.css) toggle a thin border in exactly that
+    // seam, but only once there's actually something scrolled under it to
+    // mark, not just because the corner is reserved.
+    if (isTrayBar && !hasSearchField && !bar.classList.contains('filter-bar-flat')) {
+        wireFilterCutoffEdges(bar, secondaryTrack);
+    }
+
     var actionsRight = document.createElement('div');
     actionsRight.className = 'filter-actions-right';
     moreFiltersBtn = document.createElement('button');
@@ -567,6 +590,23 @@ function setupFilterBarMoreFilters(bar) {
             // which a fresh wireScrollCarousel call here would do.
             if (updateSecondaryArrows) updateSecondaryArrows();
         }
+        // No pinned Search field (Meetings today) - live feedback: "no
+        // search on filter bar, without one there is space for the filters
+        // to not be underneath the bar... we can lose the show/hide
+        // filters". Reuses the exact same secondaryRow/groups the toggle-
+        // gated bars build just above (current chip/card styling, not the
+        // dead pre-tray .filter-field default) rather than leaving fields
+        // to fall back to their bare, unstyled display - just forces the
+        // panel permanently open and the toggle permanently hidden instead
+        // of gating it behind a click. flex-basis override (forms.css,
+        // .filter-bar-no-search) is what actually keeps this panel inline
+        // beside "Filters" instead of dropping to its own full-width row
+        // below, same as the toggle-gated version does once expanded.
+        if (isTrayBar && !hasSearchField && groups.length) {
+            secondaryRow.hidden = false;
+            moreFiltersBtn.hidden = true;
+            moreFiltersBtn.setAttribute('aria-expanded', 'false');
+        }
         // Preserve the user's own explicit open/closed state across a
         // remeasure instead of resetting it back to closed - live
         // feedback: "still reopening. Also it loads open" - the
@@ -600,9 +640,95 @@ function setupFilterBarMoreFilters(bar) {
         // rather than a guessed fixed number that would silently drift out
         // of sync.
         bar.style.setProperty('--filter-actions-right-width', actionsRight.offsetWidth + 'px');
+        // .filter-bar-no-search but not .filter-bar-flat (the SEND &
+        // Provision hub) - live feedback: "a bulky generic scrollbar but
+        // the full width" - the field panel's own negative margin-left
+        // (forms.css) pulls its scrollable box out from under "Filters" to
+        // the bar's true left edge, so its native scrollbar can span the
+        // bar's full width; this measures "Filters"'s own real rendered
+        // width live (its text/count badge can change it) so that margin -
+        // and the track's own matching padding-left, panel.css, which
+        // keeps the fields themselves starting where they always visually
+        // did - stay correct rather than a guessed fixed number drifting
+        // out of sync, same convention --filter-actions-right-width above
+        // already uses on the opposite corner.
+        if (isTrayBar && !hasSearchField && !bar.classList.contains('filter-bar-flat') && label) {
+            bar.style.setProperty('--filter-bar-label-width', label.offsetWidth + 'px');
+        }
+        // "Filters"/Clear Filters's own opaque fill (forms.css - masks a
+        // scrolled field from showing through, live feedback: "I do not
+        // want to see the dropdown if its been scrolled behind Filters and
+        // badge") used to stretch to the full flex-line height, which
+        // included the panel's own native horizontal scrollbar strip at
+        // the bottom - covering that scrollbar too ("it is covering
+        // scrollbar"). clientHeight excludes that strip, so the fill can
+        // be sized to stop exactly where the scrollbar starts, leaving it
+        // visible/usable underneath both corners. secondaryTrack, not
+        // secondaryRow - overflow-x: auto (so the actual scrollbar) lives
+        // on .filter-secondary-fields-track (panel.css), not the outer
+        // .filter-secondary-fields wrapper; measuring the wrapper instead
+        // read offsetHeight === clientHeight always regardless of any real
+        // scrollbar, silently sizing this fill to the full row height
+        // every time ("Overlap over the scrollbar still persists").
+        if (isTrayBar && !hasSearchField && !bar.classList.contains('filter-bar-flat')) {
+            // -2px safety margin - live feedback: "The borderline should
+            // not reach the scroll bar". clientHeight/offsetHeight are
+            // whole-pixel-rounded and can differ by a pixel or two from
+            // the browser's own real (sub-pixel, OS-themed) scrollbar
+            // metrics, close enough that the fill/cut-off line landed
+            // flush against - and in a real browser, sometimes fractionally
+            // into - the scrollbar itself rather than stopping cleanly
+            // above it.
+            bar.style.setProperty('--filter-bar-fields-content-height', Math.max(0, secondaryTrack.clientHeight - 2) + 'px');
+        }
+        // Re-sync the carousel arrows' own hidden state now that the vars
+        // above have settled - live feedback: "I do not see left and right
+        // arrows". wireScrollCarousel's updateSecondaryArrows already ran
+        // once, synchronously, back when secondaryRow/secondaryTrack were
+        // first built (above) - before this measure() had set --filter-
+        // bar-label-width/--filter-actions-right-width even once, so the
+        // track's own padding (panel.css, both vars) was still sized off
+        // their fallback defaults (0px/180px) rather than "Filters"/Clear
+        // Filters's real widths, made worse on a fresh full-page load (the
+        // dev breakpoint preview's iframe reload, not a resize of an
+        // already-settled page) where that first check has the least
+        // chance of reflecting final layout. updateSecondaryArrows is
+        // idempotent (just re-reads track.scrollWidth/clientWidth), so
+        // calling it again here costs nothing on a page where the first
+        // check already happened to be right.
+        if (typeof updateSecondaryArrows === 'function') {
+            updateSecondaryArrows();
+        }
     }
 
     measure();
+    // Open by default on desktop for a search-bearing bar (Students/
+    // Referrals/Actions) - live feedback: "can Filters with search be open
+    // by default on desktop mode unless its narrow". Reverses part of the
+    // 2026-08-20 "no auto-open at any width above mobile any more" change
+    // (wireMoreFiltersToggle's own comment, below) but only for this class
+    // of bar - a .filter-bar-no-search bar (Meetings/the SEND & Provision
+    // hub) has no toggle to open in the first place (main.js, above: the
+    // hide-behind-toggle grouping is skipped for it entirely), so this
+    // never applies there regardless. isFilterBarMobile() (not a bare
+    // width check) is the same "narrow" boundary every other decision in
+    // this file already uses - true phone, a narrowed desktop window, or
+    // touch+portrait all count. Sets the button/panel straight to their
+    // final "open" state rather than calling moreFiltersBtn.click() - a
+    // page load should render already-open, not visibly play the reveal
+    // animation the instant the page appears. secondaryRow.hidden = false
+    // here, not animateSecondaryFieldsToggle - matches wireMoreFiltersToggle's
+    // own <=480px branch (that animation is desktop/tablet-only there too).
+    // The very next remeasure (a real resize, or the touch/orientation
+    // retrigger below) reads this back via measure()'s own wasExpanded
+    // check and keeps it open, so this only needs to run once at setup -
+    // it isn't reapplied on every resize, so a user who closes it manually
+    // stays closed rather than being forced back open.
+    if (isTrayBar && hasSearchField && !(window.isFilterBarMobile && window.isFilterBarMobile())) {
+        secondaryRow.hidden = false;
+        moreFiltersBtn.setAttribute('aria-expanded', 'true');
+        setMoreFiltersLabel(moreFiltersBtn);
+    }
     // Exposed so a touch/orientation-only transition into or out of
     // Students' filter-bar-mobile-mode (syncFilterBarMobileClass, above -
     // e.g. the dev breakpoint preview's touch toggle, or a hybrid device
@@ -630,6 +756,30 @@ function setupFilterBarMoreFilters(bar) {
     wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar);
 }
 window.setupFilterBarMoreFilters = setupFilterBarMoreFilters;
+
+// .filter-bar-cut-left/.filter-bar-cut-right (CSS: forms.css) - live
+// feedback: "Filters and Clear Filters should hide the filters that scroll
+// underneath it... there should be a line or border where the cut off is...
+// should not be visible if there is nothing underneath". Toggled from
+// `track`'s own real scroll position, not just "is this bar wide enough to
+// ever overflow" (the arrows/scrollbar already answer that) - cut-left only
+// once scrolled away from the true start (something is now hidden under
+// "Filters"), cut-right only before the true end (something is still
+// hidden under Clear Filters), so at rest - nothing scrolled, nothing
+// actually cut off - neither line shows.
+function wireFilterCutoffEdges(bar, track) {
+    function update() {
+        var scrollable = track.scrollWidth - track.clientWidth;
+        bar.classList.toggle('filter-bar-cut-left', track.scrollLeft > 1);
+        bar.classList.toggle('filter-bar-cut-right', scrollable > 1 && track.scrollLeft < scrollable - 1);
+    }
+    track.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', rafThrottle(update));
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(update).observe(track);
+    }
+    update();
+}
 
 // Horizontal scroll-snap carousel: a .*-carousel-wrap holding a scrolling
 // track plus prev/next arrow buttons that nudge scrollLeft by one card
@@ -726,8 +876,24 @@ function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nex
         // drag - an unaffordanced default cursor on a track that's already
         // fully visible would be a lie.
         track.classList.toggle('is-draggable', overflowing);
+        // is-at-edge (live feedback, the filter category strip specifically:
+        // "They also cover up the first and last dropdown if scrolled all
+        // the way. Can the arrow fade to nothing if scrolled all the way?")
+        // - a fully-scrolled-to-one-end track has nothing left for that end's
+        // own arrow to do, so it just sits there obscuring the now-fully-
+        // revealed first/last card underneath instead of affording anything.
+        // No matching CSS exists for the other carousels this function is
+        // shared with (senco/stats/referral/action) - the class is harmless
+        // there, a plain no-op, but only .filter-secondary-fields-arrow
+        // (panel.css) actually fades on it for now.
+        if (overflowing) {
+            var maxScroll = track.scrollWidth - track.clientWidth;
+            prevBtn.classList.toggle('is-at-edge', track.scrollLeft <= 1);
+            nextBtn.classList.toggle('is-at-edge', track.scrollLeft >= maxScroll - 1);
+        }
     }
     updateArrows();
+    track.addEventListener('scroll', updateArrows, { passive: true });
     window.addEventListener('resize', updateArrows);
     return updateArrows;
 }

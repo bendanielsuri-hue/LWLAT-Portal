@@ -3569,6 +3569,61 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         margin: 0 calc(-1 * var(--space-lg));
         padding: 0 var(--space-lg);
     }
+    /* .filter-bar-flat (Meetings) - the track's own flex: 1 1 100%/edge
+       bleed above assumes a full-width parent to fill and bleed against;
+       against this override's own auto-sized parent instead (forms.css:
+       .filter-bar-flat's own panel stays flex: 0 1 auto, shrink-to-content
+       - growing it would reintroduce the dead-space problem this variant
+       exists to avoid), a 100% basis has nothing definite to resolve
+       against (same circular-sizing trap .filter-group's own column-
+       reverse comment, below, already had to work around once). flex: 0 1
+       auto sizes the track to its one group's real content width; margin/
+       padding reset cancels the now-inapplicable edge bleed (there's no
+       bar edge to reach any more). overflow-x stays auto as a safety net,
+       not because Meetings' single "Panel" group ever needs it in
+       practice. */
+    .filter-bar-tray.filter-bar-flat .filter-secondary-fields-track {
+        flex: 0 1 auto;
+        margin: 0;
+        padding: 0;
+    }
+    /* .filter-bar-no-search but NOT .filter-bar-flat (the SEND & Provision
+       hub) - live feedback: "I would like the scroll bar to be full width
+       of filter bar and on bottom edge". This panel now grows to fill its
+       row (forms.css: flex-grow: 1, unlike Meetings above), so unlike
+       Meetings there IS a real, definite parent width for the track to
+       fill and bleed against here - flex: 1 1 auto claims it. margin/
+       padding bleed matches this panel's own --space-sm padding (forms.css)
+       rather than the original design's --space-lg (which matched the
+       full outer .filter-bar's own padding, back when this track bled all
+       the way to THAT edge) - this panel is its own smaller rounded chip
+       now, not the full-bleed bar-width shelf that padding was measured
+       for, so the track only needs to reach *its own* edges to read as
+       "full width" of the panel it actually lives in. */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-track {
+        flex: 1 1 auto;
+        margin: 0 calc(-1 * var(--space-sm));
+        padding: 0 var(--space-sm);
+        /* Extra left inset, on top of the plain --space-sm every other
+           side gets - live feedback: "generic scrollbar... full width".
+           The scrollable box itself now starts at the bar's true left
+           edge, under "Filters" (forms.css: .filter-secondary-fields's own
+           negative margin-left, same --filter-bar-label-width main.js
+           measures) so its native scrollbar can span the bar's full width
+           - but the FIELDS inside still need to start exactly where they
+           always visually did, clear of "Filters"'s own text, hence this
+           reclaims that same width back as padding on the content side. */
+        padding-left: calc(var(--space-sm) + var(--filter-bar-label-width, 0px) + var(--space-xs) + var(--space-lg));
+        /* Mirrors padding-left, right side: the Clear Filters corner
+           reservation used to live on secondaryRow's own padding-right
+           (forms.css) - moved here instead once that box needed to bleed
+           all the way to the bar's true right edge itself (live feedback:
+           "not edge to edge... not full width"), same reasoning as the
+           left side - the FIELDS need to stop clear of the button, but the
+           scrollABLE BOX (and so its native scrollbar) shouldn't stop
+           short of the bar's true edge just to make that happen. */
+        padding-right: calc(var(--space-sm) + var(--filter-actions-right-width, 180px) + var(--space-md) + var(--space-lg));
+    }
     /* display: flex; flex-direction: column (not flex-wrap: wrap with the
        header forced onto its own line via flex: 1 1 100%, which is what
        this used to be) - live feedback: "now it is too narrow. The line
@@ -3663,6 +3718,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         align-items: center;
         justify-content: center;
         z-index: 4;
+        /* Smooths the .is-at-edge opacity fade (below) - unnoticeable
+           anywhere the class never gets toggled (every other carousel this
+           function is shared with, main.js), since a transition with
+           nothing to animate is a no-op. 360ms, not --transition-fast
+           (140ms) - live feedback: "it looks to snap into or out of
+           existence. If it does fade it does so too quick" - this fade is
+           a full-circle-button-sized area disappearing/appearing right
+           where a finger's about to tap, not a small chrome-level hover
+           tweak (what --transition-fast is tuned for portal-wide), so it
+           reads better slower and more deliberate. */
+        transition: opacity 360ms ease;
     }
     .filter-bar-tray .filter-secondary-fields-arrow:hover {
         background: var(--border-color);
@@ -3672,6 +3738,70 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     }
     .filter-bar-tray .filter-secondary-fields-arrow--next {
         right: 4px;
+    }
+    /* .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision
+       hub) - live feedback: "add a left and right arrow to tablet wide to
+       move to next filter section". These arrows already existed and
+       already fire on every filter bar (wireScrollCarousel, main.js, no
+       touch/width gate) - live: 4px/right: 4px above assumes this box's
+       own edge is the visible edge of the scrollable strip, true
+       everywhere else but not here any more (same reason the edge fades,
+       below, and the cut-off line, forms.css, both needed their own
+       reposition) - this panel's own box bleeds under "Filters"/Clear
+       Filters now, so left: 4px/right: 4px landed both arrows UNDER those
+       fills instead, each one sitting on top of that text/button (z-index:
+       4, above the z-index: 1 fill) rather than at the track's actual
+       visible boundary. Same --filter-bar-label-width/--filter-actions-
+       right-width + --space-sm offset the cut-off line already uses,
+       plus the same 4px edge margin the unscoped rule above already used,
+       lands each arrow just inside the visible track instead. */
+    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-arrow--prev {
+        /* + --space-lg - same missing term as the edge fades below (see
+           their own comment) - this positions relative to secondaryRow,
+           which sits at the bar's true edge, but "Filters" itself starts
+           --space-lg further in before --filter-bar-label-width even
+           begins. */
+        left: calc(var(--space-lg) + var(--filter-bar-label-width, 0px) + var(--space-sm) + 4px);
+    }
+    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-arrow--next {
+        right: calc(var(--space-lg) + var(--filter-actions-right-width, 180px) + var(--space-sm) + 4px);
+    }
+    /* Device, not width, decides whether these arrows are redundant - live
+       feedback: "These button are not needed to be visible on desktop as
+       we have scrollbar indicator", same reasoning/same condition as the
+       edge fades below already use for the same reason ("on desktop mode
+       we do not need the fade as the scrollbar makes it clear"). Scoped to
+       this bar only - every OTHER filter-secondary-fields-arrow use
+       (search-bearing bars' own hidden-behind-toggle shelf) already showed
+       them on desktop before this session touched anything here, and nothing
+       about that usage changed. */
+    html:not(.nav-touch-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-arrow {
+        display: none;
+    }
+    /* Bigger on touch - live feedback: "the left and right seem a little
+       small for touch devices". 36px, not the shared 28px - a real
+       fingertip target rather than a mouse-hover one, same touch-only
+       upsizing convention already used for .stats-carousel-arrow (32px,
+       this file) - a couple px bigger again here since this arrow also
+       has to clear the divider line/edge fade beside it rather than
+       floating over plain card padding. */
+    html.nav-touch-mode .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-arrow {
+        width: 36px;
+        height: 36px;
+    }
+    /* Fades out at whichever end is already fully scrolled to (main.js's
+       updateArrows, wireScrollCarousel - toggles .is-at-edge per button off
+       track.scrollLeft, live on every scroll) - live feedback: "They also
+       cover up the first and last dropdown if scrolled all the way. Can the
+       arrow fade to nothing if scrolled all the way?" - at that end there's
+       nothing left for the arrow to do, so it was just sitting on top of the
+       now-fully-revealed first/last field instead of affording anything.
+       pointer-events: none alongside opacity - a transparent circle sitting
+       over a dropdown would otherwise still intercept the click meant for
+       whatever's now fully visible underneath it. */
+    .filter-bar-tray .filter-secondary-fields-arrow.is-at-edge {
+        opacity: 0;
+        pointer-events: none;
     }
     /* Edge fades hinting there's more to scroll to (live feedback: "add a
        fade affect on the left and right to suggest there are more") -
@@ -3694,6 +3824,28 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         pointer-events: none;
         z-index: 3;
     }
+    /* .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision
+       hub) only - live feedback: "Can the fade also disappear if scrolled
+       to the start and end" - the "always shown" reasoning above still
+       holds for every OTHER filter bar (nothing scrolled fully into view
+       there for the fade to needlessly sit over), but this bar already
+       tracks exactly that (main.js's wireFilterCutoffEdges - the SAME
+       scroll-extreme check the .is-at-edge arrows, above, and the cut-off
+       line, forms.css, both already key off) via .filter-bar-cut-left/
+       -right on the bar itself. Reusing those instead of a second, separate
+       scroll listener - opacity 0 by default, only faded in once there's
+       something actually scrolled under this corner to hint at. */
+    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::before,
+    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::after {
+        opacity: 0;
+        transition: opacity 360ms ease;
+    }
+    .filter-bar-tray.filter-bar-no-search.filter-bar-cut-left:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::before {
+        opacity: 1;
+    }
+    .filter-bar-tray.filter-bar-no-search.filter-bar-cut-right:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::after {
+        opacity: 1;
+    }
     .filter-bar-tray .filter-secondary-fields:not([hidden])::before {
         left: 0;
         background: linear-gradient(to right, var(--bg-well), transparent);
@@ -3701,6 +3853,52 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     .filter-bar-tray .filter-secondary-fields:not([hidden])::after {
         right: 0;
         background: linear-gradient(to left, var(--bg-well), transparent);
+    }
+    /* .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision
+       hub) repositions both fades - live feedback: "Landscape tablet mode
+       needs a fade effect to indicate there is more" surfaced this fade
+       was still wired up but effectively invisible there. left: 0/right: 0
+       above assumes .filter-secondary-fields' own edge IS the visible
+       start/end of the scrollable content, true for every other filter bar
+       but no longer true here: this panel's own box now bleeds out to the
+       bar's true left/right edges, under "Filters"/Clear Filters
+       (forms.css's own .filter-secondary-fields bleed rule) so those fills
+       can mask a scrolled field (live feedback, this file's forms.css
+       history). left: 0 there sits under "Filters" itself now, painting a
+       bg-well-to-transparent gradient on top of an already-opaque
+       identical-colour fill - present in the DOM, doing nothing visible.
+       --filter-bar-label-width/--filter-actions-right-width + --space-sm
+       (main.js/forms.css - the same offset the cut-off line, forms.css,
+       already uses) instead lands this fade exactly at the visible track's
+       own start/end, right where a real "there's more to scroll" cue
+       needs to read. */
+    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::before {
+        /* + --space-lg - live feedback: "the fade is affecting the wrong
+           side of the boundary line... affecting the Clear Filters button
+           but it should affect the edge of visible dropdowns" (symptom
+           reported on the right/Clear Filters side, but the same term was
+           missing here too, on the left). This offset is relative to
+           .filter-secondary-fields' own edge, which already sits at the
+           bar's TRUE left edge (its own margin-left bleed, forms.css) -
+           but "Filters" itself (.filter-bar-sticky-row) is a normal-flow
+           element starting --space-lg further in, at the bar's own
+           padding edge, THEN --filter-bar-label-width wide. Forgetting
+           that --space-lg landed this fade's opaque edge 20px too early -
+           harmless over on this side (plain text on the same bg-well, no
+           visible edge to clip), but the equivalent --after rule's
+           identical mistake sliced across Clear Filters's own visible
+           button pill on the other corner. */
+        left: calc(var(--space-lg) + var(--filter-bar-label-width, 0px) + var(--space-sm));
+    }
+    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::after {
+        /* + --space-lg - see the matching comment on ::before, above (same
+           missing term, this is the side where it actually showed:
+           "affecting the Clear Filters button"). .filter-actions-right
+           sits --space-lg in from the bar's true right edge, not flush
+           against it, so leaving that term out put this fade's opaque
+           edge 20px too far right - straight across Clear Filters's own
+           left edge. */
+        right: calc(var(--space-lg) + var(--filter-actions-right-width, 180px) + var(--space-sm));
     }
     /* Device, not width, decides whether the fade above is redundant (live
        feedback: "on desktop mode we do not need the fade as the scrollbar
@@ -3737,6 +3935,25 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            filters. This can be greatly reduced" - same scoped-not-shared
            reasoning as the padding trim just above. */
         gap: var(--space-xxs);
+    }
+    /* .filter-bar-flat only, not the plain .filter-bar-no-search the SEND &
+       Provision hub also carries - live feedback: "filter-field and
+       filter-secondary-fields does not need 4px of padding", then
+       (checking the hub page too) "the SEND & Provision Filter section
+       labels are now too tight to the dropdown. Can we add padding to the
+       section labels if they are showing" - Meetings' own .filter-section-
+       label stays hidden (this file's own .filter-bar-flat rule, above), so
+       it has no label sitting right underneath a field to crowd; the hub's
+       3 real groups do (Group Info/SEN & Support/Demographics, column-
+       reverse below their own fields), and lost their breathing room to
+       this same zero once it reached them too. Scoping to .filter-bar-flat
+       - true only where a label is genuinely never shown - both restores
+       the hub's padding automatically and reads as "padding only when
+       there's a label to protect" without needing a :has() to say so
+       directly. */
+    .filter-bar-tray.filter-bar-flat .filter-secondary-fields:not([hidden]) .filter-field {
+        padding-top: 0;
+        padding-bottom: 0;
     }
     /* white-space: normal (not forms.css's own nowrap/ellipsis default) -
        live feedback: "make labels take up two lines like we did with stat
@@ -3796,6 +4013,20 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
+    }
+    /* .filter-bar-flat only (Meetings - not the plain .filter-bar-no-search
+       the SEND & Provision hub also carries, which keeps the reservation
+       above: its own Group Info/SEN & Support/Demographics groups sit side
+       by side in one row and genuinely mix 1- and 2-line labels ("Looked
+       After"/"Young Carer" beside "Year"/"Reg"), so they still need a
+       shared floor to stay aligned). Meetings' one flat "Panel" group never
+       has that problem - none of its 5 labels ever wrap - so the 2-line
+       floor was pure dead space above every control, on a bar the live
+       feedback that started this whole variant was already asking to
+       "reduce top and bottom padding" of. min-height: auto lets each
+       label's box shrink back to its own real (1-line) content height. */
+    .filter-bar-tray.filter-bar-flat .filter-secondary-fields:not([hidden]) .filter-field label {
+        min-height: auto;
     }
     /* Drops the "chip" treatment (primary-light fill, padding grow,
        rounded corners, adjacent-active corner-squaring) an active field
@@ -4436,6 +4667,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        Font size/gap/margin tightened to match the shorter search field
        beside it (#132 compact mode). */
     html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-label {
+        /* flex-direction: row - resets .filter-bar-no-search's own desktop
+           stacked layout (forms.css: "Filters" over its count badge, live
+           feedback "there is space for the Filter badge to be on new line
+           beneath Filters"). That rule has no width/mode gating of its own
+           (it only needs to avoid Search-bearing bars, a separate axis from
+           mobile/narrow-desktop/portrait-tablet entirely), so without this
+           reset here it kept winning on this one property even inside
+           mobile mode - live feedback: "it looks off in mobile mode and
+           portrait tablet mode" - stretching this row's normal inline
+           "Filters ⌄ [1]" tap target into three stacked lines instead. */
+        flex-direction: row;
         width: auto;
         justify-content: flex-start;
         font-size: var(--font-sm);
