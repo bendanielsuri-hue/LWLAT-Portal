@@ -998,19 +998,6 @@ function balanceFilterGroupLabels(box) {
             span.textContent = original;
             return;
         }
-        // A 2-word label whose second word is a bare 2-letter word (To/By/
-        // Of/...) reads as an orphan once the first word is long enough -
-        // "Raised By" (6/2) splits fine, "Assigned To"/"Referred By" (8/2)
-        // don't (live feedback 2026-08-23, Actions filter bar: "if the
-        // second line is two characters and the first line is more than
-        // 6" - comparing against "Raised By" as the accepted case). Single
-        // line here means this field's own column reads wider than its
-        // 2-line siblings, same tradeoff every other un-split single word
-        // label (Year, Reg, ...) already makes.
-        if (words.length === 2 && words[1].length === 2 && words[0].length > 6) {
-            span.textContent = original;
-            return;
-        }
         var mid = Math.ceil(words.length / 2);
         span.appendChild(document.createTextNode(words.slice(0, mid).join(' ')));
         span.appendChild(document.createElement('br'));

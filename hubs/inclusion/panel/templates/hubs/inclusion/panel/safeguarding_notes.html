@@ -17,151 +17,167 @@
 
 {% block page_title %}Safeguarding Notes{% endblock %}
 
+{% comment %}
+Mobile-only compact stats line beside the page title (same
+.page-subtitle-stats/.stats-strip convention as students.html/referrals.html/
+actions.html) - duplicates the footer stats-strip's own three numbers, same
+order, so setupAjaxFilterBars' generic header-sync (main.js) keeps them
+current on every filter change with no page-specific JS needed.
+{% endcomment %}
+{% block page_subtitle %}
+<div class="page-subtitle-stats stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ ready_count }}</div>
+        <div class="stat-label">Ready for Panel</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ needs_briefing_count }}</div>
+        <div class="stat-label">Needs Briefing</div>
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
 {% comment %}
 Single merged card (#84, prototyped as variant A - see wayfinder #82's
 Decisions so far for the throwaway branch with the other two variants):
 filter bar spans the whole card, vertical student list left, note detail
 right, both inside one .list-card instead of two.
+
+Filter bar migrated to the shared filter-bar-tray + AJAX pattern (same as
+Students/Referrals/Meetings - this page had been left on the older plain
+client-side-JS bar since #84, see #133 grilling) with a Search field added
+on top (Students/Referrals' pattern, not Meetings/SEND hub's
+filter-bar-no-search - a DSL reaching for one specific student is exactly
+what search is for here). Only the left list column is the AJAX target -
+the right detail column is driven by the separate ?panel_referral= GET
+param and its own fetch-based mutation flow (below), untouched by a filter
+change.
 {% endcomment %}
 
-<div class="list-page-shell">
+<div class="list-page-shell list-page-shell--header-stats">
     <div class="list-card">
-        <div class="filter-bar" id="dsl-filter-bar">
-            <div class="filter-fields-wrap">
-            <span class="filter-bar-label">Filters <span class="filter-bar-count filter-bar-count--empty">0</span></span>
-            <div class="filter-field">
-                <label for="dsl-group-filter">Panel Group</label>
-                <select id="dsl-group-filter">
-                    <option value="">All</option>
-                    {% for g in panel_group_choices %}
-                    <option value="{{ g }}">{{ g }}</option>
-                    {% endfor %}
-                </select>
+        <form method="get" class="filter-bar filter-bar-tray" data-ajax-target="#safeguarding-notes-filtered-content">
+            <div class="filter-bar-sticky-row">
+                <span class="filter-bar-label">Filters <span class="filter-bar-toggle-icon" aria-hidden="true">{% include 'icons/arrow_down_svg.html' %}</span> <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+                <div class="filter-field filter-field--search{% if name_filter %} filter-field--active{% endif %}" data-filter-pinned>
+                    <span class="filter-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
+                    <label for="dsl-name-search" class="sr-only">Search</label>
+                    <input type="text" id="dsl-name-search" name="name" placeholder="Student" value="{{ name_filter }}">
+                </div>
             </div>
-            <div class="filter-field">
+            <div class="filter-bar-collapsible">
+            <div class="filter-bar-collapsible-inner">
+            {% comment %}
+            Section headers (hidden except in the mobile 3-up grid, panel.css) -
+            same grouping convention as students.html's filter-section-label:
+            template order alone decides the visual order, no CSS `order`
+            needed. Group Info first (basic cohort identity), Panel second
+            (this screen's own Panel Group/workflow state, the equivalent of
+            students.html's Inclusion Panel section), Demographics last -
+            SEN Status folded in there rather than its own section, since
+            it's the only field left once Panel Group moved out.
+            {% endcomment %}
+            <div class="filter-section-label">Group Info</div>
+            <div class="filter-field{% if year_filter %} filter-field--active{% endif %}">
                 <label for="dsl-year-filter">Year Group</label>
-                <select id="dsl-year-filter" class="ui-select--center">
+                <select id="dsl-year-filter" name="year" class="ui-select--center">
                     <option value="">All</option>
                     {% for y in year_group_choices %}
-                    <option value="{{ y }}">{{ y }}</option>
+                    <option value="{{ y }}" {% if year_filter == y|stringformat:'s' %}selected{% endif %}>{{ y }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="filter-field">
+            <div class="filter-field{% if house_filter %} filter-field--active{% endif %}">
                 <label for="dsl-house-filter">House</label>
-                <select id="dsl-house-filter">
+                <select id="dsl-house-filter" name="house">
                     <option value="">All</option>
                     {% for h in house_choices %}
-                    <option value="{{ h }}">{{ h }}</option>
+                    <option value="{{ h }}" {% if house_filter == h %}selected{% endif %}>{{ h }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="filter-field">
+            <div class="filter-field{% if reg_filter %} filter-field--active{% endif %}">
                 <label for="dsl-reg-filter">Reg</label>
-                <select id="dsl-reg-filter">
+                <select id="dsl-reg-filter" name="reg">
                     <option value="">All</option>
                     {% for r in reg_choices %}
-                    <option value="{{ r }}">{{ r }}</option>
+                    <option value="{{ r }}" {% if reg_filter == r %}selected{% endif %}>{{ r }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-section-label">Panel</div>
+            <div class="filter-field{% if group_filter %} filter-field--active{% endif %}">
+                <label for="dsl-group-filter">Panel Group</label>
+                <select id="dsl-group-filter" name="panel_group">
+                    <option value="">All</option>
+                    {% for g in panel_group_choices %}
+                    <option value="{{ g }}" {% if group_filter == g %}selected{% endif %}>{{ g }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="filter-field">
-                <label>Not Ready only</label>
+                <label>Not Ready</label>
                 <div class="filter-toggle-wrap">
-                    <input type="checkbox" id="dsl-needs-toggle-input" hidden>
-                    <button type="button" id="dsl-needs-toggle" class="toggle-pill" aria-pressed="false" aria-label="Not Ready only"><span class="toggle-knob"></span></button>
+                    <input type="checkbox" id="dsl-needs-toggle-input" name="not_ready" value="1" hidden {% if not_ready_filter %}checked{% endif %}>
+                    <button type="button" id="dsl-needs-toggle" class="toggle-pill{% if not_ready_filter %} on{% endif %}" aria-pressed="{% if not_ready_filter %}true{% else %}false{% endif %}" aria-label="Not Ready"><span class="toggle-knob"></span></button>
                 </div>
             </div>
-            <div class="filter-secondary-fields" hidden>
-                <span class="filter-divider"></span>
-                <div class="filter-field">
-                    <label for="dsl-sen-status-filter">SEN Status</label>
-                    <select id="dsl-sen-status-filter">
-                        <option value="">All</option>
-                        {% for value, label in sen_status_choices %}
-                        <option value="{{ value }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="dsl-gender-filter">Gender</label>
-                    <select id="dsl-gender-filter">
-                        <option value="">All</option>
-                        {% for value, label in gender_choices %}
-                        <option value="{{ value }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="dsl-ethnicity-filter">Ethnicity</label>
-                    <select id="dsl-ethnicity-filter">
-                        <option value="">All</option>
-                        {% for value, label in ethnicity_choices %}
-                        <option value="{{ value }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="dsl-pp-filter">PP</label>
-                    <select id="dsl-pp-filter" class="ui-select--center">
-                        <option value="">All</option>
-                        <option value="1">Yes</option>
-                        <option value="0">No</option>
-                    </select>
-                </div>
+            <div class="filter-section-label">Demographics</div>
+            <div class="filter-field{% if gender_filter %} filter-field--active{% endif %}">
+                <label for="dsl-gender-filter">Gender</label>
+                <select id="dsl-gender-filter" name="gender">
+                    <option value="">All</option>
+                    {% for value, label in gender_choices %}
+                    <option value="{{ value }}" {% if gender_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field{% if ethnicity_filter %} filter-field--active{% endif %}">
+                <label for="dsl-ethnicity-filter">Ethnicity</label>
+                <select id="dsl-ethnicity-filter" name="ethnicity">
+                    <option value="">All</option>
+                    {% for value, label in ethnicity_choices %}
+                    <option value="{{ value }}" {% if ethnicity_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field{% if pp_filter %} filter-field--active{% endif %}">
+                <label for="dsl-pp-filter">PP</label>
+                <select id="dsl-pp-filter" name="is_pp" class="ui-select--center">
+                    <option value="">All</option>
+                    <option value="1" {% if pp_filter == '1' %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if pp_filter == '0' %}selected{% endif %}>No</option>
+                </select>
+            </div>
+            <div class="filter-field{% if sen_filter %} filter-field--active{% endif %}">
+                <label for="dsl-sen-status-filter">SEN Status</label>
+                <select id="dsl-sen-status-filter" name="sen_status">
+                    <option value="">All</option>
+                    {% for value, label in sen_status_choices %}
+                    <option value="{{ value }}" {% if sen_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <a href="{% url 'inclusion_panel_safeguarding_notes' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+            </div>
+            <div class="filter-bar-sticky-footer">
+                <a href="{% url 'inclusion_panel_safeguarding_notes' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
+                <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
             </div>
             </div>
-            <div class="filter-actions-right">
-                <button type="button" class="btn btn-sm btn-secondary more-filters-toggle" data-more-filters aria-expanded="false">
-                    <span class="more-filters-toggle-icon">{% include 'icons/arrow_down_svg.html' %}</span>
-                    <span data-more-filters-label>More filters</span>
-                </button>
-                <button type="button" class="btn btn-sm btn-secondary filter-bar-clear" data-clear-filters>Clear Filters</button>
-            </div>
-        </div>
+        </form>
         <div class="dsl-briefing-shell-split">
-            <div class="entity-list dsl-briefing-list-col" data-selectable="single">
-                {% for row in rows %}
-                <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
-                   href="?panel_referral={{ row.panel_referral.id }}"
-                   data-panel-referral-id="{{ row.panel_referral.id }}"
-                   data-dsl-ready="{{ row.panel_referral.briefing_ready|yesno:'1,0' }}"
-                   data-dsl-group="{{ row.panel.panel_group.name|default:'' }}"
-                   data-dsl-year="{{ row.student.year_group }}"
-                   data-dsl-house="{{ row.student.house }}"
-                   data-dsl-reg="{{ row.student.reg_form }}"
-                   data-dsl-sen="{{ row.student.sen_status }}"
-                   data-dsl-gender="{{ row.student.gender }}"
-                   data-dsl-ethnicity="{{ row.student.ethnicity }}"
-                   data-dsl-pp="{{ row.student.is_pp|yesno:'1,0' }}">
-                    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
-                    <div class="entity-body">
-                        <div class="row-title-row">
-                            <div class="entity-title">{{ row.student.first_name }} {{ row.student.last_name }}</div>
-                            {% if row.panel_referral.briefing_ready %}
-                            <span class="status-pill complete" data-ready-pill>Ready for Panel</span>
-                            {% else %}
-                            <span class="status-pill open" data-ready-pill>Not Ready</span>
-                            {% endif %}
-                        </div>
-                        <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"D d M" }}</div>
-                        <div class="entity-meta">Year {{ row.student.year_group }}{% if row.student.house %} &middot; {{ row.student.house }}{% endif %}{% if row.student.reg_form %} &middot; {{ row.student.reg_form }}{% endif %}</div>
-                        <div class="entity-meta" data-note-count-meta>{{ row.notes|length }} active note{{ row.notes|length|pluralize }} &middot; {{ row.history|length }} inactive note{{ row.history|length|pluralize }}</div>
-                    </div>
-                </a>
-                {% empty %}
-                <p class="empty-note">No students on any upcoming panel.</p>
-                {% endfor %}
+            <div id="safeguarding-notes-filtered-content" class="filtered-content dsl-briefing-list-col">
+                <div class="filter-bar-overlay" data-filter-bar-close aria-hidden="true"></div>
+                {% include 'hubs/inclusion/panel/_safeguarding_notes_filtered_content.html' %}
             </div>
             <div class="dsl-briefing-detail-col" id="dsl-briefing-detail">
-                {% if not is_dsl %}
-                <p class="empty-note">Safeguarding notes are visible to Designated Safeguarding Leads only. This page isn't normally reachable from your sidebar, but stays open by direct URL like every other page in this app.</p>
-                {% elif selected_row %}
-                {% include 'hubs/inclusion/panel/_safeguarding_note_card.html' with row=selected_row %}
-                {% else %}
-                <p class="empty-note">Select a student on the left to view or write their safeguarding note.</p>
-                {% endif %}
+                {% include 'hubs/inclusion/panel/_safeguarding_note_detail_content.html' %}
             </div>
         </div>
     </div>
@@ -169,16 +185,9 @@ right, both inside one .list-card instead of two.
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var needsToggle = document.getElementById('dsl-needs-toggle');
-    var groupFilter = document.getElementById('dsl-group-filter');
+    var filterBar = document.querySelector('form.filter-bar');
     var yearFilter = document.getElementById('dsl-year-filter');
-    var houseFilter = document.getElementById('dsl-house-filter');
     var regFilter = document.getElementById('dsl-reg-filter');
-    var senFilter = document.getElementById('dsl-sen-status-filter');
-    var genderFilter = document.getElementById('dsl-gender-filter');
-    var ethnicityFilter = document.getElementById('dsl-ethnicity-filter');
-    var ppFilter = document.getElementById('dsl-pp-filter');
-    var filterBar = document.getElementById('dsl-filter-bar');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
 
     // Reg narrows to the selected Year Group, same dependent-filter
@@ -197,72 +206,29 @@ document.addEventListener('DOMContentLoaded', function () {
             regFilter.appendChild(opt);
         });
         regFilter.value = regs.indexOf(previous) !== -1 ? previous : '';
+        // Reg is enhanced into a custom popover control by
+        // enhanceFormControls() on page load — mutating the underlying
+        // native <select>'s options above doesn't by itself refresh that
+        // popover's cached option list; _uiSelect.refresh() (static/js/main.js)
+        // is the same hook the date/time custom controls use for this.
+        if (regFilter._uiSelect) regFilter._uiSelect.refresh();
     }
+    if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
+    if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
 
-    function applyDslFilters() {
-        var needsOnly = needsToggle.classList.contains('on');
-        var group = groupFilter.value;
-        var year = yearFilter.value;
-        var house = houseFilter.value;
-        var reg = regFilter.value;
-        var sen = senFilter.value;
-        var gender = genderFilter.value;
-        var ethnicity = ethnicityFilter.value;
-        var pp = ppFilter.value;
-        document.querySelectorAll('.entity-list [data-dsl-ready]').forEach(function (row) {
-            var matchesNeeds = !needsOnly || row.dataset.dslReady === '0';
-            var matchesGroup = !group || row.dataset.dslGroup === group;
-            var matchesYear = !year || row.dataset.dslYear === year;
-            var matchesHouse = !house || row.dataset.dslHouse === house;
-            var matchesReg = !reg || row.dataset.dslReg === reg;
-            var matchesSen = !sen || row.dataset.dslSen === sen;
-            var matchesGender = !gender || row.dataset.dslGender === gender;
-            var matchesEthnicity = !ethnicity || row.dataset.dslEthnicity === ethnicity;
-            var matchesPp = !pp || row.dataset.dslPp === pp;
-            row.style.display = (
-                matchesNeeds && matchesGroup && matchesYear && matchesHouse
-                && matchesReg && matchesSen && matchesGender && matchesEthnicity && matchesPp
-            ) ? '' : 'none';
+    function setupToggle(toggle, input) {
+        if (!toggle || !input) return;
+        toggle.addEventListener('click', function () {
+            var isOn = toggle.classList.toggle('on');
+            toggle.setAttribute('aria-pressed', String(isOn));
+            input.checked = isOn;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        refreshFilterBarState();
     }
-    if (needsToggle) {
-        needsToggle.addEventListener('click', function () {
-            needsToggle.classList.toggle('on');
-            needsToggle.setAttribute('aria-pressed', needsToggle.classList.contains('on') ? 'true' : 'false');
-            applyDslFilters();
-        });
-        ppFilter.addEventListener('change', applyDslFilters);
-        groupFilter.addEventListener('change', applyDslFilters);
-        yearFilter.addEventListener('change', function () {
-            refreshRegOptions();
-            applyDslFilters();
-        });
-        houseFilter.addEventListener('change', applyDslFilters);
-        regFilter.addEventListener('change', applyDslFilters);
-        senFilter.addEventListener('change', applyDslFilters);
-        genderFilter.addEventListener('change', applyDslFilters);
-        ethnicityFilter.addEventListener('change', applyDslFilters);
-    }
+    setupToggle(document.getElementById('dsl-needs-toggle'), document.getElementById('dsl-needs-toggle-input'));
 
-    // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
-
-    var clearFiltersBtn = filterBar.querySelector('[data-clear-filters]');
-    if (clearFiltersBtn) {
-        clearFiltersBtn.addEventListener('click', function () {
-            groupFilter.value = '';
-            yearFilter.value = '';
-            houseFilter.value = '';
-            senFilter.value = '';
-            genderFilter.value = '';
-            ethnicityFilter.value = '';
-            ppFilter.value = '';
-            refreshRegOptions();
-            needsToggle.classList.remove('on');
-            needsToggle.setAttribute('aria-pressed', 'false');
-            applyDslFilters();
-        });
-    }
+    // AJAX filtering / "More filters" toggle / tray open-close - handled
+    // globally (setupAjaxFilterBars / setupFilterBarMoreFilters, main.js).
 
     // Add/Edit/Delete note (.safeguarding-note-form, see
     // _safeguarding_note_card.html) submit via fetch instead of a full-page
@@ -271,6 +237,43 @@ document.addEventListener('DOMContentLoaded', function () {
     // the forms) since every submit replaces that container's contents,
     // including the forms that were just submitted.
     var detail = document.getElementById('dsl-briefing-detail');
+
+    // Selecting a student: fetches just the detail-column fragment instead
+    // of following the row's own ?panel_referral= href as a real navigation
+    // (#137 - a full reload was resetting the mobile/narrow-desktop filter
+    // tray's open/closed state and, separately, dropping every active
+    // filter from the URL - both now fixed at the root by not reloading at
+    // all, rather than papering over each symptom). history.replaceState,
+    // not pushState - same convention as the filter bar's own AJAX
+    // (setupAjaxFilterBars, main.js): Back should leave this page the way
+    // it did before either of these AJAX flows existed, not stop on a
+    // stale mid-session selection this handler never wired a popstate
+    // listener for. Delegated on `document` (not the list container)
+    // because the list container's own innerHTML gets replaced wholesale
+    // by a filter change (setupAjaxFilterBars) - a listener bound directly
+    // to it would be torn out along with the old rows the first time that
+    // happens.
+    document.addEventListener('click', function (e) {
+        var link = closest(e.target, '#safeguarding-notes-filtered-content a.entity-row[data-panel-referral-id]');
+        if (!link || !detail) return;
+        e.preventDefault();
+        var url = link.getAttribute('href');
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) {
+                if (!res.ok) throw new Error('Request failed: ' + res.status);
+                return res.text();
+            })
+            .then(function (html) {
+                detail.innerHTML = html;
+                history.replaceState(null, '', url);
+                document.querySelectorAll('#safeguarding-notes-filtered-content .entity-row.chosen').forEach(function (row) {
+                    row.classList.remove('chosen');
+                });
+                link.classList.add('chosen');
+            })
+            .catch(function () { window.location.href = url; });
+    });
+
     if (detail) {
         detail.addEventListener('click', function (e) {
             var toggle = e.target.closest('[data-note-edit-toggle]');
@@ -340,10 +343,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             pill.textContent = isReady ? 'Ready for Panel' : 'Not Ready';
                             pill.classList.toggle('complete', isReady);
                             pill.classList.toggle('open', !isReady);
-                            // Same fact the pill just switched to - the
-                            // Not Ready only filter reads this attribute
-                            // (see applyDslFilters).
-                            leftRow.dataset.dslReady = isReady ? '1' : '0';
                         }
                         var activeCount = template.content.querySelectorAll('[data-active-notes-list] [data-note-id]').length;
                         var historyCount = template.content.querySelectorAll('[data-history-list] [data-note-id]').length;
@@ -352,12 +351,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             countMeta.textContent = activeCount + ' active note' + (activeCount === 1 ? '' : 's')
                                 + ' · ' + historyCount + ' inactive note' + (historyCount === 1 ? '' : 's');
                         }
-                        // Re-apply filters now that this row's own facts
-                        // may have changed (e.g. toggling Ready for Panel
-                        // while "Not Ready only" is on) - a filter control
-                        // itself wasn't touched, so nothing else re-runs
-                        // applyDslFilters after a mutation.
-                        applyDslFilters();
                     }
 
                     ['[data-active-notes-list]', '[data-history-list]'].forEach(function (sel) {

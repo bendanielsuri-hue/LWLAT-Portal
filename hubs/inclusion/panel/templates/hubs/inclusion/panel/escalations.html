@@ -18,9 +18,46 @@
 
 {% block page_title %}Escalations{% endblock %}
 
+{% comment %}
+Mobile-only compact stats line beside the page title (same
+.page-subtitle-stats/.stats-strip convention as students.html/referrals.html/
+actions.html/meetings.html/safeguarding_notes.html) - duplicates the footer
+stats-strip's own three numbers below, same order. No AJAX filter bar on
+this page (unlike those), so nothing keeps the two in sync live - both are
+just computed fresh on every full-page load/reload instead.
+{% endcomment %}
+{% block page_subtitle %}
+<div class="page-subtitle-stats stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ open_count }}</div>
+        <div class="stat-label">Open</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ resolved_count }}</div>
+        <div class="stat-label">Resolved</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
 <p>Referrals raised for MAT-level attention.</p>
 
+{% comment %}
+Wrapped in the same .list-page-shell > .list-card > .filtered-content
+structure as every other list page (Students/Referrals/Actions/Panel
+Meetings/Safeguarding Notes) - this page previously had none of that
+chrome, just a bare .entity-list, which is why its own stats-strip footer
+didn't get the same "chrome bar" styling (panel.css, .filtered-content
+.stats-strip) those pages already share. No filter-bar <form> here (this
+page has no filters yet) - .list-card doesn't require one.
+{% endcomment %}
+<div class="list-page-shell list-page-shell--header-stats">
+<div class="list-card">
+<div class="filtered-content">
 <div class="entity-list">
     {% for escalation in escalations %}
     <div class="entity-row">
@@ -39,5 +76,23 @@
     {% empty %}
     <p class="empty-note">No open escalations.</p>
     {% endfor %}
+</div>
+
+<div class="stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ open_count }}</div>
+        <div class="stat-label">Open</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ resolved_count }}</div>
+        <div class="stat-label">Resolved</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+</div>
+</div>
+</div>
 </div>
 {% endblock %}

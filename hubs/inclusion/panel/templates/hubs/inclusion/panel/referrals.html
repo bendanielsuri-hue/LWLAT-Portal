@@ -18,9 +18,34 @@
 
 {% block page_title %}Referrals{% endblock %}
 
+{% comment %}
+Mobile-only compact stats line beside the page title (same
+.page-subtitle-stats/.stats-strip markup/convention as students.html's own
+block - see its comment for the mobile-vs-desktop reasoning) - duplicates
+the same three numbers the footer stats-strip below already shows, in the
+same order, so setupAjaxFilterBars' generic header-sync (main.js) picks
+them up on every filter change with no page-specific JS needed.
+{% endcomment %}
+{% block page_subtitle %}
+<div class="page-subtitle-stats stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ referrals_count }}</div>
+        <div class="stat-label">Referrals</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ actions_count }}</div>
+        <div class="stat-label">Actions</div>
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
 
-<div class="list-page-shell">
+<div class="list-page-shell list-page-shell--header-stats">
 
 {% comment %}
 Filter-bar merged into the list-card as its header (issue #7). Status
@@ -162,7 +187,7 @@ curated More Filters button at mobile/narrow-desktop widths.
         </select>
     </div>
     <div class="filter-field{% if raised_by_filter %} filter-field--active{% endif %}">
-        <label for="raised-by-filter">Raised By</label>
+        <label for="raised-by-filter">Referrer</label>
         <select id="raised-by-filter" name="raised_by">
             <option value="" {% if not raised_by_filter %}selected{% endif %}>All</option>
             <option value="unassigned" {% if raised_by_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>

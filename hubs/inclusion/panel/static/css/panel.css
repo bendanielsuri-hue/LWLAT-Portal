@@ -2880,13 +2880,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    #students-filtered-content .stats-strip specifically) don't reach
    this copy - it needs its own version of that same recipe.
 
-   Scoped to body:has(.students-page-shell) - Students is this ticket's
-   base/reference page, not yet the portal-wide default (every other
-   mobile-only rule in this file is either Students-specific by its own
-   #students-filtered-content selector already, or intentionally shared;
-   .page-header/.page-heading/.page-header-main below are shared classes
-   every hub page's sticky header uses, so they need this extra guard to
-   stay Students-only). */
+   Scoped to body:has(.list-page-shell--header-stats) - originally written
+   against Students only (class was .students-page-shell, this ticket's
+   reference page), then extended to every other list page carrying the
+   same title+stats-strip footer pair (Referrals/Actions/Panel Meetings/
+   Safeguarding Notes/Escalations) once that stopped being Students-only.
+   Renamed rather than just widened to describe what the class actually
+   gates (a page whose header shares its row with .page-subtitle-stats),
+   not which page happened to get it first. .page-header/.page-heading/
+   .page-header-main below are shared classes every hub page's sticky
+   header uses, so they need this extra guard to stay scoped to only the
+   pages that opted in. */
 .page-subtitle-stats {
     display: none;
 }
@@ -2897,7 +2901,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        hub page uses; trimmed evenly here rather than in that shared rule
        since Students hasn't been confirmed as the portal-wide default
        yet). */
-    body:has(.students-page-shell) .sticky-header-zone {
+    body:has(.list-page-shell--header-stats) .sticky-header-zone {
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
     }
@@ -2912,14 +2916,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        sibling - left at the default gap, the stats' right edge lands
        short of the real content edge. h1 shrunk from --font-5xl so the
        title + three stat entries still fit one row at 375px. */
-    body:has(.students-page-shell) .page-header-main {
+    body:has(.list-page-shell--header-stats) .page-header-main {
         flex: 1 1 auto;
         min-width: 0;
     }
-    body:has(.students-page-shell) .page-header {
+    body:has(.list-page-shell--header-stats) .page-header {
         gap: 0;
     }
-    body:has(.students-page-shell) .page-heading {
+    body:has(.list-page-shell--header-stats) .page-heading {
         display: flex;
         flex-direction: row;
         flex-wrap: nowrap;
@@ -2927,7 +2931,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         gap: var(--space-xs);
         width: 100%;
     }
-    body:has(.students-page-shell) .page-heading h1 {
+    body:has(.list-page-shell--header-stats) .page-heading h1 {
         font-size: var(--font-2-5xl);
         flex-shrink: 0;
     }
@@ -4397,15 +4401,18 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         opacity: 1;
         pointer-events: auto;
     }
-    /* Stats footer (students.html: Students/Referrals/Actions counts,
-       .stats-strip, bottom of the list) stays undimmed and clickable
-       through the overlay above it (live feedback: "overlay should not
-       overlay the stats footer") - position: relative + a z-index above
-       the overlay's own 1 (not a change to the overlay's own bounds/inset)
-       is enough to lift it visually and for pointer events, the same
-       z-index-beats-DOM-order mechanism the overlay's own z-index: 1
-       already relies on above, one level further up the stack. */
-    #students-filtered-content .stats-strip {
+    /* Stats footer (Students/Referrals/Actions/Panel Meetings/Safeguarding
+       Notes/Escalations counts, .stats-strip, bottom of the list) stays
+       undimmed and clickable through the overlay above it (live feedback:
+       "overlay should not overlay the stats footer") - position: relative +
+       a z-index above the overlay's own 1 (not a change to the overlay's
+       own bounds/inset) is enough to lift it visually and for pointer
+       events, the same z-index-beats-DOM-order mechanism the overlay's own
+       z-index: 1 already relies on above, one level further up the stack.
+       Scoped to .filtered-content generically (was #students-filtered-
+       content only) - every list page sharing this footer treatment now
+       shares this fix too, not just the one it was first written against. */
+    .filtered-content .stats-strip {
         position: relative;
         z-index: 2;
     }
@@ -5853,8 +5860,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        strip bookending the list, top and bottom, as the filter bar already
        does above it. The individual .stat-cards below already lost their
        own background in this same plain-details pass, so this is the only
-       fill left behind them. */
-    #students-filtered-content .stats-strip {
+       fill left behind them. Scoped to .filtered-content generically (was
+       #students-filtered-content only, written against Students as this
+       ticket's reference page) - every list page sharing this footer
+       (Referrals/Actions/Panel Meetings/Safeguarding Notes/Escalations) now
+       gets the identical chrome instead of staying on the plain boxed-card
+       default. */
+    .filtered-content .stats-strip {
         display: flex;
         justify-content: center;
         gap: 0;
@@ -5874,7 +5886,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        aligned" complaint, baseline had put the label's own baseline level
        with the value's, which reads as bottom-heavy once the two are such
        different font sizes). */
-    #students-filtered-content .stats-strip .stat-card {
+    .filtered-content .stats-strip .stat-card {
         flex: 0 0 auto;
         flex-direction: row;
         align-items: center;
@@ -5889,16 +5901,16 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        exact job (joining plain-text facts without a visual box). Only
        between items (:not(:last-child)), not a divider floating after the
        last one with nothing to separate. */
-    #students-filtered-content .stats-strip .stat-card:not(:last-child)::after {
+    .filtered-content .stats-strip .stat-card:not(:last-child)::after {
         content: '\00b7';
         margin: 0 var(--space-xs);
         color: var(--text-faint);
     }
-    #students-filtered-content .stats-strip .stat-value {
+    .filtered-content .stats-strip .stat-value {
         font-size: var(--font-md);
         font-weight: 700;
     }
-    #students-filtered-content .stats-strip .stat-label {
+    .filtered-content .stats-strip .stat-label {
         font-size: var(--font-sm);
         color: var(--text-secondary);
         margin-top: 0;
@@ -5906,17 +5918,19 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 }
 
 /* Bottom .stats-strip hidden at <=480px specifically - the page-subtitle
-   line under the page title (above, students.html's page_subtitle block)
+   line under the page title (above, each page's own page_subtitle block)
    is the one copy shown there instead (live feedback: "the stats row
    takes up a lot of space, can this be under Students"). Placed after
-   every other #students-filtered-content .stats-strip rule in this file
-   (the unconditional 3-column grid rule + this same <=480px block's own
-   "plain details" conversion above) so it reliably wins the cascade at
-   equal specificity - an earlier attempt at this same override, placed
-   before those rules, was silently beaten by them regardless of the media
-   query being true. */
+   every other .filtered-content .stats-strip rule in this file (the
+   unconditional 3-column grid rule + this same <=480px block's own "plain
+   details" conversion above) so it reliably wins the cascade at equal
+   specificity - an earlier attempt at this same override, placed before
+   those rules, was silently beaten by them regardless of the media query
+   being true. Scoped to .filtered-content generically now (was
+   #students-filtered-content only) - every page with this footer hides it
+   the same way at true mobile width, not just Students. */
 @media (max-width: 480px) {
-    #students-filtered-content .stats-strip {
+    .filtered-content .stats-strip {
         display: none;
     }
 }
@@ -5981,15 +5995,26 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    own rules already give the filter bar its flush-top/bordered-bottom
    treatment for free. #meetings-filtered-content (renamed .meetings-scroll
    in the markup) is the part that's re-fetched on every filter change (see
-   data-ajax-target on the form) and is the scrolling body the fixed-height
-   shell measures against - same .list-card .entity-list role on every other
-   list page. It deliberately carries no border/radius/background of its
-   own: combining an element's own border-radius with its own overflow-y:
-   auto renders a square notch where the scrollbar meets the rounded corner
-   on some browsers, so (as with .entity-list) the rounding lives on the
-   non-scrolling .list-card wrapper instead and this only handles the
-   scroll/flex sizing. */
+   data-ajax-target on the form) - same .list-card .filtered-content role on
+   every other list page, NOT the scrolling body itself any more (was, until
+   the stats-strip footer landed inside it - see below).
+
+   The scroll now lives one level deeper, on .meeting-list (the rows) - same
+   split as .list-card .entity-list elsewhere (layout.css): .meeting-list
+   scrolls internally, .stats-strip sits after it as a plain non-scrolling
+   flex sibling, so the footer stays visible/pinned in place instead of
+   scrolling away with the rows underneath it (#137: "Panel Meeting footer
+   needs to be sticky" - it isn't position: sticky, it just never used to be
+   part of the scrolling content to begin with, matching how the footer
+   already behaved on every other list page before this one grew a footer
+   of its own). */
 .meetings-scroll {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+.meeting-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;

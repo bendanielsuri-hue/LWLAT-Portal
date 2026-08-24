@@ -18,6 +18,31 @@
 
 {% block page_title %}Panel Meetings{% endblock %}
 
+{% comment %}
+Mobile-only compact stats line beside the page title (same
+.page-subtitle-stats/.stats-strip convention as students.html/referrals.html/
+actions.html/safeguarding_notes.html) - duplicates the footer stats-strip's
+own three numbers, same order, so setupAjaxFilterBars' generic header-sync
+(main.js) keeps them current on every filter change with no page-specific
+JS needed.
+{% endcomment %}
+{% block page_subtitle %}
+<div class="page-subtitle-stats stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ meetings_count }}</div>
+        <div class="stat-label">Meetings</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ upcoming_meetings_count }}</div>
+        <div class="stat-label">Upcoming</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ past_meetings_count }}</div>
+        <div class="stat-label">Past</div>
+    </div>
+</div>
+{% endblock %}
+
 {% block key_actions_extra %}
 {% if can_create_meeting %}
 <div class="key-actions-row key-actions-row--page">
@@ -30,7 +55,7 @@
 
 <dialog id="meeting-start-dialog" class="modal-dialog modal-dialog--wide"></dialog>
 
-<div class="list-page-shell">
+<div class="list-page-shell list-page-shell--header-stats">
 
 {% comment %}
 Ported to Students/Referrals/Actions' own responsive slide-over tray

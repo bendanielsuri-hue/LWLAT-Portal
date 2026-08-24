@@ -1,0 +1,40 @@
+{% load static %}
+<div class="entity-list" data-selectable="single">
+    {% for row in rows %}
+    <a class="entity-row selectable{% if selected_row.panel_referral.id == row.panel_referral.id %} chosen{% endif %}"
+       href="?{% if filter_qs %}{{ filter_qs }}&{% endif %}panel_referral={{ row.panel_referral.id }}"
+       data-panel-referral-id="{{ row.panel_referral.id }}">
+        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+        <div class="entity-body">
+            <div class="row-title-row">
+                <div class="entity-title">{{ row.student.first_name }} {{ row.student.last_name }}</div>
+                {% if row.panel_referral.briefing_ready %}
+                <span class="status-pill complete" data-ready-pill>Ready for Panel</span>
+                {% else %}
+                <span class="status-pill open" data-ready-pill>Not Ready</span>
+                {% endif %}
+            </div>
+            <div class="entity-meta">{{ row.panel.panel_group.name|default:"Panel" }} &middot; {{ row.panel.date|date:"D d M" }}</div>
+            <div class="entity-meta">Year {{ row.student.year_group }}{% if row.student.house %} &middot; {{ row.student.house }}{% endif %}{% if row.student.reg_form %} &middot; {{ row.student.reg_form }}{% endif %}</div>
+            <div class="entity-meta" data-note-count-meta>{{ row.notes|length }} active note{{ row.notes|length|pluralize }} &middot; {{ row.history|length }} inactive note{{ row.history|length|pluralize }}</div>
+        </div>
+    </a>
+    {% empty %}
+    <p class="empty-note">{% if active_filter_count %}No students match these filters.{% else %}No students on any upcoming panel.{% endif %}</p>
+    {% endfor %}
+</div>
+
+<div class="stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ ready_count }}</div>
+        <div class="stat-label">Ready for Panel</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ needs_briefing_count }}</div>
+        <div class="stat-label">Needs Briefing</div>
+    </div>
+</div>

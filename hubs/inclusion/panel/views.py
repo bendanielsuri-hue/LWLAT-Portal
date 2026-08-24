@@ -62,7 +62,7 @@ PANEL_MENU = [
     {'name': 'Referrals', 'url': '/inclusion/panel/referrals/', 'icon': 'icons/document_svg.html', 'module_key': 'inclusion_panel_referrals'},
     {'name': 'Actions', 'url': '/inclusion/panel/actions/', 'icon': 'icons/checkmark_svg.html', 'module_key': 'inclusion_panel_actions'},
     {'name': 'Panel Meetings', 'url': '/inclusion/panel/meetings/', 'icon': 'icons/clock_svg.html', 'module_key': 'inclusion_panel_meetings'},
-    {'name': 'Escalations', 'url': '/inclusion/panel/escalations/', 'icon': 'icons/document_svg.html', 'module_key': 'inclusion_panel_escalations'},
+    {'name': 'Escalations', 'url': '/inclusion/panel/escalations/', 'icon': 'icons/escalate_tray_svg.html', 'module_key': 'inclusion_panel_escalations'},
     {'name': 'Admin', 'url': '/inclusion/panel/settings/referral-questions/', 'icon': 'icons/registers_svg.html', 'module_key': 'inclusion_panel_settings'},
 ]
 
@@ -84,11 +84,18 @@ def _panel_base_context(request):
     local_menu = _local_menu(request)
     current_staff = _current_staff(request)
     if current_staff and current_staff.is_dsl:
-        local_menu = local_menu + [{
+        # Inserted right after Students (not appended) - a DSL reaches for
+        # this alongside the other student-scoped lookup, ahead of the
+        # casework/workflow items (Referrals/Actions/Meetings/Escalations).
+        insert_at = next(
+            (i + 1 for i, item in enumerate(local_menu) if item['module_key'] == 'inclusion_panel_students'),
+            len(local_menu),
+        )
+        local_menu = local_menu[:insert_at] + [{
             'name': 'Safeguarding Notes',
             'url': '/inclusion/panel/safeguarding-notes/',
             'icon': 'icons/shield_check_svg.html',
-        }]
+        }] + local_menu[insert_at:]
     return {
         'local_menu': local_menu,
         'hub_title': 'Inclusion Panel',
@@ -2082,12 +2089,23 @@ def inclusion_panel_referral_escalate(request, referral_id):
 
 def inclusion_panel_escalations(request):
     scoped_students = student_queryset_for_school_key(current_school_key(request))
-    escalations = Escalation.objects.filter(
-        status='open', referral__student__in=scoped_students,
+    all_escalations = Escalation.objects.filter(
+        referral__student__in=scoped_students,
     ).select_related('referral__student')
+    escalations = all_escalations.filter(status='open')
+    # Same style stats-strip as Students/Referrals/Actions/Panel Meetings/
+    # Safeguarding Notes (all_escalations, not the open-only `escalations`
+    # this page actually lists, so Resolved has a real count to show even
+    # though this screen never lists resolved rows itself).
+    open_count = escalations.count()
+    resolved_count = all_escalations.filter(status='resolved').count()
+    students_count = all_escalations.values('referral__student_id').distinct().count()
     return render(request, 'hubs/inclusion/panel/escalations.html', {
         **_panel_base_context(request),
         'escalations': escalations,
+        'open_count': open_count,
+        'resolved_count': resolved_count,
+        'students_count': students_count,
     })
 
 
@@ -2124,6 +2142,10 @@ def inclusion_panel_actions(request):
     # have Referred by added instead" - Name itself moved to the sticky-row
     # Search field below instead of staying a bounded dropdown).
     referred_by_filter = request.GET.get('referred_by') or ''
+    # Same derived (not stored) lookup as inclusion_panel_referrals' own
+    # concern_filter - matches the linked referral's answer to the question
+    # literally labeled 'Main Concern Category', see _primary_concern_category.
+    concern_filter = request.GET.get('concern') or ''
     status_filter = request.GET.get('status') or ''
     # Due Date consolidates the old separate Overdue Only/Due This Week
     # toggles into one dropdown with a few more tiers (issue #13).
@@ -2191,6 +2213,10 @@ def inclusion_panel_actions(request):
         actions_qs = actions_qs.filter(referral__raised_by__isnull=True)
     elif referred_by_filter:
         actions_qs = actions_qs.filter(referral__raised_by_id=referred_by_filter)
+    if concern_filter:
+        actions_qs = actions_qs.filter(
+            referral__responses__question__label='Main Concern Category', referral__responses__answer=concern_filter
+        )
     if status_filter:
         actions_qs = actions_qs.filter(status=status_filter)
     if due_filter == 'overdue':
@@ -2209,6 +2235,11 @@ def inclusion_panel_actions(request):
         actions_qs = actions_qs.filter(referral__student__house=house_filter)
     if reg_filter:
         actions_qs = actions_qs.filter(referral__student__reg_form=reg_filter)
+    # distinct() - concern_filter above joins across referral__responses, a
+    # reverse multi-valued relation, which can otherwise fan out one Action
+    # into duplicate rows the same way referrals_qs' own multi-valued joins
+    # do (inclusion_panel_referrals, above).
+    actions_qs = actions_qs.distinct()
 
     # Totals for the stats-strip - computed against the full filtered
     # queryset before pagination slices it down, same convention as
@@ -2245,10 +2276,12 @@ def inclusion_panel_actions(request):
 
     active_filter_count = sum(
         1 for v in (
-            name_filter, category_filter, assigned_filter, referred_by_filter, status_filter, due_filter,
-            academic_year_filter, year_filter, house_filter, reg_filter,
+            name_filter, category_filter, assigned_filter, referred_by_filter, concern_filter, status_filter,
+            due_filter, academic_year_filter, year_filter, house_filter, reg_filter,
         ) if v
     )
+
+    concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
 
     col_widths = {
         'created': _col_width(
@@ -2276,6 +2309,8 @@ def inclusion_panel_actions(request):
         'category_filter': category_filter,
         'assigned_filter': assigned_filter,
         'referred_by_filter': referred_by_filter,
+        'concern_filter': concern_filter,
+        'concern_choices': concern_question.choice_list() if concern_question else [],
         'status_filter': status_filter,
         'due_filter': due_filter,
         'academic_year_filter': academic_year_filter,
@@ -2829,6 +2864,12 @@ def inclusion_panel_meetings(request):
         (past_meetings if panel.status == 'complete' else upcoming_meetings).append(entry)
     past_meetings.reverse()
     meetings = upcoming_meetings + past_meetings
+    # Captured before pagination reassigns `meetings` to just the current
+    # page below - same "totals against the full filtered set, not the page
+    # slice" convention as Students/Referrals/Actions' own stats-strip counts.
+    total_meetings_count = len(meetings)
+    upcoming_meetings_count = len(upcoming_meetings)
+    past_meetings_count = len(past_meetings)
 
     # MEETINGS_PAGE_SIZE meetings per page (infinite scroll,
     # wireListInfiniteScroll in meetings.html - shared with Students/
@@ -2880,6 +2921,9 @@ def inclusion_panel_meetings(request):
         # zero active Panel Groups - same omission convention as
         # Start/Continue/Edit/Delete's can_manage above (#69).
         'can_create_meeting': bool(my_group_ids),
+        'meetings_count': total_meetings_count,
+        'upcoming_meetings_count': upcoming_meetings_count,
+        'past_meetings_count': past_meetings_count,
         'page_obj': page_obj,
     }
     if page_obj.has_next():
@@ -3863,36 +3907,65 @@ def _note_origin_created_at(note, notes_by_id):
     return note.created_at
 
 
-def _safeguarding_note_rows(request):
-    # Shared by inclusion_panel_safeguarding_notes and inclusion_panel_safeguarding_notes_mutate
-    # (the latter needs it to re-render the right-pane card after a mutation).
-    # One row per student+upcoming-panel pair (unchanged); 'notes' is now the
-    # student's whole active SafeguardingNote list (no panel FK to filter by
-    # any more, see #77-#81) — every row for the same student shows the same
-    # notes. 'history' is that student's retired notes, most-recently-retired
-    # first, replacing the old per-panel 'other_briefings' split.
-    #
+def _upcoming_panel_referrals_qs(school_key):
     # "Upcoming" is status alone (anything short of 'complete'), not a date
     # filter - panel.date is the *original* scheduled date and never moves
     # forward when a panel goes 'delayed' (see _sync_delayed_panels), so a
     # panel__date__gte=today clause would exclude a delayed panel from the
     # moment it's more than a day overdue, the exact case this screen most
-    # needs to surface (#86 bug report). _sync_delayed_panels() is called
-    # here rather than assumed fresh from another page's load, same as
-    # inclusion_panel_meetings.
+    # needs to surface (#86 bug report).
+    scoped_students = student_queryset_for_school_key(school_key)
+    return PanelReferral.objects.filter(
+        panel__status__in=['draft', 'ready', 'running', 'delayed'],
+        removed_at__isnull=True,
+        referral__student__in=scoped_students,
+    ).select_related('referral__student__school', 'panel__panel_group')
+
+
+def _safeguarding_note_rows(
+    request, *, name_filter='', group_filter='', year_filter='', house_filter='',
+    reg_filter='', sen_filter='', gender_filter='', ethnicity_filter='', pp_filter='',
+    not_ready_filter=False,
+):
+    # Shared by inclusion_panel_safeguarding_notes and inclusion_panel_safeguarding_notes_mutate
+    # (the latter needs it to re-render the right-pane card after a mutation,
+    # unfiltered - it never passes any of the filter kwargs above). One row
+    # per student+upcoming-panel pair (unchanged); 'notes' is now the
+    # student's whole active SafeguardingNote list (no panel FK to filter by
+    # any more, see #77-#81) — every row for the same student shows the same
+    # notes. 'history' is that student's retired notes, most-recently-retired
+    # first, replacing the old per-panel 'other_briefings' split.
+    #
+    # _sync_delayed_panels() is called here rather than assumed fresh from
+    # another page's load, same as inclusion_panel_meetings.
     _sync_delayed_panels()
     school_key = current_school_key(request)
-    scoped_students = student_queryset_for_school_key(school_key)
-
-    panel_referrals = list(
-        PanelReferral.objects.filter(
-            panel__status__in=['draft', 'ready', 'running', 'delayed'],
-            removed_at__isnull=True,
-            referral__student__in=scoped_students,
-        )
-        .select_related('referral__student__school', 'panel__panel_group')
-        .order_by('panel__date', 'panel__time')
-    )
+    qs = _upcoming_panel_referrals_qs(school_key)
+    if name_filter:
+        qs = qs.filter(_token_name_filter(
+            name_filter.split(), 'referral__student__first_name', 'referral__student__last_name',
+        ))
+    if group_filter:
+        qs = qs.filter(panel__panel_group__name=group_filter)
+    if year_filter:
+        qs = qs.filter(referral__student__year_group=year_filter)
+    if house_filter:
+        qs = qs.filter(referral__student__house=house_filter)
+    if reg_filter:
+        qs = qs.filter(referral__student__reg_form=reg_filter)
+    if sen_filter:
+        qs = qs.filter(referral__student__sen_status=sen_filter)
+    if gender_filter:
+        qs = qs.filter(referral__student__gender=gender_filter)
+    if ethnicity_filter:
+        qs = qs.filter(referral__student__ethnicity=ethnicity_filter)
+    if pp_filter == '1':
+        qs = qs.filter(referral__student__is_pp=True)
+    elif pp_filter == '0':
+        qs = qs.filter(referral__student__is_pp=False)
+    if not_ready_filter:
+        qs = qs.filter(briefing_ready=False)
+    panel_referrals = list(qs.order_by('panel__date', 'panel__time'))
 
     student_notes_cache = {}
     rows = []
@@ -3948,14 +4021,59 @@ def inclusion_panel_safeguarding_notes(request):
     # this app) - the DSL-only-ness is a visibility gate on the sidebar entry
     # (_panel_base_context) and on the write/edit/delete actions themselves,
     # not a hard page redirect.
-    rows = _safeguarding_note_rows(request)
+    #
+    # Filter bar brought up to the same filter-bar-tray + AJAX pattern as
+    # Students/Referrals/Meetings (was still the pre-migration plain
+    # client-side-JS bar - #133 grilling flagged the drift). Search added on
+    # top, same as Students/Referrals - unlike Meetings/SEND hub's
+    # filter-bar-no-search, a DSL reaching for one specific student here is
+    # exactly the case a search box is for.
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    school_key = current_school_key(request)
 
+    name_filter = request.GET.get('name') or ''
+    group_filter = request.GET.get('panel_group') or ''
+    year_filter = request.GET.get('year') or ''
+    house_filter = request.GET.get('house') or ''
+    reg_filter = request.GET.get('reg') or ''
+    sen_filter = request.GET.get('sen_status') or ''
+    gender_filter = request.GET.get('gender') or ''
+    ethnicity_filter = request.GET.get('ethnicity') or ''
+    pp_filter = request.GET.get('is_pp') or ''
+    not_ready_filter = request.GET.get('not_ready') == '1'
+
+    rows = _safeguarding_note_rows(
+        request,
+        name_filter=name_filter, group_filter=group_filter, year_filter=year_filter,
+        house_filter=house_filter, reg_filter=reg_filter, sen_filter=sen_filter,
+        gender_filter=gender_filter, ethnicity_filter=ethnicity_filter, pp_filter=pp_filter,
+        not_ready_filter=not_ready_filter,
+    )
     needs_briefing_count = sum(1 for r in rows if not r['has_briefing'])
-    panel_group_choices = sorted({row['panel'].panel_group.name for row in rows if row['panel'].panel_group_id})
-    year_group_choices = sorted({row['student'].year_group for row in rows})
-    house_choices = sorted({row['student'].house for row in rows if row['student'].house})
-    reg_choices = sorted({row['student'].reg_form for row in rows if row['student'].reg_form})
-    # Fixed choice sets, not derived from the row set - same convention as
+    ready_count = len(rows) - needs_briefing_count
+    # rows is one per (student, panel) pair, not one per student - a student
+    # on two upcoming panels would otherwise be double-counted here the way
+    # it isn't in needs_briefing_count/ready_count (those are meant per-pair).
+    students_count = len({r['student'].id for r in rows})
+
+    # Choice lists computed from the unfiltered, school-scoped queryset
+    # directly (not from the filtered `rows` above) - same convention as
+    # inclusion_panel_students' years/forms/houses, so picking one filter
+    # doesn't shrink every other dropdown's own options.
+    base_qs = _upcoming_panel_referrals_qs(school_key)
+    panel_group_choices = sorted({
+        name for name in base_qs.values_list('panel__panel_group__name', flat=True) if name
+    })
+    year_group_choices = sorted({
+        y for y in base_qs.values_list('referral__student__year_group', flat=True) if y is not None
+    })
+    house_choices = sorted({
+        h for h in base_qs.values_list('referral__student__house', flat=True) if h
+    })
+    reg_choices = sorted({
+        r for r in base_qs.values_list('referral__student__reg_form', flat=True) if r
+    })
+    # Fixed choice sets, not derived from the queryset - same convention as
     # students.html's gender_choices/sen_status_choices/ethnicity_choices.
     gender_choices = Student.GENDER_FILTER_CHOICES
     sen_status_choices = Student.SEN_STATUS_CHOICES
@@ -3964,8 +4082,8 @@ def inclusion_panel_safeguarding_notes(request):
     # as students.html's forms_by_year.
     reg_by_year = {
         year: sorted({
-            row['student'].reg_form for row in rows
-            if row['student'].year_group == year and row['student'].reg_form
+            r for r in base_qs.filter(referral__student__year_group=year)
+            .values_list('referral__student__reg_form', flat=True) if r
         })
         for year in year_group_choices
     }
@@ -3973,11 +4091,36 @@ def inclusion_panel_safeguarding_notes(request):
     selected_id = request.GET.get('panel_referral')
     selected_row = next((r for r in rows if str(r['panel_referral'].id) == selected_id), None) if selected_id else None
 
+    # Every row link below is a plain `?panel_referral=<id>` href, not an
+    # AJAX-enhanced one (the detail column has its own fetch-based mutation
+    # flow, but not a fetch-based *selection* flow - see the template's own
+    # comment) - a bare href like that replaces the URL's whole query string
+    # on click, silently dropping whatever filters were active (#137 bug
+    # report: "if I click on a student... the filter [state] reopens" - the
+    # real mechanism was every currently-applied filter getting wiped by the
+    # navigation, landing back on the unfiltered default). Same
+    # request.GET.copy()/urlencode() convention as this file's own
+    # next_page_url (pagination), minus 'panel_referral' itself so each row's
+    # own id doesn't collide with whichever one was selected before this
+    # click.
+    preserved_params = request.GET.copy()
+    preserved_params.pop('panel_referral', None)
+    filter_qs = preserved_params.urlencode()
+
+    active_filter_count = sum(
+        1 for v in (
+            name_filter, group_filter, year_filter, house_filter, reg_filter,
+            sen_filter, gender_filter, ethnicity_filter, pp_filter, not_ready_filter,
+        ) if v
+    )
+
     context = {
         **_panel_base_context(request),
         **_safeguarding_note_extra_context(request),
         'rows': rows,
         'needs_briefing_count': needs_briefing_count,
+        'ready_count': ready_count,
+        'students_count': students_count,
         'panel_group_choices': panel_group_choices,
         'year_group_choices': year_group_choices,
         'house_choices': house_choices,
@@ -3987,8 +4130,36 @@ def inclusion_panel_safeguarding_notes(request):
         'sen_status_choices': sen_status_choices,
         'ethnicity_choices': ethnicity_choices,
         'selected_row': selected_row,
+        'filter_qs': filter_qs,
+        'name_filter': name_filter,
+        'group_filter': group_filter,
+        'year_filter': year_filter,
+        'house_filter': house_filter,
+        'reg_filter': reg_filter,
+        'sen_filter': sen_filter,
+        'gender_filter': gender_filter,
+        'ethnicity_filter': ethnicity_filter,
+        'pp_filter': pp_filter,
+        'not_ready_filter': not_ready_filter,
+        'active_filter_count': active_filter_count,
     }
-    return render(request, 'hubs/inclusion/panel/safeguarding_notes.html', context)
+    # Selecting a student (below, safeguarding_notes.html's own script) now
+    # fetches instead of following the row's href as a real navigation - the
+    # whole reason being *not* a full page reload, so a full page's worth of
+    # server work + the tray/list DOM getting torn down and rebuilt is
+    # exactly what this branch exists to skip. Its own request always
+    # carries panel_referral; a filter-change AJAX request never does (its
+    # query string is built purely from the filter form's own fields,
+    # loadCurrent() in main.js) - reliable enough to key off without a
+    # dedicated header/param of its own.
+    is_select_ajax = is_ajax and bool(selected_id)
+    if is_select_ajax:
+        template = 'hubs/inclusion/panel/_safeguarding_note_detail_content.html'
+    elif is_ajax:
+        template = 'hubs/inclusion/panel/_safeguarding_notes_filtered_content.html'
+    else:
+        template = 'hubs/inclusion/panel/safeguarding_notes.html'
+    return render(request, template, context)
 
 
 def _active_student_note(student, note_id):

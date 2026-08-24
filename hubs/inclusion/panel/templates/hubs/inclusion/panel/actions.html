@@ -18,9 +18,33 @@
 
 {% block page_title %}Actions{% endblock %}
 
+{% comment %}
+Mobile-only compact stats line beside the page title (same
+.page-subtitle-stats/.stats-strip convention as students.html/referrals.html) -
+duplicates the footer stats-strip's own three numbers, same order, so
+setupAjaxFilterBars' generic header-sync (main.js) keeps them current on
+every filter change with no page-specific JS needed.
+{% endcomment %}
+{% block page_subtitle %}
+<div class="page-subtitle-stats stats-strip">
+    <div class="stat-card">
+        <div class="stat-value">{{ actions_count }}</div>
+        <div class="stat-label">Actions</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ students_count }}</div>
+        <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ referrals_count }}</div>
+        <div class="stat-label">Referrals</div>
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
 
-<div class="list-page-shell">
+<div class="list-page-shell list-page-shell--header-stats">
 
 {% comment %}
 Filter-bar merged into the list-card as its header (issue #7).
@@ -117,7 +141,7 @@ own raised_by_filter) replaces Name in the Referrals group.
         </select>
     </div>
     <div class="filter-field{% if assigned_filter %} filter-field--active{% endif %}">
-        <label for="assigned-filter">Assigned To</label>
+        <label for="assigned-filter">Staff Assigned</label>
         <select id="assigned-filter" name="assigned">
             <option value="" {% if not assigned_filter %}selected{% endif %}>All</option>
             <option value="unassigned" {% if assigned_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
@@ -128,12 +152,21 @@ own raised_by_filter) replaces Name in the Referrals group.
     </div>
     <div class="filter-section-label">Referrals</div>
     <div class="filter-field{% if referred_by_filter %} filter-field--active{% endif %}">
-        <label for="referred-by-filter">Referred By</label>
+        <label for="referred-by-filter">Referrer</label>
         <select id="referred-by-filter" name="referred_by">
             <option value="" {% if not referred_by_filter %}selected{% endif %}>All</option>
             <option value="unassigned" {% if referred_by_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
             {% for staff in staff_list %}
             <option value="{{ staff.id }}" {% if referred_by_filter == staff.id|stringformat:'s' %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if concern_filter %} filter-field--active{% endif %}">
+        <label for="concern-filter">Concern Category</label>
+        <select id="concern-filter" name="concern">
+            <option value="">All</option>
+            {% for c in concern_choices %}
+            <option value="{{ c }}" {% if concern_filter == c %}selected{% endif %}>{{ c }}</option>
             {% endfor %}
         </select>
     </div>
