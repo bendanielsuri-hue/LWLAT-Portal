@@ -444,17 +444,18 @@ function setupFilterBarMoreFilters(bar) {
     // insertBefore is called on, or it throws.
     fieldsHost.appendChild(secondaryRow);
 
-    // .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision
-    // hub) - live feedback: "Filters and Clear Filters should hide the
-    // filters that scroll underneath it. I think there should be a line or
-    // border where the cut off is... should not be visible if there is
-    // nothing underneath". "Filters"/Clear Filters sit above this bar's
-    // now-full-bar-width scrollable track (z-index, forms.css) rather than
-    // beside it, so scrolled fields genuinely pass underneath them - these
-    // two classes (CSS: forms.css) toggle a thin border in exactly that
-    // seam, but only once there's actually something scrolled under it to
-    // mark, not just because the corner is reserved.
-    if (isTrayBar && !hasSearchField && !bar.classList.contains('filter-bar-flat')) {
+    // .filter-bar-no-search (Meetings AND the SEND & Provision hub, now
+    // sharing this treatment) - live feedback: "Filters and Clear Filters
+    // should hide the filters that scroll underneath it. I think there
+    // should be a line or border where the cut off is... should not be
+    // visible if there is nothing underneath". "Filters"/Clear Filters sit
+    // above this bar's now-full-bar-width scrollable track (z-index,
+    // forms.css) rather than beside it, so scrolled fields genuinely pass
+    // underneath them - these two classes (CSS: forms.css) toggle a thin
+    // border in exactly that seam, but only once there's actually
+    // something scrolled under it to mark, not just because the corner is
+    // reserved.
+    if (isTrayBar && !hasSearchField) {
         wireFilterCutoffEdges(bar, secondaryTrack);
     }
 
@@ -590,19 +591,39 @@ function setupFilterBarMoreFilters(bar) {
             // which a fresh wireScrollCarousel call here would do.
             if (updateSecondaryArrows) updateSecondaryArrows();
         }
-        // No pinned Search field (Meetings today) - live feedback: "no
-        // search on filter bar, without one there is space for the filters
-        // to not be underneath the bar... we can lose the show/hide
-        // filters". Reuses the exact same secondaryRow/groups the toggle-
-        // gated bars build just above (current chip/card styling, not the
-        // dead pre-tray .filter-field default) rather than leaving fields
-        // to fall back to their bare, unstyled display - just forces the
-        // panel permanently open and the toggle permanently hidden instead
-        // of gating it behind a click. flex-basis override (forms.css,
-        // .filter-bar-no-search) is what actually keeps this panel inline
-        // beside "Filters" instead of dropping to its own full-width row
-        // below, same as the toggle-gated version does once expanded.
-        if (isTrayBar && !hasSearchField && groups.length) {
+        // No pinned Search field (Meetings/the SEND & Provision hub) - live
+        // feedback: "no search on filter bar, without one there is space
+        // for the filters to not be underneath the bar... we can lose the
+        // show/hide filters". Reuses the exact same secondaryRow/groups the
+        // toggle-gated bars build just above (current chip/card styling,
+        // not the dead pre-tray .filter-field default) rather than leaving
+        // fields to fall back to their bare, unstyled display - just forces
+        // the panel permanently open and the toggle permanently hidden
+        // instead of gating it behind a click. flex-basis override
+        // (forms.css, .filter-bar-no-search) is what actually keeps this
+        // panel inline beside "Filters" instead of dropping to its own
+        // full-width row below, same as the toggle-gated version does once
+        // expanded.
+        // Same mobile/narrow-desktop/portrait-tablet exclusion as the
+        // groups-building block above (that gate's own comment) - live
+        // feedback: "I see a second filter bar reduce in height [on load],
+        // stays as a thin 1px line". Without it, this ran unconditionally
+        // at every width including mobile, forcing secondaryRow open (and
+        // so the mobile tray's own .filter-bar-collapsible box open to its
+        // real content height) for the brief window before the page's
+        // mobile-mode classification lands - once html.filter-bar-mobile-
+        // mode is added a moment later, the tray's own close animation
+        // (panel.css, its own height/border-bottom-color transition) plays
+        // to snap it back to genuinely collapsed, visible as an unwanted
+        // open-then-close flash on every load at these widths. Skipping
+        // this block in mobile mode instead leaves secondaryRow in its
+        // already-closed default (set at the top of this function) - the
+        // exact same resting state every other tray bar starts in, opened
+        // only by the shared "Filters" label tap handler (below,
+        // document-level click listener), matching a no-search bar's own
+        // "every width above mobile" design already documented on the
+        // sibling gate.
+        if (isTrayBar && !hasSearchField && groups.length && !window.matchMedia('(max-width: 480px)').matches && !(isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
             secondaryRow.hidden = false;
             moreFiltersBtn.hidden = true;
             moreFiltersBtn.setAttribute('aria-expanded', 'false');
@@ -640,9 +661,10 @@ function setupFilterBarMoreFilters(bar) {
         // rather than a guessed fixed number that would silently drift out
         // of sync.
         bar.style.setProperty('--filter-actions-right-width', actionsRight.offsetWidth + 'px');
-        // .filter-bar-no-search but not .filter-bar-flat (the SEND &
-        // Provision hub) - live feedback: "a bulky generic scrollbar but
-        // the full width" - the field panel's own negative margin-left
+        // .filter-bar-no-search (Meetings AND the SEND & Provision hub,
+        // now sharing this treatment) - live feedback: "a bulky generic
+        // scrollbar but the full width" - the field panel's own negative
+        // margin-left
         // (forms.css) pulls its scrollable box out from under "Filters" to
         // the bar's true left edge, so its native scrollbar can span the
         // bar's full width; this measures "Filters"'s own real rendered
@@ -652,7 +674,7 @@ function setupFilterBarMoreFilters(bar) {
         // did - stay correct rather than a guessed fixed number drifting
         // out of sync, same convention --filter-actions-right-width above
         // already uses on the opposite corner.
-        if (isTrayBar && !hasSearchField && !bar.classList.contains('filter-bar-flat') && label) {
+        if (isTrayBar && !hasSearchField && label) {
             bar.style.setProperty('--filter-bar-label-width', label.offsetWidth + 'px');
         }
         // "Filters"/Clear Filters's own opaque fill (forms.css - masks a
@@ -670,7 +692,7 @@ function setupFilterBarMoreFilters(bar) {
         // read offsetHeight === clientHeight always regardless of any real
         // scrollbar, silently sizing this fill to the full row height
         // every time ("Overlap over the scrollbar still persists").
-        if (isTrayBar && !hasSearchField && !bar.classList.contains('filter-bar-flat')) {
+        if (isTrayBar && !hasSearchField) {
             // -2px safety margin - live feedback: "The borderline should
             // not reach the scroll bar". clientHeight/offsetHeight are
             // whole-pixel-rounded and can differ by a pixel or two from

@@ -53,6 +53,37 @@
                     var touch = window.matchMedia('(hover: none)').matches;
                     if (!touch && window.self !== window.top && window.top.__devBpTouch) touch = true;
                     root.classList.toggle('nav-touch-mode', touch);
+                    // Same FOUC-avoidance reasoning, same fix, as nav-touch-mode
+                    // just above - live feedback: "I see a second filter bar
+                    // reduce in height [on page load], stays as a thin 1px
+                    // line". .filter-bar-collapsible (panel.css) is display:
+                    // contents (no real box) until html.filter-bar-mobile-mode
+                    // lands, then becomes a real flex box with height: 0 and a
+                    // transition on it - classifying that on main.js's own
+                    // deferred script let the browser paint the box at its
+                    // full, unclamped content height for a frame first (raw
+                    // template markup, every field still visible - main.js
+                    // hasn't restructured it into the collapsed tray yet
+                    // either), then animate it shut once main.js finally added
+                    // the class moments later - exactly the "wrong state
+                    // painted, then visibly snaps" bug this file already
+                    // solved once for nav-touch-mode/the sidebar, above/below.
+                    // Deliberately duplicates isFilterBarMobile()/
+                    // isFilterBarNarrowDesktop() (main.js, single source of
+                    // truth for the actual ongoing/resize-driven decision) -
+                    // this copy only has to get the very first paint right;
+                    // main.js's own syncFilterBarMobileClass() reconciles
+                    // again as normal once it runs, so any drift between the
+                    // two self-corrects immediately with nothing left to
+                    // visibly animate against.
+                    var narrow = window.matchMedia('(max-width: 768px)').matches;
+                    var portrait = window.matchMedia('(orientation: portrait)').matches;
+                    var portraitWide = window.matchMedia('(min-width: 900px)').matches;
+                    var trueMobile = window.matchMedia('(max-width: 480px)').matches;
+                    var filterBarMobile = trueMobile || (narrow && !touch) || (touch && portrait && !portraitWide);
+                    var filterBarNarrowDesktop = !trueMobile && ((narrow && !touch) || (touch && portrait && !portraitWide));
+                    root.classList.toggle('filter-bar-mobile-mode', filterBarMobile);
+                    root.classList.toggle('filter-bar-narrow-desktop', filterBarNarrowDesktop);
                 } catch (e) { }
             } catch (e) { }
         })();
@@ -63,8 +94,8 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=315">
-    <script src="{% static 'js/main.js' %}?v=232" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=316">
+    <script src="{% static 'js/main.js' %}?v=234" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>

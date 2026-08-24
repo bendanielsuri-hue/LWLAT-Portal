@@ -3569,30 +3569,12 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         margin: 0 calc(-1 * var(--space-lg));
         padding: 0 var(--space-lg);
     }
-    /* .filter-bar-flat (Meetings) - the track's own flex: 1 1 100%/edge
-       bleed above assumes a full-width parent to fill and bleed against;
-       against this override's own auto-sized parent instead (forms.css:
-       .filter-bar-flat's own panel stays flex: 0 1 auto, shrink-to-content
-       - growing it would reintroduce the dead-space problem this variant
-       exists to avoid), a 100% basis has nothing definite to resolve
-       against (same circular-sizing trap .filter-group's own column-
-       reverse comment, below, already had to work around once). flex: 0 1
-       auto sizes the track to its one group's real content width; margin/
-       padding reset cancels the now-inapplicable edge bleed (there's no
-       bar edge to reach any more). overflow-x stays auto as a safety net,
-       not because Meetings' single "Panel" group ever needs it in
-       practice. */
-    .filter-bar-tray.filter-bar-flat .filter-secondary-fields-track {
-        flex: 0 1 auto;
-        margin: 0;
-        padding: 0;
-    }
-    /* .filter-bar-no-search but NOT .filter-bar-flat (the SEND & Provision
-       hub) - live feedback: "I would like the scroll bar to be full width
-       of filter bar and on bottom edge". This panel now grows to fill its
-       row (forms.css: flex-grow: 1, unlike Meetings above), so unlike
-       Meetings there IS a real, definite parent width for the track to
-       fill and bleed against here - flex: 1 1 auto claims it. margin/
+    /* .filter-bar-no-search (Meetings AND the SEND & Provision hub, now
+       sharing this treatment) - live feedback: "I would like the scroll
+       bar to be full width of filter bar and on bottom edge". This panel
+       grows to fill its row (forms.css: flex-grow: 1), so there IS a
+       real, definite parent width for the track to fill and bleed
+       against here - flex: 1 1 auto claims it. margin/
        padding bleed matches this panel's own --space-sm padding (forms.css)
        rather than the original design's --space-lg (which matched the
        full outer .filter-bar's own padding, back when this track bled all
@@ -3600,7 +3582,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        now, not the full-bleed bar-width shelf that padding was measured
        for, so the track only needs to reach *its own* edges to read as
        "full width" of the panel it actually lives in. */
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-track {
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-secondary-fields-track {
         flex: 1 1 auto;
         margin: 0 calc(-1 * var(--space-sm));
         padding: 0 var(--space-sm);
@@ -3739,9 +3721,10 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     .filter-bar-tray .filter-secondary-fields-arrow--next {
         right: 4px;
     }
-    /* .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision
-       hub) - live feedback: "add a left and right arrow to tablet wide to
-       move to next filter section". These arrows already existed and
+    /* .filter-bar-no-search (Meetings AND the SEND & Provision hub, now
+       sharing this treatment) - live feedback: "add a left and right
+       arrow to tablet wide to move to next filter section". These arrows
+       already existed and
        already fire on every filter bar (wireScrollCarousel, main.js, no
        touch/width gate) - live: 4px/right: 4px above assumes this box's
        own edge is the visible edge of the scrollable strip, true
@@ -3755,7 +3738,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        right-width + --space-sm offset the cut-off line already uses,
        plus the same 4px edge margin the unscoped rule above already used,
        lands each arrow just inside the visible track instead. */
-    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-arrow--prev {
+    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields-arrow--prev {
         /* + --space-lg - same missing term as the edge fades below (see
            their own comment) - this positions relative to secondaryRow,
            which sits at the bar's true edge, but "Filters" itself starts
@@ -3763,7 +3746,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            begins. */
         left: calc(var(--space-lg) + var(--filter-bar-label-width, 0px) + var(--space-sm) + 4px);
     }
-    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-arrow--next {
+    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields-arrow--next {
         right: calc(var(--space-lg) + var(--filter-actions-right-width, 180px) + var(--space-sm) + 4px);
     }
     /* Device, not width, decides whether these arrows are redundant - live
@@ -3775,7 +3758,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        (search-bearing bars' own hidden-behind-toggle shelf) already showed
        them on desktop before this session touched anything here, and nothing
        about that usage changed. */
-    html:not(.nav-touch-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-arrow {
+    html:not(.nav-touch-mode) .filter-bar-tray.filter-bar-no-search .filter-secondary-fields-arrow {
         display: none;
     }
     /* Bigger on touch - live feedback: "the left and right seem a little
@@ -3785,7 +3768,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        this file) - a couple px bigger again here since this arrow also
        has to clear the divider line/edge fade beside it rather than
        floating over plain card padding. */
-    html.nav-touch-mode .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields-arrow {
+    html.nav-touch-mode .filter-bar-tray.filter-bar-no-search .filter-secondary-fields-arrow {
         width: 36px;
         height: 36px;
     }
@@ -3824,9 +3807,10 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         pointer-events: none;
         z-index: 3;
     }
-    /* .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision
-       hub) only - live feedback: "Can the fade also disappear if scrolled
-       to the start and end" - the "always shown" reasoning above still
+    /* .filter-bar-no-search (Meetings AND the SEND & Provision hub, now
+       sharing this treatment) - live feedback: "Can the fade also
+       disappear if scrolled to the start and end" - the "always shown"
+       reasoning above still
        holds for every OTHER filter bar (nothing scrolled fully into view
        there for the fade to needlessly sit over), but this bar already
        tracks exactly that (main.js's wireFilterCutoffEdges - the SAME
@@ -3835,15 +3819,15 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        -right on the bar itself. Reusing those instead of a second, separate
        scroll listener - opacity 0 by default, only faded in once there's
        something actually scrolled under this corner to hint at. */
-    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::before,
-    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::after {
+    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden])::before,
+    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden])::after {
         opacity: 0;
         transition: opacity 360ms ease;
     }
-    .filter-bar-tray.filter-bar-no-search.filter-bar-cut-left:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::before {
+    .filter-bar-tray.filter-bar-no-search.filter-bar-cut-left .filter-secondary-fields:not([hidden])::before {
         opacity: 1;
     }
-    .filter-bar-tray.filter-bar-no-search.filter-bar-cut-right:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::after {
+    .filter-bar-tray.filter-bar-no-search.filter-bar-cut-right .filter-secondary-fields:not([hidden])::after {
         opacity: 1;
     }
     .filter-bar-tray .filter-secondary-fields:not([hidden])::before {
@@ -3854,8 +3838,9 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         right: 0;
         background: linear-gradient(to left, var(--bg-well), transparent);
     }
-    /* .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision
-       hub) repositions both fades - live feedback: "Landscape tablet mode
+    /* .filter-bar-no-search (Meetings AND the SEND & Provision hub, now
+       sharing this treatment) repositions both fades - live feedback:
+       "Landscape tablet mode
        needs a fade effect to indicate there is more" surfaced this fade
        was still wired up but effectively invisible there. left: 0/right: 0
        above assumes .filter-secondary-fields' own edge IS the visible
@@ -3872,7 +3857,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        already uses) instead lands this fade exactly at the visible track's
        own start/end, right where a real "there's more to scroll" cue
        needs to read. */
-    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::before {
+    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden])::before {
         /* + --space-lg - live feedback: "the fade is affecting the wrong
            side of the boundary line... affecting the Clear Filters button
            but it should affect the edge of visible dropdowns" (symptom
@@ -3890,7 +3875,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            button pill on the other corner. */
         left: calc(var(--space-lg) + var(--filter-bar-label-width, 0px) + var(--space-sm));
     }
-    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden])::after {
+    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden])::after {
         /* + --space-lg - see the matching comment on ::before, above (same
            missing term, this is the side where it actually showed:
            "affecting the Clear Filters button"). .filter-actions-right
@@ -3935,25 +3920,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            filters. This can be greatly reduced" - same scoped-not-shared
            reasoning as the padding trim just above. */
         gap: var(--space-xxs);
-    }
-    /* .filter-bar-flat only, not the plain .filter-bar-no-search the SEND &
-       Provision hub also carries - live feedback: "filter-field and
-       filter-secondary-fields does not need 4px of padding", then
-       (checking the hub page too) "the SEND & Provision Filter section
-       labels are now too tight to the dropdown. Can we add padding to the
-       section labels if they are showing" - Meetings' own .filter-section-
-       label stays hidden (this file's own .filter-bar-flat rule, above), so
-       it has no label sitting right underneath a field to crowd; the hub's
-       3 real groups do (Group Info/SEN & Support/Demographics, column-
-       reverse below their own fields), and lost their breathing room to
-       this same zero once it reached them too. Scoping to .filter-bar-flat
-       - true only where a label is genuinely never shown - both restores
-       the hub's padding automatically and reads as "padding only when
-       there's a label to protect" without needing a :has() to say so
-       directly. */
-    .filter-bar-tray.filter-bar-flat .filter-secondary-fields:not([hidden]) .filter-field {
-        padding-top: 0;
-        padding-bottom: 0;
     }
     /* white-space: normal (not forms.css's own nowrap/ellipsis default) -
        live feedback: "make labels take up two lines like we did with stat

@@ -225,8 +225,11 @@
        own visible (non-scrollbar) area sits, same values .filter-bar-
        sticky-row now uses on the opposite corner, so this fill spans that
        same range and stops before the scrollbar starts rather than
-       painting over it. */
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-actions-right {
+       painting over it. Applies to Meetings (.filter-bar-flat) too now -
+       full parity with the hub was requested once Meetings' own field
+       count grew past what the flat variant's original short-content
+       assumption held for. */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-actions-right {
         top: var(--space-xs);
         height: var(--filter-bar-fields-content-height, auto);
         transform: none;
@@ -264,9 +267,9 @@
        deliberately what this does: width caps it to roughly one word's
        worth so "Clear Filters" wraps at its own space instead of forcing
        white-space: normal to just barely re-wrap at the container edge.
-       :not(.filter-bar-flat) - Meetings keeps the shared .filter-bar-clear
-       rule's normal wide/short button. */
-    .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-actions-right .filter-bar-clear {
+       Now shared with Meetings (.filter-bar-flat) too - full parity with
+       the hub. */
+    .filter-bar-tray.filter-bar-no-search .filter-actions-right .filter-bar-clear {
         width: 62px;
         white-space: normal;
         text-align: center;
@@ -486,13 +489,9 @@
        actually reaches that corner now that it shares "Filters"'s own row,
        not .filter-bar-sticky-row (0'd out above). */
     .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden]) {
-        /* flex-shrink: 1 shared by both; flex-grow differs (below) - Meetings
-           (.filter-bar-flat) never needs to grow past its own short content
-           (growing it would reintroduce the dead-space-to-the-right problem
-           this whole variant exists to avoid), while the SEND & Provision
-           hub's 11 fields already overflow whatever room is available, so
-           growing it there only ever claims real, otherwise-empty row space
-           rather than manufacturing any. */
+        /* flex-shrink: 1 - flex-grow: 1 (below) now applies to both
+           .filter-bar-no-search bars alike, full parity between Meetings
+           and the SEND & Provision hub. */
         flex: 0 1 auto;
         /* min-width, paired with .filter-fields-wrap's own nowrap (above) -
            without a floor, flex-shrink: 1 on a nowrap row will happily
@@ -513,9 +512,10 @@
         padding-right: calc(var(--filter-actions-right-width, 180px) + var(--space-md));
         border-radius: var(--radius-md);
     }
-    /* .filter-bar-no-search but NOT .filter-bar-flat (the SEND & Provision
-       hub) - live feedback: "I would like the scroll bar to be full width
-       of filter bar". flex: 0 1 auto (above) sizes this panel to its own
+    /* .filter-bar-no-search (Meetings AND the SEND & Provision hub, now
+       sharing this treatment) - live feedback: "I would like the scroll
+       bar to be full width of filter bar". flex: 0 1 auto (above) sizes
+       this panel to its own
        shrunk content width, which (depending on how the browser resolves a
        flex-basis: auto item containing an internally-scrolling child) can
        land narrower than the row's actual available width - the panel's
@@ -538,23 +538,20 @@
        TRACK's own padding instead (panel.css), so it protects the visible
        FIELDS without also shrinking this outer box (and so its track's
        native scrollbar) short of the bar's true right edge the same way
-       leaving it here would have. */
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-secondary-fields:not([hidden]) {
+       leaving it here would have. Now shared with Meetings (.filter-bar-
+       flat) too - full parity with the hub. */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden]) {
         flex-grow: 1;
         margin: 0 calc(-1 * var(--space-lg)) calc(-1 * var(--space-xs)) calc(-1 * var(--filter-bar-label-width, 0px) - var(--space-xs) - var(--space-lg));
         padding-right: var(--space-sm);
     }
-    /* .filter-bar-flat (Meetings only - opts in alongside .filter-bar-no-
-       search, not a synonym for it: the SEND & Provision hub landing page
-       is also .filter-bar-no-search but keeps its own 3 real groups/Group
-       Info/SEN & Support/Demographics headers and their scroll carousel,
-       both still genuinely needed there). The category-strip header
+    /* .filter-bar-flat (Meetings only) - the category-strip header
        (panel.css: "PANEL") reads as redundant right next to the bar's own
        "Filters" label with nothing else to distinguish it from - Meetings
        only ever has this one flat group (template comment, meetings.html).
-       Scroll arrows/divider (panel.css) are for the multi-category
-       horizontal carousel this bar never has more than one entry in either
-       - hidden for the same reason. .filter-secondary-fields:not([hidden])
+       Scroll arrows/divider now stay shown here too (full parity with the
+       hub's scroll carousel chrome) - only the section label itself is
+       Meetings-specific dead weight. .filter-secondary-fields:not([hidden])
        repeated in the section-label selector (not just .filter-bar-flat
        .filter-section-label) to match - and, with the extra .filter-bar-
        flat class, outrank - the specificity of the rule below this @media
@@ -562,9 +559,7 @@
        display: flex }"); a plain 3-class selector here loses that fight
        regardless of source order, which is exactly what shipped once and
        silently kept "PANEL" visible. */
-    .filter-bar-tray.filter-bar-flat .filter-secondary-fields:not([hidden]) .filter-section-label,
-    .filter-bar-tray.filter-bar-flat .filter-secondary-fields-arrow,
-    .filter-bar-tray.filter-bar-flat .filter-divider {
+    .filter-bar-tray.filter-bar-flat .filter-secondary-fields:not([hidden]) .filter-section-label {
         display: none;
     }
     /* No scrollbar on a touch device (portal convention - every
@@ -593,8 +588,9 @@
        instead - both already share the same --bg-well fill (base .filter-
        bar rule/forms.css's own .filter-secondary-fields background), so
        there's no visible seam where one stops covering the other, "Filters"
-       just always wins the overlap. */
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-bar-sticky-row {
+       just always wins the overlap. Now shared with Meetings (.filter-bar-
+       flat) too - full parity with the hub. */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-bar-sticky-row {
         position: relative;
         z-index: 1;
         /* Live feedback, after the old 1px cut-off line still let a
@@ -691,9 +687,11 @@
        label-width/--filter-actions-right-width (main.js) without adding
        any real padding/border to the fill elements' own boxes - either
        would grow their offsetWidth, which those same two vars measure
-       (see the box-shadow comment on .filter-bar-sticky-row, above). */
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat)::before,
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat)::after {
+       (see the box-shadow comment on .filter-bar-sticky-row, above). Now
+       shared with Meetings (.filter-bar-flat) too - full parity with the
+       hub. */
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::before,
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::after {
         content: "";
         position: absolute;
         top: var(--space-xs);
@@ -710,16 +708,16 @@
         z-index: 2;
         pointer-events: none;
     }
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat)::before {
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::before {
         left: calc(var(--space-lg) + var(--filter-bar-label-width, 0px) + var(--space-sm));
     }
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat)::after {
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::after {
         right: calc(var(--space-lg) + var(--filter-actions-right-width, 180px) + var(--space-sm));
     }
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-left:not(.filter-bar-flat)::before {
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-left::before {
         opacity: 1;
     }
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-right:not(.filter-bar-flat)::after {
+    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-right::after {
         opacity: 1;
     }
     /* .filter-divider (main.js's own first child of secondaryRow, marking
@@ -878,8 +876,8 @@ html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-
     justify-content: center;
     gap: 2px;
 }
-/* .filter-bar-no-search but not .filter-bar-flat (the SEND & Provision hub)
-   only - a three-part round trip of live feedback: "I did not want filters
+/* .filter-bar-no-search (Meetings AND the SEND & Provision hub, now sharing
+   this treatment) - a three-part round trip of live feedback: "I did not want filters
    top aligned. It should be vertically middle" -> (a position: absolute
    badge, pulled out of flow so "Filters" text alone always centres in
    .filter-bar-sticky-row regardless of the badge) -> "I am not seeing
@@ -901,7 +899,7 @@ html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-
    height" default (.filter-bar-count--empty, below) still stands
    everywhere else, where .filter-bar-label's own box is roughly group-
    height already and there's no comparable tall outer box recentring it. */
-html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-bar-count {
+html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-bar-count {
     /* height/margin-top join the shared rule's own opacity/transform
        transition (below) - both real, animatable layout properties (not
        auto), so the label's own height genuinely tweens between the two
@@ -910,7 +908,7 @@ html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.fil
     transition: opacity var(--transition-base), transform var(--transition-base),
         height var(--transition-base), margin-top var(--transition-base);
 }
-html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search:not(.filter-bar-flat) .filter-bar-count--empty {
+html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-bar-count--empty {
     height: 0;
     /* -2px, matching .filter-bar-label's own gap: 2px (rule above) exactly
        - flex gap reserves its space even between a shown item and a
