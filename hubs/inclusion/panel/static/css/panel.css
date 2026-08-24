@@ -4845,6 +4845,24 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            also inherit. */
         transition: height var(--transition-slide-lg), border-bottom-color var(--transition-slide-lg);
     }
+    /* html.filter-bar-mode-switching (main.js's syncFilterBarMobileClass) -
+       live feedback: "I saw [the tray reduce in height, leaving a thin
+       line] when I switched to portrait tablet mode". filter-bar-mobile-
+       mode itself flipping (a live resize/rotation/breakpoint switch, not
+       the deliberate open/close this transition exists for) changes this
+       box from display: contents (no box, full open content height) to
+       this real, height: 0 box in the same recalculation - with the
+       transition above already declared, the browser animates that as a
+       visible collapse instead of snapping straight to the correct
+       resting state, the same first-paint bug layout.html's own head
+       script already had to solve, just triggered live instead of on
+       load. main.js adds this class for exactly the one tick that
+       reclassification happens in, then removes it a frame later -
+       !important since it only ever needs to beat this file's own single
+       transition declaration above, nothing else. */
+    html.filter-bar-mode-switching .filter-bar-tray .filter-bar-collapsible {
+        transition: none !important;
+    }
     /* Restores what the base rule (above) zeroes out collapsed - the
        divider below the sticky row. Must land before .is-maxed (below):
        both rules share the same class-count specificity, and an is-maxed
@@ -5809,35 +5827,56 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     body:has(.students-page-shell) .main-inner {
         padding-bottom: 0 !important;
     }
-    .list-page-shell:has(#students-filtered-content) {
-        margin-left: calc(-1 * var(--space-sm));
-        margin-right: calc(-1 * var(--space-sm));
-    }
-    .list-card:has(#students-filtered-content) {
-        border-left: none;
-        border-right: none;
-        border-radius: 0;
-    }
-    /* .filter-bar's own top radius (layout.css) needs its own explicit
-       zero here too, not just .list-card's above (live feedback, #135
-       follow-up: "the filter bar now has radius in mobile mode... seems
-       to affect the bg fill not the border" - a real, correctly-spotted
-       leak, not a false alarm: .list-card's overflow: hidden only clips
-       content that actually extends PAST its own edge, and .filter-bar
-       sits flush with it, never overflowing at all, so there was nothing
-       for that clip to catch - .filter-bar's own rounded corner fill just
-       painted as-is, cutting into its own cream --bg-well background and
-       revealing the white card underneath in each corner instead. An
-       earlier version of this exact rule existed for this reason but got
-       deleted as a side effect of un-squaring the 480-900px tablet band
-       above it - tablet's own overflow situation is identical (no clip
-       help there either), it's just that tablet is meant to show the
-       rounding now, where mobile still isn't. */
-    .list-card:has(#students-filtered-content) .filter-bar {
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
-    }
-
+}
+/* html.filter-bar-mobile-mode, not @media (max-width: 480px) - live
+   feedback: "I do not want this line here [above Filters] in portrait
+   mode... this is page margin which should be clean". The filter tray
+   itself already goes full-bleed at every width this class covers (true
+   mobile AND narrow-desktop/portrait-tablet - position: fixed; left/
+   right: 0, above) on the stated assumption that ".list-card is already
+   full-bleed (0 to viewport width) at this breakpoint" (that rule's own
+   comment) - true only at <=480px in practice, since the actual bleed
+   rule below was still gated to that literal media query alone. Widening
+   it to this class instead (a strict superset of <=480px) closes that
+   gap: narrow-desktop/portrait-tablet now get the same clean, borderless
+   page margin the tray's own positioning already assumed they had,
+   removing .list-card's own top-left/top-right border - the "line above
+   Filters" - along with the sides. Split out from the padding-bottom fix
+   above (kept <=480px-only, a true-mobile tabbar-clearance concern with
+   no bearing on this) rather than widening that whole block uniformly. */
+html.filter-bar-mobile-mode .list-page-shell:has(#students-filtered-content) {
+    margin-left: calc(-1 * var(--space-sm));
+    margin-right: calc(-1 * var(--space-sm));
+}
+html.filter-bar-mobile-mode .list-card:has(#students-filtered-content) {
+    border-left: none;
+    border-right: none;
+    /* border-top: none too, not just left/right - the original <=480px-
+       only rule this was widened from (comment above) never actually
+       removed it either, so the top edge kept reading as a stray line
+       under the sticky header at every width including true mobile, just
+       unnoticed until narrow-desktop/portrait-tablet's own newly-added
+       full-bleed tray made everything else around it borderless enough
+       to throw it into relief. Bottom stays - .list-card's own bottom
+       edge isn't adjacent to anything else that's gone full-bleed here,
+       so it still reads as the card's genuine boundary against the page
+       below it. */
+    border-top: none;
+    border-radius: 0;
+}
+/* .filter-bar's own top radius (layout.css) needs its own explicit
+   zero here too, not just .list-card's above (live feedback, #135
+   follow-up: "the filter bar now has radius in mobile mode... seems
+   to affect the bg fill not the border" - a real, correctly-spotted
+   leak, not a false alarm: .list-card's overflow: hidden only clips
+   content that actually extends PAST its own edge, and .filter-bar
+   sits flush with it, never overflowing at all, so there was nothing
+   for that clip to catch - .filter-bar's own rounded corner fill just
+   painted as-is, cutting into its own cream --bg-well background and
+   revealing the white card underneath in each corner instead. */
+html.filter-bar-mobile-mode .list-card:has(#students-filtered-content) .filter-bar {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
 }
 
 /* Data cards simplify to plain details at every width except true mobile

@@ -1293,8 +1293,35 @@ document.addEventListener('DOMContentLoaded', function () {
         return !trueMobileMql.matches && ((studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches));
     }
     function syncFilterBarMobileClass() {
-        document.documentElement.classList.toggle('filter-bar-mobile-mode', isFilterBarMobile());
-        document.documentElement.classList.toggle('filter-bar-narrow-desktop', isFilterBarNarrowDesktop());
+        // filter-bar-mode-switching (panel.css: forces transition: none on
+        // .filter-bar-collapsible) - live feedback: "I saw [the tray reduce
+        // in height, leaving a thin line] when I switched to portrait
+        // tablet mode" - resizing/rotating into or out of mobile mode while
+        // a page is already open re-triggers the exact same height/border-
+        // bottom-color transition the layout.html head script's own
+        // synchronous classification (same bug, same fix, on first paint)
+        // was written to prevent - that fix only covers the very first
+        // paint, not a live reclassification like this one. Without this
+        // guard, .filter-bar-collapsible flips between display: contents
+        // (no box, live at its full open content height) and the mobile
+        // box (height: 0, a real transition property) in the same
+        // recalculation triggered by this class toggle, so the browser
+        // interpolates from that full height down to 0 - visibly, and
+        // (confirmed via Playwright) with a wildly wrong intermediate
+        // `top` too, since position: fixed's own static-position fallback
+        // recomputes every frame as the box's height/flow changes mid-
+        // transition. Only guards an actual VALUE change (below), not
+        // every call - this fires on every touch-nav toggle too (this
+        // function's own comment elsewhere), most of which don't actually
+        // flip either class.
+        var wasMobile = document.documentElement.classList.contains('filter-bar-mobile-mode');
+        var wasNarrow = document.documentElement.classList.contains('filter-bar-narrow-desktop');
+        var nowMobile = isFilterBarMobile();
+        var nowNarrow = isFilterBarNarrowDesktop();
+        var modeChanged = wasMobile !== nowMobile || wasNarrow !== nowNarrow;
+        if (modeChanged) document.documentElement.classList.add('filter-bar-mode-switching');
+        document.documentElement.classList.toggle('filter-bar-mobile-mode', nowMobile);
+        document.documentElement.classList.toggle('filter-bar-narrow-desktop', nowNarrow);
         // Re-run each tray bar's own dynamic-overflow measurement
         // (setupFilterBarMoreFilters's measure(), exposed as
         // bar._filterBarMeasure) on every call here, not just a genuine
@@ -1314,6 +1341,17 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.filter-bar-tray').forEach(function (trayBar) {
             if (trayBar._filterBarMeasure) trayBar._filterBarMeasure();
         });
+        // Removes the guard one frame later (below), not synchronously -
+        // the class toggle/measure() calls above still need to actually
+        // commit and paint with transitions suppressed first; removing the
+        // guard in the same tick would let the *next* recalculation (this
+        // one) re-enable the transition before the browser ever renders a
+        // frame with it off, defeating the whole guard.
+        if (modeChanged) {
+            requestAnimationFrame(function () {
+                document.documentElement.classList.remove('filter-bar-mode-switching');
+            });
+        }
     }
     syncFilterBarMobileClass();
     trueMobileMql.addEventListener('change', syncFilterBarMobileClass);
@@ -3098,6 +3136,34 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // not just a one-frame flash.
                 if (!willExpand) {
                     bar.classList.remove('is-expanded');
+                    // Clears positionFilterTray's own inline top/left/width/
+                    // max-height (above) - live feedback: "I see a line up
+                    // and to the left of Filters", only in portrait/narrow-
+                    // desktop mode. Those are set once, live, purely to pin
+                    // this position: fixed box over the bar's own on-screen
+                    // rect WHILE genuinely open - "persists past the
+                    // animation (nothing here resets it)" was fine as long
+                    // as the box then stayed truly invisible forever after
+                    // (height: 0, transparent border), but position: fixed
+                    // means that inline top is a frozen VIEWPORT coordinate,
+                    // not a position in the page's flow - scrolling the page
+                    // afterward moves the real "Filters" row (in normal
+                    // flow) out from under where this stale top still
+                    // points, so the collapsed box's own (otherwise
+                    // harmless) 1px border-bottom ends up floating at
+                    // whatever screen position it was last opened at,
+                    // wherever that now falls relative to the scrolled
+                    // page - exactly reading as a stray misplaced line.
+                    // Clearing all four back to the plain CSS rule (left:
+                    // 0; right: 0, static-position top) on every close
+                    // means a collapsed tray only ever has a genuine,
+                    // JS-computed fixed position while a fresh open is
+                    // actually reopening it (positionFilterTray runs again
+                    // at that point, above).
+                    box.style.top = '';
+                    box.style.left = '';
+                    box.style.width = '';
+                    box.style.maxHeight = '';
                 }
                 box.removeEventListener('transitionend', onTransitionEnd);
             }
