@@ -5830,25 +5830,34 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 }
 /* html.filter-bar-mobile-mode, not @media (max-width: 480px) - live
    feedback: "I do not want this line here [above Filters] in portrait
-   mode... this is page margin which should be clean". The filter tray
-   itself already goes full-bleed at every width this class covers (true
-   mobile AND narrow-desktop/portrait-tablet - position: fixed; left/
-   right: 0, above) on the stated assumption that ".list-card is already
-   full-bleed (0 to viewport width) at this breakpoint" (that rule's own
-   comment) - true only at <=480px in practice, since the actual bleed
-   rule below was still gated to that literal media query alone. Widening
-   it to this class instead (a strict superset of <=480px) closes that
-   gap: narrow-desktop/portrait-tablet now get the same clean, borderless
-   page margin the tray's own positioning already assumed they had,
-   removing .list-card's own top-left/top-right border - the "line above
-   Filters" - along with the sides. Split out from the padding-bottom fix
-   above (kept <=480px-only, a true-mobile tabbar-clearance concern with
-   no bearing on this) rather than widening that whole block uniformly. */
-html.filter-bar-mobile-mode .list-page-shell:has(#students-filtered-content) {
+   mode... this is page margin which should be clean" (Students), then
+   the same line spotted on Safeguarding Notes too once checked there.
+   The filter tray itself already goes full-bleed at every width this
+   class covers (true mobile AND narrow-desktop/portrait-tablet -
+   position: fixed; left/right: 0, above) on the stated assumption that
+   ".list-card is already full-bleed (0 to viewport width) at this
+   breakpoint" (that rule's own comment) - true only at <=480px in
+   practice, since the actual bleed rule below was still gated to that
+   literal media query alone. Widening it to this class instead (a
+   strict superset of <=480px) closes that gap: narrow-desktop/portrait-
+   tablet now get the same clean, borderless page margin the tray's own
+   positioning already assumed they had, removing .list-card's own
+   top-left/top-right border - the "line above Filters" - along with the
+   sides. :has(.filtered-content) generically (was :has(#students-
+   filtered-content), Students-only) - every list page sharing this
+   .list-card/.filter-bar-tray shell (Referrals/Actions/Meetings/
+   Safeguarding Notes/Escalations, each with their own #<page>-filtered-
+   content id but the same shared .filtered-content class) shares this
+   fix too, not just the one it was first written against - same
+   generalization convention the .stats-strip fix (this file) already
+   used. Split out from the padding-bottom fix above (kept <=480px-only,
+   a true-mobile tabbar-clearance concern with no bearing on this) rather
+   than widening that whole block uniformly. */
+html.filter-bar-mobile-mode .list-page-shell:has(.filtered-content) {
     margin-left: calc(-1 * var(--space-sm));
     margin-right: calc(-1 * var(--space-sm));
 }
-html.filter-bar-mobile-mode .list-card:has(#students-filtered-content) {
+html.filter-bar-mobile-mode .list-card:has(.filtered-content) {
     border-left: none;
     border-right: none;
     /* border-top: none too, not just left/right - the original <=480px-
@@ -5874,7 +5883,7 @@ html.filter-bar-mobile-mode .list-card:has(#students-filtered-content) {
    for that clip to catch - .filter-bar's own rounded corner fill just
    painted as-is, cutting into its own cream --bg-well background and
    revealing the white card underneath in each corner instead. */
-html.filter-bar-mobile-mode .list-card:has(#students-filtered-content) .filter-bar {
+html.filter-bar-mobile-mode .list-card:has(.filtered-content) .filter-bar {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
 }
