@@ -1,5 +1,6 @@
 {% extends 'hubs/inclusion/panel/_base.html' %}
 {% load static %}
+{% load avatar_extras %}
 
 {% block title %}Inclusion Panel{% endblock %}
 
@@ -69,7 +70,13 @@ Each card's own <h2> is its own "where am I" cue.
         <ul class="panel-list" id="my-referrals-list" data-selectable="single">
             {% for referral in my_referrals %}
             <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-discussed="{{ referral.discussed_pr|yesno:'discussed,awaiting' }}">
-                <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                <div class="panel-thumb">
+                    {% if referral.student.photo %}
+                    <img src="{{ referral.student.photo.url }}" alt="" class="panel-thumb-photo">
+                    {% else %}
+                    <span class="avatar-initials {{ referral.student|avatar_color_class }}">{{ referral.student.first_name|first }}{{ referral.student.last_name|first }}</span>
+                    {% endif %}
+                </div>
                 <div class="panel-item-body">
                     {% comment %}
                     Discussed pill shows the actual review stage (Initial
@@ -1438,7 +1445,7 @@ function initActionTabs() {
 
 // The segmented status control's own submit posts via fetch instead of a
 // full page reload, so the tab counts/rows can animate instead of snapping
-// (INT-U14: count-delta pulse; INT-U10: transition rather than a jump for
+// (INT-M2: count-delta pulse; INT-M1: transition rather than a jump for
 // tabs entering/leaving the tab row). data-ajax-wired guards against double-
 // binding the same form across repeated initActionTabs-style re-inits.
 // FormData(form, submitter) picks up the clicked option's own name/value
@@ -1522,7 +1529,7 @@ function refreshMyActionsCard(html) {
 
     var newTabRow = freshCard.querySelector('[data-action-tab-row]');
     if (newTabRow) {
-        // The one-shot tab-row-fade-in shouldn't replay on a refresh (INT-U11:
+        // The one-shot tab-row-fade-in shouldn't replay on a refresh (INT-P3:
         // a targeted in-place refresh shouldn't reset state that was already settled).
         // But if the row didn't exist before (the tab-row itself just
         // crossed from a single populated bucket to its first second one),

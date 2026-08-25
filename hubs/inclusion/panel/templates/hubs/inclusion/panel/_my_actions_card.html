@@ -2,7 +2,7 @@
 My Actions card - shared by home.html's initial render and
 inclusion_panel_action_set_status's AJAX branch, which re-renders this whole
 fragment after a status change so the tab counts/rows animate in place
-instead of the page reloading (INT-U14: count-delta pulse; INT-U10: transition
+instead of the page reloading (INT-M2: count-delta pulse; INT-M1: transition
 rather than a jump for tabs entering/leaving the tab row).
 
 Every status tab is always rendered now, even at count 0 - it just collapses
@@ -10,6 +10,7 @@ to zero width via .tab-collapsed (panel.css) instead of being omitted from
 the DOM like {% if count %} used to, so home.html's JS has something to
 animate in when a count goes from 0 back up.
 {% endcomment %}
+{% load avatar_extras %}
 <div class="panel-card" id="actions-card">
     <div class="panel-card-header">
         <h2>My Actions</h2>
@@ -55,7 +56,13 @@ animate in when a count goes from 0 back up.
             <div class="panel-item-body panel-item-body--two-col">
                 <div class="panel-item-col panel-item-col--student">
                     <div class="panel-item-thumb-row">
-                        <div class="panel-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+                        <div class="panel-thumb">
+                            {% if action.referral.student.photo %}
+                            <img src="{{ action.referral.student.photo.url }}" alt="" class="panel-thumb-photo">
+                            {% else %}
+                            <span class="avatar-initials {{ action.referral.student|avatar_color_class }}">{{ action.referral.student.first_name|first }}{{ action.referral.student.last_name|first }}</span>
+                            {% endif %}
+                        </div>
                         <div class="panel-item-thumb-details">
                             <div class="panel-item-title">{{ action.referral.student }}</div>
                             <div class="entity-meta">Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; {{ action.referral.student.reg_form }}{% endif %}</div>

@@ -860,7 +860,7 @@ def _token_name_filter(tokens, *fields):
     # Every whitespace-separated token must match somewhere across the given
     # fields (AND across tokens, OR across fields per token) - "Be S" finds
     # "Ben Suri" (token "Be" matches first_name, "S" matches last_name), the
-    # shared matching rule for every search surface (INT-U13).
+    # shared matching rule for every search surface (INT-P4).
     q = Q()
     for token in tokens:
         token_q = Q()
@@ -963,7 +963,7 @@ def inclusion_panel_search(request):
 
     # kind == 'all': Panel's own general search - the only surface that
     # legitimately spans more than one entity type, so it's the only one
-    # that groups results by kind (INT-U13).
+    # that groups results by kind (INT-P4).
     is_panel_staff = _is_panel_staff(_current_staff(request))
 
     students_url = reverse('inclusion_panel_students')
@@ -1287,7 +1287,8 @@ def inclusion_panel_students(request):
     # fan-out between the two relations (see the comment above where
     # they're defined); aggregating Sum() on top of them in the same query
     # risks reopening exactly that bug. Three simple COUNT queries instead,
-    # each against its own table, filtered by the same student set.
+    # each against its own table, filtered by the same student set (ENG-D1:
+    # against the full filtered set, before pagination slices it below).
     total_students_count = students.count()
     total_referrals_count = InclusionReferral.objects.filter(student__in=students).count()
     total_actions_count = Action.objects.filter(referral__student__in=students).count()
@@ -2003,7 +2004,7 @@ def inclusion_panel_action_set_status(request, action_id):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         # Fired from the Home page's My Actions card (see home.html) so the
         # tab counts/rows can update in place with the count-delta pulse
-        # (INT-U14) and transition (INT-U10) animations, instead of a full
+        # (INT-M2) and transition (INT-M1) animations, instead of a full
         # page reload snapping them.
         current_staff = _current_staff(request)
         is_panel_staff = _is_panel_staff(current_staff)

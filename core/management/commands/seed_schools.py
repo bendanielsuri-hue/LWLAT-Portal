@@ -9,6 +9,19 @@ from core.models import School, Staff, Student
 
 SCHOOLS = [(name, category) for name, category, _ in SCHOOL_STUDENT_COUNTS]
 
+# Matches each school's real logo colour (one of School.ACCENT_COLOUR_CHOICES)
+# - drives the sidebar/portal accent when this school is selected, and
+# (avatar_color_class, portal/templatetags/avatar_extras.py) each of that
+# school's staff/students' fallback avatar colour, so avatars read as
+# "which school" at a glance instead of a colour hashed from the person's id.
+SCHOOL_ACCENT_COLOURS = {
+    'Babington Academy': 'teal',
+    'Woodstock': 'green',
+    'Heatherbrook': 'yellow',
+    'Lancaster Academy': 'red',
+    'South Wigston Academy': 'blue',
+}
+
 
 class Command(BaseCommand):
     help = (
@@ -18,13 +31,23 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         schools = []
+        accent_updated = 0
         for name, category in SCHOOLS:
-            school, _ = School.objects.get_or_create(name=name, defaults={'category': category})
+            accent = SCHOOL_ACCENT_COLOURS.get(name, '')
+            school, _ = School.objects.get_or_create(
+                name=name, defaults={'category': category, 'accent_colour': accent}
+            )
             if school.category != category:
                 school.category = category
                 school.save()
+            if accent and school.accent_colour != accent:
+                school.accent_colour = accent
+                school.save(update_fields=['accent_colour'])
+                accent_updated += 1
             schools.append(school)
         self.stdout.write(self.style.SUCCESS(f'Schools in DB: {School.objects.count()}'))
+        if accent_updated:
+            self.stdout.write(self.style.SUCCESS(f'School accent colours set to match their logo: {accent_updated} updated.'))
 
         staff_updated = 0
         school_staff = [

@@ -26,7 +26,11 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
-    padding: var(--space-md);
+    /* Top padding widened to clear .hub-card-icon-wrap's own popped-out
+       height, matching .senco-card's own padding treatment below - half the
+       64px wrap pokes above the card (its own top: offset), so this needs
+       to clear the other half (32px) plus a real gap before the title. */
+    padding: calc(var(--space-2xl) + var(--space-sm)) var(--space-md) var(--space-md);
     border-radius: var(--radius-xl);
     background: var(--bg-surface);
     box-shadow: var(--card-shadow);
@@ -40,7 +44,18 @@
     max-width: 320px;
     min-height: 220px;
     position: relative;
-    overflow: hidden;
+    /* visible, not hidden - .hub-card-icon-wrap pokes above this card's own
+       top edge (Circle Break, see .senco-avatar-wrap for the same
+       mechanism) and would otherwise get clipped. */
+    overflow: visible;
+    /* Clears room above every row's icons for the sticky page header
+       (.home-header-sticky, z-index 10) sitting right above .cards, and
+       for a wrapped second row's icons poking above the row before it -
+       .cards' own gap (24px) alone is less than the 32px poke, and the
+       header's own bottom padding leaves only ~7px past that poke before
+       its opaque background paints over the circle's own top edge
+       (confirmed via Playwright bounding-box inspection, 2026-08-25). */
+    margin-top: calc(var(--space-xl) + var(--space-xs));
 }
 
 .hub-card-content { width: 100%; box-sizing: border-box; }
@@ -63,19 +78,28 @@
     gap: var(--space-sm);
 }
 
-.hub-card-header {
+/* "Circle Break" cutout (grilling session 2026-08-25, committed on
+   .senco-card first - see that rule below for the prototyping history),
+   ported here so every hub's launch icon breaks out above its own card's
+   top edge the same way a SENCo contact's photo does. */
+.hub-card-icon-wrap {
+    position: absolute;
+    top: calc(-1 * var(--space-2xl));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-sm);
-    align-self: stretch;
-    margin: -18px -18px 0 -18px;
-    padding: var(--space-md);
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    background: var(--bg-surface-alt);
+    border: 3px solid var(--bg-surface);
+    box-shadow: 0 0 0 1px var(--border-strong);
 }
-.hub-card-icon svg { width: 34px; height: 34px; display:block; border-radius:var(--radius-sm); }
+.hub-card-icon-wrap svg { width: 34px; height: 34px; display:block; border-radius:var(--radius-sm); }
 
-.hub-card-top:hover .hub-card-header {
+.hub-card-top:hover .hub-card-icon-wrap {
     background: var(--primary-light);
 }
 
@@ -190,7 +214,7 @@
    visually vanishing into the row's own now-changed background the moment
    it's hovered - same fix as .panel-list li:hover (panel.css). */
 .selectable:hover { background: var(--row-hover-bg); border-bottom-color: var(--border-color); }
-/* Fake bold via text-shadow (INT-U17), not font-weight — a real weight
+/* Fake bold via text-shadow (INT-M4), not font-weight — a real weight
    change widens the title text, which can wrap it onto an extra line or
    nudge a sibling pill sideways the moment the pointer arrives. */
 .selectable:hover .entity-title,
@@ -210,7 +234,7 @@
    never depends on what's outside it. */
 .selectable:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .entity-row.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
-/* Fake bold (INT-U17) even though .chosen is persistent, not hover-only —
+/* Fake bold (INT-M4) even though .chosen is persistent, not hover-only —
    a real weight change still wraps/shifts a long title for as long as the
    row stays selected, not just a passing flicker. */
 .entity-row.chosen .entity-title { text-shadow: var(--hover-fake-bold); }
@@ -500,7 +524,11 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
 .breakdown-card [data-new-referral-trigger] { margin-top: var(--space-xs); }
 
 .senco-section-title { margin: 0 0 var(--space-sm); font-size: var(--font-md); color: var(--text-primary); }
-.senco-carousel-wrap { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-xl); }
+/* Extra margin-top (live prototype, "Circle Break" - grilling session
+   2026-08-25) clears room for .senco-avatar-wrap's own top: negative
+   offset below, so the photo breaking out above the card's top edge
+   doesn't crowd the section heading above it. */
+.senco-carousel-wrap { display: flex; align-items: center; gap: var(--space-xs); margin-top: var(--space-md); margin-bottom: var(--space-xl); }
 .senco-carousel {
     display: flex;
     gap: var(--space-sm);
@@ -508,8 +536,19 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
     padding-bottom: var(--space-xxs);
+    /* overflow-x: auto with no overflow-y set doesn't leave overflow-y as
+       visible - the spec computes it to auto too once either axis isn't
+       visible, so .senco-avatar-wrap's own popped-out top half (above
+       .senco-card's own border) was being clipped by this track's own box
+       instead of poking past it ("Circle Break" - live feedback, "you can
+       only see the bottom half of the circle"). Padding-top equal to the
+       poke amount (32px, .senco-avatar-wrap's own top: offset) plus a
+       small buffer keeps the popped-out circle inside this box's own
+       content area instead of clipped by it. */
+    padding-top: calc(var(--space-2xl) + var(--space-xs));
 }
 .senco-card {
+    position: relative;
     flex: 0 0 180px;
     scroll-snap-align: start;
     display: flex;
@@ -522,14 +561,93 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
        to every card). */
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
-    padding: var(--space-md) var(--space-sm);
+    /* Top padding widened to clear .senco-avatar-wrap's own popped-out
+       height - half the 64px wrap pokes above the card (its own top: below),
+       so this needs to clear the other half (32px) plus a real gap before
+       .senco-name, not just the poke amount alone - "Circle Break"
+       (grilling session 2026-08-25). */
+    padding: calc(var(--space-2xl) + var(--space-sm)) var(--space-sm) var(--space-md);
 }
-.senco-avatar-wrap { width: 40px; height: 40px; }
+/* "Circle Break" cutout (grilling session 2026-08-25, prototyped alongside
+   3 other treatments before this one was picked): the photo/fallback icon
+   sits centred, breaking out above the card's own top edge rather than
+   contained inside the card body - a --bg-surface ring (border) plus a
+   hairline outline (box-shadow) separate it from whatever's directly
+   behind it once it's poking past the card into the page background.
+   top: -32px is exactly half this wrap's own 64px height, so the circle
+   straddles the card's top edge evenly rather than mostly-in or mostly-out. */
+.senco-avatar-wrap {
+    position: absolute;
+    top: calc(-1 * var(--space-2xl));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--bg-surface-alt);
+    border: 3px solid var(--bg-surface);
+    box-shadow: 0 0 0 1px var(--border-strong);
+}
+.senco-avatar-wrap svg { width: 60%; height: 60%; }
+
+/* Coloured-initials photo fallback, replacing the plain grey silhouette
+   icon (avatar_placeholder_svg.html) - live feedback "instead of ugly icon
+   of person can we add coloured initials". Fills its container by default
+   (right for a container that's already circular, like .senco-avatar-wrap
+   above), with per-context overrides where the container itself isn't
+   (.panel-thumb's own portrait rectangle, panel.css). Colour is picked
+   server-side (avatar_color_class, portal/templatetags/avatar_extras.py) -
+   the person's own school accent colour when they have one (School.
+   accent_colour, seed_schools.py's SCHOOL_ACCENT_COLOURS matches each real
+   school's actual logo), so avatars read as "which school" at a glance;
+   falls back to a colour hashed from the person's id (stable, not random)
+   for MAT-wide staff with no school. The 8 class names are the same 8
+   accent colours a school can pick as its own --primary (theme/themes.
+   css's [data-color="..."] block, lines ~16-22 - the base/default swatch
+   values, not any one flavour's own override, so this stays consistent
+   regardless of which theme flavour is active) - literal hex, not derived
+   from the *current* --primary, since only one accent is live at a time
+   and there's no CSS variable holding the other 7 simultaneously. Keep in
+   sync with that block if its swatch values ever change. Two of the eight
+   (green/red) share a hue family with --color-positive/--color-negative -
+   accepted deliberately (live feedback) even though an avatar in either
+   could in principle misread as a status colour at a glance. */
+.avatar-initials {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: var(--font-md);
+    color: #fff;
+    letter-spacing: 0.02em;
+}
+.avatar-purple { background: #7c3aed; }
+.avatar-blue { background: #2563eb; }
+.avatar-teal { background: #0d9488; }
+.avatar-green { background: #16a34a; }
+/* Brighter than the app-wide "yellow" accent's own #8a5d04 (darkened
+   specifically so it can carry white button/nav text portal-wide) - live
+   feedback: "does not match the logo's yellow" once seen against a real
+   school badge, where a small self-contained circle can afford a truer
+   gold that a page full of yellow chrome text couldn't. Dark text instead
+   of the shared white (.avatar-initials) since this fill is too light for
+   white to stay readable on. */
+.avatar-yellow { background: #eab308; color: #422006; }
+.avatar-orange { background: #ea580c; }
+.avatar-red { background: #dc2626; }
+.avatar-pink { background: #db2777; }
 .senco-name { font-weight: 600; }
 .senco-meta { font-size: var(--font-sm); color: var(--text-secondary); }
 .senco-school { display: flex; align-items: center; gap: var(--space-xxs); font-size: var(--font-sm); color: var(--text-secondary); }
 .senco-school-logo { width: 14px; height: 14px; }
-.senco-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.senco-avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .senco-carousel-arrow {
     flex: 0 0 auto;
     width: 28px;

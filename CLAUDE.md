@@ -73,7 +73,7 @@ Domain vocabulary and mechanism for `Module` (rollout/visibility cascade), the d
 
 ## Design Language
 
-Portal-wide visual/interaction rules live as principles in [PRINCIPLES-DESIGN.md](PRINCIPLES-DESIGN.md) (colour, layout, typography, controls, hierarchy, ...) and [PRINCIPLES-INTERACTION.md](PRINCIPLES-INTERACTION.md) (hover/focus/motion/behaviour). Cite an entry from outside its own file with a domain prefix — `DES-F1`, `INT-U3`. Concrete implementation detail (token values, component recipes, hub-specific class names) lives as comments colocated directly in the CSS/template/JS file it describes, not in a separate design doc — see e.g. `static/css/theme/light.css` for `DES-F1`'s implementation. A cross-cutting index that doesn't reduce to one code location (which helper function to reach for) lives in the owning hub's own `CLAUDE.md` — see `hubs/inclusion/panel/CLAUDE.md`'s "Key helpers". See [docs/agents/doc-conventions.md](docs/agents/doc-conventions.md) for the full rules on what becomes a principle vs. a colocated comment.
+Portal-wide visual/interaction rules live as principles in [PRINCIPLES-DESIGN.md](PRINCIPLES-DESIGN.md) (colour, layout, typography, controls, hierarchy, ...) and [PRINCIPLES-INTERACTION.md](PRINCIPLES-INTERACTION.md) (hover/focus/motion/behaviour). Cite an entry from outside its own file with a domain prefix — `DES-F1`, `INT-U2`. Concrete implementation detail (token values, component recipes, hub-specific class names) lives as comments colocated directly in the CSS/template/JS file it describes, not in a separate design doc — see e.g. `static/css/theme/light.css` for `DES-F1`'s implementation. A cross-cutting index that doesn't reduce to one code location (which helper function to reach for) lives in the owning hub's own `CLAUDE.md` — see `hubs/inclusion/panel/CLAUDE.md`'s "Key helpers". See [docs/agents/doc-conventions.md](docs/agents/doc-conventions.md) for the full rules on what becomes a principle vs. a colocated comment.
 
 ## Agent skills
 
@@ -104,6 +104,10 @@ Apps with real, non-obvious domain vocabulary get a `CONTEXT.md` glossary alongs
 ## Verifying UI changes
 
 Ask before using the Playwright MCP browser tools to visually verify a change — don't reach for them by default. The user can usually eyeball a UI/layout change themselves against the running dev server; offer Playwright as an option rather than driving the browser automatically. Reserve unprompted Playwright use for cases where self-verification genuinely isn't practical.
+
+## Diagnosing perf issues
+
+Before blaming a resize/animation stutter on JS or animation cost, reproduce it with JS disabled — if it's still slow, the cost is DOM size/render, not the script (see `hubs/inclusion/panel/views.py`'s Students pagination for a case where this ruled out the actual culprit).
 
 ## Design mockups
 

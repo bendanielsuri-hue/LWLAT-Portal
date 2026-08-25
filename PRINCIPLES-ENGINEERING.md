@@ -7,6 +7,12 @@ General engineering values that hold regardless of which project this is. Entrie
 - **C1.** Comment the why, not the what. Only write a comment when something would surprise a reader — a hidden constraint, a workaround, a non-obvious reason. If removing the comment wouldn't confuse anyone, don't write it.
 - **C2.** Names should explain themselves. A variable, function, or model name should make its purpose clear without needing a comment to restate it.
 - **C3.** To show or hide something with JavaScript, toggle the `hidden` attribute, not `display: none` set directly in code — otherwise you have to remember and restore the right display type (block, flex, grid...) yourself when showing it again.
+- **C4.** A CSS selector that repeats the same tag twice, space-joined (e.g. `html.a html.b`), is a descendant-combinator selector, not one compound selector — it can never match an element that's the only instance of its own tag on the page (like `<html>`), and fails silently rather than erroring. Write it as one compound selector instead (`html.a.b`), and when scoping a rule under two classes toggled on the same element, verify against a working example already in the codebase rather than assuming the space-joined form is equivalent.
+- **C5.** `transition` is a shorthand, not additive across cascading rules — a second, later or higher-specificity `transition: <property> ...` rule doesn't add to an earlier rule's transition, it silently replaces it outright, so any property covered only by the earlier rule stops transitioning for as long as the later rule applies. When two rules at different specificity both need to animate (even different properties), combine them into one `transition` declaration rather than splitting across rules.
+
+## D — Data Correctness
+
+- **D1.** A total/count shown alongside a paginated or otherwise partially-loaded view must come from a query against the full backing set, never a sum over just the currently-rendered/loaded page — the two silently diverge the moment more data exists than is on screen.
 
 ## E — Error Handling
 

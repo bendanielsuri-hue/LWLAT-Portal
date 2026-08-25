@@ -746,7 +746,7 @@
    portal-wide. */
 .carousel-filter-menu li.active {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 /* Explicit .active:hover, not just relying on source order at equal
    specificity against the plain :hover rule above - hovering the already-
@@ -757,7 +757,7 @@
    pseudo-class) removes any ambiguity about which one wins. */
 .carousel-filter-menu li.active:hover {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 /* The trailing "(N)" split off the tab button's own text (renderWithBadge,
    home.html) into a small rounded badge instead - reads as a count, not a
@@ -783,7 +783,7 @@
    really in a non-active state (live feedback: "hard to see number"). */
 .carousel-filter-trigger .carousel-filter-badge {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 /* Inverted (white fill, primary text), not the plain primary/white badge
    every other state uses - .carousel-filter-menu li.active (above) already
@@ -962,8 +962,14 @@
            the dropdown (live feedback: "a gap should be after dropdown",
            not before it), not something to visually cancel out. Bottom
            still gets a negative margin - that clearance has nothing to
-           visually double as, so it's cancelled the way top's used to be. */
-        padding-top: 24px;
+           visually double as, so it's cancelled the way top's used to be.
+           Widened from 24px - .panel-thumb's own "Circle Break" pokes 28px
+           above its card's top edge, and the active card's own lift
+           (.is-active, transform: scale(1.06) translateY(-4px), below)
+           moves that circle up further still, so 24px was clipping its top
+           against this row's own overflow-y: hidden (live feedback: "you
+           can only see the bottom half of the circle"). */
+        padding-top: 52px;
         padding-bottom: 36px;
         margin-top: 0;
         margin-bottom: -20px;
@@ -997,6 +1003,10 @@
         cursor: grabbing;
     }
     #my-referrals-list > li {
+        /* Anchors .panel-thumb's own absolute positioning below - "Circle
+           Break" (grilling session 2026-08-25, prototyped alongside 3
+           other treatments before this one was picked). */
+        position: relative;
         /* Auto, not a fixed 80% - a fixed-width peek card left a lot of
            dead space either side of a short name/date/pill stack ("too
            spaced out for a mobile" pass). Sized to its own content instead,
@@ -1032,8 +1042,12 @@
         /* Tightened from .panel-list li's own base --space-sm/--space-lg -
            "too spaced out for a mobile" (live feedback): a bordered card
            this narrow doesn't need desktop-list padding on top, inside
-           itself. */
-        padding: var(--space-xs) var(--space-sm);
+           itself. Top widened further to clear .panel-thumb's own popped-
+           out height below ("Circle Break") - half its 56px pokes above
+           the card (28px, .panel-thumb's own top: below), so this needs to
+           clear the other half plus a real gap before .panel-item-body,
+           not just the poke amount alone. */
+        padding: calc(var(--space-xl) + var(--space-sm)) var(--space-sm) var(--space-xs);
         /* Thumb stacked above the name/meta/pills instead of beside them -
            "make it even thinner to fit more" - a portrait avatar-above-text
            card reads narrower than a landscape thumb-beside-text row does
@@ -1048,6 +1062,34 @@
     }
     #my-referrals-list > li .panel-item-body {
         width: 100%;
+    }
+    /* "Circle Break": the student's photo (once Student.photo exists -
+       wayfinder ticket 002, docs/wayfinder/student-audit-history/) or the
+       placeholder icon breaks out above the card's own top edge, matching
+       the SENCo contacts treatment (components/cards.css .senco-avatar-
+       wrap) rather than the base rule's rounded-rect "ID card" thumb -
+       that shape only made sense in the wide list-row layout it's sized
+       for, not stacked above a narrow carousel card's centred content. */
+    #my-referrals-list > li .panel-thumb {
+        position: absolute;
+        top: calc(-1 * (var(--space-xl) + var(--space-xxs)));
+        left: 50%;
+        transform: translateX(-50%);
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: 3px solid var(--bg-surface);
+        box-shadow: 0 0 0 1px var(--border-color);
+        align-items: center;
+    }
+    /* Back to filling the now-circular .panel-thumb, overriding its own
+       base rule's fixed 32px/bottom-aligned sizing (panel.css, sized for
+       the portrait-rectangle base shape this isn't any more). */
+    #my-referrals-list > li .panel-thumb .avatar-initials {
+        width: 100%;
+        height: 100%;
+        margin-bottom: 0;
+        font-size: var(--font-md);
     }
     #my-referrals-list > li.empty-note {
         flex: 0 0 100%;
@@ -1325,8 +1367,9 @@
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
         margin: 0;
-        /* See #my-referrals-list's own identical addition for why. */
-        padding-top: 24px;
+        /* See #my-referrals-list's own identical addition for why, incl.
+           the widened 52px ("Circle Break" clipping fix). */
+        padding-top: 52px;
         padding-bottom: 36px;
         margin-top: 0;
         margin-bottom: -20px;
@@ -1425,11 +1468,44 @@
     /* Image on its own row above the name, not beside it (live feedback:
        "have image on its own row above name") - same column-stack
        treatment #my-referrals-list > li already gets, just applied to this
-       row's own thumb+details pairing instead of the whole card. */
+       row's own thumb+details pairing instead of the whole card. Top
+       padding + position: relative added for "Circle Break" (grilling
+       session 2026-08-25) - same treatment as #my-referrals-list > li's
+       own identical addition, just anchored to this row instead of the
+       whole card since My Actions' card has other content (category/
+       description) beside this column. Half the thumb's 56px pokes above
+       this row (28px, its own top: below), so padding-top needs to clear
+       the other half plus a real gap before the name - same 36px total as
+       #my-referrals-list > li's own identical padding. */
     #my-actions-list .panel-item-thumb-row {
+        position: relative;
         flex-direction: column;
         align-items: center;
         order: 1;
+        padding-top: calc(var(--space-xl) + var(--space-sm));
+    }
+    /* "Circle Break" - see #my-referrals-list > li .panel-thumb's own
+       identical rule/comment for why. */
+    #my-actions-list .panel-item-thumb-row .panel-thumb {
+        position: absolute;
+        top: calc(-1 * (var(--space-xl) + var(--space-xxs)));
+        left: 50%;
+        transform: translateX(-50%);
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: 3px solid var(--bg-surface);
+        box-shadow: 0 0 0 1px var(--border-color);
+        align-items: center;
+    }
+    /* Back to filling the now-circular .panel-thumb - see #my-referrals-
+       list > li .panel-thumb .avatar-initials's own identical rule/comment
+       for why. */
+    #my-actions-list .panel-item-thumb-row .panel-thumb .avatar-initials {
+        width: 100%;
+        height: 100%;
+        margin-bottom: 0;
+        font-size: var(--font-md);
     }
     /* .referral-category-row (Category + the Overdue pill, now sharing one
        line - _my_actions_card.html), not .referral-row-title directly any
@@ -1641,19 +1717,18 @@
        above, ≤1180px) is the *one* real gap between the filter/header and
        the carousel at this width - no separate margin stacked on top of
        it any more (live feedback: "lose the 2px if this is a necessary
-       gap"). 24px (the ≤1180px value) read as too much once every other
-       gap on this card had already tightened down for phone (live
-       feedback: "gap after filter and count on carousels looks to be too
-       much"), but it can't drop to 0 either - it's reserved clearance for
-       the active card's own lift+scale (.is-active, translateY(-4px)
-       scale(1.06)) against this list's own overflow-y: hidden boundary,
-       and dropping it too far clips that card's top border/shadow right
-       off (live feedback: "top border not having purple focus border" -
-       measured empirically: clipping starts below ~14px). 16px leaves a
-       real, if small, 3px margin of safety past that. */
+       gap"). Used to tighten to 16px here specifically (live feedback:
+       "gap after filter and count on carousels looks to be too much"),
+       tuned against the clearance the active card's own lift+scale
+       (.is-active, translateY(-4px) scale(1.06)) needed against this
+       list's own overflow-y: hidden boundary - but that tuning predates
+       "Circle Break" (.panel-thumb poking 28px above its own card's top
+       edge), which needs real room regardless of how tight the gap above
+       it would otherwise read, so this no longer drops below the ≤1180px
+       value at all - same 52px, not a phone-specific tighter number. */
     #referrals-card #my-referrals-list,
     #actions-card #my-actions-list {
-        padding-top: var(--space-md);
+        padding-top: 52px;
     }
     /* Narrower card range than the ≤1180px tablet default (150-220px/
        220-320px, above) - at phone width a card sized closer to the full
@@ -2111,14 +2186,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    visually erased it - a no-op on any row without a border to begin with,
    so safe as a broad rule. */
 .panel-list li:hover { background: var(--row-hover-bg); border-bottom-color: var(--border-color); }
-/* Fake bold via text-shadow (INT-U17), not font-weight — see cards.css's
+/* Fake bold via text-shadow (INT-M4), not font-weight — see cards.css's
    .selectable:hover .entity-title for why. */
 .panel-list li:hover .panel-item-title,
 .panel-list li:focus-visible .panel-item-title {
     text-shadow: var(--hover-fake-bold);
 }
 .panel-list li.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
-/* Fake bold (INT-U17) — same reasoning as .entity-row.chosen (cards.css). */
+/* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .panel-list li.chosen .panel-item-title { text-shadow: var(--hover-fake-bold); }
 .panel-list li.chosen:hover { background: var(--primary-light); }
 .panel-list li.empty-note:hover { background: transparent; }
@@ -2230,12 +2305,33 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     background: var(--bg-surface-alt);
     border: 1px solid var(--border-color);
     display: flex;
-    align-items: flex-end;
+    /* Centred, not flex-end - flex-end was right for the old standing-
+       person silhouette icon (feet-on-ground read), but the circular
+       avatar-initials badge that replaced it (below) reads as bottom-
+       cropped/off-centre pinned to the frame's own bottom edge instead
+       (live feedback: "can the circles be vertically centred on the photo
+       card"). A future real photo (.panel-thumb-photo) fills 100%/100% of
+       this box regardless of align-items, so this only ever affects the
+       fallback badge. */
+    align-items: center;
     justify-content: center;
     overflow: hidden;
 }
 
 .panel-thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
+.panel-thumb-photo { width: 100%; height: 100%; object-fit: cover; }
+/* .avatar-initials defaults to filling its container (cards.css) - right
+   for the circular "Circle Break" override below, but this base .panel-
+   thumb is a portrait rectangle, not a circle, so a 100%-fill initials
+   badge would stretch into an oval instead of a circle. Fixed circle size
+   instead, bottom-aligned like the icon it replaced (align-items: flex-end
+   above). */
+.panel-thumb .avatar-initials {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    font-size: var(--font-sm);
+}
 
 .panel-item-body {
     flex: 1;
@@ -2677,7 +2773,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 }
 .meeting-card:last-child { border-bottom: none; }
 .meeting-card:hover { background: var(--row-hover-bg); border-bottom-color: var(--border-color); }
-/* Fake bold via text-shadow (INT-U17), not font-weight — the title is
+/* Fake bold via text-shadow (INT-M4), not font-weight — the title is
    ellipsis-truncated but flex-sized to its own content, so a real weight
    change widens it and nudges the status pills beside it sideways. */
 .meeting-card:hover h3,
@@ -2685,7 +2781,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     text-shadow: var(--hover-fake-bold);
 }
 .meeting-card.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
-/* Fake bold (INT-U17) — same reasoning as .entity-row.chosen (cards.css). */
+/* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .meeting-card.chosen h3 { text-shadow: var(--hover-fake-bold); }
 
 .meeting-card-body { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; gap: 6px; }
@@ -3891,8 +3987,8 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     }
     /* Device, not width, decides whether the fade above is redundant (live
        feedback: "on desktop mode we do not need the fade as the scrollbar
-       makes it clear" - explicitly not a breakpoint call: a real touch
-       tablet at this exact same width still hides its native scrollbar
+       makes it clear" - explicitly not a breakpoint call (INT-R1): a real
+       touch tablet at this exact same width still hides its native scrollbar
        entirely (html.nav-touch-mode ::-webkit-scrollbar, forms.css) and so
        still needs this fade as its only affordance; only a hover-capable
        pointer actually has a visible scrollbar to make the fade redundant. */
@@ -5080,7 +5176,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        own html.nav-touch-mode .list-card .entity-list rule (correct, one
        compound selector followed by real descendants) is the pattern to
        match - verify any new one against it rather than copy-pasting this
-       file's own now-fixed version, in case it drifts again. */
+       file's own now-fixed version, in case it drifts again. (ENG-C4) */
     html.filter-bar-mobile-mode.nav-touch-mode .filter-bar-tray .filter-bar-collapsible-inner {
         scrollbar-width: none;
     }
@@ -5294,7 +5390,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            had no transition property covering it at all for that entire
            window and just snapped straight to its end value. Combining
            them here keeps both transitions in effect regardless of which
-           rule's specificity wins. */
+           rule's specificity wins. (ENG-C5) */
         transition: opacity var(--transition-slide-lg), border-color var(--transition-fast);
         /* var(--space-sm) top/bottom, not the plain padding: var(--space-xxs)
            shorthand this used to be (git history, and it was also silently
@@ -5629,7 +5725,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        the same thing. */
     html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field--active label {
         background: var(--primary);
-        color: #fff;
+        color: var(--on-primary);
     }
     /* Dropdown values left-aligned (live feedback: "dropdowns left
        aligned") - the trigger's own base rule (forms.css) already defaults
@@ -5799,6 +5895,22 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         color-mix(in srgb, var(--border-strong) 15%, transparent) 0 5px,
         transparent 5px 11px
     );
+}
+/* (INT-S2) While .list-load-sentinel is still in the DOM (_students_rows.html:
+   {% if page_obj.has_next %}), a further page is genuinely pending - the
+   plain stripe above reads as "list has ended", which isn't true yet.
+   Same box/stripe, but swaps in a centred "Loading more…" label so the two
+   states (still loading vs. actually finished) don't look identical. Once
+   wireStudentsInfiniteScroll (main.js) splices in the next page, the old
+   sentinel is removed with it - this reverts to the plain end stripe
+   automatically, or gets re-added if that new page has its own next one. */
+#students-filtered-content .entity-list:has(.list-load-sentinel)::after {
+    content: "Loading more…";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    font-size: var(--font-xs, 0.75rem);
 }
 
 @media (max-width: 480px) {
@@ -6389,7 +6501,7 @@ html.filter-bar-mobile-mode .list-card:has(.filtered-content) .filter-bar {
     background: var(--primary);
 }
 
-/* Status-filter tab entering/leaving the tab row (INT-U10: transition
+/* Status-filter tab entering/leaving the tab row (INT-M1: transition
    rather than a sudden jump) - a tab whose count is 0 still isn't rendered as a disabled state,
    it's just collapsed to zero width instead of omitted from the DOM outright,
    so JS can transition it in/out live instead of it appearing/disappearing
@@ -6409,7 +6521,7 @@ html.filter-bar-mobile-mode .list-card:has(.filtered-content) .filter-bar {
     transition: opacity 260ms ease, max-width 260ms ease, padding-left 260ms ease, padding-right 260ms ease;
 }
 
-/* Count-delta pulse (INT-U14) -
+/* Count-delta pulse (INT-M2) -
    fires on any live count when an action changes it, not on a page load -
    a tab's own (N), or a card/section heading's count (.panel-card-count and
    similar). Scale + colour, no background box (read too "boxy" at this text
@@ -6494,7 +6606,7 @@ html.filter-bar-mobile-mode .list-card:has(.filtered-content) .filter-bar {
 .agenda-table tbody tr:hover { background: var(--row-hover-bg); }
 .agenda-table tbody tr:hover td { border-bottom-color: var(--border-color); }
 .agenda-table tbody tr.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
-/* Fake bold (INT-U17) — same reasoning as .entity-row.chosen (cards.css). */
+/* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .agenda-table tbody tr.chosen td:first-child { text-shadow: var(--hover-fake-bold); }
 .agenda-table tbody tr.chosen:hover { background: var(--primary-light); }
 .agenda-table .empty-row:hover { background: transparent; }
@@ -8103,7 +8215,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 .member-card[data-present="true"] { border-color: var(--accent-border); background: var(--primary-light); }
 /* Hover: name weight only, nothing else - no background/transform/transition,
    matching .selectable:hover .entity-title's own hover treatment elsewhere.
-   Fake bold via text-shadow (INT-U17), not font-weight, so the name never
+   Fake bold via text-shadow (INT-M4), not font-weight, so the name never
    widens/reflows on hover. No :focus-visible companion — the card itself
    isn't a tabbable unit, only its own check-in toggle button is. */
 .member-card:hover .card-name { text-shadow: var(--hover-fake-bold); }
@@ -8179,7 +8291,7 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
    (panel.js) strips this class off the same fetched form when swapping it
    into a *different* modal (Create Panel Meeting/Edit Panel Settings)
    instead, in favour of .ui-fused-field-group + its own .btn-row (below) -
-   see INT-U16 for why. */
+   see INT-U6 for why. */
 #panel-group-dialog .panel-group-modal-sticky-row {
     display: flex;
     align-items: flex-end;
@@ -8365,7 +8477,7 @@ dialog#panel-search-dialog .modal-body {
 }
 /* Layout glue only — border/background/hover/focus/has-text states come
    from the shared .app-search-field/.app-search-input component in
-   navigation.css (INT-U13). */
+   navigation.css (INT-P4). */
 .panel-search-field { width: 100%; flex: 0 0 auto; }
 /* Bleeds out through .modal-body's own right padding (same technique as
    .setup-col-body, DES-L5) so the results list's scrollbar sits flush against the dialog's
@@ -8491,7 +8603,7 @@ dialog#panel-search-dialog .modal-body {
    true edge - not the dialog edge itself. padding-right restores that gap
    for the rows themselves, so only the scrollbar's position moves. */
 /* No outer card - see the matching comment on .referral-student-results
-   above (INT-U13). */
+   above (INT-P4). */
 .member-result-list {
     max-height: min(65vh, 480px);
     overflow-y: auto;
@@ -8563,7 +8675,7 @@ dialog#panel-search-dialog .modal-body {
 .btn-icon-only { flex: 0 0 auto; padding: 0 14px; line-height: 1; }
 
 /* Border/hover/focus/has-text states come from the shared .app-search-field
-   component in navigation.css (INT-U13), which wins
+   component in navigation.css (INT-P4), which wins
    over .field-group input's generic styling on specificity. */
 /* Bleeds out through .modal-body's own right padding, same technique (and
    same reason) as .panel-search-results above - otherwise the scrollbar
@@ -8574,7 +8686,7 @@ dialog#panel-search-dialog .modal-body {
    sit directly in the modal's own flow, hugging their actual content via
    max-height (not a fixed height reserving dead space), each row reading as
    its own rounded "card" only once hovered/active rather than a permanently
-   boxed list (INT-U13). */
+   boxed list (INT-P4). */
 .referral-student-picker .referral-student-results {
     max-height: min(60vh, 400px);
     overflow-y: auto;

@@ -1281,14 +1281,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // viewport-anchored floating tray, correct on a real phone (no side nav,
     // full-bleed card flush with the viewport edge) but wrong once the side
     // nav stays put: the tray span no longer matches the (inset) filter bar
-    // above it. panel.css keys its own "push the list down instead of
-    // floating over it" override off this class, and the JS below skips
-    // positionFilterTray (which computes fixed-position top/max-height) for
-    // any Students bar in this state - a push-down panel just grows to its
-    // natural content height in normal flow, nothing to compute. A portrait
-    // tablet's side nav persists exactly like a narrowed desktop window's
-    // does (neither is a true phone), so it takes this same push-down
-    // branch too, not the true-mobile fixed-overlay one.
+    // above it. Originally solved by pushing the list down instead of
+    // floating over it in this state; reverted (live feedback: "I like the
+    // slide over the top that mobile does... can we do this for portrait
+    // tablet as well") once positionFilterTray started anchoring left/width
+    // to the bar's own rect (INT-R2) instead of the raw viewport edge, which
+    // fixes the misalignment without giving up the floating overlay. This
+    // class is now purely a styling hook (square tray corners, sticky-
+    // footer variant, category-strip panel at wider widths) - not a
+    // positioning branch.
     function isFilterBarNarrowDesktop() {
         return !trueMobileMql.matches && ((studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches));
     }
@@ -1807,12 +1808,17 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         };
         var pastelSwatches = {};
-        document.querySelectorAll('#pref-color .colour-swatch').forEach(function (btn) {
+        // Excludes [data-value="school"] ("Corporate") - it has no inline
+        // --swatch of its own (styled by class instead, layout.css) since
+        // it doesn't resolve to one fixed hex, only whichever school's
+        // currently selected.
+        document.querySelectorAll('#pref-color .colour-swatch:not(.colour-swatch--corporate)').forEach(function (btn) {
             pastelSwatches[btn.dataset.value] = [btn.style.getPropertyValue('--swatch'), btn.title];
         });
 
         var colourNames = {};
         Object.keys(pastelSwatches).forEach(function (key) { colourNames[key] = pastelSwatches[key][1]; });
+        colourNames.school = 'Corporate';
 
         // Off-screen probe element: reading --primary-base off it with the
         // target [data-theme]/[data-color] attributes gets the real,
@@ -1856,7 +1862,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function applyThemeSwatches(theme) {
             var labels = themeSwatchLabels[theme];
-            document.querySelectorAll('#pref-color .colour-swatch, #themes-pref-color .colour-swatch').forEach(function (btn) {
+            // Corporate excluded - see pastelSwatches' own identical exclusion
+            // above for why; it has nothing here to refresh.
+            document.querySelectorAll('#pref-color .colour-swatch:not(.colour-swatch--corporate), #themes-pref-color .colour-swatch:not(.colour-swatch--corporate)').forEach(function (btn) {
                 var colour = btn.dataset.value;
                 var pastelEntry = pastelSwatches[colour];
                 var hex = labels ? getThemeAccentHex(theme, colour) : null;
@@ -1869,15 +1877,52 @@ document.addEventListener('DOMContentLoaded', function () {
                     colourNames[colour] = label;
                 }
             });
-            var currentLabel = document.getElementById('pref-color-current');
-            var selectedColour = root.getAttribute('data-color') || 'purple';
-            if (currentLabel) currentLabel.textContent = colourNames[selectedColour] || selectedColour;
+            updateColourLabel();
         }
 
-        setupButtonGroup('pref-color', 'data-color', 'pref-color', 'purple', function (value) {
+        // "Corporate" (pref-color absent or 'school') resolves to whichever
+        // school is currently selected (data-school-color, server-rendered
+        // from core.portal_settings) rather than one fixed colour - live
+        // feedback: "I do want to override the primary colour with my
+        // preferred colour... reverts to the school colour" once real
+        // per-school accent colours made data-school-color's existing
+        // precedence (layout.html) actually visible for the first time.
+        // Picking a real colour swatch instead is remembered the same way
+        // pref-color already was, just no longer silently overridden.
+        function colourMode() {
+            var stored = localStorage.getItem('pref-color');
+            return (stored && stored !== 'school') ? stored : 'school';
+        }
+        function updateColourLabel() {
             var label = document.getElementById('pref-color-current');
-            if (label) label.textContent = colourNames[value] || value;
-        });
+            if (!label) return;
+            var mode = colourMode();
+            if (mode === 'school') {
+                var resolved = root.getAttribute('data-school-color') || 'purple';
+                label.textContent = 'Corporate (' + (colourNames[resolved] || resolved) + ')';
+            } else {
+                label.textContent = colourNames[mode] || mode;
+            }
+        }
+        (function () {
+            var container = document.getElementById('pref-color');
+            if (!container) return;
+            var buttons = container.querySelectorAll('[data-value]');
+            function applySelection(mode) {
+                buttons.forEach(function (btn) { btn.classList.toggle('selected', btn.dataset.value === mode); });
+                updateColourLabel();
+            }
+            applySelection(colourMode());
+            buttons.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var value = btn.dataset.value;
+                    try { localStorage.setItem('pref-color', value); } catch (e) { }
+                    root.setAttribute('data-color', value === 'school' ? (root.getAttribute('data-school-color') || 'purple') : value);
+                    applySelection(value);
+                    layoutAllHubCardBadges();
+                });
+            });
+        })();
 
         var themeDescriptions = {
             pastel: 'Calm, low-contrast tones with warm borders and subtle depth.',
@@ -2784,7 +2829,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var tabbarVisible = tabbar && tabbar.getClientRects().length !== 0;
         var bottomLimit = tabbarVisible ? tabbar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
         box.style.top = barBottom + 'px';
-        // left/width anchored to the bar's own rect, not the base CSS rule's
+        // (INT-R2) left/width anchored to the bar's own rect, not the base CSS rule's
         // left: 0; right: 0 (panel.css) - true phone width has no side nav,
         // so the bar already spans edge to edge and this is a no-op there,
         // but narrow-desktop/portrait-tablet still show the icon rail beside
@@ -3026,6 +3071,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // ResizeObserver settle-wait was for in the first place.
         // interpolate-size: allow-keywords (Chromium, confirmed supported
         // in this dev environment) removes the whole problem at its root
+        // (INT-M5)
         // instead of working around it - the browser computes the tray's
         // real height itself, every frame, the same way it always could
         // for any other animatable property, so there's nothing left for
@@ -3389,14 +3435,19 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 loadCurrent();
             });
 
-            // Live-as-typed search (INT-U13's debounced-search precedent,
+            // Live-as-typed search (INT-P4's debounced-search precedent,
             // applied to this page-level filter rather than a picker):
             // 250ms after the last keystroke, not on blur/Enter like a
-            // plain 'change' would give a text input.
+            // plain 'change' would give a text input. 2-char minimum before
+            // querying, same as the picker precedent (panel.js) - a single
+            // keystroke doesn't narrow a MAT-wide table meaningfully, it
+            // just fires a full server round-trip for no benefit. Clearing
+            // back to empty still fires immediately below, to reset the list.
             var searchDebounce = null;
             form.querySelectorAll('input[type=text], input[type=search]').forEach(function (input) {
                 input.addEventListener('input', function () {
                     clearTimeout(searchDebounce);
+                    if (input.value.trim().length === 1) return;
                     searchDebounce = setTimeout(function () {
                         loadCurrent();
                         // A page-level 'change' listener (e.g. Students'

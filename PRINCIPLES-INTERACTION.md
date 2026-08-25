@@ -2,24 +2,46 @@
 
 Motion, hover/focus, and behavioral values that hold regardless of which project this is. Entries here are numbered plainly (`U1`, ...) — from *outside* this file (code comments, other docs, ADRs), cite one with the `INT-` prefix, e.g. `(INT-U1)`. The prefix tells you which file to open; the bare code is what you search for once you're in it. Categories are added as new principles surface — this list is not a fixed taxonomy.
 
+## F — Feedback
+
+- **F1.** Always show the user what's currently happening — if something is loading, saving, or processing in the background, say so, rather than leaving a silent gap.
+
 ## U — Usability
 
-- **U1.** Always show the user what's currently happening — if something is loading, saving, or processing in the background, say so, rather than leaving a silent gap.
-- **U2.** Where possible, make a mistake impossible rather than just showing an error after it happens — e.g. disable a button until the form is actually valid.
-- **U3.** Every action or flow should have an obvious way to back out or cancel without penalty — a modal always has a clear close, a multi-step flow can always be exited.
-- **U4.** When an action can't currently succeed, disable it rather than leaving it clickable to silently fail — and say why (e.g. a tooltip), don't just grey it out with no explanation.
-- **U5.** Any drag-and-drop interaction needs a non-drag way to do the same thing — drag-and-drop alone isn't accessible by keyboard or screen reader.
-- **U6.** Warn before silently discarding in-progress work the user would mind losing — a form with real typed content (not a couple of dropdowns) is the same risk whether it's sitting in a modal or on a full page, so guard both the same way: a modal shouldn't close on a backdrop click/Escape without confirming, and a page shouldn't let an in-app link, browser back, or tab close carry the user away without asking either. Same rule, two closing gestures — not a modal-only or navigation-only concern.
-- **U7.** Every AJAX-enhanced interaction needs a working fallback for when the request fails or JS doesn't run — never leave the feature dependent on the enhancement succeeding.
-- **U8.** Preserve the user's current UI state (e.g. which tab is selected) across a live content refresh — don't silently reset it to a default just because the content underneath got swapped in fresh.
-- **U9.** Match save behaviour to how often a field changes: a field that changes often and carries low risk can autosave instantly; a rarer, higher-consequence edit should go through an explicit save step instead.
-- **U10.** Prefer a smooth transition over a sudden jump whenever something's size, position, or visibility changes — a jolt reads as broken, a transition reads as intentional.
-- **U11.** Avoid replacing a whole chunk of the page just to update part of it — a targeted update to just the changed piece doesn't need to remember and restore scroll position, selection, or anything else.
-- **U12.** Never suppress a focus-visible outline without providing an equivalent replacement.
-- **U13.** A search box starts empty and only queries once the user has typed enough to narrow results meaningfully — never pre-load everything and filter client-side for real data.
-- **U14.** Don't delay one thing's animation or update to wait for an unrelated animation to finish — let independent changes happen immediately, each on its own timing.
-- **U15.** Be careful with hover transforms on a card that holds its own clickable controls — scale moves child elements unevenly and makes them harder to hit; a uniform translateY lift (or transforming only a decorative layer, not the real controls) avoids the problem.
-- **U16.** Modal on modal on modal is a bad experience — prefer swapping the host modal's own content to show another step or mode instead of opening a new one on top of it. A small, single-field quick-add is a reasonable exception that can stay a second stacked dialog.
-- **U17.** Never bold text by changing its real font weight when that weight can toggle on and off against a lighter sibling state (hover/focus, but equally a persistent selected/active/chosen state) — a heavier weight is wider, so it can wrap a fitting single-line label onto an extra line, or nudge a sibling element (e.g. a pill) sideways, whenever that state is entered, even if the state itself is long-lived rather than transient. Fake the weight instead with a shadow effect that reads as heavier without changing the text's own metrics — see the shared token this resolves to for the current strength, arrived at by prototyping several side by side. Only text that is always rendered at one single weight — never toggled against a lighter version of itself — is exempt, since there's no transition to reflow.
-- **U18.** Any internally-scrolling region (its own `overflow`/`overflow-y: auto|scroll`, not the page itself) hides its scrollbar in touch mode — a real touch device already does this natively, so showing one there is inconsistent with the platform rather than helpful. `scrollbar-width: none` + a `::-webkit-scrollbar { display: none }` override, scoped under the app's touch-mode class rather than a device-width media query (the dev breakpoint preview simulates touch in an otherwise-desktop browser, which still has to match). See `layout.css`'s `.entity-list` rule for the reference implementation.
-- **U19.** A scrollable list needs a clear signal that its end has actually been reached — otherwise a short remaining stretch of blank space reads as still-loading or broken rather than finished. Build that signal as a real element sitting in the list's own normal flow, not a background or effect positioned by calculation against the list's total scrollable height — the latter tracks scroll position instead of a fixed place in the content, so it drifts into view early and reads as a moving overlay while scrolling rather than a fixed marker at the actual end.
+- **U1.** Where possible, make a mistake impossible rather than just showing an error after it happens — e.g. disable a button until the form is actually valid.
+- **U2.** Every action or flow should have an obvious way to back out or cancel without penalty — a modal always has a clear close, a multi-step flow can always be exited.
+- **U3.** When an action can't currently succeed, disable it rather than leaving it clickable to silently fail — and say why (e.g. a tooltip), don't just grey it out with no explanation.
+- **U4.** Warn before silently discarding in-progress work the user would mind losing — a form with real typed content (not a couple of dropdowns) is the same risk whether it's sitting in a modal or on a full page, so guard both the same way: a modal shouldn't close on a backdrop click/Escape without confirming, and a page shouldn't let an in-app link, browser back, or tab close carry the user away without asking either. Same rule, two closing gestures — not a modal-only or navigation-only concern.
+- **U5.** Match save behaviour to how often a field changes: a field that changes often and carries low risk can autosave instantly; a rarer, higher-consequence edit should go through an explicit save step instead.
+- **U6.** Modal on modal on modal is a bad experience — prefer swapping the host modal's own content to show another step or mode instead of opening a new one on top of it. A small, single-field quick-add is a reasonable exception that can stay a second stacked dialog.
+
+## A — Accessibility
+
+- **A1.** Any drag-and-drop interaction needs a non-drag way to do the same thing — drag-and-drop alone isn't accessible by keyboard or screen reader.
+- **A2.** Never suppress a focus-visible outline without providing an equivalent replacement.
+
+## P — Performance & State
+
+- **P1.** Every AJAX-enhanced interaction needs a working fallback for when the request fails or JS doesn't run — never leave the feature dependent on the enhancement succeeding.
+- **P2.** Preserve the user's current UI state (e.g. which tab is selected) across a live content refresh — don't silently reset it to a default just because the content underneath got swapped in fresh.
+- **P3.** Avoid replacing a whole chunk of the page just to update part of it — a targeted update to just the changed piece doesn't need to remember and restore scroll position, selection, or anything else.
+- **P4.** A search box starts empty and only queries once the user has typed enough to narrow results meaningfully — never pre-load everything and filter client-side for real data.
+
+## M — Motion
+
+- **M1.** Prefer a smooth transition over a sudden jump whenever something's size, position, or visibility changes — a jolt reads as broken, a transition reads as intentional.
+- **M2.** Don't delay one thing's animation or update to wait for an unrelated animation to finish — let independent changes happen immediately, each on its own timing.
+- **M3.** Be careful with hover transforms on a card that holds its own clickable controls — scale moves child elements unevenly and makes them harder to hit; a uniform translateY lift (or transforming only a decorative layer, not the real controls) avoids the problem.
+- **M4.** Never bold text by changing its real font weight when that weight can toggle on and off against a lighter sibling state (hover/focus, but equally a persistent selected/active/chosen state) — a heavier weight is wider, so it can wrap a fitting single-line label onto an extra line, or nudge a sibling element (e.g. a pill) sideways, whenever that state is entered, even if the state itself is long-lived rather than transient. Fake the weight instead with a shadow effect that reads as heavier without changing the text's own metrics — see the shared token this resolves to for the current strength, arrived at by prototyping several side by side. Only text that is always rendered at one single weight — never toggled against a lighter version of itself — is exempt, since there's no transition to reflow.
+
+## R — Responsive Classification
+
+- **R1.** Viewport width and touch capability are independent signals — don't infer one from the other. A real touch device can land on the same width as a resized desktop window (and vice versa), so a rule that depends on touch input needs its own touch check even inside a width-scoped rule, rather than assuming the width band already implies it.
+- **R2.** A transient, dismissible overlay (a slide-in tray, not a persistent split-view) should use `position: fixed` anchored to its trigger element's own rect, not the raw viewport edges — that alone lets it coexist correctly with a persistent sidebar/nav, so there's no need for a separate push-down layout to handle that case. Push-down only earns its place for a genuinely persistent side-by-side panel the user works in alongside the list — a different UI, not a variant of the same tray.
+
+- **M5.** Prefer a CSS-native size animation (e.g. `interpolate-size`/`calc-size()`, letting a transition target `auto` directly) over a JS-measured height animation — the browser computing the real size itself every frame removes a whole class of measure-timing bugs (a delay while JS reads the natural height first, a "bounce" when that read is transiently wrong) instead of working around them. Check runtime support before relying on it.
+
+## S — Scrolling & Overflow
+
+- **S1.** Any internally-scrolling region (its own `overflow`/`overflow-y: auto|scroll`, not the page itself) hides its scrollbar in touch mode — a real touch device already does this natively, so showing one there is inconsistent with the platform rather than helpful. `scrollbar-width: none` + a `::-webkit-scrollbar { display: none }` override, scoped under the app's touch-mode class rather than a device-width media query (the dev breakpoint preview simulates touch in an otherwise-desktop browser, which still has to match). See `layout.css`'s `.entity-list` rule for the reference implementation.
+- **S2.** A scrollable list needs a clear signal that its end has actually been reached — otherwise a short remaining stretch of blank space reads as still-loading or broken rather than finished. Build that signal as a real element sitting in the list's own normal flow, not a background or effect positioned by calculation against the list's total scrollable height — the latter tracks scroll position instead of a fixed place in the content, so it drifts into view early and reads as a moving overlay while scrolling rather than a fixed marker at the actual end.

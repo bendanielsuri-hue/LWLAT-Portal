@@ -321,7 +321,7 @@ window.setFadeHidden = function (el, hide) {
 // loads, keyed by name (falling back to id, then DOM index) -
 // window.formValuesDirty compares a live root against that snapshot to
 // answer "has anything in this form actually changed since it opened," the
-// shared check INT-U6's confirm-before-discard guard (below) is built on.
+// shared check INT-U4's confirm-before-discard guard (below) is built on.
 // Any real field counts (select/date/checkbox included, not just typed
 // text) - a step-switching UI (e.g. Add Action's details/Assign steps)
 // keeps every field in the DOM the whole time, just hidden on the inactive
@@ -343,7 +343,7 @@ window.formValuesDirty = function (root, snapshot) {
     return false;
 };
 
-// Confirm before letting a modal close discard real typed content (INT-U6)
+// Confirm before letting a modal close discard real typed content (INT-U4)
 // - every closing gesture (the header X, an explicit Cancel button, a
 // backdrop click, Escape) weighs the same, not just the accidental ones; a
 // form with nothing but untouched dropdowns has nothing worth guarding.
@@ -389,7 +389,7 @@ window.confirmModalDiscard = function (isDirty) {
                 // After wireStudentPicker's own initial setup (it can reset
                 // fields, e.g. showPicker()'s input.value = '') so that
                 // normalization doesn't itself register as a "change" -
-                // see closeModal's INT-U6 guard below.
+                // see closeModal's INT-U4 guard below.
                 dialog._formSnapshot = window.snapshotFormValues(dialog);
                 dialog.showModal();
                 // Autofocus the student search the moment the dialog opens,
@@ -409,7 +409,7 @@ window.confirmModalDiscard = function (isDirty) {
         window.closeModalWithFadeOut(dialog);
     }
 
-    // INT-U6: every closing gesture (X, Cancel, backdrop click, Escape)
+    // INT-U4: every closing gesture (X, Cancel, backdrop click, Escape)
     // goes through this instead of calling closeModal() directly - a
     // successful submit still calls closeModal() straight, bypassing the
     // guard, since that's a save, not a discard.
@@ -524,7 +524,7 @@ window.confirmModalDiscard = function (isDirty) {
         }
 
         // Hidden until typed, server-fetched, debounced 250ms with a 2-char
-        // minimum - the shared Search precedent (INT-U13), same numbers as
+        // minimum - the shared Search precedent (INT-P4), same numbers as
         // Panel search and Add Member.
         search.addEventListener('input', function () {
             var term = search.value.trim();
@@ -957,7 +957,7 @@ window.confirmModalDiscard = function (isDirty) {
         var oldScrollEl = dialog.querySelector('[data-panel-group-scroll]');
         var scrollTop = oldScrollEl ? oldScrollEl.scrollTop : 0;
 
-        // Snapshot for the Active/Inactive count-delta pulse below (INT-U14)
+        // Snapshot for the Active/Inactive count-delta pulse below (INT-M2)
         // - taken before this
         // render tears the old buttons out, compared against the freshly-
         // rendered ones once they're in. Skipped entirely on the render that
@@ -1428,7 +1428,7 @@ window.confirmModalDiscard = function (isDirty) {
                     : 'Inactive — click to reactivate');
 
                 // Same reasoning as optimisticallyDecrementCounts elsewhere in
-                // this file (INT-U14)
+                // this file (INT-M2)
                 // - every count pulse fires the instant its own action is
                 // confirmed, never waiting on a row/column animation-gated
                 // re-render): which tab gains a member and which loses one is
@@ -1713,7 +1713,7 @@ window.confirmModalDiscard = function (isDirty) {
         window.closeModalWithFadeOut(dialog);
     }
 
-    // INT-U6: every closing gesture (X, Cancel, backdrop click, Escape)
+    // INT-U4: every closing gesture (X, Cancel, backdrop click, Escape)
     // goes through this instead of calling closeModal() directly - a
     // successful submit still calls closeModal() straight, bypassing the
     // guard, since that's a save, not a discard.
@@ -1858,7 +1858,7 @@ window.confirmModalDiscard = function (isDirty) {
                 window.enhanceFormControls(dialog);
                 // After every wireXxx() above (they can set initial values,
                 // e.g. an auto-assign suggestion) so that setup doesn't
-                // itself register as a "change" - see guardedClose's INT-U6
+                // itself register as a "change" - see guardedClose's INT-U4
                 // guard above.
                 dialog._formSnapshot = window.snapshotFormValues(dialog);
                 dialog.showModal();
@@ -2112,7 +2112,7 @@ function initMemberPicker(rootEl) {
     }
 
     // Hidden until typed, server-fetched, debounced 250ms with a 2-char
-    // minimum - the shared Search precedent (INT-U13), same numbers as
+    // minimum - the shared Search precedent (INT-P4), same numbers as
     // Panel search and the referral student
     // picker.
     function applySearch() {
@@ -2357,7 +2357,7 @@ function initActionAssignFields(rootEl) {
     }
 
     // Staff stays hidden until 2+ characters typed, server-fetched,
-    // debounced 250ms - the shared Search precedent (INT-U13), same numbers
+    // debounced 250ms - the shared Search precedent (INT-P4), same numbers
     // as every other picker on this page. Group skips that minimum
     // entirely and lists in full the moment it's picked (see the search
     // view's own kind == 'group' branch) - a school's StaffGroup roster is
@@ -2417,7 +2417,7 @@ function initActionAssignFields(rootEl) {
 }
 
 // Shared row enter/exit animation - originally built for the Panel Agenda
-// drag-and-drop feature below, now used portal-wide (INT-U10: transition
+// drag-and-drop feature below, now used portal-wide (INT-M1: transition
 // rather than a sudden jump)
 // for adding/removing an item from any div/li list spaced by padding +
 // border-bottom (.entity-row, .settings-row, etc). Defined at top level,
@@ -2444,7 +2444,7 @@ function flash(el, kind) {
 }
 
 // Status-filter tab entering/leaving the tab row, and any live count
-// pulsing when it changes (INT-U10 for the transition, INT-U14 for the
+// pulsing when it changes (INT-M1 for the transition, INT-M2 for the
 // count-delta pulse) - a tab's own
 // (N), or a card/section heading's count. Defined at top level for the same
 // reason as flash() above - any page's inline script can call these after
@@ -3033,7 +3033,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
             if (patchedCols.indexOf(oldCol) !== -1) return;
             patchedCols.push(oldCol);
             var freshCol = freshZoneEl.closest('.setup-col') || freshZoneEl;
-            // Tab/heading counts (INT-U14) live in the column's header/tab-row, not
+            // Tab/heading counts (INT-M2) live in the column's header/tab-row, not
             // inside the zone element itself - sync them directly from the
             // fresh doc now that a whole-column swap doesn't bring them
             // along for free.
