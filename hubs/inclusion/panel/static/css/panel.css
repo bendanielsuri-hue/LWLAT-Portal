@@ -5828,7 +5828,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    (from the "diagonal stripes" prototype - subtler than a flat
    colour statement, reads as texture/pattern rather than a loud
    block) instead of either alone. */
-#students-filtered-content .entity-list::after {
+.filtered-content .entity-list::after {
     content: "";
     display: block;
     /* var(--list-endcap-height, 47px), not a bare 47px - live feedback:
@@ -5904,7 +5904,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    wireStudentsInfiniteScroll (main.js) splices in the next page, the old
    sentinel is removed with it - this reverts to the plain end stripe
    automatically, or gets re-added if that new page has its own next one. */
-#students-filtered-content .entity-list:has(.list-load-sentinel)::after {
+.filtered-content .entity-list:has(.list-load-sentinel)::after {
     content: "Loading more…";
     display: flex;
     align-items: center;
@@ -5917,26 +5917,32 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     /* Moves the app-wide bottom-nav scroll clearance (_hub_sidebar.html:
        padding-bottom: calc(47px + 18px + var(--space-lg)) on .main-inner,
        every phone-width page) off .main-inner and onto .entity-list
-       itself, specifically on Students (live feedback: "This need to be
-       removed when the page is not meant to be scrolled... yes on this
-       page", then once the FAB started overlapping the last card: "Can
-       the gap be added to the student list card instead so button does
-       not overlap the last card"). .main-inner's own reservation is a
-       static value added regardless of whether this page's content
-       actually needs to scroll - zeroing it outright (an earlier version
-       of this rule) fixed the "why does a nearly-fitting filter tray
-       scroll at all" complaint but also removed the entity list's own
-       genuine clearance, reintroducing #129's original bug (last row
-       stuck behind the fixed bar) once the list itself was what needed
-       scrolling. Reserving the same space at the entity list's own
-       trailing edge instead keeps that clearance exactly where a long
+       itself, on every filter-bar-tray/list-card page that actually has an
+       .entity-list to carry it (Students, Referrals, Actions, Escalations -
+       originally Students-only, live feedback: "This need to be removed
+       when the page is not meant to be scrolled... yes on this page", then
+       once the FAB started overlapping the last card: "Can the gap be
+       added to the student list card instead so button does not overlap
+       the last card"). Meetings/Safeguarding Notes share the .filtered-
+       content wrapper but not the .entity-list row shape (.meetings-scroll/
+       .dsl-briefing-list-col instead), so they're deliberately excluded
+       here - zeroing .main-inner without an .entity-list end-cap to take
+       over the clearance would reintroduce #129's original bug (last row
+       stuck behind the fixed bar) on those pages. .main-inner's own
+       reservation is a static value added regardless of whether the page's
+       content actually needs to scroll - zeroing it outright (an earlier
+       version of this rule) fixed the "why does a nearly-fitting filter
+       tray scroll at all" complaint but also removed the entity list's own
+       genuine clearance, reintroducing #129's bug once the list itself was
+       what needed scrolling. Reserving the same space at the entity list's
+       own trailing edge instead keeps that clearance exactly where a long
        result list still needs it, without it also being tacked onto the
-       very end of main-inner regardless of what's actually rendered
-       there (the filter tray's own footer, on a short result set). No
+       very end of main-inner regardless of what's actually rendered there
+       (the filter tray's own footer, on a short result set). No
        !important needed on .entity-list's own rule below - nothing else
        sets its padding-bottom, unlike .main-inner's own zeroing above
        (which still needs it, for the reason given where it's declared). */
-    body:has(.students-page-shell) .main-inner {
+    body:has(.filtered-content .entity-list) .main-inner {
         padding-bottom: 0 !important;
     }
 }
