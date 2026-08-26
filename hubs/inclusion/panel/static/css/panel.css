@@ -237,13 +237,12 @@
 
 /* Row 1 (My Referrals/My Actions) is the primary operational area and should
    dominate the page; Row 2 (Next Panel Meeting/Recent Activity) is secondary
-   context and stays compressed — a 65:35 split of the shell's free space
-   (down from an even 50:50), roughly a 30% height reduction for Row 2. Only
-   meaningful above 1180px - below that both rows flatten to display:contents
-   (see .panel-home-cards below), so there's no box left for this flex-basis
-   to apply to. */
-.list-page-shell .panel-columns.panel-row-primary { flex: 65 1 0; }
-.list-page-shell .panel-columns.panel-row-secondary { flex: 35 1 0; }
+   context and stays compressed — a 60:40 split of the shell's free space
+   (down from an even 50:50, was 65:35). Only meaningful above 1180px - below
+   that both rows flatten to display:contents (see .panel-home-cards below),
+   so there's no box left for this flex-basis to apply to. */
+.list-page-shell .panel-columns.panel-row-primary { flex: 60 1 0; }
+.list-page-shell .panel-columns.panel-row-secondary { flex: 40 1 0; }
 
 /* Within Row 2: Next Panel Meeting stays narrow, Recent Activity gets more
    width, overriding the generic .panel-card flex-basis. */
@@ -1890,10 +1889,11 @@ html:not(.nav-touch-mode) .stats-carousel-track {
        included) and recomputes the shell's own explicit height to fit
        whatever they actually measure, every time; the shell shrinking to
        make room is the intended mechanism for exactly this, not something
-       to work around with margin tricks. Bottom stays small (--space-xs) -
-       just enough for the hover lift's shadow (below), not a second
-       section-sized gap for a row that's the last thing on the page. */
-    padding: var(--space-xl) 0 var(--space-xs);
+       to work around with margin tricks. Bottom dropped to 0 (was
+       --space-xs) - this row is the last thing on the page before the
+       app footer, and reclaiming that space mattered more than the small
+       amount of headroom it gave the hover lift's shadow. */
+    padding: var(--space-xl) 0 0;
     margin: 0;
     cursor: default;
     flex-wrap: wrap;
@@ -1938,25 +1938,95 @@ html:not(.nav-touch-mode) .stats-carousel-wrap.is-flat .stats-carousel-track {
     display: flex;
 }
 .stats-carousel-slot .stat-card {
-    min-width: 140px;
-    max-width: 170px;
+    min-width: 160px;
+    max-width: 190px;
     /* Stretched to the tallest card in the row (align-items: stretch
        above) - a longer label (e.g. "Safeguarding Briefings Needed")
        wrapping onto 2 lines reads better than a much wider card for one
        stat alone (live feedback: tried full auto-sizing to content width,
        "longer cards text looked better wrapped onto 2 lines" instead). */
     height: 100%;
-    /* Always the compact sizing (previously only ≤480px, responsive.css) -
-       this row carousels at every width now, not just phone, and full
-       desktop stat-card padding/value size read as oversized against the
-       row's own tighter card width (live feedback: "data cards look too
-       big, can they autosize"). */
+    /* Sized up from the original compact/carousel treatment now that the
+       card reads as one row (icon, number, label) instead of a centred
+       column with a lot of unused vertical space (live feedback:
+       "everything can be bigger now"). */
     padding: var(--space-sm) var(--space-md);
+    /* Row layout (icon+number figure, then label) instead of cards.css's
+       base centred column - the centred layout left a lot of unused
+       vertical space in a card this short (live feedback: "these data
+       cards have a lot of blank space... icon then number on the left...
+       followed by label"). Overrides the base rule's display:flex/
+       flex-direction:column/align-items:center/text-align:center wholesale
+       rather than layering on top of them. */
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    /* Centres the icon+value+label group as a whole in the card, not just
+       flush against the left edge with the text centred in whatever's
+       left over (live feedback: "have all three things then horizontally
+       middle" - .stat-card-text below no longer grows to fill the
+       remaining width, so `justify-content: center` here has an actual
+       gap on both sides to centre the trio within, keeping the same
+       icon-to-number distance, `gap`, unchanged). */
+    justify-content: center;
+    text-align: left;
+    gap: var(--space-sm);
     user-select: none; /* no accidental text selection while click-dragging the row */
     -webkit-user-drag: none; /* belt-and-braces alongside main.js's pointerdown preventDefault - stops Safari's own native link-drag starting before JS gets a chance to */
 }
+/* Overrides cards.css's base .stat-card-icon (position: absolute, top-
+   right corner) - that positioning only made sense against the old
+   centred column layout; here the icon is a plain flex child of the card
+   row, standalone (not sharing a figure with the number any more - the
+   number moved into .stat-card-text below so it can centre with the label
+   instead, live feedback: "value and label horizontally centred between
+   icon and right edge"). Sized to dominate the card (live feedback: "much
+   bigger, 70% of vertical space") - the card itself has no fixed height
+   (auto, driven by its own tallest content, .stats-carousel-track's
+   align-items: stretch just matches every card in the row to whichever
+   one that is), so there's no literal percentage to apply here; large
+   enough that the icon becomes the card's own dominant/tallest element
+   instead of the 2-line label, which is what actually produces that
+   ~70%-of-the-card look. */
+.stats-carousel-slot .stat-card-icon {
+    position: static;
+    flex-shrink: 0;
+    /* Trimmed back from 44px - reclaims width for the gap between the
+       value and label (live feedback: "requires more space between
+       number and label, reduce icon size"). */
+    width: 32px;
+    height: 32px;
+}
+/* The icon svg templates (templates/icons/*.html) carry their own
+   hardcoded width/height attributes (20px) - sizing the wrapping div alone
+   (above) left the actual glyph stuck at that original intrinsic size
+   inside a now much bigger box, reading as *smaller* / oddly padded
+   instead of bigger (live feedback: "it looks smaller now"). Forces the
+   svg itself to fill whatever box .stat-card-icon is sized to. */
+.stats-carousel-slot .stat-card-icon svg {
+    width: 100%;
+    height: 100%;
+}
+/* Value+label (home.html's .stat-card-text), value left of label, side by
+   side as one unit. No longer `flex: 1` - that grew the block to fill
+   whatever width the icon didn't use, which pinned the icon to the card's
+   left edge with only the text centred in the remainder; sized to its own
+   content instead so the *card's* own `justify-content: center` (above)
+   centres the icon+text trio together as a group, not the text alone. */
+.stats-carousel-slot .stat-card-text {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-sm);
+    min-width: 0;
+}
 .stats-carousel-slot .stat-card .stat-value {
-    font-size: var(--font-4xl);
+    font-size: var(--font-5xl);
+    flex-shrink: 0;
+}
+.stats-carousel-slot .stat-card .stat-label {
+    font-size: var(--font-base);
+    text-align: left;
 }
 /* PROTOTYPE (live feedback: "we do not have an active state for cards, it
    just scrolls"): every card is now a plain, equal, always-fully-visible
@@ -2418,27 +2488,38 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    into the ≤480px one above - that one holds phone-only rules unrelated
    to this row, and 900px would have widened their reach too. */
 @media (max-width: 900px) {
+    /* Back to the old centred-column setup below this width (live
+       feedback: "can we have old setup on narrower devices") - the
+       icon-left/value-then-label-row treatment above is unconditional, so
+       without this override it cascaded down here too once it was added;
+       narrower devices keep the original stacked layout (icon above value
+       above label, all centred) they had before that change. */
     .stats-carousel-slot .stat-card {
         min-width: 0;
         max-width: none;
         width: auto;
         padding: var(--space-xs) var(--space-sm);
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+        gap: 0;
+    }
+    .stats-carousel-slot .stat-card-text {
+        flex-direction: column;
+        flex: none;
     }
     .stats-carousel-slot .stat-card .stat-value {
         font-size: var(--font-xl);
     }
     .stats-carousel-slot .stat-label {
         font-size: var(--font-sm);
+        text-align: center;
     }
-    /* Above the value, not floating top-right (cards.css base rule,
-       position: absolute) - PROTOTYPE, tried between value/label and
-       under the label too (live feedback each round), settled back here
-       (live feedback: "above number was best"). Icon already comes first
-       in the DOM (home.html, before .stat-value), so position: static
-       alone stacks it there via the card's own flex-direction: column -
-       no explicit order needed, natural DOM order already puts it above. */
+    /* Static (not absolute, cards.css's base rule) so it stacks above the
+       value via plain DOM order/column flow, same as it did before the
+       icon-left layout - margin-bottom re-adds the gap the row layout's
+       own `gap` (reset to 0 above) no longer provides in this direction. */
     .stats-carousel-slot .stat-card-icon {
-        position: static;
         margin-bottom: var(--space-xxs);
         width: 16px;
         height: 16px;
@@ -8747,3 +8828,77 @@ dialog#panel-search-dialog .modal-body {
 .row-corner-icon-btn svg { width: 16px; height: 16px; }
 
 .row-corner-icon-btn:hover, .row-corner-icon-btn:focus-visible { border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
+
+/* Merged card header (desktop only, >1180px - below that the stack-mode
+   cards/carousel-filter dropdown already have their own header treatment,
+   untouched here): My Referrals/My Actions' title collapses into a
+   ::before prefix on the tab-row itself, so title+tabs share exactly one
+   row instead of two, reclaiming a full row's height on Panel Home. Grew
+   out of a live design pass (see git history for the discarded A/C/
+   segmented/pill/minimal alternatives this settled against).
+
+   Descendant selectors, not `>` direct-child - setupOverflowTabs (main.js,
+   #131) unconditionally wraps every .tab-row with >=2 tabs in its own
+   .overflow-scroll-wrap (always true here, My Referrals/My Actions always
+   render >=2 tab buttons even at 0 count - .tab-collapsed just hides them,
+   doesn't remove them), so .tab-row is never actually a direct child of
+   #referrals-card/#actions-card.
+
+   :has(.tab-row) gates the hide/::before pair on a tab-row actually being
+   present - #meeting-card/#activity-card never render one at all, and
+   Referrals/Actions themselves don't on the rare single-status day
+   (show_referral_tabs/show_action_tabs false) - all three fall back to
+   their real h2 header instead of losing their heading outright. */
+@media (min-width: 1181px) {
+    .panel-home-cards #referrals-card:has(.tab-row) .panel-card-header,
+    .panel-home-cards #actions-card:has(.tab-row) .panel-card-header {
+        display: none;
+    }
+    /* With the header gone, the merged tab-row is the first visible thing
+       in the card - .panel-card's own base padding-top (--space-lg, part
+       of its all-sides `padding` shorthand) would otherwise leave dead air
+       above it that used to belong to the now-hidden title row. Top only -
+       left/right padding is what the tab-row/::before's own -space-lg
+       bleed math (below) is measured against, and bottom is untouched
+       card content padding. */
+    .panel-home-cards #referrals-card:has(.tab-row),
+    .panel-home-cards #actions-card:has(.tab-row) {
+        padding-top: 0;
+    }
+    /* Same flush-top treatment extended to Next Panel Meeting/Recent
+       Activity for a consistent density across all 4 cards, even though
+       neither has a tab-row to merge a title into - h2 font-size stays at
+       its original --font-xl, only the card's own padding-top/header
+       margin-bottom are tightened. */
+    .panel-home-cards #meeting-card,
+    .panel-home-cards #activity-card {
+        padding-top: 0;
+    }
+    .panel-home-cards #meeting-card .panel-card-header,
+    .panel-home-cards #activity-card .panel-card-header {
+        padding-top: var(--space-sm);
+        margin-bottom: var(--space-xs);
+    }
+    .panel-home-cards #referrals-card .tab-row,
+    .panel-home-cards #actions-card .tab-row {
+        align-items: center;
+    }
+    .panel-home-cards #referrals-card .tab-row::before,
+    .panel-home-cards #actions-card .tab-row::before {
+        font-weight: 700;
+        font-size: var(--font-base);
+        color: var(--text-primary);
+        /* padding-left matches the wrap's own -space-lg bleed (base rule,
+           .panel-card > .tab-row/.overflow-scroll-wrap) so the label sits
+           back at the card's normal text inset instead of flush against
+           its bled left edge, under the card's own rounded corner + hidden
+           overflow (.list-page-shell .panel-card) - otherwise clips the
+           first letters of "My Referrals". */
+        padding: var(--space-xs) var(--space-md) var(--space-xs) var(--space-lg);
+        margin-right: var(--space-xs);
+        border-right: 1px solid var(--border-strong);
+        flex-shrink: 0;
+    }
+    .panel-home-cards #referrals-card .tab-row::before { content: "My Referrals"; }
+    .panel-home-cards #actions-card .tab-row::before { content: "My Actions"; }
+}
