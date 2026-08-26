@@ -1,8 +1,8 @@
 from django.contrib import admin
 
 from .models import (
-    AcademicYear, AttendanceDay, BehaviourIncident, CategorySettings, Exclusion, MatSettings, Module, Referral,
-    SafeguardingNote, School, Staff, StaffGroup, StaffGroupMember, Student, Term,
+    AcademicYear, AttendanceDay, BehaviourIncident, CategorySettings, Exclusion, MatSettings, Module, PageView,
+    Referral, SafeguardingNote, School, Staff, StaffGroup, StaffGroupMember, Student, Term,
 )
 
 
@@ -106,3 +106,10 @@ class AcademicYearAdmin(admin.ModelAdmin):
 class TermAdmin(admin.ModelAdmin):
     list_display = ('name', 'academic_year', 'school', 'start_date', 'end_date', 'half_term_start', 'half_term_end')
     list_filter = ('name', 'academic_year', 'school')
+
+
+@admin.register(PageView)
+class PageViewAdmin(admin.ModelAdmin):
+    list_display = ('staff', 'url_name', 'created_at')
+    list_filter = ('url_name',)
+    search_fields = ('staff__last_name', 'staff__first_name', 'url_name')

@@ -394,6 +394,21 @@ class AcademicYear(models.Model):
         return year
 
 
+class PageView(models.Model):
+    # One row per top-level GET page load - see core/middleware.py
+    # (PageViewLoggingMiddleware) for what gets logged and what's excluded
+    # (AJAX/POST/static/admin). url_name is matched against Module.key by
+    # the same convention Module gating already relies on, but resolved at
+    # query time (core.most_used) rather than here, so this stays a
+    # complete, unfiltered activity stream - see docs/adr/0014.
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='page_views')
+    url_name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['staff', 'url_name', 'created_at'])]
+
+
 class Term(models.Model):
     TERM_AUTUMN = 'autumn'
     TERM_SPRING = 'spring'
