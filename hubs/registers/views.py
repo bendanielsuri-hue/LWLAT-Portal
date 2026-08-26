@@ -3,10 +3,10 @@ from django.shortcuts import render
 from core.modules import filter_by_module, module_map
 
 REGISTERS_MENU = [
-    {'name': 'Clubs', 'url': '/registers/clubs/', 'icon': 'icons/register_svg.html', 'module_key': 'register_clubs'},
-    {'name': 'Isolation Room', 'url': '/registers/isolation-room/', 'icon': 'icons/register_svg.html', 'module_key': 'register_isolation_room'},
-    {'name': 'Reset Room', 'url': '/registers/reset-room/', 'icon': 'icons/register_svg.html', 'module_key': 'register_reset_room'},
-    {'name': 'Interventions', 'url': '/registers/interventions/', 'icon': 'icons/register_svg.html', 'module_key': 'register_interventions'},
+    {'name': 'Clubs', 'url': '/registers/clubs/', 'icon': 'icons/clubs_svg.html', 'module_key': 'register_clubs'},
+    {'name': 'Isolation Room', 'url': '/registers/isolation-room/', 'icon': 'icons/isolation_room_svg.html', 'module_key': 'register_isolation_room'},
+    {'name': 'Reset Room', 'url': '/registers/reset-room/', 'icon': 'icons/reset_room_svg.html', 'module_key': 'register_reset_room'},
+    {'name': 'Interventions', 'url': '/registers/interventions/', 'icon': 'icons/interventions_svg.html', 'module_key': 'register_interventions'},
 ]
 
 

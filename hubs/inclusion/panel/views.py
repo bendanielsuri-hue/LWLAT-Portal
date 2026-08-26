@@ -58,7 +58,7 @@ from .models import (
 
 PANEL_MENU = [
     {'name': 'Home', 'url': '/inclusion/panel/', 'icon': 'icons/house_svg.html', 'module_key': 'inclusion_panel'},
-    {'name': 'Students', 'url': '/inclusion/panel/students/', 'icon': 'icons/people_svg.html', 'module_key': 'inclusion_panel_students'},
+    {'name': 'Students', 'url': '/inclusion/panel/students/', 'icon': 'icons/student_single_svg.html', 'module_key': 'inclusion_panel_students'},
     {'name': 'Referrals', 'url': '/inclusion/panel/referrals/', 'icon': 'icons/document_svg.html', 'module_key': 'inclusion_panel_referrals'},
     {'name': 'Actions', 'url': '/inclusion/panel/actions/', 'icon': 'icons/checkmark_svg.html', 'module_key': 'inclusion_panel_actions'},
     {'name': 'Panel Meetings', 'url': '/inclusion/panel/meetings/', 'icon': 'icons/clock_svg.html', 'module_key': 'inclusion_panel_meetings'},

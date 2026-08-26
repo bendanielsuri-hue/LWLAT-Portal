@@ -33,6 +33,10 @@ Visual design values that hold regardless of which project this is. Entries here
 - **H2.** When several actions sit together, the one that matters most should look the most prominent — don't give equal visual weight to a rarely-used action and the common one.
 - **H3.** A divider between same-type repeating items (list rows, table rows, thread entries) should read lighter than a divider marking an actual structural break (a header separating from its content, a card's own outer edge). Reusing one border weight for both jobs makes a real section boundary blend into the ordinary rhythm of a list instead of standing out from it.
 
+## I — Icons
+
+- **I1.** Every hub (the top-level rail/home-page entries — Staff, Student, SEND & Provision, etc.) and every app within a hub (the leaf items on a hub's card/sidebar — My Timetable, Inclusion Panel, Asset Register, etc.) needs its own icon and name, unique across the whole portal — no two hubs or apps should share either. This does not extend to the individual pages inside one app's own sidebar (e.g. Inclusion Panel's Home/Students/Referrals/Actions/...); those can reuse an icon or share a naming pattern freely, since they're never browsed side-by-side with another app's pages the way hubs and apps are on the home page and rail.
+
 ## L — Layout
 
 - **L1.** Choose a layout because the content forces it, not because it looks better — for example, reach for equal-width columns because the sections really are equally important, not because a grid looks neater.

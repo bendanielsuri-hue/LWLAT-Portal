@@ -4,11 +4,11 @@ from core.models import Student
 from core.modules import filter_by_module, module_map
 
 STUDENT_MENU = [
-    {'name': 'Student Dashboard', 'url': '/student/dashboard/', 'icon': 'icons/dashboard_svg.html', 'module_key': 'student_dashboard'},
-    {'name': 'Student Profile', 'url': '/student/profile/', 'icon': 'icons/dashboard_svg.html', 'module_key': 'student_profile'},
-    {'name': 'Progress Tracker', 'url': '/student/progress-tracker/', 'icon': 'icons/reports_svg.html', 'module_key': 'student_progress_tracker'},
-    {'name': 'Standards & Equipment', 'url': '/student/standards-equipment/', 'icon': 'icons/registers_svg.html', 'module_key': 'student_standards_equipment'},
-    {'name': 'Pastoral Tracker', 'url': '/student/pastoral-tracker/', 'icon': 'icons/reports_svg.html', 'module_key': 'student_pastoral_tracker'},
+    {'name': 'Student Dashboard', 'url': '/student/dashboard/', 'icon': 'icons/dashboard_gauge_svg.html', 'module_key': 'student_dashboard'},
+    {'name': 'Student Profile', 'url': '/student/profile/', 'icon': 'icons/student_id_svg.html', 'module_key': 'student_profile'},
+    {'name': 'Progress Tracker', 'url': '/student/progress-tracker/', 'icon': 'icons/progress_trend_svg.html', 'module_key': 'student_progress_tracker'},
+    {'name': 'Standards & Equipment', 'url': '/student/standards-equipment/', 'icon': 'icons/equipment_svg.html', 'module_key': 'student_standards_equipment'},
+    {'name': 'Pastoral Tracker', 'url': '/student/pastoral-tracker/', 'icon': 'icons/pastoral_svg.html', 'module_key': 'student_pastoral_tracker'},
 ]
 
 

@@ -19,17 +19,17 @@ from hubs.inclusion.panel.models import Action, InclusionReferral
 INCLUSION_MENU = [
     {
         'name': 'Provision & Strategies', 'url': '/inclusion/provision-strategies/',
-        'icon': 'icons/registers_svg.html', 'module_key': 'inclusion_provision_strategies',
+        'icon': 'icons/strategies_svg.html', 'module_key': 'inclusion_provision_strategies',
         'description': 'Interventions and support strategies',
     },
     {
         'name': 'Inclusion Panel', 'url': '/inclusion/panel/',
-        'icon': 'icons/people_svg.html', 'module_key': 'inclusion_panel',
+        'icon': 'icons/panel_shield_svg.html', 'module_key': 'inclusion_panel',
         'description': 'Referrals, actions and meetings',
     },
     {
         'name': 'SEND Diagnosis Tracker', 'url': '/inclusion/diagnosis-tracker/',
-        'icon': 'icons/reports_svg.html', 'module_key': 'inclusion_diagnosis_tracker',
+        'icon': 'icons/diagnosis_svg.html', 'module_key': 'inclusion_diagnosis_tracker',
         'description': 'Track diagnosis pathways',
     },
 ]

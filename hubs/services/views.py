@@ -3,13 +3,13 @@ from django.shortcuts import render
 from core.modules import filter_by_module, module_map
 
 SERVICES_MENU = [
-    {'name': 'Events Planner', 'url': '/services/events-planner/', 'icon': 'icons/service_svg.html', 'module_key': 'service_events_planner'},
-    {'name': 'Operations Overview', 'url': '/services/operations-dashboard/', 'icon': 'icons/reports_svg.html', 'module_key': 'service_operations_dashboard'},
-    {'name': 'Exams', 'url': '/services/exams-dashboard/', 'icon': 'icons/reports_svg.html', 'module_key': 'service_exams_dashboard'},
-    {'name': 'Cover Manager', 'url': '/services/cover-manager/', 'icon': 'icons/registers_svg.html', 'module_key': 'service_cover_manager'},
-    {'name': 'Duty & Rota Manager', 'url': '/services/duty-rota/', 'icon': 'icons/registers_svg.html', 'module_key': 'service_duty_rota'},
-    {'name': 'Assembly Manager', 'url': '/services/assembly-manager/', 'icon': 'icons/registers_svg.html', 'module_key': 'service_assembly_manager'},
-    {'name': 'Admissions', 'url': '/services/admissions/', 'icon': 'icons/registers_svg.html', 'module_key': 'service_admissions'},
+    {'name': 'Events Planner', 'url': '/services/events-planner/', 'icon': 'icons/calendar_star_svg.html', 'module_key': 'service_events_planner'},
+    {'name': 'Operations Overview', 'url': '/services/operations-dashboard/', 'icon': 'icons/operations_overview_svg.html', 'module_key': 'service_operations_dashboard'},
+    {'name': 'Exams', 'url': '/services/exams-dashboard/', 'icon': 'icons/exams_svg.html', 'module_key': 'service_exams_dashboard'},
+    {'name': 'Cover Manager', 'url': '/services/cover-manager/', 'icon': 'icons/cover_manager_svg.html', 'module_key': 'service_cover_manager'},
+    {'name': 'Duty & Rota Manager', 'url': '/services/duty-rota/', 'icon': 'icons/rota_svg.html', 'module_key': 'service_duty_rota'},
+    {'name': 'Assembly Manager', 'url': '/services/assembly-manager/', 'icon': 'icons/assembly_svg.html', 'module_key': 'service_assembly_manager'},
+    {'name': 'Admissions', 'url': '/services/admissions/', 'icon': 'icons/admissions_svg.html', 'module_key': 'service_admissions'},
 ]
 
 
