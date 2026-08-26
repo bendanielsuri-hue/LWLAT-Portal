@@ -10,7 +10,25 @@ from django.views.decorators.http import require_POST
 from core.identity import current_staff
 from core.models import School
 from core.modules import filter_by_module, is_module_visible, module_label, module_map
+from core.most_used import most_used_apps, personal_usage_counts
 from core.portal_settings import resolve_portal_settings
+from hubs.inclusion.views import INCLUSION_MENU
+from hubs.registers.views import REGISTERS_MENU
+from hubs.resources.views import RESOURCES_MENU
+from hubs.services.views import SERVICES_MENU
+from hubs.staff.views import STAFF_MENU
+from hubs.student.views import STUDENT_MENU
+
+# Single source of truth for each leaf page's icon is its own hub's
+# <HUB>_MENU (used by _hub_sidebar.html's local_menu) - merged here rather
+# than duplicated so _raw_sections' items below (which share the same
+# module_key convention) can look icons up instead of guessing/reusing the
+# parent hub's icon for every leaf item.
+_LEAF_ICONS_BY_MODULE_KEY = {
+    entry['module_key']: entry['icon']
+    for menu in (STAFF_MENU, STUDENT_MENU, INCLUSION_MENU, REGISTERS_MENU, SERVICES_MENU, RESOURCES_MENU)
+    for entry in menu
+}
 
 # Category picked in the footer's "report a problem" form (#128) maps
 # straight onto an existing repo label - see docs/adr/0012.
@@ -74,7 +92,10 @@ def build_school_nav(selected_key='all'):
             continue
         schools.append(dict(aggregate_entry))
         schools.extend(
-            {'name': school.name, 'category': category, 'aggregate': False, 'key': str(school.id)}
+            {
+                'name': school.name, 'category': category, 'aggregate': False,
+                'key': str(school.id), 'logo_url': school.logo_url,
+            }
             for school in category_schools
         )
     for entry in schools:
@@ -217,12 +238,52 @@ def build_search_items(sections):
     return search_items
 
 
+def _most_used_registries(sections):
+    # url_name -> {url, icon, label} for every currently-visible app, keyed
+    # the same way core.models.PageView.url_name is written (and Module.key
+    # is matched, by convention) - split into two tiers so leaf-level apps
+    # always outrank hub landing pages in the ranking (a hub is already one
+    # click away in the global rail, so it's not worth a "Most Used Apps"
+    # slot until real apps run out - see core/CONTEXT.md). Reuses `sections`
+    # rather than re-deriving it, so the tray only ever ranks apps that
+    # build_sections has already filtered/labelled via the Module system.
+    leaf_registry = {}
+    hub_registry = {}
+    for section in sections:
+        if section.get('module_key'):
+            hub_registry[section['module_key']] = {
+                'url': section['url'], 'icon': section['icon_template'], 'label': section['title'],
+            }
+        for item in section['items']:
+            if item.get('module_key'):
+                icon = _LEAF_ICONS_BY_MODULE_KEY.get(item['module_key'], section['icon_template'])
+                leaf_registry[item['module_key']] = {
+                    'url': item['url'], 'icon': icon, 'label': item['name'],
+                }
+    return [leaf_registry, hub_registry]
+
+
+def _sorted_by_usage(sections, usage_counts):
+    # Reorders each hub card's own item badges by this staff member's usage
+    # (most-opened first, stable so never-opened items keep build_sections'
+    # original order at the end) - a display-only copy, so it doesn't touch
+    # the `sections` build_search_items/most_used_apps already consumed.
+    return [
+        {**section, 'items': sorted(section['items'], key=lambda item: -usage_counts.get(item.get('module_key'), 0))}
+        for section in sections
+    ]
+
+
 def mat_home(request):
     sections = build_sections(request)
+    staff = current_staff(request)
+    most_used = most_used_apps(staff, _most_used_registries(sections)) if staff else []
+    usage_counts = personal_usage_counts(staff) if staff else {}
     return render(request, 'portal/home.html', {
-        'sections': sections,
+        'sections': _sorted_by_usage(sections, usage_counts),
         'hub_title': 'Home',
         'local_menu': [],
+        'most_used': most_used,
     })
 
 

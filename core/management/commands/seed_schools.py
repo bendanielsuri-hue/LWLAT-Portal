@@ -5,9 +5,18 @@ from core.management.commands.seed_dummy_data import (
     SCHOOL_STUDENT_COUNTS,
     SENCO_SCHOOL_ASSIGNMENTS,
 )
-from core.models import School, Staff, Student
+from core.models import MatSettings, School, Staff, Student
 
 SCHOOLS = [(name, category) for name, category, _ in SCHOOL_STUDENT_COUNTS]
+
+# Real school-badge image files, dropped in static/img/logos/.
+SCHOOL_LOGO_FILES = {
+    'Babington Academy': 'BA.png',
+    'Heatherbrook': 'HA.png',
+    'Lancaster Academy': 'LA.png',
+    'South Wigston Academy': 'SW.png',
+    'Woodstock': 'WA.png',
+}
 
 # Matches each school's real logo colour (one of School.ACCENT_COLOUR_CHOICES)
 # - drives the sidebar/portal accent when this school is selected, and
@@ -32,10 +41,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         schools = []
         accent_updated = 0
+        logo_updated = 0
         for name, category in SCHOOLS:
             accent = SCHOOL_ACCENT_COLOURS.get(name, '')
+            logo_url = f'/static/img/logos/{SCHOOL_LOGO_FILES[name]}' if name in SCHOOL_LOGO_FILES else ''
             school, _ = School.objects.get_or_create(
-                name=name, defaults={'category': category, 'accent_colour': accent}
+                name=name, defaults={'category': category, 'accent_colour': accent, 'logo_url': logo_url}
             )
             if school.category != category:
                 school.category = category
@@ -44,10 +55,30 @@ class Command(BaseCommand):
                 school.accent_colour = accent
                 school.save(update_fields=['accent_colour'])
                 accent_updated += 1
+            if logo_url and school.logo_url != logo_url:
+                school.logo_url = logo_url
+                school.save(update_fields=['logo_url'])
+                logo_updated += 1
             schools.append(school)
         self.stdout.write(self.style.SUCCESS(f'Schools in DB: {School.objects.count()}'))
         if accent_updated:
             self.stdout.write(self.style.SUCCESS(f'School accent colours set to match their logo: {accent_updated} updated.'))
+        if logo_updated:
+            self.stdout.write(self.style.SUCCESS(f'School logos set: {logo_updated} updated.'))
+
+        mat_settings, _ = MatSettings.objects.get_or_create(pk=1)
+        if not mat_settings.logo_url:
+            mat_settings.logo_url = '/static/img/logos/LWLAT.png'
+            mat_settings.save(update_fields=['logo_url'])
+            self.stdout.write(self.style.SUCCESS('MAT-wide logo set to LWLAT.png.'))
+        # MAT colour matches Babington's teal (the MAT's founding/lead school)
+        # - drives the accent for the "All Schools"/"All Primary"/"All
+        # Secondary" aggregate switcher entries via resolve_portal_settings'
+        # mat_row fallback.
+        if not mat_settings.accent_colour:
+            mat_settings.accent_colour = 'teal'
+            mat_settings.save(update_fields=['accent_colour'])
+            self.stdout.write(self.style.SUCCESS('MAT-wide accent colour set to teal.'))
 
         staff_updated = 0
         school_staff = [

@@ -1022,11 +1022,40 @@ main { position: relative; }
 
 .school-nav-logo {
     color: var(--text-faint);
+    border-radius: var(--radius-xs);
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border-color);
 }
 
 .school-nav-option.school-nav-aggregate {
     padding-left: 12px;
     font-size: 15px;
+}
+
+/* Real school-logo PNGs (irregular, colourful) crowded the accent bar at
+   left:3px, especially selected rows where there's no hover nudge - moved
+   the bar outside the row with a wider gutter and gave selection its own
+   animated cue (bar grows taller) instead of relying on the hover-only
+   nudge. Scoped to .school-nav, not the shared .side-nav rules above, since
+   staff-nav/hub-sidebar rows don't have this crowding problem. */
+.side-nav.school-nav ul {
+    padding-left: 6px;
+}
+.side-nav.school-nav .school-nav-option {
+    padding: 8px 8px 8px 18px;
+}
+.side-nav.school-nav .school-nav-option::before {
+    left: -6px;
+    transition: top var(--transition-pop), bottom var(--transition-pop), opacity var(--transition-base), background-color var(--transition-base), transform var(--transition-pop);
+}
+.side-nav.school-nav .school-nav-option.selected::before {
+    top: 14%;
+    bottom: 14%;
+}
+.side-nav.school-nav .school-nav-option.selected .menu-icon,
+.side-nav.school-nav .school-nav-option.selected .menu-label {
+    transform: translateX(3px);
+    transition: transform var(--transition-pop);
 }
 
 .school-nav-divider,
