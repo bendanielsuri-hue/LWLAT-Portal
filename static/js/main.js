@@ -1679,90 +1679,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // "+N more" toggles the hidden apps within a card instead of navigating to the hub
     document.querySelectorAll('.hub-more-toggle').forEach(function (btn) {
+        var countEl = btn.querySelector('.hub-more-toggle-count');
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
             var container = closest(e.target, '.hub-card-items');
             if (!container) return;
             var expanded = container.classList.toggle('expanded');
             var moreCount = btn.dataset.moreCount || '0';
-            btn.textContent = expanded ? 'Show less' : ('+' + moreCount + ' more');
+            countEl.textContent = expanded ? '−' : ('+' + moreCount);
         });
     });
-
-    // Limit each hub card to 3 rows of app badges, only showing "+N more" if there's genuine overflow
-    function layoutHubCardBadges(container) {
-        // Don't fight a user-initiated expand (e.g. when our own resize observer fires
-        // because expanding grew the card's height)
-        if (container.classList.contains('expanded')) return;
-
-        var toggle = container.querySelector('.hub-more-toggle');
-        var badges = Array.prototype.slice.call(container.querySelectorAll('.hub-badge:not(.hub-more-toggle)'));
-        if (!badges.length) {
-            if (toggle) toggle.style.display = 'none';
-            return;
-        }
-        badges.forEach(function (b) { b.classList.remove('hub-badge-extra'); });
-        if (toggle) toggle.style.display = 'none';
-
-        var tops = [];
-        badges.forEach(function (b) {
-            if (tops.indexOf(b.offsetTop) === -1) tops.push(b.offsetTop);
-        });
-        tops.sort(function (a, b) { return a - b; });
-
-        if (tops.length <= 3) return;
-
-        var rowLimit = tops[2];
-        var hiddenCount = 0;
-        badges.forEach(function (b) {
-            if (b.offsetTop > rowLimit) {
-                b.classList.add('hub-badge-extra');
-                hiddenCount++;
-            }
-        });
-
-        if (!toggle) return;
-        toggle.style.display = 'inline-block';
-        toggle.dataset.moreCount = hiddenCount;
-        toggle.textContent = '+' + hiddenCount + ' more';
-
-        var guard = 0;
-        while (toggle.offsetTop > rowLimit && guard < badges.length) {
-            var visibleInLastRow = badges.filter(function (b) {
-                return !b.classList.contains('hub-badge-extra') && b.offsetTop === rowLimit;
-            });
-            if (!visibleInLastRow.length) break;
-            visibleInLastRow[visibleInLastRow.length - 1].classList.add('hub-badge-extra');
-            hiddenCount++;
-            toggle.dataset.moreCount = hiddenCount;
-            toggle.textContent = '+' + hiddenCount + ' more';
-            guard++;
-        }
-    }
-
-    function layoutAllHubCardBadges() {
-        document.querySelectorAll('.hub-card-items').forEach(layoutHubCardBadges);
-    }
-
-    // Run after layout/paint has settled, not just after DOM parsing
-    window.requestAnimationFrame(function () {
-        window.requestAnimationFrame(layoutAllHubCardBadges);
-    });
-
-    var resizeTimer = null;
-    window.addEventListener('resize', function () {
-        if (resizeTimer) clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(layoutAllHubCardBadges, 150);
-    });
-
-    // Self-correct if a card's content reflows after layout (e.g. icon/font finishing load)
-    if (typeof ResizeObserver !== 'undefined') {
-        var ro = new ResizeObserver(function () {
-            if (resizeTimer) clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(layoutAllHubCardBadges, 150);
-        });
-        document.querySelectorAll('.hub-card').forEach(function (card) { ro.observe(card); });
-    }
 
     // Settings panel: primary colour, theme, theme mode (light/dark), text size — applied app-wide via
     // attributes on <html> (set early by the inline boot script in layout.html) and persisted.

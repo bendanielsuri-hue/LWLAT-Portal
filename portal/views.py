@@ -104,6 +104,8 @@ def build_school_nav(selected_key='all'):
 
 
 def _raw_sections():
+    # Order matches HUB_NAV_ITEMS (the sidebar rail) above - one nav order
+    # for the whole app rather than two lists that can drift apart.
     return [
         {
             'title': 'Staff',
@@ -121,33 +123,6 @@ def _raw_sections():
                 {'name': 'School Map', 'url': reverse('staff_school_map'), 'module_key': 'staff_school_map'},
             ],
             'icon_template': 'icons/staff_svg.html',
-        },
-        {
-            'title': 'Operations',
-            'module_key': 'services',
-            'url': reverse('services'),
-            'description': 'Running the school day-to-day — cover, rotas, events, rooms, resources and facilities.',
-            'items': [
-                {'name': 'Cover Manager', 'url': reverse('service_cover_manager'), 'module_key': 'service_cover_manager'},
-                {'name': 'Duty & Rota Manager', 'url': reverse('service_duty_rota'), 'module_key': 'service_duty_rota'},
-                {'name': 'Assembly Manager', 'url': reverse('service_assembly_manager'), 'module_key': 'service_assembly_manager'},
-                {'name': 'Admissions', 'url': reverse('service_admissions'), 'module_key': 'service_admissions'},
-                {'name': 'Events Planner', 'url': reverse('service_events_planner'), 'module_key': 'service_events_planner'},
-                {'name': 'Operations Overview', 'url': reverse('service_operations_dashboard'), 'module_key': 'service_operations_dashboard'},
-                {'name': 'Exams', 'url': reverse('service_exams_dashboard'), 'module_key': 'service_exams_dashboard'},
-            ],
-            'icon_template': 'icons/services_svg.html',
-        },
-        {
-            'title': 'Resources',
-            'module_key': 'resources_hub',
-            'url': reverse('resources_hub'),
-            'description': 'Asset tracking and room bookings for the school estate.',
-            'items': [
-                {'name': 'Asset Register', 'url': reverse('resource_asset_register'), 'module_key': 'resource_asset_register'},
-                {'name': 'Room Bookings', 'url': reverse('resource_room_bookings'), 'module_key': 'resource_room_bookings'},
-            ],
-            'icon_template': 'icons/resources_svg.html',
         },
         {
             'title': 'Student',
@@ -195,6 +170,33 @@ def _raw_sections():
             'items': [],
             'icon_template': 'icons/careers_svg.html',
         },
+        {
+            'title': 'Operations',
+            'module_key': 'services',
+            'url': reverse('services'),
+            'description': 'Running the school day-to-day — cover, rotas, events, rooms, resources and facilities.',
+            'items': [
+                {'name': 'Cover Manager', 'url': reverse('service_cover_manager'), 'module_key': 'service_cover_manager'},
+                {'name': 'Duty & Rota Manager', 'url': reverse('service_duty_rota'), 'module_key': 'service_duty_rota'},
+                {'name': 'Assembly Manager', 'url': reverse('service_assembly_manager'), 'module_key': 'service_assembly_manager'},
+                {'name': 'Admissions', 'url': reverse('service_admissions'), 'module_key': 'service_admissions'},
+                {'name': 'Events Planner', 'url': reverse('service_events_planner'), 'module_key': 'service_events_planner'},
+                {'name': 'Operations Overview', 'url': reverse('service_operations_dashboard'), 'module_key': 'service_operations_dashboard'},
+                {'name': 'Exams', 'url': reverse('service_exams_dashboard'), 'module_key': 'service_exams_dashboard'},
+            ],
+            'icon_template': 'icons/services_svg.html',
+        },
+        {
+            'title': 'Resources',
+            'module_key': 'resources_hub',
+            'url': reverse('resources_hub'),
+            'description': 'Asset tracking and room bookings for the school estate.',
+            'items': [
+                {'name': 'Asset Register', 'url': reverse('resource_asset_register'), 'module_key': 'resource_asset_register'},
+                {'name': 'Room Bookings', 'url': reverse('resource_room_bookings'), 'module_key': 'resource_room_bookings'},
+            ],
+            'icon_template': 'icons/resources_svg.html',
+        },
     ]
 
 
@@ -210,10 +212,15 @@ def build_sections(request):
         if not is_module_visible(section['module_key'], modules, request):
             continue
         label = term_overrides.get(section['module_key']) or module_label(section['module_key'], modules, section['title'])
+        items = filter_by_module(section['items'], modules, request)
+        items = [
+            {**item, 'icon': _LEAF_ICONS_BY_MODULE_KEY.get(item.get('module_key'), section['icon_template'])}
+            for item in items
+        ]
         sections.append({
             **section,
             'title': label,
-            'items': filter_by_module(section['items'], modules, request),
+            'items': items,
         })
 
     staff = current_staff(request)

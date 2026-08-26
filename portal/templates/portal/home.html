@@ -4,6 +4,51 @@
 
 {% block breadcrumbs_wrapper %}{% endblock %}
 
+{% comment %}
+Home has no per-hub local_menu (it isn't a hub), so it never rendered
+_hub_sidebar.html at all - meaning the school/staff switcher triggers
+(normally in that sidebar's nav-footer) were unreachable from here even
+though the overlays themselves (#school-nav-overlay/#staff-nav-overlay,
+layout.html) are always present regardless of this block. This tray
+stands in for the hub sidebar on this one page: a personalised "Most
+Used" shortcut list (core.most_used, ranked from core.models.PageView)
+on top, the same switcher buttons _hub_sidebar.html's footer already
+uses at the bottom - see core/CONTEXT.md "Most Used Apps" / docs/adr/0014.
+{% endcomment %}
+{% block hub_sidebar %}
+<nav class="side-nav hub-side expanded" id="hub-sidebar-nav" data-hub="home">
+    <div class="side-nav-inner">
+    <div class="nav-header">
+        <div class="nav-title">Most Used Apps</div>
+    </div>
+    <div class="nav-scroll">
+        <ul class="nav-menu">
+            {% for item in most_used %}
+            <li><a href="{{ item.url }}" class="icon-tooltip-host" data-tooltip="{{ item.label }}"><span class="menu-icon">{% include item.icon %}</span><span class="menu-label">{{ item.label }}</span></a></li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="nav-footer">
+        <button type="button" class="switch-school nav-row-btn icon-tooltip-host" data-overlay-target="#school-nav-overlay" data-tooltip="{{ current_school_label }}">
+            <span class="menu-icon">{% if logo_url %}<img src="{{ logo_url }}" alt="" style="width:100%;height:100%;object-fit:contain;">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}</span>
+            <span class="menu-label school-current-label">{{ current_school_label }}</span>
+        </button>
+        {% if current_staff_list %}
+        <div class="nav-footer-divider"></div>
+        <button type="button" class="switch-staff nav-row-btn current-user-trigger icon-tooltip-host" data-overlay-target="#staff-nav-overlay" data-tooltip="{{ current_staff.first_name }} {{ current_staff.last_name }}">
+            <span class="menu-icon">{% include 'icons/avatar_placeholder_svg.html' %}</span>
+            <span class="menu-label-stack">
+                <span class="user-name">{{ current_staff.first_name }} {{ current_staff.last_name }}</span>
+                <span class="user-school">{{ current_staff.school.name|default:'MAT' }}</span>
+                <span class="user-role">{{ current_staff.job_title }}</span>
+            </span>
+        </button>
+        {% endif %}
+    </div>
+    </div>
+</nav>
+{% endblock %}
+
 {% block content %}
 <section class="hub-cards">
     <div class="home-header-sticky">
@@ -29,12 +74,20 @@
                         <h2>{{ section.title }}</h2>
                         <p>{{ section.description }}</p>
                     </div>
+                    {% comment %}
+                    Overflow past 5 badges collapses into the 6th tile itself
+                    (a "+N" badge, not a separate text link below the grid) -
+                    keeps the tile count capped at 6 either way instead of 6
+                    badges plus a 7th row for the toggle. Expanding it only
+                    grows this one card (.hub-card's fixed min-height in
+                    cards.css, not a row-stretch relative to its neighbours).
+                    {% endcomment %}
                     <div class="hub-card-items">
                         {% for item in section.items %}
-                            <a class="hub-badge" href="{{ item.url }}">{{ item.name }}</a>
+                            <a class="hub-badge{% if section.items|length > 6 and forloop.counter > 5 %} hub-badge-extra{% endif %}" href="{{ item.url }}">{% include item.icon %}<span class="hub-badge-label">{{ item.name }}</span></a>
                         {% endfor %}
-                        {% if section.items %}
-                            <button type="button" class="hub-badge hub-more-toggle" style="display:none;">+0 more</button>
+                        {% if section.items|length > 6 %}
+                            <button type="button" class="hub-badge hub-more-toggle" data-more-count="{{ section.items|length|add:'-5' }}"><span class="hub-more-toggle-count">+{{ section.items|length|add:'-5' }}</span></button>
                         {% endif %}
                     </div>
                 </div>
