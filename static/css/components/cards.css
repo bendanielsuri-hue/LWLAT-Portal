@@ -652,7 +652,7 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
        so this needs to clear the other half (32px) plus a real gap before
        .senco-name, not just the poke amount alone - "Circle Break"
        (grilling session 2026-08-25). */
-    padding: calc(var(--space-2xl) + var(--space-sm)) var(--space-sm) var(--space-md);
+    padding: calc(var(--space-2xl) + var(--space-sm)) var(--space-sm) var(--space-xs);
 }
 /* "Circle Break" cutout (grilling session 2026-08-25, prototyped alongside
    3 other treatments before this one was picked): the photo/fallback icon
@@ -731,8 +731,51 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
 .avatar-pink { background: #db2777; }
 .senco-name { font-weight: 600; }
 .senco-meta { font-size: var(--font-sm); color: var(--text-secondary); }
-.senco-school { display: flex; align-items: center; gap: var(--space-xxs); font-size: var(--font-sm); color: var(--text-secondary); }
-.senco-school-logo { width: 14px; height: 14px; }
+/* Fixed width, not fit-content/min-content - fit-content clamped a
+   *wrapped* 2-word label (e.g. "Babington Academy") to the full available
+   row width (live feedback, "too far left"); min-content overcorrected,
+   shrinking to the single narrowest *word* rather than the narrowest
+   wrapped *line*, so a 3-word name (e.g. "South Wigston Academy") forced
+   every word onto its own line - 3 lines instead of 2 (live feedback, "I
+   do not like it going over 3 lines"). Derived from .senco-card's 180px
+   flex-basis minus its horizontal padding, i.e. the card's full interior
+   width, so the wrap point (.senco-school-name's max-width, below) stays
+   consistent across every card regardless of that card's own label
+   length. justify-content: center (not text-align, and not a shrink-wrap
+   parent + margin: auto) centres the logo+label pair as a unit while
+   letting .senco-school-name left-align its own text - live feedback
+   wanted the label left-aligned, and center-aligning a wrapped 2nd line
+   independently of the 1st made the two lines' left edges drift apart
+   from the logo by different amounts. */
+.senco-school { display: flex; align-items: center; justify-content: center; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); width: calc(180px - (2 * var(--space-sm))); max-width: 100%; margin: 0 auto; }
+/* align-self: stretch - .senco-card centres its flex-column children to
+   their own content width (align-items: center), so a plain 100%-width
+   rule alone wouldn't span the card; stretch overrides that just for this
+   one child so the rule reaches both edges. Equal margin-top/margin-bottom
+   (not margin-top alone, which read as uneven spacing above vs. below the
+   rule - live feedback) keeps the divider visually mid-way between
+   .senco-meta above and the school row below. */
+.senco-divider { align-self: stretch; border-top: 1px solid var(--border-color); margin: var(--space-xxs) 0; }
+/* No border/box-shadow frame - unlike .school-nav-logo (layout.css), this
+   is always a real school PNG (never the placeholder silhouette once
+   senco_multi_school is true), so a hairline frame around it just added
+   visual clutter rather than separating it from a background. Sized well
+   past the 14px original (live feedback, "still too small") to actually
+   read at a glance next to the name text. */
+.senco-school-logo { width: 32px; height: 32px; flex-shrink: 0; }
+/* flex: 0 1 auto (not flex: 1) - shrinks to its own wrapped content width
+   rather than stretching to fill .senco-school's full remaining space, so
+   justify-content: center (above) has a real shrink-wrapped box to centre
+   instead of one already stretched edge-to-edge. max-width caps the wrap
+   point at .senco-school's own width minus .senco-school-logo's fixed 32px
+   and this row's own gap - i.e. the same budget flex: 1 used to fill -
+   so a long label still wraps at the same point as before, it just isn't
+   forced to occupy that whole width when shorter. min-width: 0 overrides
+   the flex default of min-width: auto, which floors a text item at its
+   own unwrapped content width rather than letting it shrink and wrap.
+   text-align: left, not centre - live feedback wanted the label left-
+   aligned against the logo rather than centred under itself. */
+.senco-school-name { flex: 0 1 auto; min-width: 0; max-width: calc(180px - (2 * var(--space-sm)) - 32px - var(--space-xs)); line-height: 1.15; text-align: left; }
 .senco-avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .senco-carousel-arrow {
     flex: 0 0 auto;
