@@ -184,15 +184,23 @@ html, body {
     justify-content: flex-start;
 }
 /* Rows centre their icon in the 72px rail by giving it equal breathing room
-   on both sides: 12px container padding + 4px row padding leaves exactly the
-   32px icon box's width. */
+   on both sides: 12px container padding + 2px row padding leaves exactly the
+   44px icon pill's width (matches .hub-rail-item's own 44px pill - see the
+   .menu-icon sizing further down). padding-top/bottom zeroed too - expanded
+   rows use 11px there as click-target padding around a label, but collapsed
+   rows have no label, so that padding was just adding dead space above and
+   below each pill that .hub-rail-item doesn't have (it uses padding:0 and
+   gets its spacing from .hub-rail-inner's gap instead - matched below via
+   .nav-menu's own gap override for collapsed mode). */
 .side-nav.collapsed.hub-side .nav-menu a,
 .side-nav.collapsed .nav-row-btn,
 .side-nav.collapsed .exit-hub,
 .side-nav.collapsed .school-nav-option,
 .side-nav.collapsed .staff-nav-option {
-    padding-left: 4px;
-    padding-right: 4px;
+    padding: 0 var(--space-micro);
+}
+.side-nav.collapsed .nav-menu {
+    gap: var(--space-xxs);
 }
 /* "Hubs" only exists as a stand-in for the global rail, which hides itself
    whenever this sidebar is collapsed — so it's only ever shown in that state.
@@ -430,6 +438,24 @@ main { position: relative; }
     border-right: none;
     /* Tooltips escape past the rail's right edge — would be clipped otherwise */
     overflow: visible;
+    position: relative;
+}
+/* Rail wins the z-index tie against .overlay-slot (z-overlay:15, a sibling
+   here inside .global-nav) only while an overlay is actually open - without
+   this scoping, the rail is otherwise z-index:auto and *loses* the tie to
+   the hub sidebar sitting in nav-stack (also z-index:auto, but painted later
+   in DOM order), which is what lets the sidebar's own opaque background hide
+   the rail seam's -16px fusing bleed (below) the rest of the time. Scoped
+   this way, a Settings/Search shelf sliding in via transform
+   (translateX(-100%) -> 0, layout.css) still stays tucked *under* the rail
+   the whole time .open is applied, rather than visibly sliding over it
+   (#131 follow-up, live feedback) - but the plain resting sidebar goes back
+   to hiding the seam bleed as before once nothing is open. Skipped in
+   touch/tablet mode (responsive.css bumps .overlay-slot above this instead)
+   - there the thing being covered is the expanding hub sidebar itself, which
+   the overlay is meant to paint over as it opens, not stay under. */
+.global-nav:has(.overlay-slot.open) .hub-rail {
+    z-index: var(--z-global-nav);
 }
 .hub-rail-inner {
     width: 100%;
@@ -457,6 +483,18 @@ main { position: relative; }
     border-right: 1px solid var(--border-color);
     box-shadow: 3px 0 8px rgba(2, 6, 23, 0.07);
     pointer-events: none;
+}
+/* The -16px bleed above fuses this border/shadow with the hub sidebar's own
+   matching background just past the rail's edge - fine while that sidebar is
+   what's actually there, but now that .hub-rail out-stacks .overlay-slot
+   (added above, for the slide-in fix), the same bleed paints across the
+   Settings/Search shelf once it's open instead of empty space. Retract it
+   flush with the rail's own edge whenever an overlay is open - nothing to
+   fuse with at that point anyway, the sidebar it was blending into is
+   covered by the shelf. */
+.global-nav:has(.overlay-slot.open) .hub-rail-seam,
+.global-nav:has(.overlay-slot.open) .hub-rail-active-fill {
+    right: 0;
 }
 .hub-rail-seam-top { top: 0; height: 100%; }
 .hub-rail-seam-bottom { top: 100%; bottom: 0; }
@@ -562,13 +600,39 @@ main { position: relative; }
 .hub-rail .icon-tooltip-host::after {
     left: 100%;
 }
+/* left: 100% here already sits at the row's own right edge (the row's own
+   padding lives inside that edge, border-box, so it doesn't move it) - but
+   that edge is still inset by .nav-scroll's padding-right (--space-sm) when
+   collapsed, short of the sidebar's true edge. Pushing out by that same
+   amount is what lands the card flush with the sidebar's true edge, the
+   same way the global rail's own +8px push lands its card flush with the
+   rail's true edge (that rail's padding lives on .hub-rail-inner instead of
+   a .nav-scroll, but it's the identical trick). */
 .side-nav.collapsed .icon-tooltip-host::after {
-    left: calc(100% + 4px);
+    left: calc(100% + var(--space-sm));
+}
+/* Collapsed local rail reads its tooltip as the same small card as the
+   global rail below (real --bg-surface + border, no caret, same 44px
+   height as its own icon pill - now a match since that pill was sized up
+   to 44px too) rather than the shared dark bubble. */
+.side-nav.collapsed .icon-tooltip-host::after {
+    height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    clip-path: none;
+    transition: none;
 }
 /* Global rail hover state reads as a small card, not a tooltip bubble: real
    --bg-surface (not --tooltip-bg's dark annotation layer) with a border, no
-   caret. Kept distinct from the collapsed-sidebar tooltip above, which stays
-   a plain bubble. */
+   caret - now shared with the collapsed local rail's card above. */
 .hub-rail .icon-tooltip-host::after {
     left: calc(100% + 8px);
     /* Matches the 44px icon pill's own height (svg 26px + 9px padding each
@@ -989,13 +1053,13 @@ main { position: relative; }
 .side-nav .staff-nav-option:focus-visible .menu-label-stack {
     transform: translateX(3px);
 }
-/* Icon-only tooltip hosts: no label child to nudge, just the icon.
-   .hub-rail's own svg is deliberately excluded - the global rail icon
-   shouldn't shift position on hover at all, unlike the collapsed sidebar's
-   icon-only rows below, which keep the nudge. */
+/* Collapsed sidebar's icon-only rows now signal hover/active via the pill
+   fill above instead (matching .hub-rail, which never nudged its own svg
+   either) - overrides the generic nudge above, which still applies to
+   every other (labelled) row. */
 .side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):hover .menu-icon,
 .side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):focus-visible .menu-icon {
-    transform: translateX(3px);
+    transform: none;
 }
 
 /* Left-edge accent bar for hover/selected state on every selectable row -
@@ -1056,6 +1120,48 @@ main { position: relative; }
 }
 .side-nav .staff-nav-option.selected .user-name {
     color: var(--active-text);
+}
+
+/* Collapsed local rail matches the global rail's own hover/active signal
+   (icon pill fill + primary-coloured icon on active) instead of the left
+   accent bar above — the bar already gets skipped for .hub-rail-item for
+   the same reason (comment above): it competes with an icon-only column
+   this tight. Fill is --bg-rail, not --bg-nav, because the sidebar's own
+   background already IS --bg-nav (the global rail flips this: its own
+   background is --bg-rail, so ITS pill fills with --bg-nav) — same
+   mechanism, opposite token, so the pill actually shows up against
+   whichever base colour it's sitting on. */
+.side-nav.collapsed .menu-icon {
+    width: 44px;
+    height: 44px;
+    margin-right: 0;
+    border-radius: var(--radius-sm);
+    transition: background-color var(--transition-fast);
+}
+.side-nav.collapsed .nav-row-btn:hover .menu-icon,
+.side-nav.collapsed a:not(.hub-rail-item):hover .menu-icon,
+.side-nav.collapsed .school-nav-option:hover .menu-icon,
+.side-nav.collapsed .staff-nav-option:hover .menu-icon,
+.side-nav.collapsed .nav-row-btn:focus-visible .menu-icon,
+.side-nav.collapsed a:not(.hub-rail-item):focus-visible .menu-icon,
+.side-nav.collapsed .school-nav-option:focus-visible .menu-icon,
+.side-nav.collapsed .staff-nav-option:focus-visible .menu-icon {
+    background: var(--bg-rail);
+}
+.side-nav.collapsed a:not(.nav-row-btn):not(.hub-rail-item).active .menu-icon,
+.side-nav.collapsed .school-nav-option.selected .menu-icon,
+.side-nav.collapsed .staff-nav-option.selected .menu-icon {
+    background: var(--bg-rail);
+}
+.side-nav.collapsed a:not(.nav-row-btn):not(.hub-rail-item).active,
+.side-nav.collapsed .school-nav-option.selected,
+.side-nav.collapsed .staff-nav-option.selected {
+    color: var(--primary);
+}
+.side-nav.collapsed a:not(.nav-row-btn):not(.hub-rail-item)::before,
+.side-nav.collapsed .school-nav-option::before,
+.side-nav.collapsed .staff-nav-option::before {
+    display: none;
 }
 
 .side-nav .nav-menu a {
