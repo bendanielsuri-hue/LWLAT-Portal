@@ -75,21 +75,43 @@ uses at the bottom - see core/CONTEXT.md "Most Used Apps" / docs/adr/0014.
                         <p>{{ section.description }}</p>
                     </div>
                     {% comment %}
-                    Overflow past 5 badges collapses into the 6th tile itself
-                    (a "+N" badge, not a separate text link below the grid) -
-                    keeps the tile count capped at 6 either way instead of 6
-                    badges plus a 7th row for the toggle. Expanding it only
-                    grows this one card (.hub-card's fixed min-height in
-                    cards.css, not a row-stretch relative to its neighbours).
+                    Overflow past 6 badges (2 full rows of 3) hides behind a
+                    "+N more" text toggle below the grid, not a same-sized
+                    7th tile mixed in with the real badges - live feedback:
+                    an in-grid tile-shaped toggle read as a broken/empty
+                    badge slot. Expanding it only grows this one card
+                    (.hub-card's fixed min-height in cards.css, not a
+                    row-stretch relative to its neighbours).
                     {% endcomment %}
                     <div class="hub-card-items">
                         {% for item in section.items %}
-                            <a class="hub-badge{% if section.items|length > 6 and forloop.counter > 5 %} hub-badge-extra{% endif %}" href="{{ item.url }}">{% include item.icon %}<span class="hub-badge-label">{{ item.name }}</span></a>
+                            {% if not section.items|length > 6 or forloop.counter <= 6 %}
+                                <a class="hub-badge" href="{{ item.url }}">{% include item.icon %}<span class="hub-badge-label">{{ item.name }}</span></a>
+                            {% endif %}
                         {% endfor %}
                         {% if section.items|length > 6 %}
-                            <button type="button" class="hub-badge hub-more-toggle" data-more-count="{{ section.items|length|add:'-5' }}"><span class="hub-more-toggle-count">+{{ section.items|length|add:'-5' }}</span></button>
+                            {% comment %}
+                            Wrapped as its own grid row (cards.css) instead of
+                            per-badge display:none/flex toggling - a single
+                            0fr<->1fr track height-animates smoothly (site-wide
+                            interpolate-size opt-in), where toggling many
+                            individual flex items' display each frame just
+                            snapped straight to the new layout.
+                            {% endcomment %}
+                            <div class="hub-card-items-extra">
+                                <div class="hub-card-items-extra-inner">
+                                    {% for item in section.items %}
+                                        {% if forloop.counter > 6 %}
+                                            <a class="hub-badge" href="{{ item.url }}">{% include item.icon %}<span class="hub-badge-label">{{ item.name }}</span></a>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
                         {% endif %}
                     </div>
+                    {% if section.items|length > 6 %}
+                        <button type="button" class="hub-more-toggle" data-more-count="{{ section.items|length|add:'-6' }}"><span class="hub-more-toggle-count">+{{ section.items|length|add:'-6' }} more</span></button>
+                    {% endif %}
                 </div>
             </div>
         {% endfor %}

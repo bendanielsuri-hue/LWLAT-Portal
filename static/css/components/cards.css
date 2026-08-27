@@ -47,13 +47,16 @@
     border: 1px solid var(--border-strong);
     flex: 0 0 280px;
     max-width: 320px;
-    /* Fixed floor (not a per-row stretch to whatever neighbour happens to be
-       tallest) sized to comfortably fit a 2-line description + 2 full rows
-       of badges (up to the 6-tile cap below) - every card the same height
-       regardless of its own or its row-mates' item counts. min-height, not
-       height, so the +N tile can still grow *this* card taller on expand
-       without being clipped or dragging any other card's height with it. */
-    min-height: 320px;
+    /* Floor sized to the common case (2-line description + 1 badge row),
+       not the worst case (2 full rows) - a uniform 320px floor left every
+       card with fewer badges (or none, e.g. Careers) with a large dead gap
+       above its badge row, pushed down by .hub-card-items' margin-top:auto.
+       Cards with a 2nd badge row (Staff, Registers) simply grow past this
+       floor instead of every other card padding out to match them. min-
+       height, not height, so the +N tile can still grow *this* card taller
+       on expand without being clipped or dragging any other card's height
+       with it. */
+    min-height: 240px;
     position: relative;
     /* visible, not hidden - .hub-card-icon-wrap pokes above this card's own
        top edge (Circle Break, see .senco-avatar-wrap for the same
@@ -139,7 +142,12 @@
     display: flex;
     gap: var(--space-xs);
     flex-wrap: wrap;
-    margin-top: auto;
+    /* var(--space-sm), not margin-top: auto - auto pushed badges to the
+       card's bottom edge regardless of content length, which (combined with
+       .hub-card's min-height floor) left a big dead gap above a 1-row/no-
+       badge card's badges instead of them sitting close under the
+       description. */
+    margin-top: var(--space-sm);
 }
 
 /* App tile: icon-over-label, fixed width so a row packs by tile count
@@ -182,18 +190,57 @@
     box-shadow: inset 0 0 0 1px var(--primary);
 }
 
-.hub-card .hub-badge-extra { display: none; }
-.hub-card-items.expanded .hub-badge-extra { display: flex; }
+/* +N toggle expand: a single grid row animating 0fr <-> 1fr (site-wide
+   interpolate-size: allow-keywords, layout.css - same technique as Panel's
+   .panel-card-collapsible) instead of toggling display:none/flex on each
+   extra badge individually, which just snapped straight to the new layout
+   with no transition to hook into. flex: 1 1 100% forces this onto its own
+   line within the badges' flex-wrap row regardless of how much width the
+   first 5 badges + toggle left behind. */
+.hub-card-items-extra {
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--transition-base);
+}
+.hub-card-items.expanded .hub-card-items-extra {
+    grid-template-rows: 1fr;
+}
+/* The grid's real (single) child re-lays the extra badges out with the same
+   flex-wrap the visible row above uses. overflow: hidden clips it at the
+   0fr track; min-height: 0 lets it actually shrink there instead of
+   flooring at the badges' own content height (flex/grid items default to
+   min-height: auto). padding-top gives .hub-badge:hover's own -3px lift
+   headroom to rise into - without it, this wrapper's own overflow: hidden
+   (needed permanently, not just while collapsed, for the 0fr trick above)
+   clipped the top sliver off any extra-row badge the moment it was
+   hovered - live feedback "third row is cut off on hovering". */
+.hub-card-items-extra-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    overflow: hidden;
+    min-height: 0;
+    padding-top: var(--space-xxs);
+}
 
-/* Sits as the grid's 6th tile (not a separate text link below it), so it
-   inherits .hub-badge's own size/background/hover - only the label content
-   differs (a bare count, no icon). */
+/* A slim text link below the badge grid, not a same-sized 6th tile mixed
+   in with the real badges (live feedback: an in-grid tile-shaped toggle at
+   position 6 read as a broken/empty badge slot). Centred (align-self:
+   center, not flex-start) to match the rest of .hub-card-top's centred
+   text instead of sitting flush against the card's left padding edge -
+   live feedback "cramped to the left". */
 .hub-card .hub-more-toggle {
+    align-self: center;
+    margin-top: var(--space-xxs);
     border: none;
+    background: none;
+    padding: 0;
     font-family: inherit;
+    cursor: pointer;
 }
 .hub-more-toggle-count {
-    font-size: var(--font-lg);
+    font-size: var(--font-xs);
     font-weight: 600;
     color: var(--text-secondary);
 }

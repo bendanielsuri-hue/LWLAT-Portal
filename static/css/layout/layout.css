@@ -1104,13 +1104,22 @@ main {
     flex-direction: column;
 }
 
-/* Sticky page header (breadcrumbs/actions) and home screen title+search row. */
+/* Sticky page header (breadcrumbs/actions) and home screen title+search row.
+   Feathers the hard cut where scrolled content disappears under the header
+   by fading the fill out over its own existing bottom padding (var(--space-
+   md)) instead of staying opaque right to its own edge - a plain calc()
+   percentage stop, not a fixed px fade height, since header height (and so
+   this gradient's total span) varies per page (title-only vs title+filters).
+   Shown unconditionally (not gated to a scrolled/stuck state) - unlike an
+   earlier version that pushed the fade in an extra strip past the header's
+   own box, this fade is fully inset within the header's own real box, so
+   there's nothing below it to smudge on a page too short to ever scroll. */
 .sticky-header-zone,
 .home-header-sticky {
     position: sticky;
     top: 0;
     z-index: var(--z-page-header);
-    background: var(--bg-page);
+    background: linear-gradient(to bottom, var(--bg-page) calc(100% - var(--space-md)), transparent 100%);
     margin: -32px -32px 0;
     padding: var(--space-xl) var(--space-2xl) var(--space-md);
 }

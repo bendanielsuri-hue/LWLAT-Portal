@@ -1680,13 +1680,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // "+N more" toggles the hidden apps within a card instead of navigating to the hub
     document.querySelectorAll('.hub-more-toggle').forEach(function (btn) {
         var countEl = btn.querySelector('.hub-more-toggle-count');
+        // Sits below .hub-card-items (not inside it - live feedback, see
+        // cards.css) so the container it toggles is a previous sibling, not
+        // an ancestor.
+        var container = btn.previousElementSibling;
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
-            var container = closest(e.target, '.hub-card-items');
             if (!container) return;
             var expanded = container.classList.toggle('expanded');
             var moreCount = btn.dataset.moreCount || '0';
-            countEl.textContent = expanded ? '−' : ('+' + moreCount);
+            countEl.textContent = expanded ? 'Show less' : ('+' + moreCount + ' more');
         });
     });
 
