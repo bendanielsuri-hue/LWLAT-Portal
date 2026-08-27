@@ -1550,12 +1550,19 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         var railRect = rail.getBoundingClientRect();
-        var itemRect = active.getBoundingClientRect();
-        var top = itemRect.top - railRect.top;
+        // Measures the svg pill, not the outer flush item - the pill (44px,
+        // centred, radius-sm on every corner) is what hover paints, so the
+        // active fill has to match its box exactly (top/height/left) to
+        // read as the same shape stretched into a tab, not a second,
+        // differently-inset shape layered behind it.
+        var pillRect = (active.querySelector('svg') || active).getBoundingClientRect();
+        var top = pillRect.top - railRect.top;
+        var left = pillRect.left - railRect.left;
         seamTop.style.height = top + 'px';
-        seamBottom.style.top = (top + itemRect.height) + 'px';
+        seamBottom.style.top = (top + pillRect.height) + 'px';
         activeFill.style.top = top + 'px';
-        activeFill.style.height = itemRect.height + 'px';
+        activeFill.style.height = pillRect.height + 'px';
+        activeFill.style.left = left + 'px';
     }
     positionHubRailSeam();
     window.addEventListener('resize', positionHubRailSeam);

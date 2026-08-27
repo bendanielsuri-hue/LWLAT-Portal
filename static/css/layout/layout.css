@@ -421,7 +421,10 @@ main { position: relative; }
    (#128). */
 .global-nav[hidden] { display: none; }
 .hub-rail {
-    width: 72px;
+    /* Narrowed from 72px after prototyping A/B/C variants (72/64/56) - 56px
+       put the column narrower than the icon pill itself; 64px was the
+       narrowest option that still left the pill breathing room. */
+    width: 64px;
     flex-shrink: 0;
     background: transparent;
     border-right: none;
@@ -434,7 +437,9 @@ main { position: relative; }
     padding: var(--space-md) var(--space-xs);
     display: flex;
     flex-direction: column;
-    gap: 0;
+    /* Breathing room so adjacent items' hover/active boxes (below) don't
+       touch and read as one fused block. */
+    gap: var(--space-xxs);
     background-color: var(--bg-rail);
     position: relative;
 }
@@ -461,8 +466,10 @@ main { position: relative; }
    a flat-sided cutout. left:8px (not 0) matches .hub-rail-inner's own
    inline padding (--space-xs) - position:absolute is relative to the
    padding *box*, which ignores that padding entirely, so left:0 here would
-   put the fill flush with the rail's outer edge while the icon itself
-   stays inset a further 8px. */
+   put the fill flush with the rail's outer edge while the item itself
+   stays inset a further 8px. main.js (positionHubRailSeam) re-asserts this
+   same value inline from the item's real bounding box - belt and braces
+   in case the item's own left inset ever stops being a fixed value again. */
 .hub-rail-active-fill {
     position: absolute;
     left: var(--space-xs);
@@ -481,31 +488,46 @@ main { position: relative; }
 .global-nav:has(.side-nav.hub-side.collapsed) .hub-rail {
     display: none;
 }
+/* The outer item stays full-width and flush to the rail's inner edge -
+   deliberately NOT the narrow/centred box (that's on the svg below). It's
+   the .icon-tooltip-host, so its right edge is what the hover-card's
+   left: calc(100% + 8px) (further down) measures from; if this box were
+   narrower/centred the card would fall short of the rail's true edge and
+   visually clip into it. Keeping every item (hub links and the
+   Portal/Search/Settings buttons alike) at the same full width also means
+   they can't drift out of sync with each other the way the visual pill
+   below is free to (width: fit-content, centred). */
 .hub-rail .hub-rail-item {
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     flex-shrink: 0;
-    padding: 11px 11px;
-    border-radius: var(--radius-sm);
+    width: 100%;
+    padding: 0;
     color: var(--text-primary);
     background: transparent;
     border: none;
     cursor: pointer;
     text-decoration: none;
 }
-.hub-rail .hub-rail-item:not(.nav-row-btn) {
-    width: 100%;
-}
-/* Same excess-padding-vs-icon-size gap the touch rail had (layout.css's
-   nav-touch-mode collapsed-rail rules above) - desktop's rail left room
-   spare too. Grown to fill it rather than staying at the old 22px. */
+/* The visual "pill": narrow, centred (width: fit-content, not the full row
+   the item above spans), rounded box that shows the hover/active fill -
+   lives on the icon itself rather than the item so the item's own box can
+   stay full-width for tooltip anchoring (see above) without also being a
+   wide hover target. box-sizing:border-box + padding keeps the drawn icon
+   at the original 26px while the box itself grows to 44px for the pill. */
 .hub-rail-item svg {
-    width: 26px;
-    height: 26px;
+    width: 44px;
+    height: 44px;
+    padding: 9px;
+    box-sizing: border-box;
+    border-radius: var(--radius-sm);
     flex-shrink: 0;
-    transition: transform var(--transition-fast);
+}
+.hub-rail .hub-rail-item:hover svg,
+.hub-rail .hub-rail-item:focus-visible svg {
+    background: var(--bg-nav);
 }
 /* CSS-only hover/focus tooltip — reads off data-tooltip, z-index 30 beats the
    overlay slot (15) and global-nav (20) so it's always on top. The caret is
@@ -543,6 +565,31 @@ main { position: relative; }
 .side-nav.collapsed .icon-tooltip-host::after {
     left: calc(100% + 4px);
 }
+/* Global rail hover state reads as a small card, not a tooltip bubble: real
+   --bg-surface (not --tooltip-bg's dark annotation layer) with a border, no
+   caret. Kept distinct from the collapsed-sidebar tooltip above, which stays
+   a plain bubble. */
+.hub-rail .icon-tooltip-host::after {
+    left: calc(100% + 8px);
+    /* Matches the 44px icon pill's own height (svg 26px + 9px padding each
+       side) - flex centres the label text inside it since padding alone no
+       longer sets the height. */
+    height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    clip-path: none;
+    /* No fade/slide-in on the rail's card (unlike the shared bubble above,
+       which keeps its transition) - it should just appear/disappear. */
+    transition: none;
+}
 .hub-rail .icon-tooltip-host:hover::after,
 .hub-rail .icon-tooltip-host:focus-visible::after,
 .side-nav.collapsed .icon-tooltip-host:hover::after,
@@ -560,10 +607,13 @@ main { position: relative; }
     border-top: 1px solid var(--border-color);
     padding-top: var(--space-md);
 }
-/* Re-assert rail padding so the generic .side-nav .nav-row-btn rule (higher
-   specificity) doesn't overwrite it. */
+/* Re-assert rail padding (0 - all sizing now lives on the svg pill, not
+   this item) - the generic .side-nav .nav-row-btn rule below is the same
+   specificity and comes later in the file, so without this it would win
+   and reintroduce an off-centre pill for Portal/Search/Settings vs the
+   hub links. */
 .hub-rail .hub-rail-item.nav-row-btn {
-    padding: 11px 11px;
+    padding: 0;
 }
 
 /* The dimming backdrop covers <main> only — signals that main content isn't
@@ -939,11 +989,10 @@ main { position: relative; }
 .side-nav .staff-nav-option:focus-visible .menu-label-stack {
     transform: translateX(3px);
 }
-/* Icon-only tooltip hosts: no label child to nudge, just the icon. */
-.hub-rail .icon-tooltip-host:hover .menu-icon,
-.hub-rail .icon-tooltip-host:hover > svg,
-.hub-rail .icon-tooltip-host:focus-visible .menu-icon,
-.hub-rail .icon-tooltip-host:focus-visible > svg,
+/* Icon-only tooltip hosts: no label child to nudge, just the icon.
+   .hub-rail's own svg is deliberately excluded - the global rail icon
+   shouldn't shift position on hover at all, unlike the collapsed sidebar's
+   icon-only rows below, which keep the nudge. */
 .side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):hover .menu-icon,
 .side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):focus-visible .menu-icon {
     transform: translateX(3px);
