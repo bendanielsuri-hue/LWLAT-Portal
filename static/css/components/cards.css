@@ -115,6 +115,12 @@
 
 .hub-card-top:hover .hub-card-icon-wrap {
     background: var(--primary-light);
+    /* box-shadow, not border - the icon-wrap's real border is always
+       --bg-surface (the ring that separates it from the card behind it,
+       "Circle Break"); the outer hairline it visually reads as is this
+       box-shadow (var(--border-strong) at rest), so that's the layer that
+       needs to swap to primary to look like the ring itself changed colour. */
+    box-shadow: 0 0 0 1px var(--primary);
 }
 
 .hub-card-top:hover .icon-cutout,
@@ -124,6 +130,16 @@
 
 .hub-card-top:hover h2 {
     color: var(--active-text);
+}
+
+/* :has(.hub-card-top:hover), not .hub-card:hover - the whole-card lift
+   (above) fires for either click target (hub-top or a badge), so it can't
+   double as the hub-vs-app cue itself. Scoping the border-color change to
+   just the hub-top being hovered flags "this click launches the hub"
+   without also lighting up when a badge (a different destination) is
+   hovered (#141). */
+.hub-card:has(.hub-card-top:hover) {
+    border-color: var(--primary);
 }
 
 .hub-card h2 {
@@ -199,6 +215,22 @@
    first 5 badges + toggle left behind. */
 .hub-card-items-extra {
     flex: 1 1 100%;
+    /* Cancels the --space-xs row-gap .hub-card-items (the flex parent) puts
+       above every wrapped line, this one included - without it, row 3's own
+       padding-top (below) stacked on top of that gap instead of replacing
+       it, reading as a visibly taller gap above row 3 than between rows 1-2
+       once expanded. Only reliable while there's real content to cancel
+       against, though - see the toggle's own margin-top rule (below) for
+       the collapsed (0-height) case, where a negative margin on a stretched
+       zero-height flex item doesn't reliably net to 0 in Chromium (confirmed
+       via getBoundingClientRect: removing this margin entirely, or leaving
+       it, produced the *same* measured gap before the toggle either way -
+       this line has no effect on the collapsed case at all). min-height: 0
+       is still needed on top of it (this element is a flex item of
+       .hub-card-items too, not just a grid container for its own child)
+       so the 0fr row-track below isn't floored by its own auto min-size. */
+    margin-top: calc(-1 * var(--space-xs));
+    min-height: 0;
     display: grid;
     grid-template-rows: 0fr;
     transition: grid-template-rows var(--transition-base);
@@ -210,42 +242,77 @@
    flex-wrap the visible row above uses. overflow: hidden clips it at the
    0fr track; min-height: 0 lets it actually shrink there instead of
    flooring at the badges' own content height (flex/grid items default to
-   min-height: auto). padding-top gives .hub-badge:hover's own -3px lift
-   headroom to rise into - without it, this wrapper's own overflow: hidden
-   (needed permanently, not just while collapsed, for the 0fr trick above)
-   clipped the top sliver off any extra-row badge the moment it was
-   hovered - live feedback "third row is cut off on hovering". */
+   min-height: auto). padding-top (only while .expanded, below) gives
+   .hub-badge:hover's own -3px lift headroom to rise into - without it,
+   this wrapper's own overflow: hidden (needed permanently, not just while
+   collapsed, for the 0fr trick above) clipped the top sliver off any
+   extra-row badge the moment it was hovered - live feedback "third row is
+   cut off on hovering". */
 .hub-card-items-extra-inner {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-xs);
     overflow: hidden;
     min-height: 0;
-    padding-top: var(--space-xxs);
+}
+.hub-card-items.expanded .hub-card-items-extra-inner {
+    padding-top: var(--space-xs);
 }
 
 /* A slim text link below the badge grid, not a same-sized 6th tile mixed
    in with the real badges (live feedback: an in-grid tile-shaped toggle at
-   position 6 read as a broken/empty badge slot). Centred (align-self:
-   center, not flex-start) to match the rest of .hub-card-top's centred
-   text instead of sitting flush against the card's left padding edge -
-   live feedback "cramped to the left". */
+   position 6 read as a broken/empty badge slot). Full width (the
+   .hub-card-content flex column's own default stretch, not align-self:
+   center as before) so its hover fill (below) spans the same width as the
+   card itself instead of just a shrink-wrapped label - text stays centred
+   via justify-content. */
 .hub-card .hub-more-toggle {
-    align-self: center;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    /* This is the EXPANDED-state value ("Show less") - .hub-card-items-
+       extra's own margin-top (above) already cancels the flex row-gap
+       ahead of real row-3 content, so nothing else adds to this gap. */
     margin-top: var(--space-xxs);
     border: none;
     background: none;
-    padding: 0;
+    padding: var(--space-xxs) var(--space-sm);
+    border-radius: var(--radius-sm);
     font-family: inherit;
     cursor: pointer;
+    transition: background var(--transition-fast);
+}
+/* Collapsed ("+N more") sits after a still-present, just zero-height wrapped
+   line (the invisible .hub-card-items-extra) - .hub-card-items' own flex
+   row-gap (--space-xs) still applies ahead of that phantom line regardless
+   of its height, and unlike the expanded case, nothing successfully cancels
+   it there (a negative margin on a zero-height stretched flex item doesn't
+   reliably net to 0 - measured via getBoundingClientRect, not just
+   theorised). Rather than fight that in the zero-height element, subtract
+   it back out here instead, on a button that always has real height and
+   doesn't hit the same quirk - live feedback: "the distance is
+   different... show less is too close" (turned out the true bug was the
+   opposite - "+N more" carrying an extra, un-cancellable row-gap - but the
+   fix reads the same either way: make both totals equal). */
+.hub-card-items:not(.expanded) + .hub-more-toggle {
+    margin-top: calc(var(--space-xxs) - var(--space-xs));
 }
 .hub-more-toggle-count {
     font-size: var(--font-xs);
     font-weight: 600;
     color: var(--text-secondary);
+    transition: color var(--transition-fast);
+}
+/* --badge-bg - the app badges' own resting fill (above), not an accent
+   tint (--primary-light, tried first) or the sidebar's row-hover fill
+   (--bg-rail, tried before that) - live feedback wanted this hover to stay
+   neutral like the badges rather than read as an accent highlight. */
+.hub-card .hub-more-toggle:hover {
+    background: var(--badge-bg);
 }
 .hub-card .hub-more-toggle:hover .hub-more-toggle-count {
     color: var(--active-text);
+    text-shadow: var(--hover-fake-bold);
 }
 
 /* Generic entity list */

@@ -75,7 +75,7 @@ uses at the bottom - see core/CONTEXT.md "Most Used Apps" / docs/adr/0014.
                         <p>{{ section.description }}</p>
                     </div>
                     {% comment %}
-                    Overflow past 6 badges (2 full rows of 3) hides behind a
+                    Overflow past 3 badges (one row) hides behind a
                     "+N more" text toggle below the grid, not a same-sized
                     7th tile mixed in with the real badges - live feedback:
                     an in-grid tile-shaped toggle read as a broken/empty
@@ -85,11 +85,11 @@ uses at the bottom - see core/CONTEXT.md "Most Used Apps" / docs/adr/0014.
                     {% endcomment %}
                     <div class="hub-card-items">
                         {% for item in section.items %}
-                            {% if not section.items|length > 6 or forloop.counter <= 6 %}
+                            {% if not section.items|length > 3 or forloop.counter <= 3 %}
                                 <a class="hub-badge" href="{{ item.url }}">{% include item.icon %}<span class="hub-badge-label">{{ item.name }}</span></a>
                             {% endif %}
                         {% endfor %}
-                        {% if section.items|length > 6 %}
+                        {% if section.items|length > 3 %}
                             {% comment %}
                             Wrapped as its own grid row (cards.css) instead of
                             per-badge display:none/flex toggling - a single
@@ -101,7 +101,7 @@ uses at the bottom - see core/CONTEXT.md "Most Used Apps" / docs/adr/0014.
                             <div class="hub-card-items-extra">
                                 <div class="hub-card-items-extra-inner">
                                     {% for item in section.items %}
-                                        {% if forloop.counter > 6 %}
+                                        {% if forloop.counter > 3 %}
                                             <a class="hub-badge" href="{{ item.url }}">{% include item.icon %}<span class="hub-badge-label">{{ item.name }}</span></a>
                                         {% endif %}
                                     {% endfor %}
@@ -109,8 +109,8 @@ uses at the bottom - see core/CONTEXT.md "Most Used Apps" / docs/adr/0014.
                             </div>
                         {% endif %}
                     </div>
-                    {% if section.items|length > 6 %}
-                        <button type="button" class="hub-more-toggle" data-more-count="{{ section.items|length|add:'-6' }}"><span class="hub-more-toggle-count">+{{ section.items|length|add:'-6' }} more</span></button>
+                    {% if section.items|length > 3 %}
+                        <button type="button" class="hub-more-toggle" data-more-count="{{ section.items|length|add:'-3' }}"><span class="hub-more-toggle-count">+{{ section.items|length|add:'-3' }} more</span></button>
                     {% endif %}
                 </div>
             </div>
