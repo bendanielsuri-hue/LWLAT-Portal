@@ -10,9 +10,14 @@ must stay outside the AJAX-swapped region.
 <div class="stats-strip stats-strip--compact">
     {% for card in kpi_cards %}
     <div class="stat-card stat-card--accent-{{ card.accent }}">
-        <div class="stat-value">{{ card.value }}</div>
-        <div class="stat-label">{{ card.label }}</div>
-        {% if card.sublabel %}<div class="stat-card-sublabel">{{ card.sublabel }}</div>{% endif %}
+        <div class="stat-card-icon">{% include card.icon %}</div>
+        <div class="stat-card-text">
+            <div class="stat-value">{{ card.value }}</div>
+            <div class="stat-card-label-group">
+                <div class="stat-label">{{ card.label }}</div>
+                {% if card.sublabel %}<div class="stat-card-sublabel">{{ card.sublabel }}</div>{% endif %}
+            </div>
+        </div>
     </div>
     {% endfor %}
 </div>
@@ -77,11 +82,14 @@ row 2 once row 1's two columns are already taken.
     </div>
 
     <div class="breakdown-card breakdown-card--lg">
-        <h3>Referrals per Month
-            {% if overdue_referrals %}
-            <span class="status-pill pill-warning">{{ overdue_referrals }} overdue</span>
-            {% endif %}
-        </h3>
+        <div class="breakdown-card-header">
+            <h3>Inclusion Panel Referrals
+                {% if overdue_referrals %}
+                <span class="status-pill pill-warning">{{ overdue_referrals }} overdue</span>
+                {% endif %}
+            </h3>
+            <button type="button" class="btn btn-primary btn-sm" data-new-referral-trigger data-next="{% url 'inclusion_hub' %}">+ New Referral</button>
+        </div>
         {% if referral_trend %}
         <div class="trend-chart" role="img" aria-label="Referrals per month, this academic year">
             {% for point in referral_trend %}
@@ -111,7 +119,6 @@ row 2 once row 1's two columns are already taken.
         {% else %}
         <p class="empty-note">No referrals recorded.</p>
         {% endif %}
-        <button type="button" class="btn btn-primary btn-sm" data-new-referral-trigger data-next="{% url 'inclusion_hub' %}">+ New Referral</button>
     </div>
 </div>
 
@@ -119,6 +126,7 @@ row 2 once row 1's two columns are already taken.
     <div class="breakdown-card">
         <h3>By year group</h3>
         {% if year_breakdown %}
+        <div class="breakdown-card-body">
         <div class="breakdown-legend">
             <span class="stat-label stat-label--e">EHCP (E)</span>
             <span class="stat-label stat-label--k">SEN Support (K)</span>
@@ -139,6 +147,7 @@ row 2 once row 1's two columns are already taken.
             </div>
         </div>
         {% endfor %}
+        </div>
         {% else %}
         <p class="empty-note">No students recorded.</p>
         {% endif %}
@@ -148,6 +157,7 @@ row 2 once row 1's two columns are already taken.
     <div class="breakdown-card">
         <h3>By school</h3>
         {% if school_breakdown %}
+        <div class="breakdown-card-body">
         <div class="breakdown-legend">
             <span class="stat-label stat-label--e">EHCP (E)</span>
             <span class="stat-label stat-label--k">SEN Support (K)</span>
@@ -168,6 +178,7 @@ row 2 once row 1's two columns are already taken.
             </div>
         </div>
         {% endfor %}
+        </div>
         {% else %}
         <p class="empty-note">No students recorded.</p>
         {% endif %}
@@ -177,6 +188,7 @@ row 2 once row 1's two columns are already taken.
     <div class="breakdown-card breakdown-card--lg">
         <h3>By area of need</h3>
         {% if send_count %}
+        <div class="breakdown-card-body">
         {% for row in need_breakdown %}
         <div class="breakdown-row breakdown-row--need">
             <span class="breakdown-row-need-label">{{ row.label }}</span>
@@ -186,6 +198,7 @@ row 2 once row 1's two columns are already taken.
             <span class="breakdown-row-need-value">{{ row.count }} ({{ row.pct }}%)</span>
         </div>
         {% endfor %}
+        </div>
         {% else %}
         <p class="empty-note">No students with SEND recorded.</p>
         {% endif %}

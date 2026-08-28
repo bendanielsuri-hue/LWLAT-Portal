@@ -9,8 +9,9 @@
     flex-wrap: wrap;
     /* --space-xs vertical - condensed per grilling session 2026-07-12, then
        nudged back up one step in a follow-up pass (4px read too cramped);
-       horizontal stays --space-lg, this is vertical-only. */
-    padding: var(--space-xs) var(--space-lg);
+       horizontal stays --filter-bar-inline-pad (defined below, defaults to
+       --space-lg - overridden smaller for .filter-bar-no-search). */
+    padding: var(--space-xs) var(--filter-bar-inline-pad, var(--space-lg));
     /* --bg-well, not --bg-input: the bar is a controls strip (chrome),
        not an editable field itself (see DES-F1 in PRINCIPLES-DESIGN.md, and
        the depth-ladder/affordance comment in theme/light.css) -
@@ -35,12 +36,30 @@
     border: 2px solid var(--border-strong);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-md);
+    /* Read by every no-search-scoped calc() below that positions something
+       relative to this bar's own left/right inset (the cut-off line, the
+       secondary-fields bleed) - keeping it as one var means overriding the
+       no-search variant's actual padding (below) can't silently desync
+       from what those calc()s assume it is. */
+    --filter-bar-inline-pad: var(--space-lg);
     align-items: flex-end;
     position: sticky;
     top: 0;
     z-index: var(--z-filter-bar);
     box-shadow: var(--shadow-sm);
     transition: box-shadow var(--transition-fast), border-color var(--transition-fast), padding var(--transition-fast), border-radius var(--transition-fast);
+}
+
+/* No search field to visually anchor content near the left edge, so the
+   base bar's --space-lg inline padding (sized for a search-bearing bar)
+   reads as a lot of dead air around a bare "Filters" label (live feedback:
+   "the no search variant of filter bar should have less space between
+   border and filter labels"). Every no-search-scoped calc() that
+   positions something off this bar's own left/right inset (cut-off line,
+   secondary-fields bleed, below) reads --filter-bar-inline-pad rather than
+   a literal --space-lg, so they stay correct automatically. */
+.filter-bar-no-search {
+    --filter-bar-inline-pad: var(--space-sm);
 }
 
 /* Stronger boundary once the bar is actually pinned to the top of the
@@ -542,7 +561,7 @@
        flat) too - full parity with the hub. */
     html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden]) {
         flex-grow: 1;
-        margin: 0 calc(-1 * var(--space-lg)) calc(-1 * var(--space-xs)) calc(-1 * var(--filter-bar-label-width, 0px) - var(--space-xs) - var(--space-lg));
+        margin: 0 calc(-1 * var(--filter-bar-inline-pad)) calc(-1 * var(--space-xs)) calc(-1 * var(--filter-bar-label-width, 0px) - var(--space-xs) - var(--filter-bar-inline-pad));
         padding-right: var(--space-sm);
     }
     /* .filter-bar-flat (Meetings only) - the category-strip header
@@ -709,10 +728,10 @@
         pointer-events: none;
     }
     html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::before {
-        left: calc(var(--space-lg) + var(--filter-bar-label-width, 0px) + var(--space-sm));
+        left: calc(var(--filter-bar-inline-pad) + var(--filter-bar-label-width, 0px) + var(--space-sm));
     }
     html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::after {
-        right: calc(var(--space-lg) + var(--filter-actions-right-width, 180px) + var(--space-sm));
+        right: calc(var(--filter-bar-inline-pad) + var(--filter-actions-right-width, 180px) + var(--space-sm));
     }
     html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-left::before {
         opacity: 1;
@@ -1126,6 +1145,16 @@ html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-
       will misalign against them -- fall back to plain there instead.
    4. Neither fits at all? -> Fall back to a plain label-above .field-group. */
 .filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); padding: var(--space-xs) 0; max-width: 200px; border: 1px solid transparent; transition: padding var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast); }
+/* .filter-bar-no-search only (live feedback, continuing the same "less
+   space between border and filter labels" pass) - .filter-bar-collapsible/
+   -inner are display: contents at every width but mobile (panel.css), so
+   these fields land as direct flex children of .filter-bar itself
+   alongside .filter-bar-sticky-row; the field's own top padding just adds
+   dead air above its label on top of .filter-bar's own gap: var(--space-xs)
+   between wrapped lines. Search-bearing bars keep the base padding - their
+   fields share a line with a taller Search input, where the top padding
+   keeps the label vertically balanced against it. */
+.filter-bar-no-search .filter-field { padding-top: 0; }
 /* Left, not centred: matches every other label in the app (.field-group
    label, .ui-fused-field-label - neither overrides text-align, both plain
    left) - .filter-field was the one place centering labels at all. Left also

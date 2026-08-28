@@ -391,6 +391,45 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
 .stats-strip--compact .stat-card .stat-value { font-size: var(--font-4xl); }
 .stats-strip--compact .stat-card .stat-label { font-size: var(--font-md); }
 
+/* Row layout (icon, then value + label/sublabel) instead of the base
+   centred column - live feedback: "style stat labels the same as the
+   [Inclusion Panel] homepage KPI cards, better use of space" (that
+   carousel's own row treatment, panel.css .stats-carousel-slot .stat-card,
+   trims the same dead vertical space these compact cards had). Overrides
+   the base rule's flex-direction:column/align-items:center/text-align:
+   center wholesale, same as the carousel's own version, rather than
+   layering on top of them. */
+.stats-strip--compact .stat-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    gap: var(--space-sm);
+}
+/* Overrides cards.css's base .stat-card-icon (position: absolute, top-right
+   corner) - that positioning only made sense against the centred column
+   layout; here it's a plain flex child of the row, same convention as the
+   carousel's own icon override. */
+.stats-strip--compact .stat-card-icon {
+    position: static;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+}
+.stats-strip--compact .stat-card-icon svg { width: 100%; height: 100%; }
+.stats-strip--compact .stat-card-text {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+.stats-strip--compact .stat-card .stat-value { flex-shrink: 0; }
+.stats-strip--compact .stat-card-label-group { min-width: 0; }
+.stats-strip--compact .stat-card .stat-label,
+.stats-strip--compact .stat-card-sublabel { margin-top: 0; }
+
 /* Color-coded accent cards — a full border in the strong accent colour plus
    a matching background tint and icon tie each card to its meaning. Uses
    the saturated --color-* token (not the muted --color-*-bg pill tint) so
@@ -499,6 +538,55 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
     padding: var(--space-md) var(--space-lg);
 }
 .breakdown-card h3 { margin: 0 0 var(--space-sm); font-size: var(--font-md); color: var(--text-primary); }
+/* Inclusion Panel Referrals card only - its own + New Referral button sits
+   in this row next to the h3, not the h3's own margin-bottom (live
+   feedback: "New Referral needs to be tied to the card, not the page" -
+   moved back from the page's sticky header zone). h3's own margin
+   collapses to 0 as this row's only text child instead of double-spacing
+   below the row. */
+.breakdown-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+.breakdown-card-header h3 { margin-bottom: 0; }
+/* Scoped to only the cards that actually contain a scrollable
+   .breakdown-card-body (By year group/school/area of need), not every
+   .breakdown-card (donut/gender/Inclusion Panel Referrals also use this
+   class but have no capped-height list to scroll). padding-bottom: 0 hands
+   all bottom space to the body wrapper below; overflow: hidden clips the
+   body's flush-to-the-edge scrollbar to the card's own rounded shape -
+   without it the body's square corner paints straight over the border's
+   inward curve near the corner, and the curve looks bitten off right where
+   the scrollbar sits (live feedback: "cant see full card border... looks
+   like its clipped"). */
+.breakdown-card:has(.breakdown-card-body) {
+    padding-bottom: 0;
+    overflow: hidden;
+}
+
+/* Cap runaway row counts (many year groups/schools/need categories) instead
+   of letting the card stretch the whole grid row (#grilling 2026-08-27).
+   Same bleed-and-clip technique Panel Home's cards use for their own
+   scrolling lists (panel.css .panel-list): the scroll region bleeds out to
+   the card's own left/right/bottom padding via negative margin so the
+   native scrollbar sits flush at the card's true edge instead of inset by
+   --space-lg, and the bottom corners are rounded to match the card's own
+   radius since overflow-x: hidden here clips the scrollbar's straight
+   corner off the card's rounded one otherwise. .breakdown-card's own
+   padding-bottom is dropped to 0 (above) so this is the only thing
+   providing bottom space, same as .panel-card/.panel-list. */
+.breakdown-card-body {
+    max-height: 360px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin: 0 calc(-1 * var(--space-lg));
+    padding: 0 var(--space-lg) var(--space-md);
+    border-bottom-left-radius: var(--radius-lg);
+    border-bottom-right-radius: var(--radius-lg);
+}
 .breakdown-row { margin-bottom: var(--space-sm); }
 .breakdown-row:last-child { margin-bottom: 0; }
 .breakdown-row-labels { display: flex; justify-content: space-between; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: var(--space-xxs); }

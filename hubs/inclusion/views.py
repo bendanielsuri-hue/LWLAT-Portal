@@ -288,12 +288,12 @@ def inclusion_hub(request):
     ehcp_pct = _pct(e_count, total_students)
 
     kpi_cards = [
-        {'label': 'Total Students', 'value': total_students, 'accent': 'neutral'},
-        {'label': 'SEND (K + E)', 'value': send_count, 'accent': 'neutral', 'sublabel': f'{send_pct}% of cohort'},
-        {'label': 'EHCP (E)', 'value': e_count, 'accent': 'primary', 'sublabel': f'{ehcp_pct}% of cohort'},
-        {'label': 'Referrals This Year', 'value': referrals_this_year, 'accent': 'positive'},
+        {'label': 'Total Students', 'value': total_students, 'accent': 'neutral', 'icon': 'icons/student_svg.html'},
+        {'label': 'SEND (K + E)', 'value': send_count, 'accent': 'neutral', 'sublabel': f'{send_pct}% of cohort', 'icon': 'icons/send_svg.html'},
+        {'label': 'EHCP (E)', 'value': e_count, 'accent': 'primary', 'sublabel': f'{ehcp_pct}% of cohort', 'icon': 'icons/diagnosis_svg.html'},
+        {'label': 'Referrals This Year', 'value': referrals_this_year, 'accent': 'positive', 'icon': 'icons/document_svg.html'},
         {'label': 'Overdue Referrals', 'value': overdue_referrals,
-         'accent': 'negative' if overdue_referrals else 'positive'},
+         'accent': 'negative' if overdue_referrals else 'positive', 'icon': 'icons/clock_svg.html'},
     ]
 
     referral_trend = _referral_trend(students)

@@ -3071,6 +3071,23 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .page-subtitle-stats {
     display: none;
 }
+/* SEND Hub dashboard has no h1/breadcrumbs above its filter bar - the
+   shared .sticky-header-zone padding-top (space-xl, layout.css) exists to
+   give breadcrumbs/title breathing room, which is dead space here. Zeroes
+   it so the filter bar sits flush at the very top of the page (live
+   feedback: "filter bar could be right at page top with no space
+   above"). */
+.sticky-header-zone--flush-top {
+    padding-top: 0;
+}
+/* Filter bar sits flush against the page's top edge here (no title/
+   breadcrumbs above it to round off against), so its top corners (base
+   .filter-bar rule, forms.css) would jut a rounded shape straight into a
+   square page edge - square them off, bottom corners stay rounded. */
+.sticky-header-zone--flush-top .filter-bar {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
 @media (max-width: 480px) {
     /* Symmetric 8px zone padding for Students only (live feedback: "more
        padding at top than bottom, can both be 8px" - was --space-md top/
@@ -4107,6 +4124,15 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            filters. This can be greatly reduced" - same scoped-not-shared
            reasoning as the padding trim just above. */
         gap: var(--space-xxs);
+    }
+    /* .filter-bar-no-search only - live feedback continuing the same "less
+       space" pass (forms.css's own .filter-bar-no-search .filter-field
+       rule already zeroes padding-top, but every no-search bar's fields
+       always land inside .filter-secondary-fields, whose own rule just
+       above has higher specificity and was still winning with
+       --space-xxs). */
+    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden]) .filter-field {
+        padding-top: 0;
     }
     /* white-space: normal (not forms.css's own nowrap/ellipsis default) -
        live feedback: "make labels take up two lines like we did with stat
