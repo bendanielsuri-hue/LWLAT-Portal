@@ -154,6 +154,16 @@ Menu switcher instead - see its own comment below.
     <button type="button" class="mobile-tab-fab" aria-label="New Referral" data-mobile-proxy-click="[data-new-referral-trigger]">
         {% include 'icons/new_svg.html' %}
     </button>
+    {% comment %}
+    Icon source for the FAB "wheel" (#143, see the <script> below) — a page
+    with more than one create-action (today: Panel Meetings, which has both
+    this and its own "New Panel Meeting") needs each wheel option to carry
+    its own icon. Hidden templates rather than hardcoded SVG strings in JS
+    so the icon markup has one source of truth (templates/icons/*.html),
+    same as everywhere else in the app.
+    {% endcomment %}
+    <template id="mobile-fab-icon-meeting">{% include 'icons/clock_svg.html' %}</template>
+    <template id="mobile-fab-icon-referral">{% include 'icons/people_svg.html' %}</template>
     {% endif %}
     {% comment %}
     In-app content search (data-panel-search-trigger, e.g. students/
@@ -343,7 +353,7 @@ Menu switcher instead - see its own comment below.
             box-shadow: 0 0 0 4px var(--bg-nav), 0 0 0 5px var(--border-strong), var(--shadow-lg);
             cursor: pointer;
         }
-        .mobile-tab-fab svg { width: 26px; height: 26px; display: block; }
+        .mobile-tab-fab svg { width: 26px; height: 26px; display: block; transition: transform var(--transition-base); }
         .mobile-tab-fab:active { background: var(--btn-add-hover-bg); }
         /* Hub Menu variant (hide_mobile_fab pages) - primary-coloured
            (same tokens as any other btn-primary) rather than the Add
@@ -354,6 +364,113 @@ Menu switcher instead - see its own comment below.
             color: #fff;
         }
         .mobile-tab-fab-nav:active { background: var(--btn-primary-hover-bg); }
+
+        {% comment %}
+        Mobile FAB "wheel" (#143): on a page with more than one create-action
+        (today: Panel Meetings), a bare "+" doesn't say which one it makes.
+        Tapping it flares open a small arc of labelled options above it
+        instead of guessing on the first tap — see the matching JS below.
+        Geometry/behaviour validated round-by-round via a throwaway
+        prototype (static/js/prototype-fab-143.js, now removed — see the
+        #143 wayfinder ticket for that trail; the prototype itself lives on
+        a throwaway branch per the prototype skill's own convention).
+        Pages with exactly one action are untouched — the plain
+        data-mobile-proxy-click binder above already covers them.
+        {% endcomment %}
+        .mobile-tab-fab-wheel-open svg { transform: rotate(45deg); }
+        .mobile-fab-wheel-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 30; /* below .mobile-tabbar's 40 — the FAB/tabbar itself stays undimmed, giving it focus */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+        }
+        .mobile-fab-wheel-scrim.open { opacity: 1; pointer-events: auto; }
+        {% comment %}
+        Invisible native-scroll strip — pure gesture/physics surface (real
+        touch momentum/snap, mouse click-and-drag, mouse-wheel all wired
+        below), not intended to be seen. A generous height (much taller than
+        the arc itself needs) makes it easy to catch with a thumb or a mouse
+        drag anywhere near the icons.
+        {% endcomment %}
+        .mobile-fab-wheel-strip {
+            position: fixed;
+            left: 0; right: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            overscroll-behavior-x: contain;
+            display: flex;
+            z-index: 35;
+            opacity: 0;
+            pointer-events: none;
+            cursor: grab;
+        }
+        .mobile-fab-wheel-strip.open { opacity: 1; }
+        .mobile-fab-wheel-strip.dragging { cursor: grabbing; scroll-snap-type: none; }
+        .mobile-fab-wheel-hit { flex: 0 0 auto; scroll-snap-align: center; height: 100%; }
+        {% comment %}
+        Visual layer — what's actually seen, decorative only, positioned by
+        JS every frame while open. z-index kept below .mobile-tabbar's 40 on
+        purpose: icons swinging out toward the sides should slide under the
+        bottom bar/FAB, not float on top of it.
+        {% endcomment %}
+        .mobile-fab-wheel-item {
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translate(-50%, -50%);
+            z-index: 34;
+            opacity: 0;
+            pointer-events: none;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .mobile-fab-wheel-circle {
+            width: 54px; height: 54px;
+            border-radius: var(--radius-pill);
+            background: var(--btn-add-bg);
+            color: var(--btn-add-text);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--shadow-lg);
+        }
+        .mobile-fab-wheel-circle svg { width: 22px; height: 22px; }
+        .mobile-fab-wheel-chip {
+            margin-top: 8px;
+            min-width: 54px;
+            box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.65);
+            color: #fff;
+            padding: 3px 9px;
+            border-radius: var(--radius-pill);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            display: flex; flex-direction: column; align-items: center;
+            line-height: 1.15;
+            white-space: nowrap;
+        }
+        .mobile-fab-wheel-chip-new { font-size: 9px; font-weight: 600; opacity: 0.8; }
+        .mobile-fab-wheel-chip-name { font-size: 11px; font-weight: 700; }
+        {% comment %}
+        Scroll-progress indicator — a real SVG arc (stroke-linecap:round
+        gives proper rounded ends for free), concentric with the FAB and the
+        wheel icons, sized in JS so it clears the icon row at every point
+        along its curve, not just at its centre. Only shown at all when
+        there are more actions than fit on screen at once (JS toggles
+        display: none otherwise, e.g. today's 2-action Meetings case).
+        {% endcomment %}
+        .mobile-fab-wheel-ring {
+            position: fixed;
+            z-index: 34;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.12s ease;
+        }
+        .mobile-fab-wheel-ring.open { opacity: 1; }
+        .mobile-fab-wheel-ring-track { fill: none; stroke: rgba(255, 255, 255, 0.18); stroke-linecap: round; }
+        .mobile-fab-wheel-ring-thumb { fill: none; stroke: #fff; stroke-linecap: round; }
     }
 
     {% comment %}
@@ -840,6 +957,314 @@ Menu switcher instead - see its own comment below.
             var real = document.querySelector(btn.dataset.mobileProxyClick);
             if (real) real.click();
         });
+    });
+
+    // Mobile FAB "wheel" (#143) — see the matching CSS above for the full
+    // context/rationale. Only activates once there's more than one
+    // create-action on the page; otherwise the plain proxy-click binder
+    // just above already covers the FAB. Deferred to DOMContentLoaded (not
+    // run inline like the rest of this script) because the page's own
+    // create-action triggers (data-create-panel-trigger,
+    // data-new-referral-trigger) live inside <main>, which renders AFTER
+    // this sidebar partial — checking for them immediately here always
+    // found zero, since <main> hadn't been parsed yet.
+    document.addEventListener('DOMContentLoaded', function () {
+        var fab = document.querySelector('.mobile-tab-fab:not(.mobile-tab-fab-nav)');
+        if (!fab) return;
+        // The tabbar (and this FAB) is always in the DOM but only visible
+        // below 479px (CSS) - the rest of this script gets away without
+        // checking that because it only attaches listeners to elements
+        // already inside that hidden subtree. This one is different: it
+        // creates brand-new elements appended straight to <body>, outside
+        // that subtree, so without this guard they showed up as plain
+        // unstyled rows at the bottom of the page on desktop.
+        if (!window.matchMedia('(max-width: 479px)').matches) return;
+
+        function iconHTML(templateId) {
+            var t = document.getElementById(templateId);
+            return t ? t.innerHTML : '';
+        }
+        var ACTION_DEFS = [
+            { proxy: '[data-create-panel-trigger]', label: 'Meeting', iconTemplate: 'mobile-fab-icon-meeting' },
+            { proxy: '[data-new-referral-trigger]', label: 'Referral', iconTemplate: 'mobile-fab-icon-referral' }
+        ];
+        var ACTIONS = ACTION_DEFS.filter(function (a) { return !!document.querySelector(a.proxy); });
+
+        if (ACTIONS.length <= 1) {
+            // Nothing to choose between - the default data-mobile-proxy-click
+            // already on the FAB handles the one-action case, but keep its
+            // label in sync in case that one action isn't Referral one day.
+            if (ACTIONS.length === 1) {
+                fab.setAttribute('data-mobile-proxy-click', ACTIONS[0].proxy);
+                fab.setAttribute('aria-label', 'New ' + ACTIONS[0].label);
+            }
+            return;
+        }
+        fab.removeAttribute('data-mobile-proxy-click');
+        fab.setAttribute('aria-label', 'Create');
+
+        var ITEM_W = 54, GAP = 32, STEP = ITEM_W + GAP;
+        var RADIUS = 100;
+        var FADE_START_DEG = 55, FADE_END_DEG = 100;
+        var STRIP_HEIGHT = 320;
+        // Whether every action can already be seen fully opaque at once,
+        // with nothing scrolled off - the real test for "is a scrollbar
+        // even needed", not raw native scroll capability (which is nonzero
+        // even for 2 items, since the strip's padding deliberately lets
+        // either one be individually centered under the FAB).
+        var totalSpanDeg = (ACTIONS.length - 1) * STEP / RADIUS * 180 / Math.PI;
+        var ALL_ITEMS_FIT = totalSpanDeg <= FADE_START_DEG * 2;
+
+        // Progress-ring geometry: concentric with the FAB, radius solved so
+        // the whole visible arc - sides included, which sag lower than the
+        // apex - keeps the same minimum clearance above the icon row.
+        var ICON_OUTER_RADIUS = RADIUS + 27; // wheel items' own radius + half their circle
+        var CLEARANCE = 7;
+        var MIN_CLEAR_RADIUS = ICON_OUTER_RADIUS + CLEARANCE;
+        var STROKE_W = 3;
+        var RING_W = 0, RING_H = 0, BIG_R = 0;
+
+        var scrim = document.createElement('div');
+        scrim.className = 'mobile-fab-wheel-scrim';
+        document.body.appendChild(scrim);
+
+        var svgNS = 'http://www.w3.org/2000/svg';
+        var ring = document.createElementNS(svgNS, 'svg');
+        ring.setAttribute('class', 'mobile-fab-wheel-ring');
+        var track = document.createElementNS(svgNS, 'path');
+        track.setAttribute('class', 'mobile-fab-wheel-ring-track');
+        track.setAttribute('stroke-width', STROKE_W);
+        var thumb = document.createElementNS(svgNS, 'path');
+        thumb.setAttribute('class', 'mobile-fab-wheel-ring-thumb');
+        thumb.setAttribute('stroke-width', STROKE_W);
+        ring.appendChild(track);
+        ring.appendChild(thumb);
+        document.body.appendChild(ring);
+
+        // y on the arc at local x (0..RING_W) - the circle's center-x is
+        // always RING_W/2 by construction, center-y is BIG_R (so the apex,
+        // at x=RING_W/2, lands at local y=0).
+        function arcY(x) {
+            var dx = x - RING_W / 2;
+            return BIG_R - Math.sqrt(Math.max(0, BIG_R * BIG_R - dx * dx));
+        }
+        // sweep-flag 1 (clockwise on screen) traces the arc from a left
+        // point, up through the apex, back down to a right point.
+        function arcPath(x1, x2) {
+            return 'M' + x1 + ',' + arcY(x1) + ' A' + BIG_R + ',' + BIG_R + ' 0 0 1 ' + x2 + ',' + arcY(x2);
+        }
+
+        var strip = document.createElement('div');
+        strip.className = 'mobile-fab-wheel-strip';
+        document.body.appendChild(strip);
+
+        var hits = ACTIONS.map(function (a, i) {
+            var hit = document.createElement('div');
+            hit.className = 'mobile-fab-wheel-hit';
+            hit.style.width = ITEM_W + 'px';
+            // No trailing margin on the very last hit - the padding-based
+            // scroll cap below assumes exactly (n-1) gaps between items.
+            if (i < ACTIONS.length - 1) hit.style.marginRight = GAP + 'px';
+            strip.appendChild(hit);
+            return hit;
+        });
+
+        var visuals = ACTIONS.map(function (a) {
+            var el = document.createElement('button');
+            el.type = 'button';
+            el.className = 'mobile-fab-wheel-item';
+            el.setAttribute('aria-label', 'New ' + a.label);
+            el.innerHTML = '<span class="mobile-fab-wheel-circle">' + iconHTML(a.iconTemplate) + '</span>' +
+                '<span class="mobile-fab-wheel-chip"><span class="mobile-fab-wheel-chip-new">New</span>' +
+                '<span class="mobile-fab-wheel-chip-name">' + a.label + '</span></span>';
+            document.body.appendChild(el);
+            el.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setOpen(false);
+                var real = document.querySelector(a.proxy);
+                if (real) real.click();
+            });
+            return el;
+        });
+
+        var didDrag = false;
+        hits.forEach(function (hit, i) {
+            hit.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (didDrag) return;
+                visuals[i].click();
+            });
+        });
+        // Tapping the strip anywhere that isn't a hit (the gaps between
+        // icons, or the padding either side) closes the wheel.
+        strip.addEventListener('click', function (e) {
+            if (didDrag) return;
+            if (e.target === strip) setOpen(false);
+        });
+
+        // Mouse click-and-drag to scroll - touch gets this for free from
+        // the browser, but a mouse doesn't scroll on drag by default.
+        var dragActive = false, dragStartX = 0, dragStartScroll = 0;
+        strip.addEventListener('mousedown', function (e) {
+            dragActive = true;
+            didDrag = false;
+            dragStartX = e.pageX;
+            dragStartScroll = strip.scrollLeft;
+            strip.classList.add('dragging');
+        });
+        window.addEventListener('mousemove', function (e) {
+            if (!dragActive) return;
+            var dx = e.pageX - dragStartX;
+            if (Math.abs(dx) > 4) didDrag = true;
+            strip.scrollLeft = dragStartScroll - dx;
+        });
+        window.addEventListener('mouseup', function () {
+            if (!dragActive) return;
+            dragActive = false;
+            strip.classList.remove('dragging');
+            setTimeout(function () { didDrag = false; }, 0);
+        });
+        // Vertical mouse-wheel over a horizontally-scrolling element isn't
+        // remapped to horizontal scroll by every browser - do it explicitly.
+        strip.addEventListener('wheel', function (e) {
+            if (!open) return;
+            e.preventDefault();
+            strip.scrollLeft += (e.deltaY !== 0 ? e.deltaY : e.deltaX);
+        }, { passive: false });
+
+        var open = false;
+        var raf = null;
+
+        function fabCenter() {
+            var rect = fab.getBoundingClientRect();
+            return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        }
+
+        function layoutStrip() {
+            var center = fabCenter();
+            strip.style.height = STRIP_HEIGHT + 'px';
+            strip.style.top = (center.y - STRIP_HEIGHT / 2) + 'px';
+            // Front is only ever allowed to be index 1..(N-2) - never the
+            // true first/last item, which only have one neighbour and drop
+            // the visible count to 2.
+            var n = ACTIONS.length;
+            var minFrontIndex = n > 2 ? 1 : 0;
+            var maxFrontIndex = n > 2 ? n - 2 : n - 1;
+            var naturalPaddingLeft = center.x - ITEM_W / 2;
+            var naturalPaddingRight = window.innerWidth - center.x - ITEM_W / 2;
+            strip.style.paddingLeft = Math.max(0, naturalPaddingLeft - minFrontIndex * STEP) + 'px';
+            var stepsClampedRight = (n - 1) - maxFrontIndex;
+            strip.style.paddingRight = Math.max(0, naturalPaddingRight - stepsClampedRight * STEP) + 'px';
+
+            // Darkest right at the FAB, fading out toward the edges of the
+            // screen - draws the eye to where the action actually is.
+            scrim.style.background = 'radial-gradient(circle ' + Math.round(center.y) + 'px at ' +
+                center.x + 'px ' + center.y + 'px, ' +
+                'rgba(0,0,0,.88) 0%, rgba(0,0,0,.6) 60%, rgba(0,0,0,.4) 100%)';
+
+            sizeRing();
+            // Shifted back by STROKE_W to match the viewBox's own -pad
+            // origin (sizeRing) - local (0,0) still lands on the FAB's own
+            // apex point.
+            ring.style.left = (center.x - RING_W / 2 - STROKE_W) + 'px';
+            ring.style.top = (center.y - BIG_R - STROKE_W) + 'px';
+        }
+
+        function sizeRing() {
+            RING_W = window.innerWidth * 0.7;
+            var halfW = RING_W / 2;
+            // At the window's edge, the circle's own y-radius (measured
+            // from its center) must be at least MIN_CLEAR_RADIUS - solving
+            // that for BIG_R guarantees the edges (the lowest, tightest
+            // points of the arc) hold the same clearance the apex does.
+            BIG_R = Math.sqrt(halfW * halfW + MIN_CLEAR_RADIUS * MIN_CLEAR_RADIUS);
+            RING_H = BIG_R - MIN_CLEAR_RADIUS;
+            var pad = STROKE_W; // room for the stroke/round caps to not clip against the SVG's own edge
+            ring.setAttribute('width', RING_W + pad * 2);
+            ring.setAttribute('height', RING_H + pad * 2);
+            ring.setAttribute('viewBox', -pad + ' ' + -pad + ' ' + (RING_W + pad * 2) + ' ' + (RING_H + pad * 2));
+            ring.style.width = (RING_W + pad * 2) + 'px';
+            ring.style.height = (RING_H + pad * 2) + 'px';
+            track.setAttribute('d', arcPath(0, RING_W));
+        }
+
+        function render() {
+            var center = fabCenter();
+            var scrollLeft = strip.scrollLeft;
+            var stripRect = strip.getBoundingClientRect();
+            visuals.forEach(function (item, i) {
+                var naturalX = stripRect.left + parseFloat(strip.style.paddingLeft) +
+                    i * STEP + ITEM_W / 2 - scrollLeft;
+                var offset = naturalX - center.x;
+                var angleRad = offset / RADIUS;
+                var angleDeg = Math.abs(angleRad * 180 / Math.PI);
+                var x = center.x + Math.sin(angleRad) * RADIUS;
+                var y = center.y - Math.cos(angleRad) * RADIUS;
+                var fade = 1;
+                if (angleDeg > FADE_END_DEG) fade = 0;
+                else if (angleDeg > FADE_START_DEG) fade = 1 - (angleDeg - FADE_START_DEG) / (FADE_END_DEG - FADE_START_DEG);
+                item.style.left = x + 'px';
+                item.style.top = y + 'px';
+                item.style.opacity = fade;
+                item.style.pointerEvents = fade > 0.4 ? 'auto' : 'none';
+            });
+
+            // Nothing meaningful to scroll (everything already fits at
+            // once, e.g. only 2 actions) - no scrollbar needed at all, and
+            // no point letting the strip intercept drags for a no-op
+            // scroll either.
+            var scrollable = !ALL_ITEMS_FIT;
+            ring.style.display = scrollable ? '' : 'none';
+            strip.style.pointerEvents = (open && scrollable) ? 'auto' : 'none';
+            if (!scrollable) return;
+
+            // A real scrollbar thumb - sized to the fraction of content
+            // actually visible, sliding along the track.
+            var maxScroll = strip.scrollWidth - strip.clientWidth;
+            // Snap to the true ends within a couple of px - scrollWidth/
+            // clientWidth/scrollLeft can be fractional.
+            var progress = 0;
+            if (maxScroll > 0) {
+                if (scrollLeft <= 2) progress = 0;
+                else if (scrollLeft >= maxScroll - 2) progress = 1;
+                else progress = scrollLeft / maxScroll;
+            }
+            var visibleFraction = Math.min(1, strip.clientWidth / strip.scrollWidth);
+            var thumbW = Math.max(RING_H, RING_W * visibleFraction);
+            var thumbLeft = progress * (RING_W - thumbW);
+            thumb.setAttribute('d', arcPath(thumbLeft, thumbLeft + thumbW));
+        }
+
+        function scheduleRender() {
+            if (raf) return;
+            raf = requestAnimationFrame(function () { raf = null; render(); });
+        }
+
+        function setOpen(next) {
+            open = next;
+            scrim.classList.toggle('open', open);
+            strip.classList.toggle('open', open);
+            ring.classList.toggle('open', open);
+            fab.classList.toggle('mobile-tab-fab-wheel-open', open);
+            visuals.forEach(function (v) {
+                v.style.opacity = open ? v.style.opacity : 0;
+                v.style.pointerEvents = open ? v.style.pointerEvents : 'none';
+            });
+            if (open) {
+                closeEverythingMobile();
+                layoutStrip();
+                strip.scrollLeft = 0;
+                render();
+            }
+        }
+
+        strip.addEventListener('scroll', scheduleRender, { passive: true });
+        fab.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setOpen(!open);
+        });
+        scrim.addEventListener('click', function () { setOpen(false); });
+        window.addEventListener('resize', function () { if (open) { layoutStrip(); render(); } });
     });
 
     // Search: in-app content search wins over the global hub-switcher
