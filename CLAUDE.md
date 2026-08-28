@@ -1,4 +1,5 @@
 - When Reporting information to me, be extremely consise and sacrifice grammar for the sake of concision
+- Prefer recording durable project knowledge (gotchas, conventions, non-obvious rationale) in this file or another repo doc over agent memory — memory is local to one machine/user and not shared with the team or other agents working in this repo; this file is.
 
 # TestProject — Django MAT Portal
 
@@ -70,6 +71,7 @@ Domain vocabulary and mechanism for `Module` (rollout/visibility cascade), the d
 - `posts` was removed from `INSTALLED_APPS` (mysite/settings.py): it had no app on disk and crashed `manage.py runserver` outright. If reintroducing it, create the app first.
 - Root URL `/` is wired directly to `mat.views.mat_home` in `mysite/urls.py` (not via `mysite/views.py`, which is otherwise unused).
 - **Django's `{# ... #}` comment tag is single-line only** — if the comment text wraps onto a second line, Django doesn't parse it as a comment at all and renders it as literal visible text on the page instead (this has actually happened and shipped, e.g. `hubs/inclusion/panel/templates/hubs/inclusion/panel/_referral_form_fields.html`). Any comment explaining more than one line's worth of "why" — which most of this codebase's comments do — must use the block form instead: `{% comment %}...{% endcomment %}`. Reach for `{# ... #}` only for a genuinely single-line, single-sentence note.
+- **`static/css/style.css` is a manually cache-busted `@import` chain** (`@import "layout/layout.css?v=35";`, one per file) — editing any file it imports does nothing in the browser until that file's own `?v=N` is bumped in `style.css`. `style.css` itself is also linked with its own `?v=330` in `templates/layout.html` (~line 104), and since editing an `@import` line changes `style.css`'s own content, that outer `?v=` needs bumping too on the same change — bump both, not just one, or the browser keeps serving a stale cached copy and a correct-looking CSS fix will appear to do nothing.
 
 ## Design Language
 
@@ -103,7 +105,7 @@ Apps with real, non-obvious domain vocabulary get a `CONTEXT.md` glossary alongs
 
 ## Verifying UI changes
 
-Ask before using the Playwright MCP browser tools to visually verify a change — don't reach for them by default. The user can usually eyeball a UI/layout change themselves against the running dev server; offer Playwright as an option rather than driving the browser automatically. Reserve unprompted Playwright use for cases where self-verification genuinely isn't practical.
+Don't use the Playwright MCP browser tools — the user checks UI/layout changes themselves against the running dev server. Reason from the CSS/box model and report the change made; don't drive a browser to self-verify.
 
 ## Diagnosing perf issues
 

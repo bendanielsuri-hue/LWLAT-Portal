@@ -232,7 +232,15 @@ html, body {
 
 .side-nav .nav-header {
     flex-shrink: 0;
-    padding: var(--space-2xl) var(--space-lg) var(--space-md);
+    /* Top was --space-lg (20px), matching .sticky-header-zone's own top
+       padding directly - but .nav-header-top-row's own -8px margin-top +
+       this container's 12px (--space-sm) gap before .exit-hub nets +4px on
+       top of that padding (the collapse-toggle row still occupies that gap
+       even though the button itself is display:none on desktop), so
+       .exit-hub actually landed 4px lower than .breadcrumbs despite the
+       equal padding value. --space-md (16px) here cancels that +4px out so
+       "SEND & Provision" and the breadcrumb trail land on the same y. */
+    padding: var(--space-md) var(--space-lg) var(--space-md);
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
@@ -311,23 +319,79 @@ html, body {
 }
 .side-nav:not(.collapsed) .exit-hub .menu-label {
     opacity: 1;
-    font-size: var(--font-md);
+    /* Matches .breadcrumbs' own font-size (navigation.css) - the two are the
+       same kind of "where am I" wayfinding text, one per layout tree, so
+       they should read as the same size rather than two different scales.
+       font-weight/colour still differ though - exit-hub stays 600/
+       text-secondary (its own "small heading above the title" look) rather
+       than matching a breadcrumb link's 400/active-text, since it isn't one
+       of a chain of crumbs. */
+    font-size: var(--font-sm);
     font-weight: 600;
     color: var(--text-secondary);
+    /* inline-block so the hover fill below hugs the text as a chip, matching
+       .breadcrumbs a's own shape, rather than a full-width band. padding
+       matches .breadcrumbs a's own 3px 8px exactly (was 0 8px - horizontal
+       only) and line-height overrides the shared .side-nav .menu-label's
+       fixed 22px (tuned for a different, unpadded row) back to the same 1.4
+       breadcrumbs uses - between the two, this row's real height now lands
+       on breadcrumbs' own ~24px rather than needing to be reasoned about
+       separately. vertical-align: top removes a CSS quirk this display
+       change otherwise triggers: an inline-block child sits in an invisible
+       "strut" line box sized off the *parent's* font metrics, and default
+       baseline alignment reserves extra space below it for that strut's
+       descender - without this override the row measured 27px instead of
+       the ~24px the padding+line-height alone would suggest. */
+    display: inline-block;
+    vertical-align: top;
+    padding: 3px 8px;
+    line-height: 1.4;
+    border-radius: var(--radius-pill);
+}
+/* Same hover treatment as .breadcrumbs a:hover (navigation.css) - primary-
+   light fill + active-text colour + the fake-bold text-shadow trick (not a
+   real weight change, though this label is already 600 at rest so there's
+   no wrap risk here either way - kept for the identical hover recipe). */
+.side-nav:not(.collapsed) .exit-hub:hover .menu-label,
+.side-nav:not(.collapsed) .exit-hub:focus-visible .menu-label {
+    background: var(--primary-light);
+    color: var(--active-text);
+    text-shadow: var(--hover-fake-bold);
 }
 .side-nav:not(.collapsed) .exit-hub:hover,
 .side-nav:not(.collapsed) .exit-hub:focus-visible {
     background: transparent;
     transform: none;
 }
-.side-nav:not(.collapsed) .exit-hub:hover .menu-label,
-.side-nav:not(.collapsed) .exit-hub:focus-visible .menu-label {
-    color: var(--active-text);
-}
-/* Pulls .nav-title closer to the exit-hub label so the two read as one stacked
-   title pair */
+/* Pulls .nav-title closer to the exit-hub label so the two read as one
+   stacked title pair, and lands "Inclusion Panel" on the same y as the page
+   h1 (verified via Playwright measurement, not estimated).
+
+   Every prior value here was tuned while missing one fact: .nav-header is
+   `display:flex; flex-direction:column; gap: var(--space-sm)` (12px) - that
+   gap applies BETWEEN .exit-hub and .nav-title in addition to whatever
+   margin-top is set here, since flex `gap` and a child's own margin both
+   contribute independently. The main content's .breadcrumbs -> h1 pair has
+   no such gap (plain block flow), so matching the two trees' margin
+   *values* never produced matching visual gaps - the sidebar always had
+   12px baked in on top.
+
+   Now that .exit-hub's own row matches .breadcrumbs' height exactly (24px
+   each, both padding: 3px 8px + line-height: 1.4 - see .exit-hub .menu-label
+   above), the two trees are symmetric: exit-hub bottom == breadcrumbs
+   bottom == 44.19, h1 top = 38.19 (margin -6px). Solving
+   44.19 + 12 (gap) + margin = 38.19 gives margin = -18 for exact alignment;
+   -16px nudges 2px of that back in as deliberate breathing room (live
+   feedback), at the cost of the exact h1 alignment (now ~2px lower than
+   the page title).
+
+   The "titles collide on hover" report that briefly pushed this to -10px
+   turned out to be a different, unrelated bug - the global rail's own
+   tooltip card (not this margin) overlapping the sidebar header when
+   hovering the rail's top icon. See #<ticket> for that; reverted this back
+   to -16px since it wasn't actually the cause. */
 .side-nav:not(.collapsed) .exit-hub + .nav-title {
-    margin-top: -6px;
+    margin-top: -16px;
 }
 /* Touch/tablet's temporary single-rail expand (.touch-expanded, main.js
    openTouchExpand) shows every other row as icon+label (Hubs stand-in,
@@ -367,12 +431,15 @@ html, body {
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
-    padding: var(--space-xxs) var(--space-lg);
+    gap: var(--space-xs);
+    /* Horizontal was --space-md (16px) - trimmed to --space-sm alongside the
+       .nav-menu a padding trim above, both chasing the same "Provision &
+       Strategies" wrap. */
+    padding: var(--space-xxs) var(--space-sm);
 }
 .side-nav .nav-footer {
     flex-shrink: 0;
-    padding: var(--space-md) var(--space-lg) var(--space-xl);
+    padding: var(--space-md) var(--space-lg) var(--space-lg);
 }
 
 /* .nav-stack groups the overlay panels with the hub sidebar as a single flex
@@ -953,13 +1020,23 @@ main { position: relative; }
     font-size: var(--font-4xl);
     color: var(--text-primary);
     font-weight: 700;
+    /* Was the global 1.4 (layout.css:46) - fine for one line, but a hub
+       name that wraps to two (e.g. "SEND & Provision") read as loosely
+       spaced rather than one dense title block. */
+    line-height: 1.15;
 }
 /* .hub-side only - not the Hub Menu overlay's "LWLAT Portal" title, which
    shares this same .nav-title class. Matches the active hub icon's colour
    in the rail (#131, .hub-rail-item.active) - the hub's own name in its
-   sidebar header reads as the same purple as the icon that got you here. */
+   sidebar header reads as the same purple as the icon that got you here.
+   font-size is scoped the same way, matching .page-heading h1's own
+   --font-5xl (navigation.css) - the hub sidebar's own "page title"
+   shouldn't read at a different scale than the page title it sits next to,
+   but the Hub Menu overlay's title is a different kind of heading and keeps
+   the base --font-4xl above. */
 .side-nav.hub-side .nav-title {
     color: var(--primary);
+    font-size: var(--font-5xl);
 }
 .nav-title-link {
     display: block;
@@ -981,7 +1058,12 @@ main { position: relative; }
 
 .side-nav .nav-menu {
     flex: 1;
-    gap: 0;
+    /* Was 0 - adjacent rows' hover/active pill fills touched edge-to-edge
+       with nothing between them, so a hovered row and the active row right
+       next to it could read as one merged block. A hairline gap keeps every
+       row's fill visually separate no matter which combination is
+       hovered/active at once. */
+    gap: var(--space-xxs);
 }
 
 .side-nav a,
@@ -1062,14 +1144,13 @@ main { position: relative; }
     transform: none;
 }
 
-/* Left-edge accent bar for hover/selected state on every selectable row -
-   excludes .hub-rail-item (#131): the rail's own hub icons now signal
+/* Left-edge accent bar for hover/selected state on the school/staff
+   switcher rows only - the hub sidebar's own .nav-menu links (and the
+   matching Hub Menu switcher list) instead use a row background pill fill
+   below, matching the global rail's icon-pill hover convention. Still
+   excludes .hub-rail-item (#131): the rail's own hub icons signal
    hover/selected via a background tint and the tab-link seam-fill instead
-   (below), not this bar - the bar reads fine against a label-and-icon row
-   but competes with the icon-only rail's already-tight 56px column, and
-   duplicates the seam-fill's own "this hub is selected" signal once a
-   hub is active. */
-.side-nav a:not(.nav-row-btn):not(.hub-rail-item)::before,
+   (below), not this bar. */
 .side-nav .school-nav-option::before,
 .side-nav .staff-nav-option::before {
     content: '';
@@ -1085,11 +1166,50 @@ main { position: relative; }
     transform-origin: center;
     transition: opacity var(--transition-base), background-color var(--transition-base), transform var(--transition-pop);
 }
-.side-nav a:not(.nav-row-btn):not(.hub-rail-item):hover::before,
 .side-nav .school-nav-option:hover::before,
 .side-nav .staff-nav-option:hover::before {
     opacity: 1;
     transform: scaleY(1);
+}
+/* Row background pill fill for the hub sidebar's own local menu (and the
+   matching Hub Menu switcher list, which shares .nav-menu) - same neutral
+   --bg-rail fill the global rail's icon pill and the collapsed local rail
+   already use (opposite token to the sidebar's own --bg-nav background, see
+   .side-nav.collapsed .menu-icon comment below), not a primary-colour fill
+   (DES-F1: selection state never gets a primary fill). Replaces the old
+   left accent-bar rectangle for these rows - unifies with the rail's own
+   updated hover treatment and frees the left inset that bar needed.
+   Active keeps its own inset accent bar (--accent-border, same device
+   .entity-row.chosen uses) on top of the shared fill so a resting selected
+   row still reads as distinct from a merely-hovered one, not just the same
+   flat pill twice.
+
+   Active specifically uses --primary-light (a subtle primary-tinted fill,
+   not the neutral --bg-rail hover uses) rather than an accent bar - live
+   feedback preferred a coloured fill read over a left-edge bar for this
+   row. Hover stays on the neutral token so the two states can't be
+   confused with each other. */
+/* :not(.collapsed) on all of these - the icon-only rail (tablet width, or a
+   manually collapsed desktop sidebar) has its own separate pill-fill
+   treatment below (.side-nav.collapsed .menu-icon etc.), sized to the 44px
+   icon itself. These full-row styles bled into that rail too until now,
+   stacking their own padding/border/fill on top of the icon's own pill and
+   inflating row height + drawing a second, oversized box around it (#144-
+   ish - "rail spacing is messed up" in tablet mode). */
+.side-nav:not(.collapsed) .nav-menu a:hover {
+    background: var(--bg-rail);
+}
+.side-nav:not(.collapsed) .nav-menu a.active {
+    background: var(--primary-light);
+    color: var(--active-text);
+    text-shadow: var(--hover-fake-bold);
+}
+/* Hovering the already-active row must still show tactile feedback, not
+   look identical to its resting state (same trap as .meeting-card.chosen -
+   see feedback_selection_state_no_primary_fill memory, round 5) - a touch
+   darker than the resting primary-light fill rather than a second tone. */
+.side-nav:not(.collapsed) .nav-menu a.active:hover {
+    background: color-mix(in srgb, var(--primary-light) 80%, var(--primary) 20%);
 }
 
 /* var(--active-text), not var(--primary) directly, for icon+label+bar alike
@@ -1101,7 +1221,6 @@ main { position: relative; }
    yellow needed this because bright-gold vs dark-gold reads as two
    different hues, but the split existed (and was just as inconsistent,
    only less visible) for every other accent too. */
-.side-nav a:not(.nav-row-btn):not(.hub-rail-item).active,
 .side-nav .school-nav-option.selected,
 .side-nav .staff-nav-option.selected {
     color: var(--active-text);
@@ -1111,7 +1230,6 @@ main { position: relative; }
        for as long as that page is current, not just a passing flicker. */
     text-shadow: var(--hover-fake-bold);
 }
-.side-nav a:not(.nav-row-btn).active::before,
 .side-nav .school-nav-option.selected::before,
 .side-nav .staff-nav-option.selected::before {
     opacity: 1;
@@ -1158,14 +1276,39 @@ main { position: relative; }
 .side-nav.collapsed .staff-nav-option.selected {
     color: var(--primary);
 }
-.side-nav.collapsed a:not(.nav-row-btn):not(.hub-rail-item)::before,
 .side-nav.collapsed .school-nav-option::before,
 .side-nav.collapsed .staff-nav-option::before {
     display: none;
 }
 
-.side-nav .nav-menu a {
-    padding: 11px 14px;
+.side-nav:not(.collapsed) .nav-menu a {
+    /* Vertical was 11px, and .menu-icon's shared 28px box (below) had 2px
+       of empty space above/below its actual 26px icon - together that put
+       this row at ~52px tall against the global rail's 44px pill, visibly
+       more spaced despite looking like "the same menu" one level down.
+       8px padding + a 26px icon box (scoped override below, not the shared
+       .menu-icon - that class also sizes school/staff/footer rows, which
+       weren't part of this ask) + the 1px reserved border on each edge
+       lands this row at the same 44px as the rail. */
+    /* Horizontal was 14px each side - trimmed to --space-xs (8px, matching
+       vertical) since a label like "Provision & Strategies" was wrapping to
+       two lines partly because of this padding eating into the row's
+       available width, on top of the fixed 240px sidebar (layout.css:86)
+       and the icon+gap it also has to share that width with. */
+    padding: var(--space-xs);
+    /* border is reserved (transparent) on every row, not just .active, so
+       colouring it in on the active row below doesn't shift that row's box
+       size relative to its neighbours (box-sizing: border-box,
+       layout.css:5, keeps the outer box identical either way - this just
+       avoids the 1px content-area jump a border-only-on-active would
+       otherwise cause). */
+    border: 1px solid transparent;
+}
+.side-nav:not(.collapsed) .nav-menu .menu-icon {
+    height: 26px;
+}
+.side-nav:not(.collapsed) .nav-menu a.active {
+    border-color: var(--accent-border);
 }
 
 .nav-footer {
@@ -1276,7 +1419,9 @@ main {
     z-index: var(--z-page-header);
     background: linear-gradient(to bottom, var(--bg-page) calc(100% - var(--space-md)), transparent 100%);
     margin: -32px -32px 0;
-    padding: var(--space-xl) var(--space-2xl) var(--space-md);
+    /* Top matches .nav-header's own top padding (layout.css) - both headers
+       now start at the same 20px offset from their container's top edge. */
+    padding: var(--space-lg) var(--space-2xl) var(--space-md);
 }
 
 /* Zero-height marker placed immediately before a position:sticky element.

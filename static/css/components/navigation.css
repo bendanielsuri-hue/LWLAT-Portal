@@ -403,7 +403,13 @@
    than 3 crumbs deep default to a collapsed "… › <recent crumbs>" view
    (hiding the root + hub behind the toggle even when the full trail would
    fit) — see the breadcrumb IIFE in main.js. */
-.breadcrumbs { display: flex; align-items: center; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: var(--space-xs); margin-left: -8px; white-space: nowrap; overflow: hidden; }
+/* margin-bottom dropped to 0 - .breadcrumbs a's own 3px vertical link
+   padding (below) already leaves empty space under the actual glyphs, and
+   .page-heading h1's -6px pull (above, this file) already eats into its own
+   leading above its glyphs - between the two there's still real whitespace
+   left even with nothing set here, so an explicit margin-bottom was just
+   adding to a gap these two already cover between them. */
+.breadcrumbs { display: flex; align-items: center; font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 0; margin-left: -8px; white-space: nowrap; overflow: hidden; }
 .breadcrumbs.breadcrumbs-expanded { white-space: normal; flex-wrap: wrap; overflow: visible; }
 .breadcrumbs > a, .breadcrumbs > span { flex-shrink: 0; }
 .breadcrumbs a { color: var(--active-text); text-decoration: none; padding: 3px 8px; margin-right: 2px; border-radius: var(--radius-pill); }
@@ -433,7 +439,18 @@
     color: var(--active-text);
 }
 
-.page-heading h1 { margin: 0; font-size: var(--font-5xl); }
+/* margin-top mirrors the sidebar's own .exit-hub + .nav-title pull
+   (layout.css) - same reason: the global 1.4 line-height pads leading above
+   the glyphs on top of .breadcrumbs' own margin-bottom, so breadcrumbs and
+   the page title read as further apart than the nominal 8px gap suggests
+   without this. line-height matches .side-nav.hub-side .nav-title's own
+   1.15 (layout.css) - same font-size (--font-5xl) and now the same
+   line-height means both titles' glyphs sit at an identical offset from
+   their own box's top edge, so aligning the two trees is just box-top
+   math (margin + the row above's height) with no font-metric guessing -
+   the previous mismatched line-heights (this stayed 1.4 after nav-title
+   moved to 1.15) is what threw the two titles out of alignment again. */
+.page-heading h1 { margin: -6px 0 0; font-size: var(--font-5xl); line-height: 1.15; }
 .page-subtitle { margin: var(--space-xs) 0 0; font-size: var(--font-md); font-weight: 400; line-height: 1.4; color: var(--text-secondary); }
 
 /* Optional back button, opted into per-page via {% block page_back %} */
