@@ -163,7 +163,11 @@ Menu switcher instead - see its own comment below.
     same as everywhere else in the app.
     {% endcomment %}
     <template id="mobile-fab-icon-meeting">{% include 'icons/clock_svg.html' %}</template>
-    <template id="mobile-fab-icon-referral">{% include 'icons/people_svg.html' %}</template>
+    {% comment %}
+    Matches the Referrals nav item's own icon (PANEL_MENU, views.py) rather
+    than a one-off - people_svg.html was tried first and dropped.
+    {% endcomment %}
+    <template id="mobile-fab-icon-referral">{% include 'icons/document_svg.html' %}</template>
     {% endif %}
     {% comment %}
     In-app content search (data-panel-search-trigger, e.g. students/
@@ -325,6 +329,15 @@ Menu switcher instead - see its own comment below.
             border: none;
             font: inherit;
             cursor: pointer;
+            transition: color var(--transition-base);
+        }
+        {% comment %}
+        Plain colour brighten, no background - matches this same file's own
+        .mobile-more-sheet-x:hover convention for an icon-only control,
+        rather than inventing a new hover-background token.
+        {% endcomment %}
+        @media (hover: hover) {
+            .mobile-tab:hover { color: var(--text-primary); }
         }
         /* Icon-only now (no label) - a touch bigger than the labelled version
            was, since the icon alone carries more visual weight in the row
@@ -352,9 +365,19 @@ Menu switcher instead - see its own comment below.
             color: var(--btn-add-text);
             box-shadow: 0 0 0 4px var(--bg-nav), 0 0 0 5px var(--border-strong), var(--shadow-lg);
             cursor: pointer;
+            transition: background-color var(--transition-base), color var(--transition-base);
         }
         .mobile-tab-fab svg { width: 26px; height: 26px; display: block; transition: transform var(--transition-base); }
         .mobile-tab-fab:active { background: var(--btn-add-hover-bg); }
+        {% comment %}
+        This whole surface is touch-first (phone width only), but real mice
+        do land on it when testing on a PC at narrow widths - (hover: hover)
+        keeps this from ever sticking active-looking on an actual touch tap.
+        {% endcomment %}
+        @media (hover: hover) {
+            .mobile-tab-fab:hover { background: var(--btn-add-hover-bg); }
+            .mobile-tab-fab-wheel-open:hover { background: var(--btn-secondary-hover-bg); }
+        }
         /* Hub Menu variant (hide_mobile_fab pages) - primary-coloured
            (same tokens as any other btn-primary) rather than the Add
            green, so this reads as navigation rather than creation despite
@@ -378,13 +401,19 @@ Menu switcher instead - see its own comment below.
         data-mobile-proxy-click binder above already covers them.
         {% endcomment %}
         .mobile-tab-fab-wheel-open svg { transform: rotate(45deg); }
+        {% comment %}
+        Fades from the Add green to a neutral colour once the FAB becomes a
+        close "x" — the green specifically means "creates something", which
+        no longer applies once tapping it just closes the wheel instead.
+        {% endcomment %}
+        .mobile-tab-fab-wheel-open { background: var(--btn-secondary-bg); color: var(--btn-secondary-text); }
         .mobile-fab-wheel-scrim {
             position: fixed;
             inset: 0;
             z-index: 30; /* below .mobile-tabbar's 40 — the FAB/tabbar itself stays undimmed, giving it focus */
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.15s ease;
+            transition: opacity 0.28s ease; /* matches OPEN_ANIM_MS below, so the dim fades out over the same span the icons take to swing away */
         }
         .mobile-fab-wheel-scrim.open { opacity: 1; pointer-events: auto; }
         {% comment %}
@@ -421,6 +450,12 @@ Menu switcher instead - see its own comment below.
             display: flex;
             flex-direction: column;
             align-items: center;
+            /* No CSS transform/transition here on purpose - "rotate in"
+               means the whole arc swings into place as one rigid group
+               (JS, an extra angle added to every item that eases to zero -
+               see the "rotate in as a wheel" reveal in the script below),
+               not each button spinning individually in place. left/top
+               already update every frame regardless (scroll AND reveal). */
             transform: translate(-50%, -50%);
             z-index: 34;
             opacity: 0;
@@ -428,6 +463,7 @@ Menu switcher instead - see its own comment below.
             background: none;
             border: none;
             padding: 0;
+            cursor: pointer; /* a plain <button> defaults to an arrow cursor, not a hand, unlike a link */
         }
         .mobile-fab-wheel-circle {
             width: 54px; height: 54px;
@@ -436,6 +472,7 @@ Menu switcher instead - see its own comment below.
             color: var(--btn-add-text);
             display: flex; align-items: center; justify-content: center;
             box-shadow: var(--shadow-lg);
+            transition: transform 0.15s ease;
         }
         .mobile-fab-wheel-circle svg { width: 22px; height: 22px; }
         .mobile-fab-wheel-chip {
@@ -453,6 +490,9 @@ Menu switcher instead - see its own comment below.
         }
         .mobile-fab-wheel-chip-new { font-size: 9px; font-weight: 600; opacity: 0.8; }
         .mobile-fab-wheel-chip-name { font-size: 11px; font-weight: 700; }
+        @media (hover: hover) {
+            .mobile-fab-wheel-item:hover .mobile-fab-wheel-circle { transform: scale(1.08); }
+        }
         {% comment %}
         Scroll-progress indicator — a real SVG arc (stroke-linecap:round
         gives proper rounded ends for free), concentric with the FAB and the
@@ -466,7 +506,7 @@ Menu switcher instead - see its own comment below.
             z-index: 34;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.12s ease;
+            transition: opacity 0.28s ease; /* matches OPEN_ANIM_MS */
         }
         .mobile-fab-wheel-ring.open { opacity: 1; }
         .mobile-fab-wheel-ring-track { fill: none; stroke: rgba(255, 255, 255, 0.18); stroke-linecap: round; }
@@ -1188,15 +1228,48 @@ Menu switcher instead - see its own comment below.
             track.setAttribute('d', arcPath(0, RING_W));
         }
 
+        // "Rotate in/out as a wheel": an extra angle, shared by every item,
+        // that eases between 0 and REVEAL_SWING_DEG - the whole arc swings
+        // into (or out of) its resting position as one rigid group, rather
+        // than each button animating individually. ANIM_OPENING plays
+        // REVEAL_SWING_DEG -> 0 on the way in; ANIM_CLOSING plays the exact
+        // reverse (0 -> REVEAL_SWING_DEG) on the way out.
+        var OPEN_ANIM_MS = 280;
+        var REVEAL_SWING_DEG = 55;
+        var ANIM_NONE = 0, ANIM_OPENING = 1, ANIM_CLOSING = 2;
+        var animPhase = ANIM_NONE;
+        var animStart = 0;
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+        // Eased 0->1 progress through the current open/close animation (1
+        // once idle/settled). Shared by both the swing angle and an
+        // explicit opacity fade below - the angle-based fade alone isn't
+        // enough on its own, since a front-and-centre item's angle barely
+        // changes across the swing (it starts/ends near 0deg either way),
+        // so without this it stayed fully opaque for the whole animation
+        // and then hard-cut to invisible the instant it finished.
+        function animProgress() {
+            if (animPhase === ANIM_NONE) return 1;
+            var elapsed = performance.now() - animStart;
+            return easeOutCubic(Math.min(1, elapsed / OPEN_ANIM_MS));
+        }
+
         function render() {
             var center = fabCenter();
             var scrollLeft = strip.scrollLeft;
             var stripRect = strip.getBoundingClientRect();
+            var progress = animProgress();
+            var swingDeg = animPhase === ANIM_OPENING ? REVEAL_SWING_DEG * (1 - progress)
+                : animPhase === ANIM_CLOSING ? REVEAL_SWING_DEG * progress : 0;
+            var swing = swingDeg * Math.PI / 180;
+            // 1 while opening/idle-open, ramping down to 0 as closing
+            // finishes - the actual cross-fade, independent of the
+            // angle-based fade below.
+            var animFade = animPhase === ANIM_CLOSING ? (1 - progress) : 1;
             visuals.forEach(function (item, i) {
                 var naturalX = stripRect.left + parseFloat(strip.style.paddingLeft) +
                     i * STEP + ITEM_W / 2 - scrollLeft;
                 var offset = naturalX - center.x;
-                var angleRad = offset / RADIUS;
+                var angleRad = offset / RADIUS + swing;
                 var angleDeg = Math.abs(angleRad * 180 / Math.PI);
                 var x = center.x + Math.sin(angleRad) * RADIUS;
                 var y = center.y - Math.cos(angleRad) * RADIUS;
@@ -1205,8 +1278,8 @@ Menu switcher instead - see its own comment below.
                 else if (angleDeg > FADE_START_DEG) fade = 1 - (angleDeg - FADE_START_DEG) / (FADE_END_DEG - FADE_START_DEG);
                 item.style.left = x + 'px';
                 item.style.top = y + 'px';
-                item.style.opacity = fade;
-                item.style.pointerEvents = fade > 0.4 ? 'auto' : 'none';
+                item.style.opacity = fade * animFade;
+                item.style.pointerEvents = (open && fade > 0.4) ? 'auto' : 'none';
             });
 
             // Nothing meaningful to scroll (everything already fits at
@@ -1241,20 +1314,40 @@ Menu switcher instead - see its own comment below.
         }
 
         function setOpen(next) {
+            if (next === open) return;
             open = next;
             scrim.classList.toggle('open', open);
             strip.classList.toggle('open', open);
             ring.classList.toggle('open', open);
             fab.classList.toggle('mobile-tab-fab-wheel-open', open);
-            visuals.forEach(function (v) {
-                v.style.opacity = open ? v.style.opacity : 0;
-                v.style.pointerEvents = open ? v.style.pointerEvents : 'none';
-            });
+            animPhase = open ? ANIM_OPENING : ANIM_CLOSING;
+            animStart = performance.now();
             if (open) {
                 closeEverythingMobile();
                 layoutStrip();
                 strip.scrollLeft = 0;
-                render();
+                runWheelAnim();
+            } else {
+                runWheelAnim(function () {
+                    // Animation finished mid-swing-out - now actually hide
+                    // them, rather than snapping to invisible the instant
+                    // the FAB was tapped.
+                    visuals.forEach(function (v) { v.style.opacity = 0; v.style.pointerEvents = 'none'; });
+                });
+            }
+        }
+
+        // Drives render() every frame for the "rotate in/out as a wheel"
+        // duration, independent of scroll events (scheduleRender handles
+        // those separately). onDone fires once when the animation window
+        // ends (used by the closing side to fully hide the items after).
+        function runWheelAnim(onDone) {
+            render();
+            if (performance.now() - animStart < OPEN_ANIM_MS) {
+                requestAnimationFrame(function () { runWheelAnim(onDone); });
+            } else {
+                animPhase = ANIM_NONE;
+                if (onDone) onDone();
             }
         }
 
