@@ -4,7 +4,7 @@ from core.models import CategorySettings, MatSettings, School
 HARDCODED_DEFAULTS = {
     'student_term': 'Student',
     'staff_term': 'Staff',
-    'portal_title': 'LWLAT Portal',
+    'portal_title': 'LWLAT Data Portal',
     'accent_colour': '',
     'logo_url': '',
     'support_email': '',

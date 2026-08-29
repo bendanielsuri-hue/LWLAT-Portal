@@ -97,6 +97,18 @@ html, body {
        reason. */
     border-right: 1px solid var(--border-strong);
 }
+/* .hub-side only (matches .hub-rail-seam's own scoping down at .hub-rail) -
+   the hub sidebar's edge read visibly flatter/fainter than the global rail's
+   right edge sitting right next to it, despite both separating a nav column
+   from the same page content. Same darkened border-mix + soft drop shadow
+   as .hub-rail-seam so the two read as one consistent "nav column edge"
+   treatment rather than the rail looking more raised than the sidebar below
+   it. .overlay-nav already zeroes border-right (below) so this can't bleed
+   into Search/Settings/School's own shadow-modal look. */
+.side-nav.hub-side {
+    border-right: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
+    box-shadow: 3px 0 8px rgba(2, 6, 23, 0.07);
+}
 .side-nav { transition: width var(--transition-slide), transform var(--transition-slide), box-shadow var(--transition-slide), background-color var(--transition-base), border-color var(--transition-base); }
 /* Suppresses every transition under the sidebar (width, opacity on labels/
    nav-title, ...) until main.js has applied the correct collapsed/touch
@@ -182,27 +194,43 @@ html, body {
     padding-left: var(--space-sm);
     padding-right: var(--space-sm);
 }
+/* Was flex-start, relying on exact-fit padding math (12px container + 2px
+   row padding = the 44px icon pill's own width) to LOOK centred without
+   actually being centred - that only holds as long as the row's content is
+   pixel-exactly the icon's width. It isn't: the row's invisible .menu-label
+   (opacity-faded, not display:none - see the rule above) still occupies its
+   own real layout width right after the icon with no gap between them, so
+   flex-start packed [icon][invisible label] flush left and let the label
+   spill past the row's right edge instead of leaving symmetric space either
+   side of the icon (live feedback/screenshot: icon reads off-centre, extra
+   room on the left). center matches .hub-rail-item's own real approach
+   (width:100% + justify-content:center, below) instead of reimplementing it
+   by hand - robust regardless of what invisible content rides along. */
 .side-nav.collapsed a,
 .side-nav.collapsed .nav-row-btn,
 .side-nav.collapsed .school-nav-option,
 .side-nav.collapsed .staff-nav-option {
-    justify-content: flex-start;
+    justify-content: center;
 }
-/* Rows centre their icon in the 72px rail by giving it equal breathing room
-   on both sides: 12px container padding + 2px row padding leaves exactly the
-   44px icon pill's width (matches .hub-rail-item's own 44px pill - see the
-   .menu-icon sizing further down). padding-top/bottom zeroed too - expanded
-   rows use 11px there as click-target padding around a label, but collapsed
-   rows have no label, so that padding was just adding dead space above and
-   below each pill that .hub-rail-item doesn't have (it uses padding:0 and
-   gets its spacing from .hub-rail-inner's gap instead - matched below via
-   .nav-menu's own gap override for collapsed mode). */
+/* padding-top/bottom zeroed - expanded rows use 11px there as click-target
+   padding around a label, but collapsed rows have no label, so that padding
+   was just adding dead space above and below each pill that .hub-rail-item
+   doesn't have (it uses padding:0 and gets its spacing from
+   .hub-rail-inner's gap instead - matched below via .nav-menu's own gap
+   override for collapsed mode). Left/right kept at a token rather than 0
+   (unlike .hub-rail-item's padding:0) purely as the hover/focus pill's own
+   breathing room against the rail edge - see .menu-icon's collapsed sizing
+   further down. Bumped from --space-micro (2px) to --space-xxs (4px) - with
+   the icon now genuinely centred via justify-content (above) rather than an
+   exact-fit padding calculation, there's no longer a fixed budget to stay
+   inside, and 2px read as the hover pill's rounded corners sitting right on
+   the row's edge (live feedback: "hover effect looks cut off"). */
 .side-nav.collapsed.hub-side .nav-menu a,
 .side-nav.collapsed .nav-row-btn,
 .side-nav.collapsed .exit-hub,
 .side-nav.collapsed .school-nav-option,
 .side-nav.collapsed .staff-nav-option {
-    padding: 0 var(--space-micro);
+    padding: 0 var(--space-xxs);
 }
 .side-nav.collapsed .nav-menu {
     gap: var(--space-xxs);
@@ -1103,7 +1131,7 @@ main { position: relative; }
        spaced rather than one dense title block. */
     line-height: 1.15;
 }
-/* .hub-side only - not the Hub Menu overlay's "LWLAT Portal" title, which
+/* .hub-side only - not the Hub Menu overlay's "LWLAT Data Portal" title, which
    shares this same .nav-title class. Matches the active hub icon's colour
    in the rail (#131, .hub-rail-item.active) - the hub's own name in its
    sidebar header reads as the same purple as the icon that got you here.
@@ -1587,6 +1615,29 @@ a { color: inherit; }
 }
 .side-nav .menu-icon svg { width: 26px; height: 26px; display: block; }
 .side-nav .menu-icon img { width: 26px; height: 26px; display: block; }
+/* The school switcher's own logo, not a plain line icon - deliberately fills
+   its whole menu-icon box (object-fit:contain, so a non-square crest still
+   scales to fit) rather than sitting at the shared 26px an SVG icon uses,
+   so the real school brand mark reads with some visual weight instead of
+   shrinking to icon scale. Used to be an inline style on the <img> itself
+   (_hub_sidebar.html) - moved here so the collapsed-rail override below can
+   actually win against it (inline styles beat any class selector). */
+.side-nav .menu-icon img.school-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+/* Collapsed rail: filling the full 44px pill edge-to-edge (unlike every
+   other icon here, which sits at 26px inside that same pill with real
+   padding around it) read oversized next to its neighbours (live feedback:
+   "school logos are too big in this mode"). Fixed at 34px rather than
+   reusing the plain 26px icon size - still a bit larger, keeping the crest
+   legible as a *logo* rather than shrinking it to just another nav glyph -
+   but now with genuine breathing room (5px) inside the pill instead of none. */
+.side-nav.collapsed .menu-icon img.school-logo-img {
+    width: 34px;
+    height: 34px;
+}
 .side-nav .menu-label { flex: 1; min-width: 0; display: block; white-space: normal; line-height: 22px; transition: transform var(--transition-fast), opacity var(--transition-base); }
 .nav-header { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; }
 .side-nav.hidden { display: none; }

@@ -2411,7 +2411,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         });
     });
 
-    // Breadcrumbs: trail is always rooted at "LWLAT Portal" + the hub name
+    // Breadcrumbs: trail is always rooted at "LWLAT Data Portal" + the hub name
     // (see layout.html), which makes deep pages verbose. Default behaviour:
     // pages more than 3 crumbs deep always start collapsed to "… › <recent
     // crumbs>" — hiding the root + hub behind the toggle even if the full
