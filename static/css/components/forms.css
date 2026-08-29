@@ -942,24 +942,12 @@ html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-
        label's total height down to just the text line. */
     margin-top: -2px;
 }
-/* Bigger than the shared 18px badge (below) - live feedback: "the badge can
-   be bigger in this search format" (the .filter-bar-no-search stacked
-   layout just above, which is what "this" referred to - the badge now
-   owns a whole second line instead of squeezing beside "Filters" on one,
-   so it has genuine room to read as a more prominent count rather than
-   matching the compact inline badge every other filter bar still needs). */
-html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-bar-count {
-    min-width: 22px;
-    height: 22px;
-    font-size: var(--font-xs);
-}
-
 .filter-bar-count {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 18px;
-    height: 18px;
+    min-width: 22px;
+    height: 22px;
     padding: 0 5px;
     /* line-height: 1 - without it the digit's line box inherits the page's
        normal line-height, which isn't vertically symmetric around the
@@ -967,12 +955,21 @@ html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-
        box rather than the digit. (A follow-up 1px top-padding "optical
        nudge" was tried here and over-corrected it downward without ever
        being checked at real zoom - reverted; measure before nudging
-       further rather than guessing again.) */
+       further rather than guessing again. #137 follow-up: real pixel-ink
+       measurement showed the box/padding is genuinely symmetric - the lean
+       is font hinting snapping this glyph to the pixel grid, which no
+       padding/margin value fixes. What does help: the same absolute
+       hinting error reads as less severe as a % of a bigger circle,
+       confirmed against a live per-browser measurement rig (artifact
+       linked on #137) - sized up from 18px to 22px, matching the
+       .filter-bar-no-search badge above, which was already this size and
+       already read fine (that rule's own former min-width/height/font-size
+       override is gone now that the two match).) */
     line-height: 1;
     border-radius: var(--radius-pill);
     background: var(--primary);
     color: var(--on-primary);
-    font-size: var(--font-2xs);
+    font-size: var(--font-xs);
     /* Pops in/out rather than snapping (live feedback: "when I add a
        filter the badge suddenly appears and shifts things. Can we make it
        animate in") - transform-origin: center so the scale grows from the
