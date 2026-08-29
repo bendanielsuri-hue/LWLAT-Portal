@@ -35,16 +35,37 @@ def portal_settings(request):
 # owning hub app's Django app_label so footer_meta() can look up its
 # AppConfig.VERSION. Falls back to 'core' for pages no hub owns (MAT home,
 # Portal Admin is itself a hub though, so it's listed) - see docs/adr/0011.
+# 'inclusion/panel/' must precede 'inclusion/' - both prefix-match panel
+# URLs, and the first hit wins below, so Panel's own entry (a nested but
+# separate AppConfig, label='panel') has to be checked first or every panel
+# page would fall through to the SEND & Provision hub's version instead.
 _HUB_APP_LABELS_BY_URL_PREFIX = [
     ('staff/', 'staff'),
     ('student/', 'student'),
     ('services/', 'services'),
     ('registers/', 'registers'),
+    ('inclusion/panel/', 'panel'),
     ('inclusion/', 'inclusion'),
     ('careers/', 'careers'),
     ('resources/', 'resources'),
     ('portal-admin/', 'portaladmin'),
 ]
+
+# Mirrors each hub's own hub_title (set in its views.py) so the footer can
+# show a display name next to its per-hub version without importing every
+# hub's views module. 'core' has no entry - footer_meta() falls back to the
+# resolved portal_title for pages no hub owns (MAT home).
+_HUB_DISPLAY_NAMES_BY_APP_LABEL = {
+    'staff': 'Staff',
+    'student': 'Student',
+    'services': 'Operations',
+    'registers': 'Registers',
+    'inclusion': 'SEND & Provision',
+    'panel': 'Inclusion Panel',
+    'careers': 'Careers',
+    'resources': 'Resources',
+    'portaladmin': 'Portal Admin',
+}
 
 
 def footer_meta(request):
@@ -57,6 +78,7 @@ def footer_meta(request):
     return {
         'footer_environment': settings.ENVIRONMENT,
         'footer_app_version': app_version,
+        'footer_app_name': _HUB_DISPLAY_NAMES_BY_APP_LABEL.get(app_label, ''),
     }
 
 

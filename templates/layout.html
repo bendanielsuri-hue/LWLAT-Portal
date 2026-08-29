@@ -101,7 +101,7 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=372">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=373">
     <script src="{% static 'js/main.js' %}?v=242" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
@@ -336,44 +336,23 @@
         </div>
         {% endif %}
         {% comment %}
-        Always-present app footer (see #128 grilling). General cluster
-        (env/version/status/report-a-problem) is visible to everyone; the
-        dev cluster (breakpoint tool/error console/file-issue link) only
-        renders for is_developer, gated the same way as the Portal Admin hub.
+        Always-present app footer (see #128 grilling; merged to one report
+        system in the #128 follow-up grilling). General cluster
+        (env/version/status) is visible to everyone; the dev-only Errors
+        cluster and breakpoint-switcher cluster only render for is_developer,
+        gated the same way as the Portal Admin hub. "Report Issue" is
+        unconditional and sits between them - one report path for every
+        audience. DOM order (devs): general | Errors | Report Issue |
+        breakpoint switcher, so the switcher is the absolute rightmost item.
         {% endcomment %}
         <footer class="app-footer">
             <div class="footer-cluster footer-cluster--general">
                 <span class="footer-item footer-meta-item" title="Environment">{{ footer_environment }}</span>
-                <span class="footer-item footer-meta-item" title="App version">v{{ footer_app_version }}</span>
+                <span class="footer-item footer-meta-item" title="App name and version">{{ footer_app_name|default:portal_title }} v{{ footer_app_version }}</span>
                 <span class="footer-item footer-status" id="footer-status" hidden></span>
-                {% if not current_staff.is_developer %}
-                {% comment %}
-                Dev-only "File issue" (in the cluster below) covers this need
-                for developers instead - showing both would be two buttons
-                doing the same job for the one audience that has both (#128).
-                {% endcomment %}
-                <button type="button" class="footer-item footer-text-btn" id="report-problem-btn">
-                    {% include 'icons/flag_svg.html' %}
-                    <span>Report a problem</span>
-                </button>
-                {% endif %}
             </div>
             {% if current_staff.is_developer %}
             <div class="footer-cluster footer-cluster--dev">
-                <div id="dev-bp-group" class="dev-bp-group">
-                    <button type="button" class="dev-bp-option active icon-tooltip-host" data-bp-w="0" data-bp-h="0" data-tooltip="Desktop">
-                        {% include 'icons/bp_desktop_svg.html' %}
-                    </button>
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="1024" data-bp-h="768" data-bp-touch="true" data-tooltip="Tablet Wide · 1024×768 (basic iPad)">
-                        {% include 'icons/bp_tablet_wide_svg.html' %}
-                    </button>
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="768" data-bp-h="1024" data-bp-touch="true" data-tooltip="Tablet Portrait · 768×1024 (basic iPad)">
-                        {% include 'icons/bp_tablet_portrait_svg.html' %}
-                    </button>
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="375" data-bp-h="667" data-bp-touch="true" data-tooltip="Mobile · 375×667">
-                        {% include 'icons/bp_mobile_svg.html' %}
-                    </button>
-                </div>
                 {% comment %}
                 Hidden until the first JS error actually fires (see JS below)
                 - no point showing an "Errors" control that's always empty.
@@ -390,20 +369,48 @@
                     </div>
                     <ul class="dev-error-list" id="dev-error-list"></ul>
                 </div>
-                <a href="#" class="footer-item footer-text-btn" id="dev-issue-link" target="_blank" rel="noopener">File issue</a>
+            </div>
+            {% endif %}
+            <button type="button" class="footer-item footer-text-btn footer-report-btn" id="report-problem-btn">
+                {% include 'icons/flag_svg.html' %}
+                <span>Report Issue</span>
+            </button>
+            {% if current_staff.is_developer %}
+            {% comment %}
+            Breakpoint switcher moved to the absolute rightmost position in
+            the footer (past Report Issue) per request - its own
+            footer-cluster--dev gets the same border-left separator as the
+            Errors cluster above.
+            {% endcomment %}
+            <div class="footer-cluster footer-cluster--dev footer-cluster--dev-bp">
+                <div id="dev-bp-group" class="dev-bp-group">
+                    <button type="button" class="dev-bp-option active icon-tooltip-host" data-bp-w="0" data-bp-h="0" data-tooltip="Desktop">
+                        {% include 'icons/bp_desktop_svg.html' %}
+                    </button>
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="1024" data-bp-h="768" data-bp-touch="true" data-tooltip="Tablet Wide · 1024×768 (basic iPad)">
+                        {% include 'icons/bp_tablet_wide_svg.html' %}
+                    </button>
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="768" data-bp-h="1024" data-bp-touch="true" data-tooltip="Tablet Portrait · 768×1024 (basic iPad)">
+                        {% include 'icons/bp_tablet_portrait_svg.html' %}
+                    </button>
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="375" data-bp-h="667" data-bp-touch="true" data-tooltip="Mobile · 375×667">
+                        {% include 'icons/bp_mobile_svg.html' %}
+                    </button>
+                </div>
             </div>
             {% endif %}
         </footer>
         </div>
     </div>
 
-    {% if not current_staff.is_developer %}
     {% comment %}
-    Non-dev "report a problem" form (see #128/docs/adr/0012) - posts to
-    portal.views.report_problem, which files the GitHub issue server-side
-    via GITHUB_TOKEN so the reporter never needs a GitHub account. Developers
-    get the dev cluster's direct "File issue" GitHub link instead (see
-    footer-cluster--dev above) - not both, one button per audience.
+    "Report Issue" form (see #128/docs/adr/0012) - one system for every
+    audience. Posts to portal.views.report_problem, which files the GitHub
+    issue server-side via GITHUB_TOKEN so the reporter never needs a GitHub
+    account. Page URL and any JS errors recorded by the dev-only error
+    console (see window.__footerErrors below) are attached to the issue body
+    silently - never shown in this form - so devs still get that context
+    without a separate reporting path.
     {% endcomment %}
     <dialog class="ui-dialog" id="report-problem-dialog">
         <form method="dialog" class="ui-dialog-form" id="report-problem-form">
@@ -416,7 +423,7 @@
             place, since this dialog is the only thing on some pages that
             would otherwise trigger it.
             {% endcomment %}
-            <h2 class="ui-dialog-title">Report a problem</h2>
+            <h2 class="ui-dialog-title">Report Issue</h2>
             <label class="ui-dialog-field">
                 <span>Category</span>
                 <select name="category" id="report-problem-category">
@@ -435,7 +442,6 @@
             </div>
         </form>
     </dialog>
-    {% endif %}
 
     <script>
     (function () {
@@ -464,12 +470,12 @@
     })();
     </script>
 
-    {% if not current_staff.is_developer %}
     <script>
     (function () {
-        // Non-dev "report a problem" wiring - only rendered when the
-        // trigger button/dialog above exist (see #128: one issue-reporting
-        // path per audience, not both).
+        // "Report Issue" wiring - one path for every audience (#128 follow-up
+        // grilling). window.__footerErrors, set below by the dev-only error
+        // console when it exists, is read at submit time so the attachment
+        // stays silent even though this script always runs.
         function getCookie(name) {
             var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
             return match ? decodeURIComponent(match[2]) : '';
@@ -496,6 +502,7 @@
                     description: description,
                     category: document.getElementById('report-problem-category').value,
                     page_url: location.href,
+                    errors: window.__footerErrors || [],
                 }),
             }).then(function (response) {
                 if (!response.ok) throw new Error();
@@ -506,7 +513,6 @@
         });
     })();
     </script>
-    {% endif %}
 
     {% if current_staff.is_developer %}
     <script>
@@ -620,6 +626,21 @@
             }
         }
 
+        // Persists the top-level page's selected preset across a real
+        // refresh (same pattern as the pref-theme-mode/pref-theme/etc. reads
+        // in the <head> script) - stores the button's data-bp-w, or clears
+        // it for Desktop (bp-w="0", the default there's no point persisting).
+        var BP_STORAGE_KEY = 'dev-bp-preset';
+        function storeBreakpoint(bpW) {
+            try {
+                if (bpW && bpW !== '0') {
+                    localStorage.setItem(BP_STORAGE_KEY, bpW);
+                } else {
+                    localStorage.removeItem(BP_STORAGE_KEY);
+                }
+            } catch (e) { }
+        }
+
         options.forEach(function (btn) {
             btn.addEventListener('click', function () {
                 if (insideFrame) {
@@ -635,8 +656,23 @@
                 options.forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 applyBreakpoint(parseInt(btn.dataset.bpW, 10), btn.dataset.bpH, btn.dataset.bpTouch === 'true');
+                storeBreakpoint(btn.dataset.bpW);
             });
         });
+
+        // Restore the persisted preset on a real load of the top-level page
+        // (never inside the preview iframe itself, which instead syncs to
+        // whatever the parent loaded it at - see the postMessage listener
+        // below) by just clicking the matching button, reusing all the
+        // active-class/applyBreakpoint/storeBreakpoint logic above.
+        if (!insideFrame) {
+            var storedBpW = null;
+            try { storedBpW = localStorage.getItem(BP_STORAGE_KEY); } catch (e) { }
+            if (storedBpW) {
+                var storedBtn = document.querySelector('#dev-bp-group .dev-bp-option[data-bp-w="' + storedBpW + '"]');
+                if (storedBtn) storedBtn.click();
+            }
+        }
 
         // Inside the iframe, sync this copy's own active button to
         // whichever breakpoint the parent actually loaded it at (see the
@@ -658,26 +694,15 @@
 
         // Dev-only JS error console (#128) - resets per page load (no
         // persistence across navigation, per the grilling call). Captures
-        // both runtime errors and unhandled promise rejections.
-        var errors = [];
+        // both runtime errors and unhandled promise rejections. Exposed as
+        // window.__footerErrors so the always-rendered "Report Issue" wiring
+        // above can silently attach these to a submitted report without a
+        // separate dev-only reporting path.
+        var errors = window.__footerErrors = [];
         var badge = document.getElementById('dev-error-badge');
         var panel = document.getElementById('dev-error-panel');
         var list = document.getElementById('dev-error-list');
         var errorBtn = document.getElementById('dev-error-btn');
-        var issueLink = document.getElementById('dev-issue-link');
-
-        function updateIssueLink() {
-            var body = 'Page: ' + location.href;
-            if (errors.length) {
-                body += '\n\nJS errors:\n' + errors.map(function (e) { return '- ' + e; }).join('\n');
-            }
-            var params = new URLSearchParams({
-                title: 'Issue on ' + location.pathname,
-                body: body,
-                labels: 'needs-triage',
-            });
-            issueLink.href = 'https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/new?' + params.toString();
-        }
 
         function recordError(message) {
             errors.push(message);
@@ -687,7 +712,6 @@
             var item = document.createElement('li');
             item.textContent = message;
             list.appendChild(item);
-            updateIssueLink();
         }
 
         window.addEventListener('error', function (event) {
@@ -708,15 +732,13 @@
             errorBtn.setAttribute('aria-expanded', String(willShow));
         });
         document.getElementById('dev-error-clear-btn').addEventListener('click', function () {
-            errors = [];
+            errors = window.__footerErrors = [];
             list.innerHTML = '';
             badge.hidden = true;
             errorBtn.hidden = true;
             panel.classList.add('hidden');
             errorBtn.setAttribute('aria-expanded', 'false');
-            updateIssueLink();
         });
-        updateIssueLink();
     })();
     </script>
     {% endif %}

@@ -296,9 +296,12 @@ def mat_home(request):
 
 @require_POST
 def report_problem(request):
-    # Non-dev counterpart to the footer's dev-only "file issue" link (#128) -
+    # One issue-reporting path for every audience (#128 follow-up grilling) -
     # files the GitHub issue server-side via GITHUB_TOKEN instead of sending
-    # the reporter to GitHub themselves. See docs/adr/0012.
+    # the reporter to GitHub themselves. See docs/adr/0012. `errors`, when
+    # present, is the dev-only footer error console's recorded JS errors
+    # (window.__footerErrors) - attached silently, never shown in the form,
+    # so developers still get that context without a separate report button.
     try:
         payload = json.loads(request.body)
     except (ValueError, TypeError):
@@ -307,6 +310,7 @@ def report_problem(request):
     description = (payload.get('description') or '').strip()
     category = payload.get('category') or 'bug'
     page_url = payload.get('page_url') or ''
+    errors = payload.get('errors') or []
     if not description:
         return JsonResponse({'error': 'Description is required.'}, status=400)
     if category not in REPORT_PROBLEM_CATEGORY_LABELS:
@@ -324,6 +328,10 @@ def report_problem(request):
         f'**Page:** {page_url}',
         f'**Category:** {REPORT_PROBLEM_CATEGORY_LABELS[category]}',
     ]
+    if errors:
+        body_lines.append('')
+        body_lines.append('**JS errors:**')
+        body_lines.extend(f'- {str(error)}' for error in errors)
     title = description.splitlines()[0][:80] or 'User-reported problem'
 
     response = requests.post(

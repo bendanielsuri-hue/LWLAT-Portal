@@ -362,6 +362,12 @@ html, body {
     background: var(--primary-light);
     color: var(--active-text);
     text-shadow: var(--hover-fake-bold);
+    /* Overrides the shared nav-row-btn nudge (translateX(3px), further up
+       this file) - this label is centred as its own pill/chip, not part of
+       a left-aligned icon+label row, so the sideways slide read as an odd
+       wobble rather than the row-nudge feedback it works as everywhere
+       else. Fill + bold text alone carry the hover here. */
+    transform: none;
 }
 .side-nav:not(.collapsed) .exit-hub:hover,
 .side-nav:not(.collapsed) .exit-hub:focus-visible {
@@ -806,10 +812,17 @@ main { position: relative; }
 /* Dark theme: use solid black so the overlay reads clearly on the dark page */
 [data-theme-mode="dark"] .global-backdrop.active { background: rgba(0,0,0,0.65); }
 
-/* Always-present app footer (see #128 grilling) - a permanent docked bar
-   inside .content-column, so it runs under <main> only, never under
-   .global-nav to its left. Two clusters: general (everyone) pushed left,
-   dev-only pushed right via margin-left: auto on .footer-cluster--dev. */
+/* Always-present app footer (see #128 grilling, merged to one report system
+   in the #128 follow-up grilling) - a permanent docked bar inside
+   .content-column, so it runs under <main> only, never under .global-nav to
+   its left. General cluster (everyone) pushed left; the two dev-only
+   .footer-cluster--dev instances (Errors, then the breakpoint switcher) sit
+   either side of the unconditional "Report Issue" button. Only the first
+   dev cluster's margin-left: auto actually consumes the free space -
+   .footer-report-btn's own copy is what lands *it* correctly on its own
+   when the dev clusters aren't rendered. The second (breakpoint) instance
+   overrides margin-left below to cancel .app-footer's gap instead, so it
+   sits flush against Report Issue rather than one gap further right. */
 .app-footer {
     flex-shrink: 0;
     display: flex;
@@ -835,6 +848,12 @@ main { position: relative; }
     padding-left: var(--space-sm);
     border-left: 1px solid var(--border-color);
 }
+.footer-cluster--dev-bp {
+    margin-left: calc(-1 * var(--space-md));
+}
+.footer-report-btn {
+    margin-left: auto;
+}
 .footer-item { flex-shrink: 0; }
 .footer-meta-item {
     font-size: var(--font-xs);
@@ -847,8 +866,8 @@ main { position: relative; }
 .footer-status--success { color: var(--btn-add-bg); }
 .footer-status--error { color: var(--btn-delete-bg); }
 
-/* Plain text+icon buttons (Report a problem/Errors/File issue) - not
-   .btn/.btn-sm, which are too visually heavy for a 34px status-bar sliver. */
+/* Plain text+icon buttons (Report Issue/Errors) - not .btn/.btn-sm, which
+   are too visually heavy for a 34px status-bar sliver. */
 .footer-text-btn {
     display: inline-flex;
     align-items: center;
@@ -974,7 +993,15 @@ main { position: relative; }
    form (#128) - self-contained here rather than depending on
    hubs/inclusion/panel's own .modal-dialog, since this footer is loaded on
    every page site-wide, not just Inclusion Panel. */
+/* position/inset/margin: the global `* { margin: 0 }` reset above kills the
+   native <dialog> auto-centering trick (which relies on margin: auto), so
+   every real dialog in the app sets this explicitly - see dialog.modal-dialog
+   in panel.css for the same fix. Without it a <dialog> opened via
+   showModal() renders top-left with no working overlay instead of centred. */
 .ui-dialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
     border: none;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
@@ -1255,13 +1282,9 @@ main { position: relative; }
     color: var(--active-text);
     text-shadow: var(--hover-fake-bold);
 }
-/* Hovering the already-active row must still show tactile feedback, not
-   look identical to its resting state (same trap as .meeting-card.chosen -
-   see feedback_selection_state_no_primary_fill memory, round 5) - a touch
-   darker than the resting primary-light fill rather than a second tone. */
-.side-nav:not(.collapsed) .nav-menu a.active:hover {
-    background: color-mix(in srgb, var(--primary-light) 80%, var(--primary) 20%);
-}
+/* Hovering the active row keeps its resting primary-light fill untouched -
+   the shared nudge/fake-bold hover feedback above already signals the
+   hover, so the fill doesn't also need to shift. */
 
 /* var(--active-text), not var(--primary) directly, for icon+label+bar alike
    (previously just --primary, which the .menu-label rule below then had to

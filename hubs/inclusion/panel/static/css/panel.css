@@ -6026,6 +6026,23 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     font-size: var(--font-xs, 0.75rem);
 }
 
+/* When the list itself is empty, .empty-note (the sole child) still shared
+   flex:1 with the ::after stripe above, so the two split the card's height
+   between them - plain white on top, stripe below, with a border-top seam
+   cutting the card in half (live feedback: the stripe should fill the whole
+   empty area and the "No x yet" label should sit over it, not above it).
+   Taking the label out of flow lets the stripe (still flex: 1 0 ..., now
+   the only flex child) grow to the card's full height, then re-centres the
+   label on top of it via absolute positioning instead of flex sharing. */
+.filtered-content .entity-list {
+    position: relative;
+}
+.filtered-content .entity-list > .empty-note {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+}
+
 @media (max-width: 480px) {
     /* Moves the app-wide bottom-nav scroll clearance (_hub_sidebar.html:
        padding-bottom: calc(47px + 18px + var(--space-lg)) on .main-inner,
