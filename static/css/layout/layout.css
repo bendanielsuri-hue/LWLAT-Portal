@@ -90,7 +90,12 @@ html, body {
     display: flex;
     flex-direction: column;
     background-color: var(--bg-nav);
-    border-right: 1px solid var(--border-color);
+    /* Stronger than the default --border-color (live feedback: the seam
+       between side-nav and main read too faint) - matches the home page's
+       own inline school-nav/settings-nav panes (line ~431 below), which
+       already needed --border-strong for the same "no shadow to lean on"
+       reason. */
+    border-right: 1px solid var(--border-strong);
 }
 .side-nav { transition: width var(--transition-slide), transform var(--transition-slide), box-shadow var(--transition-slide), background-color var(--transition-base), border-color var(--transition-base); }
 /* Suppresses every transition under the sidebar (width, opacity on labels/
@@ -418,12 +423,6 @@ html, body {
     margin-top: 0;
 }
 
-/* The home page's inline "Change School"/"Settings" panes get a stronger border
-   colour since they lack the box-shadow that makes overlay drawer borders clear */
-.side-nav.school-nav:not(.overlay-nav),
-.side-nav.settings-nav:not(.overlay-nav) {
-    border-right-color: var(--border-strong);
-}
 .side-nav .nav-scroll {
     flex: 1;
     min-height: 0;
@@ -506,22 +505,21 @@ main { position: relative; }
     /* Tooltips escape past the rail's right edge — would be clipped otherwise */
     overflow: visible;
     position: relative;
-}
-/* Rail wins the z-index tie against .overlay-slot (z-overlay:15, a sibling
-   here inside .global-nav) only while an overlay is actually open - without
-   this scoping, the rail is otherwise z-index:auto and *loses* the tie to
-   the hub sidebar sitting in nav-stack (also z-index:auto, but painted later
-   in DOM order), which is what lets the sidebar's own opaque background hide
-   the rail seam's -16px fusing bleed (below) the rest of the time. Scoped
-   this way, a Settings/Search shelf sliding in via transform
-   (translateX(-100%) -> 0, layout.css) still stays tucked *under* the rail
-   the whole time .open is applied, rather than visibly sliding over it
-   (#131 follow-up, live feedback) - but the plain resting sidebar goes back
-   to hiding the seam bleed as before once nothing is open. Skipped in
-   touch/tablet mode (responsive.css bumps .overlay-slot above this instead)
-   - there the thing being covered is the expanding hub sidebar itself, which
-   the overlay is meant to paint over as it opens, not stay under. */
-.global-nav:has(.overlay-slot.open) .hub-rail {
+    /* Always wins the z-index tie against both .overlay-slot (z-overlay:15)
+       and the resting hub sidebar in nav-stack (z-index:auto, but painted
+       later in DOM order) - was scoped to :has(.overlay-slot.open) only,
+       which meant the rail's own seam border/shadow (-16px "fusing" bleed,
+       below) sat UNDER the resting sidebar's opaque background the rest of
+       the time, invisible outside the moment an overlay was open (live
+       feedback: border only showed up when Settings/Search opened, never at
+       rest). Unconditional avoids depending on that transient win. Still
+       keeps a Settings/Search shelf sliding in via transform
+       (translateX(-100%) -> 0) tucked *under* the rail while it's open
+       (#131 follow-up), same as before. Touch/tablet mode already needs to
+       win this same tie in the OPPOSITE direction for its own
+       touch-expanded-rail case (responsive.css bumps .overlay-slot above
+       this rule there, unaffected by this no-longer-scoped version since
+       that override still applies on top of it). */
     z-index: var(--z-global-nav);
 }
 .hub-rail-inner {
@@ -546,22 +544,37 @@ main { position: relative; }
 .hub-rail-seam {
     position: absolute;
     left: 0;
-    right: -16px;
-    border-right: 1px solid var(--border-color);
+    /* Was -16px (bled into the sidebar's own territory, relying on the
+       sidebar's opaque paint to hide the overshoot) - now that .hub-rail is
+       always elevated above the sidebar (see .hub-rail's own z-index
+       comment), that overshoot stopped being hidden and instead showed up
+       as the border sitting visibly inside the side-nav rather than flush
+       on the boundary (live feedback: "border is into the side nav").
+       Flush (0) puts it exactly on the shared edge instead. */
+    right: 0;
+    /* Plain --border-strong (used for .side-nav/.app-footer) still read too
+       faint here specifically - the rail's own background (--bg-rail) is a
+       more saturated/tinted surface than the light/near-white ones
+       --border-strong was calibrated against elsewhere, so the two sat too
+       close in lightness (live feedback: still can't see it). Darkened
+       further by mixing toward --text-secondary rather than hardcoding a
+       one-off colour, so it still adapts per theme/dark-mode instead of
+       just working in Pastel. Safe to change here alone since this is the
+       rail's only border source: the two seam layers (-top/-bottom) draw
+       it, split around the active hub's row, and .hub-rail-active-fill
+       (below) covers that gap with a plain background colour, no border of
+       its own to keep in sync. */
+    border-right: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
     box-shadow: 3px 0 8px rgba(2, 6, 23, 0.07);
     pointer-events: none;
-}
-/* The -16px bleed above fuses this border/shadow with the hub sidebar's own
-   matching background just past the rail's edge - fine while that sidebar is
-   what's actually there, but now that .hub-rail out-stacks .overlay-slot
-   (added above, for the slide-in fix), the same bleed paints across the
-   Settings/Search shelf once it's open instead of empty space. Retract it
-   flush with the rail's own edge whenever an overlay is open - nothing to
-   fuse with at that point anyway, the sidebar it was blending into is
-   covered by the shelf. */
-.global-nav:has(.overlay-slot.open) .hub-rail-seam,
-.global-nav:has(.overlay-slot.open) .hub-rail-active-fill {
-    right: 0;
+    /* Above the plain hub-rail-item rows below (position:relative,
+       z-index:auto) despite coming first in DOM - without this, a hovered
+       row's own icon-pill fill (.hub-rail-item:hover svg, further down)
+       painted on top of this border wherever the two happened to sit close
+       enough to touch, erasing it for as long as that row was hovered (live
+       feedback, screenshot: "Careers" row hovered, no border visible next
+       to it). Chrome shouldn't be erasable by a content-level hover state. */
+    z-index: 1;
 }
 .hub-rail-seam-top { top: 0; height: 100%; }
 .hub-rail-seam-bottom { top: 100%; bottom: 0; }
@@ -578,14 +591,41 @@ main { position: relative; }
 .hub-rail-active-fill {
     position: absolute;
     left: var(--space-xs);
-    right: -16px;
+    /* Was -16px, matching the seam's own now-removed bleed (see
+       .hub-rail-seam's comment) - flush for the same reason: with the rail
+       always elevated, the overshoot no longer hides under the sidebar, so
+       it was reading as its own second, confusing line/box edge sitting
+       just past the seam's rather than the two aligning as one clean cutout
+       (live feedback: "border still crosses notch"). */
+    right: 0;
     top: 0;
     height: 0;
     background: var(--bg-nav);
+    /* Same border colour as .hub-rail-seam, so the notch reads as that same
+       line bending around the active row rather than a differently-styled
+       shape. No border-right deliberately - that edge is meant to fuse into
+       the sidebar (a plain background-colour match, nothing to outline),
+       not read as a fourth side boxing the tab in; giving it one made the
+       seam's line above/below look like it just ran straight through the
+       notch instead of opening up around it (live feedback). */
+    border-top: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
+    border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
+    border-left: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
     border-top-left-radius: var(--radius-sm);
     border-bottom-left-radius: var(--radius-sm);
     pointer-events: none;
-    transition: top var(--transition-pop), height var(--transition-pop);
+    /* Deliberately NOT z-indexed above the rows the way .hub-rail-seam is -
+       this fill sits BEHIND the active icon itself (same DOM/paint order as
+       before, icon painting on top), so raising it here would hide the icon
+       under its own background instead (tried it - live feedback: "icon of
+       active is not showing"). Nothing else paints over this element's own
+       border in practice: it only ever appears at the active row, and nav
+       rows don't get their own hover fill while already active. */
+    /* No transition (was top/height var(--transition-pop)) - the slide
+       read wrong specifically when it's Search/Settings stealing the notch
+       from a hub icon (live feedback), and every other rail button already
+       responds to a state change instantly with no animation, so snapping
+       here instead matches them rather than being a one-off exception. */
 }
 .hub-rail .hub-rail-item.active {
     color: var(--primary);
@@ -630,8 +670,15 @@ main { position: relative; }
     border-radius: var(--radius-sm);
     flex-shrink: 0;
 }
-.hub-rail .hub-rail-item:hover svg,
-.hub-rail .hub-rail-item:focus-visible svg {
+/* :not(.active) - an active row already reads as distinct (icon colour +
+   the seam/notch border wrapping it), so it doesn't need the generic hover
+   pill too; skipping it here also sidesteps the fill repainting over the
+   notch's own border, which it otherwise would since that border has to
+   stay under the icon rather than elevated above it (live feedback: "hover
+   effect hides the borders" - the tooltip alone is still shown either way,
+   this only drops the extra fill). */
+.hub-rail .hub-rail-item:not(.active):hover svg,
+.hub-rail .hub-rail-item:not(.active):focus-visible svg {
     background: var(--bg-nav);
 }
 /* CSS-only hover/focus tooltip — reads off data-tooltip, z-index 30 beats the
@@ -770,7 +817,11 @@ main { position: relative; }
     gap: var(--space-md);
     min-height: 34px;
     padding: 0 var(--space-sm);
-    border-top: 1px solid var(--border-color);
+    /* Stronger than the default --border-color - the footer sits directly
+       below the side-nav's own background (same --bg-nav), so the seam
+       between them needs a clearer line than the faint default gives it
+       (live feedback: "footer blends into the sidenav too much"). */
+    border-top: 1px solid var(--border-strong);
     background: var(--bg-nav);
 }
 .footer-cluster {
