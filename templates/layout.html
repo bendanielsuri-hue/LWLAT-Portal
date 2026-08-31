@@ -525,6 +525,20 @@
         // this one - one preview frame ever exists, however many levels
         // deep you click from.
         var insideFrame = window.self !== window.top;
+        // Clicking a link *inside* the preview iframe navigates only the
+        // iframe (own location, own history) - window.top's address bar
+        // never moves on its own, browsers don't propagate a child frame's
+        // navigation up to the parent. Left alone, that's a trap: a real
+        // refresh re-runs this same script on window.top, which reads
+        // window.top's own location.href to set frame.src (below) - still
+        // whatever page the preview was first opened from - silently
+        // discarding every click made inside the preview since. Mirroring
+        // this copy's own location onto window.top via replaceState (same-
+        // origin, no reload) on every one of its loads keeps the two in
+        // sync, so a refresh reopens the preview exactly where it was left.
+        if (insideFrame) {
+            window.top.history.replaceState(null, '', location.href);
+        }
         // The real top-level page is the breakpoint tool's own control
         // surface (Mobile/Tablet/Desktop buttons live in .app-footer's dev
         // cluster) - it must stay visible even once the *real* browser

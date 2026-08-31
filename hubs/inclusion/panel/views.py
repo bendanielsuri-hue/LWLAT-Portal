@@ -123,6 +123,30 @@ def _safe_next(request, default_url):
     return default_url
 
 
+def _paginate_for_infinite_scroll(queryset, request, is_ajax, page_size):
+    # Shared by Students/Referrals/Actions/Meetings' wireListInfiniteScroll
+    # pagination. `page` in the URL only ever means "how far this visitor
+    # has scrolled" - wireListInfiniteScroll (panel.js) replaceState()s it in
+    # as each batch loads, never typed by hand. An AJAX continuation fetch
+    # (is_ajax and page>1) gets just that one page's slice, spliced onto rows
+    # already in the DOM. A full render (fresh visit, or a refresh mid-scroll
+    # now that the URL carries that page number) has no existing DOM to
+    # splice onto, so it renders every row up to that point in one page -
+    # Paginator(qs, page_size * page_number).get_page(1) - rather than only
+    # the last page's rows, which would silently drop everything loaded
+    # before it on refresh.
+    try:
+        page_number = int(request.GET.get('page') or 1)
+    except ValueError:
+        page_number = 1
+    is_continuation = is_ajax and page_number > 1
+    if is_continuation:
+        page_obj = Paginator(queryset, page_size).get_page(page_number)
+    else:
+        page_obj = Paginator(queryset, page_size * page_number).get_page(1)
+    return page_obj, page_number, is_continuation
+
+
 def _is_panel_staff(staff):
     # Lightweight, non-secure role check: anyone in a PanelGroup is treated as
     # DSL/panel staff. No real auth exists yet, see CLAUDE.md.
@@ -1298,19 +1322,9 @@ def inclusion_panel_students(request):
     # students go through the per-row lookups below (Head of Year,
     # attendance %, behaviour incidents), not the full filtered set.
     STUDENTS_PAGE_SIZE = 50
-    paginator = Paginator(students, STUDENTS_PAGE_SIZE)
-    try:
-        page_number = int(request.GET.get('page') or 1)
-    except ValueError:
-        page_number = 1
-    page_obj = paginator.get_page(page_number)
-    # Infinite-scroll continuation request - page > 1 only ever happens via
-    # wireStudentsInfiniteScroll's own fetch (a fresh filter change always
-    # omits `page`, resetting to 1), so this is never a real user-facing
-    # URL. Renders just the row markup + next sentinel, no .entity-list
-    # wrapper or stats-strip - the target is an insert-before-the-sentinel
-    # splice into the list already on the page, not a full replace.
-    is_continuation = is_ajax and page_number > 1
+    page_obj, page_number, is_continuation = _paginate_for_infinite_scroll(
+        students, request, is_ajax, STUDENTS_PAGE_SIZE
+    )
     students = list(page_obj.object_list)
     for student in students:
         student.has_pills = bool(
@@ -1430,7 +1444,7 @@ def inclusion_panel_students(request):
     }
     if page_obj.has_next():
         next_params = request.GET.copy()
-        next_params['page'] = page_obj.next_page_number()
+        next_params['page'] = page_number + 1
         context['next_page_url'] = request.path + '?' + next_params.urlencode()
     if is_continuation:
         template = 'hubs/inclusion/panel/_students_rows.html'
@@ -1560,19 +1574,9 @@ def inclusion_panel_referrals(request):
     # through the per-row lookups below (actions counts, panel history),
     # not the full filtered set.
     REFERRALS_PAGE_SIZE = 50
-    paginator = Paginator(referrals_qs, REFERRALS_PAGE_SIZE)
-    try:
-        page_number = int(request.GET.get('page') or 1)
-    except ValueError:
-        page_number = 1
-    page_obj = paginator.get_page(page_number)
-    # Infinite-scroll continuation request - page > 1 only ever happens via
-    # wireListInfiniteScroll's own fetch (a fresh filter change always omits
-    # `page`, resetting to 1), so this is never a real user-facing URL.
-    # Renders just the row markup + next sentinel, no .entity-list wrapper
-    # or stats-strip - the target is an insert-before-the-sentinel splice
-    # into the list already on the page, not a full replace.
-    is_continuation = is_ajax and page_number > 1
+    page_obj, page_number, is_continuation = _paginate_for_infinite_scroll(
+        referrals_qs, request, is_ajax, REFERRALS_PAGE_SIZE
+    )
 
     # is_unassigned reads the already-prefetched panel_referrals in Python
     # (same as before) rather than an ORM filter - it needs an exclude()
@@ -1679,7 +1683,7 @@ def inclusion_panel_referrals(request):
     }
     if page_obj.has_next():
         next_params = request.GET.copy()
-        next_params['page'] = page_obj.next_page_number()
+        next_params['page'] = page_number + 1
         context['next_page_url'] = request.path + '?' + next_params.urlencode()
     context['col_widths'] = {
         'raisedby': _col_width(
@@ -2255,18 +2259,9 @@ def inclusion_panel_actions(request):
     # Referrals, above) - only this page's actions go through the per-row
     # lookups below.
     ACTIONS_PAGE_SIZE = 50
-    paginator = Paginator(actions_qs, ACTIONS_PAGE_SIZE)
-    try:
-        page_number = int(request.GET.get('page') or 1)
-    except ValueError:
-        page_number = 1
-    page_obj = paginator.get_page(page_number)
-    # Infinite-scroll continuation request - page > 1 only ever happens via
-    # wireListInfiniteScroll's own fetch (a fresh filter change always
-    # omits `page`, resetting to 1), so this is never a real user-facing
-    # URL. Renders just the row markup + next sentinel, no .entity-list
-    # wrapper or stats-strip.
-    is_continuation = is_ajax and page_number > 1
+    page_obj, page_number, is_continuation = _paginate_for_infinite_scroll(
+        actions_qs, request, is_ajax, ACTIONS_PAGE_SIZE
+    )
     actions = list(page_obj.object_list)
 
     # Row-detail candidates (issue #12): title row + facts row + an
@@ -2334,7 +2329,7 @@ def inclusion_panel_actions(request):
     }
     if page_obj.has_next():
         next_params = request.GET.copy()
-        next_params['page'] = page_obj.next_page_number()
+        next_params['page'] = page_number + 1
         context['next_page_url'] = request.path + '?' + next_params.urlencode()
     if is_continuation:
         template = 'hubs/inclusion/panel/_actions_rows.html'
@@ -2882,16 +2877,9 @@ def inclusion_panel_meetings(request):
     # what gets computed. Fine at today's meeting volumes (nowhere near
     # Students' ~4000-row scale); revisit if that changes.
     MEETINGS_PAGE_SIZE = 50
-    paginator = Paginator(meetings, MEETINGS_PAGE_SIZE)
-    try:
-        page_number = int(request.GET.get('page') or 1)
-    except ValueError:
-        page_number = 1
-    page_obj = paginator.get_page(page_number)
-    # Infinite-scroll continuation request - page > 1 only ever happens via
-    # wireListInfiniteScroll's own fetch (a fresh filter change always omits
-    # `page`, resetting to 1), so this is never a real user-facing URL.
-    is_continuation = is_ajax and page_number > 1
+    page_obj, page_number, is_continuation = _paginate_for_infinite_scroll(
+        meetings, request, is_ajax, MEETINGS_PAGE_SIZE
+    )
     meetings = list(page_obj.object_list)
 
     panel_groups = PanelGroup.objects.filter(is_active=True).select_related('school').order_by('name')
@@ -2929,7 +2917,7 @@ def inclusion_panel_meetings(request):
     }
     if page_obj.has_next():
         next_params = request.GET.copy()
-        next_params['page'] = page_obj.next_page_number()
+        next_params['page'] = page_number + 1
         context['next_page_url'] = request.path + '?' + next_params.urlencode()
     if is_continuation:
         template = 'hubs/inclusion/panel/_meetings_rows.html'

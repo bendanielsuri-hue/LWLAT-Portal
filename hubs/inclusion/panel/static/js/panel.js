@@ -80,7 +80,10 @@ window.wireFilterBarActiveState = function (filterBar) {
 // replaces the whole container's innerHTML wholesale, resetting back to
 // page 1's own sentinel or none at all). containerId is the page's own
 // #<name>-filtered-content id (students-filtered-content, referrals-
-// filtered-content, ...).
+// filtered-content, ...). Each successful load also replaceState()s the
+// URL's ?page= to match, so a refresh mid-scroll re-renders every row up
+// to that point (see _paginate_for_infinite_scroll, views.py) instead of
+// snapping back to page 1.
 window.wireListInfiniteScroll = function (containerId) {
     var container = document.getElementById(containerId);
     if (!container || typeof IntersectionObserver === 'undefined') return;
@@ -111,6 +114,13 @@ window.wireListInfiniteScroll = function (containerId) {
                 sentinel.insertAdjacentHTML('beforebegin', html);
                 sentinel.remove();
                 loading = false;
+                // Keeps the URL's ?page= in step with how far the visitor has
+                // actually scrolled (same history.replaceState convention as
+                // setupAjaxFilterBars in main.js), so a refresh lands the
+                // matching view.py pagination branch (see
+                // _paginate_for_infinite_scroll) instead of silently
+                // dropping every row loaded past page 1.
+                history.replaceState(null, '', url);
                 observeSentinel();
             })
             .catch(function () {
