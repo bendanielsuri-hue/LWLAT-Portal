@@ -561,6 +561,15 @@
         var options = document.querySelectorAll('#dev-bp-group .dev-bp-option');
         var currentWidth = 0;
         var currentHeight = 0;
+        // Snapshot of the URL window.top actually rendered. Navigating
+        // *inside* the preview iframe only moves window.top's address bar
+        // via replaceState (see the comment above) - window.top's own
+        // mainEl/globalNav DOM is never touched. Switching back to Desktop
+        // just unhides that stale DOM, so without this check it'd show
+        // whatever page was loaded before the preview was ever opened,
+        // even though the address bar (and a refresh) already point at
+        // wherever the preview navigated to.
+        var loadedHref = insideFrame ? null : location.href;
         // Read synchronously by the iframe's own copy of this same page (see
         // the head script above) the instant it starts parsing - same-origin
         // window.top access needs no postMessage round trip, so it's already
@@ -597,6 +606,15 @@
 
         function applyBreakpoint(width, height, touch) {
             if (!width) {
+                // A click inside the preview since this Desktop DOM was
+                // last rendered moved window.top's address bar (replaceState,
+                // no reload) without ever touching this stale mainEl/
+                // globalNav - a real navigation is the only way to make
+                // Desktop show what the address bar already claims.
+                if (loadedHref !== null && location.href !== loadedHref) {
+                    window.location.reload();
+                    return;
+                }
                 overlay.hidden = true;
                 mainEl.hidden = false;
                 globalNav.hidden = false;
