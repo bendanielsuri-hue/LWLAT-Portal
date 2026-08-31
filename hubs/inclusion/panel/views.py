@@ -1202,6 +1202,7 @@ def inclusion_panel_home(request):
 def inclusion_panel_students(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
 
     name_filter = request.GET.get('name') or ''
     year_filter = request.GET.get('year') or ''
@@ -1413,6 +1414,7 @@ def inclusion_panel_students(request):
     context = {
         **_panel_base_context(request),
         'students': students,
+        'is_aggregate_view': is_aggregate_view,
         'col_widths': col_widths,
         'years': years,
         'forms': forms,

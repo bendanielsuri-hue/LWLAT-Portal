@@ -12,7 +12,9 @@ convention as Students' own _students_rows.html.
 {% for referral in referrals %}
 <div class="entity-row selectable referral-row" tabindex="0" role="button" aria-pressed="false">
     <div class="entity-thumb">
-        {% if referral.student.photo %}
+        {% if is_aggregate_view %}
+        {% if referral.student.school.logo_url %}<img src="{{ referral.student.school.logo_url }}" alt="{{ referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+        {% elif referral.student.photo %}
         <img src="{{ referral.student.photo.url }}" alt="">
         {% else %}
         <span class="avatar-initials {{ referral.student|avatar_color_class }}">{{ referral.student.first_name|first }}{{ referral.student.last_name|first }}</span>
@@ -20,16 +22,14 @@ convention as Students' own _students_rows.html.
     </div>
     <div class="entity-body">
         <div class="row-title-row">
-            {% if is_aggregate_view %}
-            <span class="meeting-card-logo-inline">
-                {% if referral.student.school.logo_url %}<img src="{{ referral.student.school.logo_url }}" alt="{{ referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
-            </span>
-            {% endif %}
             <div class="entity-title">{{ referral.student }}</div>
             <span class="row-title-sep">&middot;</span>
-            <div class="entity-title row-secondary-text">Concern: {{ referral.concern_category|default:"—" }}</div>
-            <span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>
-            <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
+            <span class="row-facts-primary-plain">Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; House {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; Form {{ referral.student.reg_form }}{% endif %}</span>
+            <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Concern: </span>{{ referral.concern_category|default:"—" }}</div>
+            <div class="row-title-pills">
+                <span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>
+                <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
+            </div>
         </div>
         <div class="row-facts row-facts-cols">
             <div class="row-fact-col" style="width: {{ col_widths.raisedby }}">
@@ -37,12 +37,13 @@ convention as Students' own _students_rows.html.
                 <span>Raised on: {{ referral.created_at|date:"d M Y" }}</span>
             </div>
             <span class="mc-vdivider"></span>
-            <div class="row-fact-col" style="width: {{ col_widths.panels }}">
+            {# row-fact-col-empty: #118 mobile-only hide (panel.css) for a pair with nothing in either line - Prev Panel/Next Panel and Priority/Review Due are the only two pairs that can ever both be blank (Raised by/on and Actions counts never are), see #118 follow-up grilling session. #}
+            <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.panels }}">
                 <span>Prev Panel: {{ referral.previous_panel_date|date:"d M Y"|default:"—" }}</span>
                 <span>Next Panel: {{ referral.next_panel_date|date:"d M Y"|default:"—" }}</span>
             </div>
             <span class="mc-vdivider"></span>
-            <div class="row-fact-col" style="width: {{ col_widths.priorityreview }}">
+            <div class="row-fact-col{% if not referral.priority and not referral.next_review_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.priorityreview }}">
                 <span>Priority: {{ referral.get_priority_display|default:"—" }}</span>
                 <span>Review Due: {{ referral.next_review_date|date:"d M Y"|default:"—" }}</span>
             </div>
@@ -54,7 +55,7 @@ convention as Students' own _students_rows.html.
         </div>
     </div>
     <div class="btn-row row-btn-row">
-        <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student.id }}" class="btn btn-sm">View Actions</a>
+        <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student.id }}" class="btn btn-sm">Actions{% if referral.actions_count %}<span class="btn-count-badge">{{ referral.actions_count }}</span>{% endif %}</a>
         <button type="button" class="btn btn-primary btn-sm" data-view-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel_referrals' %}">Referral Details</button>
     </div>
 </div>

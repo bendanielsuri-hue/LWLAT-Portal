@@ -36,8 +36,21 @@
 .toggle-pill.on .toggle-knob { transform: translateX(20px); }
 
 /* .status-pill base — shared across all hubs. Panel-specific modifier classes
-   (.status-pill.complete, .status-pill.danger, etc.) remain in panel.css. */
-.status-pill { font-size: var(--font-xs); font-weight: 600; padding: var(--space-xxs) 10px; border-radius: var(--radius-pill); background: var(--badge-bg); color: var(--text-secondary); display: inline-block; text-align: center; }
+   (.status-pill.complete, .status-pill.danger, etc.) remain in panel.css.
+   padding in em, not fixed px, and line-height: 1 instead of inheriting
+   the ambient value - a pill's own rendered height used to be independent
+   of its font-size, so a page shrinking font-size to match smaller
+   neighbouring text (e.g. Referrals mobile pairing a pill with demoted
+   secondary text) got no matching height reduction, needing its own
+   one-off padding override to compensate (live feedback: "pills are on
+   the less prominent row but forces extra spacing" -> "this is not just a
+   mobile specific problem"). em padding scales with font-size
+   automatically; line-height: 1 makes the pill's own height depend only
+   on its own font-size + padding, not on whatever line-height its
+   surrounding context happens to have. Values chosen to keep today's
+   default pill (font-xs, 12px) pixel-close to its previous size - nothing
+   changes for existing usage unless a page also overrides font-size. */
+.status-pill { font-size: var(--font-xs); font-weight: 600; line-height: 1; padding: 0.35em 0.833em; border-radius: var(--radius-pill); background: var(--badge-bg); color: var(--text-secondary); display: inline-block; text-align: center; }
 .status-pill[hidden] { display: none; }
 
 /* Shared semantic signal modifiers — theme-aware */
