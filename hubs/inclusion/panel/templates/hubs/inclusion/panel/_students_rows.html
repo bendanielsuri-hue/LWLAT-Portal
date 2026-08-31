@@ -1,3 +1,4 @@
+{% load avatar_extras %}
 {% comment %}
 Row markup only, no .entity-list wrapper - shared by the initial/filtered
 render (_students_filtered_content.html, wraps this in .entity-list) and
@@ -9,7 +10,13 @@ markup in one place means both call sites can never drift apart.
 {% endcomment %}
 {% for s in students %}
 <div class="entity-row selectable" tabindex="0" role="button" aria-pressed="false">
-    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+    <div class="entity-thumb">
+        {% if s.photo %}
+        <img src="{{ s.photo.url }}" alt="">
+        {% else %}
+        <span class="avatar-initials {{ s|avatar_color_class }}">{{ s.first_name|first }}{{ s.last_name|first }}</span>
+        {% endif %}
+    </div>
     <div class="entity-body">
         <div class="row-title-row">
             <div class="entity-title">{{ s.first_name }} {{ s.last_name }}</div>

@@ -1,5 +1,6 @@
 {% extends 'hubs/inclusion/panel/_base.html' %}
 {% load static %}
+{% load avatar_extras %}
 
 {% block title %}Panel Discussion{% endblock %}
 
@@ -164,7 +165,13 @@
         <h2>Student Details</h2>
         <div class="discussion-col-body">
         <div class="discussion-profile-header">
-            <div class="discussion-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+            <div class="discussion-thumb">
+                {% if student.photo %}
+                <img src="{{ student.photo.url }}" alt="">
+                {% else %}
+                <span class="avatar-initials {{ student|avatar_color_class }}">{{ student.first_name|first }}{{ student.last_name|first }}</span>
+                {% endif %}
+            </div>
             <div class="discussion-profile-grid">
                 <h3 class="discussion-profile-name">{{ student.first_name }} {{ student.last_name }}</h3>
                 <div class="qa-packed-grid">

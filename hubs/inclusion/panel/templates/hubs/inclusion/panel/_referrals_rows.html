@@ -1,3 +1,4 @@
+{% load avatar_extras %}
 {% comment %}
 Row markup only, no .entity-list wrapper - shared by the initial/filtered
 render (_referrals_filtered_content.html, wraps this in .entity-list) and
@@ -10,7 +11,13 @@ convention as Students' own _students_rows.html.
 {% endcomment %}
 {% for referral in referrals %}
 <div class="entity-row selectable referral-row" tabindex="0" role="button" aria-pressed="false">
-    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+    <div class="entity-thumb">
+        {% if referral.student.photo %}
+        <img src="{{ referral.student.photo.url }}" alt="">
+        {% else %}
+        <span class="avatar-initials {{ referral.student|avatar_color_class }}">{{ referral.student.first_name|first }}{{ referral.student.last_name|first }}</span>
+        {% endif %}
+    </div>
     <div class="entity-body">
         <div class="row-title-row">
             {% if is_aggregate_view %}

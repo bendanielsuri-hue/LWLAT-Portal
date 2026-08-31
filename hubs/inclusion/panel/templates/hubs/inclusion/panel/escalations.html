@@ -1,5 +1,6 @@
 {% extends 'hubs/inclusion/panel/_base.html' %}
 {% load static %}
+{% load avatar_extras %}
 
 {% block title %}Escalations{% endblock %}
 
@@ -61,7 +62,13 @@ page has no filters yet) - .list-card doesn't require one.
 <div class="entity-list">
     {% for escalation in escalations %}
     <div class="entity-row">
-        <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+        <div class="entity-thumb">
+            {% if escalation.referral.student.photo %}
+            <img src="{{ escalation.referral.student.photo.url }}" alt="">
+            {% else %}
+            <span class="avatar-initials {{ escalation.referral.student|avatar_color_class }}">{{ escalation.referral.student.first_name|first }}{{ escalation.referral.student.last_name|first }}</span>
+            {% endif %}
+        </div>
         <div class="entity-body">
             <div class="entity-title">{{ escalation.referral.student }}</div>
             <div class="entity-meta">Escalated by {{ escalation.escalated_by|default:"—" }} on {{ escalation.escalated_at|date:"d/m/Y H:i" }}</div>

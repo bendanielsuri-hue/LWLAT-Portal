@@ -1,3 +1,4 @@
+{% load avatar_extras %}
 {% comment %}
 Row markup only, no .entity-list wrapper - shared by the initial/filtered
 render (_actions_filtered_content.html, wraps this in .entity-list) and
@@ -10,7 +11,13 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
 {% endcomment %}
 {% for action in actions %}
 <div class="entity-row selectable actions-list-row" tabindex="0" role="button" aria-pressed="false">
-    <div class="entity-thumb">{% include 'icons/avatar_placeholder_svg.html' %}</div>
+    <div class="entity-thumb">
+        {% if action.referral.student.photo %}
+        <img src="{{ action.referral.student.photo.url }}" alt="">
+        {% else %}
+        <span class="avatar-initials {{ action.referral.student|avatar_color_class }}">{{ action.referral.student.first_name|first }}{{ action.referral.student.last_name|first }}</span>
+        {% endif %}
+    </div>
     <div class="entity-body">
         <div class="row-title-row">
             {% if is_aggregate_view %}
