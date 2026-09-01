@@ -1733,6 +1733,50 @@ a { color: inherit; }
        notch at the top of the list, right below the filter bar. */
     border-radius: 0;
 }
+/* Alternating row fill (zebra) rather than a bordered/shadowed "card" per
+   row (tried first, see git history) or the original shared-hairline
+   design - settled portal-wide across every .list-card list page
+   (Students, Referrals, Actions, Escalations, Meetings, Safeguarding
+   Notes), at every width (#118 divider-hierarchy follow-up: docs/research/
+   divider-hierarchy-conventions.md/MD3/Apple HIG/Carbon informed the
+   direction, a live prototype on Referrals picked the specifics, live
+   feedback: "lose the gaps and have alternate rows having a different
+   fill") after H3 (PRINCIPLES-DESIGN.md)'s "repeating item vs real
+   structural break" distinction kept failing in practice even with the
+   correct --border-faint/--border-color token pairing - the row-to-row
+   separator and any row's own internal content divider were reading as
+   the same kind of line regardless of shade. Zebra sidesteps the question
+   entirely (no second line to confuse with anything) and matches what
+   Apple HIG/Carbon actually do for dense tables, per the research above.
+   Also avoids the bordered-card approach's own technical wart: rows
+   inside a scrolling .entity-list clip their box-shadow at the scroll
+   boundary. Scoped to .list-card specifically (not the bare .entity-row
+   base rule, cards.css, which every other .entity-row consumer - modal
+   member pickers, Panel Agenda rosters, Referral Selection, etc. - keeps
+   unchanged) since those compact contexts were never part of that
+   conversation. */
+.list-card .entity-row {
+    border-bottom: 1px solid var(--border-faint);
+}
+.list-card .entity-row:last-child {
+    border-bottom: none;
+}
+/* var(--row-hover-bg), not var(--bg-well) - live feedback: "Zebra look
+   very dark... what was the hover colour. Can we use this. Zebra can be
+   much more subtle!" - --row-hover-bg (tokens/colours.css) is already a
+   deliberately-tuned subtle neutral/primary tint (light.css's own comment
+   on it: "very subtle, ~12% primary tint"), exactly the kind of
+   barely-there fill zebra striping needs; --bg-well is a stronger surface
+   token meant to read as its own distinct region, not a light dusting on
+   alternating rows. Hover itself stays on (live feedback settled: still
+   worth keeping as the "which exact row am I on" precision cue for a
+   whole-row click target, even though cursor:pointer already signals
+   clickability on its own) - even rows sharing the same tint as hover
+   means hovering an even row is a smaller visual change than hovering an
+   odd one, accepted as fine rather than worth a second tint. */
+.list-card .entity-row:nth-child(even) {
+    background-color: var(--row-hover-bg);
+}
 /* Touch already auto-hides its own scrollbar except while actively
    scrolling - a persistently-visible one here only ever shows because the
    dev breakpoint preview iframe is still a real desktop mouse over a

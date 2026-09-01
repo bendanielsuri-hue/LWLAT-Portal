@@ -11,7 +11,7 @@ convention as Students' own _students_rows.html.
 {% endcomment %}
 {% for referral in referrals %}
 <div class="entity-row selectable referral-row" tabindex="0" role="button" aria-pressed="false">
-    <div class="entity-thumb">
+    <div class="entity-thumb{% if is_aggregate_view and referral.student.school.logo_url %} is-logo{% endif %}">
         {% if is_aggregate_view %}
         {% if referral.student.school.logo_url %}<img src="{{ referral.student.school.logo_url }}" alt="{{ referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
         {% elif referral.student.photo %}
@@ -25,11 +25,14 @@ convention as Students' own _students_rows.html.
             <div class="entity-title">{{ referral.student }}</div>
             <span class="row-title-sep">&middot;</span>
             <span class="row-facts-primary-plain">Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; House {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; Form {{ referral.student.reg_form }}{% endif %}</span>
-            <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Concern: </span>{{ referral.concern_category|default:"—" }}</div>
-            <div class="row-title-pills">
-                <span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>
-                <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
+            <div class="row-title-secondary">
+                <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Concern: </span>{{ referral.concern_category|default:"—" }}</div>
+                <div class="row-title-pills">
+                    <span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>
+                    <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
+                </div>
             </div>
+            <span class="row-title-raised-by">Raised by {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %} on {{ referral.created_at|date:"d M Y" }}</span>
         </div>
         <div class="row-facts row-facts-cols">
             <div class="row-fact-col" style="width: {{ col_widths.raisedby }}">
@@ -55,7 +58,11 @@ convention as Students' own _students_rows.html.
         </div>
     </div>
     <div class="btn-row row-btn-row">
-        <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student.id }}" class="btn btn-sm">Actions{% if referral.actions_count %}<span class="btn-count-badge">{{ referral.actions_count }}</span>{% endif %}</a>
+        {% if referral.actions_count %}
+        <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student.id }}" class="btn btn-sm">Actions<span class="btn-count-badge">{{ referral.actions_count }}</span></a>
+        {% else %}
+        <span class="btn btn-sm btn-disabled" aria-disabled="true">Actions</span>
+        {% endif %}
         <button type="button" class="btn btn-primary btn-sm" data-view-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel_referrals' %}">Referral Details</button>
     </div>
 </div>

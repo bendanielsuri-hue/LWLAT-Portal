@@ -2853,6 +2853,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     border-bottom: 1px solid var(--border-faint);
 }
 .meeting-card:last-child { border-bottom: none; }
+/* Zebra fill (#118 divider-hierarchy follow-up, settled portal-wide -
+   layout.css's .list-card .entity-row:nth-child(even)) - .meeting-card is
+   its own separate component (not .entity-row/.entity-list, so that rule
+   never reached it), same shared-hairline shape otherwise, missed on the
+   first pass. Same var(--row-hover-bg) tint, same accepted trade-off that
+   hovering an even row is a smaller visual change than hovering an odd
+   one. */
+.meeting-card:nth-child(even) { background-color: var(--row-hover-bg); }
 .meeting-card:hover { background: var(--row-hover-bg); border-bottom-color: var(--border-color); }
 /* Fake bold via text-shadow (INT-M4), not font-weight — the title is
    ellipsis-truncated but flex-sized to its own content, so a real weight
@@ -2964,6 +2972,16 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    class lives outside .row-title-row entirely (nested in .row-facts
    instead) and must stay untouched by this rule. */
 .row-title-row .row-facts-primary-plain { display: none; }
+/* Concern+pills wrapper (_referrals_rows.html) - display: contents by
+   default so its children (row-secondary-text, row-title-pills) keep acting
+   as direct .row-title-row flex items everywhere except the #118 mobile
+   block below, same convention as .row-title-pills' own base rule above. */
+.row-title-secondary { display: contents; }
+/* Raised by/date (#118 fourth follow-up) - hidden by default, only
+   re-enabled inside #referrals-filtered-content's mobile block below; the
+   full fact strip (row-facts-cols) already covers this at every wider
+   width. */
+.row-title-row .row-title-raised-by { display: none; }
 .row-secondary-text { font-weight: 600; }
 .row-facts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
 .row-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
@@ -3092,21 +3110,58 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         font-weight: 400;
         font-size: var(--font-sm);
         color: var(--text-secondary);
-        /* flex-basis 100% forces concern onto its own line, same technique
-           as name - reintroduced (previously removed to fix pills
-           splitting off it, see the .row-title-pills grouping fix below)
-           now that live feedback wants the row split into two clear
-           blocks: "student info" (name, Year/House/Reg) then "referral
-           info" (concern + pills), matching Students' page then a divider
-           line between them. Forcing concern's own line is what gives the
-           divider (border-top, below) a clean, predictable line to sit on
-           - .row-title-pills' own grouping (still intact) still keeps the
-           two status pills from splitting from EACH OTHER once they
-           follow concern onto this same line/wrap below it as a unit. */
-        flex: 1 1 100%;
+    }
+    /* Concern+pills wrapper - real flex box here (base rule above is
+       display: contents everywhere else), replacing the older approach of
+       forcing row-secondary-text itself onto its own 100%-basis line
+       (which is what pushed pills below it even when both would've fit
+       together) - live feedback: "can the pills share same line as
+       referral category". flex-wrap here is what lets pills drop to their
+       own line only when concern's actual (not forced) width leaves no
+       room, same adaptive behaviour the #118 comment thread originally
+       intended. flex-basis/margin-left bleed this whole block out from
+       under .entity-body's indent (offset by .entity-thumb's fixed 42px +
+       .entity-row's --space-md gap) so it starts at the row edge like
+       .row-btn-row below it, not indented past the avatar - live feedback:
+       "horizontal line and Referral info does not use full width, seems to
+       start to the right of student image". */
+    #referrals-filtered-content .row-title-row .row-title-secondary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-xs);
+        flex: 1 1 calc(100% + 42px + var(--space-md));
         margin-top: var(--space-xs);
+        margin-left: calc(-1 * (42px + var(--space-md)));
         padding-top: var(--space-xs);
         border-top: 1px solid var(--border-color);
+    }
+    /* Divider back above concern category/pills, separating "student info"
+       from "referral info" - briefly dropped (live feedback: "divider line
+       between sections and different entitys in list is too similar" to
+       .entity-row's own border-bottom, cards.css), then explicitly asked
+       back. This full-bleed var(--border-color) treatment is variant A
+       (the current shipped default) in the live prototype below - research
+       (docs/research/divider-hierarchy-conventions.md: MD3, Apple HIG,
+       Carbon) found none of those systems actually solve this with a
+       second *opacity/color* tier of the same full-bleed line the way this
+       rule does; MD3 specifically differentiates by inset-vs-full-bleed
+       instead, and reserves full-bleed for real structural breaks (which
+       is what .entity-row's own border-bottom, between different referral
+       cards, already correctly is - H3, PRINCIPLES-DESIGN.md). Variants
+       B/C/D below apply that finding to this element. */
+    /* Raised by/date (#118 fourth follow-up) - own full-width line below
+       the concern+pills block, same bleed as row-title-secondary above so
+       it starts at the row edge too; who/when reads as core referral info
+       worth surfacing here unlike the rest of the fact strip
+       (row-facts-cols, still hidden below - Prev/Next Panel and the action
+       counts stay Referral-Details-only). */
+    #referrals-filtered-content .row-title-row .row-title-raised-by {
+        display: block;
+        flex: 1 1 calc(100% + 42px + var(--space-md));
+        margin-left: calc(-1 * (42px + var(--space-md)));
+        font-size: var(--font-sm);
+        color: var(--text-secondary);
     }
     /* Year/House/Reg - same student-demographic line Students' own row
        shows (row-facts-primary-plain, shared class/format), added here so
@@ -3158,6 +3213,12 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         font-size: var(--font-sm);
         padding: 2px 8px;
     }
+    /* Item-to-item separator (each row its own bordered/shadowed card, no
+       radius, gap between) is now the shared .entity-row/.entity-list
+       treatment in cards.css, portal-wide at every width - #118
+       divider-hierarchy follow-up settled here first (live prototype on
+       this page), then generalised. Nothing left to override for
+       Referrals specifically. */
 }
 
 /* No divider above the facts line, in every mode (#117 follow-up, live

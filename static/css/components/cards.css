@@ -315,7 +315,15 @@
     text-shadow: var(--hover-fake-bold);
 }
 
-/* Generic entity list */
+/* Generic entity list. Default (bare .entity-row/.entity-list, no
+   .list-card ancestor) stays the original shared-hairline treatment - this
+   markup is reused well beyond the dashboard list pages (modal member
+   pickers, Panel Agenda rosters, Referral Selection, etc. - see
+   .entity-list--bleed's own overrides, panel.css), and those compact
+   contexts were never part of the #118 divider-hierarchy conversation.
+   The "each row is its own separated card" treatment settled by that
+   conversation is scoped to .list-card .entity-row specifically -
+   see layout.css, right below its own .list-card .entity-list rule. */
 .entity-list {
     display: flex;
     flex-direction: column;
@@ -354,6 +362,12 @@
 }
 .entity-thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
 .entity-thumb img { width: 100%; height: 100%; object-fit: cover; }
+/* School logo (#118) sits in the same slot as the student-photo avatar for
+   MAT-wide/aggregate-view staff, but it's a rectangular PNG mark, not a face
+   - cropping it into the round avatar mask via object-fit: cover clips it.
+   Square frame + object-fit: contain shows the whole logo instead. */
+.entity-thumb.is-logo { border-radius: 0; background: none; border: none; }
+.entity-thumb.is-logo img { object-fit: contain; }
 .entity-body { flex: 1; min-width: 0; }
 .entity-title { font-weight: 600; font-size: var(--font-md); }
 .entity-title-meta { font-weight: 400; font-size: var(--font-sm); color: var(--text-secondary); }
