@@ -576,6 +576,53 @@ document.addEventListener('DOMContentLoaded', function () {
             new ResizeObserver(refreshOnResize).observe(container);
         }
     })();
+
+    // Facts-strip overflow guard (DOB/YOA, Gender/Ethnicity, Tutor/HoY,
+    // Behaviour/Attendance) - same live-measured, attribute-driven guard as
+    // Referrals' wireReferralFactsOverflow (referrals.html), replacing the
+    // fixed per-column viewport breakpoints this used to have (panel.css:
+    // "Was a JS-measured 'level 0-5' system" comment, above the CSS rules
+    // this now drives) - those were hand-tuned for one specific combination
+    // of column-content lengths and went stale the moment real content
+    // differed (live feedback: "I get weird scenarios... where more data
+    // should fit"). Only the FIRST row's four columns are ever measured,
+    // not every row - see Referrals' identical comment for why that's
+    // still correct (col_widths, views.py, applies the same widths to
+    // every row on the page) and still O(1) per resize, not the ~240-row
+    // remeasure the original per-row system paid for.
+    (function wireStudentFactsOverflow() {
+        var container = document.getElementById('students-filtered-content');
+        if (!container) return;
+        function apply() {
+            var probe = container.querySelector('.entity-row .row-facts-cols');
+            if (!probe) return;
+            var cols = Array.prototype.slice.call(probe.querySelectorAll(':scope > .row-fact-col'));
+            if (cols.length < 2) return;
+            container.removeAttribute('data-facts-hide-from');
+            var top0 = cols[0].getBoundingClientRect().top;
+            for (var i = 1; i < cols.length; i++) {
+                if (Math.round(cols[i].getBoundingClientRect().top) > Math.round(top0)) {
+                    container.setAttribute('data-facts-hide-from', String(i));
+                    break;
+                }
+            }
+        }
+        var lastWidth = null;
+        function applyIfWidthChanged() {
+            var width = container.clientWidth;
+            if (width === lastWidth) return;
+            lastWidth = width;
+            apply();
+        }
+        var applyOnResize = window.rafThrottle ? window.rafThrottle(applyIfWidthChanged) : applyIfWidthChanged;
+        apply();
+        lastWidth = container.clientWidth;
+        studentsContentObservers.push(apply);
+        window.addEventListener('resize', applyOnResize);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(applyOnResize).observe(container);
+        }
+    })();
 });
 </script>
 {% endblock %}

@@ -310,6 +310,76 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     })();
 
+    // Facts-strip overflow guard (Raised by / Prev-Next Panel / Priority-
+    // Review Due / Completed-Incomplete Actions) - live feedback: "the
+    // issue with the Referrals Page is the overflow... any items that are
+    // cut off [should] disappear", after a fixed-width empirical breakpoint
+    // (the old approach, see git history/Students' own row-detail-col-N,
+    // panel.css) turned out to only be correct for one specific combination
+    // of school-name/staff-name lengths - narrower or wider content shifts
+    // exactly where this stops fitting, and a hand-picked pixel number
+    // can't track that ("I want a dynamic solution that can solve this
+    // problem in different scenarios").
+    //
+    // Only the FIRST row's .row-facts-cols is ever measured, not every row
+    // (deliberately - see the "no live per-row overflow check any more"
+    // rationale panel.css:3895-3910 gave for dropping the old Students
+    // per-row system) - every row's four columns already share the exact
+    // same widths (col_widths, views.py: the longest value across the
+    // whole page, applied identically to every row), so whichever column
+    // wraps first on row one wraps first on every other row too. One
+    // measurement, not up to ~60, keeps this the same O(1)-per-resize cost
+    // class as wireReferralButtonLayout above rather than reintroducing
+    // the per-row cost that system was specifically removed to avoid.
+    (function wireReferralFactsOverflow() {
+        var container = document.getElementById('referrals-filtered-content');
+        if (!container) return;
+        function apply() {
+            var probe = container.querySelector('.entity-row .row-facts-cols');
+            if (!probe) return;
+            var cols = Array.prototype.slice.call(probe.querySelectorAll(':scope > .row-fact-col'));
+            if (cols.length < 2) return;
+            // Cleared before measuring - a previous, narrower pass may have
+            // already hidden columns here; measuring against that instead
+            // of the full set would mean a container that's since grown
+            // back to fit everything stays stuck hidden (same "clear
+            // before remeasuring" reasoning as wireReferralButtonLayout's
+            // own --btn-w-* properties, above).
+            container.removeAttribute('data-facts-hide-from');
+            var top0 = cols[0].getBoundingClientRect().top;
+            for (var i = 1; i < cols.length; i++) {
+                // Flex-wrap only ever pushes a column onto a new line once
+                // everything before it has already claimed its space on the
+                // first line, so the first column whose own top no longer
+                // matches column one's is also the first one to hide -
+                // every column after it is either already wrapped too or
+                // would only have room because this one stopped claiming
+                // space, so it goes as well.
+                if (Math.round(cols[i].getBoundingClientRect().top) > Math.round(top0)) {
+                    container.setAttribute('data-facts-hide-from', String(i));
+                    break;
+                }
+            }
+        }
+        var lastWidth = null;
+        function applyIfWidthChanged() {
+            var width = container.clientWidth;
+            if (width === lastWidth) return;
+            lastWidth = width;
+            apply();
+        }
+        var applyOnResize = window.rafThrottle ? window.rafThrottle(applyIfWidthChanged) : applyIfWidthChanged;
+        apply();
+        lastWidth = container.clientWidth;
+        window.addEventListener('resize', applyOnResize);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(applyOnResize).observe(container);
+        }
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(apply).observe(container, { childList: true, subtree: true });
+        }
+    })();
+
     // Year -> Reg cascading (same pattern as inclusion_panel_students,
     // students.html) - picking a Year Group narrows Reg down to that
     // year's own forms only.

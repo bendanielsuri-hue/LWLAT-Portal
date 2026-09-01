@@ -167,8 +167,17 @@
        --bg-surface-alt token instead keeps it a real theme colour and
        lighter, at the cost of a chip that contrasts less against its card. */
     --badge-bg: var(--bg-surface-alt);
-    /* Borders do the framing — no drop-shadows on cards */
-    --card-shadow: none;
+    /* Borders do the framing — no drop-shadows on cards. 0 0 transparent,
+       not the bare keyword none - a few consumers (.list-card .entity-row
+       .chosen/:hover, layout.css) combine this into a comma-separated
+       box-shadow list alongside an inset accent bar; box-shadow's own
+       `none` keyword is only legal used alone, so mixed into a list it
+       makes the whole declaration invalid and silently drops the accent
+       bar too (confirmed live: --card-shadow: none themes were losing
+       .chosen's own primary accent bar entirely, not just the shadow). A
+       zero-size, zero-alpha shadow renders identically invisible but
+       stays valid to combine. */
+    --card-shadow: 0 0 rgba(0, 0, 0, 0);
     /* Semantic signal scale — defined here (not light.css) so themes.css is the
        single source of truth for all theme-derived colour tokens. */
     --color-exceeding: #7c3aed; --color-exceeding-bg: #ede9fe;
@@ -306,7 +315,9 @@
     --bg-tint-colour: #ffffff; --bg-tint-page: 0%; --bg-tint-nav: 0%; --bg-tint-surface: 0%;
     --bg-tint-well: 0%; --bg-tint-nested: 0%; --bg-tint-rail: 0%;
     --border-color: #eeeff1; --border-strong: #e0e2e5;
-    --card-shadow: none;
+    /* 0 0 transparent, not the bare keyword none - see the Pastel theme's
+       own identical comment above for why. */
+    --card-shadow: 0 0 rgba(0, 0, 0, 0);
     /* Semantic colours — desaturated foregrounds, very pale tint backgrounds */
     --color-exceeding: #6b4fa0; --color-exceeding-bg: #f3f0f8;
     --color-positive:  #3a7a50; --color-positive-bg:  #eef5f0;

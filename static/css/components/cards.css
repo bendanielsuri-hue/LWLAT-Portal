@@ -387,7 +387,21 @@
 .selectable:focus-visible .entity-title {
     text-shadow: var(--hover-fake-bold);
 }
-.selectable:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* outline: none, not just an absent rule - a themed outline used to sit
+   here (outline: 2px solid var(--primary)) drawing a full rectangle that
+   the very next rule's own history already argued against ("don't like
+   the hover rectangle", below). Removing that rule outright (tried first)
+   still left a rectangle - the browser's own default UA focus ring
+   (solid, dark, not themed) fills the gap the moment nothing else sets
+   `outline` at all, it doesn't just disappear - confirmed live: "I am
+   still seeing rectangle active state" survived across both attempts.
+   :focus-visible already gets the same left-edge accent bar as :hover
+   (:not(.chosen), below) as its focus indicator instead - role=button
+   elements like these can pick up :focus-visible from a plain mouse
+   click in some browsers, not just real keyboard nav, which is what
+   first exposed this: a chosen row focused that way showed its own
+   accent bar plus whichever outline (themed or UA-default) on top. */
+.selectable:focus-visible { outline: none; }
 /* Left-edge accent bar on hover, not a background fill or full outline -
    a full inset outline (tried first, live feedback: "don't like the hover
    rectangle") visually painted over .chosen's own left accent bar below

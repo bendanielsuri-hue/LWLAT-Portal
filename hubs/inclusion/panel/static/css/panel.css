@@ -2248,30 +2248,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     border-bottom: none;
 }
 
-/* Zebra fill (#118 divider-hierarchy follow-up, settled portal-wide - see
-   layout.css's .list-card .entity-row:nth-child(even)/.meeting-card's own
-   copy above) - missed on My Referrals/My Actions since .panel-list only
-   reads as a real stacked list at desktop width; below the carousel
-   breakpoint (max-width: 1180px, this file's own My Referrals carousel
-   comment above) each <li> becomes an individual swipeable card, where an
-   alternating fill wouldn't read as anything. Scoped to these two ids, not
-   a blanket .panel-list li rule - Upcoming Panel Meetings' own
-   .panel-preview items (below, #meeting-card-collapsible) and Panel Agenda
-   Setup's reuse of .panel-card/.panel-list (this file's own comment near
-   .list-page-shell .panel-list) are each their own distinct look, never
-   part of this ask. */
-/* :not(.chosen) - an id selector otherwise beats .panel-list li.chosen's
-   plain class-level `background: var(--primary-light)` outright, same
-   specificity bug fixed on .list-card .entity-row:nth-child(even)
-   (layout.css) - a chosen even row would silently keep the zebra tint
-   instead of its own selected fill. */
-@media (min-width: 1181px) {
-    #my-referrals-list li:nth-child(even):not(.chosen),
-    #my-actions-list li:nth-child(even):not(.chosen) {
-        background-color: var(--row-hover-bg);
-    }
-}
-
 /* Row standard (see .selectable in cards.css): a thin left-edge accent bar
    on hover (not a background fill or full outline - a full outline would
    paint over .chosen's own left accent bar below and make it disappear on
@@ -2298,6 +2274,57 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .panel-list li.chosen .panel-item-title { text-shadow: var(--hover-fake-bold); }
 .panel-list li.chosen:hover { background: var(--primary-light); }
 .panel-list li.empty-note:hover { box-shadow: none; }
+
+/* Same gapped-card treatment as .list-card .entity-row (layout.css) and
+   .meeting-card (above), for the Panel Home widgets built on .panel-list
+   instead of .entity-row: My Referrals/My Actions (desktop/stacked mode
+   only - live feedback: "it does want this style in desktop mode, but
+   these also become carousels" - #my-referrals-list/#my-actions-list's
+   own carousel markup below 1181px keeps its already-bordered individual
+   cards untouched, a completely different component this rule never
+   reaches once the id-scoped carousel rules below take over) and Upcoming
+   Panel Meetings (.panel-preview, every width - that list never becomes a
+   carousel, just collapses in stack mode). Deliberately kept as its own
+   rule against .panel-list rather than migrating this markup onto
+   .entity-row/.list-card - the carousel behaviour below 1181px is a
+   structurally different layout (scroll-snap, drag-grab, fade edges, all
+   wired against .panel-list li specifically in panel.js), not just a
+   different look, so reusing .entity-row would fight that machinery
+   rather than benefit from it. --border-color (not --border-strong) and
+   var(--card-shadow) match .list-card .entity-row's own token choices for
+   the same "nested row vs. its own card container" reasoning. */
+@media (min-width: 1181px) {
+    .list-page-shell .panel-list {
+        background: var(--bg-well);
+        gap: var(--space-xxs);
+    }
+    .list-page-shell .panel-list li {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        box-shadow: var(--card-shadow);
+    }
+    /* Combines the accent bar with var(--card-shadow) in one box-shadow
+       list - box-shadow isn't additive across separate declarations, so
+       restating it here (same fix as .list-card .entity-row's own hover/
+       chosen overrides, layout.css) is what keeps the shadow from
+       disappearing on hover/chosen. */
+    .list-page-shell .panel-list li:hover:not(.chosen),
+    .list-page-shell .panel-list li:focus-visible:not(.chosen) {
+        box-shadow: inset 3px 0 0 var(--border-strong), var(--card-shadow);
+    }
+    /* background restated (not just relying on the base .panel-list
+       li.chosen rule, cards.css-equivalent) - that base rule and this
+       file's own .list-page-shell .panel-list li (above) are the same
+       specificity (2 classes + type each), so without this the later of
+       the two in source order silently won regardless of .chosen -
+       confirmed live: chosen rows on Home showed a plain bg-surface card
+       with no primary fill or accent bar at all, reading as just another
+       bordered rectangle instead of a selected row. */
+    .list-page-shell .panel-list li.chosen {
+        background: var(--primary-light);
+        box-shadow: inset 3px 0 0 var(--accent-border), var(--card-shadow);
+    }
+}
 
 .panel-preview {
     padding: var(--space-sm) 0 var(--space-xs);
@@ -2375,16 +2402,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .activity-list li:last-child {
     border-bottom: none;
 }
-/* Zebra fill (#118 divider-hierarchy follow-up, settled portal-wide - see
-   layout.css's .list-card .entity-row:nth-child(even)) - unlike My
-   Referrals/My Actions (.panel-list, above), Recent Activity never becomes
-   a carousel of individual cards at any width (just a plain scrolling
-   list, narrower/height-capped in stack mode), so this applies unscoped
-   rather than desktop-only. */
-.activity-list li:nth-child(even) {
-    background-color: var(--row-hover-bg);
-}
-
 /* Subtle accent tint per event kind (created/completed/assigned), same
    --color-* tokens as .stat-card--accent-* so the palette reads as one system. */
 .activity-icon {
@@ -2885,25 +2902,29 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    for a completed panel, Discussed Referrals + Meeting Duration)
    breakdown sits under a divider. Actions are a right-hand column,
    vertically centred against the whole card. */
+/* Gapped per-row card, matching layout.css's .list-card .entity-row
+   redesign (git history has the zebra fill this replaced) - .meeting-card
+   is its own separate component (not .entity-row/.entity-list, so that
+   rule never reached it directly), same treatment applied by hand here.
+   .meeting-list (below) is the equivalent of .list-card .entity-list. No
+   border-radius - flush to .meeting-list's own left/right edge (no side
+   margin there either), same reasoning as .list-card .entity-row.
+   --border-color, not --border-strong - same "nested row shouldn't
+   outweigh the outer .list-card boundary" reasoning as .list-card
+   .entity-row (layout.css). */
 .meeting-card {
     padding: var(--space-md) var(--space-lg);
     display: flex;
     align-items: stretch;
     gap: var(--space-md);
-    border-bottom: 1px solid var(--border-faint);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    /* --card-shadow - same token/reasoning as .list-card .entity-row
+       (layout.css). */
+    box-shadow: var(--card-shadow);
 }
-.meeting-card:last-child { border-bottom: none; }
-/* Zebra fill (#118 divider-hierarchy follow-up, settled portal-wide -
-   layout.css's .list-card .entity-row:nth-child(even)) - .meeting-card is
-   its own separate component (not .entity-row/.entity-list, so that rule
-   never reached it), same shared-hairline shape otherwise, missed on the
-   first pass. Same var(--row-hover-bg) tint. */
-.meeting-card:nth-child(even) { background-color: var(--row-hover-bg); }
 /* Row standard (see .selectable in cards.css): inset outline, not a
-   background fill - reads identically on odd/even rows since it never
-   touches the row's own background (the zebra fill above included), unlike
-   the old hover fill this replaced which needed a separate border-bottom
-   bump to stay visible against it.
+   background fill - stays visible against the card's own border regardless.
    Left-edge accent bar (see cards.css's .selectable:hover comment for the
    full reasoning), not a full outline - a full outline painted over
    .chosen's own left accent bar below and made it disappear on hover.
@@ -2912,8 +2933,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .meeting-card:hover:not(.chosen),
 .meeting-card:focus-visible:not(.chosen) {
     /* var(--border-strong), not var(--accent-border) - see cards.css's
-       .selectable:hover comment. */
-    box-shadow: inset 3px 0 0 var(--border-strong);
+       .selectable:hover comment. Combined with var(--card-shadow) (base
+       rule, above) in one box-shadow list - box-shadow isn't additive
+       across separate declarations, so restating it here is what keeps
+       the card's own drop shadow from disappearing on hover. */
+    box-shadow: inset 3px 0 0 var(--border-strong), var(--card-shadow);
 }
 /* Fake bold via text-shadow (INT-M4), not font-weight — the title is
    ellipsis-truncated but flex-sized to its own content, so a real weight
@@ -2922,7 +2946,10 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .meeting-card:focus-visible h3 {
     text-shadow: var(--hover-fake-bold);
 }
-.meeting-card.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
+/* box-shadow combines the accent bar with var(--card-shadow) (base rule,
+   above) - see .meeting-card:hover's own comment on why both need
+   restating together here. */
+.meeting-card.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border), var(--card-shadow); }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .meeting-card.chosen h3 { text-shadow: var(--hover-fake-bold); }
 
@@ -2966,22 +2993,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .bd-pill.bd-medium { background: var(--priority-medium-bg); color: var(--priority-medium-text); }
 .bd-pill.bd-low { background: var(--priority-low-bg); color: var(--priority-low-text); }
 .bd-pill.bd-untriaged { background: var(--badge-bg); color: var(--text-faint); }
-/* Flag pills (Students/Referrals SEN/PP/EAL/LAC/YC/MA) - .bd-untriaged's
-   own pale fill (--badge-bg, a light tint) sits too close in luminance to
-   the zebra even-row tint (--row-hover-bg, layout.css's own subtle primary
-   tint on .list-card .entity-row:nth-child(even)) to read clearly there -
-   live feedback: "the students pill are hard to see on even rows due to
-   darker background. Same on student page." color-mix toward
-   --border-strong (not a flat different color) so it stays a deliberate
-   step darker than the plain fill rather than an arbitrary one-off value,
-   same derived-token approach --border-faint (light.css) already uses.
-   Background only, not a border - a border would grow the pill's box
-   (border-box sizing only absorbs an added border into an already-fixed
-   width, and .bd-pill has none) and read as a slightly larger pill on
-   every even row. */
-.list-card .entity-row:nth-child(even):not(.chosen) .bd-pill.bd-untriaged {
-    background: color-mix(in srgb, var(--badge-bg) 40%, var(--border-strong));
-}
 /* Stands in for the whole New/Review (+ Priority) cluster when a card has
    no referrals at all - same warning tone as .status-pill.open/.delayed
    rather than a neutral one, since an empty agenda this close to the
@@ -3139,9 +3150,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     padding-top: var(--space-xxs);
     border-top: 1px solid var(--border-color);
 }
-#referrals-filtered-content .entity-row:nth-child(even) .row-title-row .row-title-secondary {
-    border-top-color: var(--border-strong);
-}
 /* font-md, not the earlier demoted font-sm - live feedback: "can concern
    category be more prominent". Matches .entity-title's own base size
    (cards.css) now, same weight/colour already in place - Concern reads as
@@ -3277,35 +3285,20 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         padding-top: var(--space-xs);
         border-top: 1px solid var(--border-color);
     }
-    /* Even rows only: --border-strong, not --border-color - measured too
-       subtle live (Playwright, zebra follow-up) specifically against even
-       rows' --row-hover-bg tint (layout.css zebra bump), which sits close
-       enough to --border-color that this line, meant to outrank the
-       row-to-row divider below it (comment below), was reading as flatter
-       than it instead. Scoped to :nth-child(even) rather than bumped for
-       every row (live feedback: odd rows' contrast against plain
-       --bg-surface was never the complaint - only checked, and confirmed,
-       against the tinted row) - same "only where the background actually
-       changed" scoping as .list-card .entity-row:nth-child(even)'s own
-       border-bottom-color bump, layout.css. */
-    #referrals-filtered-content .entity-row:nth-child(even) .row-title-row .row-title-secondary {
-        border-top-color: var(--border-strong);
-    }
     /* Divider back above concern category/pills, separating "student info"
        from "referral info" - briefly dropped (live feedback: "divider line
        between sections and different entitys in list is too similar" to
-       .entity-row's own border-bottom, cards.css), then explicitly asked
-       back. This full-bleed var(--border-color) treatment (var(--border-strong)
-       on even/zebra rows only, per the follow-up above) is variant A
-       (the current shipped default) in the live prototype below - research
+       .entity-row's own border, cards.css), then explicitly asked back.
+       This full-bleed var(--border-color) treatment is variant A (the
+       current shipped default) in the live prototype below - research
        (docs/research/divider-hierarchy-conventions.md: MD3, Apple HIG,
        Carbon) found none of those systems actually solve this with a
        second *opacity/color* tier of the same full-bleed line the way this
        rule does; MD3 specifically differentiates by inset-vs-full-bleed
        instead, and reserves full-bleed for real structural breaks (which
-       is what .entity-row's own border-bottom, between different referral
-       cards, already correctly is - H3, PRINCIPLES-DESIGN.md). Variants
-       B/C/D below apply that finding to this element. */
+       is what .entity-row's own border, between different referral cards,
+       already correctly is - H3, PRINCIPLES-DESIGN.md). Variants B/C/D
+       below apply that finding to this element. */
     /* Raised by/date (#118 fourth follow-up) - own full-width line below
        the concern+pills block, same bleed as row-title-secondary above so
        it starts at the row edge too; who/when reads as core referral info
@@ -3449,9 +3442,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         padding-top: var(--space-xs);
         border-top: 1px solid var(--border-color);
     }
-    #referrals-filtered-content .entity-row:nth-child(even) .row-title-row .row-title-secondary {
-        border-top-color: var(--border-strong);
-    }
     #referrals-filtered-content .row-title-row .row-title-raised-by {
         display: block;
         flex: 1 1 calc(100% + 42px + var(--space-md));
@@ -3486,6 +3476,29 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     margin-left: calc(-1 * (42px + var(--space-md)));
     width: calc(100% + 42px + var(--space-md));
 }
+/* Facts-strip overflow guard (wireReferralFactsOverflow, referrals.html) -
+   [data-facts-hide-from] is a live-measured index (0-based, "the first
+   .row-fact-col whose own top no longer matches column one's"), not a
+   fixed breakpoint, so this reacts to whatever combination of column
+   widths (server-computed per page load, views.py's _col_width) and
+   available row width (list-card width, sidebar state, zoom - anything)
+   is actually true right now, rather than one hand-picked pixel number
+   that only happens to be correct for today's content. :nth-of-type
+   counts .row-fact-col and .mc-vdivider separately (different tag names -
+   div vs span - interleaved as siblings), so "hide column N onward" and
+   "hide divider N-1 onward" are each their own clean count. */
+#referrals-filtered-content[data-facts-hide-from="1"] .row-fact-col:nth-of-type(n+2),
+#referrals-filtered-content[data-facts-hide-from="1"] .mc-vdivider:nth-of-type(n+1) {
+    display: none;
+}
+#referrals-filtered-content[data-facts-hide-from="2"] .row-fact-col:nth-of-type(n+3),
+#referrals-filtered-content[data-facts-hide-from="2"] .mc-vdivider:nth-of-type(n+2) {
+    display: none;
+}
+#referrals-filtered-content[data-facts-hide-from="3"] .row-fact-col:nth-of-type(n+4),
+#referrals-filtered-content[data-facts-hide-from="3"] .mc-vdivider:nth-of-type(n+3) {
+    display: none;
+}
 /* No divider above the facts line, in every mode (#117 follow-up, live
    feedback: "lose the horizontal divider above details") - overrides the
    shared .row-facts base rule's own border-top/padding-top (above), which
@@ -3494,28 +3507,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     margin-top: var(--space-xxs);
     padding-top: 0;
     border-top: none;
-    /* Safety net, not a fix in itself (live feedback: "I am still getting
-       an overflow at a very specific width... Is there a way to stop it
-       ever being able to overflow? If it's clipped by buttons that is
-       still better than the layout overflowing" - the level search
-       (students.html) already tries to prevent this, but a resize-driven
-       recheck can still land on a transient frame where the fixed-width
-       row-detail columns momentarily don't fit before JS settles on the
-       right level). Clips any leftover horizontal overflow instead of
-       letting it push the row wider or force a visible reflow - a cut-off
-       edge on the last column for one frame reads far better than the
-       whole row jumping width. Widened to cover vertical growth too (live
-       feedback: "I still see row increase with overflow then
-       disappearing") - overflow: hidden alone only clips what doesn't fit
-       on one line, it does nothing to stop the base .row-facts rule's own
-       flex-wrap: wrap from accepting a second line in the first place, so
-       the row's height itself still visibly grew then shrank back across
-       the same transient frame this rule already exists to smooth over.
-       nowrap forces every fact onto the one line overflow: hidden is
-       already clipping, so a leftover column gets cut off instead of
-       ever pushing the row taller. */
-    flex-wrap: nowrap;
-    overflow: hidden;
 }
 
 /* Search: a plain field, not a fused-left label box (#133 grilling
@@ -3849,23 +3840,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     }
 }
 
-/* Gender/DOB column - hidden by default (live feedback: "add in addition
-   details if there is room. Gender, DOB... styled like Referrals page" -
-   "wider modes only", then "it was styled this way in the past", then
-   "Landscape tablet may benefit as well" - the .row-facts-cols/.row-fact-
-   col/.mc-vdivider trio this reuses is the exact pattern Students itself
-   used before #117 simplified it down to one plain Year/House/Form line,
-   and that Referrals/Actions still use for their own row-detail columns
-   today). Un-hidden from 1180px, inclusive (below) - the dev breakpoint
-   preview's own "Tablet Wide" preset (layout.html) is exactly 1180px wide;
-   min-width: 1181px (this file's other 1181-1400px tier boundary) would
-   exclude that exact preset (live feedback + screenshot: "not seeing it on
-   tablet" - it was landing 1px short). Narrower than 1180px, the row has
-   no room to spare for it without crowding the buttons back into
-   overflow. */
-#students-filtered-content .row-facts-extra {
-    display: none;
-}
+/* Gender/DOB column etc. (live feedback: "add in addition details if
+   there is room. Gender, DOB... styled like Referrals page") - visibility
+   is no longer a plain hidden-by-default rule here; see
+   wireStudentFactsOverflow's own attribute-driven guard (below) for how
+   many of these actually show at any given moment. */
 /* Year/House/Reg under the name, every width - moved out of the data
    section entirely (live feedback: "lose these from the data section and
    them as new line under student name like it is in mobile mode"). Own
@@ -3904,72 +3883,41 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    "animations are stuttery... maybe this needs simplifying" - that
    per-resize full-list remeasure, not just how often it ran, was the
    actual cost fighting the side-nav's own width transition for main-
-   thread time). Each column's width is already capped server-side (ch
-   units, _col_width() in views.py) rather than truly unbounded, so a
-   row's genuine max content width is predictable enough for a fixed
-   breakpoint per column to be a reasonable, if not pixel-perfect, stand-in
-   for the old per-row measurement - trades exactness for costing the
-   browser nothing at all on resize (no JS on this path any more). Widest-
-   first cascade: each threshold below adds back one more column as the
-   viewport widens; .row-detail-col-N on both a column and its own leading
-   divider is what still lets one threshold add/drop just the *last*
-   column rather than all-or-nothing. Thresholds picked empirically
-   (Playwright width sweep, no live per-row overflow check any more to
-   fall back on) - if a genuinely long name/tutor value overflows at a
-   specific width, nudge that column's own threshold up a bit rather than
-   reintroducing JS measurement. */
-@media (min-width: 1180px) {
-    /* Explicit display values, not `revert` - revert would also roll back
-       .mc-vdivider/.row-fact-col's own base display rules (both author-
-       origin, same as this one), not just this hiding rule. */
-    #students-filtered-content .mc-vdivider.row-facts-extra {
-        display: block;
-    }
-    #students-filtered-content .row-fact-col.row-facts-extra {
-        display: flex;
-    }
-    /* Fades rather than an instant display:none snap (live feedback: "can
-       we have the data fade in or out rather than disapear"). Briefly
-       stripped to a plain display:none for the stutter bisection (ruled
-       out - the zero-JS test still stuttered, proving it was DOM row count
-       /layout cost, not this) and restored once that was confirmed.
-       transition-behavior: allow-discrete + @starting-style is what lets
-       `display` itself take part: hiding fades opacity to 0 first and only
-       then (transition end) drops to display: none, instead of vanishing
-       before the fade can be seen; showing flips to its normal display
-       immediately and fades in from the @starting-style opacity: 0 below.
-       No row-detail-col-1 any more - Year/House/Reg (row-facts-primary-
-       plain) moved out of this data section entirely and under the name
-       instead (live feedback: "lose these from the data section and them
-       as new line under student name like it is in mobile mode" - Students
-       carries its own SEN/PP/EAL/etc pills on the name's own line too, so
-       "group info is best on next line" rather than sharing it, unlike
-       Referrals' Year/House/Reg). DOB/YOA (row-detail-col-2) is now the
-       first column in this strip - nothing to its left needs a divider or
-       the border/margin treatment below until IT actually shows, so both
-       move to its own 1280px threshold (below) instead of firing here. */
-    #students-filtered-content .row-detail-col-2,
-    #students-filtered-content .row-detail-col-3,
-    #students-filtered-content .row-detail-col-4,
-    #students-filtered-content .row-detail-col-5 {
-        transition: opacity var(--transition-base), display var(--transition-base) allow-discrete;
-        display: none;
-        opacity: 0;
-    }
-    @starting-style {
-        #students-filtered-content .row-detail-col-2,
-        #students-filtered-content .row-detail-col-3,
-        #students-filtered-content .row-detail-col-4,
-        #students-filtered-content .row-detail-col-5 {
-            opacity: 0;
-        }
-    }
+   thread time) - then replaced again with wireStudentFactsOverflow
+   (students.html), the same one-row-measured, attribute-driven guard
+   Referrals uses (see .row-fact-col:nth-of-type below and its own
+   comment there for the full reasoning). The fixed breakpoints above were
+   hand-tuned for one specific combination of column-content lengths and
+   went stale the moment real content differed (live feedback: "I get
+   weird scenarios... where more data should fit" - a row with short
+   values in every column stayed capped at the same reveal width as one
+   with long values, wasting visible room). wireStudentFactsOverflow
+   measures the real rendered widths instead, so it reveals exactly as
+   many columns as actually fit, not a number tuned for someone else's
+   data - while still only measuring one row per resize, not the ~240-row
+   full remeasure the original per-row system paid for. */
+#students-filtered-content[data-facts-hide-from="1"] .row-fact-col:nth-of-type(n+2),
+#students-filtered-content[data-facts-hide-from="1"] .mc-vdivider:nth-of-type(n+1) {
+    display: none;
 }
+#students-filtered-content[data-facts-hide-from="2"] .row-fact-col:nth-of-type(n+3),
+#students-filtered-content[data-facts-hide-from="2"] .mc-vdivider:nth-of-type(n+2) {
+    display: none;
+}
+#students-filtered-content[data-facts-hide-from="3"] .row-fact-col:nth-of-type(n+4),
+#students-filtered-content[data-facts-hide-from="3"] .mc-vdivider:nth-of-type(n+3) {
+    display: none;
+}
+#students-filtered-content[data-facts-hide-from="4"] .row-fact-col:nth-of-type(n+5),
+#students-filtered-content[data-facts-hide-from="4"] .mc-vdivider:nth-of-type(n+4) {
+    display: none;
+}
+/* Column 1 (DOB/YOA) needs no reveal rule of its own - nothing hides it
+   (wireStudentFactsOverflow, students.html, only ever measures/hides from
+   column *2* onward, same assumption as Referrals' equivalent guard: the
+   first column always fits once .row-facts itself is visible at all,
+   which the coarser display:none cutoff above already handles). */
 @media (min-width: 1280px) {
-    #students-filtered-content .row-fact-col.row-detail-col-2 {
-        display: flex;
-        opacity: 1;
-    }
     /* Same two dividers Referrals/Actions carry at every width - a
        vertical line before the buttons (.entity-row > .row-btn-row's own
        base rule, above, which Students' plain .btn-row never matched) and
@@ -3991,36 +3939,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         margin-top: var(--space-xs);
         padding-top: var(--space-xs);
         border-top: 1px solid var(--border-color);
-    }
-}
-@media (min-width: 1400px) {
-    #students-filtered-content .mc-vdivider.row-detail-col-3 {
-        display: block;
-        opacity: 1;
-    }
-    #students-filtered-content .row-fact-col.row-detail-col-3 {
-        display: flex;
-        opacity: 1;
-    }
-}
-@media (min-width: 1520px) {
-    #students-filtered-content .mc-vdivider.row-detail-col-4 {
-        display: block;
-        opacity: 1;
-    }
-    #students-filtered-content .row-fact-col.row-detail-col-4 {
-        display: flex;
-        opacity: 1;
-    }
-}
-@media (min-width: 1640px) {
-    #students-filtered-content .mc-vdivider.row-detail-col-5 {
-        display: block;
-        opacity: 1;
-    }
-    #students-filtered-content .row-fact-col.row-detail-col-5 {
-        display: flex;
-        opacity: 1;
     }
 }
 
@@ -6521,6 +6439,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        clear of the tabbar by a small amount instead, trimming the
        overlap without shrinking the box's own visible height. Resolves to
        0 above mobile width, same reasoning as the height above. */
+    /* fabOverlapClearance() (main.js) falls back to a non-zero value
+       (19 * 0.35) when the FAB/tabbar aren't visible, not 0 - true above
+       true-mobile width, where this box should sit flush with zero gap
+       below it ("definitely do not want [a gap] after" it, live feedback)
+       rather than inheriting a leftover fraction of that fallback. */
     margin-bottom: var(--list-endcap-clearance, 4px);
     /* var(--border-strong), not var(--accent-border) (live feedback:
        "Change the boundary line to also not be primary colour") -
@@ -6529,14 +6452,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        just diluting it, landing on the same neutral the stripe below
        already uses and the mobile tabbar's own border-top uses too. */
     border-top: 1px solid var(--border-strong);
-    /* var(--bg-surface), not var(--bg-page) - live feedback: "it
-       should be the same colour as the thing it is indicating is
-       ended. So in this case it should be white as that is the bg of
-       the filtered content" - .entity-list's own rows sit on
-       --bg-surface (cards.css), not the page canvas behind the card;
-       this box is capping off THAT surface, so the gap colour should
-       read as a literal continuation of it, not the page's own
-       (differently-tinted) background peeking through instead. */
+    /* var(--bg-surface), not var(--bg-well) - tried var(--bg-well) when
+       .entity-list itself first moved onto that surface (layout.css's
+       gapped-card redesign), but the stripe's own 15% mix (below) reads
+       against whatever sits behind it, and --bg-well's already-tinted
+       surface swallowed too much of that contrast live ("end of page
+       indicator is now too subtle"). --bg-surface - the last row's own
+       surface (cards.css) - keeps the stripe at its originally-tuned
+       contrast; sits in its own well-coloured gap (.entity-list's flex
+       `gap`, same as between any two rows) rather than flush against the
+       last row - live feedback wanted that gap back once the contrast fix
+       above made flush unnecessary for legibility. */
     background-color: var(--bg-surface);
     /* var(--border-strong), not a primary tint (live feedback: "Can
        we try swapping out the colour so its more neutral. Lose use
@@ -6553,6 +6479,16 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         color-mix(in srgb, var(--border-strong) 15%, transparent) 0 5px,
         transparent 5px 11px
     );
+}
+/* fabOverlapClearance()'s own fallback (main.js, see the base rule's
+   comment above) never actually reaches 0 above true-mobile width -
+   forced here instead of fixing the shared JS function, which also feeds
+   positionFilterTray's tray-to-tabbar gap and isn't safe to touch for
+   this box alone. */
+@media (min-width: 480px) {
+    .filtered-content .entity-list::after {
+        margin-bottom: 0;
+    }
 }
 /* (INT-S2) While .list-load-sentinel is still in the DOM (_students_rows.html:
    {% if page_obj.has_next %}), a further page is genuinely pending - the
@@ -6879,6 +6815,13 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    /* Well behind the gapped .meeting-card rows above - same pairing as
+       layout.css's .list-card .entity-list (.meeting-list's own
+       display: flex; flex-direction: column base is set above). No
+       padding - rows are flush to every edge, same as .list-card
+       .entity-list. */
+    background: var(--bg-well);
+    gap: var(--space-xxs);
 }
 
 /* Multi-column setup/discussion layouts */

@@ -1018,6 +1018,19 @@ function wireReferralCarouselInteractions() {
     // sliver of it, so selecting it outright isn't a meaningful action;
     // properly bringing it into view is what the tap actually meant.
     viewport.addEventListener('click', function (e) {
+        // Same ≤1180px guard as wireActionStatusOverflow's own carousel-vs-
+        // stacked check (above) - this whole "advance to the tapped
+        // neighbour instead of toggling it" behaviour only makes sense in
+        // carousel mode, where most of a peeking card is genuinely off-
+        // screen. Missed here originally: above 1180px this handler still
+        // ran (registered once, unconditionally, not re-wired per width)
+        // and, being capture-phase on the same element initSelectable's
+        // own toggle listens on, silently swallowed every click before the
+        // row's chosen/primary-fill state could ever be set - live
+        // feedback: "the active row does not seem to change when a
+        // different row is selected" (desktop/stacked mode only - Students/
+        // Referrals have no such handler, hence homepage-only).
+        if (!window.matchMedia('(max-width: 1180px)').matches) return;
         if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; return; }
         // A real control (Edit/Delete, the row-remove form) always gets its
         // own click through untouched, active card or not - the "advance to
@@ -1338,6 +1351,9 @@ function wireActionCarouselInteractions() {
     viewport.addEventListener('pointerup', endPointerDrag);
     viewport.addEventListener('pointercancel', endPointerDrag);
     viewport.addEventListener('click', function (e) {
+        // See #my-referrals-list's own identical guard (wireReferralCarousel
+        // Interactions, above) for why - same fix, same bug.
+        if (!window.matchMedia('(max-width: 1180px)').matches) return;
         if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; return; }
         // See #my-referrals-list's own identical guard for why - the status
         // segmented control (Incomplete/Complete/Not Required) is a real

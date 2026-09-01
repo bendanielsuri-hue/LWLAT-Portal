@@ -1739,6 +1739,16 @@ a { color: inherit; }
     min-height: 0;
     overflow-y: auto;
     border: none;
+    /* Recessed well behind the gapped row-cards below (same depth-tier
+       pairing as forms.css's filter bar: --bg-well under a --bg-surface
+       control) - the gap itself is what now separates rows, not a
+       border/fill difference. No padding on the list itself - rows are
+       flush to every edge (list-card's own left/right, and the first/last
+       row against the scroll area's own top/bottom) rather than getting
+       their own inset gap against the list-card boundary or the scroll
+       viewport's edge. */
+    background: var(--bg-well);
+    gap: var(--space-xxs);
     /* No radius here at all - .list-card's own border-radius + overflow:
        hidden already gives the whole card its rounded corners; leaving
        .entity-list's own base border-radius (cards.css) in place clips a
@@ -1766,83 +1776,56 @@ a { color: inherit; }
 html:not(.nav-touch-mode) .list-card .entity-list {
     scrollbar-gutter: stable;
 }
-/* Alternating row fill (zebra) rather than a bordered/shadowed "card" per
-   row (tried first, see git history) or the original shared-hairline
-   design - settled portal-wide across every .list-card list page
-   (Students, Referrals, Actions, Escalations, Meetings, Safeguarding
-   Notes), at every width (#118 divider-hierarchy follow-up: docs/research/
-   divider-hierarchy-conventions.md/MD3/Apple HIG/Carbon informed the
-   direction, a live prototype on Referrals picked the specifics, live
-   feedback: "lose the gaps and have alternate rows having a different
-   fill") after H3 (PRINCIPLES-DESIGN.md)'s "repeating item vs real
-   structural break" distinction kept failing in practice even with the
-   correct --border-faint/--border-color token pairing - the row-to-row
-   separator and any row's own internal content divider were reading as
-   the same kind of line regardless of shade. Zebra sidesteps the question
-   entirely (no second line to confuse with anything) and matches what
-   Apple HIG/Carbon actually do for dense tables, per the research above.
-   Also avoids the bordered-card approach's own technical wart: rows
-   inside a scrolling .entity-list clip their box-shadow at the scroll
-   boundary. Scoped to .list-card specifically (not the bare .entity-row
-   base rule, cards.css, which every other .entity-row consumer - modal
-   member pickers, Panel Agenda rosters, Referral Selection, etc. - keeps
-   unchanged) since those compact contexts were never part of that
-   conversation. */
+/* Gapped per-row cards, replacing the zebra alternating fill this portal
+   briefly settled on (#118 - git history has both). Zebra ties every
+   row's own look to its position (:nth-child(even)) - deleting/animating
+   one row out of the list means every row after it has to re-stripe to
+   keep alternating correctly. A gap + independent card per row has no such
+   dependency: removing one row never touches its neighbours' styling.
+   --border-color, not --border-strong - .list-card itself (the outer
+   container these rows sit inside) already uses --border-strong for its
+   own boundary; giving each nested row that same weight made the inside
+   of the card read busier/heavier than its own outer edge (live feedback:
+   "card borders should not be stronger than the overall main page
+   container"). --border-color is the plain per-card weight everywhere
+   else, just deliberately kept a step below the container it's nested in
+   here. Scoped to .list-card specifically (not the bare
+   .entity-row base rule, cards.css, which every other .entity-row consumer
+   - modal member pickers, Panel Agenda rosters, Referral Selection, etc. -
+   keeps unchanged) since those compact contexts were never part of this
+   list-page treatment. No :not(.chosen) guard needed here (unlike the old
+   zebra rule) - this selector's specificity (2 classes) no longer outranks
+   .entity-row.chosen's (cards.css, also 2 classes, loaded later), so
+   .chosen's own background/accent bar wins on its own. No border-radius -
+   rows are flush to the list-card's own left/right edge (no side margin
+   on .entity-list, above), so a rounded corner here would just expose the
+   well underneath at a mismatched radius rather than reading as a card. */
 .list-card .entity-row {
-    border-bottom: 1px solid var(--border-faint);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    /* --card-shadow, same token every other card in the portal uses
+       (cards.css) - resolves to a real drop shadow on themes that have one,
+       none on flat/Pastel (themes.css), so this never fights that theme's
+       own "no shadow on cards" rule. Rows nearest .entity-list's own
+       scroll edges (overflow-y: auto, above) can clip a sliver of this at
+       the very top/bottom of a scroll - accepted, same tradeoff every
+       other scrollable card list in the portal already lives with. */
+    box-shadow: var(--card-shadow);
 }
-.list-card .entity-row:last-child {
-    border-bottom: none;
+/* Restates the shared hover/chosen accent bar (.selectable:hover,
+   .entity-row.chosen - cards.css) combined with var(--card-shadow) in one
+   box-shadow list - box-shadow isn't additive across separate
+   declarations, so without this override hovering/choosing a row would
+   silently drop its drop shadow the moment the shared rule's own
+   box-shadow (higher specificity or later in cascade) took over. Scoped
+   to .list-card - the shared rule's other consumers (modal pickers,
+   Panel Agenda rosters, etc.) never had a card-shadow to begin with. */
+.list-card .entity-row:hover:not(.chosen),
+.list-card .entity-row:focus-visible:not(.chosen) {
+    box-shadow: inset 3px 0 0 var(--border-strong), var(--card-shadow);
 }
-/* var(--row-hover-bg), not var(--bg-well) - live feedback: "Zebra look
-   very dark... what was the hover colour. Can we use this. Zebra can be
-   much more subtle!" - --row-hover-bg (tokens/colours.css) is already a
-   deliberately-tuned subtle neutral/primary tint (light.css's own comment
-   on it: "very subtle, ~12% primary tint"), exactly the kind of
-   barely-there fill zebra striping needs; --bg-well is a stronger surface
-   token meant to read as its own distinct region, not a light dusting on
-   alternating rows. Hover itself stays on (live feedback settled: still
-   worth keeping as the "which exact row am I on" precision cue for a
-   whole-row click target, even though cursor:pointer already signals
-   clickability on its own) - even rows sharing the same tint as hover
-   means hovering an even row is a smaller visual change than hovering an
-   odd one, accepted as fine rather than worth a second tint. */
-/* :not(.chosen) - without it this rule's own specificity
-   (.list-card .entity-row:nth-child(even), 3 class-level selectors) beats
-   .entity-row.chosen's plain `background: var(--primary-light)` (2), so a
-   chosen even row silently lost its selected fill back to the plain zebra
-   tint (confirmed live: computed background stayed the zebra colour, not
-   primary-light, the moment .chosen was set - not actually hover-triggered,
-   just first noticed by hovering a neighbour row for visual contrast). */
-.list-card .entity-row:nth-child(even):not(.chosen) {
-    background-color: var(--row-hover-bg);
-    /* --border-strong, not --border-color - --border-faint (light.css) was
-       only ever tuned to clear the plain surface, not --row-hover-bg
-       itself, so even rows need some bump here regardless (same reason
-       .selectable:hover, cards.css, used to bump on hover before that
-       moved to a left accent bar). --border-color alone (the first fix
-       here) still measured too subtle live against the tint (Playwright,
-       "hard to see in global... work great in mobile") - the mobile-only
-       internal divider (#referrals-filtered-content .row-title-secondary,
-       panel.css) hit the exact same problem and settled on --border-strong;
-       this brings the portal-wide row-to-row divider (every .list-card
-       list - Students/Referrals/Actions/Escalations/Meetings/Safeguarding
-       Notes - at every width, not just mobile) to the same tier. */
-    border-bottom-color: var(--border-strong);
-}
-/* Same tint-clearing bump, for a row's own internal dividers this time -
-   .row-facts's border-top (fact-strip separator, panel.css) and
-   .row-btn-row's border-left (vertical divider before the button column,
-   panel.css) both still used the plain var(--border-color) base value,
-   same "hard to see... work great in mobile" complaint as the row-to-row
-   divider above, just for the lines *inside* a row instead of between
-   rows. Both are shared portal-wide (Students/Referrals/Actions/etc, not
-   scoped to any one page), so this one rule covers every list. */
-.list-card .entity-row:nth-child(even):not(.chosen) .row-facts {
-    border-top-color: var(--border-strong);
-}
-.list-card .entity-row:nth-child(even):not(.chosen) > .row-btn-row {
-    border-left-color: var(--border-strong);
+.list-card .entity-row.chosen {
+    box-shadow: inset 3px 0 0 var(--accent-border), var(--card-shadow);
 }
 /* Touch already auto-hides its own scrollbar except while actively
    scrolling - a persistently-visible one here only ever shows because the
