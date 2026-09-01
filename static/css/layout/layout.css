@@ -1733,6 +1733,26 @@ a { color: inherit; }
        notch at the top of the list, right below the filter bar. */
     border-radius: 0;
 }
+/* :not(.nav-touch-mode) - scrollbar-gutter: stable forces the browser to
+   always reserve real layout space for this list's own vertical
+   scrollbar, whether the platform's scrollbar style is "classic" (space-
+   reserving, what most automated/headless Chromium defaults to) or
+   "overlay" (paints on top of content instead, increasingly the default
+   on real desktop Chrome/Windows) - live feedback (real narrow-desktop
+   browser, Referrals): "buttons are colliding with edge... no
+   margin/padding right", not reproducible via any simulated/automated
+   check (Playwright's own scrollbar defaults to classic) until this
+   overlay-vs-classic distinction was the difference - an overlay
+   scrollbar was painting directly over the row's own already-correct
+   padding-right, rather than sitting outside it the way a classic one
+   does. Excluded for touch-nav specifically - that mode already hides
+   this scrollbar entirely (::-webkit-scrollbar/scrollbar-width: none,
+   below), and reserving gutter space for a scrollbar that's deliberately
+   invisible there would just reopen the exact gap true mobile's own
+   careful edge-to-edge padding tuning was set against. */
+html:not(.nav-touch-mode) .list-card .entity-list {
+    scrollbar-gutter: stable;
+}
 /* Alternating row fill (zebra) rather than a bordered/shadowed "card" per
    row (tried first, see git history) or the original shared-hairline
    design - settled portal-wide across every .list-card list page

@@ -3036,6 +3036,19 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    width. */
 .row-title-row .row-title-raised-by { display: none; }
 .row-secondary-text { font-weight: 600; }
+/* Concern (_referrals_rows.html: <div class="entity-title row-secondary-text">)
+   shares .entity-title purely for its own base sizing - not meant to also pick
+   up .selectable's hover/chosen fake-bold (INT-M4, cards.css:
+   .selectable:hover .entity-title / .entity-row.chosen .entity-title), which
+   is the student name's own affordance (live feedback: "we have it on student
+   name, do not need on both"). Cancels the text-shadow those rules apply,
+   scoped to .referral-row so Students' own single entity-title (the name,
+   nothing else) is untouched. */
+.referral-row.selectable:hover .entity-title.row-secondary-text,
+.referral-row.selectable:focus-visible .entity-title.row-secondary-text,
+.referral-row.chosen .entity-title.row-secondary-text {
+    text-shadow: none;
+}
 .row-facts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
 .row-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
 .row-facts-cols { gap: 10px; }
@@ -3158,11 +3171,16 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        .entity-title's base weight, panel.css above) when the two used to
        sit side by side at a shared smaller size; demoted specifically for
        this now-separate-line mobile layout, live feedback: "name should be
-       of more prominence than Concern Category when on different line". */
+       of more prominence than Concern Category when on different line".
+       Weight/colour bumped back up from that demotion's original 400/
+       text-secondary (live feedback: "Concern category needs more
+       prominent than raised by and raised on") - stays font-sm, so it
+       still reads a clear step below the name's font-md, but now a step
+       above Raised by/on (below), which is the row's least important line. */
     #referrals-filtered-content .row-title-row .row-secondary-text {
-        font-weight: 400;
+        font-weight: 600;
         font-size: var(--font-sm);
-        color: var(--text-secondary);
+        color: var(--text-primary);
     }
     /* Concern+pills wrapper - real flex box here (base rule above is
        display: contents everywhere else), replacing the older approach of
@@ -3229,6 +3247,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         flex: 1 1 calc(100% + 42px + var(--space-md));
         margin-left: calc(-1 * (42px + var(--space-md)));
         font-size: var(--font-sm);
+        /* --text-secondary, not --text-faint (a brief follow-up to the
+           Concern-prominence change above - live feedback: "Raised by and
+           on is a little hard to read, could this be same colour as year,
+           house and reg") - text-faint read as too low-contrast on its own;
+           matches row-facts-primary-plain's own colour (below) instead,
+           still a step below Concern's text-primary/600 weight via
+           font-size alone. */
         color: var(--text-secondary);
     }
     /* Year/House/Reg - same student-demographic line Students' own row
@@ -3241,14 +3266,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         flex: 1 1 100%;
         font-size: var(--font-sm);
         color: var(--text-secondary);
-    }
-    /* "Concern: " label dropped, value kept - live feedback: "Maybe we
-       lose Concern:" - the label was costing width for no real
-       information (the pills/context already make clear what's being
-       shown), and dropping it means concern usually fits alongside the
-       pills group without needing the row it was forced onto below. */
-    #referrals-filtered-content .row-title-concern-label {
-        display: none;
     }
     /* Groups the two status pills into one real flex box (base rule
        above is display: contents everywhere else) so they can never split
@@ -3287,6 +3304,182 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        divider-hierarchy follow-up settled here first (live prototype on
        this page), then generalised. Nothing left to override for
        Referrals specifically. */
+}
+
+/* #118: Referrals row at tablet width (481-1179px, the same upper bound
+   Students' #117 dynamic-overflow band uses below - 1180px is where a
+   wide-desktop window is genuinely wide enough for the fact strip's own
+   fixed ch-unit columns to fit again) - previously unstyled at this band,
+   so the row fell back to desktop's layout: the 4-column fact strip
+   (row-facts-cols) and beside-content buttons squeezed into a narrower row
+   with nothing to make either give way. Buttons: same measured
+   button-slot-width + wrap-detection system #117 built for Students
+   (wireReferralButtonLayout, referrals.html) - just 2 slots (Actions/
+   Referral Details) instead of Students' 3 - pins every row's buttons to
+   the same width regardless of that row's own badge digit count, and
+   drops a row to the same full-width/centred button treatment true mobile
+   already uses (row-buttons-wrapped) only once its own buttons genuinely
+   don't fit beside the content any more. Fact strip: dropped at this width
+   entirely, same reasoning the #118 third follow-up (above) already
+   settled for true mobile - "Referral Details" already covers Raised
+   by/on, Prev/Next Panel, Priority/Review Due and the action counts, and a
+   fixed-ch-width column either fits at its full desktop size or it
+   doesn't - there's no halfway "shrink it a bit" version of it to fall
+   back on. Year/House/Reg (row-facts-primary-plain) takes its place, same
+   trade Students' own tablet band makes for its own detail columns. */
+@media (min-width: 481px) and (max-width: 1179px) {
+    /* Explicit, not relying on the base .entity-row rule's own padding
+       (cards.css: padding: var(--space-md) var(--space-lg), all 4 sides) -
+       live feedback: "buttons are colliding with edge... each entity
+       should have padding right" - stated here directly so there's no
+       ambiguity about whether some other rule in this band is narrowing
+       it, regardless of the exact cause on the reporting device. */
+    #referrals-filtered-content .entity-row {
+        flex-wrap: wrap;
+        padding-right: var(--space-lg);
+    }
+    #referrals-filtered-content .entity-thumb {
+        flex-shrink: 0;
+    }
+    #referrals-filtered-content .entity-body {
+        flex: 1 1 200px;
+        min-width: 200px;
+    }
+    /* Stacked, not side-by-side (live feedback: "try buttons vertically
+       stacked") - flex-direction: column turns the same beside-content
+       column into two rows instead of two side-by-side buttons, freeing up
+       width for .entity-body's own content next to it. align-items:
+       stretch (cross-axis, now horizontal) plus the fixed width below is
+       what keeps Actions and Referral Details the same width as each
+       other, rather than each hugging its own (different) text length. */
+    #referrals-filtered-content .entity-row > .row-btn-row {
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-xs);
+        padding-left: var(--space-lg);
+        /* Pinned to the widest button (either slot) across every currently
+           rendered row (--btn-w-max, set by wireReferralButtonLayout) - one
+           shared width for the whole stacked column, not a width per slot
+           (Students' #117 layout needs per-slot widths since its 3 buttons
+           stay side-by-side; stacked, both buttons reading as one column
+           only looks right if they line up to the same edge).
+           calc(...+ var(--space-lg)), not --btn-w-max alone - live feedback
+           (real narrow-desktop browser, confirmed via a detached DOM clone
+           to isolate it from viewport/scrollbar variables entirely):
+           "buttons are touching scroll bar... need space" - .btn's own
+           white-space: nowrap (buttons.css) gives it a fixed min-content
+           width equal to its full text ("Referral Details"), and a flex
+           item's default min-width: auto means align-items: stretch can
+           never compress it below that - pinning this box to --btn-w-max
+           alone left no room for the padding-left above once box-sizing:
+           border-box (global reset) counted it as PART of that same width,
+           so the button (unable to shrink) simply overflowed past the
+           box's own right edge by the padding amount instead of the padding
+           ever actually appearing. Adding the padding back on top of
+           --btn-w-max (rather than eating into it) gives the button its
+           full needed width AND the padding both, with nothing to fight
+           over. */
+        width: calc(var(--btn-w-max, 100px) + var(--space-lg));
+    }
+    /* Full-width/centred once a row's buttons have actually fallen to
+       their own line (wireReferralButtonLayout toggles this, detected via
+       one offsetTop comparison per row) - same treatment true mobile's own
+       always-wrapped block already uses, applied here only when the wrap
+       is real rather than unconditionally. Row direction again here (not
+       the stacked column above) - once buttons drop below the content
+       entirely, there's a full row's width to fill, the same "side by side,
+       edge to edge" treatment true mobile already uses in that situation. */
+    #referrals-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row {
+        flex: 1 1 100%;
+        flex-direction: row;
+        width: auto;
+        border-left: none;
+        padding-left: 0;
+    }
+    #referrals-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row > * {
+        flex: 1;
+        justify-content: center;
+    }
+    #referrals-filtered-content .row-facts-cols {
+        display: none;
+    }
+    /* Everything from here down is true mobile's own row-title-row content
+       treatment (the #118 block above), reused at this width unchanged -
+       live feedback: "should basically be like mobile mode, but buttons in
+       the position they currently are". Only the button/row-btn-row side
+       of true mobile (buttons dropping to their own full-width line) is
+       genuinely different here - that's the dynamic beside-content system
+       above instead. The bleed math below (flex-basis 100% + 42px +
+       gap, margin-left the negative of that) still lands its right edge
+       exactly on .entity-body's own normal right edge regardless of
+       whether .row-btn-row sits beside it or drops below - the added
+       width and the leftward shift cancel out - so reusing it here doesn't
+       encroach into the button column. */
+    #referrals-filtered-content .row-title-row .entity-title:not(.row-secondary-text) {
+        order: -1;
+        flex: 1 1 100%;
+    }
+    #referrals-filtered-content .row-title-sep {
+        display: none;
+    }
+    /* Missing from the initial pass at this width - true mobile's own
+       version of this row (above) already caught it (live feedback there:
+       "space between name row and second row seems larger... "): the
+       row-title-secondary divider's own margin-top/padding-top (below,
+       8px+8px, room for the divider line itself) stacks on TOP of
+       .row-title-row's own base flex gap (--space-xs/8px, meant for the
+       plainer gap between wrapped lines elsewhere) rather than replacing
+       it, so the space above the divider was actually flex-gap +
+       margin-top + padding-top, not just the 8+8 it looks like on paper -
+       live feedback: "line height is excessive". --space-xxs/4px instead
+       (same value true mobile settled on) keeps the plain name-to-
+       Year/House/Reg gap tight without also touching the divider's own
+       deliberate spacing, which stays exactly as designed. */
+    #referrals-filtered-content .row-title-row {
+        row-gap: var(--space-xxs);
+    }
+    #referrals-filtered-content .row-title-row .row-secondary-text {
+        font-weight: 600;
+        font-size: var(--font-sm);
+        color: var(--text-primary);
+    }
+    #referrals-filtered-content .row-title-row .row-title-secondary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-xs);
+        flex: 1 1 calc(100% + 42px + var(--space-md));
+        margin-top: var(--space-xs);
+        margin-left: calc(-1 * (42px + var(--space-md)));
+        padding-top: var(--space-xs);
+        border-top: 1px solid var(--border-color);
+    }
+    #referrals-filtered-content .entity-row:nth-child(even) .row-title-row .row-title-secondary {
+        border-top-color: var(--border-strong);
+    }
+    #referrals-filtered-content .row-title-row .row-title-raised-by {
+        display: block;
+        flex: 1 1 calc(100% + 42px + var(--space-md));
+        margin-left: calc(-1 * (42px + var(--space-md)));
+        font-size: var(--font-sm);
+        color: var(--text-secondary);
+    }
+    #referrals-filtered-content .row-title-row .row-facts-primary-plain {
+        display: inline;
+        flex: 1 1 100%;
+        font-size: var(--font-sm);
+        color: var(--text-secondary);
+    }
+    #referrals-filtered-content .row-title-pills {
+        display: flex;
+        gap: var(--space-xs);
+        flex-wrap: nowrap;
+    }
+    #referrals-filtered-content .row-title-pills .status-pill {
+        font-size: var(--font-sm);
+        padding: 2px 8px;
+    }
 }
 
 /* No divider above the facts line, in every mode (#117 follow-up, live
@@ -6454,11 +6647,30 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    used. Split out from the padding-bottom fix above (kept <=480px-only,
    a true-mobile tabbar-clearance concern with no bearing on this) rather
    than widening that whole block uniformly. */
-html.filter-bar-mobile-mode .list-page-shell:has(.filtered-content) {
+/* :not(.filter-bar-narrow-desktop) - live feedback (portrait tablet,
+   touch nav simulated via the dev breakpoint preview): "I can't see the
+   border on the main page card... filter bar should have radius on top
+   corners. It's there in landscape mode" - this full-bleed treatment was
+   generalised from true mobile to also cover narrow-desktop/portrait-
+   tablet (git history, 712ac85) on the assumption the tray's own fixed
+   positioning needed a borderless card to line up against. It doesn't:
+   positionFilterTray (main.js, INT-R2) already reads .list-card's actual
+   border width live and compensates (box.style.left/width, not the base
+   CSS rule's left:0;right:0) specifically so the tray still lines up flush
+   over the bar even when the card genuinely has a border - added the day
+   *before* this rule was widened, so the card never actually needed to go
+   borderless for the tray to behave. filter-bar-narrow-desktop (main.js,
+   "filter-bar-mobile-mode minus true phone width") is what lets narrow-
+   desktop/portrait-tablet fall back out of the full-bleed treatment here
+   while true mobile keeps it - true mobile has no side nav/page margin to
+   speak of in the first place (L6, PRINCIPLES-DESIGN.md), so full-bleed is
+   still correct there, just not for a narrower desktop/tablet window that
+   otherwise looks like a normal (bordered, margined) page. */
+html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-page-shell:has(.filtered-content) {
     margin-left: calc(-1 * var(--space-sm));
     margin-right: calc(-1 * var(--space-sm));
 }
-html.filter-bar-mobile-mode .list-card:has(.filtered-content) {
+html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filtered-content) {
     border-left: none;
     border-right: none;
     /* border-top: none too, not just left/right - the original <=480px-
@@ -6484,7 +6696,7 @@ html.filter-bar-mobile-mode .list-card:has(.filtered-content) {
    for that clip to catch - .filter-bar's own rounded corner fill just
    painted as-is, cutting into its own cream --bg-well background and
    revealing the white card underneath in each corner instead. */
-html.filter-bar-mobile-mode .list-card:has(.filtered-content) .filter-bar {
+html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filtered-content) .filter-bar {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
 }

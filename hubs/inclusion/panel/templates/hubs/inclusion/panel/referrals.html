@@ -243,6 +243,72 @@ document.addEventListener('DOMContentLoaded', function () {
     var overdueActionsToggle = document.getElementById('overdue-actions-toggle');
     var overdueActionsInput = document.getElementById('overdue-actions-input');
 
+    // Equal button widths + wrap detection for the 481-1179px tablet band
+    // (panel.css) - same measured-width idea as Students' own
+    // wireStudentButtonLayout (students.html, #117), adapted for Referrals'
+    // 2 buttons (Actions/Referral Details), its own container/
+    // MutationObserver rather than sharing that page's, and stacked
+    // vertically rather than side by side - one shared --btn-w-max (the
+    // widest of either button, across every rendered row) instead of a
+    // width per slot, so both buttons in the stacked column line up to the
+    // same edge. Also marks any row whose buttons actually fell to their
+    // own line below the content (row-buttons-wrapped) via one offsetTop
+    // comparison per row.
+    (function wireReferralButtonLayout() {
+        var container = document.getElementById('referrals-filtered-content');
+        if (!container) return;
+        function refresh() {
+            // Cleared before measuring (both the class and the custom
+            // properties) - see wireStudentButtonLayout's identical comment
+            // for why: a stale wrapped/pinned width left over from a
+            // previous, narrower pass would otherwise poison the next
+            // measurement instead of being allowed to shrink again.
+            container.querySelectorAll('.entity-row.row-buttons-wrapped').forEach(function (row) {
+                row.classList.remove('row-buttons-wrapped');
+            });
+            // One shared width (--btn-w-max), not one per slot - the two
+            // buttons stack in a column now (panel.css, "try buttons
+            // vertically stacked") rather than sitting side by side, so
+            // both need to match the SAME width as each other, not just
+            // their own slot's width across other rows.
+            container.style.removeProperty('--btn-w-max');
+            var max = 0;
+            container.querySelectorAll('[data-btn-slot]').forEach(function (el) {
+                max = Math.max(max, el.getBoundingClientRect().width);
+            });
+            if (max > 0) container.style.setProperty('--btn-w-max', max + 'px');
+            container.querySelectorAll('.entity-row').forEach(function (row) {
+                var thumb = row.querySelector('.entity-thumb');
+                var btnRow = row.querySelector('.row-btn-row');
+                if (!thumb || !btnRow) return;
+                row.classList.toggle('row-buttons-wrapped', btnRow.offsetTop > thumb.offsetTop + 2);
+            });
+        }
+        // Width-only guard - refresh() toggling .row-buttons-wrapped
+        // changes a row's height, which changes container's own height,
+        // which would re-fire the ResizeObserver below regardless of
+        // dimension, feeding straight back into refresh() again. Only a
+        // genuine width change - the only thing a wrap decision can
+        // actually depend on - re-runs it.
+        var lastWidth = null;
+        function refreshIfWidthChanged() {
+            var width = container.clientWidth;
+            if (width === lastWidth) return;
+            lastWidth = width;
+            refresh();
+        }
+        var refreshOnResize = window.rafThrottle ? window.rafThrottle(refreshIfWidthChanged) : refreshIfWidthChanged;
+        refresh();
+        lastWidth = container.clientWidth;
+        window.addEventListener('resize', refreshOnResize);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(refreshOnResize).observe(container);
+        }
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
+        }
+    })();
+
     // Year -> Reg cascading (same pattern as inclusion_panel_students,
     // students.html) - picking a Year Group narrows Reg down to that
     // year's own forms only.
