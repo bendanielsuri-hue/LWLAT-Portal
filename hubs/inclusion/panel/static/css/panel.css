@@ -597,13 +597,14 @@
 /* Fused-trigger visuals for the dropdown that replaces the real segmented
    control (_my_actions_card.html) whenever there isn't room for it -
    ≤1180px carousel mode (below) and the narrower slice of desktop width
-   where the card itself is too narrow for three full-size buttons
-   (@media 1181-1400px, below - same "shrinking desktop" band My Referrals'
-   own action column already gets its own fix for, live feedback: "the
-   status changer becomes too big" in that band). Kept width-independent
-   and unscoped by breakpoint - only the swap itself (which control is
-   display:none) needs to change per band, not how the dropdown looks once
-   it's the one showing. */
+   where the card itself is too narrow for three full-size buttons (a live
+   ResizeObserver measurement, wireActionStatusOverflow/.action-status-
+   narrow below, not a fixed viewport band - a plain breakpoint was tried
+   first and missed widths where the card is narrower for other reasons,
+   e.g. sidebar/column layout; see that rule's own comment). Kept width-
+   independent and unscoped by breakpoint - only the swap itself (which
+   control is display:none) needs to change per band, not how the dropdown
+   looks once it's the one showing. */
 /* Same fused label+value box as the portal's other filter fields
    (.ui-fused-field, forms.css) - a bordered box split into a title segment
    (bg-choice fill, border-right divider) and a value segment, not the
@@ -1515,7 +1516,7 @@
        category, not sharing it (live feedback: "in carousel mode can the
        overdue pill be on own line") - a narrow carousel card doesn't have
        the horizontal room #my-actions-list's wider stacked-desktop sibling
-       (1181-1400px, below) does for the two to sit side by side. */
+       (1181-1200px, below) does for the two to sit side by side. */
     #my-actions-list .referral-category-row {
         order: 2;
         flex-direction: column;
@@ -2739,11 +2740,15 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    actions column ever gave up its spot, or (once forced atomic via
    white-space: nowrap) the whole thing got fragile and hard to reason
    about. A fixed number is simpler and predictable - Edit/Delete/Referral
-   Details stay in their own right-hand column above 1400px, and move to
-   their own centered row below it. 1400px is a starting point, not a
-   measured value - nudge it if the column still feels tight (or has room
-   to spare) once you've actually seen it live. */
-@media (min-width: 1181px) and (max-width: 1400px) {
+   Details stay in their own right-hand column above 1200px, and move to
+   their own centered row below it. Upper bound moved from 1400px to 1200px
+   (live feedback: "try and have less breakpoints" - reuses the hub
+   sidebar's own auto-collapse breakpoint, responsive.css, instead of
+   carrying its own separate number; unrelated to the segmented status
+   control's own swap just below, which measures live element width via
+   wireActionStatusOverflow rather than viewport width, so it isn't a
+   breakpoint this change could align with even if that were the goal). */
+@media (min-width: 1181px) and (max-width: 1200px) {
     #my-referrals-list > li {
         flex-wrap: wrap;
     }
@@ -2824,7 +2829,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 /* My Actions: the Incomplete/Complete/Not Required segmented control
    (three full-size buttons) doesn't fit .panel-item-col--student's fixed
    38% column at every desktop width - unlike My Referrals' own fix
-   directly above (a fixed 1181-1400px breakpoint band), a plain viewport
+   directly above (a fixed 1181-1200px breakpoint band), a plain viewport
    breakpoint can't work here because the column's *available* width
    doesn't track viewport width alone (live feedback: "this does not work
    for all widths, can it change dynamically if not enough space" - a fixed
@@ -3066,29 +3071,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    own base rule above. #referrals-filtered-content overrides this below to
    put concern+pills on their own line under Year/House/Reg, every width. */
 .row-title-secondary { display: contents; }
-/* Actions' own demoted-context line inside row-title-secondary
-   (_actions_rows.html) - the parent referral's concern category, shown
-   smaller/secondary ahead of the action's own (still prominent) category
-   line in the same divided section. #119 follow-up: Referral and Action
-   started out as two separately-divided sections (row-title-secondary +
-   a since-removed row-title-tertiary) - live feedback: "Referral and
-   Action line is same prominence... not sure we can justify two
-   horizontal dividers" - collapsed to one divided section, one divider,
-   Referral demoted rather than kept as its own equal-weight tier. flex:
-   1 1 100% (not display: contents) - the trick row-facts-primary-plain
-   already uses to force onto its own line inside a flex-wrap row, so it
-   doesn't need the two-tier display:contents indirection those other
-   wrapper elements do. */
-.row-title-referral-context {
-    flex: 1 1 100%;
-    font-size: var(--font-sm);
-    color: var(--text-secondary);
-}
 /* Raised by/date (#118 fourth follow-up) - hidden here by default, only
    re-enabled inside #referrals-filtered-content's mobile/tablet blocks
    below (their own edge-to-edge bleed treatment); wider widths keep this
    hidden - the full fact strip (row-facts-cols) already covers it there. */
-.row-title-row .row-title-raised-by { display: none; }
+.row-referral-details .row-title-raised-by { display: none; }
 .row-secondary-text { font-weight: 600; }
 /* Concern (_referrals_rows.html: <div class="entity-title row-secondary-text">)
    and Actions' own Category (_actions_rows.html, same class) share
@@ -3130,8 +3117,16 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    row keeps the plain neutral divider, matching the "only colour up when
    active" rule the row-title-secondary divider below follows too. */
 .entity-row.chosen > .row-btn-row { border-left-color: var(--accent-border); }
-.row-btn-row-stacked { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-xs); }
-.row-btn-row-stacked > .action-row-buttons { align-self: flex-end; }
+/* align-items: stretch (live feedback: "the buttons and dropdown are not
+   all inline vertically. All should be width of widest") - flex-start
+   (tried originally) left each child at its own natural content width,
+   so the narrower status control/dropdown sat left-aligned inside a
+   column actually sized (by the grid's own auto "buttons" column, above)
+   to whichever child is widest - usually the Referral Details/Edit Action
+   pair. stretch makes every child fill that same width instead, so the
+   status control and the button pair line up flush on both edges
+   regardless of which one happens to be the intrinsically wider one. */
+.row-btn-row-stacked { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--space-xs); }
 /* Status changer's mobile-only dropdown replacement (_actions_rows.html,
    #119 follow-up) - hidden above 480px by default, where the real
    segmented control (.action-status-segmented-form) is the one shown; the
@@ -3199,7 +3194,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    left of card as its a new section" (originally a mobile-only fix, same
    reasoning, now promoted to every width since Concern is its own section
    at every width). */
-#referrals-filtered-content .row-title-row .row-title-secondary {
+#referrals-filtered-content .row-referral-details .row-title-secondary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -3243,8 +3238,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    none of the 8 data points are safely droppable), buttons stay
    side-by-side (existing .btn-row flex-wrap already handles overflow, no
    forced full-width stacking), name gets its own line with the rest
-   (badge/concern/pills) wrapping below it. */
-@media (max-width: 480px) {
+   (badge/concern/pills) wrapping below it.
+   Widened from 480px to 700px (live feedback: "do both" pages once Actions'
+   own grid redesign shipped - Actions moved its true-mobile fallback to
+   the same 700px threshold for the same reason: the grid band's "buttons"
+   column left too little room for "details" text below that width, and
+   this stacked format has no such fixed-width column competing with it. */
+@media (max-width: 700px) {
     /* padding: var(--space-sm), not the base --space-md/--space-lg
        (cards.css) - the portal-wide mobile convention (#116 "phone
        reclaim", .main-inner's own padding, responsive.css) already
@@ -3334,7 +3334,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        divider once .row-title-row's own row-gap (--space-xxs, tightened
        portal-wide) is this tight, true mobile keeps the extra space here
        specifically for the divider line itself to read clearly. */
-    #referrals-filtered-content .row-title-row .row-title-secondary {
+    #referrals-filtered-content .row-referral-details .row-title-secondary {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -3365,7 +3365,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        worth surfacing here unlike the rest of the fact strip
        (row-facts-cols, still hidden below - Prev/Next Panel and the action
        counts stay Referral-Details-only). */
-    #referrals-filtered-content .row-title-row .row-title-raised-by {
+    #referrals-filtered-content .row-referral-details .row-title-raised-by {
         display: block;
         flex: 1 1 calc(100% + 42px + var(--space-md));
         margin-left: calc(-1 * (42px + var(--space-md)));
@@ -3388,127 +3388,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        divider-hierarchy follow-up settled here first (live prototype on
        this page), then generalised. Nothing left to override for
        Referrals specifically. */
-}
-
-/* #118: Referrals row at tablet width (481-1179px, the same upper bound
-   Students' #117 dynamic-overflow band uses below - 1180px is where a
-   wide-desktop window is genuinely wide enough for the fact strip's own
-   fixed ch-unit columns to fit again) - previously unstyled at this band,
-   so the row fell back to desktop's layout: the 4-column fact strip
-   (row-facts-cols) and beside-content buttons squeezed into a narrower row
-   with nothing to make either give way. Buttons: same measured
-   per-slot-width + wrap-detection system #117 built for Students
-   (wireReferralButtonLayout, referrals.html) - just 2 slots (Actions/
-   Referral Details) instead of Students' 3 - pins each button slot to the
-   widest that same slot needs across the currently rendered rows (not one
-   shared width), keeping them side by side beside the content exactly like
-   Students, and drops a row to the same full-width/centred button
-   treatment true mobile already uses (row-buttons-wrapped) only once its
-   own buttons genuinely don't fit beside the content any more. Originally
-   shipped stacking the two buttons vertically instead (live feedback at
-   the time: "try buttons vertically stacked") - reverted once a live
-   screenshot at this band showed real unclaimed width beside that stacked
-   column (live feedback: "Visually it looks like there is space... make
-   this match what student page does") - side by side was always the
-   default Students used, this was the one page that had deliberately
-   departed from it. Fact strip: dropped at this width entirely, same
-   reasoning the #118 third follow-up (above) already settled for true
-   mobile - "Referral Details" already covers Raised by/on, Prev/Next
-   Panel, Priority/Review Due and the action counts, and a fixed-ch-width
-   column either fits at its full desktop size or it doesn't - there's no
-   halfway "shrink it a bit" version of it to fall back on. Year/House/Reg
-   (row-facts-primary-plain) takes its place, same trade Students' own
-   tablet band makes for its own detail columns. */
-@media (min-width: 481px) and (max-width: 1179px) {
-    /* Explicit, not relying on the base .entity-row rule's own padding
-       (cards.css: padding: var(--space-md) var(--space-lg), all 4 sides) -
-       live feedback: "buttons are colliding with edge... each entity
-       should have padding right" - stated here directly so there's no
-       ambiguity about whether some other rule in this band is narrowing
-       it, regardless of the exact cause on the reporting device. */
-    #referrals-filtered-content .entity-row {
-        flex-wrap: wrap;
-        padding-right: var(--space-lg);
-    }
-    #referrals-filtered-content .entity-thumb {
-        flex-shrink: 0;
-    }
-    #referrals-filtered-content .entity-body {
-        flex: 1 1 200px;
-        min-width: 200px;
-    }
-    /* Side by side, matching Students' own .btn-row treatment at this band
-       (below) - each slot pinned to its own widest-across-rendered-rows
-       width (--btn-w-actions/--btn-w-referral-details, set by
-       wireReferralButtonLayout) rather than stretched to a shared column
-       width, so Actions and Referral Details keep their own natural
-       proportions instead of matching each other's width. */
-    #referrals-filtered-content .entity-row > .row-btn-row {
-        flex: 0 0 auto;
-        padding-left: var(--space-lg);
-    }
-    #referrals-filtered-content .row-btn-row [data-btn-slot] {
-        flex-grow: 0;
-        flex-shrink: 0;
-    }
-    #referrals-filtered-content .row-btn-row [data-btn-slot="actions"] {
-        flex-basis: var(--btn-w-actions, auto);
-    }
-    #referrals-filtered-content .row-btn-row [data-btn-slot="referral-details"] {
-        flex-basis: var(--btn-w-referral-details, auto);
-    }
-    /* Full-width/centred once a row's buttons have actually fallen to
-       their own line (wireReferralButtonLayout toggles this, detected via
-       one offsetTop comparison per row) - same treatment true mobile's own
-       always-wrapped block already uses, applied here only when the wrap
-       is real rather than unconditionally. Once buttons drop below the
-       content entirely, there's a full row's width to fill, the same
-       "side by side, edge to edge" treatment true mobile already uses in
-       that situation - overrides the per-slot fixed widths above (below)
-       since there's nothing left to align WITH once alone on its own
-       line, same call Students' identical wrapped override makes. */
-    #referrals-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row {
-        flex: 1 1 100%;
-        border-left: none;
-        padding-left: 0;
-    }
-    #referrals-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row > * {
-        flex: 1;
-        justify-content: center;
-    }
-    #referrals-filtered-content .row-facts-cols {
-        display: none;
-    }
-    /* Everything from here down is true mobile's own row-title-row content
-       treatment (the #118 block above), reused at this width unchanged -
-       live feedback: "should basically be like mobile mode, but buttons in
-       the position they currently are". Only the button/row-btn-row side
-       of true mobile (buttons dropping to their own full-width line) is
-       genuinely different here - that's the dynamic beside-content system
-       above instead. The bleed math below (flex-basis 100% + 42px +
-       gap, margin-left the negative of that) still lands its right edge
-       exactly on .entity-body's own normal right edge regardless of
-       whether .row-btn-row sits beside it or drops below - the added
-       width and the leftward shift cancel out - so reusing it here doesn't
-       encroach into the button column. */
-    #referrals-filtered-content .row-title-row .row-title-secondary {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--space-xs);
-        flex: 1 1 calc(100% + 42px + var(--space-md));
-        margin-top: var(--space-xs);
-        margin-left: calc(-1 * (42px + var(--space-md)));
-        padding-top: var(--space-xs);
-        border-top: 1px solid var(--border-color);
-    }
-    #referrals-filtered-content .row-title-row .row-title-raised-by {
-        display: block;
-        flex: 1 1 calc(100% + 42px + var(--space-md));
-        margin-left: calc(-1 * (42px + var(--space-md)));
-        font-size: var(--font-sm);
-        color: var(--text-secondary);
-    }
 }
 
 /* No divider below Concern (desktop's own row-facts-cols fact strip,
@@ -3559,23 +3438,130 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 #referrals-filtered-content[data-facts-hide-from="3"] .mc-vdivider:nth-of-type(n+3) {
     display: none;
 }
+/* Grid band, every desktop width ≥701px (live feedback: "do both" pages -
+   ports Actions' own grid technique here wholesale, _actions_rows.html/
+   panel.css: full-width student header, a divider, then Referral details
+   on the left with a full-height buttons column on the right - see that
+   band's own extensive comments for the reasoning behind each mechanism,
+   only briefly repeated below). Replaces two separate bespoke bands this
+   page used to have - the 481-1179px tablet band (fact strip hidden
+   outright, buttons measured via wireReferralButtonLayout) and the
+   1180-1400px wrapped-button band - since grid's own "buttons" column
+   auto-sizes to Actions/Referral Details' natural width regardless of
+   viewport, leaving wireReferralButtonLayout/.row-buttons-wrapped nothing
+   left to do here (same fate wireActionButtonLayout had). The fact strip
+   is no longer hidden outright in this band either - the squeeze that
+   justified hiding it doesn't exist once buttons stop competing with
+   details for space, so it stays visible with the overflow guard above
+   (wireReferralFactsOverflow/[data-facts-hide-from]) doing the same job
+   Actions' own strip already relies on. Placed after that guard/the
+   unconditional .row-facts bleed rule (above), not before - same
+   cascade-order requirement Actions' own equivalent cancel-the-bleed
+   rules (below) have to respect, since a same-specificity override only
+   wins if it comes later in the file. */
+.row-referral-details { display: contents; }
+@media (min-width: 701px) {
+    #referrals-filtered-content .entity-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas:
+            "thumb   header  buttons"
+            "details details buttons";
+        column-gap: var(--space-md);
+        row-gap: 0;
+        align-items: start;
+        padding-bottom: 0;
+    }
+    #referrals-filtered-content .entity-body { display: contents; }
+    #referrals-filtered-content .entity-thumb { grid-area: thumb; }
+    #referrals-filtered-content .row-title-row {
+        grid-area: header;
+        padding-bottom: var(--space-xs);
+    }
+    #referrals-filtered-content .entity-row::before {
+        content: '';
+        grid-column: 1 / 3;
+        grid-row: 2;
+        align-self: start;
+        border-top: 1px solid var(--border-color);
+    }
+    #referrals-filtered-content .row-referral-details {
+        grid-area: details;
+        display: block;
+        min-width: 0;
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-md);
+    }
+    /* Cancel the desktop/mobile bleed-under-the-avatar trick (row-title-
+       secondary/row-facts' own margin-left: -58px rules, above) -
+       .row-referral-details is already its own dedicated column starting
+       at the card's true left edge here, so the same negative margin
+       would pull it 58px past its own column's left edge instead. */
+    #referrals-filtered-content .row-referral-details .row-title-secondary {
+        flex-basis: 100%;
+        margin-left: 0;
+        margin-top: 0;
+        border-top: none;
+        padding-top: 0;
+    }
+    #referrals-filtered-content .row-facts {
+        margin-left: 0;
+        width: 100%;
+    }
+    #referrals-filtered-content .row-btn-row {
+        grid-area: buttons;
+        border-left: 1px solid var(--border-color);
+        padding-left: var(--space-lg);
+        align-self: stretch;
+        /* Vertically stacked, not side by side (live feedback: "like
+           Actions, switch to vertical stack" - matches the same call made
+           for Actions' own buttons column, panel.css, _actions_rows.html).
+           align-items: stretch makes both buttons fill the same width -
+           whichever is naturally wider (Referral Details), so they line up
+           flush on both edges instead of each sizing to its own text.
+           Overridden back to horizontal above 1200px, below - matches
+           Actions' own wide-desktop treatment (its segmented control's
+           button PAIR stays side by side there too, only the narrower
+           bands stack everything). */
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+/* Wide desktop (live feedback: "in wide desktop it should be horizontal
+   stack like actions") - reuses the same 1200px threshold as Actions' own
+   segmented-control/dropdown swap (the hub sidebar's own auto-collapse
+   breakpoint, responsive.css) rather than a new number, so there's enough
+   width for the buttons to read as a normal side-by-side pair again
+   instead of needing the full-height column's own vertical stack. */
+@media (min-width: 1201px) {
+    #referrals-filtered-content .row-btn-row {
+        flex-direction: row;
+        align-items: center;
+    }
+}
 /* No divider above the facts line, in every mode (#117 follow-up, live
    feedback: "lose the horizontal divider above details") - overrides the
-   shared .row-facts base rule's own border-top/padding-top (above). Actions
-   (#119, below) now matches this too - its own Referral+Action section
-   grew its own divider once the row picked up that structure, so
-   row-facts' border-top would just be a second, redundant line right
-   underneath it (same reason Students dropped its own copy here). */
-#students-filtered-content .row-facts,
-#actions-filtered-content .row-facts {
+   shared .row-facts base rule's own border-top/padding-top (above). */
+#students-filtered-content .row-facts {
     margin-top: var(--space-xxs);
     padding-top: 0;
     border-top: none;
-    /* margin-left/width bleed (Actions only - Students never needed this,
-       its row-facts was never indented under the avatar in the first
-       place) - same trick row-title-secondary uses below, so the facts
-       strip starts flush at the card's left edge instead of sitting under
-       the avatar like an indented sub-item of the section above it. */
+}
+/* Actions restores its own copy of that divider (live feedback: "another
+   horizontal line after action description") - it reads as separating the
+   description from the Assigned/Due|Created|Referral fact strip below it,
+   distinct from the header divider above row-title-secondary (#119, above)
+   which separates the student name from the Action/Referral section
+   instead - two different boundaries, not a redundant repeat of the same
+   one. margin-left/width bleed (Students never needed this, its row-facts
+   was never indented under the avatar in the first place) - same trick
+   row-title-secondary uses below, so the facts strip starts flush at the
+   card's left edge instead of sitting under the avatar like an indented
+   sub-item of the section above it. */
+#actions-filtered-content .row-facts {
+    margin-top: var(--space-xs);
+    padding-top: var(--space-xs);
+    border-top: 1px solid var(--border-color);
 }
 #actions-filtered-content .row-facts {
     margin-left: calc(-1 * (42px + var(--space-md)));
@@ -3612,7 +3598,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     font-size: var(--font-sm);
     color: var(--text-secondary);
 }
-#actions-filtered-content .row-title-row .row-title-secondary {
+/* .row-action-details, not .row-title-row - row-title-secondary moved out
+   from under row-title-row into its own wrapper when the 481-1179px grid
+   band (below) was built, so it could be grid-placed independently of the
+   student header; this selector has to track that same new ancestor or it
+   silently stops matching at every width, not just the grid one (caught
+   live: "Referral and Action is still too right" - the bleed/divider below
+   went dead everywhere, leaving row-title-secondary's own global display:
+   contents base rule, above, in effect instead - no flex-wrap/gap uniting
+   Referral+Action+Overdue into one line, no bleed pulling them back under
+   the avatar). */
+#actions-filtered-content .row-action-details .row-title-secondary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -3633,25 +3629,77 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 #actions-filtered-content .entity-row.chosen .row-title-secondary {
     border-top-color: var(--accent-border);
 }
-/* Facts strip (Created At/By, Assigned to/Due) stays VISIBLE at every
-   width, unlike Referrals' own 4-column strip (display: none below
-   1180px, above) - Referrals can drop its strip outright because
-   "Referral Details" already surfaces the same data (#118 third follow-up,
-   above); Actions has no equivalent "Action Details" view, and Edit
-   Action's own fields (_action_assign_fields.html) never show Created
-   At/By at all - hiding it here would lose real information with nothing
-   left to recover it from. */
+/* entity-thumb-group (live feedback: "space to have School logo and
+   Student image, maybe show both... for MAT staff") - two .entity-thumb
+   circles side by side instead of the single one every other list row
+   still uses. School badge shrunk to 28px so two circles don't overwhelm
+   the row the way two full 42px ones would.
+   align-self: flex-start is load-bearing, not decorative - .entity-row's
+   own align-items is actually stretch (cards.css' documented align-items:
+   center never wins here; something else in the cascade overrides it),
+   which the single .entity-thumb was always immune to only because it
+   carries an explicit width/height (cards.css) that stretch can't grow
+   past - per spec, a flex item that can't actually stretch (fixed size)
+   falls back to flex-start, which is why the single thumb always sat
+   level with the top line (name), not vertically centred against the
+   whole row. This wrapper has no such fixed height of its own: first
+   tried align-self: center here, which (confirmed live, measured ~53px
+   too low) centres the group against the row's full multi-line height
+   instead - reads as floating beside the Referral/Action line, not the
+   name. flex-start reproduces the fixed-thumb's real effective behaviour
+   instead of guessing at what "centred" should mean here. */
+#actions-filtered-content .entity-thumb-group {
+    display: flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+}
+/* School badge matches the student thumb's own 42px (live feedback: "can
+   School logo be same size as student image if both showing" - tried
+   smaller at 28px first so two circles wouldn't overwhelm the row, but
+   equal sizing reads as two peer identities side by side instead of one
+   primary + one secondary badge). No override needed here - .entity-thumb
+   (cards.css) already sets 42px/42px unconditionally, entity-thumb-school
+   just inherits it now like entity-thumb-student always did.
+   True mobile (≤700px) has no room for both - back to logo-only there
+   (.entity-thumb-student hidden), the exact single-thumb footprint/size
+   #118 originally gave every MAT-view row, so the mobile bleed maths
+   (row-title-secondary/action-note/row-facts, above) need no adjustment
+   there either. */
+@media (max-width: 700px) {
+    #actions-filtered-content .entity-row.has-dual-thumb .entity-thumb-student {
+        display: none;
+    }
+}
+/* No wide-desktop-only bleed correction needed here any more (live
+   feedback: "lose the switch from actions taking full height of card to
+   under Student details as well" - the separate >1400px flex layout that
+   needed this hardcoded "50px" dual-thumb correction is gone; the grid
+   band below now applies at every desktop width and sizes its own "thumb"
+   grid column from actual content, so a .has-dual-thumb row's wider thumb
+   group is already accounted for with nothing hardcoded to keep in sync). */
+/* Facts strip (Assigned to/Due, Created At/By, Referral Category) stays
+   VISIBLE at every width, unlike Referrals' own 4-column strip (display:
+   none below 1180px, above) - Referrals can drop its strip outright
+   because "Referral Details" already surfaces the same data (#118 third
+   follow-up, above); Actions has no equivalent "Action Details" view for
+   any of its three columns, so none of them can be dropped outright the
+   same way - only hidden one at a time under real space pressure (the
+   overflow guard, below). */
 /* Facts-strip overflow guard (wireActionFactsOverflow, actions.html) - same
    mechanism/reasoning as Referrals'/Students' own [data-facts-hide-from]
-   rules (above) - only one column pair here (Created At/By | Assigned to/
-   Due), so only the "hide-from=1" case is reachable: a long enough
-   assigned-staff name or group name can still push the second column onto
-   its own line at desktop width even though this row-facts stays visible
-   at every width (unlike Referrals' own strip, hidden outright below
-   1180px) - the guard's job is unchanged by that, it's still just "hide
-   whichever column stopped fitting on the first line". */
+   rules (above): priority order is Assigned/Due, then Created At/By, then
+   Referral Category (live feedback: "Referral Category is extra info so
+   can go at the end with Assigned and Due details") - whichever of these
+   stops fitting on the first line is the one that drops, and everything
+   after it in this priority order drops with it. */
 #actions-filtered-content[data-facts-hide-from="1"] .row-fact-col:nth-of-type(n+2),
 #actions-filtered-content[data-facts-hide-from="1"] .mc-vdivider:nth-of-type(n+1) {
+    display: none;
+}
+#actions-filtered-content[data-facts-hide-from="2"] .row-fact-col:nth-of-type(n+3),
+#actions-filtered-content[data-facts-hide-from="2"] .mc-vdivider:nth-of-type(n+2) {
     display: none;
 }
 /* #119: Actions row at 375px and tablet width (481-1179px) - the two real
@@ -3668,7 +3716,133 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
       segmented control in the portal keeps its normal compact sizing.
    2. Facts strip stays visible (above), not hidden the way Referrals'
       own 4-column strip is at these bands. */
-@media (max-width: 480px) {
+/* .action-status-segmented-form's own box measured a stubborn 12px taller
+   than the .ui-segmented control actually inside it (live feedback:
+   "gap...much more than 4px" - the real flex gap in row-btn-row-stacked,
+   stacked on top of this separate, invisible 12px of dead space nobody had
+   spotted yet) - display: flex, height: fit-content and align-items:
+   flex-start were each tried here first and *none* of them closed it
+   (measured live, repeatedly, with every box-model property - padding/
+   margin/border - confirmed zero on the form itself throughout), so
+   whatever the real mechanism is, it isn't one of the usual suspects.
+   display: contents sidesteps the mystery instead of chasing it further -
+   the form generates no box of its own at all, so its one visible child
+   (the hidden inputs contribute nothing regardless) becomes a direct flex
+   item of row-btn-row-stacked and is sized purely by its own content, with
+   no wrapper left to be the wrong height. Placed here, above the ≤700px
+   mobile block below (not down beside .ui-segmented--action-status's other
+   rules) so that block's own display: none for this same form - same
+   specificity, later in the file - still wins there; this fix is otherwise
+   unconditional since the same form/markup is reused at every other width
+   the control shows (grid band and full desktop alike). Form-association
+   for the submit buttons inside is unaffected - display: contents removes
+   the element from rendering only, not from the DOM tree it's still
+   submitted through. */
+#actions-filtered-content .action-status-segmented-form {
+    display: contents;
+}
+/* Segmented control -> dropdown swap (live feedback: "before we are forced
+   to hide any data, we switch to a dropdown for Status changer and
+   vertical stack this with the two other buttons") - the always-visible
+   3-way segmented control's own un-shrinkable width drives the grid's
+   "buttons" column width, forcing "details" to compete with it for space
+   and making wireActionFactsOverflow hide Created At/By or Referral
+   Category sooner than it needs to; the compact select trigger is
+   narrower, so swapping it in first claims back some of that width for
+   "details" before any real data has to be hidden at all. Scoped to
+   ≤1200px (live feedback: "in wide desktop it should be the fused status
+   selector, not the dropdown" first drew the line back in at 1400px;
+   "change segmented control to 1200 as well, try and have less
+   breakpoints" then moved it down to reuse the hub sidebar's own
+   auto-collapse breakpoint, responsive.css, instead of carrying a fourth
+   distinct number - the grid band's own structure is unbounded and
+   unaffected by this value, only the status control's own swap point). Two
+   separate <form>s, not one
+   form holding both controls toggled by visibility - a hidden-but-still-
+   enabled second "status" field in the same form would submit its own
+   (stale) value alongside whichever control the user actually used, and
+   Django's QueryDict.get() returns the LAST value for a repeated key,
+   silently overriding the real click with the hidden field's stale one.
+   Separate forms can't cross-contaminate like that - each submission
+   only ever carries its own form's fields. */
+@media (max-width: 1200px) {
+    #actions-filtered-content .action-status-segmented-form {
+        display: none;
+    }
+    #actions-filtered-content .action-status-select-form {
+        display: block;
+    }
+    /* Live feedback: "should the dropdown match shape of buttons?" /
+       "still missing space" / "shape looks shorter". Three separate real
+       causes, not one - .status-pill (pills.css) is built for its usual
+       compact inline-pill contexts, and every one of those defaults is
+       wrong once this trigger sits as a peer control in a button row:
+       1. Shape: borderless + fully-rounded (var(--radius-pill)) reads as a
+          label chip, not a control - overridden to .btn's own bordered
+          var(--radius-sm) box. Status colour tint (background) untouched.
+       2. Width/gap: .status-pill's width: auto sizes to its own text, not
+          its flex-basis-0 share of the row - measured live, this rendered
+          the trigger 121px wide inside a 108px column, overlapping
+          Referral Details by ~4px (the actual cause of "no gap", not a
+          shape/colour illusion). width: 100% fixes the CSS side, but
+          enhanceSelect (main.js) also sets an inline min-width off the
+          longest option's own measured width (right, for its usual
+          shrink-to-fit contexts) - inline style beats any non-!important
+          author rule, so it has to be zeroed with !important here or the
+          100% never actually takes effect.
+       3. Height: .status-pill's explicit line-height: 1 (deliberately tight
+          - own comment on that rule: "pill's height depends only on
+          font-size + padding") measured 30px tall next to .btn's 35px.
+          Padding alone (already matched to --space-xs above) isn't enough -
+          line-height needs freeing back to normal too. font-size stays
+          var(--font-xs): bumping it to match .btn's var(--font-base)
+          truncated "Incomplete" to "Incomple…" in this same-width column
+          (live regression, caught before shipping) - the 2px height gap
+          left by keeping --font-xs reads as close enough next to real
+          buttons; wrong text does not. */
+    #actions-filtered-content .action-status-select-form .ui-select-trigger {
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-xs);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        width: 100%;
+        min-width: 0 !important;
+        box-sizing: border-box;
+        line-height: normal;
+    }
+    html.nav-touch-mode #actions-filtered-content .action-status-select-form .ui-select-trigger {
+        padding-top: var(--space-sm);
+        padding-bottom: var(--space-sm);
+    }
+    /* Referral Details/Edit Action stacked too, not side by side (live
+       feedback: "When it turns to dropdown, all three things should be
+       vertically stacked") - .btn-row's own base rule (buttons.css) is a
+       horizontal flex row; column + stretch here makes both buttons full-
+       width rows under the dropdown instead, matching it exactly (the
+       parent .row-btn-row-stacked's own align-items: stretch, above,
+       already sizes this whole group to the widest content, so stretching
+       these two buttons to fill it lines everything up in one column of
+       three equal-width rows). True mobile (≤700px, below) overrides back
+       to side-by-side - screen real estate is tighter there and the two
+       buttons already read fine sharing one row with the dropdown. */
+    #actions-filtered-content .action-row-buttons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+/* True mobile stacked format (live feedback: "it should go into the mobile
+   format when very narrow" - below ~700px the grid band's own "buttons"
+   column left so little of the row's remaining width for "details" that
+   its text wrapped to one or two characters a line, even after the
+   dropdown swap above). This stacked format has no fixed-width column
+   competing with the details text - Assigned/Due, the description etc.
+   all get the full row width instead - so it reads far better at these
+   in-between widths than the two-column grid ever could, even though it's
+   the "mobile" layout on a plainly-desktop-shaped (locked rail, mouse)
+   window. Scoped to #actions-filtered-content only - doesn't touch the
+   app's own global 480px phone-chrome breakpoint (hamburger/drawer nav)
+   elsewhere. */
+@media (max-width: 700px) {
     #actions-filtered-content .entity-row {
         flex-wrap: wrap;
         align-items: flex-start;
@@ -3683,7 +3857,10 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     /* Status changer + buttons share one row at this width (#119
        follow-up: "make Status a dropdown in mobile mode... fit on same
        line as buttons") - overrides the base .row-btn-row-stacked rule's
-       flex-direction: column (panel.css, above). align-items: center
+       flex-direction: column (panel.css, above) and the grid band's own
+       vertical stack (the dropdown swap above is already active at this
+       width, ≤1200px - only true mobile goes horizontal like this).
+       align-items: center
        vertically centres the compact select against the taller buttons
        beside it. */
     #actions-filtered-content .entity-row > .row-btn-row.row-btn-row-stacked {
@@ -3699,21 +3876,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #actions-filtered-content .entity-row > .row-btn-row.row-btn-row-stacked > .action-row-buttons {
         align-self: center;
     }
-    /* The real segmented control only shows above this width - not enough
-       room for 3 always-visible buttons plus Referral Details/Edit Action
-       beside them on one line. .action-status-select-form (below) is its
-       mobile-only replacement: same status field/endpoint, a compact
-       control instead. Two separate <form>s, not one form holding both
-       controls toggled by visibility - a hidden-but-still-enabled second
-       "status" field in the same form would submit its own (stale) value
-       alongside whichever control the user actually used, and Django's
-       QueryDict.get() returns the LAST value for a repeated key, silently
-       overriding the real click with the hidden field's stale one.
-       Separate forms can't cross-contaminate like that - each submission
-       only ever carries its own form's fields. */
-    #actions-filtered-content .action-status-segmented-form {
-        display: none;
-    }
     /* Equal thirds across the whole row (#119 follow-up: "wanted dropdown
        to be on same row so third width and same height as the buttons") -
        flex-grow 1 on the select form, 2 on the button pair's own container
@@ -3722,29 +3884,21 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        exactly a third, regardless of content width, rather than the
        select claiming only its own auto content width like the very first
        version of this did (live feedback screenshot: select stacked above
-       the buttons, not sharing the row at even thirds). */
+       the buttons, not sharing the row at even thirds). display: block
+       itself is set by the wider dropdown-swap rule, above - only the
+       flex sizing for this specific horizontal layout lives here. */
     #actions-filtered-content .action-status-select-form {
-        display: block;
         flex: 1 1 0;
         min-width: 0;
     }
-    /* width: 100% (base .ui-select-trigger rule, forms.css) already fills
-       this form's own flex-basis - only the height needs correcting here:
-       .ui-select-trigger.status-pill's own padding (panel.css, above) is
-       deliberately shorter (--space-xxs) for its usual compact inline-pill
-       contexts, not matched to .btn's height (DES-S1) the way the base
-       .ui-select-trigger rule normally is. Restored to --space-xs
-       specifically in this row, where it now sits directly beside real
-       buttons and needs to read as the same height as them. */
-    #actions-filtered-content .action-status-select-form .ui-select-trigger {
-        padding-top: var(--space-xs);
-        padding-bottom: var(--space-xs);
-    }
-    html.nav-touch-mode #actions-filtered-content .action-status-select-form .ui-select-trigger {
-        padding-top: var(--space-sm);
-        padding-bottom: var(--space-sm);
-    }
     #actions-filtered-content .action-row-buttons {
+        /* Back to a horizontal row (overrides the wider ≤1200px band's own
+           flex-direction: column, above) - true mobile shares the dropdown
+           and the two buttons on one row instead of stacking everything,
+           so the pair needs to stay side by side within its own third of
+           that row. */
+        flex-direction: row;
+        align-items: center;
         flex: 2 1 0;
         min-width: 0;
     }
@@ -3753,63 +3907,217 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         min-width: 0;
     }
 }
-/* #119 follow-up ("buttons auto fit width") - Actions' button column
-   (row-btn-row-stacked: the fused status changer + Referral Details/Edit
-   Action) previously had no tablet-band treatment at all here, unlike
-   Referrals' own wireReferralButtonLayout/[data-btn-slot] system (above) -
-   left beside the content at its own auto/content width with no
-   wrap-detection, it would (once genuinely too tight to fit beside a
-   200px-min entity-body) just flex-wrap onto its own line at that same
-   narrow auto width, left-aligned with dead space beside it - the exact
-   "buttons do not seem to fit available horizontal space" problem
-   Referrals' own #118 mobile block already solved once, unfixed here.
-   wireActionButtonLayout (actions.html) is a lighter version of
-   wireReferralButtonLayout - only the offsetTop wrap-detection part, not
-   the per-slot --btn-w-* width measurement: Referral Details/Edit Action's
-   own text never varies row to row (no count badge, unlike Referrals'
-   "Actions (N)"), so there's no per-row width drift to measure/align in
-   the first place - every row's buttons are already the same width for
-   free. Beside the content, row-btn-row-stacked keeps its own auto/content
-   width (no override needed - that's the "auto fit" default the base
-   .row-btn-row-stacked rule, above, already gives it); only the
-   .row-buttons-wrapped case below needs a real rule, once there's a full
-   row's width to fill and nothing left to align beside. */
-@media (min-width: 481px) and (max-width: 1179px) {
+/* #119 follow-up ("buttons auto fit width", then live feedback with a
+   screenshot: "Student section always full width... underneath, Referral
+   details on left and action buttons on right" - a horizontal scrollbar
+   had appeared at this band, entity-body's flex-basis: 200px floor plus
+   the segmented status control's own un-shrinkable min-content width
+   together exceeding the row's available width with nothing left able to
+   give). Grid, not flex-wrap + JS offsetTop wrap-detection (Referrals'
+   own #118 approach, and this band's own earlier attempt) - a grid's
+   "buttons" column is sized to its own auto content and "details" is
+   1fr, so the row can never blow out past its container the way a flex
+   line of un-shrinkable items can; nothing left to measure or toggle a
+   wrapped class over, so wireActionButtonLayout's own offsetTop check
+   (actions.html) simply has nothing to do at this band any more (still
+   needed for the always-stacked ≤480px block below).
+   Upper bound extended from 1179px to 1400px, then dropped entirely (live
+   feedback: "narrow desktop... these are not working... please have a
+   look" widened it to 1400px first - Actions has no extra detail columns
+   left to drop the way Referrals/Students do at narrow desktop, so a
+   plain mouse-width window in the 1180-1400px range hit the exact same
+   "segmented control + buttons don't fit beside the details column"
+   problem this grid was built to solve, just without a touch pointer;
+   then "lose the switch from actions taking full height of card to under
+   Student details as well" retired the separate >1400px flex layout this
+   used to hand off to, so the grid now simply applies at every desktop
+   width with no upper bound at all). This band is otherwise pointer-
+   agnostic CSS - grid positions/borders/centring, nothing keyed to
+   hover/touch - so widening it was always safe.
+   .entity-body goes display: contents ONLY inside this band (scoped rule,
+   below) purely to flatten it out of the grid container's direct-children
+   list, so its own children (row-title-row/row-action-details) can each
+   take their own named area below - an established technique in this
+   codebase already (see e.g. home.html's .panel-home-cards). .row-action-
+   details' own display: contents (its base rule, right after this
+   comment) is the UNCONDITIONAL one - true at every other width too, so
+   Actions' desktop/mobile layouts keep the exact original nesting/visual
+   result now that row-title-secondary/action-note/row-facts-cols live one
+   level deeper inside it than before; this grid band is the only width
+   where that wrapper becomes a real box again (grid-area needs an actual
+   grid item to place). */
+.row-action-details { display: contents; }
+@media (min-width: 701px) {
     #actions-filtered-content .entity-row {
-        flex-wrap: wrap;
-        padding-right: var(--space-lg);
+        display: grid;
+        /* details spans columns 1-2 (under .entity-thumb too), not just
+           column 2 - live feedback: "everything in Action section... line
+           up on left with left of student image", same "flush at the
+           card's true left edge" convention row-facts/action-note's own
+           bleed trick already established for desktop/mobile (their
+           margin-left: 0 override, below, only works because details
+           itself now starts at column 1 - previously it started at column
+           2, level with the header text, which read as "too far right"
+           once the divider above it was already flush at the true edge). */
+        grid-template-columns: auto 1fr auto;
+        /* buttons spans BOTH rows (live feedback: "button block is now
+           consistently always under horizontal line, but it should be
+           full height of entity on the right") - column 3 names "buttons"
+           in every row instead of only the second, so the grid gives it
+           one tall area running the full card height beside thumb+header
+           AND details, rather than a shorter box confined to the details
+           row alone. */
+        grid-template-areas:
+            "thumb   header  buttons"
+            "details details buttons";
+        column-gap: var(--space-md);
+        /* No row-gap (live feedback: "extra space being added above
+           horizontal line when layout changes to action button section
+           switching to beneath line") - row-title-row's own padding-bottom
+           (below) already reserves the gap above the divider; row-gap
+           stacked a second, identical gap on top of that same boundary
+           (there's only one row boundary in a 2-row grid), doubling it to
+           16px above the line while .row-action-details sat flush against
+           it with none below. That padding-bottom is now the single source
+           of the above-divider gap; .row-action-details' own padding-top
+           (below) is the matching below-divider gap. */
+        row-gap: 0;
+        align-items: start;
+        /* Padding-bottom moved onto .row-action-details below, not removed -
+           entity-row's own padding-bottom (cards.css) sits OUTSIDE the
+           "details"/"buttons" grid row's own content height, so row-btn-
+           row's align-self: center (below) was only ever centering against
+           the details column's own text height, stopping ~16px short of
+           the card's true bottom border. Moving the same amount onto
+           .row-action-details instead makes it (still the taller of the
+           two items) define a grid row tall enough to reach the real
+           border, so centering against it now means centering against the
+           actual divider-to-border span (live feedback: "vertically
+           centered between the horizontal divider line and the card
+           entity bottom border" - confirmed via measurement this wasn't
+           true before: 7px gap above the buttons, 23px below). */
+        padding-bottom: 0;
     }
-    #actions-filtered-content .entity-thumb {
-        flex-shrink: 0;
+    #actions-filtered-content .entity-body { display: contents; }
+    #actions-filtered-content .entity-thumb-group { grid-area: thumb; }
+    #actions-filtered-content .row-title-row {
+        grid-area: header;
+        padding-bottom: var(--space-xs);
     }
-    #actions-filtered-content .entity-body {
-        flex: 1 1 200px;
-        min-width: 200px;
+    /* Horizontal divider under the student header (live feedback: "start
+       at the edge of the list card, not to the right of the student
+       image" - row-title-row's own border-bottom, tried first, only spans
+       the "header" area's own grid column start, leaving it indented past
+       .entity-thumb since thumb sits in a separate column to its left).
+       A dedicated grid line instead - grid-column: 1 / 3 spans the
+       thumb+header/details columns (not the buttons column - now that it
+       spans both rows, above, there's no break in it left to draw a line
+       across), grid-row: 2 anchors it to the top edge of the details row,
+       so it reads as one continuous line under the student header/thumb
+       only, stopping right at the vertical divider beside the buttons
+       column. */
+    #actions-filtered-content .entity-row::before {
+        content: '';
+        grid-column: 1 / 3;
+        grid-row: 2;
+        align-self: start;
+        border-top: 1px solid var(--border-color);
     }
-    #actions-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row {
-        flex: 1 1 100%;
-        border-left: none;
-        padding-left: 0;
-        align-items: stretch;
+    #actions-filtered-content .row-action-details { grid-area: details; display: block; min-width: 0; padding-top: var(--space-xs); padding-bottom: var(--space-md); }
+    /* Cancel the desktop/mobile bleed-under-the-avatar trick (row-title-
+       secondary/action-note/row-facts' own margin-left: -58px rules, above)
+       - that trick exists so those lines start flush at the card's true
+       left edge despite sitting, at those widths, inside the same indented
+       entity-body column as the avatar+name above them. In this grid band
+       .row-action-details is already its own dedicated column starting at
+       that same flush position (no avatar indent to bleed out from under),
+       so the same negative margin would instead pull it 58px past its own
+       column's left edge - into/under the divider and .entity-thumb -
+       exactly the "Referral and Action is still too right [and clipped]"
+       symptom live feedback caught. The border-top/flex-basis bleed on
+       row-title-secondary is cancelled the same way and for the same
+       reason - the full-span divider above (.entity-row::before) already
+       does that job here, so keeping row-title-secondary's own copy would
+       just draw a second, redundant line under it. */
+    #actions-filtered-content .row-action-details .row-title-secondary {
+        flex-basis: 100%;
+        margin-left: 0;
+        /* margin-top cancelled too (live feedback: "extra space... above
+           horizontal line") - its own base rule's 4px (above) is the
+           desktop/mobile bleed treatment's gap after row-facts' border-top
+           divider; .row-action-details' own padding-top (above) is this
+           band's single source of the equivalent gap, so leaving this
+           un-cancelled just stacked a second 4px on top of it. */
+        margin-top: 0;
+        border-top: none;
+        padding-top: 0;
     }
-    /* Same align-self override the true-mobile block needs (above, full
-       reasoning there) - .action-row-buttons' own align-self: flex-end
-       (base rule, unconditional) wins over this row's align-items: stretch
-       otherwise. */
-    #actions-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row > .action-row-buttons {
-        align-self: stretch;
+    #actions-filtered-content .action-note {
+        margin-left: 0;
+        width: 100%;
+        margin-top: var(--space-xxs);
     }
-    #actions-filtered-content .entity-row.row-buttons-wrapped .ui-segmented--action-status {
-        display: flex;
+    /* margin-top NOT included here (unlike .action-note above) - .row-facts'
+       own unconditional margin-top (its base rule, above) is now the single
+       source of the gap above its divider ("another horizontal line after
+       action description" - live feedback), so this grid band only needs
+       to cancel the bleed (margin-left/width) without touching that. */
+    #actions-filtered-content .row-facts {
+        margin-left: 0;
         width: 100%;
     }
-    #actions-filtered-content .entity-row.row-buttons-wrapped .ui-segmented--action-status .ui-segmented-option {
-        flex: 1;
-        white-space: normal;
-        text-align: center;
+    /* Vertical divider left of the buttons column (live feedback) - restores
+       the shared .entity-row > .row-btn-row convention (panel.css, above)
+       that grid-area: buttons alone doesn't carry with it; naturally
+       confined to just this grid row's own height (not the header row
+       above) since row-btn-row's box only ever occupies the "buttons"
+       area. */
+    #actions-filtered-content .row-btn-row {
+        grid-area: buttons;
+        border-left: 1px solid var(--border-color);
+        padding-left: var(--space-lg);
+        /* Stretched to the full height of its grid area (live feedback,
+           across two rounds: first "vertical divider [should be] height of
+           whichever is tallest, button block or Action Details block",
+           then "button block is now consistently always under horizontal
+           line, but it should be full height of entity on the right" -
+           the area itself now spans both grid rows, above, so stretching
+           to fill it gives the divider and the buttons column the full
+           card height, matching the pre-grid wide-desktop layout's own
+           look rather than confining either to just the details row). */
+        align-self: stretch;
     }
-    #actions-filtered-content .entity-row.row-buttons-wrapped .action-row-buttons > * {
-        flex: 1;
+    /* Content vertically centred in the now full-height box - the base
+       .row-btn-row-stacked rule's own justify-content: center (panel.css,
+       above) already does this; a top-aligned-with-gap override lived here
+       briefly while the buttons column was still confined to the details
+       row only (live feedback then: "align to top with a small gap to
+       horizontal line") but that reference point (the horizontal line) no
+       longer runs past the buttons column, above, so centring against the
+       full card height is the correct default again, same as the original
+       wide-desktop treatment this grid band replaced. */
+    /* No override needed here any more - .row-btn-row-stacked's own base
+       rule (panel.css, above) already sets gap: var(--space-xs), the exact
+       same token .btn-row uses for the horizontal gap between Referral
+       Details/Edit Action (live feedback: "aim to have same gap... space
+       between fused component and the buttons row" as that pair). The
+       real cause of the earlier oversized gap was never this value - it
+       was .ui-segmented's own leaked margin-bottom (see the
+       .detail-stat-card-view-more-body .ui-segmented fix, below in this
+       file - scoping that rule away from the bare .ui-segmented class is
+       what actually fixed it). A halved gap was tried here first as a
+       stopgap and is no longer needed now the real bug is gone. */
+    /* Belt-and-braces zero (live feedback: "double margin - margin below
+       fused status changer and margin above the buttons") - couldn't find
+       a rule actually declaring either margin (grep across forms.css/
+       buttons.css/panel.css for the segmented form or .action-row-buttons
+       turned up none, and the portal's global `* { margin: 0 }` reset,
+       layout.css, should already zero a bare <form>'s own UA margin), but
+       zeroing both explicitly here costs nothing and removes them as a
+       possibility outright rather than trusting that reset held. */
+    #actions-filtered-content .action-status-segmented-form,
+    #actions-filtered-content .action-row-buttons {
+        margin: 0;
     }
 }
 
@@ -4040,109 +4348,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     font-weight: 700;
 }
 
-/* Tablet + desktop button placement (>480px - only true mobile, further
-   down, always keeps buttons full-width regardless). Was a dynamic per-row
-   JS measurement (wireStudentRowButtonWrap, students.html - live feedback
-   at the time: "can the buttons dynamically go to next line when it
-   causes overflow", "force action buttons to be the same size as largest
-   Action button") - scrollWidth-read every row on every resize tick to
-   decide (a) whether ANY row's buttons needed to wrap, applied to every
-   row uniformly, and (b) a --btn-w-<slot> custom property pinning every
-   row's buttons to one shared width. (a) replaced with plain native
-   flex-wrap (live feedback: "breakpoints are still not snappy on this
-   page only" - even after the detail-column search moved to CSS, this
-   remaining O(rows) measurement was still enough to stutter against the
-   side-nav's own width transition on an unbounded row count) -
-   flex-wrap: wrap on the row itself lets the browser decide per-row, for
-   free, whether .btn-row fits beside .entity-body or needs its own line.
-   (b) came back afterward (live feedback: "the buttons with badges takes
-   up more space so goes to new line, but other entitys do not... make
-   buttons same size as max width of that type" - once (a) went pure CSS,
-   a row's wrap decision started depending on that row's OWN badge digit
-   count, so two rows at the same width could wrap inconsistently just
-   because one had a badge and the other didn't; pinning every row's
-   buttons to one shared width removes that per-row variance, so wrap
-   becomes consistent again too, as a side effect) - safe to reintroduce
-   now that pagination (views.py, same session) caps the DOM at
-   STUDENTS_PAGE_SIZE rows: alignButtonSlots() (students.html) only needs
-   to re-run when the rendered rows actually change (page load, filter
-   change, an infinite-scroll append), never on resize, so there's no
-   per-frame cost left to fight the side-nav's transition. */
-@media (min-width: 481px) {
-    #students-filtered-content .entity-row {
-        flex-wrap: wrap;
-    }
-    /* entity-thumb never wraps away on its own - fixed width/height already
-       gives it a natural flex-basis, flex-shrink: 0 here just makes sure it
-       can't be squeezed either, so it's never a candidate to fall onto a
-       line by itself the way a shrinkable item could be. */
-    #students-filtered-content .entity-thumb {
-        flex-shrink: 0;
-    }
-    /* flex-basis (not just min-width) is what actually reserves this as
-       .entity-body's asking size before the flex algorithm decides whether
-       .btn-row still fits on the same line - a plain min-width alone still
-       lets .entity-body start from a 0 basis and only grow after wrap is
-       already decided, which resolves wrap one step too late. 200px, not
-       the wider figure tried first (live feedback caught it live: the
-       avatar itself wrapped onto its own line above the name on a ~500px
-       tablet width - too large a floor made .entity-thumb + .entity-body
-       together not fit on line 1 at all, so .entity-body wrapped away from
-       the avatar too, not just the buttons). 200px comfortably fits the
-       "Year 10 · House D · Form 10A" facts line without forcing that. */
-    #students-filtered-content .entity-body {
-        flex: 1 1 200px;
-        min-width: 200px;
-    }
-    #students-filtered-content .entity-row > .btn-row {
-        flex: 0 0 auto;
-        padding-left: var(--space-lg);
-    }
-    /* Each button pinned to a fixed width - the widest that same button
-       (Referrals/Actions/New Referral) actually needs across the currently
-       rendered rows, set as a --btn-w-<slot> custom property by
-       alignButtonSlots() (students.html) - so every row's buttons start
-       and end at the same x position regardless of that row's own badge
-       digit count. flex: 0 0 <width> (not just width alone) - .btn-row's
-       own base rule (buttons.css) doesn't force flex-shrink: 0 on its
-       children, so a tight row could otherwise still compress a button
-       below its own fixed width. */
-    #students-filtered-content .btn-row [data-btn-slot] {
-        flex-grow: 0;
-        flex-shrink: 0;
-    }
-    #students-filtered-content .btn-row [data-btn-slot="referrals"] {
-        flex-basis: var(--btn-w-referrals, auto);
-    }
-    #students-filtered-content .btn-row [data-btn-slot="actions"] {
-        flex-basis: var(--btn-w-actions, auto);
-    }
-    #students-filtered-content .btn-row [data-btn-slot="new-referral"] {
-        flex-basis: var(--btn-w-new-referral, auto);
-    }
-    /* Full-width/centred when a row's buttons actually fell to their own
-       line (live feedback: "if buttons overflow to a new line, can they
-       auto width to fill the width! Like in mobile mode" - same
-       flex: 1 1 100% + evenly-stretched children treatment true mobile's
-       own always-wrapped block already uses below, applied here only when
-       wireStudentButtonLayout (students.html) has actually detected the
-       wrap, not unconditionally). Overrides the fixed --btn-w-<slot>
-       pinning above - once alone on its own line, there's nothing left to
-       align WITH, so filling the available width reads better than
-       leaving it pinned to a size chosen to match the row above it. No
-       margin of its own - .entity-row's own base gap (cards.css) already
-       applies as row-gap between wrapped lines once flex-wrap: wrap is on,
-       stacking margin-top on top of that gap would double it up. */
-    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row {
-        flex: 1 1 100%;
-        border-left: none;
-        padding-left: 0;
-    }
-    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row > * {
-        flex: 1;
-        justify-content: center;
-    }
-}
+/* Tablet/desktop button placement is now the grid band (below,
+   #students-filtered-content .entity-row ≥701px) - live feedback: "do
+   both" pages, porting Actions' own grid technique here. This used to be
+   a JS-measured per-row width-pinning system (alignButtonSlots(),
+   students.html) plus native flex-wrap fallback; grid's own "buttons"
+   column auto-sizes to content and can't be blown out by badge-digit
+   variance the way a flex row could, so that pinning has nothing left to
+   do here (same fate Referrals' own wireReferralButtonLayout had). */
 
 /* Gender/DOB column etc. (live feedback: "add in addition details if
    there is room. Gender, DOB... styled like Referrals page") - visibility
@@ -4168,15 +4381,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     color: var(--text-secondary);
 }
 /* .row-facts now only ever holds the DOB/YOA-onward data columns (Year/
-   House/Reg moved out, above) - those stay hidden below 1280px (row-
-   detail-col-2's own threshold, below), so the container itself would
-   otherwise sit there empty but for its own margin-top. Dropped outright
-   rather than left as a stray gap. */
-@media (max-width: 1279px) {
-    #students-filtered-content .row-facts {
-        display: none;
-    }
-}
+   House/Reg moved out, above). Used to hide outright below 1280px - live
+   feedback: "do both" pages (the grid band, below, removed the same
+   squeeze problem for Referrals that justified hiding its own fact strip
+   below 1180px, so Students' equivalent 1280px hide came out too) - now
+   stays visible down to 701px, with the overflow guard just below doing
+   the same graceful one-column-at-a-time job Referrals'/Actions' own
+   strips already rely on. */
 /* Was a JS-measured "level 0-5" system (wireStudentRowButtonWrap,
    students.html): every resize/ResizeObserver tick re-measured all ~240
    rows against all 6 levels to find the highest one where nothing
@@ -4219,63 +4430,81 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 /* Column 1 (DOB/YOA) needs no reveal rule of its own - nothing hides it
    (wireStudentFactsOverflow, students.html, only ever measures/hides from
    column *2* onward, same assumption as Referrals' equivalent guard: the
-   first column always fits once .row-facts itself is visible at all,
-   which the coarser display:none cutoff above already handles). */
-@media (min-width: 1280px) {
-    /* Same two dividers Referrals/Actions carry at every width - a
-       vertical line before the buttons (.entity-row > .row-btn-row's own
-       base rule, above, which Students' plain .btn-row never matched) and
-       a horizontal line above the facts (.row-facts' own base rule,
-       overridden off for Students at every width below by the #117
-       follow-up two blocks up) - restored for Students too, but only once
-       there's an actual data column to divide from (live feedback: "for
-       the wider setups... divider lines like on Referrals page. A
-       vertical before buttons and a horizontal above the info"), now
-       DOB/YOA (row-detail-col-2, the first column left once Year/House/Reg
-       moved out - comment above) rather than every width like Referrals:
-       the earlier "lose the divider" feedback this overrides was about a
-       bare row with nothing but Year/House/Form next to it, not this
-       now-busier wide-only layout. */
-    #students-filtered-content .entity-row > .btn-row {
-        border-left: 1px solid var(--border-color);
+   first column always fits once .row-facts itself is visible at all).
+   The vertical-before-buttons/horizontal-above-facts dividers this used to
+   restore at 1280px+ are now unconditional inside the grid band (below,
+   ≥701px) instead - a single .entity-row::before line, the same technique
+   Actions/Referrals use, rather than two separately-toggled borders. */
+/* Grid band, every desktop width ≥701px (live feedback: "do both" pages -
+   ports Actions'/Referrals' own grid technique here too: full-width
+   student header, a divider, then the data columns on the left with a
+   full-height buttons column on the right). No extra wrapper div needed
+   here, unlike Actions/Referrals (_actions_rows.html's row-action-details,
+   _referrals_rows.html's row-referral-details) - Students' row-facts-cols
+   already sits as .row-title-row's own direct sibling with nothing else
+   in between, so it can be the "details" grid area directly. Students
+   also never bled row-facts out from under the avatar's indent the way
+   Referrals/Actions had to (this page's own facts column was never
+   indented under the avatar in the first place - see the "No divider
+   above the facts line" comment, above), so there's no bleed-cancel
+   needed here either - one thing fewer than Referrals' own port. */
+@media (min-width: 701px) {
+    #students-filtered-content .entity-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas:
+            "thumb   header  buttons"
+            "details details buttons";
+        column-gap: var(--space-md);
+        row-gap: 0;
+        align-items: start;
+        padding-bottom: 0;
     }
-    #students-filtered-content .row-facts {
-        margin-top: var(--space-xs);
-        padding-top: var(--space-xs);
+    #students-filtered-content .entity-body { display: contents; }
+    #students-filtered-content .entity-thumb { grid-area: thumb; }
+    #students-filtered-content .row-title-row {
+        grid-area: header;
+        padding-bottom: var(--space-xs);
+    }
+    #students-filtered-content .entity-row::before {
+        content: '';
+        grid-column: 1 / 3;
+        grid-row: 2;
+        align-self: start;
         border-top: 1px solid var(--border-color);
     }
-}
-
-/* Tablet-only tightening of the wrapped-fallback button row (481-900px
-   band): once a row's buttons genuinely don't fit beside its content (the
-   .row-buttons-wrapped case, wireStudentButtonLayout/panel.css above) and
-   drop to their own full-width row, tablet is narrow enough that badges
-   can still overflow the row the same way old fixed-mobile once did (live
-   feedback then: "find a way for buttons to fit on one row... badges...
-   causes New Referral to overflow"). Desktop's own wrapped fallback
-   (900px+) has enough width that it never needed this - scoped to
-   max-width: 900px so desktop keeps its icon + normal padding. Back to
-   being scoped to .row-buttons-wrapped specifically (was briefly
-   unconditional while that class didn't exist, mid-session) - now that
-   wireStudentButtonLayout detects wrap again, applying this compact/no-
-   icon treatment to rows that never actually wrapped would be needlessly
-   cramped. nowrap + min-width: 0 forces genuine shrinking instead of the
-   least-fitting button (New Referral, the longest label) dropping to its
-   own line; icon dropped and text/padding tightened to claim back enough
-   room for that shrink to still read comfortably rather than truncating. */
-@media (min-width: 481px) and (max-width: 900px) {
-    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row {
-        flex-wrap: nowrap;
-    }
-    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row > * {
+    #students-filtered-content .row-facts {
+        grid-area: details;
+        display: flex;
         min-width: 0;
-        padding-left: var(--space-xs);
-        padding-right: var(--space-xs);
-        font-size: var(--font-sm);
-        white-space: nowrap;
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-md);
     }
-    #students-filtered-content .entity-row.row-buttons-wrapped > .btn-row .btn-icon {
-        display: none;
+    #students-filtered-content .btn-row {
+        grid-area: buttons;
+        border-left: 1px solid var(--border-color);
+        padding-left: var(--space-lg);
+        align-self: stretch;
+        /* Vertically stacked, not side by side (live feedback: "like
+           Actions, switch to vertical stack" - matches the same call made
+           for Actions' own buttons column, panel.css, _actions_rows.html).
+           align-items: stretch makes all three buttons fill the same width
+           - whichever is naturally widest (New Referral, with its icon) -
+           instead of each sizing to its own text. Overridden back to
+           horizontal above 1200px, below - matches Actions' own wide-
+           desktop treatment. */
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+/* Wide desktop (live feedback: "in wide desktop it should be horizontal
+   stack like actions") - reuses the same 1200px threshold as Actions' own
+   segmented-control/dropdown swap (the hub sidebar's own auto-collapse
+   breakpoint, responsive.css) rather than a new number. */
+@media (min-width: 1201px) {
+    #students-filtered-content .btn-row {
+        flex-direction: row;
+        align-items: center;
     }
 }
 
@@ -5157,7 +5386,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    toggles and plain fields all get the same row treatment for visual
    consistency (live feedback: "uneven mix looks inconsistent" between
    selects and toggle-pills in the old 2-up grid). */
-@media (max-width: 480px) {
+@media (max-width: 700px) {
     /* Left/right narrowed to var(--space-sm), matching the page's own
        margin at this width (.main-inner's padding, responsive.css) - the
        base --space-lg (cards.css) reads as desktop-sized dead space once
@@ -5166,19 +5395,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        Top/bottom to match, not the base --space-md (cards.css) - live
        feedback: "Can the top and bottom padding match the left and right
        padding on mobile" once the sides above were already narrowed.
-       Mobile-only (this block, not the shared <=900px tablet/mobile block
-       above) - the reduced padding was mobile-specific feedback that had
-       leaked into tablet width too. flex-wrap/row-gap/column-gap also
-       moved here from that shared block (live feedback: "would [buttons]
-       fit next to student info like in wide tablet mode" - true mobile is
-       the one band never wide enough to attempt that, so it keeps the
-       always-stacked layout unconditionally; tablet now uses the same
-       dynamic overflow measurement as desktop instead, above). Kept at the
-       true phone-only 480px threshold, not widened alongside the filter bar
-       below - live feedback: "everything changes. So the data cards move as
-       well, I didn't want this... I only want the filter treatment to be
-       same as mobile" - the entity list/row layout is a separate concern
-       from the filter bar and stays exactly as it was at every width. */
+       Widened from 480px to 700px (live feedback: "do both" pages - matches
+       Actions'/Referrals' own true-mobile threshold now that the grid band
+       (below, ≥701px) replaces the old tablet band here too; entity list/
+       row layout stays its own concern, separate from the filter bar
+       above, which keeps its own 480px threshold unchanged). */
     #students-filtered-content .entity-row {
         flex-wrap: wrap;
         align-items: flex-start;
@@ -8152,8 +8373,15 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
 /* Period picker (Attendance/Behaviour/Positive Behaviour "View details")
    reuses the app's existing .ui-segmented component (forms.css) rather than
    inventing its own tab styling - fused into one bordered group, no gaps
-   between options. */
-.ui-segmented { margin-bottom: var(--space-sm); }
+   between options. Scoped to .detail-stat-card-view-more-body (this
+   picker's own container), not the bare .ui-segmented class - the
+   unscoped version of this rule leaked margin-bottom onto EVERY other
+   .ui-segmented in the portal, including Actions' own status changer
+   (live feedback: "margin below fused status changer... double margin" -
+   traced live to this exact rule after display: flex/contents and every
+   other angle on the Actions side came up empty, since the real cause was
+   never in that markup at all). */
+.detail-stat-card-view-more-body .ui-segmented { margin-bottom: var(--space-sm); }
 .ui-segmented .ui-segmented-option { text-decoration: none; }
 
 /* Period-list row shape - label + stacked bar + value. Chosen over a

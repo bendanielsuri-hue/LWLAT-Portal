@@ -2354,24 +2354,32 @@ def inclusion_panel_actions(request):
     # (_actions_rows.html), not the two halves measured separately, so
     # max_ch roughly doubles to still cap at a sane width.
     col_widths = {
-        'created': _col_width(
-            [
-                (f'Created At: {a.created_at:%d %b %Y}' if a.created_at else 'Created At: —')
-                + ' · '
-                + (f'Created By: {a.created_by}' if a.created_by else 'Created By: —')
-                for a in actions
-            ],
-            max_ch=48,
-        ),
+        # Assigned to/Due (live feedback: "Assigned and due is a pair" -
+        # two stacked label:value lines, same convention/col_widths shape
+        # as Referrals' own 'raisedby' column, below, rather than the
+        # single interpunct-joined line this used to be).
         'assigned': _col_width(
-            [
-                'Assigned to: '
-                + str(a.assigned_to_staff or a.assigned_to_group or 'Unassigned')
-                + ' · '
-                + (f'Due: {a.due_date:%d %b %Y}' if a.due_date else 'Due: —')
-                for a in actions
-            ],
-            max_ch=48,
+            [f'Assigned to: {a.assigned_to_staff or a.assigned_to_group or "Unassigned"}' for a in actions]
+            + [f'Due: {a.due_date:%d %b %Y}' if a.due_date else 'Due: —' for a in actions],
+            max_ch=30,
+        ),
+        # Created At/By (live feedback: "keep created by and when!, but use
+        # the [two-line] formatting used in referral page" - restored after
+        # briefly being dropped outright, this time as two stacked label:
+        # value lines rather than one interpunct-joined line).
+        'created': _col_width(
+            [f'Created At: {a.created_at:%d %b %Y}' if a.created_at else 'Created At: —' for a in actions]
+            + [f'Created By: {a.created_by}' if a.created_by else 'Created By: —' for a in actions],
+            max_ch=28,
+        ),
+        # Referral Category/Status (live feedback: "extra info so can go at
+        # the end with Assigned and Due details", then "add a Referral
+        # detail pair, so main concern and something else" - same two-line
+        # convention as the other two columns above).
+        'referral': _col_width(
+            [f'Referral: {a.referral.concern_category}' if a.referral.concern_category else 'Referral: —' for a in actions]
+            + [f'Status: {a.referral.get_status_display()}' for a in actions],
+            max_ch=28,
         ),
     }
 

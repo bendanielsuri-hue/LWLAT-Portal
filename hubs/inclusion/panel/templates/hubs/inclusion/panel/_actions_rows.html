@@ -10,24 +10,38 @@ one place means both call sites can never drift apart - same convention as
 Students/Referrals' own _students_rows.html/_referrals_rows.html.
 {% endcomment %}
 {% for action in actions %}
-<div class="entity-row selectable actions-list-row" tabindex="0" role="button" aria-pressed="false">
-    <div class="entity-thumb{% if is_aggregate_view and action.referral.student.school.logo_url %} is-logo{% endif %}">
+<div class="entity-row selectable actions-list-row{% if is_aggregate_view %} has-dual-thumb{% endif %}" tabindex="0" role="button" aria-pressed="false">
+    <div class="entity-thumb-group">
         {% comment %}
-        School logo replaces the avatar entirely for MAT-wide/aggregate-view
-        staff (#118: "MAT don't know or need to know what students look
-        like"), same as Referrals/Students - was previously the one list
-        page still showing the student's own photo/initials to MAT-wide
-        staff regardless of view, plus a separate small inline logo badge
-        beside the name that's now redundant with the avatar itself doing
-        the job.
+        Both shown side by side for MAT-wide/aggregate-view staff now (live
+        feedback: "space to have School logo and Student image, maybe show
+        both... in these modes" - #118's original call ("MAT don't know or
+        need to know what students look like") replaced the avatar with the
+        logo outright; this doesn't reverse that reasoning so much as admit
+        there's room for both once the student header went full-width
+        above, above this row). entity-thumb-school hidden at the ≤700px
+        mobile format (panel.css) - back to logo-only there, same compact
+        single-thumb footprint the row always had at true mobile widths.
+        .entity-row's own has-dual-thumb modifier (unconditional on
+        is_aggregate_view, not just when a real logo_url exists - the
+        placeholder icon still widens the group the same way a real logo
+        does) lets panel.css adjust the desktop/mobile bleed maths
+        (row-title-secondary/action-note/row-facts' own "42px" assumption,
+        below) for the wider group without hardcoding it into every one of
+        those rules individually.
         {% endcomment %}
         {% if is_aggregate_view %}
-        {% if action.referral.student.school.logo_url %}<img src="{{ action.referral.student.school.logo_url }}" alt="{{ action.referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
-        {% elif action.referral.student.photo %}
-        <img src="{{ action.referral.student.photo.url }}" alt="">
-        {% else %}
-        <span class="avatar-initials {{ action.referral.student|avatar_color_class }}">{{ action.referral.student.first_name|first }}{{ action.referral.student.last_name|first }}</span>
+        <div class="entity-thumb is-logo entity-thumb-school">
+            {% if action.referral.student.school.logo_url %}<img src="{{ action.referral.student.school.logo_url }}" alt="{{ action.referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+        </div>
         {% endif %}
+        <div class="entity-thumb entity-thumb-student">
+            {% if action.referral.student.photo %}
+            <img src="{{ action.referral.student.photo.url }}" alt="">
+            {% else %}
+            <span class="avatar-initials {{ action.referral.student|avatar_color_class }}">{{ action.referral.student.first_name|first }}{{ action.referral.student.last_name|first }}</span>
+            {% endif %}
+        </div>
     </div>
     <div class="entity-body">
         <div class="row-title-row">
@@ -52,8 +66,26 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
             {% if action.referral.student.is_young_carer %}<span class="bd-pill bd-untriaged">YC</span>{% endif %}
             {% if action.referral.student.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
             <span class="row-facts-primary-plain">Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; House {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; Form {{ action.referral.student.reg_form }}{% endif %}</span>
+        </div>
+        {% comment %}
+        row-action-details: everything about the referral/action itself
+        (as opposed to row-title-row above, which is purely the student's
+        own identity - name/pills/Year-House-Reg). display: contents at
+        every width outside the 481-1179px tablet band (panel.css) - this
+        wrapper exists only so that band can grid-place it as its own
+        "details" area beside row-btn-row-stacked's "buttons" area (live
+        feedback: "Student section always full width... underneath,
+        Referral details on left and action buttons on right" - the
+        student header can carry a lot of pills, so it needed to stop
+        competing with the status/buttons column for the same horizontal
+        space at this width, which is what caused this row to overflow
+        and scroll horizontally in the first place). Purely a grouping
+        box elsewhere - no visual effect on desktop/mobile, same
+        children in the same document order as before this wrapper
+        existed.
+        {% endcomment %}
+        <div class="row-action-details">
             <div class="row-title-secondary">
-                <span class="row-title-referral-context">Referral: {{ action.referral.concern_category|default:"—" }}</span>
                 <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Action: </span>{{ action.category|default:"—" }}</div>
                 {% comment %}
                 No plain status pill here (dropped #119 follow-up, live
@@ -68,28 +100,42 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                 </div>
                 {% endif %}
             </div>
-        </div>
-        {% if action.note %}<div class="entity-meta action-note">{{ action.note }}</div>{% endif %}
-        {% comment %}
-        Assigned to/Due first, Created At/By second (#119 follow-up: "for an
-        Action, who it's assigned and when it's due is more important than
-        who created and when") - also gives Assigned/Due the priority seat
-        for the facts-overflow guard (wireActionFactsOverflow, actions.html)
-        - data-facts-hide-from="1" hides whichever column comes SECOND, so
-        this ordering is what keeps Assigned/Due on screen the longest
-        rather than Created At/By. One line per column, not two (#119
-        follow-up: "can Assigned and Due make better use of space? One
-        line") - same interpunct-joined single-line convention
-        row-facts-primary-plain already uses for Year/House/Reg, rather
-        than a stacked label:value pair each.
-        {% endcomment %}
-        <div class="row-facts row-facts-cols">
-            <div class="row-fact-col" style="width: {{ col_widths.assigned }}">
-                <span>Assigned to: {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }} &middot; Due: {{ action.due_date|date:"d M Y"|default:"—" }}</span>
-            </div>
-            <span class="mc-vdivider"></span>
-            <div class="row-fact-col" style="width: {{ col_widths.created }}">
-                <span>Created At: {{ action.created_at|date:"d M Y"|default:"—" }} &middot; Created By: {{ action.created_by|default:"—" }}</span>
+            <div class="entity-meta action-note">{% if action.note %}{{ action.note }}{% else %}<span class="empty-note">No description.</span>{% endif %}</div>
+            {% comment %}
+            Assigned to/Due first (#119 follow-up: "for an Action, who it's
+            assigned and when it's due is more important than who created
+            and when") - two stacked label:value lines (live feedback:
+            "Assigned and due is a pair" - supersedes the earlier single
+            interpunct-joined line, #119 follow-up: "can Assigned and Due
+            make better use of space? One line"), same convention/markup
+            shape as Referrals' own Raised by/on column (_referrals_rows.
+            html). Created At/By is second, same two-line convention (live
+            feedback: "keep created by and when!, but use the [two-line]
+            formatting used in referral page" - restored after briefly
+            being dropped outright). Referral (Concern Category/Status) is
+            third/last, same two-line pairing again (live feedback: "add a
+            Referral detail pair, so main concern and something else") -
+            lowest priority of the three (live feedback: "Referral Category
+            is extra info so can go at the end with Assigned and Due
+            details" - moved out of row-title-secondary above, where it
+            used to sit ahead of Action), so wireActionFactsOverflow
+            (actions.html) drops it first when the row runs out of width.
+            {% endcomment %}
+            <div class="row-facts row-facts-cols">
+                <div class="row-fact-col" style="width: {{ col_widths.assigned }}">
+                    <span>Assigned to: {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}</span>
+                    <span>Due: {{ action.due_date|date:"d M Y"|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.created }}">
+                    <span>Created At: {{ action.created_at|date:"d M Y"|default:"—" }}</span>
+                    <span>Created By: {{ action.created_by|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.referral }}">
+                    <span>Referral: {{ action.referral.concern_category|default:"—" }}</span>
+                    <span>Status: {{ action.referral.get_status_display }}</span>
+                </div>
             </div>
         </div>
     </div>

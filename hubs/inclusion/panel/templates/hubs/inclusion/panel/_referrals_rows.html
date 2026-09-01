@@ -30,6 +30,18 @@ convention as Students' own _students_rows.html.
             {% if referral.student.is_young_carer %}<span class="bd-pill bd-untriaged">YC</span>{% endif %}
             {% if referral.student.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
             <span class="row-facts-primary-plain">Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; House {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; Form {{ referral.student.reg_form }}{% endif %}</span>
+        </div>
+        {% comment %}
+        row-referral-details: everything about the referral itself (as
+        opposed to row-title-row above, which is purely the student's own
+        identity - name/pills/Year-House-Reg). display: contents outside
+        the grid band (panel.css) - same "Student section full width,
+        Referral details on left, buttons full height on right" pattern
+        Actions' own row-action-details uses (_actions_rows.html) - ported
+        here for the same reason (live feedback: "do both" pages once the
+        Actions redesign was confirmed working).
+        {% endcomment %}
+        <div class="row-referral-details">
             <div class="row-title-secondary">
                 <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Concern: </span>{{ referral.concern_category|default:"—" }}</div>
                 <div class="row-title-pills">
@@ -38,27 +50,27 @@ convention as Students' own _students_rows.html.
                 </div>
             </div>
             <span class="row-title-raised-by">Raised by {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %} on {{ referral.created_at|date:"d M Y" }}</span>
-        </div>
-        <div class="row-facts row-facts-cols">
-            <div class="row-fact-col" style="width: {{ col_widths.raisedby }}">
-                <span>Raised by: {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}</span>
-                <span>Raised on: {{ referral.created_at|date:"d M Y" }}</span>
-            </div>
-            <span class="mc-vdivider"></span>
-            {# row-fact-col-empty: #118 mobile-only hide (panel.css) for a pair with nothing in either line - Prev Panel/Next Panel and Priority/Review Due are the only two pairs that can ever both be blank (Raised by/on and Actions counts never are), see #118 follow-up grilling session. #}
-            <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.panels }}">
-                <span>Prev Panel: {{ referral.previous_panel_date|date:"d M Y"|default:"—" }}</span>
-                <span>Next Panel: {{ referral.next_panel_date|date:"d M Y"|default:"—" }}</span>
-            </div>
-            <span class="mc-vdivider"></span>
-            <div class="row-fact-col{% if not referral.priority and not referral.next_review_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.priorityreview }}">
-                <span>Priority: {{ referral.get_priority_display|default:"—" }}</span>
-                <span>Review Due: {{ referral.next_review_date|date:"d M Y"|default:"—" }}</span>
-            </div>
-            <span class="mc-vdivider"></span>
-            <div class="row-fact-col" style="width: {{ col_widths.actionsstatus }}">
-                <span>Completed Actions: {{ referral.completed_actions_count }}</span>
-                <span>Incomplete Actions: {{ referral.incomplete_actions_count }}</span>
+            <div class="row-facts row-facts-cols">
+                <div class="row-fact-col" style="width: {{ col_widths.raisedby }}">
+                    <span>Raised by: {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}</span>
+                    <span>Raised on: {{ referral.created_at|date:"d M Y" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                {# row-fact-col-empty: #118 mobile-only hide (panel.css) for a pair with nothing in either line - Prev Panel/Next Panel and Priority/Review Due are the only two pairs that can ever both be blank (Raised by/on and Actions counts never are), see #118 follow-up grilling session. #}
+                <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.panels }}">
+                    <span>Prev Panel: {{ referral.previous_panel_date|date:"d M Y"|default:"—" }}</span>
+                    <span>Next Panel: {{ referral.next_panel_date|date:"d M Y"|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col{% if not referral.priority and not referral.next_review_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.priorityreview }}">
+                    <span>Priority: {{ referral.get_priority_display|default:"—" }}</span>
+                    <span>Review Due: {{ referral.next_review_date|date:"d M Y"|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.actionsstatus }}">
+                    <span>Completed Actions: {{ referral.completed_actions_count }}</span>
+                    <span>Incomplete Actions: {{ referral.incomplete_actions_count }}</span>
+                </div>
             </div>
         </div>
     </div>
