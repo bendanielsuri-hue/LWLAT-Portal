@@ -1774,8 +1774,42 @@ a { color: inherit; }
    clickability on its own) - even rows sharing the same tint as hover
    means hovering an even row is a smaller visual change than hovering an
    odd one, accepted as fine rather than worth a second tint. */
-.list-card .entity-row:nth-child(even) {
+/* :not(.chosen) - without it this rule's own specificity
+   (.list-card .entity-row:nth-child(even), 3 class-level selectors) beats
+   .entity-row.chosen's plain `background: var(--primary-light)` (2), so a
+   chosen even row silently lost its selected fill back to the plain zebra
+   tint (confirmed live: computed background stayed the zebra colour, not
+   primary-light, the moment .chosen was set - not actually hover-triggered,
+   just first noticed by hovering a neighbour row for visual contrast). */
+.list-card .entity-row:nth-child(even):not(.chosen) {
     background-color: var(--row-hover-bg);
+    /* --border-strong, not --border-color - --border-faint (light.css) was
+       only ever tuned to clear the plain surface, not --row-hover-bg
+       itself, so even rows need some bump here regardless (same reason
+       .selectable:hover, cards.css, used to bump on hover before that
+       moved to a left accent bar). --border-color alone (the first fix
+       here) still measured too subtle live against the tint (Playwright,
+       "hard to see in global... work great in mobile") - the mobile-only
+       internal divider (#referrals-filtered-content .row-title-secondary,
+       panel.css) hit the exact same problem and settled on --border-strong;
+       this brings the portal-wide row-to-row divider (every .list-card
+       list - Students/Referrals/Actions/Escalations/Meetings/Safeguarding
+       Notes - at every width, not just mobile) to the same tier. */
+    border-bottom-color: var(--border-strong);
+}
+/* Same tint-clearing bump, for a row's own internal dividers this time -
+   .row-facts's border-top (fact-strip separator, panel.css) and
+   .row-btn-row's border-left (vertical divider before the button column,
+   panel.css) both still used the plain var(--border-color) base value,
+   same "hard to see... work great in mobile" complaint as the row-to-row
+   divider above, just for the lines *inside* a row instead of between
+   rows. Both are shared portal-wide (Students/Referrals/Actions/etc, not
+   scoped to any one page), so this one rule covers every list. */
+.list-card .entity-row:nth-child(even):not(.chosen) .row-facts {
+    border-top-color: var(--border-strong);
+}
+.list-card .entity-row:nth-child(even):not(.chosen) > .row-btn-row {
+    border-left-color: var(--border-strong);
 }
 /* Touch already auto-hides its own scrollbar except while actively
    scrolling - a persistently-visible one here only ever shows because the

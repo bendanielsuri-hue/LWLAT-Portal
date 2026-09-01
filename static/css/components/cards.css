@@ -380,11 +380,6 @@
    a fade; smooth transitions are reserved for real animations (entrances,
    exits, transform-based lifts) elsewhere. */
 .selectable { cursor: pointer; }
-/* border-bottom-color bump: a no-op on any .selectable without a border
-   (most of them), but keeps .entity-row's own --border-faint divider from
-   visually vanishing into the row's own now-changed background the moment
-   it's hovered - same fix as .panel-list li:hover (panel.css). */
-.selectable:hover { background: var(--row-hover-bg); border-bottom-color: var(--border-color); }
 /* Fake bold via text-shadow (INT-M4), not font-weight — a real weight
    change widens the title text, which can wrap it onto an extra line or
    nudge a sibling pill sideways the moment the pointer arrives. */
@@ -392,18 +387,26 @@
 .selectable:focus-visible .entity-title {
     text-shadow: var(--hover-fake-bold);
 }
-/* outline-offset: -2px (inset), not the usual positive "halo" offset - a
-   .selectable row commonly bleeds edge-to-edge with its container (e.g.
-   .panel-list's own -20px/-16px margin, "so each row's background/box-
-   shadow can span the full card width"), so a positive offset tries to
-   extend the ring past the row's true edge with nothing solid there to
-   align against - it doesn't reach the container's actual boundary, and
-   looks visually broken/mismatched against whatever's showing through the
-   gap (worse still on :hover, where that gap sits against the row's own
-   now-changed background instead of the plain card surface). Inset keeps
-   the ring fully inside the row's own box regardless of context, so it
-   never depends on what's outside it. */
 .selectable:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* Left-edge accent bar on hover, not a background fill or full outline -
+   a full inset outline (tried first, live feedback: "don't like the hover
+   rectangle") visually painted over .chosen's own left accent bar below
+   (outline renders on top of box-shadow), so hovering an already-chosen
+   row made its accent bar disappear, replaced by a plain 4-sided ring
+   indistinguishable from a hover on any other row. A left bar avoids that
+   collision entirely: it's the same box-shadow property and width as
+   .chosen's own (a two-widths attempt - 2px hover vs 5px chosen - read as
+   "looks like a mistake" live rather than a deliberate distinction, so
+   both settled back to 3px) - var(--border-strong), a neutral tone, not
+   var(--accent-border)'s primary tint, is what separates the two states
+   instead: a plain neutral touch for a passing hover vs. a coloured one
+   once actually .chosen, on top of .chosen's own background: var(--primary-light) fill.
+   :not(.chosen) so hovering a chosen row leaves its own (filled, coloured)
+   accent alone rather than fighting it for the same property. */
+.selectable:hover:not(.chosen),
+.selectable:focus-visible:not(.chosen) {
+    box-shadow: inset 3px 0 0 var(--border-strong);
+}
 .entity-row.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
 /* Fake bold (INT-M4) even though .chosen is persistent, not hover-only —
    a real weight change still wraps/shifts a long title for as long as the

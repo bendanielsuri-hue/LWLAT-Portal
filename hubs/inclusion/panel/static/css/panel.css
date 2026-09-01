@@ -2248,14 +2248,45 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     border-bottom: none;
 }
 
-/* Row standard (see .selectable in style.css): a clearly visible hover tint,
-   bolder primary fill + inset accent once .chosen (click-to-select) —
-   both spanning the full card width via the negative margin above. */
-/* border-bottom-color bump: --border-faint (the row's own resting divider)
-   sits close enough to --row-hover-bg that hovering the row it belongs to
-   visually erased it - a no-op on any row without a border to begin with,
-   so safe as a broad rule. */
-.panel-list li:hover { background: var(--row-hover-bg); border-bottom-color: var(--border-color); }
+/* Zebra fill (#118 divider-hierarchy follow-up, settled portal-wide - see
+   layout.css's .list-card .entity-row:nth-child(even)/.meeting-card's own
+   copy above) - missed on My Referrals/My Actions since .panel-list only
+   reads as a real stacked list at desktop width; below the carousel
+   breakpoint (max-width: 1180px, this file's own My Referrals carousel
+   comment above) each <li> becomes an individual swipeable card, where an
+   alternating fill wouldn't read as anything. Scoped to these two ids, not
+   a blanket .panel-list li rule - Upcoming Panel Meetings' own
+   .panel-preview items (below, #meeting-card-collapsible) and Panel Agenda
+   Setup's reuse of .panel-card/.panel-list (this file's own comment near
+   .list-page-shell .panel-list) are each their own distinct look, never
+   part of this ask. */
+/* :not(.chosen) - an id selector otherwise beats .panel-list li.chosen's
+   plain class-level `background: var(--primary-light)` outright, same
+   specificity bug fixed on .list-card .entity-row:nth-child(even)
+   (layout.css) - a chosen even row would silently keep the zebra tint
+   instead of its own selected fill. */
+@media (min-width: 1181px) {
+    #my-referrals-list li:nth-child(even):not(.chosen),
+    #my-actions-list li:nth-child(even):not(.chosen) {
+        background-color: var(--row-hover-bg);
+    }
+}
+
+/* Row standard (see .selectable in cards.css): a thin left-edge accent bar
+   on hover (not a background fill or full outline - a full outline would
+   paint over .chosen's own left accent bar below and make it disappear on
+   hover, cards.css's own comment has the full story), bolder primary fill
+   + fuller inset accent once .chosen (click-to-select) — both spanning the
+   full card width via the negative margin above. :not(.chosen) so hovering
+   an already-chosen row leaves its own thicker/filled accent alone. */
+.panel-list li:hover:not(.chosen),
+.panel-list li:focus-visible:not(.chosen) {
+    /* var(--border-strong), a neutral tone, not var(--accent-border)'s
+       primary tint - see cards.css's .selectable:hover comment for the
+       full reasoning (hover and .chosen share the same 3px bar width now,
+       so colour is what tells them apart instead). */
+    box-shadow: inset 3px 0 0 var(--border-strong);
+}
 /* Fake bold via text-shadow (INT-M4), not font-weight — see cards.css's
    .selectable:hover .entity-title for why. */
 .panel-list li:hover .panel-item-title,
@@ -2266,7 +2297,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .panel-list li.chosen .panel-item-title { text-shadow: var(--hover-fake-bold); }
 .panel-list li.chosen:hover { background: var(--primary-light); }
-.panel-list li.empty-note:hover { background: transparent; }
+.panel-list li.empty-note:hover { box-shadow: none; }
 
 .panel-preview {
     padding: var(--space-sm) 0 var(--space-xs);
@@ -2343,6 +2374,15 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 
 .activity-list li:last-child {
     border-bottom: none;
+}
+/* Zebra fill (#118 divider-hierarchy follow-up, settled portal-wide - see
+   layout.css's .list-card .entity-row:nth-child(even)) - unlike My
+   Referrals/My Actions (.panel-list, above), Recent Activity never becomes
+   a carousel of individual cards at any width (just a plain scrolling
+   list, narrower/height-capped in stack mode), so this applies unscoped
+   rather than desktop-only. */
+.activity-list li:nth-child(even) {
+    background-color: var(--row-hover-bg);
 }
 
 /* Subtle accent tint per event kind (created/completed/assigned), same
@@ -2857,11 +2897,24 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    layout.css's .list-card .entity-row:nth-child(even)) - .meeting-card is
    its own separate component (not .entity-row/.entity-list, so that rule
    never reached it), same shared-hairline shape otherwise, missed on the
-   first pass. Same var(--row-hover-bg) tint, same accepted trade-off that
-   hovering an even row is a smaller visual change than hovering an odd
-   one. */
+   first pass. Same var(--row-hover-bg) tint. */
 .meeting-card:nth-child(even) { background-color: var(--row-hover-bg); }
-.meeting-card:hover { background: var(--row-hover-bg); border-bottom-color: var(--border-color); }
+/* Row standard (see .selectable in cards.css): inset outline, not a
+   background fill - reads identically on odd/even rows since it never
+   touches the row's own background (the zebra fill above included), unlike
+   the old hover fill this replaced which needed a separate border-bottom
+   bump to stay visible against it.
+   Left-edge accent bar (see cards.css's .selectable:hover comment for the
+   full reasoning), not a full outline - a full outline painted over
+   .chosen's own left accent bar below and made it disappear on hover.
+   :not(.chosen) so hovering an already-chosen card leaves its own
+   thicker/filled accent alone. */
+.meeting-card:hover:not(.chosen),
+.meeting-card:focus-visible:not(.chosen) {
+    /* var(--border-strong), not var(--accent-border) - see cards.css's
+       .selectable:hover comment. */
+    box-shadow: inset 3px 0 0 var(--border-strong);
+}
 /* Fake bold via text-shadow (INT-M4), not font-weight — the title is
    ellipsis-truncated but flex-sized to its own content, so a real weight
    change widens it and nudges the status pills beside it sideways. */
@@ -3136,11 +3189,26 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         padding-top: var(--space-xs);
         border-top: 1px solid var(--border-color);
     }
+    /* Even rows only: --border-strong, not --border-color - measured too
+       subtle live (Playwright, zebra follow-up) specifically against even
+       rows' --row-hover-bg tint (layout.css zebra bump), which sits close
+       enough to --border-color that this line, meant to outrank the
+       row-to-row divider below it (comment below), was reading as flatter
+       than it instead. Scoped to :nth-child(even) rather than bumped for
+       every row (live feedback: odd rows' contrast against plain
+       --bg-surface was never the complaint - only checked, and confirmed,
+       against the tinted row) - same "only where the background actually
+       changed" scoping as .list-card .entity-row:nth-child(even)'s own
+       border-bottom-color bump, layout.css. */
+    #referrals-filtered-content .entity-row:nth-child(even) .row-title-row .row-title-secondary {
+        border-top-color: var(--border-strong);
+    }
     /* Divider back above concern category/pills, separating "student info"
        from "referral info" - briefly dropped (live feedback: "divider line
        between sections and different entitys in list is too similar" to
        .entity-row's own border-bottom, cards.css), then explicitly asked
-       back. This full-bleed var(--border-color) treatment is variant A
+       back. This full-bleed var(--border-color) treatment (var(--border-strong)
+       on even/zebra rows only, per the follow-up above) is variant A
        (the current shipped default) in the live prototype below - research
        (docs/research/divider-hierarchy-conventions.md: MD3, Apple HIG,
        Carbon) found none of those systems actually solve this with a
@@ -7019,18 +7087,26 @@ html.filter-bar-mobile-mode .list-card:has(.filtered-content) .filter-bar {
     background: var(--bg-surface-alt);
 }
 .agenda-table td { padding: var(--space-sm) var(--space-md); font-size: var(--font-base); border-bottom: 1px solid var(--border-faint); }
-/* Row standard (see .selectable in style.css): a quiet --bg-surface-alt hover,
-   and a bolder --primary-light + inset accent for rows marked .chosen (only
-   wired up where a row's cells are plain text/links, e.g. referrals/actions —
-   not on rows that hold their own form controls). Targeting the first cell
-   covers both the plain-text rows here and the .student-cell rows alike. */
-.agenda-table tbody tr:hover { background: var(--row-hover-bg); }
-.agenda-table tbody tr:hover td { border-bottom-color: var(--border-color); }
+/* Row standard (see .selectable in cards.css): an inset outline on hover
+   (only wired up where a row's cells are plain text/links, e.g.
+   referrals/actions — not on rows that hold their own form controls), and
+   a bolder --primary-light + inset accent for rows marked .chosen. */
+/* Left-edge accent bar on hover (see cards.css's .selectable:hover comment
+   for the full reasoning), not a full outline - a full outline painted
+   over .chosen's own left accent bar below and made it disappear on
+   hover. :not(.chosen) so hovering an already-chosen row leaves its own
+   thicker/filled accent alone. */
+.agenda-table tbody tr:hover:not(.chosen),
+.agenda-table tbody tr:focus-visible:not(.chosen) {
+    /* var(--border-strong), not var(--accent-border) - see cards.css's
+       .selectable:hover comment. */
+    box-shadow: inset 3px 0 0 var(--border-strong);
+}
 .agenda-table tbody tr.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .agenda-table tbody tr.chosen td:first-child { text-shadow: var(--hover-fake-bold); }
 .agenda-table tbody tr.chosen:hover { background: var(--primary-light); }
-.agenda-table .empty-row:hover { background: transparent; }
+.agenda-table .empty-row:hover { box-shadow: none; }
 .agenda-table tr:last-child td { border-bottom: none; }
 .agenda-table .empty-row td { color: var(--text-muted); text-align: center; padding: var(--space-lg); }
 
