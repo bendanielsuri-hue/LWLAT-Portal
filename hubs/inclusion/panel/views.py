@@ -218,6 +218,43 @@ def _stop_discussion_timer(panel_referral):
         panel_referral.save()
 
 
+def _mark_discussed(panel_referral, requires_followup, follow_up_date):
+    # The End Discussion transition: stop the timer, close out
+    # discussion_status, set/clear the follow-up, and resync the parent
+    # Referral's aggregate status - one seam so this state machine can be
+    # exercised without a request/response cycle. _discussion_too_short_to_
+    # count's <1-minute "was this a real discussion" check is only for the
+    # *automatic* 30-minute abandonment timeout
+    # (_sync_stale_discussion_timers) - a chair who explicitly confirms End
+    # Discussion has already said this was real, however brief, so that's
+    # final regardless of duration/notes.
+    if panel_referral.discussion_started_at:
+        elapsed = timezone.now() - panel_referral.discussion_started_at
+        panel_referral.duration = (panel_referral.duration or datetime.timedelta()) + elapsed
+        panel_referral.discussion_started_at = None
+    panel_referral.discussion_status = 'discussed'
+    if requires_followup:
+        panel_referral.follow_up_date = follow_up_date
+        panel_referral.follow_up_status = 'incomplete'
+    else:
+        panel_referral.follow_up_date = None
+        panel_referral.follow_up_status = ''
+    panel_referral.save()
+    _sync_referral_status(panel_referral.referral)
+
+
+PERIOD_CHOICES = ('week', 'month', 'half_term', 'term', 'year')
+
+
+def _clamp_period_param(request, key):
+    # Shared by the Attendance/Behaviour/Positive Behaviour cards' own
+    # period-grouped "View details" disclosure (#95, each on its own query
+    # param so opening one doesn't affect the others) - falls back to
+    # 'week' for a missing or invalid value.
+    period = request.GET.get(key, 'week')
+    return period if period in PERIOD_CHOICES else 'week'
+
+
 def _ordinal(n):
     if 10 <= n % 100 <= 20:
         suffix = 'th'
@@ -392,6 +429,44 @@ def _move_agenda_referral(siblings, pr_id, direction):
         a, b = siblings[idx], siblings[swap_idx]
         a.agenda_order, b.agenda_order = b.agenda_order, a.agenda_order
         PanelReferral.objects.bulk_update([a, b], ['agenda_order'])
+
+
+def _set_referral_priority(referral_id, priority):
+    # Shared by Panel Agenda Setup and the live Panel Agenda page's own
+    # 'update_priority' actions so the valid-choices check can't drift
+    # between the two.
+    referral = get_object_or_404(InclusionReferral, pk=referral_id)
+    if priority == '' or priority in dict(InclusionReferral.PRIORITY_CHOICES):
+        referral.priority = priority
+        referral.save()
+
+
+def _remove_referral_from_agenda(pr, removed_by_id):
+    # Shared by Panel Agenda Setup and the live Panel Agenda page's own
+    # remove/unassign actions - both retire a PanelReferral off the agenda
+    # the same way, they only differ on when it's still allowed (see each
+    # call site's own guard: discussion_status pre-meeting, _panel_is_ended
+    # once live).
+    pr.removed_at = timezone.now()
+    pr.removed_by_id = removed_by_id
+    pr.save()
+    _sync_referral_status(pr.referral)
+
+
+def _reorder_panel_referrals(panel, ordered_ids):
+    # Shared by Panel Agenda Setup and the live Panel Agenda page's own
+    # 'reorder_agenda' actions - both persist a full drag-and-drop reorder
+    # of the given PanelReferral ids the same way, they only differ on
+    # whether reordering is still allowed (see _panel_is_ended at each
+    # call site).
+    referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
+    updated = []
+    for index, pr_id in enumerate(ordered_ids, start=1):
+        pr = referrals.get(int(pr_id))
+        if pr is not None:
+            pr.agenda_order = index
+            updated.append(pr)
+    PanelReferral.objects.bulk_update(updated, ['agenda_order'])
 
 
 def _sync_referral_status(referral):
@@ -988,7 +1063,7 @@ def inclusion_panel_search(request):
     # kind == 'all': Panel's own general search - the only surface that
     # legitimately spans more than one entity type, so it's the only one
     # that groups results by kind (INT-P4).
-    is_panel_staff = _is_panel_staff(_current_staff(request))
+    current_staff = _current_staff(request)
 
     students_url = reverse('inclusion_panel_students')
     referrals_url = reverse('inclusion_panel_referrals')
@@ -1023,8 +1098,7 @@ def inclusion_panel_search(request):
     for staff in staff_members:
         referrals_raised = InclusionReferral.objects.filter(student__in=scoped_students, raised_by=staff).count()
         actions_assigned = Action.objects.filter(referral__student__in=scoped_students, assigned_to_staff=staff)
-        if not is_panel_staff:
-            actions_assigned = actions_assigned.exclude(category__is_sensitive=True)
+        actions_assigned = visible_actions_for(current_staff, actions_assigned)
         actions_assigned_count = actions_assigned.count()
         results.append({
             'kind': 'staff',
@@ -1039,7 +1113,7 @@ def inclusion_panel_search(request):
     return JsonResponse({'results': results})
 
 
-def _my_actions_context(current_staff, is_panel_staff):
+def _my_actions_context(current_staff):
     # Shared by inclusion_panel_home (full page) and
     # inclusion_panel_action_set_status's AJAX branch (re-renders just the My
     # Actions card fragment after a status change) - one place computing
@@ -1047,9 +1121,7 @@ def _my_actions_context(current_staff, is_panel_staff):
     today = timezone.localdate()
     if current_staff is not None:
         my_actions = Action.objects.filter(assigned_to_staff=current_staff).select_related('referral__student').order_by('referral__student__last_name', 'referral__student__first_name', 'status', 'due_date')
-        if not is_panel_staff:
-            my_actions = my_actions.exclude(category__is_sensitive=True)
-        my_actions = list(my_actions)
+        my_actions = list(visible_actions_for(current_staff, my_actions))
     else:
         my_actions = []
     for action in my_actions:
@@ -1074,7 +1146,6 @@ def inclusion_panel_home(request):
     _sync_stale_running_panels()
     _sync_stale_discussion_timers()
     current_staff = _current_staff(request)
-    is_panel_staff = _is_panel_staff(current_staff)
 
     my_referrals = list(
         InclusionReferral.objects.filter(status='open', raised_by=current_staff)
@@ -1106,7 +1177,7 @@ def inclusion_panel_home(request):
     referrals_awaiting_count = len(my_referrals) - referrals_discussed_count
 
     today = timezone.localdate()
-    actions_ctx = _my_actions_context(current_staff, is_panel_staff)
+    actions_ctx = _my_actions_context(current_staff)
     my_actions = actions_ctx['my_actions']
     overdue_actions = actions_ctx['overdue_actions']
     actions_incomplete_count = actions_ctx['actions_incomplete_count']
@@ -1770,7 +1841,6 @@ def _referral_detail_context(referral, current_staff):
     old, separate Actions modal used to (action.is_overdue and the
     sensitive-category filter both used to only exist on one of the two
     views)."""
-    is_panel_staff = _is_panel_staff(current_staff)
     today = timezone.localdate()
 
     # A referral currently on a panel's agenda but not yet discussed - takes
@@ -1819,9 +1889,7 @@ def _referral_detail_context(referral, current_staff):
     review_label_by_pr_id = {d['pr'].id: d['review_label'] for d in discussions}
 
     referral_actions = referral.actions.select_related('category', 'assigned_to_staff', 'origin_panel_referral__panel')
-    if not is_panel_staff:
-        referral_actions = referral_actions.exclude(category__is_sensitive=True)
-    referral_actions = list(referral_actions)
+    referral_actions = list(visible_actions_for(current_staff, referral_actions))
     for action in referral_actions:
         action.is_overdue = action.status == 'incomplete' and action.due_date and action.due_date < today
         action.origin_review_label = review_label_by_pr_id.get(action.origin_panel_referral_id)
@@ -2013,8 +2081,7 @@ def inclusion_panel_action_set_status(request, action_id):
         # (INT-M2) and transition (INT-M1) animations, instead of a full
         # page reload snapping them.
         current_staff = _current_staff(request)
-        is_panel_staff = _is_panel_staff(current_staff)
-        return render(request, 'hubs/inclusion/panel/_my_actions_card.html', _my_actions_context(current_staff, is_panel_staff))
+        return render(request, 'hubs/inclusion/panel/_my_actions_card.html', _my_actions_context(current_staff))
     return redirect(_safe_next(request, '/inclusion/panel/'))
 
 
@@ -3182,28 +3249,13 @@ def inclusion_panel_meeting_setup(request, panel_id):
             # availability that deferring it already granted). Only a still-
             # pending referral can be taken back off the agenda.
             if pr.discussion_status not in ('discussed', 'deferred'):
-                pr.removed_at = timezone.now()
-                pr.removed_by_id = request.POST.get('removed_by') or None
-                pr.save()
-                _sync_referral_status(pr.referral)
+                _remove_referral_from_agenda(pr, request.POST.get('removed_by') or None)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
         elif action == 'update_priority':
-            referral = get_object_or_404(InclusionReferral, pk=request.POST.get('referral_id'))
-            priority = request.POST.get('priority', '')
-            if priority == '' or priority in dict(InclusionReferral.PRIORITY_CHOICES):
-                referral.priority = priority
-                referral.save()
+            _set_referral_priority(request.POST.get('referral_id'), request.POST.get('priority', ''))
         elif action == 'reorder_agenda':
-            ordered_ids = request.POST.getlist('panel_referral_id')
-            referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
-            updated = []
-            for index, pr_id in enumerate(ordered_ids, start=1):
-                pr = referrals.get(int(pr_id))
-                if pr is not None:
-                    pr.agenda_order = index
-                    updated.append(pr)
-            PanelReferral.objects.bulk_update(updated, ['agenda_order'])
+            _reorder_panel_referrals(panel, request.POST.getlist('panel_referral_id'))
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
         elif action == 'move_agenda_referral':
@@ -3225,7 +3277,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
     for fpr in followups_due:
         fpr.primary_concern_category = _primary_concern_category(fpr.referral)
 
-    is_panel_staff = _is_panel_staff(_current_staff(request))
+    current_staff = _current_staff(request)
 
     # Referral Selection's "All" tab merges New Referrals and Reviews Due
     # into one list - each entry tagged with its origin so the shared row
@@ -3243,9 +3295,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
     today = timezone.localdate()
     followup_entries = []
     for fpr in followups_due:
-        actions_qs = fpr.referral.actions.all()
-        if not is_panel_staff:
-            actions_qs = actions_qs.exclude(category__is_sensitive=True)
+        actions_qs = visible_actions_for(current_staff, fpr.referral.actions.all())
         status_counts = Counter(actions_qs.values_list('status', flat=True))
         actions_total = status_counts['complete'] + status_counts['incomplete']
         discussed_count = fpr.referral.panel_referrals.filter(
@@ -3309,9 +3359,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
         pr.actions_total = None
         pr.actions_complete = None
         if pr.last_discussed_panel:
-            actions_qs = pr.referral.actions.all()
-            if not is_panel_staff:
-                actions_qs = actions_qs.exclude(category__is_sensitive=True)
+            actions_qs = visible_actions_for(current_staff, pr.referral.actions.all())
             status_counts = Counter(actions_qs.values_list('status', flat=True))
             pr.actions_total = status_counts['complete'] + status_counts['incomplete']
             pr.actions_complete = status_counts['complete']
@@ -3383,19 +3431,12 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             removed = not _panel_is_ended(panel)
             if removed:
                 pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
-                pr.removed_at = timezone.now()
-                pr.removed_by_id = request.POST.get('removed_by') or None
-                pr.save()
-                _sync_referral_status(pr.referral)
+                _remove_referral_from_agenda(pr, request.POST.get('removed_by') or None)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': removed})
         elif action == 'update_priority':
             if not _panel_is_ended(panel):
-                referral = get_object_or_404(InclusionReferral, pk=request.POST.get('referral_id'))
-                priority = request.POST.get('priority', '')
-                if priority == '' or priority in dict(InclusionReferral.PRIORITY_CHOICES):
-                    referral.priority = priority
-                    referral.save()
+                _set_referral_priority(request.POST.get('referral_id'), request.POST.get('priority', ''))
         elif action == 'update_review_date':
             # Not gated on follow_up_status already being 'incomplete' -
             # setting/rescheduling a date always (re)activates the follow-up
@@ -3427,15 +3468,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             # stale page open in another tab can't sneak a reorder through
             # after the meeting's ended.
             if not _panel_is_ended(panel):
-                ordered_ids = request.POST.getlist('panel_referral_id')
-                referrals = {pr.id: pr for pr in PanelReferral.objects.filter(panel=panel, pk__in=ordered_ids)}
-                updated = []
-                for index, pr_id in enumerate(ordered_ids, start=1):
-                    pr = referrals.get(int(pr_id))
-                    if pr is not None:
-                        pr.agenda_order = index
-                        updated.append(pr)
-                PanelReferral.objects.bulk_update(updated, ['agenda_order'])
+                _reorder_panel_referrals(panel, request.POST.getlist('panel_referral_id'))
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': not _panel_is_ended(panel)})
         elif action == 'move_agenda_referral':
@@ -3656,25 +3689,11 @@ def inclusion_panel_discussion(request, panel_referral_id):
     if request.method == 'POST':
         action = request.POST.get('form_action')
         if action == 'mark_discussed':
-            if panel_referral.discussion_started_at:
-                elapsed = timezone.now() - panel_referral.discussion_started_at
-                panel_referral.duration = (panel_referral.duration or datetime.timedelta()) + elapsed
-                panel_referral.discussion_started_at = None
-            # _discussion_too_short_to_count's <1-minute "was this a real
-            # discussion" check is only for the *automatic* 30-minute
-            # abandonment timeout (_sync_stale_discussion_timers) - a chair
-            # who explicitly confirms End Discussion here has already said
-            # this was a real discussion, however brief, so that's final
-            # regardless of duration/notes.
-            panel_referral.discussion_status = 'discussed'
-            if request.POST.get('requires_followup') == 'yes':
-                panel_referral.follow_up_date = request.POST.get('follow_up_date') or None
-                panel_referral.follow_up_status = 'incomplete'
-            else:
-                panel_referral.follow_up_date = None
-                panel_referral.follow_up_status = ''
-            panel_referral.save()
-            _sync_referral_status(referral)
+            _mark_discussed(
+                panel_referral,
+                requires_followup=request.POST.get('requires_followup') == 'yes',
+                follow_up_date=request.POST.get('follow_up_date') or None,
+            )
             return redirect('inclusion_panel_meeting_agenda', panel_id=panel_referral.panel_id)
         elif action == 'add_panel_note':
             body = request.POST.get('body', '').strip()
@@ -3743,8 +3762,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
         ]
 
     actions = referral.actions.select_related('assigned_to_staff', 'category')
-    if not is_panel_staff:
-        actions = actions.exclude(category__is_sensitive=True)
+    actions = visible_actions_for(current_staff, actions)
 
     # Safeguarding Note (#52, decoupled #77-#81) - the student's whole
     # active note list, most recent first (Meta.ordering) - no more
@@ -3769,18 +3787,12 @@ def inclusion_panel_discussion(request, panel_referral_id):
     # Year), on their own query params so opening one doesn't affect the
     # others. Bar-list visual treatment won a live prototype comparison
     # against a calendar heatmap and a sparkline trend - see panel.css.
-    attendance_period = request.GET.get('period', 'week')
-    if attendance_period not in ('week', 'month', 'half_term', 'term', 'year'):
-        attendance_period = 'week'
+    attendance_period = _clamp_period_param(request, 'period')
     attendance_details_open = 'period' in request.GET
 
-    behaviour_period = request.GET.get('behaviour_period', 'week')
-    if behaviour_period not in ('week', 'month', 'half_term', 'term', 'year'):
-        behaviour_period = 'week'
+    behaviour_period = _clamp_period_param(request, 'behaviour_period')
     behaviour_details_open = 'behaviour_period' in request.GET
-    positive_behaviour_period = request.GET.get('positive_period', 'week')
-    if positive_behaviour_period not in ('week', 'month', 'half_term', 'term', 'year'):
-        positive_behaviour_period = 'week'
+    positive_behaviour_period = _clamp_period_param(request, 'positive_period')
     positive_behaviour_details_open = 'positive_period' in request.GET
 
     context = {
