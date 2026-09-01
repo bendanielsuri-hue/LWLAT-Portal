@@ -2248,20 +2248,19 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     border-bottom: none;
 }
 
-/* Row standard (see .selectable in cards.css): a thin left-edge accent bar
-   on hover (not a background fill or full outline - a full outline would
-   paint over .chosen's own left accent bar below and make it disappear on
-   hover, cards.css's own comment has the full story), bolder primary fill
-   + fuller inset accent once .chosen (click-to-select) — both spanning the
-   full card width via the negative margin above. :not(.chosen) so hovering
-   an already-chosen row leaves its own thicker/filled accent alone. */
+/* SYNC: Row standard (see .selectable in cards.css, source of truth, see
+   its own SYNC comment) - a thin left-edge accent bar on hover (not a
+   background fill or full outline - a full outline would paint over
+   .chosen's own left accent bar below and make it disappear on hover,
+   cards.css's own comment has the full story), bolder primary fill + fuller
+   inset accent once .chosen (click-to-select) — both spanning the full
+   card width via the negative margin above. :not(.chosen) so hovering an
+   already-chosen row leaves its own thicker/filled accent alone. */
 .panel-list li:hover:not(.chosen),
 .panel-list li:focus-visible:not(.chosen) {
-    /* var(--border-strong), a neutral tone, not var(--accent-border)'s
-       primary tint - see cards.css's .selectable:hover comment for the
-       full reasoning (hover and .chosen share the same 3px bar width now,
-       so colour is what tells them apart instead). */
-    box-shadow: inset 3px 0 0 var(--border-strong);
+    /* var(--border-color) — kept in sync with cards.css's .selectable:hover;
+       see SYNC markers there for the shared-pattern list. */
+    box-shadow: inset 6px 0 0 var(--border-color);
 }
 /* Fake bold via text-shadow (INT-M4), not font-weight — see cards.css's
    .selectable:hover .entity-title for why. */
@@ -2269,7 +2268,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .panel-list li:focus-visible .panel-item-title {
     text-shadow: var(--hover-fake-bold);
 }
-.panel-list li.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
+.panel-list li.chosen { background: var(--primary-light); box-shadow: inset 6px 0 0 var(--accent-border); }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .panel-list li.chosen .panel-item-title { text-shadow: var(--hover-fake-bold); }
 .panel-list li.chosen:hover { background: var(--primary-light); }
@@ -2310,7 +2309,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        disappearing on hover/chosen. */
     .list-page-shell .panel-list li:hover:not(.chosen),
     .list-page-shell .panel-list li:focus-visible:not(.chosen) {
-        box-shadow: inset 3px 0 0 var(--border-strong), var(--card-shadow);
+        box-shadow: inset 6px 0 0 var(--border-color), var(--card-shadow);
     }
     /* background restated (not just relying on the base .panel-list
        li.chosen rule, cards.css-equivalent) - that base rule and this
@@ -2319,10 +2318,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        the two in source order silently won regardless of .chosen -
        confirmed live: chosen rows on Home showed a plain bg-surface card
        with no primary fill or accent bar at all, reading as just another
-       bordered rectangle instead of a selected row. */
+       bordered rectangle instead of a selected row.
+       border-left-color also restated here (SYNC: .list-card .entity-row.chosen,
+       layout.css) so the row's own left border blends into the accent bar
+       instead of showing as a separate sliver in front of it. */
     .list-page-shell .panel-list li.chosen {
         background: var(--primary-light);
-        box-shadow: inset 3px 0 0 var(--accent-border), var(--card-shadow);
+        border-left-color: var(--accent-border);
+        box-shadow: inset 6px 0 0 var(--accent-border), var(--card-shadow);
     }
 }
 
@@ -2932,12 +2935,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    thicker/filled accent alone. */
 .meeting-card:hover:not(.chosen),
 .meeting-card:focus-visible:not(.chosen) {
-    /* var(--border-strong), not var(--accent-border) - see cards.css's
-       .selectable:hover comment. Combined with var(--card-shadow) (base
-       rule, above) in one box-shadow list - box-shadow isn't additive
-       across separate declarations, so restating it here is what keeps
-       the card's own drop shadow from disappearing on hover. */
-    box-shadow: inset 3px 0 0 var(--border-strong), var(--card-shadow);
+    /* SYNC: cards.css's .selectable:hover is the source of truth for bar
+       width/hover colour/chosen colour (see its own SYNC comment).
+       Combined with var(--card-shadow) (base rule, above) in one box-shadow
+       list - box-shadow isn't additive across separate declarations, so
+       restating it here is what keeps the card's own drop shadow from
+       disappearing on hover. */
+    box-shadow: inset 6px 0 0 var(--border-color), var(--card-shadow);
 }
 /* Fake bold via text-shadow (INT-M4), not font-weight — the title is
    ellipsis-truncated but flex-sized to its own content, so a real weight
@@ -2948,8 +2952,10 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 }
 /* box-shadow combines the accent bar with var(--card-shadow) (base rule,
    above) - see .meeting-card:hover's own comment on why both need
-   restating together here. */
-.meeting-card.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border), var(--card-shadow); }
+   restating together here. border-left-color (SYNC: .list-card
+   .entity-row.chosen, layout.css) blends the card's own left border into
+   the accent bar instead of leaving it as a separate sliver in front. */
+.meeting-card.chosen { background: var(--primary-light); border-left-color: var(--accent-border); box-shadow: inset 6px 0 0 var(--accent-border), var(--card-shadow); }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .meeting-card.chosen h3 { text-shadow: var(--hover-fake-bold); }
 
@@ -7264,11 +7270,13 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
    thicker/filled accent alone. */
 .agenda-table tbody tr:hover:not(.chosen),
 .agenda-table tbody tr:focus-visible:not(.chosen) {
-    /* var(--border-strong), not var(--accent-border) - see cards.css's
-       .selectable:hover comment. */
-    box-shadow: inset 3px 0 0 var(--border-strong);
+    /* SYNC: cards.css's .selectable:hover is the source of truth (see its
+       own SYNC comment). No border-left-color companion needed here, unlike
+       .list-card .entity-row/.meeting-card/.panel-list li - table rows have
+       no border of their own to blend into (just cell border-bottoms). */
+    box-shadow: inset 6px 0 0 var(--border-color);
 }
-.agenda-table tbody tr.chosen { background: var(--primary-light); box-shadow: inset 3px 0 0 var(--accent-border); }
+.agenda-table tbody tr.chosen { background: var(--primary-light); box-shadow: inset 6px 0 0 var(--accent-border); }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .agenda-table tbody tr.chosen td:first-child { text-shadow: var(--hover-fake-bold); }
 .agenda-table tbody tr.chosen:hover { background: var(--primary-light); }

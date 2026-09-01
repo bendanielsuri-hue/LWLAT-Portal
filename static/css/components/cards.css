@@ -378,7 +378,19 @@
    --row-hover-bg is defined in tokens/colours.css as a neutral tint.
    No transition here deliberately — hover feedback should be immediate, not
    a fade; smooth transitions are reserved for real animations (entrances,
-   exits, transform-based lifts) elsewhere. */
+   exits, transform-based lifts) elsewhere.
+   SYNC: box-shadow can't be inherited/extended across selectors, so every
+   consumer below restates its own copy of the bar-width/hover-colour/chosen-
+   colour values instead of just picking this rule up — they drift the
+   moment only this copy gets edited (e.g. the bar width above was 3px until
+   #145; Home's own lists were still 3px until that was noticed live). Grep
+   "SYNC:" across the repo before changing bar width, hover colour, or
+   chosen colour here — every other hit needs the same edit:
+   - .list-card .entity-row (layout.css) — desktop list-page rows
+   - .panel-list li / .list-page-shell .panel-list li (panel.css) — Home's
+     My Referrals/My Actions/Upcoming Panel Meetings
+   - .meeting-card (panel.css) — Meetings page
+   - .agenda-table tbody tr (panel.css) — Panel Agenda table rows */
 .selectable { cursor: pointer; }
 /* Fake bold via text-shadow (INT-M4), not font-weight — a real weight
    change widens the title text, which can wrap it onto an extra line or
