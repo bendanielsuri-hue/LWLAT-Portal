@@ -1455,11 +1455,6 @@ def inclusion_panel_students(request):
     # person's name isn't self-explanatory on its own the way "White
     # British" or "Male" is.
     col_widths = {
-        'yearreg': _col_width(
-            [f'Year {s.year_group}' + (f' (House {s.house})' if s.house else '') for s in students]
-            + [f'Reg {s.reg_form}' if s.reg_form else 'Reg —' for s in students],
-            max_ch=26,
-        ),
         'dobyoa': _col_width(
             [f'DOB: {s.date_of_birth:%d %b %Y}' if s.date_of_birth else 'DOB: —' for s in students]
             + [f'YOA: {s.year_arrived}' if s.year_arrived else 'YOA: —' for s in students],

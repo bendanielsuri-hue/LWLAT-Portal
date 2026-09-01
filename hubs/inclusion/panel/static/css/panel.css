@@ -2966,6 +2966,22 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .bd-pill.bd-medium { background: var(--priority-medium-bg); color: var(--priority-medium-text); }
 .bd-pill.bd-low { background: var(--priority-low-bg); color: var(--priority-low-text); }
 .bd-pill.bd-untriaged { background: var(--badge-bg); color: var(--text-faint); }
+/* Flag pills (Students/Referrals SEN/PP/EAL/LAC/YC/MA) - .bd-untriaged's
+   own pale fill (--badge-bg, a light tint) sits too close in luminance to
+   the zebra even-row tint (--row-hover-bg, layout.css's own subtle primary
+   tint on .list-card .entity-row:nth-child(even)) to read clearly there -
+   live feedback: "the students pill are hard to see on even rows due to
+   darker background. Same on student page." color-mix toward
+   --border-strong (not a flat different color) so it stays a deliberate
+   step darker than the plain fill rather than an arbitrary one-off value,
+   same derived-token approach --border-faint (light.css) already uses.
+   Background only, not a border - a border would grow the pill's box
+   (border-box sizing only absorbs an added border into an already-fixed
+   width, and .bd-pill has none) and read as a slightly larger pill on
+   every even row. */
+.list-card .entity-row:nth-child(even):not(.chosen) .bd-pill.bd-untriaged {
+    background: color-mix(in srgb, var(--badge-bg) 40%, var(--border-strong));
+}
 /* Stands in for the whole New/Review (+ Priority) cluster when a card has
    no referrals at all - same warning tone as .status-pill.open/.delayed
    rather than a neutral one, since an empty agenda this close to the
@@ -3018,22 +3034,25 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    each other. */
 .row-title-pills { display: contents; }
 .row-title-sep { color: var(--text-faint); }
-/* Referrals' own Year/House/Reg line (#118 second follow-up) - hidden by
-   default, only re-enabled inside #referrals-filtered-content's mobile
-   block below. Scoped to .row-title-row specifically (not the bare
-   .row-facts-primary-plain class) since Students' own usage of that same
-   class lives outside .row-title-row entirely (nested in .row-facts
-   instead) and must stay untouched by this rule. */
+/* Referrals' own Year/House/Reg line (#118 second follow-up) - hidden here
+   by default, but #referrals-filtered-content unconditionally re-enables
+   it below at every width, on its own line under the name (settled through
+   several rounds - see the "Referrals row title block" comment further
+   below for the full history). Scoped to .row-title-row specifically (not
+   the bare .row-facts-primary-plain class) since Students' own usage of
+   that same class lives outside .row-title-row entirely (nested in
+   .row-facts instead) and must stay untouched by this rule. */
 .row-title-row .row-facts-primary-plain { display: none; }
 /* Concern+pills wrapper (_referrals_rows.html) - display: contents by
    default so its children (row-secondary-text, row-title-pills) keep acting
-   as direct .row-title-row flex items everywhere except the #118 mobile
-   block below, same convention as .row-title-pills' own base rule above. */
+   as direct .row-title-row flex items, same convention as .row-title-pills'
+   own base rule above. #referrals-filtered-content overrides this below to
+   put concern+pills on their own line under Year/House/Reg, every width. */
 .row-title-secondary { display: contents; }
-/* Raised by/date (#118 fourth follow-up) - hidden by default, only
-   re-enabled inside #referrals-filtered-content's mobile block below; the
-   full fact strip (row-facts-cols) already covers this at every wider
-   width. */
+/* Raised by/date (#118 fourth follow-up) - hidden here by default, only
+   re-enabled inside #referrals-filtered-content's mobile/tablet blocks
+   below (their own edge-to-edge bleed treatment); wider widths keep this
+   hidden - the full fact strip (row-facts-cols) already covers it there. */
 .row-title-row .row-title-raised-by { display: none; }
 .row-secondary-text { font-weight: 600; }
 /* Concern (_referrals_rows.html: <div class="entity-title row-secondary-text">)
@@ -3059,6 +3078,94 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
 .row-btn-row-stacked { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-xs); }
 .row-btn-row-stacked > .action-row-buttons { align-self: flex-end; }
+
+/* Name-to-group-info gap, both pages, every width (live feedback: "There
+   is a fair bit of white space between name and group info. Can we
+   condense this?") - .row-title-row's own base rule (above) sets both
+   row-gap and column-gap to --space-xs/8px via the `gap` shorthand; only
+   row-gap (the space between wrapped lines) needs tightening here, so it's
+   overridden as its own longhand rather than restating the shorthand and
+   accidentally shrinking the horizontal gap between name/pills too. Was
+   already this tight at Referrals' own mobile/tablet bands (#118 follow-
+   up, live feedback then: "space between name row and second row seems
+   larger... line height is excessive") - promoted to every width, both
+   pages, instead of staying a narrow-width-only fix now that both pages
+   share this same stacked shape everywhere. */
+#referrals-filtered-content .row-title-row,
+#students-filtered-content .row-title-row {
+    row-gap: var(--space-xxs);
+}
+
+/* Referrals row title block, every width - settled through several rounds
+   of live feedback (Year/House/Reg under the name; sharing the name's own
+   line; concern on its own line; a brief detour putting the status pills
+   on the name's own line, corrected: "the referral pills need to be on
+   same line as concern category. Student flag pill same as student page
+   need to be on student name row" - Referrals' status pills belong with
+   Concern, their natural semantic partner, not with the name; Students'
+   own flag pills stay on the name's line since that page has no
+   equivalent competing content there) on this 3-line shape: name alone is
+   line 1; Year/House/Reg (row-facts-primary-plain) is always line 2;
+   Concern+pills (row-title-secondary) is always line 3, with a divider
+   above it ("move the horizontal divider to above the concern category").
+   Applied unconditionally so it's identical at every width - the #118
+   mobile/tablet bands below no longer force their own separate
+   one-name-per-line treatment (removed) since this base rule now covers
+   every width the same way; they keep only the bleed-to-edge correction
+   for the avatar's indent, which genuinely differs at that width. */
+#referrals-filtered-content .row-title-row .row-facts-primary-plain {
+    display: inline;
+    flex: 1 1 100%;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+/* flex-basis 100% + 42px + gap, margin-left the negative of that: bleeds
+   this whole block out from under .entity-body's indent (offset by
+   .entity-thumb's fixed 42px + .entity-row's --space-md gap) so it starts
+   at the card's left edge like .row-btn-row does on the right, not
+   indented past the avatar - live feedback: "Concern category and concern
+   details should not start to the right of student image, should start at
+   left of card as its a new section" (originally a mobile-only fix, same
+   reasoning, now promoted to every width since Concern is its own section
+   at every width). */
+#referrals-filtered-content .row-title-row .row-title-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+    flex: 1 1 calc(100% + 42px + var(--space-md));
+    margin-top: var(--space-xxs);
+    margin-left: calc(-1 * (42px + var(--space-md)));
+    padding-top: var(--space-xxs);
+    border-top: 1px solid var(--border-color);
+}
+#referrals-filtered-content .entity-row:nth-child(even) .row-title-row .row-title-secondary {
+    border-top-color: var(--border-strong);
+}
+/* font-md, not the earlier demoted font-sm - live feedback: "can concern
+   category be more prominent". Matches .entity-title's own base size
+   (cards.css) now, same weight/colour already in place - Concern reads as
+   a second heading-weight line rather than a smaller caption underneath
+   the name, while the name still keeps its own distinct hover/selection
+   fake-bold affordance (INT-M4) concern deliberately never picked up. */
+#referrals-filtered-content .row-title-row .row-secondary-text {
+    font-weight: 600;
+    font-size: var(--font-md);
+    color: var(--text-primary);
+}
+/* Pills used to sit beside concern's demoted, smaller font-sm text, and
+   were shrunk to match it (live feedback then: "maybe height of pill
+   needs to adjust to height of text on same row" - components/pills.css's
+   em-relative padding + line-height: 1 makes a pill scale with whatever
+   font-size its context sets). Concern is font-md now ("can concern
+   category be more prominent") - same size .status-pill already assumes
+   everywhere else, so the shrink is gone; the default (unscoped)
+   .status-pill sizing is the right match again without an override. */
+#referrals-filtered-content .row-title-pills {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: nowrap;
+}
 
 /* #118: Referrals row at 375px - "table -> stacked card" per #113's shared
    vocabulary, scoped to #referrals-filtered-content (not the bare
@@ -3123,19 +3230,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #referrals-filtered-content .row-title-row {
         row-gap: var(--space-xxs);
     }
-    /* order: -1 (not DOM order) since the aggregate-view school badge
-       precedes the name in markup but belongs on the wrapped line below
-       it, alongside concern/pills, not stuck ahead of the name on its own
-       line. flex: 1 1 100% is what forces the wrap itself. */
-    #referrals-filtered-content .row-title-row .entity-title:not(.row-secondary-text) {
-        order: -1;
-        flex: 1 1 100%;
-    }
-    /* The middle-dot separator only made sense inline between name and
-       concern - meaningless once name is on its own line above them. */
-    #referrals-filtered-content .row-title-sep {
-        display: none;
-    }
     /* #118 third follow-up, live feedback: "Maybe we lose the details, we
        do have Referral Details where users can get to it! ... Match Student
        layout, two rows at top followed by row of buttons" - superseding the
@@ -3165,37 +3259,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        .entity-thumb markup (is_aggregate_view branch) plus that one
        unscoped CSS rule, not here; nothing width-specific left to say
        about it. */
-    /* Name is the row's own heading once it's alone on its own line
-       (order: -1, above) - concern category was reading as equally
-       prominent (row-secondary-text's own font-weight: 600, same as
-       .entity-title's base weight, panel.css above) when the two used to
-       sit side by side at a shared smaller size; demoted specifically for
-       this now-separate-line mobile layout, live feedback: "name should be
-       of more prominence than Concern Category when on different line".
-       Weight/colour bumped back up from that demotion's original 400/
-       text-secondary (live feedback: "Concern category needs more
-       prominent than raised by and raised on") - stays font-sm, so it
-       still reads a clear step below the name's font-md, but now a step
-       above Raised by/on (below), which is the row's least important line. */
-    #referrals-filtered-content .row-title-row .row-secondary-text {
-        font-weight: 600;
-        font-size: var(--font-sm);
-        color: var(--text-primary);
-    }
-    /* Concern+pills wrapper - real flex box here (base rule above is
-       display: contents everywhere else), replacing the older approach of
-       forcing row-secondary-text itself onto its own 100%-basis line
-       (which is what pushed pills below it even when both would've fit
-       together) - live feedback: "can the pills share same line as
-       referral category". flex-wrap here is what lets pills drop to their
-       own line only when concern's actual (not forced) width leaves no
-       room, same adaptive behaviour the #118 comment thread originally
-       intended. flex-basis/margin-left bleed this whole block out from
-       under .entity-body's indent (offset by .entity-thumb's fixed 42px +
-       .entity-row's --space-md gap) so it starts at the row edge like
-       .row-btn-row below it, not indented past the avatar - live feedback:
-       "horizontal line and Referral info does not use full width, seems to
-       start to the right of student image". */
+    /* Concern+pills' own line - display/wrap/gap/bleed are identical to
+       the unconditional base rule now (above); still restated here because
+       margin-top/padding-top genuinely differ at this width (--space-xs,
+       vs. the base's tighter --space-xxs) - more breathing room above the
+       divider once .row-title-row's own row-gap (--space-xxs, tightened
+       portal-wide) is this tight, true mobile keeps the extra space here
+       specifically for the divider line itself to read clearly. */
     #referrals-filtered-content .row-title-row .row-title-secondary {
         display: flex;
         flex-wrap: wrap;
@@ -3256,48 +3326,9 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            font-size alone. */
         color: var(--text-secondary);
     }
-    /* Year/House/Reg - same student-demographic line Students' own row
-       shows (row-facts-primary-plain, shared class/format), added here so
-       the row's own first block reads as "student info" before the
-       divider above hands off to "referral info" - live feedback: "have
-       it look like student page then divider line the referral details". */
-    #referrals-filtered-content .row-title-row .row-facts-primary-plain {
-        display: inline;
-        flex: 1 1 100%;
-        font-size: var(--font-sm);
-        color: var(--text-secondary);
-    }
-    /* Groups the two status pills into one real flex box (base rule
-       above is display: contents everywhere else) so they can never split
-       apart from each other - live feedback: "I do not like how the pills
-       are being split... it does usually fit, so should we go new line if
-       does not fit?" - reverting the forced concern line-break (previous
-       #118 follow-up, removed above) lets concern share a line with the
-       pills whenever there's genuinely room, same adaptive wrapping as
-       before, but now the pills always wrap as one unit rather than
-       splitting mid-group when there isn't. */
-    #referrals-filtered-content .row-title-pills {
-        display: flex;
-        gap: var(--space-xs);
-        flex-wrap: nowrap;
-    }
-    /* live feedback: "pills are on the less prominent row but forces
-       extra spacing" -> "this is not just a mobile specific problem" ->
-       "maybe height of pill needs to adjust to height of text on same
-       row" - the root cause is fixed in components/pills.css (.status-pill's
-       padding is em-relative + line-height: 1 now, so it scales with
-       font-size instead of staying a fixed px box regardless of context -
-       previously it wouldn't have shrunk at all here even with a smaller
-       font-size). font-size alone gets close (pill ~22px vs text's 18px,
-       measured) but pills.css's own em ratio is tuned to keep every other
-       page's default pill pixel-identical to before, not to hit this
-       row's specific 13px text exactly - the small padding trim here is
-       that last local nudge, on top of the now-fixed shared scaling
-       behaviour rather than working around its absence. */
-    #referrals-filtered-content .row-title-pills .status-pill {
-        font-size: var(--font-sm);
-        padding: 2px 8px;
-    }
+    /* row-facts-primary-plain's own line/sizing and the pills' own
+       grouping/sizing beside concern are the unconditional base rules now
+       (above) - nothing width-specific left to say about either here. */
     /* Item-to-item separator (each row its own bordered/shadowed card, no
        radius, gap between) is now the shared .entity-row/.entity-list
        treatment in cards.css, portal-wide at every width - #118
@@ -3313,20 +3344,28 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    so the row fell back to desktop's layout: the 4-column fact strip
    (row-facts-cols) and beside-content buttons squeezed into a narrower row
    with nothing to make either give way. Buttons: same measured
-   button-slot-width + wrap-detection system #117 built for Students
+   per-slot-width + wrap-detection system #117 built for Students
    (wireReferralButtonLayout, referrals.html) - just 2 slots (Actions/
-   Referral Details) instead of Students' 3 - pins every row's buttons to
-   the same width regardless of that row's own badge digit count, and
-   drops a row to the same full-width/centred button treatment true mobile
-   already uses (row-buttons-wrapped) only once its own buttons genuinely
-   don't fit beside the content any more. Fact strip: dropped at this width
-   entirely, same reasoning the #118 third follow-up (above) already
-   settled for true mobile - "Referral Details" already covers Raised
-   by/on, Prev/Next Panel, Priority/Review Due and the action counts, and a
-   fixed-ch-width column either fits at its full desktop size or it
-   doesn't - there's no halfway "shrink it a bit" version of it to fall
-   back on. Year/House/Reg (row-facts-primary-plain) takes its place, same
-   trade Students' own tablet band makes for its own detail columns. */
+   Referral Details) instead of Students' 3 - pins each button slot to the
+   widest that same slot needs across the currently rendered rows (not one
+   shared width), keeping them side by side beside the content exactly like
+   Students, and drops a row to the same full-width/centred button
+   treatment true mobile already uses (row-buttons-wrapped) only once its
+   own buttons genuinely don't fit beside the content any more. Originally
+   shipped stacking the two buttons vertically instead (live feedback at
+   the time: "try buttons vertically stacked") - reverted once a live
+   screenshot at this band showed real unclaimed width beside that stacked
+   column (live feedback: "Visually it looks like there is space... make
+   this match what student page does") - side by side was always the
+   default Students used, this was the one page that had deliberately
+   departed from it. Fact strip: dropped at this width entirely, same
+   reasoning the #118 third follow-up (above) already settled for true
+   mobile - "Referral Details" already covers Raised by/on, Prev/Next
+   Panel, Priority/Review Due and the action counts, and a fixed-ch-width
+   column either fits at its full desktop size or it doesn't - there's no
+   halfway "shrink it a bit" version of it to fall back on. Year/House/Reg
+   (row-facts-primary-plain) takes its place, same trade Students' own
+   tablet band makes for its own detail columns. */
 @media (min-width: 481px) and (max-width: 1179px) {
     /* Explicit, not relying on the base .entity-row rule's own padding
        (cards.css: padding: var(--space-md) var(--space-lg), all 4 sides) -
@@ -3345,55 +3384,38 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         flex: 1 1 200px;
         min-width: 200px;
     }
-    /* Stacked, not side-by-side (live feedback: "try buttons vertically
-       stacked") - flex-direction: column turns the same beside-content
-       column into two rows instead of two side-by-side buttons, freeing up
-       width for .entity-body's own content next to it. align-items:
-       stretch (cross-axis, now horizontal) plus the fixed width below is
-       what keeps Actions and Referral Details the same width as each
-       other, rather than each hugging its own (different) text length. */
+    /* Side by side, matching Students' own .btn-row treatment at this band
+       (below) - each slot pinned to its own widest-across-rendered-rows
+       width (--btn-w-actions/--btn-w-referral-details, set by
+       wireReferralButtonLayout) rather than stretched to a shared column
+       width, so Actions and Referral Details keep their own natural
+       proportions instead of matching each other's width. */
     #referrals-filtered-content .entity-row > .row-btn-row {
         flex: 0 0 auto;
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--space-xs);
         padding-left: var(--space-lg);
-        /* Pinned to the widest button (either slot) across every currently
-           rendered row (--btn-w-max, set by wireReferralButtonLayout) - one
-           shared width for the whole stacked column, not a width per slot
-           (Students' #117 layout needs per-slot widths since its 3 buttons
-           stay side-by-side; stacked, both buttons reading as one column
-           only looks right if they line up to the same edge).
-           calc(...+ var(--space-lg)), not --btn-w-max alone - live feedback
-           (real narrow-desktop browser, confirmed via a detached DOM clone
-           to isolate it from viewport/scrollbar variables entirely):
-           "buttons are touching scroll bar... need space" - .btn's own
-           white-space: nowrap (buttons.css) gives it a fixed min-content
-           width equal to its full text ("Referral Details"), and a flex
-           item's default min-width: auto means align-items: stretch can
-           never compress it below that - pinning this box to --btn-w-max
-           alone left no room for the padding-left above once box-sizing:
-           border-box (global reset) counted it as PART of that same width,
-           so the button (unable to shrink) simply overflowed past the
-           box's own right edge by the padding amount instead of the padding
-           ever actually appearing. Adding the padding back on top of
-           --btn-w-max (rather than eating into it) gives the button its
-           full needed width AND the padding both, with nothing to fight
-           over. */
-        width: calc(var(--btn-w-max, 100px) + var(--space-lg));
+    }
+    #referrals-filtered-content .row-btn-row [data-btn-slot] {
+        flex-grow: 0;
+        flex-shrink: 0;
+    }
+    #referrals-filtered-content .row-btn-row [data-btn-slot="actions"] {
+        flex-basis: var(--btn-w-actions, auto);
+    }
+    #referrals-filtered-content .row-btn-row [data-btn-slot="referral-details"] {
+        flex-basis: var(--btn-w-referral-details, auto);
     }
     /* Full-width/centred once a row's buttons have actually fallen to
        their own line (wireReferralButtonLayout toggles this, detected via
        one offsetTop comparison per row) - same treatment true mobile's own
        always-wrapped block already uses, applied here only when the wrap
-       is real rather than unconditionally. Row direction again here (not
-       the stacked column above) - once buttons drop below the content
-       entirely, there's a full row's width to fill, the same "side by side,
-       edge to edge" treatment true mobile already uses in that situation. */
+       is real rather than unconditionally. Once buttons drop below the
+       content entirely, there's a full row's width to fill, the same
+       "side by side, edge to edge" treatment true mobile already uses in
+       that situation - overrides the per-slot fixed widths above (below)
+       since there's nothing left to align WITH once alone on its own
+       line, same call Students' identical wrapped override makes. */
     #referrals-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row {
         flex: 1 1 100%;
-        flex-direction: row;
-        width: auto;
         border-left: none;
         padding-left: 0;
     }
@@ -3416,34 +3438,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        whether .row-btn-row sits beside it or drops below - the added
        width and the leftward shift cancel out - so reusing it here doesn't
        encroach into the button column. */
-    #referrals-filtered-content .row-title-row .entity-title:not(.row-secondary-text) {
-        order: -1;
-        flex: 1 1 100%;
-    }
-    #referrals-filtered-content .row-title-sep {
-        display: none;
-    }
-    /* Missing from the initial pass at this width - true mobile's own
-       version of this row (above) already caught it (live feedback there:
-       "space between name row and second row seems larger... "): the
-       row-title-secondary divider's own margin-top/padding-top (below,
-       8px+8px, room for the divider line itself) stacks on TOP of
-       .row-title-row's own base flex gap (--space-xs/8px, meant for the
-       plainer gap between wrapped lines elsewhere) rather than replacing
-       it, so the space above the divider was actually flex-gap +
-       margin-top + padding-top, not just the 8+8 it looks like on paper -
-       live feedback: "line height is excessive". --space-xxs/4px instead
-       (same value true mobile settled on) keeps the plain name-to-
-       Year/House/Reg gap tight without also touching the divider's own
-       deliberate spacing, which stays exactly as designed. */
-    #referrals-filtered-content .row-title-row {
-        row-gap: var(--space-xxs);
-    }
-    #referrals-filtered-content .row-title-row .row-secondary-text {
-        font-weight: 600;
-        font-size: var(--font-sm);
-        color: var(--text-primary);
-    }
     #referrals-filtered-content .row-title-row .row-title-secondary {
         display: flex;
         flex-wrap: wrap;
@@ -3465,28 +3459,37 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         font-size: var(--font-sm);
         color: var(--text-secondary);
     }
-    #referrals-filtered-content .row-title-row .row-facts-primary-plain {
-        display: inline;
-        flex: 1 1 100%;
-        font-size: var(--font-sm);
-        color: var(--text-secondary);
-    }
-    #referrals-filtered-content .row-title-pills {
-        display: flex;
-        gap: var(--space-xs);
-        flex-wrap: nowrap;
-    }
-    #referrals-filtered-content .row-title-pills .status-pill {
-        font-size: var(--font-sm);
-        padding: 2px 8px;
-    }
 }
 
+/* No divider below Concern (desktop's own row-facts-cols fact strip,
+   still visible there - #referrals-filtered-content .row-facts, right
+   after row-title-row's own Concern line) - live feedback: "we can lose
+   the horizontal line below concern category". Concern (row-title-
+   secondary, above) already carries its own divider directly above it now
+   ("move the horizontal divider to above the concern category"); the
+   shared .row-facts base rule's own border-top (above) landing immediately
+   after read as a second, redundant line right underneath. Overrides that
+   border-top/padding-top; margin-top stays so there's still breathing room
+   between Concern and the fact strip, just no line. margin-left/width
+   bleed this block out from under .entity-body's indent too, same 42px +
+   --space-md avatar-offset math as row-title-secondary's own bleed above -
+   live feedback: "the referral data is still aligned to student image"
+   once Concern itself already bled flush left, this fact strip (only ever
+   visible at desktop width, mobile/tablet hide it outright - #referrals-
+   filtered-content .row-facts-cols, below) was the one section left over
+   still starting under the avatar. .row-facts is a plain block child of
+   .entity-body here, not a flex item of .row-title-row, so the bleed is
+   width+margin-left rather than row-title-secondary's flex-basis trick. */
+#referrals-filtered-content .row-facts {
+    padding-top: 0;
+    border-top: none;
+    margin-left: calc(-1 * (42px + var(--space-md)));
+    width: calc(100% + 42px + var(--space-md));
+}
 /* No divider above the facts line, in every mode (#117 follow-up, live
    feedback: "lose the horizontal divider above details") - overrides the
    shared .row-facts base rule's own border-top/padding-top (above), which
-   Referrals/Actions (#118/#119) still keep for now on their own
-   not-yet-simplified rows. */
+   Actions (#119) still keeps for now on its own not-yet-simplified rows. */
 #students-filtered-content .row-facts {
     margin-top: var(--space-xxs);
     padding-top: 0;
@@ -3863,6 +3866,34 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 #students-filtered-content .row-facts-extra {
     display: none;
 }
+/* Year/House/Reg under the name, every width - moved out of the data
+   section entirely (live feedback: "lose these from the data section and
+   them as new line under student name like it is in mobile mode"). Own
+   line, not sharing the name's line the way Referrals settled on for its
+   own equivalent (live feedback: "Students as additional student flags,
+   so group info is best on next line" - Students already puts SEN/PP/
+   EAL/etc pills on the name's own line, Referrals has nothing competing
+   for that space). flex: 1 1 100% alone is enough to force this onto its
+   own line - _students_rows.html's markup order (name, then this span,
+   then the pills) means the pills can never land on line 1 either, since
+   a full-width flex item always wraps to a fresh line regardless of what
+   follows it. */
+#students-filtered-content .row-title-row .row-facts-primary-plain {
+    display: inline;
+    flex: 1 1 100%;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+/* .row-facts now only ever holds the DOB/YOA-onward data columns (Year/
+   House/Reg moved out, above) - those stay hidden below 1280px (row-
+   detail-col-2's own threshold, below), so the container itself would
+   otherwise sit there empty but for its own margin-top. Dropped outright
+   rather than left as a stray gap. */
+@media (max-width: 1279px) {
+    #students-filtered-content .row-facts {
+        display: none;
+    }
+}
 /* Was a JS-measured "level 0-5" system (wireStudentRowButtonWrap,
    students.html): every resize/ResizeObserver tick re-measured all ~240
    rows against all 6 levels to find the highest one where nothing
@@ -3897,34 +3928,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #students-filtered-content .row-fact-col.row-facts-extra {
         display: flex;
     }
-    /* Year/House/Reg swaps to the same two-row .row-fact-col format as
-       Gender/DOB beside it (live feedback: "have the group info in same
-       two row info format. Year (House) / Reg") - the plain single-line
-       version (still the only one that exists below 1180px) hides in
-       favour of it here instead of both rendering at once. */
-    #students-filtered-content .row-facts-primary-plain {
-        display: none;
-    }
-    /* Same two dividers Referrals/Actions carry at every width - a
-       vertical line before the buttons (.entity-row > .row-btn-row's own
-       base rule, above, which Students' plain .btn-row never matched) and
-       a horizontal line above the facts (.row-facts' own base rule,
-       overridden off for Students at every width below by the #117
-       follow-up two blocks up) - restored for Students too, but only
-       alongside the Gender/DOB column (live feedback: "for the wider
-       setups... divider lines like on Referrals page. A vertical before
-       buttons and a horizontal above the info") rather than at every
-       width like Referrals: the earlier "lose the divider" feedback this
-       overrides was about a bare row with nothing but Year/House/Form
-       next to it, not this now-busier wide-only layout. */
-    #students-filtered-content .entity-row > .btn-row {
-        border-left: 1px solid var(--border-color);
-    }
-    #students-filtered-content .row-facts {
-        margin-top: var(--space-xs);
-        padding-top: var(--space-xs);
-        border-top: 1px solid var(--border-color);
-    }
     /* Fades rather than an instant display:none snap (live feedback: "can
        we have the data fade in or out rather than disapear"). Briefly
        stripped to a plain display:none for the stutter bisection (ruled
@@ -3934,8 +3937,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        `display` itself take part: hiding fades opacity to 0 first and only
        then (transition end) drops to display: none, instead of vanishing
        before the fade can be seen; showing flips to its normal display
-       immediately and fades in from the @starting-style opacity: 0 below. */
-    #students-filtered-content .row-detail-col-1,
+       immediately and fades in from the @starting-style opacity: 0 below.
+       No row-detail-col-1 any more - Year/House/Reg (row-facts-primary-
+       plain) moved out of this data section entirely and under the name
+       instead (live feedback: "lose these from the data section and them
+       as new line under student name like it is in mobile mode" - Students
+       carries its own SEN/PP/EAL/etc pills on the name's own line too, so
+       "group info is best on next line" rather than sharing it, unlike
+       Referrals' Year/House/Reg). DOB/YOA (row-detail-col-2) is now the
+       first column in this strip - nothing to its left needs a divider or
+       the border/margin treatment below until IT actually shows, so both
+       move to its own 1280px threshold (below) instead of firing here. */
     #students-filtered-content .row-detail-col-2,
     #students-filtered-content .row-detail-col-3,
     #students-filtered-content .row-detail-col-4,
@@ -3945,7 +3957,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         opacity: 0;
     }
     @starting-style {
-        #students-filtered-content .row-detail-col-1,
         #students-filtered-content .row-detail-col-2,
         #students-filtered-content .row-detail-col-3,
         #students-filtered-content .row-detail-col-4,
@@ -3953,28 +3964,26 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
             opacity: 0;
         }
     }
-    /* Below every column's own threshold (further down), no columns are
-       shown at all - same "every column gone" fallback the old level 0
-       used: plain single-line Year/House/Form, both dividers dropped. */
-    #students-filtered-content .row-facts-primary-plain {
-        display: inline;
-    }
-    #students-filtered-content .entity-row > .btn-row {
-        border-left: none;
-    }
-    #students-filtered-content .row-facts {
-        margin-top: var(--space-xxs);
-        padding-top: 0;
-        border-top: none;
-    }
-
-    #students-filtered-content .row-detail-col-1 {
+}
+@media (min-width: 1280px) {
+    #students-filtered-content .row-fact-col.row-detail-col-2 {
         display: flex;
         opacity: 1;
     }
-    #students-filtered-content .row-facts-primary-plain {
-        display: none;
-    }
+    /* Same two dividers Referrals/Actions carry at every width - a
+       vertical line before the buttons (.entity-row > .row-btn-row's own
+       base rule, above, which Students' plain .btn-row never matched) and
+       a horizontal line above the facts (.row-facts' own base rule,
+       overridden off for Students at every width below by the #117
+       follow-up two blocks up) - restored for Students too, but only once
+       there's an actual data column to divide from (live feedback: "for
+       the wider setups... divider lines like on Referrals page. A
+       vertical before buttons and a horizontal above the info"), now
+       DOB/YOA (row-detail-col-2, the first column left once Year/House/Reg
+       moved out - comment above) rather than every width like Referrals:
+       the earlier "lose the divider" feedback this overrides was about a
+       bare row with nothing but Year/House/Form next to it, not this
+       now-busier wide-only layout. */
     #students-filtered-content .entity-row > .btn-row {
         border-left: 1px solid var(--border-color);
     }
@@ -3982,16 +3991,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         margin-top: var(--space-xs);
         padding-top: var(--space-xs);
         border-top: 1px solid var(--border-color);
-    }
-}
-@media (min-width: 1280px) {
-    #students-filtered-content .mc-vdivider.row-detail-col-2 {
-        display: block;
-        opacity: 1;
-    }
-    #students-filtered-content .row-fact-col.row-detail-col-2 {
-        display: flex;
-        opacity: 1;
     }
 }
 @media (min-width: 1400px) {

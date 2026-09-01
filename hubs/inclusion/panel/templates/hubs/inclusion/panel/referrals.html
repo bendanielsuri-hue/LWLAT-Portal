@@ -243,16 +243,18 @@ document.addEventListener('DOMContentLoaded', function () {
     var overdueActionsToggle = document.getElementById('overdue-actions-toggle');
     var overdueActionsInput = document.getElementById('overdue-actions-input');
 
-    // Equal button widths + wrap detection for the 481-1179px tablet band
-    // (panel.css) - same measured-width idea as Students' own
+    // Per-slot button widths + wrap detection for the 481-1179px tablet
+    // band (panel.css) - same measured-width idea as Students' own
     // wireStudentButtonLayout (students.html, #117), adapted for Referrals'
-    // 2 buttons (Actions/Referral Details), its own container/
-    // MutationObserver rather than sharing that page's, and stacked
-    // vertically rather than side by side - one shared --btn-w-max (the
-    // widest of either button, across every rendered row) instead of a
-    // width per slot, so both buttons in the stacked column line up to the
-    // same edge. Also marks any row whose buttons actually fell to their
-    // own line below the content (row-buttons-wrapped) via one offsetTop
+    // 2 slots (Actions/Referral Details) and its own container/
+    // MutationObserver rather than sharing that page's. Originally pinned
+    // both buttons to one shared --btn-w-max width for a vertically
+    // stacked column (live feedback: "try buttons vertically stacked") -
+    // switched to per-slot widths, side by side, to match Students' own
+    // treatment once a live screenshot showed unclaimed width beside that
+    // stacked column (live feedback: "make this match what student page
+    // does"). Also marks any row whose buttons actually fell to their own
+    // line below the content (row-buttons-wrapped) via one offsetTop
     // comparison per row.
     (function wireReferralButtonLayout() {
         var container = document.getElementById('referrals-filtered-content');
@@ -266,17 +268,16 @@ document.addEventListener('DOMContentLoaded', function () {
             container.querySelectorAll('.entity-row.row-buttons-wrapped').forEach(function (row) {
                 row.classList.remove('row-buttons-wrapped');
             });
-            // One shared width (--btn-w-max), not one per slot - the two
-            // buttons stack in a column now (panel.css, "try buttons
-            // vertically stacked") rather than sitting side by side, so
-            // both need to match the SAME width as each other, not just
-            // their own slot's width across other rows.
-            container.style.removeProperty('--btn-w-max');
-            var max = 0;
-            container.querySelectorAll('[data-btn-slot]').forEach(function (el) {
-                max = Math.max(max, el.getBoundingClientRect().width);
+            ['actions', 'referral-details'].forEach(function (slot) {
+                container.style.removeProperty('--btn-w-' + slot);
             });
-            if (max > 0) container.style.setProperty('--btn-w-max', max + 'px');
+            ['actions', 'referral-details'].forEach(function (slot) {
+                var max = 0;
+                container.querySelectorAll('[data-btn-slot="' + slot + '"]').forEach(function (el) {
+                    max = Math.max(max, el.getBoundingClientRect().width);
+                });
+                if (max > 0) container.style.setProperty('--btn-w-' + slot, max + 'px');
+            });
             container.querySelectorAll('.entity-row').forEach(function (row) {
                 var thumb = row.querySelector('.entity-thumb');
                 var btnRow = row.querySelector('.row-btn-row');
