@@ -2329,10 +2329,15 @@ def inclusion_panel_actions(request):
     actions = list(page_obj.object_list)
 
     # Row-detail candidates (issue #12): title row + facts row + an
-    # Overdue callout pill.
+    # Overdue callout pill. concern_category (#119 follow-up, "Student >
+    # Referral > Action" 3-section row) is the same per-row lookup
+    # inclusion_panel_referrals' own loop already does for the Referrals
+    # list (_primary_concern_category, above) - same convention, same lack
+    # of prefetch_related for referral__responses (accepted there already).
     for action in actions:
         action.is_overdue = action.status == 'incomplete' and action.due_date is not None and action.due_date < today
         action.days_overdue = (today - action.due_date).days if action.is_overdue else 0
+        action.referral.concern_category = _primary_concern_category(action.referral)
 
     active_filter_count = sum(
         1 for v in (
@@ -2343,16 +2348,30 @@ def inclusion_panel_actions(request):
 
     concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
 
+    # One line per column, not a label:value pair each (#119 follow-up:
+    # "can Assigned and Due make better use of space? One line") - each
+    # candidate string below is now the whole interpunct-joined line
+    # (_actions_rows.html), not the two halves measured separately, so
+    # max_ch roughly doubles to still cap at a sane width.
     col_widths = {
         'created': _col_width(
-            [f'Created At: {a.created_at:%d %b %Y}' if a.created_at else 'Created At: —' for a in actions]
-            + [f'Created By: {a.created_by}' if a.created_by else 'Created By: —' for a in actions],
-            max_ch=26,
+            [
+                (f'Created At: {a.created_at:%d %b %Y}' if a.created_at else 'Created At: —')
+                + ' · '
+                + (f'Created By: {a.created_by}' if a.created_by else 'Created By: —')
+                for a in actions
+            ],
+            max_ch=48,
         ),
         'assigned': _col_width(
-            [f'Assigned to: {a.assigned_to_staff}' if a.assigned_to_staff else 'Assigned to: Unassigned' for a in actions]
-            + [f'Due: {a.due_date:%d %b %Y}' if a.due_date else 'Due: —' for a in actions],
-            max_ch=26,
+            [
+                'Assigned to: '
+                + str(a.assigned_to_staff or a.assigned_to_group or 'Unassigned')
+                + ' · '
+                + (f'Due: {a.due_date:%d %b %Y}' if a.due_date else 'Due: —')
+                for a in actions
+            ],
+            max_ch=48,
         ),
     }
 

@@ -11,8 +11,19 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
 {% endcomment %}
 {% for action in actions %}
 <div class="entity-row selectable actions-list-row" tabindex="0" role="button" aria-pressed="false">
-    <div class="entity-thumb">
-        {% if action.referral.student.photo %}
+    <div class="entity-thumb{% if is_aggregate_view and action.referral.student.school.logo_url %} is-logo{% endif %}">
+        {% comment %}
+        School logo replaces the avatar entirely for MAT-wide/aggregate-view
+        staff (#118: "MAT don't know or need to know what students look
+        like"), same as Referrals/Students - was previously the one list
+        page still showing the student's own photo/initials to MAT-wide
+        staff regardless of view, plus a separate small inline logo badge
+        beside the name that's now redundant with the avatar itself doing
+        the job.
+        {% endcomment %}
+        {% if is_aggregate_view %}
+        {% if action.referral.student.school.logo_url %}<img src="{{ action.referral.student.school.logo_url }}" alt="{{ action.referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+        {% elif action.referral.student.photo %}
         <img src="{{ action.referral.student.photo.url }}" alt="">
         {% else %}
         <span class="avatar-initials {{ action.referral.student|avatar_color_class }}">{{ action.referral.student.first_name|first }}{{ action.referral.student.last_name|first }}</span>
@@ -20,34 +31,70 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
     </div>
     <div class="entity-body">
         <div class="row-title-row">
-            {% if is_aggregate_view %}
-            <span class="meeting-card-logo-inline">
-                {% if action.referral.student.school.logo_url %}<img src="{{ action.referral.student.school.logo_url }}" alt="{{ action.referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
-            </span>
-            {% endif %}
+            {% comment %}
+            Student > Referral+Action - Student (name/pills/Year-House-Reg)
+            is its own line/section, same as Referrals' own name/Year-
+            House-Reg. Referral+Action share ONE divided section below it
+            (row-title-secondary, same class Referrals uses) rather than
+            two separately-divided tiers - live feedback: "Referral and
+            Action line is same prominence... not sure we can justify two
+            horizontal dividers". Referral (row-title-referral-context) is
+            demoted to a smaller context line ahead of the still-prominent
+            Action line - its own status pill dropped too (redundant with
+            Referral Details, same call already made for Action's own
+            status pill below).
+            {% endcomment %}
             <div class="entity-title">{{ action.referral.student }}</div>
-            <span class="row-title-sep">&middot;</span>
-            <div class="entity-title row-secondary-text">Category: {{ action.category|default:"—" }}</div>
-            <span class="status-pill {{ action.status }}">{{ action.get_status_display }}</span>
-            {% if action.is_overdue %}
-            <span class="status-pill overdue_review">Overdue {{ action.days_overdue }}d</span>
-            {% endif %}
+            {% if action.referral.student.sen_status %}<span class="bd-pill bd-untriaged">SEN {{ action.referral.student.sen_status }}</span>{% endif %}
+            {% if action.referral.student.is_pp %}<span class="bd-pill bd-untriaged">PP</span>{% endif %}
+            {% if action.referral.student.is_eal %}<span class="bd-pill bd-untriaged">EAL</span>{% endif %}
+            {% if action.referral.student.is_lac %}<span class="bd-pill bd-untriaged">LAC</span>{% endif %}
+            {% if action.referral.student.is_young_carer %}<span class="bd-pill bd-untriaged">YC</span>{% endif %}
+            {% if action.referral.student.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
+            <span class="row-facts-primary-plain">Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; House {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; Form {{ action.referral.student.reg_form }}{% endif %}</span>
+            <div class="row-title-secondary">
+                <span class="row-title-referral-context">Referral: {{ action.referral.concern_category|default:"—" }}</span>
+                <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Action: </span>{{ action.category|default:"—" }}</div>
+                {% comment %}
+                No plain status pill here (dropped #119 follow-up, live
+                feedback: "definitely" - it duplicated the live segmented
+                status changer below, same status shown twice, once
+                read-only and once as the actual control). Overdue is kept
+                - the segmented control has no equivalent signal for it.
+                {% endcomment %}
+                {% if action.is_overdue %}
+                <div class="row-title-pills">
+                    <span class="status-pill overdue_review">Overdue {{ action.days_overdue }}d</span>
+                </div>
+                {% endif %}
+            </div>
         </div>
         {% if action.note %}<div class="entity-meta action-note">{{ action.note }}</div>{% endif %}
+        {% comment %}
+        Assigned to/Due first, Created At/By second (#119 follow-up: "for an
+        Action, who it's assigned and when it's due is more important than
+        who created and when") - also gives Assigned/Due the priority seat
+        for the facts-overflow guard (wireActionFactsOverflow, actions.html)
+        - data-facts-hide-from="1" hides whichever column comes SECOND, so
+        this ordering is what keeps Assigned/Due on screen the longest
+        rather than Created At/By. One line per column, not two (#119
+        follow-up: "can Assigned and Due make better use of space? One
+        line") - same interpunct-joined single-line convention
+        row-facts-primary-plain already uses for Year/House/Reg, rather
+        than a stacked label:value pair each.
+        {% endcomment %}
         <div class="row-facts row-facts-cols">
-            <div class="row-fact-col" style="width: {{ col_widths.created }}">
-                <span>Created At: {{ action.created_at|date:"d M Y"|default:"—" }}</span>
-                <span>Created By: {{ action.created_by|default:"—" }}</span>
+            <div class="row-fact-col" style="width: {{ col_widths.assigned }}">
+                <span>Assigned to: {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }} &middot; Due: {{ action.due_date|date:"d M Y"|default:"—" }}</span>
             </div>
             <span class="mc-vdivider"></span>
-            <div class="row-fact-col" style="width: {{ col_widths.assigned }}">
-                <span>Assigned to: {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}</span>
-                <span>Due: {{ action.due_date|date:"d M Y"|default:"—" }}</span>
+            <div class="row-fact-col" style="width: {{ col_widths.created }}">
+                <span>Created At: {{ action.created_at|date:"d M Y"|default:"—" }} &middot; Created By: {{ action.created_by|default:"—" }}</span>
             </div>
         </div>
     </div>
     <div class="row-btn-row row-btn-row-stacked">
-        <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}">
+        <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-segmented-form">
             {% csrf_token %}
             <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
             <div class="ui-segmented ui-segmented--action-status">
@@ -55,6 +102,26 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                 <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
                 {% endfor %}
             </div>
+        </form>
+        {% comment %}
+        Mobile-only (≤480px) status dropdown (#119 follow-up: "make Status
+        a dropdown in mobile mode... fit on same line as buttons") - a
+        separate <form>, not a second control folded into the segmented
+        one above (see panel.css's own comment on why: a hidden-but-still-
+        submitting field in a shared form silently overrides the real
+        control's value). Same status-pill + centred-select recipe the
+        "View Actions" modal's own per-row status control already uses
+        (_action_row.html, data-action-status-select) - a proven pattern in
+        this app already.
+        {% endcomment %}
+        <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-select-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
+            <select name="status" class="status-pill ui-select--center {{ action.status }}" onchange="this.form.submit()">
+                {% for value, label in status_choices %}
+                <option value="{{ value }}"{% if action.status == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
         </form>
         <div class="btn-row action-row-buttons">
             <button type="button" class="btn btn-sm btn-secondary" data-view-referral-trigger data-referral-id="{{ action.referral.id }}" data-next="{% url 'inclusion_panel_actions' %}">Referral Details</button>

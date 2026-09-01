@@ -3066,6 +3066,24 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    own base rule above. #referrals-filtered-content overrides this below to
    put concern+pills on their own line under Year/House/Reg, every width. */
 .row-title-secondary { display: contents; }
+/* Actions' own demoted-context line inside row-title-secondary
+   (_actions_rows.html) - the parent referral's concern category, shown
+   smaller/secondary ahead of the action's own (still prominent) category
+   line in the same divided section. #119 follow-up: Referral and Action
+   started out as two separately-divided sections (row-title-secondary +
+   a since-removed row-title-tertiary) - live feedback: "Referral and
+   Action line is same prominence... not sure we can justify two
+   horizontal dividers" - collapsed to one divided section, one divider,
+   Referral demoted rather than kept as its own equal-weight tier. flex:
+   1 1 100% (not display: contents) - the trick row-facts-primary-plain
+   already uses to force onto its own line inside a flex-wrap row, so it
+   doesn't need the two-tier display:contents indirection those other
+   wrapper elements do. */
+.row-title-referral-context {
+    flex: 1 1 100%;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
 /* Raised by/date (#118 fourth follow-up) - hidden here by default, only
    re-enabled inside #referrals-filtered-content's mobile/tablet blocks
    below (their own edge-to-edge bleed treatment); wider widths keep this
@@ -3073,16 +3091,24 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .row-title-row .row-title-raised-by { display: none; }
 .row-secondary-text { font-weight: 600; }
 /* Concern (_referrals_rows.html: <div class="entity-title row-secondary-text">)
-   shares .entity-title purely for its own base sizing - not meant to also pick
+   and Actions' own Category (_actions_rows.html, same class) share
+   .entity-title purely for their own base sizing - not meant to also pick
    up .selectable's hover/chosen fake-bold (INT-M4, cards.css:
    .selectable:hover .entity-title / .entity-row.chosen .entity-title), which
    is the student name's own affordance (live feedback: "we have it on student
    name, do not need on both"). Cancels the text-shadow those rules apply,
-   scoped to .referral-row so Students' own single entity-title (the name,
-   nothing else) is untouched. */
+   scoped to .referral-row/.actions-list-row so Students' own single
+   entity-title (the name, nothing else) is untouched. Missed on Actions
+   when this was first written for Referrals - .actions-list-row exists
+   (_actions_filtered_content.html's own comment even names it), it just
+   never got added here, so Category silently carried the same bug Concern
+   had before this fix. */
 .referral-row.selectable:hover .entity-title.row-secondary-text,
 .referral-row.selectable:focus-visible .entity-title.row-secondary-text,
-.referral-row.chosen .entity-title.row-secondary-text {
+.referral-row.chosen .entity-title.row-secondary-text,
+.actions-list-row.selectable:hover .entity-title.row-secondary-text,
+.actions-list-row.selectable:focus-visible .entity-title.row-secondary-text,
+.actions-list-row.chosen .entity-title.row-secondary-text {
     text-shadow: none;
 }
 .row-facts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
@@ -3090,7 +3116,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .row-facts-cols { gap: 10px; }
 .row-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
 .row-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.action-note { margin-top: var(--space-xs); }
+/* font-size/color override .entity-meta's own demoted caption styling
+   (cards.css - same class this div also carries, "entity-meta action-note")
+   - live feedback: "Action description is same font and size as Assigned
+   to and Due", which is exactly the bug: the note is real sentence-level
+   content (what to actually go and do), not a label:value fact like the
+   row-facts strip beside it, so it needs to read as body text, not a
+   caption. */
+.action-note { margin-top: var(--space-xs); font-size: var(--font-base); color: var(--text-primary); }
 .entity-list[data-selectable] > .entity-row { align-items: stretch; }
 .entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
 /* Primary-accent divider only once the row is actually .chosen - a resting
@@ -3099,6 +3132,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .entity-row.chosen > .row-btn-row { border-left-color: var(--accent-border); }
 .row-btn-row-stacked { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-xs); }
 .row-btn-row-stacked > .action-row-buttons { align-self: flex-end; }
+/* Status changer's mobile-only dropdown replacement (_actions_rows.html,
+   #119 follow-up) - hidden above 480px by default, where the real
+   segmented control (.action-status-segmented-form) is the one shown; the
+   ≤480px block (below) flips both. */
+.action-status-select-form { display: none; }
 
 /* Name-to-group-info gap, both pages, every width (live feedback: "There
    is a fair bit of white space between name and group info. Can we
@@ -3111,9 +3149,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    up, live feedback then: "space between name row and second row seems
    larger... line height is excessive") - promoted to every width, both
    pages, instead of staying a narrow-width-only fix now that both pages
-   share this same stacked shape everywhere. */
+   share this same stacked shape everywhere. Actions shares the same
+   .row-title-row markup too (missed when this was promoted - it only had
+   its own narrower, mobile-only copy of this rule until now, so its
+   desktop/tablet gap stayed at the wider un-tightened default). */
 #referrals-filtered-content .row-title-row,
-#students-filtered-content .row-title-row {
+#students-filtered-content .row-title-row,
+#actions-filtered-content .row-title-row {
     row-gap: var(--space-xxs);
 }
 
@@ -3519,12 +3561,256 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 }
 /* No divider above the facts line, in every mode (#117 follow-up, live
    feedback: "lose the horizontal divider above details") - overrides the
-   shared .row-facts base rule's own border-top/padding-top (above), which
-   Actions (#119) still keeps for now on its own not-yet-simplified rows. */
-#students-filtered-content .row-facts {
+   shared .row-facts base rule's own border-top/padding-top (above). Actions
+   (#119, below) now matches this too - its own Referral+Action section
+   grew its own divider once the row picked up that structure, so
+   row-facts' border-top would just be a second, redundant line right
+   underneath it (same reason Students dropped its own copy here). */
+#students-filtered-content .row-facts,
+#actions-filtered-content .row-facts {
     margin-top: var(--space-xxs);
     padding-top: 0;
     border-top: none;
+    /* margin-left/width bleed (Actions only - Students never needed this,
+       its row-facts was never indented under the avatar in the first
+       place) - same trick row-title-secondary uses below, so the facts
+       strip starts flush at the card's left edge instead of sitting under
+       the avatar like an indented sub-item of the section above it. */
+}
+#actions-filtered-content .row-facts {
+    margin-left: calc(-1 * (42px + var(--space-md)));
+    width: calc(100% + 42px + var(--space-md));
+}
+/* Action Description (action-note) previously stayed indented under the
+   avatar like a plain body line - live feedback: "Action Description
+   should use full width". Same bleed row-title-secondary/row-facts already
+   use (above), so it lines up flush with them instead of starting further
+   right - every width, not mobile-only, for the same reason those two are
+   unconditional. */
+#actions-filtered-content .action-note {
+    margin-left: calc(-1 * (42px + var(--space-md)));
+    width: calc(100% + 42px + var(--space-md));
+}
+
+/* #119: Actions row title block, every width - same shape Referrals' own
+   #118 settled on (row-title-row comment, above): Student (name/pills/
+   Year-House-Reg) > Referral+Action, one divided section below it, not
+   two. Started out as two separately-divided tiers (Referral via
+   row-title-secondary, Action via a since-removed row-title-tertiary,
+   both the same weight) - live feedback: "Referral and Action line is
+   same prominence... not sure we can justify two horizontal dividers".
+   Collapsed into one: row-title-secondary now holds both, Referral
+   demoted to a smaller context line (row-title-referral-context, above)
+   ahead of the still-prominent Action line, its own redundant status pill
+   dropped in the same move (same "Referral Details already covers it"
+   reasoning that dropped Action's own duplicate pill earlier) - Overdue is
+   the only pill left, on Action, since nothing else on the row already
+   signals it. */
+#actions-filtered-content .row-title-row .row-facts-primary-plain {
+    display: inline;
+    flex: 1 1 100%;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+#actions-filtered-content .row-title-row .row-title-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+    flex: 1 1 calc(100% + 42px + var(--space-md));
+    margin-top: var(--space-xxs);
+    margin-left: calc(-1 * (42px + var(--space-md)));
+    padding-top: var(--space-xxs);
+    border-top: 1px solid var(--border-color);
+}
+/* Primary-accent divider only once the row is actually .chosen - same call
+   made for Referrals' own row-title-secondary divider (above). The
+   .row-btn-row divider before Referral Details/Edit Action needs no
+   equivalent override here - that one's already scoped to the bare
+   .entity-row.chosen selector (shared with every other .entity-row
+   consumer), so Actions picked it up automatically without any
+   Actions-specific rule at all. */
+#actions-filtered-content .entity-row.chosen .row-title-secondary {
+    border-top-color: var(--accent-border);
+}
+/* Facts strip (Created At/By, Assigned to/Due) stays VISIBLE at every
+   width, unlike Referrals' own 4-column strip (display: none below
+   1180px, above) - Referrals can drop its strip outright because
+   "Referral Details" already surfaces the same data (#118 third follow-up,
+   above); Actions has no equivalent "Action Details" view, and Edit
+   Action's own fields (_action_assign_fields.html) never show Created
+   At/By at all - hiding it here would lose real information with nothing
+   left to recover it from. */
+/* Facts-strip overflow guard (wireActionFactsOverflow, actions.html) - same
+   mechanism/reasoning as Referrals'/Students' own [data-facts-hide-from]
+   rules (above) - only one column pair here (Created At/By | Assigned to/
+   Due), so only the "hide-from=1" case is reachable: a long enough
+   assigned-staff name or group name can still push the second column onto
+   its own line at desktop width even though this row-facts stays visible
+   at every width (unlike Referrals' own strip, hidden outright below
+   1180px) - the guard's job is unchanged by that, it's still just "hide
+   whichever column stopped fitting on the first line". */
+#actions-filtered-content[data-facts-hide-from="1"] .row-fact-col:nth-of-type(n+2),
+#actions-filtered-content[data-facts-hide-from="1"] .mc-vdivider:nth-of-type(n+1) {
+    display: none;
+}
+/* #119: Actions row at 375px and tablet width (481-1179px) - the two real
+   differences from Referrals' own #118 blocks (row title block above is
+   now unified, so nothing left to say about that part specifically here):
+   1. Button column is a fused 3-way status changer (.ui-segmented--action-
+      status) stacked above Referral Details/Edit Action (row-btn-row-
+      stacked), not a flat button pair. .ui-segmented is inline-flex/
+      shrink-to-fit everywhere else in the portal (forms.css) - correct for
+      a compact control beside a label, wrong once its wrapping row goes
+      full-width below and would otherwise leave the fused control stranded
+      at its own narrow content width with dead space beside it. Scoped to
+      the --action-status modifier + this page only, so every other
+      segmented control in the portal keeps its normal compact sizing.
+   2. Facts strip stays visible (above), not hidden the way Referrals'
+      own 4-column strip is at these bands. */
+@media (max-width: 480px) {
+    #actions-filtered-content .entity-row {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        row-gap: var(--space-xs);
+        padding: var(--space-sm);
+    }
+    #actions-filtered-content .entity-row > .row-btn-row {
+        border-left: none;
+        padding-left: 0;
+        flex: 1 1 100%;
+    }
+    /* Status changer + buttons share one row at this width (#119
+       follow-up: "make Status a dropdown in mobile mode... fit on same
+       line as buttons") - overrides the base .row-btn-row-stacked rule's
+       flex-direction: column (panel.css, above). align-items: center
+       vertically centres the compact select against the taller buttons
+       beside it. */
+    #actions-filtered-content .entity-row > .row-btn-row.row-btn-row-stacked {
+        flex-direction: row;
+        align-items: center;
+    }
+    /* .action-row-buttons' own align-self: flex-end (base rule,
+       unconditional) is meant for the desktop/tablet column layout above
+       (bottom-align the button pair under the taller segmented control) -
+       wrong once this row goes horizontal, where flex-end instead bottom-
+       aligns it against the select vertically. Overridden back to center
+       to match the parent's own align-items above. */
+    #actions-filtered-content .entity-row > .row-btn-row.row-btn-row-stacked > .action-row-buttons {
+        align-self: center;
+    }
+    /* The real segmented control only shows above this width - not enough
+       room for 3 always-visible buttons plus Referral Details/Edit Action
+       beside them on one line. .action-status-select-form (below) is its
+       mobile-only replacement: same status field/endpoint, a compact
+       control instead. Two separate <form>s, not one form holding both
+       controls toggled by visibility - a hidden-but-still-enabled second
+       "status" field in the same form would submit its own (stale) value
+       alongside whichever control the user actually used, and Django's
+       QueryDict.get() returns the LAST value for a repeated key, silently
+       overriding the real click with the hidden field's stale one.
+       Separate forms can't cross-contaminate like that - each submission
+       only ever carries its own form's fields. */
+    #actions-filtered-content .action-status-segmented-form {
+        display: none;
+    }
+    /* Equal thirds across the whole row (#119 follow-up: "wanted dropdown
+       to be on same row so third width and same height as the buttons") -
+       flex-grow 1 on the select form, 2 on the button pair's own container
+       (which then splits that into two equal shares below, flex:1 each) -
+       three flex-basis-0 items growing 1:1:1 total lands each one at
+       exactly a third, regardless of content width, rather than the
+       select claiming only its own auto content width like the very first
+       version of this did (live feedback screenshot: select stacked above
+       the buttons, not sharing the row at even thirds). */
+    #actions-filtered-content .action-status-select-form {
+        display: block;
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    /* width: 100% (base .ui-select-trigger rule, forms.css) already fills
+       this form's own flex-basis - only the height needs correcting here:
+       .ui-select-trigger.status-pill's own padding (panel.css, above) is
+       deliberately shorter (--space-xxs) for its usual compact inline-pill
+       contexts, not matched to .btn's height (DES-S1) the way the base
+       .ui-select-trigger rule normally is. Restored to --space-xs
+       specifically in this row, where it now sits directly beside real
+       buttons and needs to read as the same height as them. */
+    #actions-filtered-content .action-status-select-form .ui-select-trigger {
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-xs);
+    }
+    html.nav-touch-mode #actions-filtered-content .action-status-select-form .ui-select-trigger {
+        padding-top: var(--space-sm);
+        padding-bottom: var(--space-sm);
+    }
+    #actions-filtered-content .action-row-buttons {
+        flex: 2 1 0;
+        min-width: 0;
+    }
+    #actions-filtered-content .action-row-buttons > * {
+        flex: 1;
+        min-width: 0;
+    }
+}
+/* #119 follow-up ("buttons auto fit width") - Actions' button column
+   (row-btn-row-stacked: the fused status changer + Referral Details/Edit
+   Action) previously had no tablet-band treatment at all here, unlike
+   Referrals' own wireReferralButtonLayout/[data-btn-slot] system (above) -
+   left beside the content at its own auto/content width with no
+   wrap-detection, it would (once genuinely too tight to fit beside a
+   200px-min entity-body) just flex-wrap onto its own line at that same
+   narrow auto width, left-aligned with dead space beside it - the exact
+   "buttons do not seem to fit available horizontal space" problem
+   Referrals' own #118 mobile block already solved once, unfixed here.
+   wireActionButtonLayout (actions.html) is a lighter version of
+   wireReferralButtonLayout - only the offsetTop wrap-detection part, not
+   the per-slot --btn-w-* width measurement: Referral Details/Edit Action's
+   own text never varies row to row (no count badge, unlike Referrals'
+   "Actions (N)"), so there's no per-row width drift to measure/align in
+   the first place - every row's buttons are already the same width for
+   free. Beside the content, row-btn-row-stacked keeps its own auto/content
+   width (no override needed - that's the "auto fit" default the base
+   .row-btn-row-stacked rule, above, already gives it); only the
+   .row-buttons-wrapped case below needs a real rule, once there's a full
+   row's width to fill and nothing left to align beside. */
+@media (min-width: 481px) and (max-width: 1179px) {
+    #actions-filtered-content .entity-row {
+        flex-wrap: wrap;
+        padding-right: var(--space-lg);
+    }
+    #actions-filtered-content .entity-thumb {
+        flex-shrink: 0;
+    }
+    #actions-filtered-content .entity-body {
+        flex: 1 1 200px;
+        min-width: 200px;
+    }
+    #actions-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row {
+        flex: 1 1 100%;
+        border-left: none;
+        padding-left: 0;
+        align-items: stretch;
+    }
+    /* Same align-self override the true-mobile block needs (above, full
+       reasoning there) - .action-row-buttons' own align-self: flex-end
+       (base rule, unconditional) wins over this row's align-items: stretch
+       otherwise. */
+    #actions-filtered-content .entity-row.row-buttons-wrapped > .row-btn-row > .action-row-buttons {
+        align-self: stretch;
+    }
+    #actions-filtered-content .entity-row.row-buttons-wrapped .ui-segmented--action-status {
+        display: flex;
+        width: 100%;
+    }
+    #actions-filtered-content .entity-row.row-buttons-wrapped .ui-segmented--action-status .ui-segmented-option {
+        flex: 1;
+        white-space: normal;
+        text-align: center;
+    }
+    #actions-filtered-content .entity-row.row-buttons-wrapped .action-row-buttons > * {
+        flex: 1;
+    }
 }
 
 /* Search: a plain field, not a fused-left label box (#133 grilling
@@ -7327,6 +7613,53 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
 [data-theme-mode="dark"] .ui-select-trigger.status-pill.open {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
 }
+/* .status-pill mirrors onto the POPOVER too (enhanceSelect, main.js:
+   panel.className copies every class off the source <select>, same as
+   trigger.className does above), not just the trigger - missed until now
+   because .ui-select-trigger.status-pill (above) was the only half of this
+   ever actually fixed. .status-pill's own base box (padding: 0.35em
+   0.833em, border-radius: --radius-pill, display: inline-block, pills.css)
+   then wins the same-class cascade fight over .ui-popover's own panel
+   shape (position: fixed, max-height: 260px, own border-radius - forms.css,
+   loaded earlier) for every property both set, squeezing the whole
+   3-option list into a tiny pill-shaped box - confirmed live (Actions
+   page's mobile status select, #119 follow-up, screenshot: "weird dropdown
+   selector in top left corner") - the option list's own real size (or lack
+   of one, clipped into the pill) is almost certainly what then fed
+   positionPopover's anchoring math garbage coordinates too, landing the
+   whole thing at the viewport's top-left instead of under the trigger.
+   Resets the panel back to .ui-popover's own intended shape; the colour-
+   only modifiers above (.status-pill.complete etc.) are separate compound
+   selectors, unaffected by this. Scoped to [open] so this reset only
+   applies while the panel is actually shown - see the guard rule right
+   below for why an *unscoped* version here wouldn't have been enough
+   anyway. */
+.ui-select-panel.status-pill[open] {
+    display: block;
+    padding: 0;
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    color: inherit;
+    text-align: left;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+}
+/* pills.css's bare `.status-pill { display: inline-block }` is a single-
+   class author rule - and *any* author-origin declaration beats the
+   browser's own `dialog:not([open]) { display: none }` UA-stylesheet hint
+   regardless of specificity (same trap `.btn[hidden]`/`.ui-fused-
+   field[hidden]` already guard against, buttons.css/forms.css - origin
+   order, not specificity, decides UA vs. author). So every *closed*
+   status-pill panel on the page - one per row - was rendering visible at
+   its unpositioned default (0,0), piling up behind whichever one was
+   actually open: the "distorted blob in the viewport's top-left corner"
+   symptom (#119 follow-up, confirmed live via Playwright at true mobile
+   width - the open panel itself was already correctly shaped/positioned
+   by the rule above, this closed-panel pile-up was the real remaining
+   bug). Re-asserts the closed behaviour explicitly rather than relying on
+   the UA default this class already defeats once. */
+.ui-select-panel.status-pill:not([open]) { display: none; }
 
 /* Read-only vs editable fields (Discussion page) */
 .field-readonly {

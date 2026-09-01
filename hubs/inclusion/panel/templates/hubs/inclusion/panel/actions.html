@@ -209,6 +209,91 @@ document.addEventListener('DOMContentLoaded', function () {
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
     if (window.wireListInfiniteScroll) window.wireListInfiniteScroll('actions-filtered-content');
 
+    // Wrap-detection for the 481-1179px tablet band (panel.css) - lighter
+    // version of Referrals' own wireReferralButtonLayout (referrals.html):
+    // only the offsetTop comparison that marks a row's buttons as having
+    // actually fallen to their own line (row-buttons-wrapped), not that
+    // system's own per-slot --btn-w-* width measurement. Referral Details/
+    // Edit Action's text never varies row to row (no count badge the way
+    // Referrals' "Actions (N)" has), so every row's buttons are already the
+    // same width without measuring anything - nothing to align, just
+    // whether to switch to the full-width/stretched layout once beside-
+    // content genuinely stops fitting.
+    (function wireActionButtonLayout() {
+        var container = document.getElementById('actions-filtered-content');
+        if (!container) return;
+        function refresh() {
+            container.querySelectorAll('.entity-row').forEach(function (row) {
+                var thumb = row.querySelector('.entity-thumb');
+                var btnRow = row.querySelector('.row-btn-row');
+                if (!thumb || !btnRow) return;
+                row.classList.toggle('row-buttons-wrapped', btnRow.offsetTop > thumb.offsetTop + 2);
+            });
+        }
+        var lastWidth = null;
+        function refreshIfWidthChanged() {
+            var width = container.clientWidth;
+            if (width === lastWidth) return;
+            lastWidth = width;
+            refresh();
+        }
+        var refreshOnResize = window.rafThrottle ? window.rafThrottle(refreshIfWidthChanged) : refreshIfWidthChanged;
+        refresh();
+        lastWidth = container.clientWidth;
+        window.addEventListener('resize', refreshOnResize);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(refreshOnResize).observe(container);
+        }
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
+        }
+    })();
+
+    // Facts-strip overflow guard (Created At/By, Assigned to/Due) - same
+    // mechanism as Referrals' own wireReferralFactsOverflow (referrals.html,
+    // panel.css has the full reasoning), missing here until now even though
+    // Actions' row-facts-cols has the identical col_widths-driven fixed-width
+    // column setup that made it necessary on Referrals/Students in the first
+    // place. Only the container id and column count differ (2 columns here,
+    // not 4/5) - the algorithm itself (measure where column N's own top
+    // stops matching column one's, mark that as the first to hide) doesn't
+    // care how many there are.
+    (function wireActionFactsOverflow() {
+        var container = document.getElementById('actions-filtered-content');
+        if (!container) return;
+        function apply() {
+            var probe = container.querySelector('.entity-row .row-facts-cols');
+            if (!probe) return;
+            var cols = Array.prototype.slice.call(probe.querySelectorAll(':scope > .row-fact-col'));
+            if (cols.length < 2) return;
+            container.removeAttribute('data-facts-hide-from');
+            var top0 = cols[0].getBoundingClientRect().top;
+            for (var i = 1; i < cols.length; i++) {
+                if (Math.round(cols[i].getBoundingClientRect().top) > Math.round(top0)) {
+                    container.setAttribute('data-facts-hide-from', String(i));
+                    break;
+                }
+            }
+        }
+        var lastWidth = null;
+        function applyIfWidthChanged() {
+            var width = container.clientWidth;
+            if (width === lastWidth) return;
+            lastWidth = width;
+            apply();
+        }
+        var applyOnResize = window.rafThrottle ? window.rafThrottle(applyIfWidthChanged) : applyIfWidthChanged;
+        apply();
+        lastWidth = container.clientWidth;
+        window.addEventListener('resize', applyOnResize);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(applyOnResize).observe(container);
+        }
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(apply).observe(container, { childList: true, subtree: true });
+        }
+    })();
+
     // Year -> Reg cascading (same pattern as inclusion_panel_students/
     // inclusion_panel_referrals).
     var allForms = Array.prototype.slice.call(regFilter.options).slice(1).map(function (o) { return o.value; });
