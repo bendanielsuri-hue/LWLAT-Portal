@@ -16,8 +16,10 @@
        still believe it's collapsed (main.js's setupPageExtrasOverflow
        comment says as much - "the existing 900px sidebar-collapse
        breakpoint" is no longer strictly true after this change). */
+    /* 64px, matching .side-nav.collapsed (layout.css) and the global
+       hub-rail's own width - one consistent rail width everywhere. */
     .side-nav:not(.overlay-nav) {
-        width: 72px;
+        width: 64px;
     }
     /* The global hub-rail duplicates what the now-collapsed sidebar already
        shows (a row of icons) — at narrow widths the rail is redundant noise. */
@@ -35,25 +37,39 @@
         overflow: hidden;
         white-space: nowrap;
     }
+    /* 8px, matching .side-nav.collapsed (layout.css) and the global
+       hub-rail's own padding - 12px left no room for the 44px icon at
+       this rail's 64px width without .nav-scroll's overflow-x:hidden
+       clipping it. */
     .side-nav:not(.overlay-nav) .nav-header,
     .side-nav:not(.overlay-nav) .nav-scroll,
     .side-nav:not(.overlay-nav) .nav-footer {
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-left: 8px;
+        padding-right: 8px;
     }
+    /* center, not flex-start - this pre-.collapsed-class width fallback
+       (comment above) used to left-align, but the 44px icon is wider than
+       the padded row box, so flex-start let it overflow rightward only,
+       reading as too much empty rail to the icon's left (live feedback).
+       Matches .side-nav.collapsed's own centered treatment (layout.css)
+       so there's no visible jump once JS catches up and adds that class. */
     .side-nav:not(.overlay-nav) a,
     .side-nav:not(.overlay-nav) .nav-row-btn,
     .side-nav:not(.overlay-nav) .school-nav-option,
     .side-nav:not(.overlay-nav) .staff-nav-option {
-        justify-content: flex-start;
+        justify-content: center;
     }
+    /* 4px (--space-xxs), not 6px - matches .side-nav.collapsed's own row
+       padding (layout.css) exactly, so this pre-.collapsed-class width
+       fallback doesn't pad the 44px icon more than the real collapsed
+       state does once JS catches up (was reading as an over-wide rail). */
     .side-nav:not(.overlay-nav).hub-side .nav-menu a,
     .side-nav:not(.overlay-nav) .nav-row-btn,
     .side-nav:not(.overlay-nav) .exit-hub,
     .side-nav:not(.overlay-nav) .school-nav-option,
     .side-nav:not(.overlay-nav) .staff-nav-option {
-        padding-left: 6px;
-        padding-right: 6px;
+        padding-left: var(--space-xxs);
+        padding-right: var(--space-xxs);
     }
 }
 
@@ -129,23 +145,23 @@ html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
        for. Pin nav-stack to the resting rail's own width so the reserved gap
        never changes size regardless of what the sidebar is doing on top of it. */
     html.nav-touch-mode .nav-stack {
-        width: 72px;
+        width: 64px;
     }
     /* .side-nav-inner (_hub_sidebar.html) pinned to its expanded width the
        instant .touch-expanded is added (a discrete jump, same frame the
        class changes - all the padding/opacity rules below already switch
        to their expanded values at that same instant) - .side-nav itself
-       (72px<->280px, overflow:hidden) then just reveals progressively more
+       (64px<->280px, overflow:hidden) then just reveals progressively more
        of an already-fully-laid-out row as it grows, rather than reflowing
        its own content mid-transition. This is what actually fixed labels/
        app name visibly overflowing/re-wrapping while the rail grew -
        previous attempts patched individual symptoms (nowrap-until-settled
        hacks main.js used to add/remove) rather than this root cause.
-       Rest state deliberately left at its default (unpinned, ~72px) width
+       Rest state deliberately left at its default (unpinned, ~64px) width
        instead of also being pinned to 280px here - .side-nav.collapsed
        overrides overflow to visible (tooltip escape, layout.css), and a
        280px-wide-but-invisible (opacity:0) row under that would still
-       paint past the 72px column and intercept clicks over the main
+       paint past the 64px column and intercept clicks over the main
        content behind it. */
     html.nav-touch-mode .side-nav.hub-side.touch-expanded .side-nav-inner {
         width: 280px;
@@ -173,7 +189,7 @@ html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
        (display:block, not none) so opening never has to grow a height into
        existence - just fades the text in. .side-nav-inner (above) is only
        pinned to 280px wide once .touch-expanded - at rest it's back to
-       ~72px, so this invisible text would wrap into many more, much
+       ~64px, so this invisible text would wrap into many more, much
        shorter lines there than its 1-2 lines at 280px, making the row
        itself taller at rest and pushing every row below down further than
        in the expanded state (rail-mode icons sitting lower than expanded's).

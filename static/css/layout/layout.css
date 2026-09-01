@@ -151,8 +151,16 @@ html, body {
 /* Icon-only rail: the hub sidebar (and the home page's single inline pane) can
    collapse down to just its icons, either automatically below the narrow-window
    breakpoint or via the manual toggle button — see main.js setupSidebarCollapse. */
+/* 64px, not 72px - matches the global hub-rail's own width (.hub-rail,
+   below) exactly, so the icon column reads as one consistent rail width
+   whichever one is on screen (live feedback: "should be same width as
+   global rail"). The 44px icon pill ends up centred with the same 10px
+   gap either side as the global rail's own pill, with no padding changes
+   needed here - nested justify-content:center + this row's overflow:visible
+   (below) means the pill's final position depends only on this outer
+   width vs. the icon's own fixed size, not on the padding in between. */
 .side-nav.collapsed {
-    width: 72px;
+    width: 64px;
 }
 .side-nav.collapsed .nav-title,
 .side-nav.collapsed .nav-search,
@@ -162,7 +170,7 @@ html, body {
 /* Lets the new hover tooltips (.icon-tooltip-host::after) escape past the
    sidebar's own right edge instead of being clipped by the shared .side-nav
    overflow:hidden rule above (and .nav-scroll's own overflow-y:auto) — only
-   safe once the sidebar is at rest in its fixed 72px collapsed width;
+   safe once the sidebar is at rest in its fixed 64px collapsed width;
    .hub-side specifically (not every .side-nav.collapsed variant) so the
    width-animated expand/collapse transition elsewhere isn't affected. */
 .side-nav.hub-side.collapsed {
@@ -188,11 +196,16 @@ html, body {
     white-space: nowrap;
     text-overflow: ellipsis;
 }
+/* --space-xs (8px), not --space-sm (12px) - matches the global hub-rail's
+   own .hub-rail-inner padding exactly. At this rail's 64px width, 12px
+   left no room for the 44px icon pill without .nav-scroll's overflow-x:
+   hidden clipping it; 8px reproduces the same 8px-padding+2px-centring =
+   10px edge gap the global rail gets. */
 .side-nav.collapsed .nav-header,
 .side-nav.collapsed .nav-scroll,
 .side-nav.collapsed .nav-footer {
-    padding-left: var(--space-sm);
-    padding-right: var(--space-sm);
+    padding-left: var(--space-xs);
+    padding-right: var(--space-xs);
 }
 /* Was flex-start, relying on exact-fit padding math (12px container + 2px
    row padding = the 44px icon pill's own width) to LOOK centred without
