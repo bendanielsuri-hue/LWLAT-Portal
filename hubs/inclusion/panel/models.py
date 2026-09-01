@@ -59,7 +59,7 @@ class InclusionReferral(models.Model):
         ('open', 'Open'),
         ('review_scheduled', 'Review Scheduled'),
         ('awaiting_review', 'Awaiting Review'),
-        ('overdue_review', 'Overdue Review'),
+        ('overdue_review', 'Overdue'),
         ('assigned', 'Assigned to Panel'),
         ('discussing', 'Discussing'),
         ('closed', 'Closed'),

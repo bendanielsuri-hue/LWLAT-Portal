@@ -1712,7 +1712,7 @@ def inclusion_panel_referrals(request):
         ('discussing', 'Discussing'),
         ('review_scheduled', 'Review Scheduled'),
         ('awaiting_review', 'Awaiting Review'),
-        ('overdue_review', 'Overdue Review'),
+        ('overdue_review', 'Overdue'),
     ]
 
     context = {
