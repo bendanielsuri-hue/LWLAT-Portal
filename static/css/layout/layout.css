@@ -1822,10 +1822,20 @@ html:not(.nav-touch-mode) .list-card .entity-list {
    Panel Agenda rosters, etc.) never had a card-shadow to begin with. */
 .list-card .entity-row:hover:not(.chosen),
 .list-card .entity-row:focus-visible:not(.chosen) {
-    box-shadow: inset 3px 0 0 var(--border-strong), var(--card-shadow);
+    box-shadow: inset 6px 0 0 var(--border-color), var(--card-shadow);
 }
+/* border-left-color, not just the box-shadow bar - an inset shadow paints
+   inside the border, not over it (the border itself is drawn after/on top,
+   see .list-card .entity-row's own border: 1px solid var(--border-color)
+   above), so without this the row's plain left border edge still showed as
+   its own 1px sliver in front of the accent bar once chosen (live feedback:
+   "rectangle within border"). Matching the border to the bar's own colour
+   makes the two read as one continuous accent edge instead of a border
+   framing a bar. Only -color, not the full border-left shorthand - width/
+   style stay whatever the base rule already set. */
 .list-card .entity-row.chosen {
-    box-shadow: inset 3px 0 0 var(--accent-border), var(--card-shadow);
+    border-left-color: var(--accent-border);
+    box-shadow: inset 6px 0 0 var(--accent-border), var(--card-shadow);
 }
 /* Touch already auto-hides its own scrollbar except while actively
    scrolling - a persistently-visible one here only ever shows because the
