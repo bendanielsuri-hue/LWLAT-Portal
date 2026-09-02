@@ -531,26 +531,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 max = Math.max(max, el.getBoundingClientRect().width);
             });
             if (max > 0) container.style.setProperty('--students-btn-col-w', max + 'px');
-            // Per-slot widths too (live feedback: "the action buttons are
-            // changing size. Each button should be width of largest like
-            // action page does") - fixing the whole .btn-row's own width
-            // to the widest row (above) only keeps the COLUMN a consistent
-            // width; at >=1401px (panel.css) Actions/Referrals go side by
-            // side and each still sized to its own content, so "Actions"
-            // alone still grew/shrank row to row depending on whether its
-            // count badge was present. Same per-slot measurement Referrals'
-            // own wireReferralButtonLayout already does (referrals.html) -
-            // ported here since Students never had it.
-            ['actions', 'referrals'].forEach(function (slot) {
-                container.style.removeProperty('--btn-w-' + slot);
-            });
-            ['actions', 'referrals'].forEach(function (slot) {
-                var slotMax = 0;
-                container.querySelectorAll('[data-btn-slot="' + slot + '"]').forEach(function (el) {
-                    slotMax = Math.max(slotMax, el.getBoundingClientRect().width);
-                });
-                if (slotMax > 0) container.style.setProperty('--btn-w-' + slot, slotMax + 'px');
-            });
         }
         var lastWidth = null;
         function refreshIfWidthChanged() {

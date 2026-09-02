@@ -169,12 +169,40 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                     <span>{{ action.referral.concern_category|default:"—" }}</span>
                     <span><span class="status-pill {{ action.referral.status }}">{{ action.referral.get_status_display }}</span>{% if action.referral.review_pill_label %} <span class="status-pill {{ action.referral.review_pill_class }}">{{ action.referral.review_pill_label }}</span>{% endif %}</span>
                 </div>
+                {% comment %}
+                Status data col, wide desktop only (panel.css, >=1401px -
+                live feedback: "can Wide Action have a Status Col with the
+                fused Status changer"). Own separate <form> from the one
+                still in row-btn-row below, not the same element relocated -
+                same "two independent forms, never one shared" convention
+                the segmented/dropdown swap already established (see that
+                form's own comment, panel.css: a hidden-but-still-submitting
+                duplicate field silently overrides the real one on submit).
+                Hidden below 1401px (panel.css) in favour of row-btn-row's
+                own copy, which already swaps itself to the compact dropdown
+                below 1401px - that existing "if it doesn't fit, drop to the
+                dropdown" behaviour needed no changes, it just never
+                triggers up here since this column only ever shows once
+                there's room to spare.
+                {% endcomment %}
+                <div class="row-fact-col row-fact-col-status" data-col="status">
+                    <span class="row-fact-label">Status</span>
+                    <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-segmented-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
+                        <div class="ui-segmented ui-segmented--action-status">
+                            {% for value, label in status_choices %}
+                            <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
             </div>
             </div>
         </div>
     </div>
     <div class="row-btn-row row-btn-row-stacked">
-        <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-segmented-form">
+        <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-segmented-form action-status-segmented-form--buttons">
             {% csrf_token %}
             <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
             <div class="ui-segmented ui-segmented--action-status">

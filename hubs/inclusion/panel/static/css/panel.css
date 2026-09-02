@@ -3643,43 +3643,21 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         border-left-color: var(--accent-border);
     }
 }
-/* Wide desktop (live feedback originally: "in wide desktop it should be
-   horizontal stack like actions", reused Actions' own 1200px threshold;
-   follow-up feedback on Students' own equivalent breakpoint: "the switch to
-   vertical stack needs to happen at an earlier breakpoint" - side by side
-   at 1201px read cramped once a row has its own dedicated buttons column,
-   so Students moved to 1401px - then live feedback here too: "the actions
-   page still seems to swap to vertical stack when the nav disappears...
-   make all match 1401" - Referrals/Actions now share that same later
-   threshold instead of the sidebar's own 1200px auto-collapse width). */
-@media (min-width: 1401px) {
-    #referrals-filtered-content .row-btn-row {
-        flex-direction: row;
-        align-items: center;
-    }
-    /* Fixed to the widest occurrence across the whole list, not each row's
-       own content width (live feedback: "the action buttons are changing
-       size. Each button should be width of largest like action page
-       does") - side by side with align-items: stretch removed (above),
-       each button reverted to auto-sizing off its own text, so a row
-       without an Actions count badge rendered narrower than one with
-       "Actions 3" right next to it. --btn-w-actions/--btn-w-referral-
-       details (wireReferralButtonLayout, referrals.html) already measured
-       the true max width across every row - built for an older two-band
-       layout this grid band later replaced (see that band's own comment,
-       above: "leaving wireReferralButtonLayout... nothing left to do
-       here"), so the measurement kept running with nothing consuming it
-       until now. Actions' own buttons never needed this at all - "Referral
-       Details"/"Edit Action" carry no count badge, so every row's text is
-       already identical width without measuring anything (see
-       wireActionButtonLayout's own comment, actions.html). */
-    #referrals-filtered-content [data-btn-slot="actions"] {
-        width: var(--btn-w-actions);
-    }
-    #referrals-filtered-content [data-btn-slot="referral-details"] {
-        width: var(--btn-w-referral-details);
-    }
-}
+/* Wide desktop used to swap the buttons column to a horizontal row here
+   (live feedback originally: "in wide desktop it should be horizontal
+   stack like actions", reused Actions' own 1200px threshold; several
+   follow-ups moved the exact breakpoint) - reverted (live feedback: "the
+   buttons in wide desktop should be vertically stacked") once Actions
+   itself turned out to have already dropped its own wide-desktop
+   horizontal stack at some point, leaving Referrals/Students as the only
+   two pages still doing it off a now-stale "like actions" assumption.
+   #referrals-filtered-content .row-btn-row's own >=701px grid-band rule
+   (flex-direction: column; align-items: stretch, above) already stacks at
+   every desktop width once nothing overrides it back to row - Referrals now
+   genuinely matches Actions instead of a stale description of it.
+   wireReferralButtonLayout (referrals.html), which only ever existed to
+   feed this band's own per-slot width variables, was removed along with
+   it. */
 /* No divider above the facts line, in every mode (#117 follow-up, live
    feedback: "lose the horizontal divider above details") - overrides the
    shared .row-facts base rule's own border-top/padding-top (above).
@@ -4106,6 +4084,34 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #actions-filtered-content .action-row-buttons {
         flex-direction: column;
         align-items: stretch;
+    }
+}
+/* Status data col (_actions_rows.html, live feedback: "can Wide Action
+   have a Status Col with the fused Status changer... if this does not fit
+   then it gets hidden and then show the dropdown control in the buttons
+   section") - hidden below 1401px, same threshold as every other "is there
+   genuinely enough spare width" call on this page (the segmented/dropdown
+   swap just above, Referrals'/Students' own reverted wide-desktop button
+   row). Below that threshold nothing here needs to change at all: row-btn-
+   row's own copy of the segmented control already swaps itself to the
+   compact dropdown the moment the row isn't wide enough (the block just
+   above) - that existing behaviour already IS the "doesn't fit -> dropdown"
+   fallback the feedback asked for, it just never had anything to fall back
+   FROM up here until now. */
+#actions-filtered-content .row-fact-col-status {
+    display: none;
+}
+@media (min-width: 1401px) {
+    #actions-filtered-content .row-fact-col-status {
+        display: flex;
+    }
+    /* row-btn-row's own segmented control is redundant once the data col
+       (above) is showing it instead - only the dropdown-swap block's own
+       .action-status-segmented-form--buttons instance needs hiding here;
+       the data col's own .action-status-segmented-form (no --buttons
+       modifier) is a separate <form>, untouched. */
+    #actions-filtered-content .action-status-segmented-form--buttons {
+        display: none;
     }
 }
 /* True mobile stacked format (live feedback: "it should go into the mobile
@@ -4963,36 +4969,21 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         border-left-color: var(--accent-border);
     }
 }
-/* Wide desktop (live feedback originally: "in wide desktop it should be
-   horizontal stack like actions", reused Actions' own 1200px threshold;
-   follow-up feedback: "the switch to vertical stack needs to happen at an
-   earlier breakpoint" - side by side at 1201px still read cramped once
-   Actions sits next to the fused Referrals/New Referral pill, so this page
-   now keeps its own later 1401px threshold instead of sharing Actions'
-   1200px one). */
-@media (min-width: 1401px) {
-    #students-filtered-content .btn-row {
-        flex-direction: row;
-        align-items: center;
-    }
-    /* Fixed to the widest occurrence across the whole list (live feedback:
-       "the action buttons are changing size. Each button should be width
-       of largest like action page does") - same fix as Referrals' own
-       equivalent, above: side by side with no stretch, each button reverts
-       to auto-sizing off its own text, so a row without an Actions/
-       Referrals count badge rendered narrower than a neighbour with one.
-       --btn-w-actions/--btn-w-referrals (wireStudentButtonColumnWidth,
-       students.html, ported from Referrals' own wireReferralButtonLayout)
-       measure the true max width per slot across every row - New Referral
-       (the fused "+" icon) needs no equivalent since it's a fixed-size
-       icon button with no variable text at all. */
-    #students-filtered-content [data-btn-slot="actions"] {
-        width: var(--btn-w-actions);
-    }
-    #students-filtered-content [data-btn-slot="referrals"] {
-        width: var(--btn-w-referrals);
-    }
-}
+/* Wide desktop used to swap the buttons column to a horizontal row here too
+   (live feedback originally: "in wide desktop it should be horizontal
+   stack like actions", reused Actions' own 1200px threshold, then a
+   follow-up moved it to its own later 1401px one) - reverted (live
+   feedback: "the buttons in wide desktop should be vertically stacked"),
+   same call as Referrals' own identical revert, above: Actions itself
+   never actually keeps a wide-desktop horizontal stack, so this and
+   Referrals' copy were both chasing a stale description of it.
+   #students-filtered-content .btn-row's own >=701px grid-band rule
+   (flex-direction: column; align-items: stretch, above) already stacks at
+   every desktop width with nothing left here to override it back. The
+   per-slot --btn-w-actions/--btn-w-referrals measurement this band used to
+   consume was dropped from wireStudentButtonColumnWidth (students.html) -
+   that function's own --students-btn-col-w measurement (the shared column
+   width every row's grid track uses) is unrelated and still runs. */
 
 /* Students list (#117): "table -> stacked card" per #113's shared
    vocabulary - now just the leftover bits of that band still shared by
