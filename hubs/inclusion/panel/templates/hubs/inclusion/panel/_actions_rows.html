@@ -135,29 +135,41 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
             dropped this way - it's the row's primary content, so it gets
             its own line-clamp (panel.css) instead of disappearing.
             {% endcomment %}
+            {% comment %}
+            row-facts-shell exists purely to hold container-type: inline-size
+            (panel.css) - a size-query container can't itself be the element
+            an @container rule changes a layout-affecting property on (e.g.
+            flex-wrap) without creating a cyclic "container's own size
+            depends on a style that depends on the container's own size"
+            dependency, which browsers refuse to resolve (confirmed live:
+            flex-basis:100% on a CHILD applied fine from the same @container
+            block, flex-wrap:wrap on .row-facts ITSELF silently never took
+            effect). Splitting the query container (this shell, untouched by
+            any @container rule) from the element being restyled (.row-facts)
+            sidesteps it entirely.
+            {% endcomment %}
+            <div class="row-facts-shell">
             <div class="row-facts row-facts-cols">
                 <div class="row-fact-col row-fact-col-description">
                     <span class="row-fact-label">Description</span>
                     <span>{% if action.note %}{{ action.note }}{% else %}<span class="empty-note-inline">No description.</span>{% endif %}</span>
                 </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.due }}">
+                <div class="row-fact-col" data-col="due" style="width: {{ col_widths.due }}">
                     <span class="row-fact-label">Due</span>
                     <span>{{ action.due_date|date:"d/m/y"|default:"—" }}</span>
                     <span title="{{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}">For {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned"|initials }}</span>
                 </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.created }}">
+                <div class="row-fact-col" data-col="created" style="width: {{ col_widths.created }}">
                     <span class="row-fact-label">Created</span>
                     <span>{{ action.created_at|date:"d/m/y"|default:"—" }}</span>
                     <span title="{{ action.created_by|default:"—" }}">By {{ action.created_by|default:"—"|initials }}</span>
                 </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.referral }}">
+                <div class="row-fact-col" data-col="referral" style="width: {{ col_widths.referral }}">
                     <span class="row-fact-label">Referral</span>
                     <span>{{ action.referral.concern_category|default:"—" }}</span>
                     <span><span class="status-pill {{ action.referral.status }}">{{ action.referral.get_status_display }}</span>{% if action.referral.review_pill_label %} <span class="status-pill {{ action.referral.review_pill_class }}">{{ action.referral.review_pill_label }}</span>{% endif %}</span>
                 </div>
+            </div>
             </div>
         </div>
     </div>

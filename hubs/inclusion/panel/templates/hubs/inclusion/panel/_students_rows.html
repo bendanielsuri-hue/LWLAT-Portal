@@ -66,26 +66,30 @@ markup in one place means both call sites can never drift apart.
         space and [be] vertically aligned"). display: contents outside
         that band, so nothing changes at any other width.
         {% endcomment %}
+        {% comment %}
+        row-facts-shell exists purely to hold container-type: inline-size
+        (panel.css) - see #actions-filtered-content .row-facts-shell's own
+        comment (panel.css) for why the query container has to be a
+        separate element from .row-facts itself.
+        {% endcomment %}
         <div class="row-student-details">
-            <div class="row-facts row-facts-cols">
-                <div class="row-fact-col" style="width: {{ col_widths.dobage }}">
+        <div class="row-facts-shell">
+        <div class="row-facts row-facts-cols">
+                <div class="row-fact-col" data-col="dobage" style="width: {{ col_widths.dobage }}">
                     <span class="row-fact-label">DOB</span>
                     <span>{{ s.date_of_birth|date:"d/m/y"|default:"—" }}</span>
                     <span>{% if s.current_age is not None %}Age {{ s.current_age }}{% else %}Age —{% endif %}</span>
                 </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.genderethnicity }}">
+                <div class="row-fact-col" data-col="genderethnicity" style="width: {{ col_widths.genderethnicity }}">
                     <span class="row-fact-label">Details</span>
                     <span>{{ s.get_gender_display|default:"—" }}</span>
                     <span>{{ s.get_ethnicity_display|default:"—" }}</span>
                 </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.tutorhoy }}">
+                <div class="row-fact-col" data-col="tutorhoy" style="width: {{ col_widths.tutorhoy }}">
                     <span class="row-fact-label">Pastoral</span>
                     <span title="{% if s.form_tutor %}{{ s.form_tutor.first_name }} {{ s.form_tutor.last_name }}{% else %}—{% endif %}">Tutor {% if s.form_tutor %}{{ s.form_tutor|initials }}{% else %}—{% endif %}</span>
                     <span title="{% if s.head_of_year %}{{ s.head_of_year.first_name }} {{ s.head_of_year.last_name }}{% else %}—{% endif %}">HoY {% if s.head_of_year %}{{ s.head_of_year|initials }}{% else %}—{% endif %}</span>
                 </div>
-                <span class="mc-vdivider"></span>
                 {% comment %}
                 Behaviour/Attendance split into two single-fact columns, not
                 one combined pair (live feedback: "lets have an Attendance
@@ -106,17 +110,17 @@ markup in one place means both call sites can never drift apart.
                 PA vs AA %" -> "I meant AA and UA"), same breakdown the
                 Student Details attendance card's own legend already shows.
                 {% endcomment %}
-                <div class="row-fact-col" style="width: {{ col_widths.behaviour }}">
+                <div class="row-fact-col" data-col="behaviour" style="width: {{ col_widths.behaviour }}">
                     <span class="row-fact-label">Behaviour</span>
                     <span>{{ s.behaviour_incidents_summary }}</span>
                     <span>{{ s.positive_behaviour_summary_text }}</span>
                 </div>
-                <span class="mc-vdivider"></span>
-                <div class="row-fact-col" style="width: {{ col_widths.attendance }}">
+                <div class="row-fact-col" data-col="attendance" style="width: {{ col_widths.attendance }}">
                     <span class="row-fact-label">Attendance</span>
                     <span class="row-fact-inline-pill">{% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% if s.is_persistently_absent %} <span class="status-pill overdue_review">PA</span>{% endif %}{% else %}—{% endif %}</span>
                     <span>AA {{ s.attendance_authorised_pct }}% &middot; UA {{ s.attendance_unauthorised_pct }}%</span>
                 </div>
+            </div>
             </div>
         </div>
     </div>

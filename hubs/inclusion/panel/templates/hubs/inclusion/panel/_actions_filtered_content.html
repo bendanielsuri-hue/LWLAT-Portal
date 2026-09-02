@@ -1,4 +1,125 @@
 {% load static %}
+{% comment %}
+Facts-strip wrap breakpoint (live feedback: "let's not ever hide any data
+cols... have data cols always go to next line as soon as it does not
+fit... when this happens have description go full width" - replaced an
+earlier per-column fade/hide design entirely; nothing is ever hidden any
+more, so there's exactly one breakpoint left (fact_thresholds.wrap,
+views.py - a plain px string computed from that page load's real
+col_widths, so it can't live in the static stylesheet the way the rest of
+this page's CSS does). Below it, Description claims its own full-width row
+and Due/Created/Referral flow onto row 2 (or row 3, if even row 2 can't fit
+all three - ordinary flex-wrap, no extra CSS needed for that case). See
+panel.css's own "Facts-strip overflow handling" comment
+(#actions-filtered-content .row-facts) for the fuller history of what this
+replaced.
+{% endcomment %}
+<style>
+@container action-facts (max-width: {{ fact_thresholds.wrap }}) {
+    /* Base wrapped state - dividers stay ON here (live feedback: "portrait
+       tablet mode should have all the divider lines showing" - the
+       container query above only knows the facts strip's own pixel width,
+       not the actual viewport/device it's running on, and that width can
+       drop below the wrap threshold at plenty of widths wider than a phone
+       (tablet portrait included) once the sidebar/thumb/buttons eat into
+       it. .row-facts's own border-top (its base rule, panel.css) and
+       Created/Referral's normal border-left divider (.row-facts-cols >
+       .row-fact-col:not(:first-child), panel.css) are both left completely
+       alone here - only Description's own flex-basis changes, so the
+       tablet-portrait "wrapped but still has dividers" look is mostly just
+       the ordinary divider styling applied to a row that now spans two
+       lines instead of one. The narrower @media block below (true mobile
+       only) is where those same dividers actually get stripped in favour
+       of whitespace. */
+    #actions-filtered-content .row-facts {
+        flex-wrap: wrap;
+        row-gap: var(--space-sm);
+    }
+    /* Horizontal divider between Description's line and Due/Created/
+       Referral's line (live feedback: "because the data cols are on next
+       line, we need to introduce a horizontal line") - border-bottom on
+       Description itself, not border-top split across the wrapped row 2
+       items, so it's guaranteed one solid line (separate flex items' own
+       borders can land on slightly different sub-pixel rows otherwise). */
+    #actions-filtered-content .row-fact-col-description {
+        flex-basis: 100%;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: var(--space-sm);
+    }
+    /* Due (first item on row 2) doesn't need a divider before it any more
+       than Description (first item on row 1) does - live feedback: "first
+       of the new data cols on new line does not need left divider before
+       it. Due label should line up with description on left". Created/
+       Referral keep their own normal divider (base rule, panel.css)
+       untouched - only Due loses it here.
+       max-width shrinks Due's own box by the same --space-md its padding-
+       left used to consume (live feedback: "due looks too wide, we solved
+       this in mobile mode!" - zeroing padding-left alone, like just above,
+       repeats the exact bug fixed there: Due's declared width (col_widths.
+       due, inline style) stays the same total px, but with 0 padding it
+       now has MORE actual content room than Created/Referral (which still
+       spend --space-md of their own equal width on padding), so short text
+       sits with visible extra slack. Capping the box narrower instead of
+       widening the content area keeps Due's usable text width matching its
+       siblings' - flush-left AND same density, not one or the other. */
+    #actions-filtered-content .row-facts-cols > .row-fact-col[data-col="due"] {
+        border-left-width: 0;
+        margin-left: 0;
+        padding-left: 0;
+        max-width: calc({{ col_widths.due }} - var(--space-md));
+    }
+}
+/* True mobile only, not just "wrapped" - matches this page's own existing
+   mobile/row-restructure breakpoint (#actions-filtered-content .entity-row,
+   ≤700px, above) rather than inventing a new number. Everything in here is
+   the "whitespace, not lines" treatment (DES-L10) from the live-feedback
+   history above (horizontal line under Description, vertical dividers
+   between Due/Created/Referral, the line above Description, Due's own
+   alignment) -
+   scoped to true phone widths only now, so a portrait tablet - still wide
+   enough to miss this @media but narrow enough to trigger the @container
+   wrap above - keeps every divider line. */
+@media (max-width: 700px) {
+    @container action-facts (max-width: {{ fact_thresholds.wrap }}) {
+        /* border-top/margin-top/padding-top zeroed - the one remaining
+           line above Description; the ≥701px grid band already cancels
+           this exact same divider the same way, panel.css, since
+           .entity-row::before covers that boundary there instead. margin-
+           top replaces it with the same var(--space-sm) whitespace as
+           row-gap, instead of margin(--space-xxs)+border(1px)+padding
+           (--space-xxs), so the two gaps render identically rather than
+           two different box models coincidentally landing near each
+           other. */
+        #actions-filtered-content .row-facts {
+            border-top: none;
+            margin-top: var(--space-sm);
+            padding-top: 0;
+        }
+        /* Vertical dividers between Due/Created/Referral dropped in favour
+           of plain whitespace. column-gap specifically, not the gap
+           shorthand - .row-facts-cols and .row-facts are the same element
+           (both classes on one div, _actions_rows.html), so a plain `gap`
+           here would silently also overwrite .row-facts's own row-gap
+           above it in source order (confirmed live: row-gap: var(--space-
+           sm) rendered as --space-md's 16px instead of the intended 12px
+           until this was split out). */
+        #actions-filtered-content .row-facts-cols {
+            column-gap: var(--space-md);
+        }
+        #actions-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
+            border-left-width: 0;
+            margin-left: 0;
+            padding-left: 0;
+        }
+        /* Cancels the tablet tier's own border-bottom/padding-bottom on
+           Description (above) - true mobile has no line there either. */
+        #actions-filtered-content .row-fact-col-description {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+    }
+}
+</style>
 <div class="entity-list" data-selectable="single">
     {% comment %}
     Row-detail for Actions (issue #12), reusing the shape confirmed on

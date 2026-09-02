@@ -892,6 +892,27 @@ def _col_width(strings, max_ch, min_ch=4):
     return f'{max(min_ch, min(scaled, max_ch))}ch'
 
 
+def _facts_wrap_threshold(col_ch_widths, gap_px=17, px_per_ch=7.0):
+    # Single-breakpoint helper for a facts strip with no "always visible
+    # full width" hero column (Referrals/Students - unlike Actions, whose
+    # Description column deliberately claims all of line 1 once wrapped;
+    # every column here is equally "just data", so there's nothing to
+    # promote to full width, just an ordinary flex-wrap once everything no
+    # longer fits on one line). gap_px matches one column's own left
+    # border(1px) + margin-left(--space-md, 16px) - see each page's own
+    # .row-facts-cols > .row-fact-col:not(:first-child) rule (panel.css).
+    # px_per_ch converts each column's own `ch` width to real px rather than
+    # leaving `ch` in the @container condition itself - `ch`/`em` inside an
+    # @container CONDITION resolve against the root font-size, not the
+    # queried container's own, a real browser behaviour confirmed live via
+    # Playwright while building this same mechanism for Actions (that page's
+    # own fact_thresholds, inclusion_panel_actions below, has the fuller
+    # history) - leaving it in would silently produce the wrong breakpoint.
+    total_ch = sum(int(w.removesuffix('ch')) for w in col_ch_widths)
+    gaps = max(0, len(col_ch_widths) - 1) * gap_px
+    return f'{round(gaps + total_ch * px_per_ch)}px'
+
+
 def _grouped_questions():
     # Flat (category=None) questions are appended last as a headerless group, so
     # callers/templates can keep iterating one flat list of groups.
@@ -1552,9 +1573,15 @@ def inclusion_panel_students(request):
             ['Details']
             + [s.get_gender_display() or '—' for s in students]
             + [s.get_ethnicity_display() or '—' for s in students],
-            # 24 clipped "Mixed / Multiple Ethnic Groups" (31 chars),
-            # confirmed live via Playwright - 32 covers it.
-            max_ch=32,
+            # Truncated with ellipsis instead of widened to fit (live
+            # feedback: "Ethnicity should be truncated instead" - was 32,
+            # raised from 24 specifically so "Mixed / Multiple Ethnic
+            # Groups" (31 chars) never clipped; that extra width was also
+            # what pushed later columns to wrap a line sooner, which is why
+            # this page's facts-strip height guard needed 76px instead of
+            # Actions'/Referrals' own 66px). Back to 24 - long values
+            # truncate via the shared .row-fact-col span ellipsis instead.
+            max_ch=24,
         ),
         # "Pastoral", not "Staff" (live feedback: "rename Staff to
         # Pastoral") - reads as what the column is actually about (the
@@ -1611,12 +1638,23 @@ def inclusion_panel_students(request):
             max_ch=26,
         ),
     }
+    # Never-hide/wrap facts strip (live feedback: "let's apply all of this
+    # to Students and Referrals" - ported from Actions, minus the "one
+    # column always visible/full-width" refinement, which doesn't have an
+    # equivalent here - see _facts_wrap_threshold's own comment).
+    fact_thresholds = {
+        'wrap': _facts_wrap_threshold([
+            col_widths['dobage'], col_widths['genderethnicity'], col_widths['tutorhoy'],
+            col_widths['behaviour'], col_widths['attendance'],
+        ]),
+    }
 
     context = {
         **_panel_base_context(request),
         'students': students,
         'is_aggregate_view': is_aggregate_view,
         'col_widths': col_widths,
+        'fact_thresholds': fact_thresholds,
         'years': years,
         'forms': forms,
         'forms_by_year_json': json.dumps(forms_by_year),
@@ -1878,7 +1916,7 @@ def inclusion_panel_referrals(request):
     # - label included as its own candidate string, short dates, staff
     # initials with a "By " prefix for Raised (mirrors Actions' Created
     # column exactly).
-    context['col_widths'] = {
+    col_widths = {
         'raised': _col_width(
             ['Raised']
             + [r.created_at.strftime('%d/%m/%y') for r in referrals]
@@ -1903,6 +1941,18 @@ def inclusion_panel_referrals(request):
             + [f'{r.incomplete_actions_count} Incomplete' for r in referrals],
             max_ch=16,
         ),
+    }
+    context['col_widths'] = col_widths
+    # Never-hide/wrap facts strip (live feedback: "let's apply all of this
+    # to Students and Referrals" - ported from Actions, minus the "one
+    # column always visible/full-width" refinement, which doesn't have an
+    # equivalent here - see _facts_wrap_threshold's own comment). Replaces
+    # the old #referrals-filtered-content .row-facts-cols { display: none }
+    # below 1180px (panel.css) - the whole strip used to just disappear at
+    # tablet/mobile width, relying on "Referral Details" to surface the same
+    # data; it now stays visible and wraps instead, at every width.
+    context['fact_thresholds'] = {
+        'wrap': _facts_wrap_threshold([col_widths['raised'], col_widths['panels'], col_widths['priorityreview'], col_widths['actionsstatus']]),
     }
     if is_continuation:
         template = 'hubs/inclusion/panel/_referrals_rows.html'
@@ -2583,6 +2633,39 @@ def inclusion_panel_actions(request):
         ),
     }
 
+    # Single container-query breakpoint for the facts strip (live feedback:
+    # "let's not ever hide any data cols... have data cols always go to next
+    # line as soon as it does not fit... description go full width" -
+    # replaced an earlier fade-out-columns-one-at-a-time design entirely;
+    # nothing gets hidden any more, so there's only one threshold left: the
+    # point at which Description+Due+Created+Referral no longer all fit on
+    # one line. Below it, flex-wrap:wrap + Description's own flex-basis:100%
+    # (_actions_filtered_content.html) does the rest - Due/Created/Referral
+    # flow onto row 2 together, and if even row 2 can't fit all three,
+    # ordinary flex-wrap cascades them onto row 3 with no extra CSS needed.
+    # _GAP_PX is one column's own left border(1px) + margin-left(--space-md,
+    # 16px) - see #actions-filtered-content .row-facts-cols > .row-fact-col
+    # :not(:first-child) (panel.css); _DESC_PX matches row-fact-col-
+    # description's own fixed flex-basis (panel.css). Plain px, not `ch`
+    # mixed into the calc()/condition directly - confirmed live via
+    # Playwright that `ch`/`em` inside an @container CONDITION resolve
+    # against the root/document font-size, not the queried container's own
+    # font-size the way they do inside a normal ruleset body (a real,
+    # documented browser behaviour), silently producing the wrong
+    # breakpoint. _PX_PER_CH converts each column's ch width to the same
+    # absolute px that context actually renders at - measured live
+    # (getBoundingClientRect on a 100ch probe inside .row-facts), not
+    # assumed.
+    _fact_gap_px = 17
+    _fact_desc_px = 320
+    _px_per_ch = 7.0
+    _due_ch = int(col_widths['due'].removesuffix('ch'))
+    _created_ch = int(col_widths['created'].removesuffix('ch'))
+    _referral_ch = int(col_widths['referral'].removesuffix('ch'))
+    fact_thresholds = {
+        'wrap': f'{round(_fact_desc_px + 3 * _fact_gap_px + (_due_ch + _created_ch + _referral_ch) * _px_per_ch)}px',
+    }
+
     context = {
         **_panel_base_context(request),
         'actions': actions,
@@ -2616,6 +2699,7 @@ def inclusion_panel_actions(request):
         'referrals_count': total_referrals_count,
         'is_aggregate_view': is_aggregate_view,
         'col_widths': col_widths,
+        'fact_thresholds': fact_thresholds,
         'page_obj': page_obj,
     }
     if page_obj.has_next():
