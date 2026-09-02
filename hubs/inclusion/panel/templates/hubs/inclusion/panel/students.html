@@ -398,7 +398,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
 
     // Desktop/tablet button placement (#117 follow-up) and the row-detail
-    // columns (Year/Reg, DOB/YOA, Gender/Ethnicity, Tutor/HoY, Behaviour/
+    // columns (Year/Reg, DOB/Age, Background, Pastoral, Behaviour,
     // Attendance) both used to be decided by JS here - a per-row/per-list
     // scrollWidth measurement re-run on every resize tick (live feedback
     // originally: "can the buttons dynamically go to next line when it
@@ -531,6 +531,26 @@ document.addEventListener('DOMContentLoaded', function () {
                 max = Math.max(max, el.getBoundingClientRect().width);
             });
             if (max > 0) container.style.setProperty('--students-btn-col-w', max + 'px');
+            // Per-slot widths too (live feedback: "the action buttons are
+            // changing size. Each button should be width of largest like
+            // action page does") - fixing the whole .btn-row's own width
+            // to the widest row (above) only keeps the COLUMN a consistent
+            // width; at >=1401px (panel.css) Actions/Referrals go side by
+            // side and each still sized to its own content, so "Actions"
+            // alone still grew/shrank row to row depending on whether its
+            // count badge was present. Same per-slot measurement Referrals'
+            // own wireReferralButtonLayout already does (referrals.html) -
+            // ported here since Students never had it.
+            ['actions', 'referrals'].forEach(function (slot) {
+                container.style.removeProperty('--btn-w-' + slot);
+            });
+            ['actions', 'referrals'].forEach(function (slot) {
+                var slotMax = 0;
+                container.querySelectorAll('[data-btn-slot="' + slot + '"]').forEach(function (el) {
+                    slotMax = Math.max(slotMax, el.getBoundingClientRect().width);
+                });
+                if (slotMax > 0) container.style.setProperty('--btn-w-' + slot, slotMax + 'px');
+            });
         }
         var lastWidth = null;
         function refreshIfWidthChanged() {

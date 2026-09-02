@@ -9,15 +9,28 @@ into the existing .entity-list before the old sentinel). Keeping the row
 markup in one place means both call sites can never drift apart.
 {% endcomment %}
 {% for s in students %}
-<div class="entity-row selectable" tabindex="0" role="button" aria-pressed="false">
-    <div class="entity-thumb{% if is_aggregate_view and s.school.logo_url %} is-logo{% endif %}">
+<div class="entity-row selectable{% if is_aggregate_view %} has-dual-thumb{% endif %}" tabindex="0" role="button" aria-pressed="false">
+    <div class="entity-thumb-group">
+        {% comment %}
+        School logo + student avatar shown side by side for MAT-wide/
+        aggregate-view staff (ported from Actions - live feedback: "I am
+        not seeing School logo and student placeholder like I do on
+        Actions Page"). entity-thumb-school hidden at the ≤700px mobile
+        format (panel.css) - back to logo-only there, same single-thumb
+        footprint every other width used before this port.
+        {% endcomment %}
         {% if is_aggregate_view %}
-        {% if s.school.logo_url %}<img src="{{ s.school.logo_url }}" alt="{{ s.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
-        {% elif s.photo %}
-        <img src="{{ s.photo.url }}" alt="">
-        {% else %}
-        <span class="avatar-initials {{ s|avatar_color_class }}">{{ s.first_name|first }}{{ s.last_name|first }}</span>
+        <div class="entity-thumb is-logo entity-thumb-school">
+            {% if s.school.logo_url %}<img src="{{ s.school.logo_url }}" alt="{{ s.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+        </div>
         {% endif %}
+        <div class="entity-thumb entity-thumb-student">
+            {% if s.photo %}
+            <img src="{{ s.photo.url }}" alt="">
+            {% else %}
+            <span class="avatar-initials {{ s|avatar_color_class }}">{{ s.first_name|first }}{{ s.last_name|first }}</span>
+            {% endif %}
+        </div>
     </div>
     <div class="entity-body">
         <div class="row-title-row">
@@ -42,29 +55,68 @@ markup in one place means both call sites can never drift apart.
         already read as unambiguous on their own ("Male", "Asian or Asian
         British" don't need "Gender:"/"Ethnicity:" restated - R1).
         {% endcomment %}
-        <div class="row-facts row-facts-cols">
-            <div class="row-fact-col" style="width: {{ col_widths.dobyoa }}">
-                <span class="row-fact-label">DOB</span>
-                <span>{{ s.date_of_birth|date:"d/m/y"|default:"—" }}</span>
-                <span>YOA {{ s.year_arrived|default:"—" }}</span>
-            </div>
-            <span class="mc-vdivider"></span>
-            <div class="row-fact-col" style="width: {{ col_widths.genderethnicity }}">
-                <span class="row-fact-label">Details</span>
-                <span>{{ s.get_gender_display|default:"—" }}</span>
-                <span>{{ s.get_ethnicity_display|default:"—" }}</span>
-            </div>
-            <span class="mc-vdivider"></span>
-            <div class="row-fact-col" style="width: {{ col_widths.tutorhoy }}">
-                <span class="row-fact-label">Staff</span>
-                <span title="{% if s.form_tutor %}{{ s.form_tutor.first_name }} {{ s.form_tutor.last_name }}{% else %}—{% endif %}">Tutor {% if s.form_tutor %}{{ s.form_tutor|initials }}{% else %}—{% endif %}</span>
-                <span title="{% if s.head_of_year %}{{ s.head_of_year.first_name }} {{ s.head_of_year.last_name }}{% else %}—{% endif %}">HoY {% if s.head_of_year %}{{ s.head_of_year|initials }}{% else %}—{% endif %}</span>
-            </div>
-            <span class="mc-vdivider"></span>
-            <div class="row-fact-col" style="width: {{ col_widths.behaviourattendance }}">
-                <span class="row-fact-label">Behaviour</span>
-                <span>{{ s.behaviour_incidents_summary }}</span>
-                <span>Attendance {% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% else %}—{% endif %}</span>
+        {% comment %}
+        row-student-details: wraps the facts strip alone (Students has no
+        Action-/Concern-equivalent title-line content to hold, unlike
+        Actions'/Referrals' own row-action-details/row-referral-details) -
+        added so the >=701px grid band (panel.css) has a real box to
+        stretch+centre row-facts-cols within, same as those two pages get
+        (live feedback: "use Actions as the model for Students and
+        Referrals" -> "data cols [should] take up available vertical
+        space and [be] vertically aligned"). display: contents outside
+        that band, so nothing changes at any other width.
+        {% endcomment %}
+        <div class="row-student-details">
+            <div class="row-facts row-facts-cols">
+                <div class="row-fact-col" style="width: {{ col_widths.dobage }}">
+                    <span class="row-fact-label">DOB</span>
+                    <span>{{ s.date_of_birth|date:"d/m/y"|default:"—" }}</span>
+                    <span>{% if s.current_age is not None %}Age {{ s.current_age }}{% else %}Age —{% endif %}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.genderethnicity }}">
+                    <span class="row-fact-label">Details</span>
+                    <span>{{ s.get_gender_display|default:"—" }}</span>
+                    <span>{{ s.get_ethnicity_display|default:"—" }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.tutorhoy }}">
+                    <span class="row-fact-label">Pastoral</span>
+                    <span title="{% if s.form_tutor %}{{ s.form_tutor.first_name }} {{ s.form_tutor.last_name }}{% else %}—{% endif %}">Tutor {% if s.form_tutor %}{{ s.form_tutor|initials }}{% else %}—{% endif %}</span>
+                    <span title="{% if s.head_of_year %}{{ s.head_of_year.first_name }} {{ s.head_of_year.last_name }}{% else %}—{% endif %}">HoY {% if s.head_of_year %}{{ s.head_of_year|initials }}{% else %}—{% endif %}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                {% comment %}
+                Behaviour/Attendance split into two single-fact columns, not
+                one combined pair (live feedback: "lets have an Attendance
+                and a Behavior Column") - each value line no longer repeats
+                its own label as a prefix since the column's own label above
+                it already says that. Behaviour holds both negative and
+                positive logs now (live feedback: "Behaviour Should have
+                positive and negative behaviour"); Attendance holds the
+                plain overall percentage - live feedback: "I did not want
+                attendance to be a pill" ruled out colour-coding the number
+                itself, "maybe we add a PA pill instead" added a real DfE
+                Persistent Absence callout (views.py:
+                is_persistently_absent) beside it instead, only shown once
+                a student actually crosses that 90% threshold, same
+                "callout only when it means something" convention Actions'
+                own Overdue pill uses - plus its own Authorised/
+                Unauthorised absence breakdown (live feedback: "what about
+                PA vs AA %" -> "I meant AA and UA"), same breakdown the
+                Student Details attendance card's own legend already shows.
+                {% endcomment %}
+                <div class="row-fact-col" style="width: {{ col_widths.behaviour }}">
+                    <span class="row-fact-label">Behaviour</span>
+                    <span>{{ s.behaviour_incidents_summary }}</span>
+                    <span>{{ s.positive_behaviour_summary_text }}</span>
+                </div>
+                <span class="mc-vdivider"></span>
+                <div class="row-fact-col" style="width: {{ col_widths.attendance }}">
+                    <span class="row-fact-label">Attendance</span>
+                    <span class="row-fact-inline-pill">{% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% if s.is_persistently_absent %} <span class="status-pill overdue_review">PA</span>{% endif %}{% else %}—{% endif %}</span>
+                    <span>AA {{ s.attendance_authorised_pct }}% &middot; UA {{ s.attendance_unauthorised_pct }}%</span>
+                </div>
             </div>
         </div>
     </div>

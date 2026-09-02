@@ -26,9 +26,8 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
         is_aggregate_view, not just when a real logo_url exists - the
         placeholder icon still widens the group the same way a real logo
         does) lets panel.css adjust the desktop/mobile bleed maths
-        (row-title-secondary/action-note/row-facts' own "42px" assumption,
-        below) for the wider group without hardcoding it into every one of
-        those rules individually.
+        (row-facts' own "42px" assumption, below) for the wider group
+        without hardcoding it into every one of those rules individually.
         {% endcomment %}
         {% if is_aggregate_view %}
         <div class="entity-thumb is-logo entity-thumb-school">
@@ -46,65 +45,76 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
     <div class="entity-body">
         <div class="row-title-row">
             {% comment %}
-            Student > Referral+Action - Student (name/pills/Year-House-Reg)
-            is its own line/section, same as Referrals' own name/Year-
-            House-Reg. Referral+Action share ONE divided section below it
-            (row-title-secondary, same class Referrals uses) rather than
-            two separately-divided tiers - live feedback: "Referral and
-            Action line is same prominence... not sure we can justify two
-            horizontal dividers". Referral (row-title-referral-context) is
-            demoted to a smaller context line ahead of the still-prominent
-            Action line - its own status pill dropped too (redundant with
-            Referral Details, same call already made for Action's own
-            status pill below).
+            Restructured (live feedback: "a lot of dead space... should the
+            data cards move to the right of Action category and
+            description" -> settled instead on folding Description itself
+            into the facts strip and reclaiming the vertical space that
+            freed up). row-action-details is now just the facts strip -
+            everything else lives here in row-title-row, two lines: Action
+            category + its due pill (row-title-secondary) is now the
+            card's title line, promoted to the top (live feedback: "on
+            this page Action is the card title") - Student name demoted to
+            share Year-House-Reg's own line/styling (row-facts-primary-
+            plain) instead of its former standalone title line (live
+            feedback: "can name go on same line as group info and less
+            prominent"). Student flag pills (SEN/PP/EAL/LAC/YC/MA) went
+            through a few placements on this line (own line, then folded
+            back in beside name/group info) before being dropped from the
+            row entirely (live feedback: "lets lose the student flags from
+            both Actions and Referrals").
             {% endcomment %}
-            <div class="entity-title">{{ action.referral.student }}</div>
-            {% if action.referral.student.sen_status %}<span class="bd-pill bd-untriaged">SEN {{ action.referral.student.sen_status }}</span>{% endif %}
-            {% if action.referral.student.is_pp %}<span class="bd-pill bd-untriaged">PP</span>{% endif %}
-            {% if action.referral.student.is_eal %}<span class="bd-pill bd-untriaged">EAL</span>{% endif %}
-            {% if action.referral.student.is_lac %}<span class="bd-pill bd-untriaged">LAC</span>{% endif %}
-            {% if action.referral.student.is_young_carer %}<span class="bd-pill bd-untriaged">YC</span>{% endif %}
-            {% if action.referral.student.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
-            <span class="row-facts-primary-plain">Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; House {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; Form {{ action.referral.student.reg_form }}{% endif %}</span>
-        </div>
-        {% comment %}
-        row-action-details: everything about the referral/action itself
-        (as opposed to row-title-row above, which is purely the student's
-        own identity - name/pills/Year-House-Reg). display: contents at
-        every width outside the 481-1179px tablet band (panel.css) - this
-        wrapper exists only so that band can grid-place it as its own
-        "details" area beside row-btn-row-stacked's "buttons" area (live
-        feedback: "Student section always full width... underneath,
-        Referral details on left and action buttons on right" - the
-        student header can carry a lot of pills, so it needed to stop
-        competing with the status/buttons column for the same horizontal
-        space at this width, which is what caused this row to overflow
-        and scroll horizontally in the first place). Purely a grouping
-        box elsewhere - no visual effect on desktop/mobile, same
-        children in the same document order as before this wrapper
-        existed.
-        {% endcomment %}
-        <div class="row-action-details">
             <div class="row-title-secondary">
                 <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Action: </span>{{ action.category|default:"—" }}</div>
                 {% comment %}
-                No plain status pill here (dropped #119 follow-up, live
-                feedback: "definitely" - it duplicated the live segmented
-                status changer below, same status shown twice, once
-                read-only and once as the actual control). Overdue is kept
-                - the segmented control has no equivalent signal for it.
+                Title-line pill, every action now (views.py: title_pill_label/
+                title_pill_class) - Incomplete gets the due countdown (live
+                feedback: "we could have a due countdown pill so its never
+                blank", extending what used to be an Overdue-only callout);
+                Complete/Not Required fall back to their own plain status
+                pill instead (live feedback: "let's see the status pill as
+                well" - those two statuses have no due countdown left to
+                show, so without this they rendered with nothing here at
+                all). Not the same plain-status-pill idea dropped for
+                Incomplete at #119 ("it duplicated the live segmented status
+                changer below") - Complete/Not Required aren't duplicating
+                anything else on the row.
                 {% endcomment %}
-                {% if action.is_overdue %}
+                {% if action.title_pill_label %}
                 <div class="row-title-pills">
-                    <span class="status-pill overdue_review">Overdue {{ action.days_overdue }}d</span>
+                    <span class="status-pill {{ action.title_pill_class }}">{{ action.title_pill_label }}</span>
                 </div>
                 {% endif %}
             </div>
-            <div class="entity-meta action-note">{% if action.note %}{{ action.note }}{% else %}<span class="empty-note-inline">No description.</span>{% endif %}</div>
+            {% comment %}
+            Student name folded into the same demoted row-facts-primary-plain
+            line/styling as Year-House-Reg, not its own .entity-title line
+            any more - Action is the title now, this is context underneath
+            it. No hover/chosen fake-bold (INT-M4) needed here either since
+            it's no longer .entity-title - that affordance now belongs to
+            Action's own entity-title instead (panel.css: the old
+            .actions-list-row cancel-fake-bold-on-Concern rule, which used
+            to protect the name's exclusive claim to it, is gone).
+            {% endcomment %}
+            <span class="row-facts-primary-plain">{{ action.referral.student }} &middot; Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; House {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; Form {{ action.referral.student.reg_form }}{% endif %}</span>
+        </div>
+        {% comment %}
+        row-action-details: now just the facts strip (Description/Due/
+        Created/Referral) - display: contents at every width outside the
+        481-1179px tablet band (panel.css), same grouping-box-only role as
+        before, kept as its own wrapper purely so that band can still
+        grid-place it beside row-btn-row-stacked's "buttons" area.
+        {% endcomment %}
+        <div class="row-action-details">
             {% comment %}
             One column per fact, label on its own top row (live feedback:
             "change from pairs of data to Label then field for all...
-            Label on top row with details below"). Assigned folded into
+            Label on top row with details below"). Description folded in
+            as a column too now (live feedback: "descripion could be
+            treated as a Data col?") rather than its own full-width line
+            below the strip - it grows/wraps instead of the fixed ch-based
+            width every other column gets (row-fact-col-description,
+            panel.css), so it eats the row's leftover width instead of
+            adding a whole extra line of card height. Assigned folded into
             Due as a third stacked row, same idea as Created's own third
             row for who created it (live feedback: "have staff assigned on
             third row of due"); Referral's status pill(s) moved to their
@@ -121,9 +131,16 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
             (which one a narrow row loses first) is still Assigned/Due,
             then Created, then Referral - but that drop is a pure-CSS crop
             now (panel.css), not JS choosing a column, so it just clips
-            from the end regardless of grouping.
+            from the end regardless of grouping. Description is never
+            dropped this way - it's the row's primary content, so it gets
+            its own line-clamp (panel.css) instead of disappearing.
             {% endcomment %}
             <div class="row-facts row-facts-cols">
+                <div class="row-fact-col row-fact-col-description">
+                    <span class="row-fact-label">Description</span>
+                    <span>{% if action.note %}{{ action.note }}{% else %}<span class="empty-note-inline">No description.</span>{% endif %}</span>
+                </div>
+                <span class="mc-vdivider"></span>
                 <div class="row-fact-col" style="width: {{ col_widths.due }}">
                     <span class="row-fact-label">Due</span>
                     <span>{{ action.due_date|date:"d/m/y"|default:"—" }}</span>

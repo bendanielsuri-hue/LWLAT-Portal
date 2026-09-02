@@ -10,38 +10,45 @@ markup in one place means both call sites can never drift apart - same
 convention as Students' own _students_rows.html.
 {% endcomment %}
 {% for referral in referrals %}
-<div class="entity-row selectable referral-row" tabindex="0" role="button" aria-pressed="false">
-    <div class="entity-thumb{% if is_aggregate_view and referral.student.school.logo_url %} is-logo{% endif %}">
+<div class="entity-row selectable referral-row{% if is_aggregate_view %} has-dual-thumb{% endif %}" tabindex="0" role="button" aria-pressed="false">
+    <div class="entity-thumb-group">
+        {% comment %}
+        School logo + student avatar shown side by side for MAT-wide/
+        aggregate-view staff (ported from Actions - live feedback: "I am
+        not seeing School logo and student placeholder like I do on
+        Actions Page"). entity-thumb-school hidden at the ≤700px mobile
+        format (panel.css) - back to logo-only there, same single-thumb
+        footprint every other width used before this port.
+        {% endcomment %}
         {% if is_aggregate_view %}
-        {% if referral.student.school.logo_url %}<img src="{{ referral.student.school.logo_url }}" alt="{{ referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
-        {% elif referral.student.photo %}
-        <img src="{{ referral.student.photo.url }}" alt="">
-        {% else %}
-        <span class="avatar-initials {{ referral.student|avatar_color_class }}">{{ referral.student.first_name|first }}{{ referral.student.last_name|first }}</span>
+        <div class="entity-thumb is-logo entity-thumb-school">
+            {% if referral.student.school.logo_url %}<img src="{{ referral.student.school.logo_url }}" alt="{{ referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+        </div>
         {% endif %}
+        <div class="entity-thumb entity-thumb-student">
+            {% if referral.student.photo %}
+            <img src="{{ referral.student.photo.url }}" alt="">
+            {% else %}
+            <span class="avatar-initials {{ referral.student|avatar_color_class }}">{{ referral.student.first_name|first }}{{ referral.student.last_name|first }}</span>
+            {% endif %}
+        </div>
     </div>
     <div class="entity-body">
         <div class="row-title-row">
-            <div class="entity-title">{{ referral.student }}</div>
-            {% if referral.student.sen_status %}<span class="bd-pill bd-untriaged">SEN {{ referral.student.sen_status }}</span>{% endif %}
-            {% if referral.student.is_pp %}<span class="bd-pill bd-untriaged">PP</span>{% endif %}
-            {% if referral.student.is_eal %}<span class="bd-pill bd-untriaged">EAL</span>{% endif %}
-            {% if referral.student.is_lac %}<span class="bd-pill bd-untriaged">LAC</span>{% endif %}
-            {% if referral.student.is_young_carer %}<span class="bd-pill bd-untriaged">YC</span>{% endif %}
-            {% if referral.student.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
-            <span class="row-facts-primary-plain">Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; House {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; Form {{ referral.student.reg_form }}{% endif %}</span>
-        </div>
-        {% comment %}
-        row-referral-details: everything about the referral itself (as
-        opposed to row-title-row above, which is purely the student's own
-        identity - name/pills/Year-House-Reg). display: contents outside
-        the grid band (panel.css) - same "Student section full width,
-        Referral details on left, buttons full height on right" pattern
-        Actions' own row-action-details uses (_actions_rows.html) - ported
-        here for the same reason (live feedback: "do both" pages once the
-        Actions redesign was confirmed working).
-        {% endcomment %}
-        <div class="row-referral-details">
+            {% comment %}
+            Restructured to match Actions' own row-title-row (live feedback:
+            "can we use Actions as the model for Students and Referrals") -
+            Concern+status pills (row-title-secondary) promoted to the top
+            as the card's title line, superseding the earlier "name alone,
+            then Year/House/Reg, then Concern+pills" 3-line shape this page
+            settled on through several rounds of live feedback (git
+            history) - student name demoted to share the Year/House/Reg
+            line instead, same "less prominent, folded into group info"
+            treatment Actions' own name got. Student flag pills (SEN/PP/
+            EAL/LAC/YC/MA) stay dropped from this row entirely (live
+            feedback: "lets lose the student flags from both Actions and
+            Referrals").
+            {% endcomment %}
             <div class="row-title-secondary">
                 <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Concern: </span>{{ referral.concern_category|default:"—" }}</div>
                 <div class="row-title-pills">
@@ -49,6 +56,15 @@ convention as Students' own _students_rows.html.
                     <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
                 </div>
             </div>
+            <span class="row-facts-primary-plain">{{ referral.student }} &middot; Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; House {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; Form {{ referral.student.reg_form }}{% endif %}</span>
+        </div>
+        {% comment %}
+        row-referral-details: now just the mobile-only Raised-by line plus
+        the facts strip - Concern/pills moved up into row-title-row (above).
+        display: contents outside the grid band (panel.css), same grouping-
+        box-only role as Actions' own row-action-details.
+        {% endcomment %}
+        <div class="row-referral-details">
             <span class="row-title-raised-by">Raised by {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %} on {{ referral.created_at|date:"d M Y" }}</span>
             {% comment %}
             One column per topic, label on its own top row (ported from

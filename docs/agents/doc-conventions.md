@@ -22,6 +22,14 @@ Before elevating a rule to a principle, it has to clear two bars:
 
 If a rule fails either bar, it's a discard, not a principle — restating what the code already makes obvious costs context for no benefit.
 
+## Phrasing a principle
+
+Once a rule clears the worth bar, write it tight:
+
+- One sentence, two at most. State the constraint itself, not the reasoning behind it or the mechanism that satisfies it — the "why" and "how" belong in the colocated comment at the site that needs them, cited back to the principle. A first draft that runs long or starts justifying itself is a sign to cut, not a sign the rule is complex.
+- Reach for the most general true form of the rule, not the narrower version scoped to whatever specific case surfaced it. A rule narrowed to its triggering case reads as covering only that case, so the same underlying bug walks straight back in the next time it shows up in a shape the narrow wording didn't name — check whether the qualifier is actually load-bearing (the rule is false without it) before keeping it.
+- No mechanism names: no CSS properties, function names, class names, or specific values. Those tie the rule to one implementation and belong in the colocated comment instead (see below) — a principle should read the same whether the fix underneath it is CSS, a layout engine, or something else entirely.
+
 ## What belongs in a colocated comment
 
 - A named token/class + its value, and the one-clause reason behind it.

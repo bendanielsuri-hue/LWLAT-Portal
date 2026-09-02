@@ -243,19 +243,22 @@ document.addEventListener('DOMContentLoaded', function () {
     var overdueActionsToggle = document.getElementById('overdue-actions-toggle');
     var overdueActionsInput = document.getElementById('overdue-actions-input');
 
-    // Per-slot button widths + wrap detection for the 481-1179px tablet
-    // band (panel.css) - same measured-width idea as Students' own
-    // wireStudentButtonLayout (students.html, #117), adapted for Referrals'
+    // Per-slot button widths, originally built for the 481-1179px tablet
+    // band this page no longer has (superseded by the >=701px grid band,
+    // panel.css - that comment's own history covers the two now-dead bands
+    // this replaced) - the measurement itself outlived the band it was
+    // built for and now feeds the >=1401px wide-desktop band instead (live
+    // feedback: "the action buttons are changing size. Each button should
+    // be width of largest like action page does" - panel.css applies these
+    // as real widths there). Same measured-width idea as Students' own
+    // wireStudentButtonColumnWidth (students.html), adapted for Referrals'
     // 2 slots (Actions/Referral Details) and its own container/
-    // MutationObserver rather than sharing that page's. Originally pinned
-    // both buttons to one shared --btn-w-max width for a vertically
-    // stacked column (live feedback: "try buttons vertically stacked") -
-    // switched to per-slot widths, side by side, to match Students' own
-    // treatment once a live screenshot showed unclaimed width beside that
-    // stacked column (live feedback: "make this match what student page
-    // does"). Also marks any row whose buttons actually fell to their own
-    // line below the content (row-buttons-wrapped) via one offsetTop
-    // comparison per row.
+    // MutationObserver rather than sharing that page's. Also still marks
+    // any row whose buttons actually fell to their own line below the
+    // content (row-buttons-wrapped) via one offsetTop comparison per row -
+    // that part has no CSS consumer left at any current width (same dead-
+    // band history), kept rather than removed since it's cheap and doesn't
+    // interfere with the width measurement running alongside it.
     (function wireReferralButtonLayout() {
         var container = document.getElementById('referrals-filtered-content');
         if (!container) return;
@@ -279,7 +282,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (max > 0) container.style.setProperty('--btn-w-' + slot, max + 'px');
             });
             container.querySelectorAll('.entity-row').forEach(function (row) {
-                var thumb = row.querySelector('.entity-thumb');
+                var thumb = row.querySelector('.entity-thumb-group');
                 var btnRow = row.querySelector('.row-btn-row');
                 if (!thumb || !btnRow) return;
                 row.classList.toggle('row-buttons-wrapped', btnRow.offsetTop > thumb.offsetTop + 2);

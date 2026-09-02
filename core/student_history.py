@@ -258,6 +258,17 @@ def exclusion_most_recent(student):
     return student.exclusions.first()
 
 
+def positive_behaviour_summary(student):
+    """One-line derived summary of a student's positive-recognition log,
+    same shape as behaviour_summary's own negative-incident count - so a
+    row showing both reads as a matched pair, not two differently-phrased
+    stats side by side."""
+    count = positive_behaviour_entry_count(student)
+    if count == 0:
+        return 'No positive logged'
+    return f'{count} positive{"s" if count != 1 else ""} logged'
+
+
 def positive_behaviour_points(student):
     """Summed points across a student's whole positive-recognition log —
     summable, unlike BehaviourIncident's per-event severity tier."""

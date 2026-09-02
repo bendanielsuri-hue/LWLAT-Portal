@@ -6,6 +6,7 @@ Visual design values that hold regardless of which project this is. Entries here
 
 - **A1.** Keep a label and its value close together — don't push the value away to the far edge just because that's the layout convention.
 - **A2.** Text alignment: left by default for anything read as words. Centre only for short symbols/codes/badges. Right only when comparing sizes of numbers (currency, percentages).
+- **A3.** A pill/badge must always look vertically centred against the text it sits next to — never rely on text baseline for this, verify visually.
 
 ## C — Controls
 

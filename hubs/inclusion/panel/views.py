@@ -36,6 +36,7 @@ from core.student_history import (
     positive_behaviour_entry_count,
     positive_behaviour_periods,
     positive_behaviour_points,
+    positive_behaviour_summary,
 )
 from core.term_dates import next_half_term, next_term, upcoming_review_terms
 from portal.templatetags.avatar_extras import initials
@@ -305,7 +306,7 @@ def _panel_referral_stage(pr):
     if pr.discussion_status == 'pending':
         if pr.discussion_started_at:
             return 'discussing', 'Discussing'
-        return 'assigned', 'Assigned to Panel'
+        return 'assigned', 'Assigned'
     if pr.discussion_status == 'deferred':
         return 'deferred', 'Deferred'
     if pr.follow_up_status == 'incomplete':
@@ -687,8 +688,8 @@ def _close_stale_panel(panel, now):
     for pr in panel.panel_referrals.filter(discussion_status='pending', discussion_started_at__isnull=False):
         _stop_discussion_timer(pr)
     # Same deferral as a manual End Panel Meeting (see that action's own
-    # comment) - nothing left "Assigned to Panel" on a panel nobody's
-    # coming back to.
+    # comment) - nothing left "Assigned" on a panel nobody's coming back
+    # to.
     for pr in panel.panel_referrals.filter(discussion_status='pending', removed_at__isnull=True):
         pr.discussion_status = 'deferred'
         pr.save(update_fields=['discussion_status'])
@@ -1480,7 +1481,37 @@ def inclusion_panel_students(request):
     # relation for the whole list, not one per row.
     for student in students:
         student.attendance_pct = attendance_percentage(student)
+        # PA pill, not a coloured percentage (live feedback: "I did not
+        # want attendance to be a pill" [on the percentage] -> "maybe we
+        # add a PA pill instead") - PA (Persistent Absence) is the DfE's
+        # own standard flag for attendance below 90%, so it's a real
+        # threshold crossing worth calling out, not an invented tier;
+        # unlike the percentage (always shown), the pill only appears once
+        # a student actually crosses it - same "callout only when it means
+        # something" convention Actions' own Overdue pill uses.
+        student.is_persistently_absent = student.attendance_pct is not None and student.attendance_pct < 90
+        # AA/UA % alongside the overall percentage (live feedback:
+        # "Attendance needs an extra field" -> "what about PA vs AA %" ->
+        # "I meant AA and UA" - Authorised/Unauthorised absence percentage,
+        # same breakdown the Student Details attendance card's own legend
+        # already shows, not a new metric invented for this column).
+        student.attendance_authorised_pct = attendance_authorised_pct(student)
+        student.attendance_unauthorised_pct = attendance_unauthorised_pct(student)
         student.behaviour_incidents_summary = behaviour_summary(student)
+        # Positive alongside negative (live feedback: "Behaviour Should
+        # have positive and negative behaviour") - positive_behaviour_
+        # summary mirrors behaviour_summary's own phrasing/shape exactly so
+        # the two read as a matched pair in the same column.
+        student.positive_behaviour_summary_text = positive_behaviour_summary(student)
+        # Current age, not year-arrived (live feedback: "DOB could include
+        # current age" -> "lose YOA") - whole years as of today, the
+        # standard "subtract a year if this year's birthday hasn't happened
+        # yet" calculation.
+        student.current_age = None
+        if student.date_of_birth:
+            student.current_age = today.year - student.date_of_birth.year - (
+                (today.month, today.day) < (student.date_of_birth.month, student.date_of_birth.day)
+            )
 
     active_filter_count = sum(
         1 for v in (
@@ -1508,10 +1539,13 @@ def inclusion_panel_students(request):
     # either line (R1 - "Male"/"White British" already read as
     # self-explanatory, a column label above them doesn't change that).
     col_widths = {
-        'dobyoa': _col_width(
+        # Age, not Year Arrived (live feedback: "DOB could include current
+        # age" -> "lose YOA") - current_age computed above, alongside
+        # attendance_pct/behaviour_incidents_summary.
+        'dobage': _col_width(
             ['DOB']
             + [s.date_of_birth.strftime('%d/%m/%y') if s.date_of_birth else '—' for s in students]
-            + [f'YOA {s.year_arrived}' if s.year_arrived else 'YOA —' for s in students],
+            + [f'Age {s.current_age}' if s.current_age is not None else 'Age —' for s in students],
             max_ch=14,
         ),
         'genderethnicity': _col_width(
@@ -1522,17 +1556,59 @@ def inclusion_panel_students(request):
             # confirmed live via Playwright - 32 covers it.
             max_ch=32,
         ),
+        # "Pastoral", not "Staff" (live feedback: "rename Staff to
+        # Pastoral") - reads as what the column is actually about (the
+        # student's pastoral support contacts) rather than a generic
+        # "any staff member" label.
         'tutorhoy': _col_width(
-            ['Staff']
+            ['Pastoral']
             + ['Tutor ' + (initials(s.form_tutor) if s.form_tutor else '—') for s in students]
             + ['HoY ' + (initials(s.head_of_year) if s.head_of_year else '—') for s in students],
             max_ch=12,
         ),
-        'behaviourattendance': _col_width(
+        # Split into two single-fact columns, not one combined pair (live
+        # feedback: "lets have an Attendance and a Behavior Column") - each
+        # value line no longer needs its own "Behaviour"/"Attendance"
+        # prefix restated (_students_rows.html) since the column's own
+        # label above it already says that. Positive alongside negative
+        # (live feedback: "Behaviour Should have positive and negative
+        # behaviour") - both candidate lists included so the column widens
+        # for whichever of the two is longer on a given page.
+        'behaviour': _col_width(
             ['Behaviour']
             + [s.behaviour_incidents_summary for s in students]
-            + [f'Attendance {s.attendance_pct}%' if s.attendance_pct is not None else 'Attendance —' for s in students],
-            max_ch=28,
+            + [s.positive_behaviour_summary_text for s in students],
+            max_ch=22,
+        ),
+        # 'Attendance    ' (4 trailing spaces), not a bare 'Attendance'
+        # (live feedback: "why is Attendance cut off? Tons of space on the
+        # right") - this is the one column where the LABEL, not any value,
+        # is the longest candidate _col_width sees (its own values are
+        # always short: "80.0%", "—"), and raising max_ch alone did nothing
+        # - _col_width's scaled width (11ch) was already well under the old
+        # cap of 12, so the cap was never what bound it. The real gap is
+        # that _CH_CHAR_FACTOR is tuned against ordinary mixed-case value
+        # text, not the label's own uppercase + letter-spacing styling
+        # (row-fact-label, panel.css), which renders measurably wider per
+        # character - every other column's label sits comfortably under its
+        # own longer values, so this never surfaced before. Padding the
+        # measured candidate (not the displayed text - the template still
+        # renders the literal label) is the same trick the Referral column's
+        # own status-pill candidate already uses for an analogous "renders
+        # wider than its character count" case (padding for pill
+        # padding/border-radius, above) - max_ch raised to 16 alongside it
+        # so the padding actually has room to take effect.
+        # ' PA  ' padding on every pct candidate, not just the ones that
+        # actually cross the threshold - the PA pill (_students_rows.html)
+        # can appear on any row regardless of which row happened to be
+        # measured, so the column has to have room for it everywhere, same
+        # padding-for-pill-chrome trick the label's own candidate and the
+        # Referral column's status pill already use (both above).
+        'attendance': _col_width(
+            ['Attendance    ']
+            + [f'{s.attendance_pct}% PA  ' if s.attendance_pct is not None else '—' for s in students]
+            + [f'AA {s.attendance_authorised_pct}% · UA {s.attendance_unauthorised_pct}%' for s in students],
+            max_ch=26,
         ),
     }
 
@@ -1753,7 +1829,7 @@ def inclusion_panel_referrals(request):
     concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
     stage_choices = [
         ('open', 'Unassigned'),
-        ('assigned', 'Assigned to Panel'),
+        ('assigned', 'Assigned'),
         ('discussing', 'Discussing'),
         ('review_scheduled', 'Review Scheduled'),
         ('awaiting_review', 'Awaiting Review'),
@@ -2390,6 +2466,44 @@ def inclusion_panel_actions(request):
     for action in actions:
         action.is_overdue = action.status == 'incomplete' and action.due_date is not None and action.due_date < today
         action.days_overdue = (today - action.due_date).days if action.is_overdue else 0
+        # Title-line pill, every action now (live feedback: "have a due
+        # countdown pill so its never blank" for Incomplete, then "let's see
+        # the status pill as well" once Complete/Not Required actions turned
+        # out to still render with nothing next to their category - a
+        # completed action has no due countdown left to show, but it still
+        # deserves *some* pill there). Incomplete gets the 3-tier due
+        # countdown - same semantics/classes Referral.status already uses
+        # for its own "how urgent is the follow-up" pill
+        # (review_scheduled/awaiting_review/overdue_review, see that
+        # model's docstring) rather than inventing new colours: overdue is
+        # red, due within 2 days is amber, anything further out is neutral.
+        # Complete/Not Required have no due date left to count down, so they
+        # fall back to their own plain status pill instead (status-pill
+        # complete/not_needed, already styled - pills.css) - this is
+        # deliberately NOT the same thing as the dropped plain-status-pill-
+        # on-every-action idea from #119 ("it duplicated the live segmented
+        # status changer... same status shown twice"): that objection was
+        # about Incomplete specifically, which still has the live segmented
+        # control right there to compare against; Complete/Not Required
+        # showing their own status here isn't a duplicate of anything else
+        # on the row in the same way.
+        action.title_pill_label = None
+        action.title_pill_class = None
+        if action.status == 'incomplete' and action.due_date is not None:
+            if action.is_overdue:
+                action.title_pill_label = f'Overdue {action.days_overdue}d'
+                action.title_pill_class = 'overdue_review'
+            else:
+                days_until_due = (action.due_date - today).days
+                if days_until_due <= 2:
+                    action.title_pill_label = 'Due today' if days_until_due == 0 else f'Due in {days_until_due}d'
+                    action.title_pill_class = 'awaiting_review'
+                else:
+                    action.title_pill_label = f'Due in {days_until_due}d'
+                    action.title_pill_class = 'review_scheduled'
+        elif action.status in ('complete', 'not_needed'):
+            action.title_pill_label = action.get_status_display()
+            action.title_pill_class = action.status
         action.referral.concern_category = _primary_concern_category(action.referral)
         # Referral's own review pill (New Referral/Nth Review/Closed) next
         # to its status pill in the facts strip's Referral/Status column
@@ -3599,8 +3713,8 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             # Anything still pending (started-and-abandoned or never reached)
             # didn't get discussed before the meeting ended - defer it back
             # to the unassigned pool for a future panel rather than leaving
-            # it stuck showing "Assigned to Panel" on a panel that's now
-            # complete and can never be resumed. See
+            # it stuck showing "Assigned" on a panel that's now complete
+            # and can never be resumed. See
             # PanelReferral.DISCUSSION_CHOICES for why this isn't just Remove.
             for pr in panel.panel_referrals.filter(discussion_status='pending', removed_at__isnull=True):
                 pr.discussion_status = 'deferred'

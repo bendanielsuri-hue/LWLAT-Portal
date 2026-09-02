@@ -59,6 +59,24 @@
    rows, etc.) where vertical-align has no effect at all. */
 .status-pill { font-size: var(--font-xs); font-weight: 600; line-height: 1; padding: 0.35em 0.833em; border-radius: var(--radius-pill); background: var(--badge-bg); color: var(--text-secondary); display: inline-block; vertical-align: middle; text-align: center; }
 .status-pill[hidden] { display: none; }
+/* .row-fact-inline-pill: wraps "value + pill" plain text that sits inside
+   a data-column's own value line (e.g. Students' Attendance column, "80.0%
+   [PA]") - live feedback: "the pill does not look vertically centered...
+   I have told you about a similar problem before" (see this file's own
+   Actions "Status: <pill>" history, above, that vertical-align: middle
+   already exists for) -> (DES-A3): a pill must always look vertically
+   centred against its text, never by relying on baseline. vertical-align:
+   middle is exactly that baseline reliance - it approximates centering
+   against the surrounding text's x-height, which happens to read fine
+   next to ordinary lowercase prose (the base .status-pill rule, above,
+   still uses it there) but visibly low next to digit-heavy value text
+   (numerals sit taller than x-height, closer to cap-height) - the exact
+   case both live-feedback reports hit. inline-flex + align-items: center
+   centres against the pill's and text's actual rendered box heights
+   instead, satisfying DES-A3 for real rather than approximating it -
+   reach for this wrapper (not bare vertical-align) for any new inline
+   value+pill pairing, digit-heavy or not. */
+.row-fact-inline-pill { display: inline-flex; align-items: center; gap: var(--space-xs); }
 
 /* Shared semantic signal modifiers — theme-aware */
 .pill-exceeding { background: var(--color-exceeding-bg); color: var(--color-exceeding); }

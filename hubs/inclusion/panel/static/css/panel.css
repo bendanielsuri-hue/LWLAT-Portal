@@ -3077,46 +3077,124 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    hidden - the full fact strip (row-facts-cols) already covers it there. */
 .row-referral-details .row-title-raised-by { display: none; }
 .row-secondary-text { font-weight: 600; }
-/* Concern (_referrals_rows.html: <div class="entity-title row-secondary-text">)
-   and Actions' own Category (_actions_rows.html, same class) share
-   .entity-title purely for their own base sizing - not meant to also pick
-   up .selectable's hover/chosen fake-bold (INT-M4, cards.css:
-   .selectable:hover .entity-title / .entity-row.chosen .entity-title), which
-   is the student name's own affordance (live feedback: "we have it on student
-   name, do not need on both"). Cancels the text-shadow those rules apply,
-   scoped to .referral-row/.actions-list-row so Students' own single
-   entity-title (the name, nothing else) is untouched. Missed on Actions
-   when this was first written for Referrals - .actions-list-row exists
-   (_actions_filtered_content.html's own comment even names it), it just
-   never got added here, so Category silently carried the same bug Concern
-   had before this fix. */
-.referral-row.selectable:hover .entity-title.row-secondary-text,
-.referral-row.selectable:focus-visible .entity-title.row-secondary-text,
-.referral-row.chosen .entity-title.row-secondary-text,
-.actions-list-row.selectable:hover .entity-title.row-secondary-text,
-.actions-list-row.selectable:focus-visible .entity-title.row-secondary-text,
-.actions-list-row.chosen .entity-title.row-secondary-text {
-    text-shadow: none;
-}
+/* Concern/Category (_referrals_rows.html/_actions_rows.html: <div
+   class="entity-title row-secondary-text">) used to share .entity-title
+   purely for base sizing, deliberately cancelling .selectable's hover/
+   chosen fake-bold (INT-M4, cards.css) so that affordance stayed
+   exclusive to the student name (live feedback then: "we have it on
+   student name, do not need on both"). Both pages have since promoted
+   Concern/Category to be the card's own title line instead (live
+   feedback: "on this page Action is the card title", then "use Actions as
+   the model for Students and Referrals" for this page too), demoting the
+   student name off .entity-title entirely (below) - the fake-bold
+   affordance now belongs on Concern's/Category's own entity-title, the
+   opposite of what this cancellation rule did, so it's gone rather than
+   flipped to target the name (which no longer carries .entity-title to
+   cancel it on anyway). Students' own single entity-title (the name,
+   nothing else) was never in scope of this rule and is unaffected. */
 .row-facts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
 .row-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
+/* Accent on .chosen too (live feedback: "vertical dividers between data
+   cols should also change to primary fill if row is active") - unlike the
+   header/buttons dividers (CONVENTION comment, .entity-row.chosen >
+   .row-btn-row, below), no page redeclares this specific border-left
+   colour with higher (ID-scoped) specificity - Actions' own
+   #actions-filtered-content .row-facts .mc-vdivider only touches margin -
+   so this one shared rule actually is enough everywhere at once, no
+   per-page copy needed. */
+.entity-row.chosen .row-facts .mc-vdivider { border-left-color: var(--accent-border); }
 .row-facts-cols { gap: 10px; }
-.row-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+/* min-width: 0 (live feedback: "Referral col can get really big, can we
+   truncate long referral categories") - a flex item's default min-width is
+   auto, which resolves to its own content's min-content size whenever the
+   item's overflow is visible (spec default) - .row-fact-col itself never
+   set overflow:hidden, only the spans inside it did (below), so an
+   unusually long value (a long concern_category, say) could still force
+   the column div itself wider than its own explicit style="width: Xch"
+   (col_widths, views.py), defeating that span's ellipsis entirely since
+   there was nothing actually constraining its box to clip against.
+   min-width: 0 removes that auto floor, so the explicit width genuinely
+   caps the column and the span's overflow/ellipsis (below) can finally do
+   its job. */
+.row-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; min-width: 0; }
 .row-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* font-size/color override .entity-meta's own demoted caption styling
-   (cards.css - same class this div also carries, "entity-meta action-note")
-   - live feedback: "Action description is same font and size as Assigned
-   to and Due", which is exactly the bug: the note is real sentence-level
-   content (what to actually go and do), not a label:value fact like the
-   row-facts strip beside it, so it needs to read as body text, not a
-   caption. */
-.action-note { margin-top: var(--space-xs); font-size: var(--font-base); color: var(--text-primary); }
+/* Description folded into the facts strip as its own column (live
+   feedback: "descripion could be treated as a Data col?" - was previously
+   a separate full-width .action-note line below the strip, its own
+   vertical line of card height). flex: 1 1 <basis>, not the shared
+   .row-fact-col's flex-shrink: 0/fixed ch-based width every other column
+   gets (col_widths, views.py) - Description has no sane fixed width of
+   its own, it should just eat whatever room Due/Created/Referral don't
+   need. min-width: 0 lets it actually shrink below its own content's
+   natural width instead of forcing the row to overflow. */
+/* max-width capped (live feedback: "can we limit description col width") -
+   uncapped flex-grow let it swallow all the row's leftover space on a wide
+   card, stretching a short note across most of the row while Due/Created/
+   Referral got pushed to the far right with a big gap in between. 420px
+   comfortably fits a full sentence or two at font-base before the 2-line
+   clamp (below) would kick in anyway. */
+#actions-filtered-content .row-fact-col-description {
+    flex: 1 1 160px;
+    max-width: 420px;
+    min-width: 0;
+}
+/* Value line only (not the label) - still real sentence-level content
+   (what to actually go and do), so it keeps the larger body-text styling
+   .action-note used to carry (live feedback: "Action description is same
+   font and size as Assigned to and Due", which was exactly that bug) -
+   the label above it stays the same small-caption style every other
+   column's label uses (row-fact-label, above). Wraps + line-clamps with
+   its own ellipsis rather than the plain column's nowrap-ellipsis
+   (row-fact-col span, above) - a note can run to a full sentence or two,
+   and a single truncated line would lose almost all of it. Clamped to 2
+   lines, not 3 - font-base's larger size (0.875rem vs. the other columns'
+   font-sm) makes 2 of its lines roughly as tall as their label + 3 short
+   lines, so this still fits the shared row-facts-cols overflow guard
+   (max-height: 66px, below) instead of the guard silently hard-cropping
+   mid-line before the clamp's own ellipsis ever kicks in - line-height set
+   explicitly here rather than left to inherit layout.css's 1.4 body
+   default, to keep that math predictable. Recheck against the real
+   rendered heights (66px was itself tuned live, not calculated) once this
+   is on screen. */
+#actions-filtered-content .row-fact-col-description span:last-child {
+    font-size: var(--font-base);
+    line-height: 1.3;
+    color: var(--text-primary);
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .entity-list[data-selectable] > .entity-row { align-items: stretch; }
 .entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
 /* Primary-accent divider only once the row is actually .chosen - a resting
    row keeps the plain neutral divider, matching the "only colour up when
    active" rule the row-title-secondary divider below follows too. */
 .entity-row.chosen > .row-btn-row { border-left-color: var(--accent-border); }
+/* CONVENTION - every .entity-row divider goes accent when .chosen, not just
+   the vertical one before the buttons column (live feedback: "active wide
+   desktop mode, the dividers are not changing primary colour... it does but
+   only on vertical divider before buttons, needs to be on all" - caught on
+   Actions' own horizontal header divider, .entity-row::before in its
+   >=701px grid band, which never had a .chosen rule at all).
+   This shared rule alone is NOT enough to make that happen, and never will
+   be - every page defines its OWN copy of a divider (row-btn-row's
+   border-left here is unusually shared; .entity-row::before, each page's
+   horizontal grid-band divider, is declared fresh per #<page>-filtered-
+   content ID, content:'' included, since a pseudo-element's box only
+   exists where something actually sets `content`). An ID-scoped selector
+   (1 ID + 1 class) always outranks this shared one (0 ID + 2 classes)
+   regardless of source order, so each page's own unconditional divider
+   rule silently wins back the neutral colour even while .chosen is true -
+   the exact bug .row-btn-row's own "Re-asserts the shared rule" comments
+   (Actions/Referrals/Students, below) already document for the vertical
+   divider. Any NEW per-page divider must add its own matching
+   #<page>-filtered-content .entity-row.chosen::before (or whatever the
+   divider's own selector is) re-assertion in the SAME id scope - see
+   those three pages' own copies for the pattern - or it'll silently stay
+   neutral forever, exactly like this one did until caught live. */
 /* align-items: stretch (live feedback: "the buttons and dropdown are not
    all inline vertically. All should be width of widest") - flex-start
    (tried originally) left each child at its own natural content width,
@@ -3154,56 +3232,32 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     row-gap: var(--space-xxs);
 }
 
-/* Referrals row title block, every width - settled through several rounds
-   of live feedback (Year/House/Reg under the name; sharing the name's own
-   line; concern on its own line; a brief detour putting the status pills
-   on the name's own line, corrected: "the referral pills need to be on
-   same line as concern category. Student flag pill same as student page
-   need to be on student name row" - Referrals' status pills belong with
-   Concern, their natural semantic partner, not with the name; Students'
-   own flag pills stay on the name's line since that page has no
-   equivalent competing content there) on this 3-line shape: name alone is
-   line 1; Year/House/Reg (row-facts-primary-plain) is always line 2;
-   Concern+pills (row-title-secondary) is always line 3, with a divider
-   above it ("move the horizontal divider to above the concern category").
-   Applied unconditionally so it's identical at every width - the #118
-   mobile/tablet bands below no longer force their own separate
-   one-name-per-line treatment (removed) since this base rule now covers
-   every width the same way; they keep only the bleed-to-edge correction
-   for the avatar's indent, which genuinely differs at that width. */
+/* Referrals row title block, restructured to match Actions' own (live
+   feedback: "can we use Actions as the model for Students and Referrals")
+   - Concern+pills (row-title-secondary) is now line 1, the card's title,
+   superseding the earlier 3-line shape this page settled on through
+   several rounds of live feedback (name alone; then Year/House/Reg;
+   Concern+pills last with a divider above it, "move the horizontal divider
+   to above the concern category" - git history). Student name demoted to
+   share the Year/House/Reg line instead (row-facts-primary-plain), same
+   "less prominent" treatment Actions' own name got. No divider/bleed on
+   row-title-secondary any more either - it's just another header line now
+   (flex: 1 1 100%, same as row-facts-primary-plain), not a bordered
+   "referral info" section under the student's identity; the one real
+   divider left is row-facts' own border-top (or .entity-row::before in the
+   grid band), separating this whole header block from the facts strip. */
 #referrals-filtered-content .row-title-row .row-facts-primary-plain {
     display: inline;
-    flex: 1 1 100%;
+    flex: 0 1 auto;
     font-size: var(--font-sm);
     color: var(--text-secondary);
 }
-/* Primary-accent divider only once the row is actually .chosen - a resting
-   row keeps the plain neutral divider (three width-specific copies above/
-   below). Higher specificity (3 classes vs. 2) than every one of those
-   copies wins regardless of which media query last set border-top, so one
-   rule here covers all of them instead of restating the override 3x. */
-#referrals-filtered-content .entity-row.chosen .row-title-secondary {
-    border-top-color: var(--accent-border);
-}
-/* flex-basis 100% + 42px + gap, margin-left the negative of that: bleeds
-   this whole block out from under .entity-body's indent (offset by
-   .entity-thumb's fixed 42px + .entity-row's --space-md gap) so it starts
-   at the card's left edge like .row-btn-row does on the right, not
-   indented past the avatar - live feedback: "Concern category and concern
-   details should not start to the right of student image, should start at
-   left of card as its a new section" (originally a mobile-only fix, same
-   reasoning, now promoted to every width since Concern is its own section
-   at every width). */
-#referrals-filtered-content .row-referral-details .row-title-secondary {
+#referrals-filtered-content .row-title-row .row-title-secondary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-xs);
-    flex: 1 1 calc(100% + 42px + var(--space-md));
-    margin-top: var(--space-xxs);
-    margin-left: calc(-1 * (42px + var(--space-md)));
-    padding-top: var(--space-xxs);
-    border-top: 1px solid var(--border-color);
+    flex: 1 1 100%;
 }
 /* font-md, not the earlier demoted font-sm - live feedback: "can concern
    category be more prominent". Matches .entity-title's own base size
@@ -3327,38 +3381,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        .entity-thumb markup (is_aggregate_view branch) plus that one
        unscoped CSS rule, not here; nothing width-specific left to say
        about it. */
-    /* Concern+pills' own line - display/wrap/gap/bleed are identical to
-       the unconditional base rule now (above); still restated here because
-       margin-top/padding-top genuinely differ at this width (--space-xs,
-       vs. the base's tighter --space-xxs) - more breathing room above the
-       divider once .row-title-row's own row-gap (--space-xxs, tightened
-       portal-wide) is this tight, true mobile keeps the extra space here
-       specifically for the divider line itself to read clearly. */
-    #referrals-filtered-content .row-referral-details .row-title-secondary {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--space-xs);
-        flex: 1 1 calc(100% + 42px + var(--space-md));
-        margin-top: var(--space-xs);
-        margin-left: calc(-1 * (42px + var(--space-md)));
-        padding-top: var(--space-xs);
-        border-top: 1px solid var(--border-color);
-    }
-    /* Divider back above concern category/pills, separating "student info"
-       from "referral info" - briefly dropped (live feedback: "divider line
-       between sections and different entitys in list is too similar" to
-       .entity-row's own border, cards.css), then explicitly asked back.
-       This full-bleed var(--border-color) treatment is variant A (the
-       current shipped default) in the live prototype below - research
-       (docs/research/divider-hierarchy-conventions.md: MD3, Apple HIG,
-       Carbon) found none of those systems actually solve this with a
-       second *opacity/color* tier of the same full-bleed line the way this
-       rule does; MD3 specifically differentiates by inset-vs-full-bleed
-       instead, and reserves full-bleed for real structural breaks (which
-       is what .entity-row's own border, between different referral cards,
-       already correctly is - H3, PRINCIPLES-DESIGN.md). Variants B/C/D
-       below apply that finding to this element. */
+    /* Concern+pills' own bleed/border rule used to live here (mobile-only
+       copy of the now-removed unconditional one, above) - gone along with
+       it once Concern moved up into row-title-row and lost its
+       divider/bleed entirely (live feedback: "use Actions as the model" -
+       see the row-title-row comment, above, for the full reasoning). */
     /* Raised by/date (#118 fourth follow-up) - own full-width line below
        the concern+pills block, same bleed as row-title-secondary above so
        it starts at the row edge too; who/when reads as core referral info
@@ -3462,8 +3489,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    outright, buttons measured via wireReferralButtonLayout) and the
    1180-1400px wrapped-button band - since grid's own "buttons" column
    auto-sizes to Actions/Referral Details' natural width regardless of
-   viewport, leaving wireReferralButtonLayout/.row-buttons-wrapped nothing
-   left to do here (same fate wireActionButtonLayout had). The fact strip
+   viewport, leaving wireReferralButtonLayout's own .row-buttons-wrapped
+   toggling nothing left to do in this band (same fate wireActionButton
+   Layout had). Its --btn-w-* width measurement kept running with nothing
+   consuming it either, until the >=1401px band (below) started reusing it
+   for real - see that band's own comment. The fact strip
    is no longer hidden outright in this band either - the squeeze that
    justified hiding it doesn't exist once buttons stop competing with
    details for space, so it stays visible with the overflow guard above
@@ -3474,6 +3504,12 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    rules (below) have to respect, since a same-specificity override only
    wins if it comes later in the file. */
 .row-referral-details { display: contents; }
+/* Students' own equivalent wrapper (_students_rows.html, added this
+   session: "use Actions as the model for Students and Referrals") - same
+   grouping-box-only role as row-action-details/row-referral-details above,
+   just wrapping row-facts-cols alone since Students has no title-line
+   content to hold alongside it. */
+.row-student-details { display: contents; }
 @media (min-width: 701px) {
     #referrals-filtered-content .entity-row {
         display: grid;
@@ -3485,23 +3521,37 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         row-gap: 0;
         align-items: start;
         padding-bottom: 0;
-        /* Trimmed from the shared .entity-row base rule's var(--space-md)
-           (16px, cards.css) - ported from Actions' own equivalent trim
-           (live feedback there: "any other opportunities to save some
-           vertical space?", then here: "lets implement all changes to
-           students and referrals"). */
-        padding-top: var(--space-sm);
+        /* padding-top: 0 too (ported from Actions' own fix this session,
+           live feedback there: "the buttons are only missing some margin
+           bottom... lose the margin above and vertically center", then
+           "use Actions as the model" for this page) - used to be
+           var(--space-sm) here, but that inset sat outside the "buttons"
+           grid area's own stretched box (it spans both rows, below) the
+           same way an un-compensated padding-bottom used to; row-title-row
+           and .entity-thumb (below) now manufacture their own matching
+           inset locally instead, the same trick .row-referral-details' own
+           padding-bottom already uses, so .row-btn-row's centering isn't
+           thrown off by an asymmetric outer box. */
+        padding-top: 0;
     }
     #referrals-filtered-content .entity-body { display: contents; }
-    #referrals-filtered-content .entity-thumb { grid-area: thumb; }
-    /* Trimmed from var(--space-xs) (8px) to var(--space-xxs) (4px) - ported
-       from Actions' own equivalent trim, same reasoning: pure grouping
-       whitespace between the student-identity line and the row's own
-       content below it, no divider/border sitting here to need standard
-       breathing room. */
+    /* align-self: center + matching padding-top/bottom (ported from
+       Actions' own fix - live feedback there: "more space under the header
+       area than above... use Playwright" caught the header row's grid
+       track ending up taller than either item's own content whenever the
+       buttons column needs more height than header+details naturally
+       provide; top-anchored items with asymmetric padding just piled all
+       of that slack below the header, above the divider, instead of
+       splitting it evenly). Matching padding-top AND padding-bottom
+       (var(--space-sm) each) on both thumb and header, not the old
+       asymmetric top-only inset, so centring an item with equal internal
+       padding doesn't just reproduce the same imbalance one level up. */
+    #referrals-filtered-content .entity-thumb-group { grid-area: thumb; align-self: center; padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
     #referrals-filtered-content .row-title-row {
         grid-area: header;
-        padding-bottom: var(--space-xxs);
+        align-self: center;
+        padding-top: var(--space-sm);
+        padding-bottom: var(--space-sm);
     }
     #referrals-filtered-content .entity-row::before {
         content: '';
@@ -3510,28 +3560,34 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         align-self: start;
         border-top: 1px solid var(--border-color);
     }
-    /* padding-bottom trimmed from var(--space-md) (16px) to var(--space-xs)
-       (8px) - ported from Actions' own equivalent trim (same two-step
-       history there: 16 -> 12 -> 8, live feedback each time asking for
-       more vertical space back). */
+    /* Accent re-assertion (CONVENTION comment, .entity-row.chosen > .row-btn-row above) -
+       this ID-scoped border-top would otherwise always win over the shared
+       .entity-row.chosen rule and keep this divider neutral even when
+       .chosen. */
+    #referrals-filtered-content .entity-row.chosen::before {
+        border-top-color: var(--accent-border);
+    }
+    /* display: flex + flex-direction: column + justify-content: center,
+       not block (ported from Actions' own fix - live feedback there: "data
+       cols [should] take up available vertical space and [be] vertically
+       aligned anyway", after the buttons column started usually needing
+       more height than header+details naturally provide). align-self:
+       stretch claims the "details" grid row's full stretched height
+       (overriding entity-row's own align-items: start, above); row-facts
+       then centres within whatever leftover space that creates instead of
+       sitting flush at the top with dead space below it. row-title-
+       secondary no longer lives in here at all (moved up into
+       row-title-row - see that comment, above), so its own bleed-cancel
+       rule that used to sit here is gone too. */
     #referrals-filtered-content .row-referral-details {
         grid-area: details;
-        display: block;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-self: stretch;
         min-width: 0;
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
-    }
-    /* Cancel the desktop/mobile bleed-under-the-avatar trick (row-title-
-       secondary/row-facts' own margin-left: -58px rules, above) -
-       .row-referral-details is already its own dedicated column starting
-       at the card's true left edge here, so the same negative margin
-       would pull it 58px past its own column's left edge instead. */
-    #referrals-filtered-content .row-referral-details .row-title-secondary {
-        flex-basis: 100%;
-        margin-left: 0;
-        margin-top: 0;
-        border-top: none;
-        padding-top: 0;
     }
     #referrals-filtered-content .row-facts {
         margin-left: 0;
@@ -3559,6 +3615,15 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         flex-direction: column;
         align-items: stretch;
         justify-content: center;
+        /* Small symmetric top/bottom inset (ported from Actions' own fix -
+           live feedback there: "enforce a top and bottom margin, can this
+           be a small amount" - once the box is genuinely 0/0 top-and-bottom
+           against the card edges, centred content with no padding at all
+           read as flush against both edges rather than "equal gaps". Not
+           on entity-row - that would reopen the exact asymmetry the
+           padding-top: 0 change above just fixed). */
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-xs);
     }
     /* Re-asserts the shared .entity-row.chosen > .row-btn-row rule
        (cards.css/panel.css - swaps this divider's colour to var(--accent-
@@ -3585,6 +3650,28 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #referrals-filtered-content .row-btn-row {
         flex-direction: row;
         align-items: center;
+    }
+    /* Fixed to the widest occurrence across the whole list, not each row's
+       own content width (live feedback: "the action buttons are changing
+       size. Each button should be width of largest like action page
+       does") - side by side with align-items: stretch removed (above),
+       each button reverted to auto-sizing off its own text, so a row
+       without an Actions count badge rendered narrower than one with
+       "Actions 3" right next to it. --btn-w-actions/--btn-w-referral-
+       details (wireReferralButtonLayout, referrals.html) already measured
+       the true max width across every row - built for an older two-band
+       layout this grid band later replaced (see that band's own comment,
+       above: "leaving wireReferralButtonLayout... nothing left to do
+       here"), so the measurement kept running with nothing consuming it
+       until now. Actions' own buttons never needed this at all - "Referral
+       Details"/"Edit Action" carry no count badge, so every row's text is
+       already identical width without measuring anything (see
+       wireActionButtonLayout's own comment, actions.html). */
+    #referrals-filtered-content [data-btn-slot="actions"] {
+        width: var(--btn-w-actions);
+    }
+    #referrals-filtered-content [data-btn-slot="referral-details"] {
+        width: var(--btn-w-referral-details);
     }
 }
 /* No divider above the facts line, in every mode (#117 follow-up, live
@@ -3634,6 +3721,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     border-top: 1px solid var(--border-color);
     align-items: flex-start;
 }
+/* Accent re-assertion (CONVENTION comment, .entity-row.chosen > .row-btn-row,
+   above) - below 701px this is the ONLY header/facts divider (the grid
+   band's own .entity-row::before, above, doesn't exist there), so it needs
+   the exact same treatment or a chosen row's divider stays neutral below
+   701px even after the >=701px one is fixed. */
+#actions-filtered-content .entity-row.chosen .row-facts {
+    border-top-color: var(--accent-border);
+}
 /* Label line of each one-fact-per-column pair (live feedback: "change from
    pairs of data to Label then field for all... so Label on top row with
    details below") - muted and a size step down from the value beneath it
@@ -3680,41 +3775,38 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     margin-left: calc(-1 * (42px + var(--space-md)));
     width: calc(100% + 42px + var(--space-md));
 }
-/* Action Description (action-note) previously stayed indented under the
-   avatar like a plain body line - live feedback: "Action Description
-   should use full width". Same bleed row-title-secondary/row-facts already
-   use (above), so it lines up flush with them instead of starting further
-   right - every width, not mobile-only, for the same reason those two are
-   unconditional. */
-#actions-filtered-content .action-note {
-    margin-left: calc(-1 * (42px + var(--space-md)));
-    width: calc(100% + 42px + var(--space-md));
-}
-
-/* #119: Actions row title block, every width - same shape Referrals' own
-   #118 settled on (row-title-row comment, above): Student (name/pills/
-   Year-House-Reg) > Referral+Action, one divided section below it, not
-   two. Started out as two separately-divided tiers (Referral via
-   row-title-secondary, Action via a since-removed row-title-tertiary,
-   both the same weight) - live feedback: "Referral and Action line is
-   same prominence... not sure we can justify two horizontal dividers".
-   Collapsed into one: row-title-secondary now holds both, Referral
-   demoted to a smaller context line (row-title-referral-context, above)
-   ahead of the still-prominent Action line, its own redundant status pill
-   dropped in the same move (same "Referral Details already covers it"
-   reasoning that dropped Action's own duplicate pill earlier) - Overdue is
-   the only pill left, on Action, since nothing else on the row already
-   signals it. */
-/* line-height: 1.2 on both the name and this line, not the inherited
+/* #119, restructured (live feedback this session): row-title-row is now
+   two stacked lines - Action category+due pill (row-title-secondary), the
+   card's title; then Student name + Year-House-Reg (row-facts-primary-
+   plain) as one demoted context line below it. Student flag pills
+   (SEN/PP/EAL/LAC/YC/MA) used to share this same block - own line, then
+   folded back onto this line beside name/group info - before being
+   dropped from the row entirely (live feedback: "lets lose the student
+   flags from both Actions and Referrals"); row-title-flags/its markup are
+   gone from _actions_rows.html now, nothing left here to style.
+   Description dropped out of this block entirely (folded into the facts
+   strip instead, row-fact-col-description above). row-title-secondary
+   used to live one level deeper inside row-action-details, with its own
+   bleed-under-the-avatar/divider treatment to read as a distinct
+   "Referral+Action" section below the header (git history) - it moved up
+   into row-title-row itself once demoting the name freed room for it
+   there (live feedback: "space for Action to be in header area"), so none
+   of that bleed/divider machinery is needed any more: it's just the first
+   header line now, flex: 1 1 100% so it always claims its own line
+   regardless of how much room row-facts-primary-plain needs below it - no
+   border of its own, the one real divider left is row-facts' own
+   border-top, separating this whole header block from the facts strip
+   beneath it.
+   line-height: 1.2 on the name/Year-House-Reg line, not the inherited
    body default of 1.4 (layout.css) - live feedback: "the Student name...
    has too much space under it before student details". 1.4 is tuned for
    wrapped prose; a short single-line name/heading doesn't need that much
    padding-above/below-glyph, and the perceived gap was mostly that line-
    box padding, not the (already small) literal margin between the two
-   lines. .entity-title's own override lives with it, below. */
+   lines. */
 #actions-filtered-content .row-title-row .row-facts-primary-plain {
     display: inline;
-    flex: 1 1 100%;
+    flex: 0 1 auto;
     font-size: var(--font-sm);
     color: var(--text-secondary);
     line-height: 1.2;
@@ -3722,36 +3814,12 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 #actions-filtered-content .entity-title {
     line-height: 1.2;
 }
-/* .row-action-details, not .row-title-row - row-title-secondary moved out
-   from under row-title-row into its own wrapper when the 481-1179px grid
-   band (below) was built, so it could be grid-placed independently of the
-   student header; this selector has to track that same new ancestor or it
-   silently stops matching at every width, not just the grid one (caught
-   live: "Referral and Action is still too right" - the bleed/divider below
-   went dead everywhere, leaving row-title-secondary's own global display:
-   contents base rule, above, in effect instead - no flex-wrap/gap uniting
-   Referral+Action+Overdue into one line, no bleed pulling them back under
-   the avatar). */
-#actions-filtered-content .row-action-details .row-title-secondary {
+#actions-filtered-content .row-title-row .row-title-secondary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-xs);
-    flex: 1 1 calc(100% + 42px + var(--space-md));
-    margin-top: var(--space-xxs);
-    margin-left: calc(-1 * (42px + var(--space-md)));
-    padding-top: var(--space-xxs);
-    border-top: 1px solid var(--border-color);
-}
-/* Primary-accent divider only once the row is actually .chosen - same call
-   made for Referrals' own row-title-secondary divider (above). The
-   .row-btn-row divider before Referral Details/Edit Action needs no
-   equivalent override here - that one's already scoped to the bare
-   .entity-row.chosen selector (shared with every other .entity-row
-   consumer), so Actions picked it up automatically without any
-   Actions-specific rule at all. */
-#actions-filtered-content .entity-row.chosen .row-title-secondary {
-    border-top-color: var(--accent-border);
+    flex: 1 1 100%;
 }
 /* entity-thumb-group (live feedback: "space to have School logo and
    Student image, maybe show both... for MAT staff") - two .entity-thumb
@@ -3772,6 +3840,8 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    instead - reads as floating beside the Referral/Action line, not the
    name. flex-start reproduces the fixed-thumb's real effective behaviour
    instead of guessing at what "centred" should mean here. */
+#referrals-filtered-content .entity-thumb-group,
+#students-filtered-content .entity-thumb-group,
 #actions-filtered-content .entity-thumb-group {
     display: flex;
     align-items: center;
@@ -3789,9 +3859,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    True mobile (≤700px) has no room for both - back to logo-only there
    (.entity-thumb-student hidden), the exact single-thumb footprint/size
    #118 originally gave every MAT-view row, so the mobile bleed maths
-   (row-title-secondary/action-note/row-facts, above) need no adjustment
-   there either. */
+   (row-facts, above) need no adjustment there either. Ported to
+   Referrals/Students this session (live feedback: "I am not seeing School
+   logo and student placeholder like I do on Actions Page" - both pages
+   used to just swap the single .entity-thumb between logo-only and
+   student-only depending on is_aggregate_view, never showing both). */
 @media (max-width: 700px) {
+    #referrals-filtered-content .entity-row.has-dual-thumb .entity-thumb-student,
+    #students-filtered-content .entity-row.has-dual-thumb .entity-thumb-student,
     #actions-filtered-content .entity-row.has-dual-thumb .entity-thumb-student {
         display: none;
     }
@@ -4090,10 +4165,9 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    details' own display: contents (its base rule, right after this
    comment) is the UNCONDITIONAL one - true at every other width too, so
    Actions' desktop/mobile layouts keep the exact original nesting/visual
-   result now that row-title-secondary/action-note/row-facts-cols live one
-   level deeper inside it than before; this grid band is the only width
-   where that wrapper becomes a real box again (grid-area needs an actual
-   grid item to place). */
+   result now that row-facts-cols lives one level deeper inside it than
+   before; this grid band is the only width where that wrapper becomes a
+   real box again (grid-area needs an actual grid item to place). */
 .row-action-details { display: contents; }
 @media (min-width: 701px) {
     #actions-filtered-content .entity-row {
@@ -4101,8 +4175,8 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         /* details spans columns 1-2 (under .entity-thumb too), not just
            column 2 - live feedback: "everything in Action section... line
            up on left with left of student image", same "flush at the
-           card's true left edge" convention row-facts/action-note's own
-           bleed trick already established for desktop/mobile (their
+           card's true left edge" convention row-facts' own bleed trick
+           already established for desktop/mobile (its
            margin-left: 0 override, below, only works because details
            itself now starts at column 1 - previously it started at column
            2, level with the header text, which read as "too far right"
@@ -4144,29 +4218,60 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            centered between the horizontal divider line and the card
            entity bottom border" - confirmed via measurement this wasn't
            true before: 7px gap above the buttons, 23px below). */
+        /* padding-top: 0 too now (live feedback this session: "the buttons
+           are only missing some margin bottom... lose the margin above and
+           vertically center") - used to be var(--space-sm) here (trimmed
+           down from the shared .entity-row base rule's var(--space-md),
+           16px, in an earlier "save some vertical space" pass), but that
+           inset sat OUTSIDE the "buttons" grid area's own stretched box the
+           same way the old un-compensated padding-bottom used to (comment
+           above): row-btn-row spans both grid rows top-to-bottom
+           (align-self: stretch), so its box's real top edge was always
+           entity-row's true content-box top plus this padding - 12px of
+           top inset the bottom edge never got to match, once padding-bottom
+           was zeroed and moved onto .row-action-details instead (that
+           compensation only helps "details" own internal content, it does
+           nothing for "buttons" - a different grid item entirely). Content
+           centred with justify-content: center inside an asymmetric box
+           just reproduces that same asymmetry in its two gaps rather than
+           fixing it. Moved onto .row-title-row instead (below), the same
+           "manufacture the inset locally, not on the shared grid
+           container" trick .row-action-details' own padding-bottom already
+           uses - header keeps the exact same visible space from the card's
+           top edge as before, and .entity-row's own box (what row-btn-row
+           actually stretches against) is now genuinely 0/0 top-and-bottom,
+           so centering its content really does mean equal gaps both
+           ways. */
         padding-bottom: 0;
-        /* Trimmed from the shared .entity-row base rule's var(--space-md)
-           (16px, cards.css) - live feedback: "any other opportunities to
-           save some vertical space?" prototyped live via Playwright first
-           (measured 187px -> 171px row height with this and the two
-           trims below, together). Top only - padding-bottom is already 0,
-           above. */
-        padding-top: var(--space-sm);
+        padding-top: 0;
     }
     #actions-filtered-content .entity-body { display: contents; }
-    #actions-filtered-content .entity-thumb-group { grid-area: thumb; }
-    /* padding-bottom trimmed from var(--space-xs) (8px) to var(--space-xxs)
-       (4px) - same "save some vertical space" prototyping pass as above.
-       No border/divider sits directly below row-title-row (confirmed live -
-       .row-title-secondary, the "Action: X" line right after it, has no
-       border-top of its own; the app's real dividers are .row-facts' own
-       border-top, further down, and .entity-row::before under the header),
-       so this is pure grouping whitespace (G1) between the student-identity
-       line and the Action/Referral line below it, not breathing room around
-       a rule - safe to shrink without a divider reading cramped. */
+    /* Measured live via Playwright (live feedback: "more space under the
+       header area than above... off by 9px or so... use Playwright") -
+       row 1 ("thumb"/"header") was consistently taller than either item's
+       own natural content, because the buttons column (spanning both grid
+       rows) now usually needs more combined height than header+details
+       naturally provide, and the grid distributes that shortfall across
+       both auto rows, not just "details". entity-row's own align-items:
+       start (above) then top-anchored both items in that now-taller
+       track, and row-title-row's own asymmetric padding (12px top, 4px
+       bottom) compounded it - measured 60px track height against a 54px
+       thumb / 56px header, all of it collecting as extra gap below the
+       header, above the divider, instead of being split evenly. align-
+       self: center on both (below) absorbs whatever slack the buttons
+       column forces into this row, splitting it evenly above/below - the
+       same "let the item centre within its own stretched space" fix
+       row-action-details already got for row 2. Matching padding-top AND
+       padding-bottom (var(--space-sm) each, both items) replaces the old
+       asymmetric 12px-top/4px-bottom pair so the two items' own natural
+       content height is symmetric too - centering an item with unequal
+       internal padding just reproduces the same imbalance one level up. */
+    #actions-filtered-content .entity-thumb-group { grid-area: thumb; align-self: center; padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
     #actions-filtered-content .row-title-row {
         grid-area: header;
-        padding-bottom: var(--space-xxs);
+        align-self: center;
+        padding-top: var(--space-sm);
+        padding-bottom: var(--space-sm);
     }
     /* Horizontal divider under the student header (live feedback: "start
        at the edge of the list card, not to the right of the student
@@ -4187,64 +4292,73 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         align-self: start;
         border-top: 1px solid var(--border-color);
     }
+    /* Accent re-assertion (live feedback: "active wide desktop mode, the
+       dividers are not changing primary colour... only on vertical divider
+       before buttons, needs to be on all" - the CONVENTION comment on
+       .entity-row.chosen > .row-btn-row, above, explains why this needs its
+       own copy rather than being covered by that one shared rule). */
+    #actions-filtered-content .entity-row.chosen::before {
+        border-top-color: var(--accent-border);
+    }
     /* padding-bottom trimmed from var(--space-md) (16px) to var(--space-sm)
        (12px), then to var(--space-xs) (8px) in a follow-up pass (live
        feedback: "entity card has a bottom margin that is not needed if
        data cols are at bottom", then "any other opportunities to save some
-       vertical space?"). Confirmed live (Playwright A/B, 12px vs 16px) this
-       makes no measurable difference to the buttons column's own position
-       - .row-btn-row is align-self: stretch, not center (below), and
-       measuring the actual rendered content live showed "details" (title +
-       Action line + note + facts), not the segmented-control/dropdown +
-       2-button stack, is the taller side in the ordinary case (buttons'
-       real content is only ~78px, centred with plenty of leftover space in
-       a ~170px+ box) - so this padding is trimmable pure bottom-breathing-
-       room for "details" now, not a load-bearing floor fighting the
-       buttons column's own overflow the way it looked at first glance. Not
-       verified against a long-note row where "details" grows taller still
-       - recheck that case when porting to Students/Referrals. */
-    #actions-filtered-content .row-action-details { grid-area: details; display: block; min-width: 0; padding-top: var(--space-xs); padding-bottom: var(--space-xs); }
-    /* Cancel the desktop/mobile bleed-under-the-avatar trick (row-title-
-       secondary/action-note/row-facts' own margin-left: -58px rules, above)
-       - that trick exists so those lines start flush at the card's true
-       left edge despite sitting, at those widths, inside the same indented
-       entity-body column as the avatar+name above them. In this grid band
-       .row-action-details is already its own dedicated column starting at
-       that same flush position (no avatar indent to bleed out from under),
-       so the same negative margin would instead pull it 58px past its own
-       column's left edge - into/under the divider and .entity-thumb -
-       exactly the "Referral and Action is still too right [and clipped]"
-       symptom live feedback caught. The border-top/flex-basis bleed on
-       row-title-secondary is cancelled the same way and for the same
-       reason - the full-span divider above (.entity-row::before) already
-       does that job here, so keeping row-title-secondary's own copy would
-       just draw a second, redundant line under it. */
-    #actions-filtered-content .row-action-details .row-title-secondary {
-        flex-basis: 100%;
-        margin-left: 0;
-        /* margin-top cancelled too (live feedback: "extra space... above
-           horizontal line") - its own base rule's 4px (above) is the
-           desktop/mobile bleed treatment's gap after row-facts' border-top
-           divider; .row-action-details' own padding-top (above) is this
-           band's single source of the equivalent gap, so leaving this
-           un-cancelled just stacked a second 4px on top of it. */
-        margin-top: 0;
-        border-top: none;
-        padding-top: 0;
+       vertical space?"). This used to be sized purely for its own content
+       (display: block, "details" was reliably the taller side against a
+       short buttons column) - no longer true once Action+description
+       moved out of this area this session (folded into row-title-row/the
+       facts strip's own row-fact-col-description) shrank "details" a lot,
+       while the buttons column stayed the same 3-control height, so
+       buttons now usually defines the row's real height instead (live
+       feedback: "now that the buttons are enforcing the entity height...").
+       display: flex + flex-direction: column + justify-content: center,
+       not block, plus align-self: stretch to override entity-row's own
+       align-items: start (above) and actually claim the "details" grid
+       row's full stretched height (the same height buttons is forcing it
+       to) - so row-facts-cols (still its own nested flex row, unaffected)
+       centres vertically within whatever leftover space that creates,
+       instead of sitting flush at the top with dead space below it (live
+       feedback: "data cols [should] take up available vertical space and
+       [be] vertically aligned anyway" - rejected pinning it to the bottom
+       specifically, in favour of just letting it own the space and centre
+       within it). */
+    #actions-filtered-content .row-action-details {
+        grid-area: details;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-self: stretch;
+        min-width: 0;
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-xs);
     }
-    #actions-filtered-content .action-note {
-        margin-left: 0;
-        width: 100%;
-        margin-top: var(--space-xxs);
-    }
-    /* margin-top NOT included here (unlike .action-note above) - .row-facts'
-       own unconditional margin-top (its base rule, above) is now the single
-       source of the gap above its divider ("another horizontal line after
-       action description" - live feedback), so this grid band only needs
-       to cancel the bleed (margin-left/width) without touching that. */
+    /* row-title-secondary/action-note both moved out of row-action-details
+       entirely this session (into row-title-row, and into the facts strip
+       as row-fact-col-description respectively) - this band used to need a
+       matching pair of bleed-cancelling overrides for them here (git
+       history), neither is needed any more. .row-facts (below) is the only
+       survivor - it's still the one thing left in row-action-details that
+       carries the desktop/mobile bleed treatment (base rule, above) needing
+       cancellation in this grid band. */
     #actions-filtered-content .row-facts {
         margin-left: 0;
         width: 100%;
+        /* border-top/margin-top/padding-top cancelled too (live feedback:
+           "lose the double horizontal line") - row-facts' own base-rule
+           divider (above) used to sit below a real content section
+           (row-title-secondary/action-note) with its own vertical gap
+           before it; now that row-action-details is nothing but this facts
+           strip, that divider sits directly under .entity-row::before's
+           grid-line divider (above, "under the student header") with
+           nothing between them, reading as two adjacent lines rather than
+           one. .entity-row::before already spans exactly this same
+           boundary, so it's the single source of this divider in this
+           band; the base rule's own copy is only needed for the <701px
+           band, which has no ::before line of its own. */
+        border-top: none;
+        margin-top: 0;
+        padding-top: 0;
     }
     /* Vertical divider left of the buttons column (live feedback) - restores
        the shared .entity-row > .row-btn-row convention (panel.css, above)
@@ -4266,6 +4380,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
            card height, matching the pre-grid wide-desktop layout's own
            look rather than confining either to just the details row). */
         align-self: stretch;
+        /* Small symmetric top/bottom inset (live feedback: "enforce a top
+           and bottom margin, can this be a small amount") - now that the
+           box itself is genuinely 0/0 top-and-bottom against the card edges
+           (entity-row/row-title-row's own padding swap, above), centering
+           its content read as sitting flush against both edges with no
+           breathing room at all, not just "equal gaps" - a little padding
+           here (not on entity-row - that would reopen the same asymmetry
+           this session already fixed once) keeps both gaps equal while
+           giving them a real minimum instead of whatever's left over. */
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-xs);
     }
     /* Re-asserts the shared .entity-row.chosen > .row-btn-row rule
        (cards.css/panel.css - swaps this divider's colour to var(--accent-
@@ -4662,20 +4787,28 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         row-gap: 0;
         align-items: start;
         padding-bottom: 0;
-        /* Trimmed from the shared .entity-row base rule's var(--space-md)
-           (16px, cards.css) - ported from Actions'/Referrals' own
-           equivalent trim (live feedback: "lets implement all changes to
-           students and referrals"). */
-        padding-top: var(--space-sm);
+        /* padding-top: 0 too (ported from Actions' own fix this session,
+           live feedback there: "lose the margin above [buttons] and
+           vertically center", then "use Actions as the model" for this
+           page) - .entity-thumb/.row-title-row (below) manufacture their
+           own matching inset locally instead, so .btn-row's stretched box
+           (it spans both rows) is genuinely symmetric top-and-bottom. */
+        padding-top: 0;
     }
     #students-filtered-content .entity-body { display: contents; }
-    #students-filtered-content .entity-thumb { grid-area: thumb; }
-    /* Trimmed from var(--space-xs) (8px) to var(--space-xxs) (4px) - ported
-       from Actions'/Referrals' own equivalent trim, same reasoning: pure
-       grouping whitespace, no divider/border sitting here. */
+    /* align-self: center + matching padding-top/bottom (ported from
+       Actions' own fix - live feedback there: "more space under the header
+       area than above... use Playwright" caught the header row's grid
+       track ending up taller than either item's own content whenever the
+       buttons column needs more height than header+details naturally
+       provide - top-anchored items with only a top-side inset just piled
+       all of that slack below the header instead of splitting it evenly). */
+    #students-filtered-content .entity-thumb-group { grid-area: thumb; align-self: center; padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
     #students-filtered-content .row-title-row {
         grid-area: header;
-        padding-bottom: var(--space-xxs);
+        align-self: center;
+        padding-top: var(--space-sm);
+        padding-bottom: var(--space-sm);
     }
     #students-filtered-content .entity-row::before {
         content: '';
@@ -4684,14 +4817,33 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         align-self: start;
         border-top: 1px solid var(--border-color);
     }
-    /* padding-bottom trimmed from var(--space-md) (16px) to var(--space-xs)
-       (8px) - ported from Actions'/Referrals' own equivalent trim. */
-    #students-filtered-content .row-facts {
+    /* Accent re-assertion - see the CONVENTION comment on
+       .entity-row.chosen > .row-btn-row (above) for why this needs its own
+       copy; ported here alongside Actions'/Referrals' own matching fix. */
+    #students-filtered-content .entity-row.chosen::before {
+        border-top-color: var(--accent-border);
+    }
+    /* grid-area: details moved onto the new .row-student-details wrapper
+       (below), not .row-facts itself any more - ported from Actions'/
+       Referrals' own centering fix (live feedback: "data cols [should]
+       take up available vertical space and [be] vertically aligned") needs
+       a flex-column + justify-content: center box to stretch+centre WITHIN,
+       and .row-facts itself can't be that box - it's already a flex ROW
+       arranging the fact columns side by side (base rule, above); making it
+       flex-direction: column here would break that. The wrapper exists for
+       exactly this reason (_students_rows.html's own comment). */
+    #students-filtered-content .row-student-details {
         grid-area: details;
         display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-self: stretch;
         min-width: 0;
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
+    }
+    #students-filtered-content .row-facts {
+        min-width: 0;
     }
     #students-filtered-content .btn-row {
         grid-area: buttons;
@@ -4718,6 +4870,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         align-items: stretch;
         justify-content: center;
         gap: var(--space-xs);
+        /* Small symmetric top/bottom inset (ported from Actions' own fix -
+           live feedback there: "enforce a top and bottom margin, can this
+           be a small amount" - a genuinely 0/0 stretched box centred with
+           no padding at all reads as flush against both edges, not "equal
+           gaps"). */
+        padding-top: var(--space-xs);
+        padding-bottom: var(--space-xs);
     }
     /* Students' buttons container is .btn-row, not .row-btn-row like
        Referrals/Actions - the shared .entity-row.chosen > .row-btn-row
@@ -4742,6 +4901,23 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #students-filtered-content .btn-row {
         flex-direction: row;
         align-items: center;
+    }
+    /* Fixed to the widest occurrence across the whole list (live feedback:
+       "the action buttons are changing size. Each button should be width
+       of largest like action page does") - same fix as Referrals' own
+       equivalent, above: side by side with no stretch, each button reverts
+       to auto-sizing off its own text, so a row without an Actions/
+       Referrals count badge rendered narrower than a neighbour with one.
+       --btn-w-actions/--btn-w-referrals (wireStudentButtonColumnWidth,
+       students.html, ported from Referrals' own wireReferralButtonLayout)
+       measure the true max width per slot across every row - New Referral
+       (the fused "+" icon) needs no equivalent since it's a fixed-size
+       icon button with no variable text at all. */
+    #students-filtered-content [data-btn-slot="actions"] {
+        width: var(--btn-w-actions);
+    }
+    #students-filtered-content [data-btn-slot="referrals"] {
+        width: var(--btn-w-referrals);
     }
 }
 
