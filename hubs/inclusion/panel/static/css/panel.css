@@ -3071,11 +3071,10 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    own base rule above. #referrals-filtered-content overrides this below to
    put concern+pills on their own line under Year/House/Reg, every width. */
 .row-title-secondary { display: contents; }
-/* Raised by/date (#118 fourth follow-up) - hidden here by default, only
-   re-enabled inside #referrals-filtered-content's mobile/tablet blocks
-   below (their own edge-to-edge bleed treatment); wider widths keep this
-   hidden - the full fact strip (row-facts-cols) already covers it there. */
-.row-referral-details .row-title-raised-by { display: none; }
+/* Raised by/date (#118 fourth follow-up) removed entirely (live feedback:
+   "only need it as a data col" - it duplicated the RAISED fact col's own
+   date + "By <initials>" pair once that stopped hiding at mobile width).
+   .row-title-raised-by no longer exists in _referrals_rows.html. */
 .row-secondary-text { font-weight: 600; }
 /* Concern/Category (_referrals_rows.html/_actions_rows.html: <div
    class="entity-title row-secondary-text">) used to share .entity-title
@@ -3396,26 +3395,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        it once Concern moved up into row-title-row and lost its
        divider/bleed entirely (live feedback: "use Actions as the model" -
        see the row-title-row comment, above, for the full reasoning). */
-    /* Raised by/date (#118 fourth follow-up) - own full-width line below
-       the concern+pills block, same bleed as row-title-secondary above so
-       it starts at the row edge too; who/when reads as core referral info
-       worth surfacing here unlike the rest of the fact strip
-       (row-facts-cols, still hidden below - Prev/Next Panel and the action
-       counts stay Referral-Details-only). */
-    #referrals-filtered-content .row-referral-details .row-title-raised-by {
-        display: block;
-        flex: 1 1 calc(100% + 42px + var(--space-md));
-        margin-left: calc(-1 * (42px + var(--space-md)));
-        font-size: var(--font-sm);
-        /* --text-secondary, not --text-faint (a brief follow-up to the
-           Concern-prominence change above - live feedback: "Raised by and
-           on is a little hard to read, could this be same colour as year,
-           house and reg") - text-faint read as too low-contrast on its own;
-           matches row-facts-primary-plain's own colour (below) instead,
-           still a step below Concern's text-primary/600 weight via
-           font-size alone. */
-        color: var(--text-secondary);
-    }
+    /* Raised by/date mobile-only line (#118 fourth follow-up) removed
+       (live feedback: "only need it as a data col" - the RAISED fact col
+       (row-facts-cols, below) already carries the same date + "By <initials>"
+       pair, and the fact strip no longer hides at this width the way it did
+       when this line was first added, so showing both read as a genuine
+       duplicate rather than two different levels of detail). Markup dropped
+       from _referrals_rows.html too; .row-title-raised-by's base display:
+       none (above) is now unconditional again. */
     /* row-facts-primary-plain's own line/sizing and the pills' own
        grouping/sizing beside concern are the unconditional base rules now
        (above) - nothing width-specific left to say about either here. */
@@ -3695,11 +3682,26 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 }
 /* No divider above the facts line, in every mode (#117 follow-up, live
    feedback: "lose the horizontal divider above details") - overrides the
-   shared .row-facts base rule's own border-top/padding-top (above). */
+   shared .row-facts base rule's own border-top/padding-top (above).
+   margin-left/width bleed added later (live feedback: "the data cols align
+   left to the logo... wastes space" - the Students column rework left
+   row-facts genuinely indented under the avatar after all, unlike the
+   assumption this comment used to state; same avatar-offset trick as
+   Referrals' own #referrals-filtered-content .row-facts bleed, above, but
+   42px + --space-sm here, not --space-md - Students' own .entity-row
+   column-gap (base rule, above) is --space-sm/12px, a narrower gap than
+   Referrals' --space-md/16px one, so reusing Referrals' own --space-md
+   figure overshot the true avatar edge by 4px (live feedback: "data cols
+   start too close to edge... should match referrals"). Cancelled back out
+   inside the >=701px grid band (#students-filtered-content .row-facts,
+   below) the same way Referrals' own grid band cancels its copy, since the
+   grid's "details" area already spans flush left there without help. */
 #students-filtered-content .row-facts {
     margin-top: var(--space-xxs);
     padding-top: 0;
     border-top: none;
+    margin-left: calc(-1 * (42px + var(--space-sm)));
+    width: calc(100% + 42px + var(--space-sm));
 }
 /* Actions restores its own copy of that divider (live feedback: "another
    horizontal line after action description") - it reads as separating the
@@ -3707,11 +3709,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    distinct from the header divider above row-title-secondary (#119, above)
    which separates the student name from the Action/Referral section
    instead - two different boundaries, not a redundant repeat of the same
-   one. margin-left/width bleed (Students never needed this, its row-facts
-   was never indented under the avatar in the first place) - same trick
-   row-title-secondary uses below, so the facts strip starts flush at the
-   card's left edge instead of sitting under the avatar like an indented
-   sub-item of the section above it. */
+   one. */
 /* Tightened from the shared base rule's var(--space-xs) (8px) margin-top
    AND var(--space-xs) padding-top - live feedback: "reduce the padding/
    margin thats above" the facts strip - the two stack into 16px of total
@@ -4917,6 +4915,8 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     }
     #students-filtered-content .row-facts {
         min-width: 0;
+        margin-left: 0;
+        width: 100%;
     }
     #students-filtered-content .btn-row {
         grid-area: buttons;
