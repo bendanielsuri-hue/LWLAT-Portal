@@ -1,5 +1,6 @@
 import datetime
 import json
+import math
 from collections import Counter
 from urllib.parse import quote
 
@@ -37,6 +38,7 @@ from core.student_history import (
     positive_behaviour_points,
 )
 from core.term_dates import next_half_term, next_term, upcoming_review_terms
+from portal.templatetags.avatar_extras import initials
 
 from .models import (
     Action,
@@ -271,6 +273,29 @@ def _review_label(prior_discussion_count):
     if prior_discussion_count <= 0:
         return 'Initial Discussion'
     return _ordinal(prior_discussion_count) + ' Review'
+
+
+def _referral_review_pill(referral):
+    # (label, css_class) for a referral's "New Referral"/"1st Review"/
+    # "Closed" pill - New Referral vs Nth Review classification/labels/pill
+    # classes (type-new/type-followup) match Panel Agenda Setup's referral
+    # selection row (_referral_selection_row.html). Extracted from
+    # inclusion_panel_referrals' own per-row loop (below) so
+    # inclusion_panel_actions can show the same pill on action.referral
+    # (live feedback: "add the other Referral status pill after Status on
+    # the Actions page") without duplicating the classification logic.
+    # Requires referral.panel_referrals prefetched by the caller, same as
+    # every other call site already relies on for this relation.
+    # (None, None) once closed - live feedback: "globally, if its closed we
+    # do not need review pill" - the Status pill right next to this one
+    # already reads "Closed", so a second "Closed" review pill was pure
+    # redundancy (R1), not new information.
+    if referral.status == 'closed':
+        return None, None
+    discussed_count = sum(1 for pr in referral.panel_referrals.all() if pr.discussion_status == 'discussed')
+    if discussed_count == 0:
+        return 'New Referral', 'type-new'
+    return _review_label(discussed_count), 'type-followup'
 
 
 def _panel_referral_stage(pr):
@@ -836,12 +861,34 @@ def _primary_concern_category(referral):
     return None
 
 
+# Correction factor for _col_width, below - `ch` means "width of the '0'
+# glyph", but our actual label:value strings are proportional text full of
+# narrower characters (spaces, "1", "l", "i"...), so a plain character count
+# in `ch` units renders wider than the text actually needs. Most visible
+# with only a couple of filtered rows (live feedback: "filtered to just 2
+# rows and I see a lot of dead space to the right of each data col") - with
+# many rows some row's content usually already sits close to the cap, but
+# the overestimate itself is there regardless of row count.
+# 0.62 (first attempt) overcorrected badly (live feedback: "we now get cut
+# off!") - it doesn't just trim the modest ch-vs-real-text gap, it shrinks
+# the actual longest row's own required width below what that row needs, no
+# matter how accurate the ratio is. 0.88 is a much more conservative trim.
+# _CH_EXTRA_BUFFER (below), not a smaller factor, is what covers the
+# Referral column's own extra case - Actions' Status line (_actions_rows.
+# html) wraps its value in a .status-pill, whose padding/border-radius
+# (pills.css) costs real width a plain character count can't see at all,
+# regardless of how well-tuned the factor is.
+_CH_CHAR_FACTOR = 0.88
+_CH_EXTRA_BUFFER = 2
+
+
 def _col_width(strings, max_ch, min_ch=4):
     # Shared by Students/Referrals/Actions row-detail facts columns - each
     # column's width is the longest label+value string actually present
     # across every row currently displayed, clamped to [min_ch, max_ch].
     longest = max((len(s) for s in strings), default=min_ch)
-    return f'{max(min_ch, min(longest, max_ch))}ch'
+    scaled = math.ceil(longest * _CH_CHAR_FACTOR) + _CH_EXTRA_BUFFER
+    return f'{max(min_ch, min(scaled, max_ch))}ch'
 
 
 def _grouped_questions():
@@ -1454,25 +1501,37 @@ def inclusion_panel_students(request):
     # get an explicit label since a bare date, a bare year, or a bare
     # person's name isn't self-explanatory on its own the way "White
     # British" or "Male" is.
+    # Ported from Actions'/Referrals' own facts strips (one column per
+    # topic, label on its own top row) - Tutor/HoY use staff initials now,
+    # not full names (avatar_extras.initials, same convention as Created/
+    # Due/Raised elsewhere); Gender/Ethnicity keep no inline prefix on
+    # either line (R1 - "Male"/"White British" already read as
+    # self-explanatory, a column label above them doesn't change that).
     col_widths = {
         'dobyoa': _col_width(
-            [f'DOB: {s.date_of_birth:%d %b %Y}' if s.date_of_birth else 'DOB: —' for s in students]
-            + [f'YOA: {s.year_arrived}' if s.year_arrived else 'YOA: —' for s in students],
-            max_ch=20,
+            ['DOB']
+            + [s.date_of_birth.strftime('%d/%m/%y') if s.date_of_birth else '—' for s in students]
+            + [f'YOA {s.year_arrived}' if s.year_arrived else 'YOA —' for s in students],
+            max_ch=14,
         ),
         'genderethnicity': _col_width(
-            [s.get_gender_display() or '—' for s in students]
+            ['Details']
+            + [s.get_gender_display() or '—' for s in students]
             + [s.get_ethnicity_display() or '—' for s in students],
-            max_ch=24,
+            # 24 clipped "Mixed / Multiple Ethnic Groups" (31 chars),
+            # confirmed live via Playwright - 32 covers it.
+            max_ch=32,
         ),
         'tutorhoy': _col_width(
-            [f'Tutor: {s.form_tutor.first_name} {s.form_tutor.last_name}' if s.form_tutor else 'Tutor: —' for s in students]
-            + [f'HoY: {s.head_of_year.first_name} {s.head_of_year.last_name}' if s.head_of_year else 'HoY: —' for s in students],
-            max_ch=26,
+            ['Staff']
+            + ['Tutor ' + (initials(s.form_tutor) if s.form_tutor else '—') for s in students]
+            + ['HoY ' + (initials(s.head_of_year) if s.head_of_year else '—') for s in students],
+            max_ch=12,
         ),
         'behaviourattendance': _col_width(
-            [f'Behaviour: {s.behaviour_incidents_summary}' for s in students]
-            + [f'Attendance: {s.attendance_pct}%' if s.attendance_pct is not None else 'Attendance: —' for s in students],
+            ['Behaviour']
+            + [s.behaviour_incidents_summary for s in students]
+            + [f'Attendance {s.attendance_pct}%' if s.attendance_pct is not None else 'Attendance —' for s in students],
             max_ch=28,
         ),
     }
@@ -1681,21 +1740,7 @@ def inclusion_panel_referrals(request):
             None,
         )
         referral.next_review_date = next_review_pr.follow_up_date if next_review_pr else None
-        # New Referral vs Nth Review - same classification/labels/pill
-        # classes (type-new/type-followup) as Panel Agenda Setup's referral
-        # selection row (_referral_selection_row.html).
-        discussed_count = sum(1 for pr in referral.panel_referrals.all() if pr.discussion_status == 'discussed')
-        referral.is_new_referral = discussed_count == 0
-        referral.review_label = _review_label(discussed_count) if discussed_count else None
-        if referral.status == 'closed':
-            referral.review_pill_label = 'Closed'
-            referral.review_pill_class = 'type-already'
-        elif referral.is_new_referral:
-            referral.review_pill_label = 'New Referral'
-            referral.review_pill_class = 'type-new'
-        else:
-            referral.review_pill_label = referral.review_label
-            referral.review_pill_class = 'type-followup'
+        referral.review_pill_label, referral.review_pill_class = _referral_review_pill(referral)
 
     active_filter_count = sum(
         1 for v in (
@@ -1753,26 +1798,34 @@ def inclusion_panel_referrals(request):
         next_params = request.GET.copy()
         next_params['page'] = page_number + 1
         context['next_page_url'] = request.path + '?' + next_params.urlencode()
+    # Ported from Actions' own facts strip (views.py, inclusion_panel_actions)
+    # - label included as its own candidate string, short dates, staff
+    # initials with a "By " prefix for Raised (mirrors Actions' Created
+    # column exactly).
     context['col_widths'] = {
-        'raisedby': _col_width(
-            [f'Raised by: {r.raised_by.first_name} {r.raised_by.last_name}' if r.raised_by else 'Raised by: Unassigned' for r in referrals]
-            + [f'Raised on: {r.created_at:%d %b %Y}' for r in referrals],
-            max_ch=26,
+        'raised': _col_width(
+            ['Raised']
+            + [r.created_at.strftime('%d/%m/%y') for r in referrals]
+            + ['By ' + (initials(r.raised_by) if r.raised_by else 'Unassigned') for r in referrals],
+            max_ch=16,
         ),
         'panels': _col_width(
-            [f'Prev Panel: {r.previous_panel_date:%d %b %Y}' if r.previous_panel_date else 'Prev Panel: —' for r in referrals]
-            + [f'Next Panel: {r.next_panel_date:%d %b %Y}' if r.next_panel_date else 'Next Panel: —' for r in referrals],
-            max_ch=23,
+            ['Panel']
+            + ['Prev ' + (r.previous_panel_date.strftime('%d/%m/%y') if r.previous_panel_date else '—') for r in referrals]
+            + ['Next ' + (r.next_panel_date.strftime('%d/%m/%y') if r.next_panel_date else '—') for r in referrals],
+            max_ch=14,
         ),
         'priorityreview': _col_width(
-            [f'Priority: {r.get_priority_display()}' if r.priority else 'Priority: —' for r in referrals]
-            + [f'Review Due: {r.next_review_date:%d %b %Y}' if r.next_review_date else 'Review Due: —' for r in referrals],
-            max_ch=23,
+            ['Priority']
+            + [r.get_priority_display() or '—' for r in referrals]
+            + ['Due ' + (r.next_review_date.strftime('%d/%m/%y') if r.next_review_date else '—') for r in referrals],
+            max_ch=14,
         ),
         'actionsstatus': _col_width(
-            [f'Completed Actions: {r.completed_actions_count}' for r in referrals]
-            + [f'Incomplete Actions: {r.incomplete_actions_count}' for r in referrals],
-            max_ch=22,
+            ['Actions']
+            + [f'{r.completed_actions_count} Complete' for r in referrals]
+            + [f'{r.incomplete_actions_count} Incomplete' for r in referrals],
+            max_ch=16,
         ),
     }
     if is_continuation:
@@ -2249,7 +2302,7 @@ def inclusion_panel_actions(request):
     actions_qs = Action.objects.filter(referral__student__in=scoped_students).select_related(
         'referral__student', 'referral__student__school', 'referral__raised_by',
         'assigned_to_staff', 'category', 'created_by',
-    )
+    ).prefetch_related('referral__panel_referrals')
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
 
@@ -2338,6 +2391,12 @@ def inclusion_panel_actions(request):
         action.is_overdue = action.status == 'incomplete' and action.due_date is not None and action.due_date < today
         action.days_overdue = (today - action.due_date).days if action.is_overdue else 0
         action.referral.concern_category = _primary_concern_category(action.referral)
+        # Referral's own review pill (New Referral/Nth Review/Closed) next
+        # to its status pill in the facts strip's Referral/Status column
+        # (live feedback: "add the other Referral status pill after
+        # Status on the Actions page") - same pill Referrals' own row shows
+        # (_referral_review_pill, shared with inclusion_panel_referrals).
+        action.referral.review_pill_label, action.referral.review_pill_class = _referral_review_pill(action.referral)
 
     active_filter_count = sum(
         1 for v in (
@@ -2353,33 +2412,60 @@ def inclusion_panel_actions(request):
     # candidate string below is now the whole interpunct-joined line
     # (_actions_rows.html), not the two halves measured separately, so
     # max_ch roughly doubles to still cap at a sane width.
+    # Staff initials (avatar_extras.initials, imported at module level), with
+    # a native title="" tooltip carrying the full name (live feedback: "Can
+    # we change Staff names to staff Initials" -> "Go back to names, not
+    # initials" -> "Actually, keep initials, can we add tooltip for
+    # fullname" - initials in the flowing text, full name still one hover
+    # away rather than gone entirely).
+
+    # One column per fact, not 3 paired columns each holding two - live
+    # feedback: "change from pairs of data to Label then field for all...
+    # so Label on top row with details below". Each candidate list now
+    # includes the label itself alongside the actual per-row values -
+    # _col_width still just wants "every string that could end up in this
+    # column," it doesn't care that one of them is the label rather than a
+    # value.
     col_widths = {
-        # Assigned to/Due (live feedback: "Assigned and due is a pair" -
-        # two stacked label:value lines, same convention/col_widths shape
-        # as Referrals' own 'raisedby' column, below, rather than the
-        # single interpunct-joined line this used to be).
-        'assigned': _col_width(
-            [f'Assigned to: {a.assigned_to_staff or a.assigned_to_group or "Unassigned"}' for a in actions]
-            + [f'Due: {a.due_date:%d %b %Y}' if a.due_date else 'Due: —' for a in actions],
-            max_ch=30,
+        # Date + who it's assigned to, not a separate Assigned column (live
+        # feedback: "have staff assigned on third row of due") - "For "
+        # prefix included in the measured string so the column is sized
+        # for what's actually rendered, same convention as every other
+        # label:value candidate here.
+        'due': _col_width(
+            ['Due']
+            + [a.due_date.strftime('%d/%m/%y') if a.due_date else '—' for a in actions]
+            + ['For ' + initials(a.assigned_to_staff or a.assigned_to_group or 'Unassigned') for a in actions],
+            max_ch=16,
         ),
-        # Created At/By (live feedback: "keep created by and when!, but use
-        # the [two-line] formatting used in referral page" - restored after
-        # briefly being dropped outright, this time as two stacked label:
-        # value lines rather than one interpunct-joined line).
+        # Date + creator, "By " prefix included for the same reason (live
+        # feedback: "can we have by or for before staff [name] depending").
         'created': _col_width(
-            [f'Created At: {a.created_at:%d %b %Y}' if a.created_at else 'Created At: —' for a in actions]
-            + [f'Created By: {a.created_by}' if a.created_by else 'Created By: —' for a in actions],
-            max_ch=28,
+            ['Created']
+            + [a.created_at.strftime('%d/%m/%y') if a.created_at else '—' for a in actions]
+            + ['By ' + (initials(a.created_by) if a.created_by else '—') for a in actions],
+            max_ch=16,
         ),
-        # Referral Category/Status (live feedback: "extra info so can go at
-        # the end with Assigned and Due details", then "add a Referral
-        # detail pair, so main concern and something else" - same two-line
-        # convention as the other two columns above).
+        # Concern category on its own line, status pill(s) on another (live
+        # feedback: "have the pills for status on separate line" - not
+        # combined with concern category any more) - each measured as its
+        # own candidate string now rather than one concatenated line.
+        # `or ''`/conditional keeps a closed referral's empty
+        # review_pill_label out of the pill-line string.
         'referral': _col_width(
-            [f'Referral: {a.referral.concern_category}' if a.referral.concern_category else 'Referral: —' for a in actions]
-            + [f'Status: {a.referral.get_status_display()}' for a in actions],
-            max_ch=28,
+            ['Referral']
+            + [a.referral.concern_category or '—' for a in actions]
+            + [
+                # '  ' padding for the pill(s)' own padding/border-radius,
+                # same reasoning _CH_EXTRA_BUFFER exists for generally (a
+                # .status-pill costs real width no character count sees) -
+                # confirmed necessary live via Playwright when this was
+                # still one combined line with concern category.
+                (f'{a.referral.get_status_display()}  {a.referral.review_pill_label}  ' if a.referral.review_pill_label
+                 else f'{a.referral.get_status_display()}  ')
+                for a in actions
+            ],
+            max_ch=30,
         ),
     }
 

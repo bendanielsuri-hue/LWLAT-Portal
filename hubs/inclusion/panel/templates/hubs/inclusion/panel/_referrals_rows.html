@@ -45,31 +45,49 @@ convention as Students' own _students_rows.html.
             <div class="row-title-secondary">
                 <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Concern: </span>{{ referral.concern_category|default:"—" }}</div>
                 <div class="row-title-pills">
-                    <span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>
+                    {% if referral.review_pill_label %}<span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>{% endif %}
                     <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
                 </div>
             </div>
             <span class="row-title-raised-by">Raised by {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %} on {{ referral.created_at|date:"d M Y" }}</span>
+            {% comment %}
+            One column per topic, label on its own top row (ported from
+            Actions' own facts strip - live feedback: "lets implement all
+            changes to students and referrals"). Raised on/by mirrors
+            Actions' Created column exactly (date then "By X" - see
+            _actions_rows.html); Panel/Priority/Actions each keep their
+            existing two-fact pairing as the label's two data rows, since
+            neither fact in those pairs is a staff name to prefix with By/
+            For the way Created's/Due's own third rows are. Divider
+            between every column, matching Actions' own "no longer pairs"
+            divider placement even though these still hold 2 related facts
+            each - the divider marks the column boundary, not whether the
+            column happens to hold one fact or two.
+            {% endcomment %}
             <div class="row-facts row-facts-cols">
-                <div class="row-fact-col" style="width: {{ col_widths.raisedby }}">
-                    <span>Raised by: {% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}</span>
-                    <span>Raised on: {{ referral.created_at|date:"d M Y" }}</span>
+                <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.raised }}">
+                    <span class="row-fact-label">Raised</span>
+                    <span>{{ referral.created_at|date:"d/m/y" }}</span>
+                    <span title="{% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}">By {% if referral.raised_by %}{{ referral.raised_by|initials }}{% else %}Unassigned{% endif %}</span>
                 </div>
                 <span class="mc-vdivider"></span>
-                {# row-fact-col-empty: #118 mobile-only hide (panel.css) for a pair with nothing in either line - Prev Panel/Next Panel and Priority/Review Due are the only two pairs that can ever both be blank (Raised by/on and Actions counts never are), see #118 follow-up grilling session. #}
+                {# row-fact-col-empty: #118 mobile-only hide (panel.css) for a pair with nothing in either line - Prev Panel/Next Panel and Priority/Review Due are the only two pairs that can ever both be blank (Raised on/by and Actions counts never are), see #118 follow-up grilling session. #}
                 <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.panels }}">
-                    <span>Prev Panel: {{ referral.previous_panel_date|date:"d M Y"|default:"—" }}</span>
-                    <span>Next Panel: {{ referral.next_panel_date|date:"d M Y"|default:"—" }}</span>
+                    <span class="row-fact-label">Panel</span>
+                    <span>Prev {{ referral.previous_panel_date|date:"d/m/y"|default:"—" }}</span>
+                    <span>Next {{ referral.next_panel_date|date:"d/m/y"|default:"—" }}</span>
                 </div>
                 <span class="mc-vdivider"></span>
                 <div class="row-fact-col{% if not referral.priority and not referral.next_review_date %} row-fact-col-empty{% endif %}" style="width: {{ col_widths.priorityreview }}">
-                    <span>Priority: {{ referral.get_priority_display|default:"—" }}</span>
-                    <span>Review Due: {{ referral.next_review_date|date:"d M Y"|default:"—" }}</span>
+                    <span class="row-fact-label">Priority</span>
+                    <span>{{ referral.get_priority_display|default:"—" }}</span>
+                    <span>Due {{ referral.next_review_date|date:"d/m/y"|default:"—" }}</span>
                 </div>
                 <span class="mc-vdivider"></span>
                 <div class="row-fact-col" style="width: {{ col_widths.actionsstatus }}">
-                    <span>Completed Actions: {{ referral.completed_actions_count }}</span>
-                    <span>Incomplete Actions: {{ referral.incomplete_actions_count }}</span>
+                    <span class="row-fact-label">Actions</span>
+                    <span>{{ referral.completed_actions_count }} Complete</span>
+                    <span>{{ referral.incomplete_actions_count }} Incomplete</span>
                 </div>
             </div>
         </div>

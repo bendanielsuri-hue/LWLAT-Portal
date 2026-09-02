@@ -409,14 +409,20 @@ document.addEventListener('DOMContentLoaded', function () {
     // student page... maybe this needs simplifying" - re-measuring up to
     // 240 rows on every single resize/ResizeObserver tick was the actual
     // main-thread cost fighting the side-nav's own width transition, not
-    // just how often it ran. Both replacements trade a little JS-computed
-    // polish (equal button widths across the list, exact per-row content
-    // fit) for zero JS cost on resize - see panel.css's own comments at
-    // each rule for the specifics.
+    // just how often it ran. The detail columns stayed plain CSS
+    // (wireStudentFactsOverflow, below, only ever measures one row). The
+    // buttons column later got a narrow, deliberate exception back
+    // (wireStudentButtonColumnWidth, below) - matching width across every
+    // row turned out to be a real requirement (live feedback: "I do want
+    // actions block to match in all cards... users should expect
+    // consistency"), not just "polish" to trade away - but it still only
+    // measures each row once per resize (one getBoundingClientRect() read),
+    // not the old multi-pass scrollWidth probe, so it doesn't reintroduce
+    // the actual cost that was cut here.
 
-    // Shared by wireStudentsInfiniteScroll and wireStudentButtonLayout below
-    // - both used to run their own separate MutationObserver on the same
-    // #students-filtered-content (childList/subtree), which is redundant
+    // Shared by wireStudentsInfiniteScroll and wireStudentButtonColumnWidth
+    // below - both used to run their own separate MutationObserver on the
+    // same #students-filtered-content (childList/subtree), which is redundant
     // work on every DOM change to the container. One observer here notifies
     // both callbacks instead.
     var studentsContentObservers = [];
@@ -491,75 +497,41 @@ document.addEventListener('DOMContentLoaded', function () {
         studentsContentObservers.push(observeSentinel);
     })();
 
-    // Equal button widths (panel.css, live feedback: "the buttons with
-    // badges takes up more space so goes to new line, but other entitys do
-    // not... make buttons same size as max width of that type") - pins
-    // each button slot (Referrals/Actions/New Referral) to the widest that
-    // same slot needs across the currently rendered rows, as a
-    // --btn-w-<slot> custom property, so a row's own badge digit count
-    // can't make its wrap decision differ from its neighbours'. Plus a
-    // "did this row's buttons actually wrap" class (live feedback: "if
-    // buttons overflow to a new line, can they auto width to fill the
-    // width! Like in mobile mode" - panel.css's .row-buttons-wrapped rule
-    // gives a wrapped .btn-row the same full-width/centred treatment
-    // mobile's own always-wrapped block uses), detected the cheap way -
-    // one offsetTop comparison per row (does .btn-row share
-    // .entity-thumb's line, or has it fallen to its own) rather than the
-    // old scrollWidth-vs-clientWidth overflow probe this replaced.
-    // Re-measures on content change (page load, filter change, infinite-
-    // scroll append - MutationObserver, same convention as the scroll
-    // wiring above) AND on resize/ResizeObserver, rAF-throttled
-    // (window.rafThrottle, main.js) - safe to react to resize again here,
-    // unlike the detail-column/wrap systems earlier in this same session,
-    // because pagination (views.py, same session) now caps this at
-    // STUDENTS_PAGE_SIZE rows and each row only costs one cheap offsetTop
-    // read, not a multi-pass scrollWidth probe across an unbounded list.
-    (function wireStudentButtonLayout() {
+    // Equal buttons-column width across every row (DES-L2/L3's "own row"
+    // version of reserve-space-for-the-max already applied within a row;
+    // this is the same idea across every row in the list - live feedback:
+    // "I do want actions block to match in all cards... users should expect
+    // consistency"). Each .entity-row is its own separate CSS Grid instance
+    // (panel.css, the >=701px grid band), so its "buttons" column's `auto`
+    // track sizes independently per row - a row with a longer Referrals
+    // badge naturally gets a wider buttons column than its neighbours,
+    // which is exactly the row-to-row inconsistency the feedback flagged.
+    // Measures every row's natural (unconstrained) .btn-row width, then
+    // pins the shared --students-btn-col-w custom property (read by the
+    // grid band's own grid-template-columns, panel.css) to the widest one
+    // needed - every row's buttons column then shares that one fixed width
+    // instead of sizing to its own content. Re-measures on content change
+    // (page load, filter change, infinite-scroll append - via
+    // studentsContentObservers, same convention as the scroll wiring above)
+    // and on resize/ResizeObserver, rAF-throttled (window.rafThrottle,
+    // main.js; STUDENTS_PAGE_SIZE, views.py, keeps this to one cheap
+    // getBoundingClientRect() read per row, not an unbounded list).
+    (function wireStudentButtonColumnWidth() {
         var container = document.getElementById('students-filtered-content');
         if (!container) return;
         function refresh() {
-            // .row-buttons-wrapped cleared from every row before anything
-            // else runs - a row left over in that class (full-width,
-            // flex: 1 stretched buttons) from a previous, narrower pass
-            // would otherwise have its *stretched* width measured below
-            // instead of its true compact one, poisoning --btn-w-* for the
-            // WHOLE list with widths too large to ever fit inline again -
-            // which then wraps more rows next pass, poisoning it further
-            // still. Same self-reinforcing bug the original per-resize
-            // version of this (git history) hit and fixed the same way.
-            container.querySelectorAll('.entity-row.row-buttons-wrapped').forEach(function (row) {
-                row.classList.remove('row-buttons-wrapped');
+            // Cleared before measuring, not just overwritten after -
+            // otherwise a previous pass's own fixed width would be what
+            // gets measured back on a re-run (e.g. after a filter change
+            // drops every badge to a shorter digit count), never letting
+            // the shared width shrink back down again.
+            container.style.removeProperty('--students-btn-col-w');
+            var max = 0;
+            container.querySelectorAll('.btn-row').forEach(function (el) {
+                max = Math.max(max, el.getBoundingClientRect().width);
             });
-            ['referrals', 'actions', 'new-referral'].forEach(function (slot) {
-                // Cleared before measuring, not just overwritten after -
-                // otherwise a slot's own previously-set fixed width would
-                // be what gets measured back on a re-run (e.g. after a
-                // filter change drops every badge to a shorter digit
-                // count), never letting the constraint shrink again.
-                container.style.removeProperty('--btn-w-' + slot);
-            });
-            ['referrals', 'actions', 'new-referral'].forEach(function (slot) {
-                var max = 0;
-                container.querySelectorAll('[data-btn-slot="' + slot + '"]').forEach(function (el) {
-                    max = Math.max(max, el.getBoundingClientRect().width);
-                });
-                if (max > 0) container.style.setProperty('--btn-w-' + slot, max + 'px');
-            });
-            container.querySelectorAll('.entity-row').forEach(function (row) {
-                var thumb = row.querySelector('.entity-thumb');
-                var btnRow = row.querySelector('.btn-row');
-                if (!thumb || !btnRow) return;
-                row.classList.toggle('row-buttons-wrapped', btnRow.offsetTop > thumb.offsetTop + 2);
-            });
+            if (max > 0) container.style.setProperty('--students-btn-col-w', max + 'px');
         }
-        // Width-only guard - refresh() toggling .row-buttons-wrapped
-        // changes a row's height (wrapped = 2 lines), which changes
-        // container's own height, which would re-fire the ResizeObserver
-        // below watching container regardless of dimension, feeding
-        // straight back into refresh() again (same thrashing-on-load
-        // feedback loop the old wireStudentRowButtonWrap documented and
-        // guarded against). Only a genuine width change - the only thing a
-        // wrap decision can actually depend on - re-runs it.
         var lastWidth = null;
         function refreshIfWidthChanged() {
             var width = container.clientWidth;
@@ -577,52 +549,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     })();
 
-    // Facts-strip overflow guard (DOB/YOA, Gender/Ethnicity, Tutor/HoY,
-    // Behaviour/Attendance) - same live-measured, attribute-driven guard as
-    // Referrals' wireReferralFactsOverflow (referrals.html), replacing the
-    // fixed per-column viewport breakpoints this used to have (panel.css:
-    // "Was a JS-measured 'level 0-5' system" comment, above the CSS rules
-    // this now drives) - those were hand-tuned for one specific combination
-    // of column-content lengths and went stale the moment real content
-    // differed (live feedback: "I get weird scenarios... where more data
-    // should fit"). Only the FIRST row's four columns are ever measured,
-    // not every row - see Referrals' identical comment for why that's
-    // still correct (col_widths, views.py, applies the same widths to
-    // every row on the page) and still O(1) per resize, not the ~240-row
-    // remeasure the original per-row system paid for.
-    (function wireStudentFactsOverflow() {
-        var container = document.getElementById('students-filtered-content');
-        if (!container) return;
-        function apply() {
-            var probe = container.querySelector('.entity-row .row-facts-cols');
-            if (!probe) return;
-            var cols = Array.prototype.slice.call(probe.querySelectorAll(':scope > .row-fact-col'));
-            if (cols.length < 2) return;
-            container.removeAttribute('data-facts-hide-from');
-            var top0 = cols[0].getBoundingClientRect().top;
-            for (var i = 1; i < cols.length; i++) {
-                if (Math.round(cols[i].getBoundingClientRect().top) > Math.round(top0)) {
-                    container.setAttribute('data-facts-hide-from', String(i));
-                    break;
-                }
-            }
-        }
-        var lastWidth = null;
-        function applyIfWidthChanged() {
-            var width = container.clientWidth;
-            if (width === lastWidth) return;
-            lastWidth = width;
-            apply();
-        }
-        var applyOnResize = window.rafThrottle ? window.rafThrottle(applyIfWidthChanged) : applyIfWidthChanged;
-        apply();
-        lastWidth = container.clientWidth;
-        studentsContentObservers.push(apply);
-        window.addEventListener('resize', applyOnResize);
-        if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(applyOnResize).observe(container);
-        }
-    })();
+    // Facts-strip overflow guard - was a JS measurement
+    // (wireStudentFactsOverflow, same mechanism as Referrals'/Actions' own
+    // equivalents), replaced with a pure-CSS crop (panel.css:
+    // #students-filtered-content .row-facts max-height + overflow: hidden)
+    // once Actions proved the technique out (live feedback there: "are we
+    // not able to add a height and hide overflow using CSS or does it need
+    // JS", then here: "lets implement all changes to students and
+    // referrals") - .row-facts already wraps overflowing columns onto a
+    // second line on its own (flex-wrap: wrap), so capping its height to
+    // one line and clipping crops that wrapped line away with nothing left
+    // to measure, no [data-facts-hide-from] attribute, and no load-time
+    // flash.
 });
 </script>
 {% endblock %}

@@ -100,41 +100,46 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                 </div>
                 {% endif %}
             </div>
-            <div class="entity-meta action-note">{% if action.note %}{{ action.note }}{% else %}<span class="empty-note">No description.</span>{% endif %}</div>
+            <div class="entity-meta action-note">{% if action.note %}{{ action.note }}{% else %}<span class="empty-note-inline">No description.</span>{% endif %}</div>
             {% comment %}
-            Assigned to/Due first (#119 follow-up: "for an Action, who it's
-            assigned and when it's due is more important than who created
-            and when") - two stacked label:value lines (live feedback:
-            "Assigned and due is a pair" - supersedes the earlier single
-            interpunct-joined line, #119 follow-up: "can Assigned and Due
-            make better use of space? One line"), same convention/markup
-            shape as Referrals' own Raised by/on column (_referrals_rows.
-            html). Created At/By is second, same two-line convention (live
-            feedback: "keep created by and when!, but use the [two-line]
-            formatting used in referral page" - restored after briefly
-            being dropped outright). Referral (Concern Category/Status) is
-            third/last, same two-line pairing again (live feedback: "add a
-            Referral detail pair, so main concern and something else") -
-            lowest priority of the three (live feedback: "Referral Category
-            is extra info so can go at the end with Assigned and Due
-            details" - moved out of row-title-secondary above, where it
-            used to sit ahead of Action), so wireActionFactsOverflow
-            (actions.html) drops it first when the row runs out of width.
+            One column per fact, label on its own top row (live feedback:
+            "change from pairs of data to Label then field for all...
+            Label on top row with details below"). Assigned folded into
+            Due as a third stacked row, same idea as Created's own third
+            row for who created it (live feedback: "have staff assigned on
+            third row of due"); Referral's status pill(s) moved to their
+            own third row instead of sharing the concern-category line
+            (live feedback: "have the pills for status on separate line").
+            With both Due and Created now ending in a bare staff name/
+            initials, a short "For"/"By" prefix tells them apart at a
+            glance (live feedback: "can we have by or for before staff
+            [name] depending" - "For" reads as who it's assigned to, "By"
+            as who created it, matching how each would read in a full
+            sentence). Divider between every column - nothing is paired
+            any more (live feedback, a few exchanges back: "we now need
+            horizontal lines for all, no longer pairs"). Priority order
+            (which one a narrow row loses first) is still Assigned/Due,
+            then Created, then Referral - but that drop is a pure-CSS crop
+            now (panel.css), not JS choosing a column, so it just clips
+            from the end regardless of grouping.
             {% endcomment %}
             <div class="row-facts row-facts-cols">
-                <div class="row-fact-col" style="width: {{ col_widths.assigned }}">
-                    <span>Assigned to: {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}</span>
-                    <span>Due: {{ action.due_date|date:"d M Y"|default:"—" }}</span>
+                <div class="row-fact-col" style="width: {{ col_widths.due }}">
+                    <span class="row-fact-label">Due</span>
+                    <span>{{ action.due_date|date:"d/m/y"|default:"—" }}</span>
+                    <span title="{{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}">For {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned"|initials }}</span>
                 </div>
                 <span class="mc-vdivider"></span>
                 <div class="row-fact-col" style="width: {{ col_widths.created }}">
-                    <span>Created At: {{ action.created_at|date:"d M Y"|default:"—" }}</span>
-                    <span>Created By: {{ action.created_by|default:"—" }}</span>
+                    <span class="row-fact-label">Created</span>
+                    <span>{{ action.created_at|date:"d/m/y"|default:"—" }}</span>
+                    <span title="{{ action.created_by|default:"—" }}">By {{ action.created_by|default:"—"|initials }}</span>
                 </div>
                 <span class="mc-vdivider"></span>
                 <div class="row-fact-col" style="width: {{ col_widths.referral }}">
-                    <span>Referral: {{ action.referral.concern_category|default:"—" }}</span>
-                    <span>Status: {{ action.referral.get_status_display }}</span>
+                    <span class="row-fact-label">Referral</span>
+                    <span>{{ action.referral.concern_category|default:"—" }}</span>
+                    <span><span class="status-pill {{ action.referral.status }}">{{ action.referral.get_status_display }}</span>{% if action.referral.review_pill_label %} <span class="status-pill {{ action.referral.review_pill_class }}">{{ action.referral.review_pill_label }}</span>{% endif %}</span>
                 </div>
             </div>
         </div>

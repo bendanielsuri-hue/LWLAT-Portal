@@ -47,6 +47,7 @@ Visual design values that hold regardless of which project this is. Entries here
 - **L6.** On mobile, a stacked card/section should bleed to the screen's full width — no left/right margin floating it inset within the page's own padding. Screen space is too scarce there for that inset to read as breathing room rather than waste; keep just enough padding *inside* the card for its own content to clear the edge.
 - **L7.** A multi-word label sitting above a narrow control (a filter field's own label) should wrap onto two lines rather than force the control wider to fit it on one line — the vertical room is already there, so use it instead of spending horizontal space just to keep text on a single line.
 - **L8.** In a flex-wrapped stack of lines, don't let a child's own margin-top (added to clear space for a divider above it) stack on top of the container's own row-gap between wrapped lines — the two add together into a visibly larger gap than either alone. Tighten the container's row-gap to its smallest step and let the divider's own margin do the rest of the spacing.
+- **L9.** A column that repeats identically down every row of a list (e.g. an actions/buttons column) should be exactly the same width in every row, not sized locally to that particular row's own content — even when each row lays itself out independently (its own flex/grid instance) and would otherwise naturally reach a different width. Users read a list as one consistent shape; a column that visibly widens or narrows row to row looks broken rather than merely different.
 
 ## M — Meaning
 
@@ -66,6 +67,7 @@ Visual design values that hold regardless of which project this is. Entries here
 - **S1.** All single-line controls (buttons, text inputs, dropdowns) should be the same height as each other.
 - **S2.** Don't mix a taller, multi-line-shaped component into the same row as single-line controls — it will look misaligned.
 - **S3.** On a real touch device, every single-line control needs a taller minimum height (~44px) than its desktop default, to stay a comfortable tap target — apply the same bump to all of them together so S1's "same height as each other" still holds at touch size, not just on desktop.
+- **S4.** An icon-only control (no text to pad it out) should have its width match its own height, i.e. read as a square — text naturally pads a labelled control's width out, but an icon-only one won't clear a comfortable tap target on its own without an explicit minimum width alongside S3's height bump.
 
 ## T — Typography
 

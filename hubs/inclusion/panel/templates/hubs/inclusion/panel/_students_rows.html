@@ -32,40 +32,56 @@ markup in one place means both call sites can never drift apart.
             {% endif %}
             <span class="row-facts-primary-plain">Year {{ s.year_group }}{% if s.house %} &middot; House {{ s.house }}{% endif %}{% if s.reg_form %} &middot; Form {{ s.reg_form }}{% endif %}</span>
         </div>
+        {% comment %}
+        One column per topic, label on its own top row (ported from
+        Actions'/Referrals' own facts strips - live feedback: "lets
+        implement all changes to students and referrals"). Tutor/HoY use
+        the same staff-initials + tooltip convention as Actions' Created/
+        Due and Referrals' Raised (avatar_extras.initials); Gender/
+        Ethnicity need no inline prefix on either line since both values
+        already read as unambiguous on their own ("Male", "Asian or Asian
+        British" don't need "Gender:"/"Ethnicity:" restated - R1).
+        {% endcomment %}
         <div class="row-facts row-facts-cols">
             <div class="row-fact-col" style="width: {{ col_widths.dobyoa }}">
-                <span>DOB: {{ s.date_of_birth|date:"d M Y"|default:"—" }}</span>
-                <span>YOA: {{ s.year_arrived|default:"—" }}</span>
+                <span class="row-fact-label">DOB</span>
+                <span>{{ s.date_of_birth|date:"d/m/y"|default:"—" }}</span>
+                <span>YOA {{ s.year_arrived|default:"—" }}</span>
             </div>
             <span class="mc-vdivider"></span>
             <div class="row-fact-col" style="width: {{ col_widths.genderethnicity }}">
+                <span class="row-fact-label">Details</span>
                 <span>{{ s.get_gender_display|default:"—" }}</span>
                 <span>{{ s.get_ethnicity_display|default:"—" }}</span>
             </div>
             <span class="mc-vdivider"></span>
             <div class="row-fact-col" style="width: {{ col_widths.tutorhoy }}">
-                <span>Tutor: {% if s.form_tutor %}{{ s.form_tutor.first_name }} {{ s.form_tutor.last_name }}{% else %}—{% endif %}</span>
-                <span>HoY: {% if s.head_of_year %}{{ s.head_of_year.first_name }} {{ s.head_of_year.last_name }}{% else %}—{% endif %}</span>
+                <span class="row-fact-label">Staff</span>
+                <span title="{% if s.form_tutor %}{{ s.form_tutor.first_name }} {{ s.form_tutor.last_name }}{% else %}—{% endif %}">Tutor {% if s.form_tutor %}{{ s.form_tutor|initials }}{% else %}—{% endif %}</span>
+                <span title="{% if s.head_of_year %}{{ s.head_of_year.first_name }} {{ s.head_of_year.last_name }}{% else %}—{% endif %}">HoY {% if s.head_of_year %}{{ s.head_of_year|initials }}{% else %}—{% endif %}</span>
             </div>
             <span class="mc-vdivider"></span>
             <div class="row-fact-col" style="width: {{ col_widths.behaviourattendance }}">
-                <span>Behaviour: {{ s.behaviour_incidents_summary }}</span>
-                <span>Attendance: {% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% else %}—{% endif %}</span>
+                <span class="row-fact-label">Behaviour</span>
+                <span>{{ s.behaviour_incidents_summary }}</span>
+                <span>Attendance {% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% else %}—{% endif %}</span>
             </div>
         </div>
     </div>
     <div class="btn-row">
-        {% if s.referrals_count > 0 %}
-        <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm" data-btn-slot="referrals">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
-        {% else %}
-        <span class="btn btn-sm btn-disabled" aria-disabled="true" data-btn-slot="referrals">Referrals</span>
-        {% endif %}
         {% if s.actions_count > 0 %}
         <a href="{% url 'inclusion_panel_actions' %}?name={{ s.id }}" class="btn btn-sm" data-btn-slot="actions">Actions<span class="btn-count-badge">{{ s.actions_count }}</span></a>
         {% else %}
         <span class="btn btn-sm btn-disabled" aria-disabled="true" data-btn-slot="actions">Actions</span>
         {% endif %}
-        <button type="button" class="btn btn-add btn-sm" data-btn-slot="new-referral" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Referral</button>
+        <div class="btn-row-fused">
+            {% if s.referrals_count > 0 %}
+            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm" data-btn-slot="referrals">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
+            {% else %}
+            <span class="btn btn-sm btn-disabled" aria-disabled="true" data-btn-slot="referrals">Referrals</span>
+            {% endif %}
+            <button type="button" class="btn btn-add btn-sm" data-btn-slot="new-referral" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}" aria-label="New Referral"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span></button>
+        </div>
     </div>
 </div>
 {% empty %}

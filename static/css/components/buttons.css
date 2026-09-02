@@ -152,6 +152,57 @@ html.nav-touch-mode .btn {
    Save/Cancel on the right. */
 .btn-row--start { justify-content: flex-start; }
 
+/* Fuses two adjacent .btn elements into one bordered pill instead of two
+   separate buttons with their own borders side by side (Students list:
+   "New Referral" fused onto "Referrals" as a small icon-only "+", live
+   feedback - "is it worth trying to make the + be fused to Referrals
+   button"). Generic/reusable rather than page-scoped (ENG-S1) - any list
+   row pairing a primary action with a small icon-only add action can reach
+   for this instead of reimplementing the border-stripping. flex-wrap:
+   nowrap is load-bearing - the whole point of fusing is that the two
+   never separate onto their own lines, unlike a plain .btn-row. */
+.btn-row-fused {
+    display: flex;
+    flex-wrap: nowrap;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.btn-row-fused > .btn {
+    border: none;
+    border-radius: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.btn-row-fused > .btn:last-child {
+    flex: 0 0 auto;
+    border-left: 1px solid var(--border-color);
+}
+/* Plain .btn's own :hover (above) only recolours its border - invisible
+   here since border: none strips it out for every fused child. Restores a
+   visible hover cue with a tint instead. :not(.btn-add) - .btn-add (the
+   fused pill's icon-only slot) already swaps its own background on hover
+   and reads fine without this; adding a second, higher-specificity
+   background here would win the cascade over its real green hover and mute
+   it. Referrals/any other non-variant fused slot is the actual target. */
+.btn-row-fused > .btn:not(.btn-add):hover,
+.btn-row-fused > .btn:not(.btn-add):focus-visible {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+/* (DES-S4) The fused pill's last slot is always the icon-only add trigger
+   by convention - html.nav-touch-mode .btn above already floors every
+   button's *height* to ~44px via extra top/bottom padding (DES-S3), but an
+   icon-only button has no text to pad its width out the same way: just the
+   16px icon plus .btn-sm's own --space-sm (12px) each side, ~40px, short
+   of a comfortable tap target. aspect-ratio: 1, not a hardcoded min-width -
+   width should match height exactly (S4), so this tracks whatever S3's
+   touch padding actually computes to instead of a separately-maintained
+   pixel guess. Width only, not height - the shared .btn rule already
+   covers height for every fused child, including Referrals. */
+html.nav-touch-mode .btn-row-fused > .btn:last-child {
+    aspect-ratio: 1;
+}
+
 /* Low-emphasis text-link action (e.g. "Escalate to MAT") */
 .btn-subtle {
     background: none;

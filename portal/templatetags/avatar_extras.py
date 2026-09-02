@@ -11,6 +11,21 @@ _UNRESERVED_FALLBACK = 'pink'
 
 
 @register.filter
+def initials(person):
+    """First-name-initial + last-name-initial (e.g. "Farah Hussain" -> "FH"),
+    same order/convention as the avatar-fallback initials already rendered
+    for entity-row thumbs (see _students_rows.html: "{{ s.first_name|first
+    }}{{ s.last_name|first }}"). Anything without first_name/last_name (a
+    StaffGroup, a plain string, "Unassigned") is returned unchanged - a
+    group's own name isn't a person's initials to abbreviate the same way."""
+    first = getattr(person, 'first_name', None)
+    last = getattr(person, 'last_name', None)
+    if not first or not last:
+        return person
+    return f'{first[0]}{last[0]}'.upper()
+
+
+@register.filter
 def avatar_color_class(person):
     """Fallback-avatar background class - the person's own school accent
     colour when they have one (School.accent_colour, the same 8-colour
