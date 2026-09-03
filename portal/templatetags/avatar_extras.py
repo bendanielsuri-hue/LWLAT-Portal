@@ -26,6 +26,19 @@ def initials(person):
 
 
 @register.filter
+def full_name(person):
+    """"First Last" (e.g. Staff's own __str__ is "Last, First", MIS-record
+    order - wrong for reading inline in a sentence like "For Benjamin Suri").
+    Same fallback as initials() above: anything without first_name/last_name
+    (a StaffGroup, a plain string, "Unassigned") is returned unchanged."""
+    first = getattr(person, 'first_name', None)
+    last = getattr(person, 'last_name', None)
+    if not first or not last:
+        return person
+    return f'{first} {last}'
+
+
+@register.filter
 def avatar_color_class(person):
     """Fallback-avatar background class - the person's own school accent
     colour when they have one (School.accent_colour, the same 8-colour

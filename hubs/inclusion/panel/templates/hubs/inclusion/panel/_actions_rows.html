@@ -138,33 +138,58 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
             {% comment %}
             row-facts-shell exists purely to hold container-type: inline-size
             (panel.css) - a size-query container can't itself be the element
-            an @container rule changes a layout-affecting property on (e.g.
-            flex-wrap) without creating a cyclic "container's own size
-            depends on a style that depends on the container's own size"
-            dependency, which browsers refuse to resolve (confirmed live:
-            flex-basis:100% on a CHILD applied fine from the same @container
-            block, flex-wrap:wrap on .row-facts ITSELF silently never took
-            effect). Splitting the query container (this shell, untouched by
-            any @container rule) from the element being restyled (.row-facts)
-            sidesteps it entirely.
+            an @container rule changes a layout-affecting property on (its
+            own size would then depend on a style that depends on its own
+            size, a cycle browsers refuse to resolve) - splitting the query
+            container (this shell) from the element actually being restyled
+            (.row-facts, below) sidesteps that. Description stays a direct
+            .row-facts flex item, fixed 320px width - ordinary flex-wrap
+            already drops the row-facts-cols group below it once both no
+            longer fit side by side (min-width: 200px, below), but a wrapped
+            item doesn't automatically claim the rest of its own now-empty
+            line - the @container rule (_actions_filtered_content.html)
+            forces Description to flex-basis: 100% once the shell itself
+            genuinely has no room left for both, so it reads as a deliberate
+            full-width promotion rather than a fixed-width column stranded
+            with dead space beside it (live feedback: "if data cols do not
+            fit, I want data col to move to own row and Description to be
+            full width"). row-facts-cols is its own separate scrollable
+            strip (Due/Created/Referral/Status), not the same element as
+            row-facts - a permanent horizontal scroll region (overflow-x:
+            auto, panel.css) rather than wrapping the way Description does,
+            so these columns never need cropping/hiding and never push the
+            row taller.
             {% endcomment %}
             <div class="row-facts-shell">
-            <div class="row-facts row-facts-cols">
+            <div class="row-facts">
                 <div class="row-fact-col row-fact-col-description">
                     <span class="row-fact-label">Description</span>
                     <span>{% if action.note %}{{ action.note }}{% else %}<span class="empty-note-inline">No description.</span>{% endif %}</span>
                 </div>
-                <div class="row-fact-col" data-col="due" style="width: {{ col_widths.due }}">
+                <div class="row-facts-track">
+                <div class="row-facts-cols">
+                <div class="row-fact-col" data-col="due">
                     <span class="row-fact-label">Due</span>
                     <span>{{ action.due_date|date:"d/m/y"|default:"—" }}</span>
-                    <span title="{{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}">For {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned"|initials }}</span>
+                    {% comment %}
+                    Initials by default, full name once there's genuinely
+                    room to spare (live feedback: "in Wide mode we can get
+                    away with using full names, switch to initials for only
+                    narrower modes") - same "two independent renderings, CSS
+                    picks which one's visible" convention the Status data
+                    col/dropdown swap already uses on this page. Both columns
+                    size intrinsically to whichever span is visible.
+                    {% endcomment %}
+                    <span class="row-fact-assignee row-fact-assignee--initials" title="{{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}">For {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned"|initials }}</span>
+                    <span class="row-fact-assignee row-fact-assignee--full" title="{{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}">For {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned"|full_name }}</span>
                 </div>
-                <div class="row-fact-col" data-col="created" style="width: {{ col_widths.created }}">
+                <div class="row-fact-col" data-col="created">
                     <span class="row-fact-label">Created</span>
                     <span>{{ action.created_at|date:"d/m/y"|default:"—" }}</span>
-                    <span title="{{ action.created_by|default:"—" }}">By {{ action.created_by|default:"—"|initials }}</span>
+                    <span class="row-fact-assignee row-fact-assignee--initials" title="{{ action.created_by|default:"—" }}">By {{ action.created_by|default:"—"|initials }}</span>
+                    <span class="row-fact-assignee row-fact-assignee--full" title="{{ action.created_by|default:"—" }}">By {{ action.created_by|default:"—"|full_name }}</span>
                 </div>
-                <div class="row-fact-col" data-col="referral" style="width: {{ col_widths.referral }}">
+                <div class="row-fact-col row-fact-col-clamp" data-col="referral">
                     <span class="row-fact-label">Referral</span>
                     <span>{{ action.referral.concern_category|default:"—" }}</span>
                     <span><span class="status-pill {{ action.referral.status }}">{{ action.referral.get_status_display }}</span>{% if action.referral.review_pill_label %} <span class="status-pill {{ action.referral.review_pill_class }}">{{ action.referral.review_pill_label }}</span>{% endif %}</span>
@@ -196,6 +221,10 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                             {% endfor %}
                         </div>
                     </form>
+                </div>
+                </div>
+                <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">{% include 'icons/arrow_left_svg.html' %}</button>
+                <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">{% include 'icons/arrow_right_svg.html' %}</button>
                 </div>
             </div>
             </div>

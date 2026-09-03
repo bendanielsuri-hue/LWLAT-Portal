@@ -1,6 +1,5 @@
 import datetime
 import json
-import math
 from collections import Counter
 from urllib.parse import quote
 
@@ -39,7 +38,7 @@ from core.student_history import (
     positive_behaviour_summary,
 )
 from core.term_dates import next_half_term, next_term, upcoming_review_terms
-from portal.templatetags.avatar_extras import initials
+from portal.templatetags.avatar_extras import initials, full_name
 
 from .models import (
     Action,
@@ -862,57 +861,6 @@ def _primary_concern_category(referral):
     return None
 
 
-# Correction factor for _col_width, below - `ch` means "width of the '0'
-# glyph", but our actual label:value strings are proportional text full of
-# narrower characters (spaces, "1", "l", "i"...), so a plain character count
-# in `ch` units renders wider than the text actually needs. Most visible
-# with only a couple of filtered rows (live feedback: "filtered to just 2
-# rows and I see a lot of dead space to the right of each data col") - with
-# many rows some row's content usually already sits close to the cap, but
-# the overestimate itself is there regardless of row count.
-# 0.62 (first attempt) overcorrected badly (live feedback: "we now get cut
-# off!") - it doesn't just trim the modest ch-vs-real-text gap, it shrinks
-# the actual longest row's own required width below what that row needs, no
-# matter how accurate the ratio is. 0.88 is a much more conservative trim.
-# _CH_EXTRA_BUFFER (below), not a smaller factor, is what covers the
-# Referral column's own extra case - Actions' Status line (_actions_rows.
-# html) wraps its value in a .status-pill, whose padding/border-radius
-# (pills.css) costs real width a plain character count can't see at all,
-# regardless of how well-tuned the factor is.
-_CH_CHAR_FACTOR = 0.88
-_CH_EXTRA_BUFFER = 2
-
-
-def _col_width(strings, max_ch, min_ch=4):
-    # Shared by Students/Referrals/Actions row-detail facts columns - each
-    # column's width is the longest label+value string actually present
-    # across every row currently displayed, clamped to [min_ch, max_ch].
-    longest = max((len(s) for s in strings), default=min_ch)
-    scaled = math.ceil(longest * _CH_CHAR_FACTOR) + _CH_EXTRA_BUFFER
-    return f'{max(min_ch, min(scaled, max_ch))}ch'
-
-
-def _facts_wrap_threshold(col_ch_widths, gap_px=17, px_per_ch=7.0):
-    # Single-breakpoint helper for a facts strip with no "always visible
-    # full width" hero column (Referrals/Students - unlike Actions, whose
-    # Description column deliberately claims all of line 1 once wrapped;
-    # every column here is equally "just data", so there's nothing to
-    # promote to full width, just an ordinary flex-wrap once everything no
-    # longer fits on one line). gap_px matches one column's own left
-    # border(1px) + margin-left(--space-md, 16px) - see each page's own
-    # .row-facts-cols > .row-fact-col:not(:first-child) rule (panel.css).
-    # px_per_ch converts each column's own `ch` width to real px rather than
-    # leaving `ch` in the @container condition itself - `ch`/`em` inside an
-    # @container CONDITION resolve against the root font-size, not the
-    # queried container's own, a real browser behaviour confirmed live via
-    # Playwright while building this same mechanism for Actions (that page's
-    # own fact_thresholds, inclusion_panel_actions below, has the fuller
-    # history) - leaving it in would silently produce the wrong breakpoint.
-    total_ch = sum(int(w.removesuffix('ch')) for w in col_ch_widths)
-    gaps = max(0, len(col_ch_widths) - 1) * gap_px
-    return f'{round(gaps + total_ch * px_per_ch)}px'
-
-
 def _grouped_questions():
     # Flat (category=None) questions are appended last as a headerless group, so
     # callers/templates can keep iterating one flat list of groups.
@@ -1542,119 +1490,10 @@ def inclusion_panel_students(request):
         ) if v
     )
 
-    # DOB/YOA, Gender/Ethnicity, Tutor/HoY columns (live feedback: "add in
-    # addition details if there is room. Gender, DOB... styled like
-    # Referrals page", then "DOB should have a DOB: label. Go with
-    # Ethnicity, Lets add Tutor name and Head of Year name", then "pair DOB
-    # with YOA" (year_arrived) instead of Gender - same _col_width helper
-    # Referrals/Actions use for their own row-fact-col pairs. Gender/
-    # Ethnicity stay unlabelled (self-describing values, same convention
-    # this exact pairing used pre-#117 - git history); DOB/YOA/Tutor/HoY
-    # get an explicit label since a bare date, a bare year, or a bare
-    # person's name isn't self-explanatory on its own the way "White
-    # British" or "Male" is.
-    # Ported from Actions'/Referrals' own facts strips (one column per
-    # topic, label on its own top row) - Tutor/HoY use staff initials now,
-    # not full names (avatar_extras.initials, same convention as Created/
-    # Due/Raised elsewhere); Gender/Ethnicity keep no inline prefix on
-    # either line (R1 - "Male"/"White British" already read as
-    # self-explanatory, a column label above them doesn't change that).
-    col_widths = {
-        # Age, not Year Arrived (live feedback: "DOB could include current
-        # age" -> "lose YOA") - current_age computed above, alongside
-        # attendance_pct/behaviour_incidents_summary.
-        'dobage': _col_width(
-            ['DOB']
-            + [s.date_of_birth.strftime('%d/%m/%y') if s.date_of_birth else '—' for s in students]
-            + [f'Age {s.current_age}' if s.current_age is not None else 'Age —' for s in students],
-            max_ch=14,
-        ),
-        'genderethnicity': _col_width(
-            ['Details']
-            + [s.get_gender_display() or '—' for s in students]
-            + [s.get_ethnicity_display() or '—' for s in students],
-            # Truncated with ellipsis instead of widened to fit (live
-            # feedback: "Ethnicity should be truncated instead" - was 32,
-            # raised from 24 specifically so "Mixed / Multiple Ethnic
-            # Groups" (31 chars) never clipped; that extra width was also
-            # what pushed later columns to wrap a line sooner, which is why
-            # this page's facts-strip height guard needed 76px instead of
-            # Actions'/Referrals' own 66px). Back to 24 - long values
-            # truncate via the shared .row-fact-col span ellipsis instead.
-            max_ch=24,
-        ),
-        # "Pastoral", not "Staff" (live feedback: "rename Staff to
-        # Pastoral") - reads as what the column is actually about (the
-        # student's pastoral support contacts) rather than a generic
-        # "any staff member" label.
-        'tutorhoy': _col_width(
-            ['Pastoral']
-            + ['Tutor ' + (initials(s.form_tutor) if s.form_tutor else '—') for s in students]
-            + ['HoY ' + (initials(s.head_of_year) if s.head_of_year else '—') for s in students],
-            max_ch=12,
-        ),
-        # Split into two single-fact columns, not one combined pair (live
-        # feedback: "lets have an Attendance and a Behavior Column") - each
-        # value line no longer needs its own "Behaviour"/"Attendance"
-        # prefix restated (_students_rows.html) since the column's own
-        # label above it already says that. Positive alongside negative
-        # (live feedback: "Behaviour Should have positive and negative
-        # behaviour") - both candidate lists included so the column widens
-        # for whichever of the two is longer on a given page.
-        'behaviour': _col_width(
-            ['Behaviour']
-            + [s.behaviour_incidents_summary for s in students]
-            + [s.positive_behaviour_summary_text for s in students],
-            max_ch=22,
-        ),
-        # 'Attendance    ' (4 trailing spaces), not a bare 'Attendance'
-        # (live feedback: "why is Attendance cut off? Tons of space on the
-        # right") - this is the one column where the LABEL, not any value,
-        # is the longest candidate _col_width sees (its own values are
-        # always short: "80.0%", "—"), and raising max_ch alone did nothing
-        # - _col_width's scaled width (11ch) was already well under the old
-        # cap of 12, so the cap was never what bound it. The real gap is
-        # that _CH_CHAR_FACTOR is tuned against ordinary mixed-case value
-        # text, not the label's own uppercase + letter-spacing styling
-        # (row-fact-label, panel.css), which renders measurably wider per
-        # character - every other column's label sits comfortably under its
-        # own longer values, so this never surfaced before. Padding the
-        # measured candidate (not the displayed text - the template still
-        # renders the literal label) is the same trick the Referral column's
-        # own status-pill candidate already uses for an analogous "renders
-        # wider than its character count" case (padding for pill
-        # padding/border-radius, above) - max_ch raised to 16 alongside it
-        # so the padding actually has room to take effect.
-        # ' PA  ' padding on every pct candidate, not just the ones that
-        # actually cross the threshold - the PA pill (_students_rows.html)
-        # can appear on any row regardless of which row happened to be
-        # measured, so the column has to have room for it everywhere, same
-        # padding-for-pill-chrome trick the label's own candidate and the
-        # Referral column's status pill already use (both above).
-        'attendance': _col_width(
-            ['Attendance    ']
-            + [f'{s.attendance_pct}% PA  ' if s.attendance_pct is not None else '—' for s in students]
-            + [f'AA {s.attendance_authorised_pct}% · UA {s.attendance_unauthorised_pct}%' for s in students],
-            max_ch=26,
-        ),
-    }
-    # Never-hide/wrap facts strip (live feedback: "let's apply all of this
-    # to Students and Referrals" - ported from Actions, minus the "one
-    # column always visible/full-width" refinement, which doesn't have an
-    # equivalent here - see _facts_wrap_threshold's own comment).
-    fact_thresholds = {
-        'wrap': _facts_wrap_threshold([
-            col_widths['dobage'], col_widths['genderethnicity'], col_widths['tutorhoy'],
-            col_widths['behaviour'], col_widths['attendance'],
-        ]),
-    }
-
     context = {
         **_panel_base_context(request),
         'students': students,
         'is_aggregate_view': is_aggregate_view,
-        'col_widths': col_widths,
-        'fact_thresholds': fact_thresholds,
         'years': years,
         'forms': forms,
         'forms_by_year_json': json.dumps(forms_by_year),
@@ -1912,48 +1751,6 @@ def inclusion_panel_referrals(request):
         next_params = request.GET.copy()
         next_params['page'] = page_number + 1
         context['next_page_url'] = request.path + '?' + next_params.urlencode()
-    # Ported from Actions' own facts strip (views.py, inclusion_panel_actions)
-    # - label included as its own candidate string, short dates, staff
-    # initials with a "By " prefix for Raised (mirrors Actions' Created
-    # column exactly).
-    col_widths = {
-        'raised': _col_width(
-            ['Raised']
-            + [r.created_at.strftime('%d/%m/%y') for r in referrals]
-            + ['By ' + (initials(r.raised_by) if r.raised_by else 'Unassigned') for r in referrals],
-            max_ch=16,
-        ),
-        'panels': _col_width(
-            ['Panel']
-            + ['Prev ' + (r.previous_panel_date.strftime('%d/%m/%y') if r.previous_panel_date else '—') for r in referrals]
-            + ['Next ' + (r.next_panel_date.strftime('%d/%m/%y') if r.next_panel_date else '—') for r in referrals],
-            max_ch=14,
-        ),
-        'priorityreview': _col_width(
-            ['Priority']
-            + [r.get_priority_display() or '—' for r in referrals]
-            + ['Due ' + (r.next_review_date.strftime('%d/%m/%y') if r.next_review_date else '—') for r in referrals],
-            max_ch=14,
-        ),
-        'actionsstatus': _col_width(
-            ['Actions']
-            + [f'{r.completed_actions_count} Complete' for r in referrals]
-            + [f'{r.incomplete_actions_count} Incomplete' for r in referrals],
-            max_ch=16,
-        ),
-    }
-    context['col_widths'] = col_widths
-    # Never-hide/wrap facts strip (live feedback: "let's apply all of this
-    # to Students and Referrals" - ported from Actions, minus the "one
-    # column always visible/full-width" refinement, which doesn't have an
-    # equivalent here - see _facts_wrap_threshold's own comment). Replaces
-    # the old #referrals-filtered-content .row-facts-cols { display: none }
-    # below 1180px (panel.css) - the whole strip used to just disappear at
-    # tablet/mobile width, relying on "Referral Details" to surface the same
-    # data; it now stays visible and wraps instead, at every width.
-    context['fact_thresholds'] = {
-        'wrap': _facts_wrap_threshold([col_widths['raised'], col_widths['panels'], col_widths['priorityreview'], col_widths['actionsstatus']]),
-    }
     if is_continuation:
         template = 'hubs/inclusion/panel/_referrals_rows.html'
     elif is_ajax:
@@ -2571,101 +2368,6 @@ def inclusion_panel_actions(request):
 
     concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
 
-    # One line per column, not a label:value pair each (#119 follow-up:
-    # "can Assigned and Due make better use of space? One line") - each
-    # candidate string below is now the whole interpunct-joined line
-    # (_actions_rows.html), not the two halves measured separately, so
-    # max_ch roughly doubles to still cap at a sane width.
-    # Staff initials (avatar_extras.initials, imported at module level), with
-    # a native title="" tooltip carrying the full name (live feedback: "Can
-    # we change Staff names to staff Initials" -> "Go back to names, not
-    # initials" -> "Actually, keep initials, can we add tooltip for
-    # fullname" - initials in the flowing text, full name still one hover
-    # away rather than gone entirely).
-
-    # One column per fact, not 3 paired columns each holding two - live
-    # feedback: "change from pairs of data to Label then field for all...
-    # so Label on top row with details below". Each candidate list now
-    # includes the label itself alongside the actual per-row values -
-    # _col_width still just wants "every string that could end up in this
-    # column," it doesn't care that one of them is the label rather than a
-    # value.
-    col_widths = {
-        # Date + who it's assigned to, not a separate Assigned column (live
-        # feedback: "have staff assigned on third row of due") - "For "
-        # prefix included in the measured string so the column is sized
-        # for what's actually rendered, same convention as every other
-        # label:value candidate here.
-        'due': _col_width(
-            ['Due']
-            + [a.due_date.strftime('%d/%m/%y') if a.due_date else '—' for a in actions]
-            + ['For ' + initials(a.assigned_to_staff or a.assigned_to_group or 'Unassigned') for a in actions],
-            max_ch=16,
-        ),
-        # Date + creator, "By " prefix included for the same reason (live
-        # feedback: "can we have by or for before staff [name] depending").
-        'created': _col_width(
-            ['Created']
-            + [a.created_at.strftime('%d/%m/%y') if a.created_at else '—' for a in actions]
-            + ['By ' + (initials(a.created_by) if a.created_by else '—') for a in actions],
-            max_ch=16,
-        ),
-        # Concern category on its own line, status pill(s) on another (live
-        # feedback: "have the pills for status on separate line" - not
-        # combined with concern category any more) - each measured as its
-        # own candidate string now rather than one concatenated line.
-        # `or ''`/conditional keeps a closed referral's empty
-        # review_pill_label out of the pill-line string.
-        'referral': _col_width(
-            ['Referral']
-            + [a.referral.concern_category or '—' for a in actions]
-            + [
-                # '  ' padding for the pill(s)' own padding/border-radius,
-                # same reasoning _CH_EXTRA_BUFFER exists for generally (a
-                # .status-pill costs real width no character count sees) -
-                # confirmed necessary live via Playwright when this was
-                # still one combined line with concern category.
-                (f'{a.referral.get_status_display()}  {a.referral.review_pill_label}  ' if a.referral.review_pill_label
-                 else f'{a.referral.get_status_display()}  ')
-                for a in actions
-            ],
-            max_ch=30,
-        ),
-    }
-
-    # Single container-query breakpoint for the facts strip (live feedback:
-    # "let's not ever hide any data cols... have data cols always go to next
-    # line as soon as it does not fit... description go full width" -
-    # replaced an earlier fade-out-columns-one-at-a-time design entirely;
-    # nothing gets hidden any more, so there's only one threshold left: the
-    # point at which Description+Due+Created+Referral no longer all fit on
-    # one line. Below it, flex-wrap:wrap + Description's own flex-basis:100%
-    # (_actions_filtered_content.html) does the rest - Due/Created/Referral
-    # flow onto row 2 together, and if even row 2 can't fit all three,
-    # ordinary flex-wrap cascades them onto row 3 with no extra CSS needed.
-    # _GAP_PX is one column's own left border(1px) + margin-left(--space-md,
-    # 16px) - see #actions-filtered-content .row-facts-cols > .row-fact-col
-    # :not(:first-child) (panel.css); _DESC_PX matches row-fact-col-
-    # description's own fixed flex-basis (panel.css). Plain px, not `ch`
-    # mixed into the calc()/condition directly - confirmed live via
-    # Playwright that `ch`/`em` inside an @container CONDITION resolve
-    # against the root/document font-size, not the queried container's own
-    # font-size the way they do inside a normal ruleset body (a real,
-    # documented browser behaviour), silently producing the wrong
-    # breakpoint. _PX_PER_CH converts each column's ch width to the same
-    # absolute px that context actually renders at - measured live
-    # (getBoundingClientRect on a 100ch probe inside .row-facts), not
-    # assumed.
-    _fact_gap_px = 17
-    _fact_desc_px = 320
-    _px_per_ch = 7.0
-    _due_ch = int(col_widths['due'].removesuffix('ch'))
-    _created_ch = int(col_widths['created'].removesuffix('ch'))
-    _referral_ch = int(col_widths['referral'].removesuffix('ch'))
-    fact_thresholds = {
-        'wrap': f'{round(_fact_desc_px + 3 * _fact_gap_px + (_due_ch + _created_ch + _referral_ch) * _px_per_ch)}px',
-    }
-
     context = {
         **_panel_base_context(request),
         'actions': actions,
@@ -2698,8 +2400,6 @@ def inclusion_panel_actions(request):
         'students_count': total_students_count,
         'referrals_count': total_referrals_count,
         'is_aggregate_view': is_aggregate_view,
-        'col_widths': col_widths,
-        'fact_thresholds': fact_thresholds,
         'page_obj': page_obj,
     }
     if page_obj.has_next():

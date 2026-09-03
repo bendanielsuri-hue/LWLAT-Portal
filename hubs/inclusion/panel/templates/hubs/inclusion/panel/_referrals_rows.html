@@ -50,7 +50,7 @@ convention as Students' own _students_rows.html.
             Referrals").
             {% endcomment %}
             <div class="row-title-secondary">
-                <div class="entity-title row-secondary-text"><span class="row-title-concern-label">Concern: </span>{{ referral.concern_category|default:"—" }}</div>
+                <div class="entity-title row-secondary-text">{{ referral.concern_category|default:"—" }}</div>
                 <div class="row-title-pills">
                     {% if referral.review_pill_label %}<span class="status-pill {{ referral.review_pill_class }}">{{ referral.review_pill_label }}</span>{% endif %}
                     <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
@@ -81,39 +81,33 @@ convention as Students' own _students_rows.html.
             each - the divider marks the column boundary, not whether the
             column happens to hold one fact or two.
             {% endcomment %}
-            {% comment %}
-            row-facts-shell exists purely to hold container-type: inline-size
-            (panel.css) - see #actions-filtered-content .row-facts-shell's
-            own comment (panel.css) for why the query container has to be a
-            separate element from .row-facts itself, whose flex-wrap this
-            page's own @container rule (_referrals_filtered_content.html)
-            needs to change.
-            {% endcomment %}
-            <div class="row-facts-shell">
+            <div class="row-facts-track">
             <div class="row-facts row-facts-cols">
                 {# row-fact-col-empty: #118 mobile-only hide (panel.css) for a pair with nothing in either line - Prev Panel/Next Panel and Priority/Review Due are the only two pairs that can ever both be blank (Raised on/by and Actions counts never are), see #118 follow-up grilling session. #}
-                <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" data-col="raised" style="width: {{ col_widths.raised }}">
+                <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" data-col="raised">
                     <span class="row-fact-label">Raised</span>
                     <span>{{ referral.created_at|date:"d/m/y" }}</span>
                     <span title="{% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}">By {% if referral.raised_by %}{{ referral.raised_by|initials }}{% else %}Unassigned{% endif %}</span>
                 </div>
-                <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" data-col="panels" style="width: {{ col_widths.panels }}">
+                <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" data-col="panels">
                     <span class="row-fact-label">Panel</span>
                     <span>Prev {{ referral.previous_panel_date|date:"d/m/y"|default:"—" }}</span>
                     <span>Next {{ referral.next_panel_date|date:"d/m/y"|default:"—" }}</span>
                 </div>
-                <div class="row-fact-col{% if not referral.priority and not referral.next_review_date %} row-fact-col-empty{% endif %}" data-col="priorityreview" style="width: {{ col_widths.priorityreview }}">
+                <div class="row-fact-col{% if not referral.priority and not referral.next_review_date %} row-fact-col-empty{% endif %}" data-col="priorityreview">
                     <span class="row-fact-label">Priority</span>
                     <span>{{ referral.get_priority_display|default:"—" }}</span>
                     <span>Due {{ referral.next_review_date|date:"d/m/y"|default:"—" }}</span>
                 </div>
-                <div class="row-fact-col" data-col="actionsstatus" style="width: {{ col_widths.actionsstatus }}">
+                <div class="row-fact-col" data-col="actionsstatus">
                     <span class="row-fact-label">Actions</span>
                     <span>{{ referral.completed_actions_count }} Complete</span>
                     <span>{{ referral.incomplete_actions_count }} Incomplete</span>
                 </div>
             </div>
-            </div>
+            <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">{% include 'icons/arrow_left_svg.html' %}</button>
+            <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">{% include 'icons/arrow_right_svg.html' %}</button>
+        </div>
         </div>
     </div>
     <div class="btn-row row-btn-row">

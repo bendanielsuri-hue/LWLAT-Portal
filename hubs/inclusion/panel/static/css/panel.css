@@ -3102,7 +3102,187 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    dividers are column borders now, own ID-scoped .chosen rule further
    below) - this shared rule simply doesn't match there any more. */
 .entity-row.chosen .row-facts .mc-vdivider { border-left-color: var(--accent-border); }
-.row-facts-cols { gap: 10px; }
+/* Permanent horizontal scroll (#154) - replaces the old flex-wrap-to-a-
+   second-line mechanism entirely (each page used to carry its own
+   @container breakpoint computed from col_widths, views.py - both gone).
+   flex-wrap: nowrap keeps every column on one line at every width;
+   overflow-x: auto only ever actually scrolls once a row is genuinely
+   narrower than the strip's own natural content width.
+   Column widths are intrinsic (col_widths/_col_width removed, views.py) -
+   each row-fact-col sizes to its own content, not a page-wide max, so a
+   short row's strip is exactly as wide as it needs to be. This was tried,
+   reverted to a global-max width + synced cross-row scroll, then reverted
+   AGAIN back to this (#154 grilling session 2026-09-03) once per-row
+   prev/next arrows (below) replaced the synced-scroll idea entirely - each
+   row now scrolls (and sizes) fully independently of every other one, on
+   every device, with no reason left to keep them aligned.
+   Referrals/Students: this IS .row-facts (same div, dual class,
+   _referrals_rows.html/_students_rows.html) - the whole strip scrolls.
+   Actions: a separate inner div (_actions_rows.html) holding just Due/
+   Created/Referral/Status, a sibling of Description inside .row-facts -
+   see that page's own "Facts strip" comment below for how the two split. */
+.row-facts-cols {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.row-facts-cols::-webkit-scrollbar {
+    display: none;
+}
+/* Fade affordance (native scrollbar is hidden above, on every device, not
+   just touch - live feedback: "not sure I like the scroll bar appearing on
+   every row" - a scrollbar visible on every single row read as cluttered
+   even once synced together, own comment above), via mask-image, not a
+   painted overlay:
+   1st attempt, an absolutely-positioned ::before/::after pseudo-element -
+   its containing block (this same scrolling element, since it needs
+   position: relative on itself) is part of the scrollable overflow region,
+   so it scrolled along WITH the content underneath instead of staying
+   pinned to the visible edge (live feedback + screenshots: "the fade
+   seems to move when scrolling").
+   2nd attempt, a background-image gradient on .row-facts-cols itself -
+   fixed to the element's own border box regardless of scroll (correct),
+   but an element's own background always paints BEHIND its children/
+   content, so the gradient sat invisibly underneath every column's actual
+   text (live feedback: "now I am not seeing any fade?").
+   mask-image fixes both at once: it fades the element's OWN rendered
+   output (background AND children, whatever they are) to transparent
+   toward each edge, revealing genuinely whatever sits behind it - the
+   parent .entity-row's real background, .chosen's own var(--primary-light)
+   tint included, automatically, with no synthetic fade colour to keep in
+   sync (no --facts-fade-color/.chosen override needed at all, unlike
+   either attempt above). Like background-image, a mask is fixed to the
+   element's own box, not its scrolled content, so it doesn't move either.
+   24px, transparent -> opaque, matches the fade's old visual width.
+   ONE single gradient across the whole width, not two separate mask
+   layers (1st attempt at this: two independently-sized 0-24px layers,
+   composited via mask's default "add"/union behaviour - a layer sized 0
+   doesn't mean "contributes nothing", it means "covers a zero-width box",
+   and outside a no-repeat layer's own box it contributes zero alpha; with
+   BOTH layers at 0 width, the entire middle of the strip fell outside
+   both boxes and got masked to fully invisible - confirmed live via
+   Playwright, "not seeing any fade" turned into the whole strip vanishing
+   instead once this was fixed enough to actually apply). One continuous
+   gradient's middle stop pair (black at var(--mask-left-reach), black at
+   calc(100% - var(--mask-right-reach))) is opaque by construction - there
+   is no second layer for a gap to fall between.
+   --mask-left-reach/--mask-right-reach registered via @property (below)
+   specifically so they interpolate as real <length> values under
+   `transition` - an unregistered custom property is just inert text
+   substitution to the browser, so a transition on it (or on a mask-image
+   that merely references it) can't animate; @property is what makes the
+   browser actually tween 0px->24px frame by frame instead of snapping
+   (live feedback: "are the fade elements fading in and out as well" -
+   confirmed there was no transition at all before this). Falls back to a
+   harmless instant snap (no animation, but still visually correct) in any
+   browser that ignores @property.
+   -webkit- prefix still required for mask-image in Safari. */
+@property --mask-left-reach {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+}
+@property --mask-right-reach {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+}
+.row-facts-cols {
+    --mask-left-reach: 0px;
+    --mask-right-reach: 0px;
+    mask-image: linear-gradient(to right, transparent, black var(--mask-left-reach), black calc(100% - var(--mask-right-reach)), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black var(--mask-left-reach), black calc(100% - var(--mask-right-reach)), transparent);
+    transition: --mask-left-reach 200ms ease, --mask-right-reach 200ms ease;
+}
+.row-facts-cols.is-cut-left {
+    --mask-left-reach: 24px;
+}
+.row-facts-cols.is-cut-right {
+    --mask-right-reach: 24px;
+}
+/* Drag-to-scroll cursor, mouse only - actual drag wired in panel.js
+   (delegated pointerdown/move/up on document, same technique
+   wireScrollCarousel's own click-drag uses, main.js). Unconditional, not
+   gated on "is this row's strip actually overflowing" - same convention
+   #my-referrals-list's own grab cursor uses (panel.css). */
+html:not(.nav-touch-mode) .row-facts-cols {
+    cursor: grab;
+}
+.row-facts-cols.is-dragging {
+    cursor: grabbing;
+}
+/* Prev/next arrows (non-touch only - touch already has native swipe, same
+   "device, not width, decides" split as the drag cursor above) - live
+   feedback: "can we have a next and back arrow for each row instead", in
+   place of a native scrollbar (rejected earlier: "not sure I like the
+   scroll bar appearing on every row"). .row-facts-track wraps just the
+   scrolling .row-facts-cols (_students_rows.html/_referrals_rows.html/
+   _actions_rows.html) - position: relative, no overflow/scroll of its own,
+   so the arrows (position: absolute against IT) stay fixed at the row's
+   own visible edges regardless of the inner track's scroll position - the
+   same containing-block fix the mask fade (above) already needed once, now
+   applied from the start here instead of repeating that mistake.
+   display: none by default, shown per arrow via the general sibling
+   combinator against .row-facts-cols' own .is-cut-left/-right (panel.js) -
+   an arrow only ever offers to scroll toward genuinely more content, same
+   condition the fade already uses, no separate JS-driven enabled/disabled
+   state needed. 24px, inset (not overflowing the row's own edge, the way
+   .stats-carousel-arrow's larger 48px circle does elsewhere) - .entity-list
+   clips overflow (cards.css), so anything hanging past the row's edge would
+   just get cut off. */
+.row-facts-track {
+    position: relative;
+}
+.row-facts-arrow {
+    display: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+    font-size: var(--font-md);
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: background var(--transition-fast);
+}
+.row-facts-arrow:hover {
+    background: var(--border-color);
+}
+.row-facts-arrow--prev {
+    left: 2px;
+}
+.row-facts-arrow--next {
+    right: 2px;
+}
+html:not(.nav-touch-mode) .row-facts-cols.is-cut-left ~ .row-facts-arrow--prev,
+html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next {
+    display: flex;
+}
+/* .entity-row.chosen tints to var(--primary-light) (cards.css) - matches
+   the arrow's own resting fill to it, same reasoning the mask fade's
+   --facts-fade-color equivalent used to need before it switched to
+   revealing the real background instead (own comment, mask-image above) -
+   an arrow keeps a real painted background (it has to, to sit legibly on
+   top of the scrolled text under it), so it can't get that same trick for
+   free and needs its own explicit override. */
+.entity-row.chosen .row-facts-arrow {
+    background: var(--primary-light);
+}
+.entity-row.chosen .row-facts-arrow:hover {
+    background: color-mix(in srgb, var(--primary) 15%, var(--primary-light));
+}
 /* min-width: 0 (live feedback: "Referral col can get really big, can we
    truncate long referral categories") - a flex item's default min-width is
    auto, which resolves to its own content's min-content size whenever the
@@ -3122,47 +3302,70 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    already clips its own text via ellipsis (row-fact-col span, below). */
 .row-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; min-width: 0; overflow: hidden; }
 .row-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Truncation cap for the few columns whose values are genuinely free text
+   rather than a fixed-format date/name/count (Ethnicity, Behaviour's own
+   incident summaries, Actions' Referral concern category) - intrinsic
+   sizing (base rule, above) otherwise lets an unusually long value stretch
+   that one column (and so the whole strip) far past its neighbours'
+   typical width. ch, not a plain px cap - scales with the column's own
+   font-size the same way the old computed col_widths (views.py, removed)
+   did, rather than a fixed pixel guess. */
+.row-fact-col-clamp {
+    max-width: 26ch;
+}
+/* Initials by default, full name only once wide desktop has room to spare
+   (_actions_rows.html's own comment on row-fact-col[data-col="due"] has the
+   full reasoning) - two independent spans rather than one whose text
+   swaps, so panel.css can size/hide each independently the same way the
+   Status data col/dropdown pair already does. */
+#actions-filtered-content .row-fact-assignee--full {
+    display: none;
+}
 /* Description folded into the facts strip as its own column (live
    feedback: "descripion could be treated as a Data col?" - was previously
    a separate full-width .action-note line below the strip, its own
-   vertical line of card height). flex: 1 1 <basis>, not the shared
-   .row-fact-col's flex-shrink: 0/fixed ch-based width every other column
-   gets (col_widths, views.py) - Description has no sane fixed width of
-   its own, it should just eat whatever room Due/Created/Referral don't
-   need. min-width: 0 lets it actually shrink below its own content's
-   natural width instead of forcing the row to overflow. */
-/* Fixed width, not flex-grow (live feedback: "this can be fixed width" -
-   flex: 1 1 160px let Description reflow between 160-420px as the row's
-   leftover space changed on every browser resize, unlike Due/Created/
-   Referral's own stable ch-based widths). 320px comfortably fits a full
-   sentence or two at font-base before the 2-line clamp (below) kicks in,
-   same reasoning the old 420px cap used. */
+   vertical line of card height).
+   flex: 0 0 320px, a fixed width again - flex-grow was tried (#154, letting
+   Description claim leftover row width whenever the scroll strip didn't
+   need it) and reverted (live feedback: "Description should have a fixed
+   width, lose max width" - a fixed column reads as a stable, predictable
+   part of the row regardless of how much the strip beside it happens to
+   need, matching every other column's own fixed-width convention rather
+   than being the one exception that resizes based on a sibling). 320px
+   comfortably fits a full sentence or two before the 2-line clamp (below)
+   kicks in - the same figure this column used before #154 ever touched it.
+   .row-facts' own gap (--space-md/16px, below) is what spaces Description
+   from the scroll strip beside/below it - see that rule's own comment for
+   the "why 16px" history. Overridden to flex: 0 0 100% inside the
+   @container action-facts (max-width: 600px) rule further below, once the
+   row genuinely has no room left for both. */
 #actions-filtered-content .row-fact-col-description {
     flex: 0 0 320px;
     min-width: 0;
 }
 /* Value line only (not the label) - still real sentence-level content
-   (what to actually go and do), so it keeps the larger body-text styling
-   .action-note used to carry (live feedback: "Action description is same
-   font and size as Assigned to and Due", which was exactly that bug) -
-   the label above it stays the same small-caption style every other
-   column's label uses (row-fact-label, above). Wraps + line-clamps with
-   its own ellipsis rather than the plain column's nowrap-ellipsis
-   (row-fact-col span, above) - a note can run to a full sentence or two,
-   and a single truncated line would lose almost all of it. Clamped to 2
-   lines, not 3 - font-base's larger size (0.875rem vs. the other columns'
-   font-sm) makes 2 of its lines roughly as tall as their label + 3 short
-   lines, so this still fits the shared row-facts-cols overflow guard
-   (max-height: 66px, below) instead of the guard silently hard-cropping
-   mid-line before the clamp's own ellipsis ever kicks in - line-height set
-   explicitly here rather than left to inherit layout.css's 1.4 body
-   default, to keep that math predictable. Recheck against the real
-   rendered heights (66px was itself tuned live, not calculated) once this
-   is on screen. */
+   (what to actually go and do), kept at the same font-sm every other
+   column's value line uses now (live feedback: "is font the same for
+   Description and other data cols?" -> "let's make it consistent" - this
+   used to be var(--font-base), a deliberately larger body-text size
+   carried over from .action-note, live feedback then: "Action description
+   is same font and size as Assigned to and Due", which was exactly that
+   bug reintroduced from the other direction). Label above it already
+   matched every other column's small-caption style (row-fact-label,
+   above) even before this change. Still wraps + line-clamps with its own
+   ellipsis rather than the plain column's nowrap-ellipsis (row-fact-col
+   span, above) - a note can run to a full sentence or two, and a single
+   truncated line would lose almost all of it. Line-clamp count/line-height
+   left at their prior values - font-sm's own line-height runs shorter per
+   line than font-base did, so 2 lines now takes up less vertical room than
+   before, not more; nothing here needed retuning just from the size drop.
+   No color override either any more (live feedback: "is the description
+   text darker?" -> "yes" [meant as confirmation it should also be made
+   consistent] - text-primary was the other half of the same leftover
+   .action-note styling the font-size override came from; every other
+   column's value line already just inherits .row-facts' own
+   color: var(--text-secondary), same as Description does now). */
 #actions-filtered-content .row-fact-col-description span:last-child {
-    font-size: var(--font-base);
-    line-height: 1.3;
-    color: var(--text-primary);
     white-space: normal;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -3270,11 +3473,22 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     font-size: var(--font-sm);
     color: var(--text-secondary);
 }
+/* row-gap split from column-gap (live feedback: "if pills do overflow,
+   space then looks inconsistent in the header between line" - once the
+   title text is long enough to wrap onto its own line above the pills, the
+   plain `gap: var(--space-xs)` shorthand gave that internal wrap an 8px
+   row-gap while row-title-row's own row-gap (its base rule, above) is only
+   4px/--space-xxs between THIS whole block and the next line down
+   (row-facts-primary-plain) - two different gaps sitting one above the
+   other read as uneven rather than a consistent stack of lines. column-gap
+   stays --space-xs - that's the horizontal breathing room between the
+   title text and a pill sharing the same line, unrelated to this. */
 #referrals-filtered-content .row-title-row .row-title-secondary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-xs);
+    column-gap: var(--space-xs);
+    row-gap: var(--space-xxs);
     flex: 1 1 100%;
 }
 /* font-md, not the earlier demoted font-sm - live feedback: "can concern
@@ -3327,11 +3541,21 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        screen edge. Is there inconsistent padding/margin" - confirmed real,
        not perception: Referrals' entity-row was still sitting at desktop's
        20px/16px on top of the page's own 12px, Students' wasn't. */
+    /* row-gap matches the row's own top/bottom padding (both --space-md/
+       16px, live feedback on Students' identical rule, same session: "I
+       want consistent space between each section... Top border > Header >
+       Data Cols > Buttons > Bottom border", then "still looks too dense" on
+       the first pass at --space-sm/12px - bumped a step further). Split
+       from the shorthand `padding: var(--space-sm)` this used to be -
+       left/right padding stays --space-sm/12px, deliberately matching the
+       page's own margin at this width (live feedback, above: "reduce the
+       left and right padding in the entity rows to match page margin") -
+       only top/bottom needed the extra room. */
     #referrals-filtered-content .entity-row {
         flex-wrap: wrap;
         align-items: flex-start;
-        row-gap: var(--space-xs);
-        padding: var(--space-sm);
+        row-gap: var(--space-md);
+        padding: var(--space-md) var(--space-sm);
     }
     /* Border-left/padding-left assume buttons sit beside the row's content
        (desktop/tablet) - once .entity-row wraps, buttons drop to their own
@@ -3374,9 +3598,8 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        width outright (display: none), on the theory that "Referral
        Details" already covers the same data - superseded (live feedback:
        "let's apply all of this to Students and Referrals" - the never-
-       hide/wrap mechanism ported from Actions, _referrals_filtered_
-       content.html's @container rule, above) once that theory got
-       revisited: the strip now stays visible and wraps at every width, same
+       hide mechanism ported from Actions) once that theory got revisited:
+       the strip now stays visible and scrolls at every width (#154), same
        as Actions/Students, instead of disappearing here. */
     /* School logo (aggregate/all-schools view only): went through several
        treatments as a badge alongside the student photo - inline text-line,
@@ -3439,22 +3662,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     margin-left: calc(-1 * (42px + var(--space-md)));
     width: calc(100% + 42px + var(--space-md));
 }
-/* Facts-strip overflow handling - container-query wrap, same mechanism as
-   Actions (that page's own "Facts-strip overflow handling" comment,
-   #actions-filtered-content .row-facts, has the fuller history of what this
-   replaced: JS measurement -> hardcoded max-height crop -> this). Used to
-   hide the whole strip below 1180px instead (display: none, above) - now it
-   stays visible and wraps like Actions/Students. row-facts-shell
-   (_referrals_rows.html) holds container-type for the same reason Actions'
-   own shell does - a size-query container can't itself be the element an
-   @container rule changes flex-wrap on. */
-#referrals-filtered-content .row-facts-shell {
-    container-type: inline-size;
-    container-name: referral-facts;
-}
-#referrals-filtered-content .row-facts {
-    flex-wrap: nowrap;
-}
+/* Facts-strip overflow handling - permanent horizontal scroll now (#154,
+   .row-facts-cols base rule above), not a container-query wrap. Used to
+   hide the whole strip below 1180px (display: none, above), then wrap at
+   a computed breakpoint - now it just scrolls at every width instead,
+   same as Actions/Students. */
 #referrals-filtered-content .row-fact-col {
     transition: margin-left 0.2s ease, padding-left 0.2s ease, border-left-width 0.2s ease;
 }
@@ -3782,17 +3994,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 #actions-filtered-content .entity-row.chosen .row-facts-cols > .row-fact-col:not(:first-child) {
     border-left-color: var(--accent-border);
 }
-/* Bleed lives on the shell, not .row-facts itself (moved here - live
-   feedback: "I feel that Referral should fit!", confirmed live via
-   Playwright: .row-facts-shell holds container-type, so it's what
-   @container conditions actually measure - but .row-facts used to be the
-   one bleeding 58px wider than its own parent, making the shell's real
-   (narrower, unbled) width silently diverge from the width fact_thresholds,
-   views.py, was computed against, hiding columns too early). Moving the
-   bleed here instead means the shell's own width - what gets queried - is
-   the same effective width fact_thresholds assumes; .row-facts (below)
-   just fills it at 100%. */
-#actions-filtered-content .row-facts-shell {
+/* Bleed on .row-facts itself (#154 - used to live on row-facts-shell, a
+   wrapper that only ever existed to hold the now-removed @container's own
+   query-container type; .row-facts is the real outer box again, holding
+   Description and the row-facts-cols scroll strip as its two items). */
+#actions-filtered-content .row-facts {
     margin-left: calc(-1 * (42px + var(--space-md)));
     width: calc(100% + 42px + var(--space-md));
 }
@@ -3835,11 +4041,15 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 #actions-filtered-content .entity-title {
     line-height: 1.2;
 }
+/* row-gap/column-gap split - see the matching comment on Referrals' own
+   #referrals-filtered-content .row-title-row .row-title-secondary
+   (panel.css) for why. */
 #actions-filtered-content .row-title-row .row-title-secondary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-xs);
+    column-gap: var(--space-xs);
+    row-gap: var(--space-xxs);
     flex: 1 1 100%;
 }
 /* entity-thumb-group (live feedback: "space to have School logo and
@@ -3907,53 +4117,99 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    any of its three columns, so none of them can be dropped outright the
    same way - only hidden one at a time under real space pressure (the
    overflow guard, below). */
-/* Facts-strip overflow handling - container-query wrap, not a vertical
-   crop height at all any more. History: wireActionFactsOverflow (JS
-   measurement, removed) -> flex-wrap:wrap + a hardcoded max-height crop
-   (also removed) -> flex-wrap:nowrap + overflow-x:hidden (showed a column
-   half-cut at the edge instead of vanishing whole) -> a calc()-derived crop
-   height (still fragile: a 1-2px browser rendering mismatch either clipped
-   real content or let the next wrapped line peek through) -> a per-column
-   fade/hide design (Referral then Created faded out under space pressure,
-   re-evaluated again once wrapped) -> this, simplest of all: live feedback,
-   "let's not ever hide any data cols... have data cols always go to next
-   line as soon as it does not fit... description go full width" - nothing
-   is hidden any more, so there's exactly one breakpoint (fact_thresholds.
-   wrap, views.py) instead of several.
-   container-type: inline-size below turns the shell into a query container;
-   #actions-filtered-content's own inline <style> block (_actions_filtered_
-   content.html) adds the actual @container rule, since the exact px
-   breakpoint at which all four columns stop fitting together depends on
-   that page load's real measured column widths (col_widths), the same way
-   each column's own width already does - not something a static rule in
-   this file could express. flex-wrap: nowrap is the resting state (one
-   line, no crop, no guessed height) - the one breakpoint switches this to
-   wrap, sending Description onto its own full-width row and Due/Created/
-   Referral onto row 2 (or further, via ordinary flex-wrap, if even row 2
-   can't fit all three). */
-/* row-facts-shell (_actions_rows.html) is a plain wrapper that exists only
-   to hold the container-type/-name below - a size-query container can't
-   itself be the element an @container rule changes a layout-affecting
-   property on (e.g. flex-wrap) without a cyclic "container's own size
-   depends on a style that depends on the container's own size" dependency,
-   which browsers silently refuse to resolve (confirmed live: flex-basis:
-   100% on a CHILD applied fine from the wrap_due @container block,
-   flex-wrap: wrap on .row-facts ITSELF from that same block never took
-   effect). Splitting the query container (this shell) from the element
-   actually being restyled (.row-facts, below) sidesteps it entirely. */
+/* Facts-strip overflow handling (#154) - Due/Created/Referral/Status
+   itself is a permanent horizontal scroll, not a container-query wrap
+   (row-facts-cols, own base rule above) - it never needs to crop or hide a
+   column, only Description's own promotion (below) still needs one.
+   History: wireActionFactsOverflow (JS measurement, removed) ->
+   flex-wrap:wrap + a hardcoded max-height crop (also removed) ->
+   flex-wrap:nowrap + overflow-x:hidden (showed a column half-cut at the
+   edge instead of vanishing whole) -> a calc()-derived crop height (still
+   fragile) -> a per-column fade/hide design -> a single computed
+   @container breakpoint (col_widths/fact_thresholds.wrap, views.py) that
+   wrapped Due/Created/Referral onto their own line below Description ->
+   #154's permanently-scrollable strip, no breakpoint of its own needed at
+   all -> this: a real @container breakpoint is back, but only for
+   Description's own promotion (below), and with a plain static threshold,
+   not a Python-computed one - #154 also made every column's width
+   intrinsic/per-row rather than a page-wide computed max, so there's no
+   longer a real per-row px figure to compute in the first place; a fixed
+   600px reads as "Description's own 320px + the data strip's own 200px
+   floor (min-width, below) + some breathing room" close enough, and
+   correctness here only ever means "did it visibly wrap", which a rough
+   number still gets right. */
+#actions-filtered-content .row-facts {
+    gap: var(--space-md);
+}
+#actions-filtered-content .row-facts-cols {
+    flex: 0 1 auto;
+    min-width: 200px;
+}
+/* Divider between Description and the data strip (live feedback: "no
+   divider between Description and Due") - on .row-facts-track (the
+   strip's own non-scrolling wrapper, panel.css/_actions_rows.html), not
+   row-facts-cols itself, so the line reads as a fixed part of the row's
+   own layout rather than something that could ever scroll away with the
+   strip's content. Sits inside .row-facts' own gap (above) horizontally -
+   no separate margin needed the way the individual column dividers
+   (border-left + margin-left + padding-left, below) use, since this one
+   has no neighbouring column immediately to its left to collide with -
+   but DOES still need its own padding-left, same as those, or Due's own
+   text sits flush against the line with no breathing room (live feedback:
+   "DUE left border looks off, no padding" - the individual-column dividers
+   never had this problem since their own padding-left/margin-left always
+   travel together as one pair; this divider only copied the border half).
+   Cancelled entirely once row-facts-cols wraps onto its own line below
+   Description (@container action-facts, further below) - a vertical
+   column boundary stops making sense the moment there's no longer a
+   column to its left, and Due should align flush-left under Description
+   instead (live feedback: "Due does not want left divider and should
+   align with description when data cols move to next row"). */
+#actions-filtered-content .row-facts-track {
+    border-left: 1px solid var(--border-strong);
+    padding-left: var(--space-md);
+}
+#actions-filtered-content .entity-row.chosen .row-facts-track {
+    border-left-color: var(--accent-border);
+}
+/* row-facts-shell exists purely to hold container-type: inline-size below
+   - a size-query container can't itself be the element an @container rule
+   changes a layout-affecting property on (its own size would then depend
+   on a style that depends on its own size, a cycle browsers refuse to
+   resolve) - splitting the query container (this shell) from the element
+   actually being restyled (.row-fact-col-description, below) sidesteps
+   that (same reasoning this mechanism needed the first time, before #154
+   removed and now reintroduces it - see that rule's own fuller history,
+   above). */
 #actions-filtered-content .row-facts-shell {
     container-type: inline-size;
     container-name: action-facts;
 }
-#actions-filtered-content .row-facts {
-    flex-wrap: nowrap;
-}
-/* Smooths the divider (border-left/margin-left/padding-left) dropping away
-   on Due/Created/Referral once the wrap breakpoint hits (_actions_filtered_
-   content.html) - nothing fades/collapses width any more (no column is
-   ever hidden), just this one small property set. */
-#actions-filtered-content .row-fact-col {
-    transition: margin-left 0.2s ease, padding-left 0.2s ease, border-left-width 0.2s ease;
+/* Description promotion (live feedback: "if data cols do not fit, I want
+   data col to move to own row and Description to be full width") -
+   row-facts-cols already moves to its own line once ordinary flex-wrap
+   (row-facts' own base rule, panel.css) runs out of room for both, but a
+   flex item that just wrapped doesn't automatically claim the rest of ITS
+   OWN now-empty line - flex-basis: 100% here is what actually stretches
+   Description across it instead of leaving it stranded at 320px with dead
+   space beside it.
+   .row-facts-track's own divider (border-left + padding-left, above) only
+   makes sense while it sits BESIDE Description on the same line - once it
+   drops to its own line below, that same border reads as a stray mark
+   dangling above Due instead of a real column boundary, and the padding
+   that used to give the line breathing room instead just knocks Due out of
+   alignment with Description above it (live feedback: "Due does not want
+   left divider and should align with description when data cols move to
+   next row"). Cancelled in the same breakpoint that causes the wrap, since
+   it's the same condition. */
+@container action-facts (max-width: 600px) {
+    #actions-filtered-content .row-fact-col-description {
+        flex: 0 0 100%;
+    }
+    #actions-filtered-content .row-facts-track {
+        border-left: none;
+        padding-left: 0;
+    }
 }
 /* #119: Actions row at 375px and tablet width (481-1179px) - the two real
    differences from Referrals' own #118 blocks (row title block above is
@@ -4090,14 +4346,18 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    have a Status Col with the fused Status changer... if this does not fit
    then it gets hidden and then show the dropdown control in the buttons
    section") - hidden below 1401px, same threshold as every other "is there
-   genuinely enough spare width" call on this page (the segmented/dropdown
-   swap just above, Referrals'/Students' own reverted wide-desktop button
-   row). Below that threshold nothing here needs to change at all: row-btn-
-   row's own copy of the segmented control already swaps itself to the
-   compact dropdown the moment the row isn't wide enough (the block just
-   above) - that existing behaviour already IS the "doesn't fit -> dropdown"
-   fallback the feedback asked for, it just never had anything to fall back
-   FROM up here until now. */
+   genuinely enough spare width" call on this page. A per-row JS
+   measurement (wireActionStatusColOverflow, actions.html) used to fall
+   this back to the dropdown early on rows that didn't genuinely fit even
+   above 1401px - removed (live feedback: "I want status to switch from
+   fused to dropdown globally, if it does not fit" - a plain global
+   viewport breakpoint, not a per-row measurement, is what "globally" asks
+   for here; Status now sits inside the always-scrollable row-facts-cols
+   strip regardless, own base rule, so it's reachable via scroll even on
+   the rare row where 1401px+ genuinely isn't enough room). Below the
+   breakpoint nothing here needs to change at all: row-btn-row's own copy
+   of the segmented control already swaps itself to the compact dropdown
+   the moment the viewport isn't wide enough (the block just above). */
 #actions-filtered-content .row-fact-col-status {
     display: none;
 }
@@ -4113,6 +4373,35 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #actions-filtered-content .action-status-segmented-form--buttons {
         display: none;
     }
+    /* Referral Details/Edit Action stacked vertically, not side by side
+       (live feedback: "action page in wide desktop, the button section
+       should be vertically stacked like Referrals is") - the ≤1400px
+       band's own column override (above) stops applying here, so
+       .action-row-buttons was falling back to .btn-row's base horizontal
+       flex row instead of matching Referrals' own >=701px .row-btn-row
+       stack. Only child left visible in .row-btn-row-stacked at this
+       width (the segmented form is hidden just above, the mobile dropdown
+       is hidden unconditionally above 480px), so this is effectively the
+       whole buttons column now. */
+    #actions-filtered-content .action-row-buttons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+/* Full names instead of initials (live feedback: "in Wide mode we can get
+   away with using full names, switch to initials for only narrower
+   modes") - same >=1401px breakpoint as the fused Status data col above.
+   Columns size intrinsically to whichever span is visible now (#154 -
+   col_widths/the --col-w-* custom properties are gone, views.py/
+   _actions_rows.html), so there's no width rule left to set at either
+   band - only the initials<->full-name swap itself. */
+@media (min-width: 1401px) {
+    #actions-filtered-content .row-fact-assignee--initials {
+        display: none;
+    }
+    #actions-filtered-content .row-fact-assignee--full {
+        display: block;
+    }
 }
 /* True mobile stacked format (live feedback: "it should go into the mobile
    format when very narrow" - below ~700px the grid band's own "buttons"
@@ -4127,17 +4416,42 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    app's own global 480px phone-chrome breakpoint (hamburger/drawer nav)
    elsewhere. */
 @media (max-width: 700px) {
-    /* row-gap: var(--space-sm), not --space-xs (live feedback: "is the
-       space above buttons too little" - confirmed live via Playwright:
-       this was the one 8px gap among the card's other internal gaps
-       (title->facts, description->row 2), which are all --space-sm/12px
-       now). This is the gap between the thumb+body's own wrapped line and
-       .row-btn-row's line once it wraps below them at this width. */
+    /* row-gap: var(--space-md), not --space-xs - live feedback: "is the
+       space above buttons too little", then (once every section's gap was
+       brought in line with this one, live feedback again on Students': "I
+       want consistent space between each section", then "still looks too
+       dense" at the first --space-sm/12px pass) bumped a step further so
+       title->facts, description->row 2, and this gap all match at 16px.
+       This is the gap between the thumb+body's own wrapped line and
+       .row-btn-row's line once it wraps below them at this width.
+       Horizontal padding stays --space-sm/12px, matching the page's own
+       margin at this width (Students'/Referrals' identical split, own
+       comments) - only top/bottom needed the extra room. */
     #actions-filtered-content .entity-row {
         flex-wrap: wrap;
         align-items: flex-start;
-        row-gap: var(--space-sm);
-        padding: var(--space-sm);
+        row-gap: var(--space-md);
+        padding: var(--space-md) var(--space-sm);
+    }
+    /* Cancels .row-facts' own unconditional border-top/margin-top/
+       padding-top (its base rule, above) - that divider/spacing was tuned
+       for the pre-#154 shape, where .row-facts was JUST the data-columns
+       strip sitting below a separate Description block, so the line read
+       as "Description ends here, data starts". Post-#154, .row-facts wraps
+       BOTH Description and the scroll strip together (own comment, above),
+       so that same border-top now paints directly above Description
+       instead - a stray line between the row's title and its own
+       description, not the boundary it used to mark (live feedback: "we
+       have a horizontal line, also spacing above description"). Explicit
+       margin-top: var(--space-md), not a plain cancel to 0, for the same
+       reason Students'/Referrals' identical override (own comments) uses
+       an explicit value rather than entity-row's own row-gap - row-title-
+       row's flex: 0 1 auto (not a full flex-basis: 100%) leaves it
+       ambiguous whether row-gap actually bridges this particular pair. */
+    #actions-filtered-content .row-facts {
+        margin-top: var(--space-md);
+        padding-top: 0;
+        border-top: none;
     }
     #actions-filtered-content .entity-row > .row-btn-row {
         border-left: none;
@@ -4404,17 +4718,15 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        entirely this session (into row-title-row, and into the facts strip
        as row-fact-col-description respectively) - this band used to need a
        matching pair of bleed-cancelling overrides for them here (git
-       history), neither is needed any more. .row-facts/.row-facts-shell
-       (below) are the only survivors - the shell still carries the
-       desktop/mobile bleed treatment (base rule, above) needing
-       cancellation in this grid band; .row-facts itself still carries its
-       own divider (border-top/margin-top/padding-top, its own base rule)
-       needing the same. */
-    #actions-filtered-content .row-facts-shell {
+       history), neither is needed any more. .row-facts (below) is the only
+       survivor - it carries both the desktop/mobile bleed treatment (own
+       base rule, above - used to live on the now-removed row-facts-shell)
+       needing cancellation in this grid band, and its own divider
+       (border-top/margin-top/padding-top, its own base rule) needing the
+       same. */
+    #actions-filtered-content .row-facts {
         margin-left: 0;
         width: 100%;
-    }
-    #actions-filtered-content .row-facts {
         /* border-top/margin-top/padding-top cancelled (live feedback:
            "lose the double horizontal line") - row-facts' own base-rule
            divider (above) used to sit below a real content section
@@ -4778,21 +5090,8 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    stays visible down to 701px, with the overflow guard just below doing
    the same graceful one-column-at-a-time job Referrals'/Actions' own
    strips already rely on. */
-/* Facts-strip overflow handling - container-query wrap, same mechanism as
-   Actions/Referrals now (that page's own "Facts-strip overflow handling"
-   comment, #actions-filtered-content .row-facts, has the fuller history:
-   JS measurement -> width breakpoints -> hardcoded max-height crop -> this;
-   live feedback: "let's apply all of this to Students and Referrals").
-   row-facts-shell (_students_rows.html) holds container-type for the same
-   reason Actions'/Referrals' own shells do - a size-query container can't
-   itself be the element an @container rule changes flex-wrap on. */
-#students-filtered-content .row-facts-shell {
-    container-type: inline-size;
-    container-name: student-facts;
-}
-#students-filtered-content .row-facts {
-    flex-wrap: nowrap;
-}
+/* Facts-strip overflow handling - permanent horizontal scroll now (#154,
+   .row-facts-cols base rule above), not a container-query wrap. */
 #students-filtered-content .row-fact-col {
     transition: margin-left 0.2s ease, padding-left 0.2s ease, border-left-width 0.2s ease;
 }
@@ -5877,12 +6176,46 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        (below, ≥701px) replaces the old tablet band here too; entity list/
        row layout stays its own concern, separate from the filter bar
        above, which keeps its own 480px threshold unchanged). */
+    /* row-gap matches the row's own top/bottom padding (both --space-md/
+       16px, live feedback: "I want consistent space between each
+       section. So Top border > Header > Data Cols > Buttons > Bottom
+       border" - a first pass landed both at --space-sm/12px, still a step
+       up from the old --space-xs/8px row-gap, but "still looks too dense,
+       I really thought we had more blank space between sections before"
+       bumped both once more). Horizontal padding/column-gap stay
+       --space-sm/12px, deliberately matching the page's own margin at this
+       width (live feedback, above: "reduce the left and right padding in
+       the entity rows to match page margin") - only vertical needed the
+       extra room, hence the split from the old plain `padding: var(
+       --space-sm)` shorthand. row-student-details/row-facts-cols (display:
+       contents at this width, own rule above) land as direct flex children
+       of entity-row once wrapped here, same as row-title-row and btn-row,
+       so this one row-gap is what spaces every line - header, data cols,
+       and buttons alike - as long as nothing ELSE adds an extra margin on
+       top of it (row-facts' own stray margin-top, overridden just below,
+       was doing exactly that). */
     #students-filtered-content .entity-row {
         flex-wrap: wrap;
         align-items: flex-start;
-        row-gap: var(--space-xs);
+        row-gap: var(--space-md);
         column-gap: var(--space-sm);
-        padding: var(--space-sm);
+        padding: var(--space-md) var(--space-sm);
+    }
+    /* Overrides row-facts' own unconditional margin-top: var(--space-xxs)
+       (its base rule, above) - that 4px was tuned for the >=701px desktop
+       band, where it sits directly under a real divider line. Explicit
+       --space-md here, not a plain cancel to 0 - confirmed live via
+       Playwright that entity-row's own row-gap (above) doesn't actually
+       bridge this particular pair the way it does row-facts->btn-row
+       (row-title-row's own flex: 0 1 auto, unlike a full flex-basis: 100%,
+       left it ambiguous which flex "line" row-facts starts counting from);
+       row-facts' own margin is the one lever that reliably controls this
+       gap, so it carries the same consistent value directly instead of
+       relying on row-gap for it (live feedback: "I want consistent
+       space between each section... Top border > Header > Data Cols >
+       Buttons > Bottom border"). */
+    #students-filtered-content .row-facts {
+        margin-top: var(--space-md);
     }
     /* No margin of its own - .entity-row's own row-gap (above) already
        spaces every wrapped line, header/facts/buttons alike, consistently.

@@ -2804,6 +2804,114 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-row-remove-form]').forEach(wireRowRemoveForm);
 });
 
+// Actions/Referrals/Students facts strip (#154) - .row-facts-cols is a
+// permanently-scrollable region now (panel.css), not a wrap-to-a-second-
+// line one. Delegated at the document level rather than wired per-row:
+// these pages render rows via server-side pagination AND client-side
+// infinite-scroll/AJAX swaps, so a fresh .row-facts-cols can appear at any
+// time - one delegated listener covers every row that ever exists, present
+// or future, with nothing to re-wire.
+//
+// Drag-to-scroll (mouse only - touch already gets native momentum-scroll
+// from overflow-x: auto). Same pointerdown/move/up + DRAG_THRESHOLD
+// technique as wireScrollCarousel's own click-drag (main.js) - see that
+// function's comment for the full reasoning (defers "is this a drag" until
+// real movement happens, so a plain click still reaches whatever's under
+// the pointer - here, the row's own select-on-click behaviour).
+(function () {
+    var DRAG_THRESHOLD = 6;
+    var drag = null;
+    document.addEventListener('pointerdown', function (e) {
+        if (e.pointerType !== 'mouse' || e.button !== 0) return;
+        var track = e.target.closest('.row-facts-cols');
+        if (!track || track.scrollWidth <= track.clientWidth) return;
+        drag = { track: track, startX: e.clientX, startScroll: track.scrollLeft, moved: false, id: e.pointerId };
+    });
+    document.addEventListener('pointermove', function (e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        var dx = e.clientX - drag.startX;
+        if (!drag.moved) {
+            if (Math.abs(dx) < DRAG_THRESHOLD) return;
+            drag.moved = true;
+            drag.track.setPointerCapture(drag.id);
+            drag.track.classList.add('is-dragging');
+        }
+        drag.track.scrollLeft = drag.startScroll - dx;
+    });
+    function endDrag(e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        if (drag.moved) {
+            drag.track.classList.remove('is-dragging');
+            var suppressClick = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+            drag.track.addEventListener('click', suppressClick, { capture: true, once: true });
+        }
+        drag = null;
+    }
+    document.addEventListener('pointerup', endDrag);
+    document.addEventListener('pointercancel', endDrag);
+})();
+
+// Actions/Referrals/Students facts strip (#154) - every row scrolls fully
+// independently now (a page-wide synced scroll was tried and reverted once
+// per-row prev/next arrows, below, made keeping rows aligned pointless).
+// .is-cut-left/.is-cut-right (CSS: panel.css) - toggled from the track's
+// own real scroll position, same convention as the filter bar's own
+// wireFilterCutoffEdges (main.js): drives both the edge fade AND which
+// arrow (below) is visible, so the fade only ever shows - and an arrow
+// only ever offers to scroll - when there's genuinely more of the strip
+// hidden in that direction.
+function markFactsStripEdges(track) {
+    var scrollable = track.scrollWidth - track.clientWidth;
+    track.classList.toggle('is-cut-left', track.scrollLeft > 1);
+    track.classList.toggle('is-cut-right', scrollable > 1 && track.scrollLeft < scrollable - 1);
+}
+function markAllFactsStripEdges(root) {
+    (root || document).querySelectorAll('.row-facts-cols').forEach(markFactsStripEdges);
+}
+document.addEventListener('scroll', function (e) {
+    var track = e.target;
+    if (!track.classList || !track.classList.contains('row-facts-cols')) return;
+    markFactsStripEdges(track);
+}, true);
+// Initial edge state + re-check whenever rows are added/removed (infinite
+// scroll, AJAX filter reloads) or the list's own width changes - a track's
+// scrollWidth/clientWidth (and so whether it overflows at all) isn't known
+// until its content/width actually exists, same reasoning wireAction
+// ButtonLayout's own MutationObserver/ResizeObserver pair (actions.html)
+// uses for its per-row measurement.
+document.addEventListener('DOMContentLoaded', function () {
+    markAllFactsStripEdges();
+    var refresh = window.rafThrottle ? window.rafThrottle(function () { markAllFactsStripEdges(); }) : markAllFactsStripEdges;
+    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content').forEach(function (container) {
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
+        }
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(refresh).observe(container);
+        }
+    });
+    window.addEventListener('resize', refresh);
+});
+// Per-row prev/next arrows (non-touch only, CSS hides them in touch mode -
+// touch already has native swipe) - live feedback: "can we have a next and
+// back arrow for each row instead" (raised while discussing how to give
+// desktop a real scroll affordance without going back to "a native
+// scrollbar on every row", the thing that prompted hiding it in the first
+// place). Delegated click on document, same "covers rows that don't exist
+// yet" reasoning as the drag-to-scroll/scroll listeners above - clicking
+// either button scrolls its own row's track by roughly one viewport's
+// worth, smoothly; .is-cut-left/-right (above) already hide whichever
+// arrow has nothing left to reveal, so there's no separate enabled/
+// disabled state to manage here beyond that. */
+document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.row-facts-arrow');
+    if (!btn) return;
+    var track = btn.parentElement.querySelector('.row-facts-cols');
+    if (!track) return;
+    var dir = btn.classList.contains('row-facts-arrow--prev') ? -1 : 1;
+    track.scrollBy({ left: dir * track.clientWidth * 0.8, behavior: 'smooth' });
+});
+
 // Shared drag-and-drop for moving referrals onto/off/around a panel's agenda
 // (Panel Agenda Setup's Referral Selection <-> Panel Agenda columns, and the live
 // Meeting Agenda's Reviews Due card <-> Students Pending list). One "sink"

@@ -1,37 +1,4 @@
 {% load static %}
-{% comment %}
-Facts-strip wrap breakpoint - ported from Actions (live feedback: "let's
-apply all of this to Students and Referrals"). No hero/always-full-width
-column here the way Actions has Description (see _facts_wrap_threshold's
-own comment, views.py) - below fact_thresholds.wrap, the strip just wraps
-to a second line via ordinary flex-wrap, nothing promoted to full width and
-nothing ever hidden (replaces the old #referrals-filtered-content
-.row-facts-cols { display: none } below 1180px, panel.css - the strip used
-to disappear outright at tablet/mobile width, relying on "Referral Details"
-to surface the same data). Every divider line stays at tablet-portrait
-widths (DES-L10) - only true mobile (≤700px, this page's own existing
-mobile breakpoint elsewhere) drops them for whitespace.
-{% endcomment %}
-<style>
-@container referral-facts (max-width: {{ fact_thresholds.wrap }}) {
-    #referrals-filtered-content .row-facts {
-        flex-wrap: wrap;
-        row-gap: var(--space-sm);
-    }
-}
-@media (max-width: 700px) {
-    @container referral-facts (max-width: {{ fact_thresholds.wrap }}) {
-        #referrals-filtered-content .row-facts-cols {
-            column-gap: var(--space-md);
-        }
-        #referrals-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
-            border-left-width: 0;
-            margin-left: 0;
-            padding-left: 0;
-        }
-    }
-}
-</style>
 <div class="entity-list" data-selectable="single">
     {% include 'hubs/inclusion/panel/_referrals_rows.html' %}
 </div>
