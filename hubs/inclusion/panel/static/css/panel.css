@@ -3102,25 +3102,31 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    dividers are column borders now, own ID-scoped .chosen rule further
    below) - this shared rule simply doesn't match there any more. */
 .entity-row.chosen .row-facts .mc-vdivider { border-left-color: var(--accent-border); }
-/* Permanent horizontal scroll (#154) - replaces the old flex-wrap-to-a-
-   second-line mechanism entirely (each page used to carry its own
-   @container breakpoint computed from col_widths, views.py - both gone).
-   flex-wrap: nowrap keeps every column on one line at every width;
-   overflow-x: auto only ever actually scrolls once a row is genuinely
-   narrower than the strip's own natural content width.
-   Column widths are intrinsic (col_widths/_col_width removed, views.py) -
-   each row-fact-col sizes to its own content, not a page-wide max, so a
-   short row's strip is exactly as wide as it needs to be. This was tried,
-   reverted to a global-max width + synced cross-row scroll, then reverted
-   AGAIN back to this (#154 grilling session 2026-09-03) once per-row
-   prev/next arrows (below) replaced the synced-scroll idea entirely - each
-   row now scrolls (and sizes) fully independently of every other one, on
-   every device, with no reason left to keep them aligned.
+/* Permanent horizontal scroll, one row always (#157 follow-up - live
+   feedback with a screenshot of Students at mobile width: "Data cols must
+   always be one row, so it needs to be scrollable if it does not fit" -
+   reverting #156's wrap-and-fill for THIS group specifically. #156 (own
+   git history) had put flex-wrap: wrap here instead, so a group with more
+   columns than fit on one line (Students'/Referrals' 5-6 groups, at
+   mobile width) split across two internal rows - fine for Actions' own
+   3-column Due/Created/Referral strip, which rarely needs a second line,
+   but read as an ugly uneven stack for the wider groups (screenshot:
+   DOB/Details/Pastoral on one row, Behaviour/Attendance orphaned on a
+   second). flex-wrap: nowrap + overflow-x: auto (drag, arrows, edge fade -
+   all below) is the same mechanism #154 originally built and #156 later
+   replaced - reinstated here rather than rebuilt, since none of that
+   scroll-affordance CSS/JS was ever deleted, only left dormant (own
+   comments on cursor/arrow rules, below) while nothing overflowed a
+   wrapped box. .row-fact-col's own flex-shrink: 0 (base rule, below) is
+   what makes this scroll rather than squash once content doesn't fit.
    Referrals/Students: this IS .row-facts (same div, dual class,
    _referrals_rows.html/_students_rows.html) - the whole strip scrolls.
    Actions: a separate inner div (_actions_rows.html) holding just Due/
-   Created/Referral/Status, a sibling of Description inside .row-facts -
-   see that page's own "Facts strip" comment below for how the two split. */
+   Created/Referral, a sibling of Description/the Status fused control
+   inside .row-facts - THAT outer .row-facts still wraps as a whole (own
+   rule, above unchanged) once Description+Status no longer fit beside
+   this strip; only this inner group itself now never splits across
+   multiple lines. */
 .row-facts-cols {
     display: flex;
     flex-wrap: nowrap;
@@ -3203,11 +3209,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .row-facts-cols.is-cut-right {
     --mask-right-reach: 24px;
 }
-/* Drag-to-scroll cursor, mouse only - actual drag wired in panel.js
-   (delegated pointerdown/move/up on document, same technique
-   wireScrollCarousel's own click-drag uses, main.js). Unconditional, not
-   gated on "is this row's strip actually overflowing" - same convention
-   #my-referrals-list's own grab cursor uses (panel.css). */
+/* Drag-to-scroll cursor - reinstated (#157 follow-up - .row-facts-cols
+   scrolls again, own base rule above; briefly removed at #156 while this
+   group wrapped instead of scrolling, own git history). The JS drag
+   handler (panel.js) still bails out on its own whenever
+   scrollWidth <= clientWidth, so this cursor genuinely does nothing when
+   the row's content already fits - only promising a drag once there's
+   really something to drag. */
 html:not(.nav-touch-mode) .row-facts-cols {
     cursor: grab;
 }
@@ -3309,8 +3317,24 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
    that one column (and so the whole strip) far past its neighbours'
    typical width. ch, not a plain px cap - scales with the column's own
    font-size the same way the old computed col_widths (views.py, removed)
-   did, rather than a fixed pixel guess. */
+   did, rather than a fixed pixel guess.
+   Only a no-JS/first-paint fallback now, not what actually does the
+   truncating - fillFactsColumns (panel.js) always sets an inline
+   max-width on the BOX (natural width + its 100px bonus cap, own comment
+   there) once it runs, which beats this class rule outright regardless of
+   specificity, so this box-level cap alone stopped truncating anything in
+   practice (live feedback: "Ethnicity could be truncated more!" - a long
+   Ethnicity value was setting the whole column's shared natural width,
+   uncapped, since nothing was left actually clipping the text itself).
+   The real fix is the VALUE SPAN's own cap, below - same "cap the text,
+   let the box grow past it if it wants" split Description's own
+   span:last-child max-width (above) already uses, since a span cap
+   survives being a totally different element to whatever inline style
+   JS sets on the box around it. */
 .row-fact-col-clamp {
+    max-width: 26ch;
+}
+.row-fact-col-clamp span:not(.row-fact-label) {
     max-width: 26ch;
 }
 /* Initials by default, full name only once wide desktop has room to spare
@@ -3344,6 +3368,22 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
 #actions-filtered-content .row-fact-col-description {
     flex: 0 0 320px;
     min-width: 0;
+    /* max-width is set inline by fillFactsColumns (panel.js, MAX_BONUS_PX)
+       once JS runs - this 420px (320px natural baseline + the same 100px
+       cap every other column gets) is just the pre-JS/no-JS fallback, kept
+       in sync by hand. History (#157 follow-up): first a one-off hardcoded
+       400px here on its own (live feedback: "Description and Status are
+       way too far apart on medium width... Status would be better left
+       aligned with space to its right" / "I do think we need a max white
+       space"), generalised into the same per-column mechanism once the
+       exact same unbounded-growth problem turned up on OTHER columns too
+       (live feedback, a Referrals screenshot: "its the extra white space
+       that I want capped! Could we make this 100px maximum?"). Reset to
+       none by JS once Description promotes to its own full-width line
+       (@container action-facts <= 600px, below) - that width is a
+       deliberate one, not stray leftover, so it must never be clamped back
+       down. */
+    max-width: 420px;
 }
 /* Value line only (not the label) - still real sentence-level content
    (what to actually go and do), kept at the same font-sm every other
@@ -3699,22 +3739,36 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
     letter-spacing: 0.03em;
     font-weight: 600;
 }
-/* Dividers moved onto each column's own border-left instead of a separate
-   .mc-vdivider flex item (ported from Actions - that page's own comment on
-   #actions-filtered-content .row-facts-cols has the full reasoning: a
-   standalone divider element wraps/crops independently of the column beside
-   it, which can leave it dangling or a different height once wrapping is in
-   play - a column border can only ever move with its own column). */
+/* gap: var(--space-md), not 0 - this used to be 0 because the divider
+   convention (border-left + margin-left, below/history) supplied its own
+   spacing between columns; now that the divider is gone entirely (live
+   feedback: "lets simplify by losing the vertical dividers in data cols
+   everywhere"), the gap is the ONLY thing separating one column's text
+   from the next - confirmed live via Playwright, a real bug: Students'
+   own PASTORAL and BEHAVIOUR labels ran together with literally zero px
+   between them once both the border and its margin were removed without
+   this being restored. */
 #referrals-filtered-content .row-facts-cols {
-    gap: 0;
+    gap: var(--space-md);
 }
+/* Divider dropped everywhere (live feedback: "lets simplify by losing the
+   vertical dividers in data cols everywhere") - each column already reads
+   as its own section once syncFactsColumnWidths (panel.js) gives it real,
+   deliberate width instead of packing tight against its neighbour, so the
+   border-left/margin-left/padding-left convention this rule used to carry
+   isn't needed to tell columns apart at any width. Edited directly here
+   rather than left as a border-adding base rule with a later override
+   removing it again - that two-layer pattern is exactly what caused a
+   real bug once already (Students' own override losing a cascade-order
+   fight to a rule below it, "arrow reappears on Students") - one rule
+   with the final answer is simpler and can't drift out of sync with
+   itself. .entity-row.chosen's own accent-border re-assertion this used
+   to need (own comment, same place) is gone for the same reason - there's
+   no border left to recolour. */
 #referrals-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
-    border-left: 1px solid var(--border-strong);
-    margin-left: var(--space-md);
-    padding-left: var(--space-md);
-}
-#referrals-filtered-content .entity-row.chosen .row-facts-cols > .row-fact-col:not(:first-child) {
-    border-left-color: var(--accent-border);
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
 }
 /* Grid band, every desktop width ≥701px (live feedback: "do both" pages -
    ports Actions' own grid technique here wholesale, _actions_rows.html/
@@ -3986,32 +4040,20 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
    than reintroducing per-column margin just for the pairs that lack a
    divider (live feedback elsewhere in this same session: "keep it
    simpler"). */
-/* gap: 0, not the shared .row-facts-cols gap - the standalone .mc-vdivider
-   elements this used to space out (each a separate flex item, live
-   feedback: "if we auto hide a data col, can its superceding divider hide
-   as well" / "the vertical dividers with data cols shrinks") are gone
-   (_actions_rows.html). A divider that's its own flex item wraps/crops
-   independently of the column beside it - it can dangle at the end of a
-   line after its column has already wrapped away, or get cropped to a
-   different height than its column when only one of the two lands on the
-   guard's cut line. border-left below moves the divider into the column's
-   own box instead, so it can only ever wrap, crop, or hide together with
-   the column it belongs to. */
+/* gap: var(--space-md), not 0 - see Referrals' own identical rule/comment
+   above for why (the divider that used to supply this spacing is gone
+   entirely now). */
 #actions-filtered-content .row-facts-cols {
-    gap: 0;
+    gap: var(--space-md);
 }
+/* Divider dropped everywhere (live feedback: "lets simplify by losing the
+   vertical dividers in data cols everywhere") - edited directly here
+   rather than left as a border-adding rule with a later override removing
+   it again, same reasoning as Referrals' own copy above. */
 #actions-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
-    border-left: 1px solid var(--border-strong);
-    margin-left: var(--space-md);
-    padding-left: var(--space-md);
-}
-/* Re-asserts the shared .chosen accent rule (CONVENTION comment above,
-   .entity-row.chosen > .row-btn-row) - the shared class-only
-   .entity-row.chosen .row-facts .mc-vdivider rule can no longer match
-   here (its target element is gone), so this ID-scoped column border needs
-   its own copy. */
-#actions-filtered-content .entity-row.chosen .row-facts-cols > .row-fact-col:not(:first-child) {
-    border-left-color: var(--accent-border);
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
 }
 /* Bleed on .row-facts itself (#154 - used to live on row-facts-shell, a
    wrapper that only ever existed to hold the now-removed @container's own
@@ -4269,143 +4311,103 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
 #actions-filtered-content .action-status-segmented-form {
     display: contents;
 }
-/* Segmented control -> dropdown swap (live feedback: "before we are forced
-   to hide any data, we switch to a dropdown for Status changer and
-   vertical stack this with the two other buttons") - the always-visible
-   3-way segmented control's own un-shrinkable width drives the grid's
-   "buttons" column width, forcing "details" to compete with it for space
-   and making wireActionFactsOverflow hide Created At/By or Referral
-   Category sooner than it needs to; the compact select trigger is
-   narrower, so swapping it in first claims back some of that width for
-   "details" before any real data has to be hidden at all. Scoped to
-   ≤1400px (live feedback: "in wide desktop it should be the fused status
-   selector, not the dropdown" first drew the line back in at 1400px;
-   "change segmented control to 1200 as well, try and have less
-   breakpoints" then moved it down to reuse the hub sidebar's own
-   auto-collapse breakpoint, responsive.css; live feedback later still:
-   "the actions page still seems to swap to vertical stack when the nav
-   disappears... make all match 1401" moved it back out to 1400/1401,
-   matching Referrals'/Students' own row-buttons-column threshold instead
-   of the sidebar's collapse width - the grid band's own structure is
-   unbounded and unaffected by this value, only the status control's own
-   swap point). Two separate <form>s, not one
-   form holding both controls toggled by visibility - a hidden-but-still-
+/* Segmented control <-> dropdown swap - two separate <form>s, not one form
+   holding both controls toggled by visibility, since a hidden-but-still-
    enabled second "status" field in the same form would submit its own
    (stale) value alongside whichever control the user actually used, and
    Django's QueryDict.get() returns the LAST value for a repeated key,
-   silently overriding the real click with the hidden field's stale one.
-   Separate forms can't cross-contaminate like that - each submission
-   only ever carries its own form's fields. */
-@media (max-width: 1400px) {
-    #actions-filtered-content .action-status-segmented-form {
-        display: none;
-    }
-    #actions-filtered-content .action-status-select-form {
-        display: block;
-    }
-    /* Live feedback: "should the dropdown match shape of buttons?" /
-       "still missing space" / "shape looks shorter". Three separate real
-       causes, not one - .status-pill (pills.css) is built for its usual
-       compact inline-pill contexts, and every one of those defaults is
-       wrong once this trigger sits as a peer control in a button row:
-       1. Shape: borderless + fully-rounded (var(--radius-pill)) reads as a
-          label chip, not a control - overridden to .btn's own bordered
-          var(--radius-sm) box. Status colour tint (background) untouched.
-       2. Width/gap: .status-pill's width: auto sizes to its own text, not
-          its flex-basis-0 share of the row - measured live, this rendered
-          the trigger 121px wide inside a 108px column, overlapping
-          Referral Details by ~4px (the actual cause of "no gap", not a
-          shape/colour illusion). width: 100% fixes the CSS side, but
-          enhanceSelect (main.js) also sets an inline min-width off the
-          longest option's own measured width (right, for its usual
-          shrink-to-fit contexts) - inline style beats any non-!important
-          author rule, so it has to be zeroed with !important here or the
-          100% never actually takes effect.
-       3. Height: .status-pill's explicit line-height: 1 (deliberately tight
-          - own comment on that rule: "pill's height depends only on
-          font-size + padding") measured 30px tall next to .btn's 35px.
-          Padding alone (already matched to --space-xs above) isn't enough -
-          line-height needs freeing back to normal too. font-size stays
-          var(--font-xs): bumping it to match .btn's var(--font-base)
-          truncated "Incomplete" to "Incomple…" in this same-width column
-          (live regression, caught before shipping) - the 2px height gap
-          left by keeping --font-xs reads as close enough next to real
-          buttons; wrong text does not. */
-    #actions-filtered-content .action-status-select-form .ui-select-trigger {
-        padding-top: var(--space-xs);
-        padding-bottom: var(--space-xs);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        width: 100%;
-        min-width: 0 !important;
-        box-sizing: border-box;
-        line-height: normal;
-    }
-    html.nav-touch-mode #actions-filtered-content .action-status-select-form .ui-select-trigger {
-        padding-top: var(--space-sm);
-        padding-bottom: var(--space-sm);
-    }
-    /* Referral Details/Edit Action stacked too, not side by side (live
-       feedback: "When it turns to dropdown, all three things should be
-       vertically stacked") - .btn-row's own base rule (buttons.css) is a
-       horizontal flex row; column + stretch here makes both buttons full-
-       width rows under the dropdown instead, matching it exactly (the
-       parent .row-btn-row-stacked's own align-items: stretch, above,
-       already sizes this whole group to the widest content, so stretching
-       these two buttons to fill it lines everything up in one column of
-       three equal-width rows). True mobile (≤700px, below) overrides back
-       to side-by-side - screen real estate is tighter there and the two
-       buttons already read fine sharing one row with the dropdown. */
-    #actions-filtered-content .action-row-buttons {
-        flex-direction: column;
-        align-items: stretch;
-    }
-}
-/* Status data col (_actions_rows.html, live feedback: "can Wide Action
-   have a Status Col with the fused Status changer... if this does not fit
-   then it gets hidden and then show the dropdown control in the buttons
-   section") - hidden below 1401px, same threshold as every other "is there
-   genuinely enough spare width" call on this page. A per-row JS
-   measurement (wireActionStatusColOverflow, actions.html) used to fall
-   this back to the dropdown early on rows that didn't genuinely fit even
-   above 1401px - removed (live feedback: "I want status to switch from
-   fused to dropdown globally, if it does not fit" - a plain global
-   viewport breakpoint, not a per-row measurement, is what "globally" asks
-   for here; Status now sits inside the always-scrollable row-facts-cols
-   strip regardless, own base rule, so it's reachable via scroll even on
-   the rare row where 1401px+ genuinely isn't enough room). Below the
-   breakpoint nothing here needs to change at all: row-btn-row's own copy
-   of the segmented control already swaps itself to the compact dropdown
-   the moment the viewport isn't wide enough (the block just above). */
+   silently overriding the real click with the hidden field's stale one -
+   separate forms can't cross-contaminate like that. What decides which one
+   shows moved off a flat viewport breakpoint entirely (this used to be a
+   plain @media (max-width: 1400px) block here - live feedback then: "in
+   wide desktop it should be the fused status selector, not the dropdown")
+   onto status-col-narrow (updateActionStatusVisibility, panel.js) below,
+   once the fused control itself relocated out of the always-narrow
+   data-columns strip and started needing much more than a flat 1400px
+   viewport cutoff to decide whether it has room (own comment there has
+   the fuller reasoning + live feedback trail). */
+/* Status fused control (_actions_rows.html, live feedback: "new plan for
+   responsive layout... move fused status changer to after description and
+   before data cols. If it all fits these can all fit side by side. If not
+   the data cols goes to new line. Description then widens with fused next
+   to it to fill row. If Description width goes below certain threshold
+   fused status hide and the dropdown in button section appears") -
+   replaces the old design (a data column inside row-facts-cols, shown only
+   >=1401px AND only once syncFactsColumnWidths/status-col-tight, panel.js,
+   confirmed the WHOLE strip's natural content fit too). As a direct
+   sibling of Description/row-facts-track now, this control no longer needs
+   the rest of the strip to fit alongside it - so it shows at far more
+   widths than before (live feedback confirming the redesign's intent:
+   "this should mean that fused status changer should appear at more
+   widths before disappearing"). flex: 0 0 auto - natural content width,
+   doesn't grow (leaves any bonus space to Description beside it) or
+   shrink (a squashed segmented control is unreadable).
+   margin-right: 0 here, a no-JS/first-paint fallback only - fillFactsColumns
+   (panel.js) always sets this inline once it runs, to however much bonus
+   Due/Created/Referral actually received (own comment, panel.js) rather
+   than a flat guess, so the gap after Status reads as the SAME kind of
+   "extra" as every data column's own bonus, not a different, arbitrary
+   amount (live feedback: "I want the white space between to be same as
+   the data col extra so it looks consistent" - a fixed gap here, tried
+   first, needed a completely different history to explain why ITS number
+   was whatever it was next to columns whose own bonus is directly
+   readable off their content). */
 #actions-filtered-content .row-fact-col-status {
+    flex: 0 0 auto;
+    margin-right: 0;
+}
+/* Referral Details/Edit Action stacked vertically by default now (live
+   feedback: "action page in wide desktop, the button section should be
+   vertically stacked like Referrals is") - was previously scoped to
+   >=1401px only, since below that the <=1400px band (below) already forced
+   this same column layout for its own dropdown-swap reasons; now that the
+   fused control (and so the dropdown) can appear/disappear at any width,
+   this needs to hold unconditionally instead of being split across two
+   different-shaped breakpoints. The true-mobile ≤700px band (below) still
+   overrides back to a horizontal row. */
+#actions-filtered-content .action-row-buttons {
+    flex-direction: column;
+    align-items: stretch;
+}
+/* Fused control drops to the dropdown once Description can no longer read
+   comfortably beside it on their shared first line (live feedback: "if
+   Description width goes below certain threshold fused status hide and
+   the dropdown in button section appears"). status-col-narrow
+   (updateActionStatusVisibility, panel.js) decides this, not a
+   @container query - a first attempt queried .entity-row's own width
+   (thumb group + body + buttons column together), the one shared ancestor
+   between this control (inside row-facts-shell) and the dropdown (a
+   separate row-btn-row subtree) - but entity-row's width bundles in
+   overhead unrelated to whether Description and Status themselves fit
+   together, and doesn't change just because Due/Created/Referral happens
+   to wrap away and free up real room on this line (live feedback: "when
+   Status and description are on same line, status disappears too soon in
+   that scenario"). Measuring row-facts-shell's own width directly against
+   Description's natural baseline + Status' own natural width answers the
+   real question regardless of what Due/Created/Referral are doing - own
+   comment, panel.js, has the fuller reasoning. */
+#actions-filtered-content.status-col-narrow .row-fact-col-status {
     display: none;
 }
-@media (min-width: 1401px) {
-    #actions-filtered-content .row-fact-col-status {
-        display: flex;
-    }
-    /* row-btn-row's own segmented control is redundant once the data col
-       (above) is showing it instead - only the dropdown-swap block's own
-       .action-status-segmented-form--buttons instance needs hiding here;
-       the data col's own .action-status-segmented-form (no --buttons
-       modifier) is a separate <form>, untouched. */
-    #actions-filtered-content .action-status-segmented-form--buttons {
-        display: none;
-    }
-    /* Referral Details/Edit Action stacked vertically, not side by side
-       (live feedback: "action page in wide desktop, the button section
-       should be vertically stacked like Referrals is") - the ≤1400px
-       band's own column override (above) stops applying here, so
-       .action-row-buttons was falling back to .btn-row's base horizontal
-       flex row instead of matching Referrals' own >=701px .row-btn-row
-       stack. Only child left visible in .row-btn-row-stacked at this
-       width (the segmented form is hidden just above, the mobile dropdown
-       is hidden unconditionally above 480px), so this is effectively the
-       whole buttons column now. */
-    #actions-filtered-content .action-row-buttons {
-        flex-direction: column;
-        align-items: stretch;
-    }
+#actions-filtered-content.status-col-narrow .action-status-select-form {
+    display: block;
+}
+/* Same trigger styling as the true-mobile/tablet dropdown already used for
+   this same swap prior to this redesign - shape/width/height fixes
+   explained on that original copy, own comment history (git blame). */
+#actions-filtered-content.status-col-narrow .action-status-select-form .ui-select-trigger {
+    padding-top: var(--space-xs);
+    padding-bottom: var(--space-xs);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    width: 100%;
+    min-width: 0 !important;
+    box-sizing: border-box;
+    line-height: normal;
+}
+html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-select-form .ui-select-trigger {
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
 }
 /* Full names instead of initials (live feedback: "in Wide mode we can get
    away with using full names, switch to initials for only narrower
@@ -4426,163 +4428,104 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
         display: block;
     }
 }
-/* One full row, no scroll, at wide desktop (#155 - "Revisit: one row of
-   sections for the facts strip on wide desktop"). #154's permanent-scroll
-   strip (own base rule, row-facts-cols above) was built to survive true
-   narrow/mobile widths where the columns genuinely can't all fit - at
-   1401px+ they always do, so a strip that still sizes to its own intrinsic
-   content and leaves the rest of the row empty (live feedback screenshot:
-   Referrals' Raised/Prev Panel/Review/Actions bunched left of a wide gap
-   before the buttons column) is solving a narrow-width problem in a way
-   that costs wide desktop real, visible dead space.
+/* Fills the row's own available width when it fits, scrolls (one line
+   always, own rule above) when it doesn't - history: #154's original
+   permanent-scroll strip sized to its own intrinsic content and left the
+   rest of the row empty when there WAS room to spare (live feedback
+   screenshot: Referrals' Raised/Prev Panel/Review/Actions bunched left of
+   a wide gap before the buttons column) -> #155/#156 replaced that with
+   flex-wrap: wrap so a line that didn't fit spilled onto another one
+   instead of scrolling -> #157 reverted the wrap itself back to a scroll
+   (own rule, row-facts-cols above - live feedback with a screenshot:
+   "Data cols must always be one row... scrollable if it does not fit",
+   Students' 5-6 groups splitting into an ugly uneven two-row stack at
+   mobile width) while KEEPING this fill-when-it-fits behaviour, since that
+   part was never the complaint.
    flex: 1 0 auto on each row-fact-col (prototype "B" - grow to fill,
    compared live against "C", intrinsic widths with the leftover space
    redistributed as bigger gaps) lets every column claim an even share of
-   whatever's left instead. Trade-off accepted deliberately: each row now
-   grows independently (no shared column-width variable, #154 already
-   removed col_widths/the old computed-width mechanism entirely), so two
-   rows' same-named column can land at different widths - "C" preserved
-   that alignment but read as arbitrarily wide gaps instead, judged worse.
-   Grow-only (flex-shrink stays 0, not 1 1 0) deliberately - Actions' own
-   wireActionStatusColOverflow (actions.html) still runs on this same
-   >=1401px band to decide whether the fused Status control genuinely
-   fits or needs to fall back to the buttons-column dropdown, and its own
-   comment is explicit that the check only works "because every column is
-   flex-shrink: 0, so nothing here shrinks to disguise a too-tight fit" -
-   reading row-facts-cols.scrollWidth as the strip's genuine one-line
-   width. Letting columns shrink under real pressure would let flexbox
-   absorb the squeeze invisibly instead, so scrollWidth would just equal
-   whatever room was available and never register as "doesn't fit",
-   silently breaking that fallback. Grow-only preserves the exact same
-   overflow signal when space is genuinely short while still filling it
-   when space is generous.
-   overflow-x: visible retires the scroll region/cursor at this width only
-   - .row-facts-cols' own is-cut-left/-right classes (markFactsStripEdges,
-   panel.js) are computed from actual scrollWidth, so once nothing
-   overflows they simply never get added and the fade/arrows stay hidden
-   with no JS changes needed; cursor: auto overrides the unconditional
-   grab cursor (html:not(.nav-touch-mode) .row-facts-cols, above) which
-   would otherwise still promise a drag that no longer does anything.
-   Narrower bands are untouched - this block only ever adds rules gated on
-   the same 1401px floor every other "is there genuinely room to spare"
-   call on these three pages already uses. */
-@media (min-width: 1401px) {
-    #actions-filtered-content .row-facts-cols,
-    #referrals-filtered-content .row-facts-cols,
-    #students-filtered-content .row-facts-cols {
-        overflow-x: visible;
-        cursor: auto;
-    }
-    /* flex-grow/flex-basis here are only the no-JS fallback (shrink-wrap,
-       then share the leftover equally per row) - syncFactsColumnWidths
-       (panel.js) overrides both inline, per column, with an exact px width
-       it computes itself (that column's natural width scaled up so every
-       column fills the row proportionally, in sync with its counterpart on
-       every other row) the moment it runs. CSS alone can express neither
-       "match a sibling row's column" nor "grow proportionally to my own
-       content rather than by an equal flat amount" - both came from live
-       feedback on earlier, CSS-only passes ("columns in this mode should
-       align all the way down", then "Dob vs Behaviour?" once equal flex-
-       grow left a short column looking padded next to a long one at the
-       same absolute bonus) - so JS owns the real number here, this is just
-       what renders before it runs. flex-shrink stays 0 regardless (base
-       rule, above) - Actions' own wireActionStatusColOverflow (actions.html)
-       still reads row-facts-cols.scrollWidth on this exact band to decide
-       whether the fused Status control needs to fall back to the buttons-
-       column dropdown, and that only works if a genuinely-too-tight row
-       overflows instead of quietly shrinking to fit. */
-    #actions-filtered-content .row-facts-cols > .row-fact-col,
-    #referrals-filtered-content .row-facts-cols > .row-fact-col,
-    #students-filtered-content .row-facts-cols > .row-fact-col {
-        flex: 1 0 auto;
-    }
-    /* Divider dropped at this width (live feedback: "we could lose the gaps
-       in this mode") - each column already reads as its own section once
-       it's filling real, deliberate space instead of sitting tight against
-       its neighbour under the old intrinsic-width strip, so the border-
-       left/margin-left/padding-left convention that used to mark the
-       boundary (base rule, above) isn't needed here to tell columns apart.
-       Removing it also fixes a real bug, not just a style choice: that
-       margin-left sits OUTSIDE the border-box, so it's real space every row
-       actually consumes but syncFactsColumnWidths' own width math (panel.js,
-       which reads getBoundingClientRect - border-box only) never accounted
-       for - confirmed live via Playwright: every divided column added
-       another var(--space-md) of real width the sync math didn't know
-       about, so the strip in Actions kept genuinely overflowing (is-cut-
-       right, an arrow, the row visibly cut off) even after two earlier
-       attempts to patch the math around it (the row-facts-track/
-       row-facts-cols measurement fix, then subtracting flex gap - itself
-       already 0 here, so that fix did nothing). Removing the divider
-       removes the box-model mismatch at the source instead of teaching the
-       JS to model one more of its side effects by hand. */
-    #actions-filtered-content .row-facts-cols > .row-fact-col:not(:first-child),
-    #referrals-filtered-content .row-facts-cols > .row-fact-col:not(:first-child),
-    #students-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
-        border-left: none;
-        margin-left: 0;
-        padding-left: 0;
-    }
-    /* .row-fact-col-clamp's own max-width: 26ch (base rule, above) exists
-       to stop one unusually long Ethnicity/Behaviour/concern-category
-       value stretching that one column under the old intrinsic-width
-       scroll strip - harmless there since every column just sized to its
-       own content regardless. It's actively wrong once syncFactsColumnWidths
-       (panel.js) sets a bigger flex-basis afterwards (that column's natural
-       width plus its fair share of the row's leftover space) - CSS
-       max-width doesn't know that's deliberate, it just keeps clipping the
-       rendered box back down to 26ch regardless, silently discarding the
-       very bonus the column was supposed to receive (confirmed live via
-       Playwright: flexBasis set to 292px, rendered width stuck at
-       182px/26ch) - which both starves that column and leaves its
-       unclaimed share as genuine dead space at the row's end instead
-       ("Attendance has lots of blank space"). Lifted here for the whole
-       breakpoint, not just after JS applies its final width - so JS's own
-       natural-width measurement (which reads this same element's rendered
-       width) now sees the true, uncapped content size too, not a
-       pre-clipped one; an unusually long value can inflate its own column
-       and, since every column shares one clamp-free "shrink-wrap first, add
-       an equal bonus" pool, everyone's bonus a little in response. Accepted
-       - the old protection against one outlier value was only ever needed
-       to keep an intrinsic-width, unfilled strip from looking lopsided; at
-       this width the row is being filled regardless, so there's no longer
-       a "normal" width for an outlier to look wrong against. */
-    #actions-filtered-content .row-facts-cols .row-fact-col-clamp,
-    #referrals-filtered-content .row-facts-cols .row-fact-col-clamp,
-    #students-filtered-content .row-facts-cols .row-fact-col-clamp {
-        max-width: none;
-    }
-    /* Actions only: row-facts-cols sits nested inside row-facts-track, a
-       sibling of the fixed-320px Description column inside .row-facts
-       (_actions_rows.html) - unlike Referrals/Students, where row-facts
-       *is* row-facts-cols (dual class) and already gets width: 100% in
-       the >=701px grid band (own rule, above), so growing its row-fact-col
-       children is enough on its own. Here the track itself still needs to
-       claim the leftover width first before there's anything for
-       row-facts-cols - a plain block, width auto by default - to stretch
-       into and hand down to its own row-fact-col children. flex: 1 1 0
-       (grow AND shrink), not the grow-only 1 0 auto used on the columns
-       above - the track itself carries no text content for
-       wireActionStatusColOverflow to measure (it reads row-facts-cols'
-       own scrollWidth directly), so there's no equivalent signal here to
-       protect by keeping it non-shrinking. */
-    #actions-filtered-content .row-facts-track {
-        flex: 1 1 0;
-        min-width: 0;
-    }
-    /* Description-to-strip divider dropped too at this width (live
-       feedback: "Description has its right divider still" - the border-
-       left/padding-left divider is on row-facts-track itself, own rule
-       above/comment "Divider between Description and the data strip", so
-       it survived the earlier "lose the gaps in this mode" pass, which
-       only touched the divider BETWEEN Due/Created/Referral/Status,
-       row-fact-col's own border-left, not this one). Same reasoning as
-       that pass - each section already reads as its own column once it's
-       filling real, deliberate space, so the line marking where Description
-       ends isn't needed here either. */
-    #actions-filtered-content .row-facts-track {
-        border-left: none;
-        padding-left: 0;
-    }
+   whatever's left when the row's natural content is narrower than the
+   space available. syncFactsColumnWidths (panel.js) sets each column's
+   flex-basis to a shared, synced natural width (list-wide on tablet/
+   desktop so every row's same-named column still lines up - live
+   feedback: "columns in this mode should align all the way down"; per row
+   on mobile instead - live feedback: "mobile should be per row", rows read
+   as individual cards there rather than a table) - flex-grow's own native
+   distribution is what actually adds the "equal flat bonus" on top of that
+   shared base (live feedback ruled out proportional scaling for this same
+   job earlier: "Dob vs Behaviour?").
+   flex-shrink stays 0 - shrinking would squash columns instead of ever
+   letting them genuinely overflow into the scroll this rule exists to
+   trigger. */
+#actions-filtered-content .row-facts-cols > .row-fact-col,
+#referrals-filtered-content .row-facts-cols > .row-fact-col,
+#students-filtered-content .row-facts-cols > .row-fact-col {
+    flex: 1 0 auto;
+}
+/* Divider between columns is gone everywhere now - see each page's own
+   .row-facts-cols > .row-fact-col:not(:first-child) rule (Referrals'/
+   Actions'/Students' own base rules, above/below) for where that's
+   actually set; nothing left to override here any more. */
+/* .row-fact-col-clamp's own max-width: 26ch (base rule, above) exists to
+   stop one unusually long Ethnicity/Behaviour/concern-category value
+   stretching that one column under the old intrinsic-width scroll strip -
+   harmless there since every column just sized to its own content
+   regardless. It's actively wrong once syncFactsColumnWidths (panel.js)
+   sets a bigger flex-basis afterwards (that column's natural width plus
+   its fair share of its own line's leftover space) - CSS max-width
+   doesn't know that's deliberate, it just keeps clipping the rendered box
+   back down to 26ch regardless, silently discarding the very bonus the
+   column was supposed to receive (confirmed live via Playwright: flexBasis
+   set to 292px, rendered width stuck at 182px/26ch) - which both starves
+   that column and leaves its unclaimed share as genuine dead space
+   instead. Lifted unconditionally now - so JS's own natural-width
+   measurement (which reads this same element's rendered width) sees the
+   true, uncapped content size too, not a pre-clipped one. Accepted - the
+   old protection against one outlier value was only ever needed to keep
+   an intrinsic-width, unfilled strip from looking lopsided; a filled,
+   wrapping strip is being filled regardless, so there's no longer a
+   "normal" width for an outlier to look wrong against. */
+#actions-filtered-content .row-facts-cols .row-fact-col-clamp,
+#referrals-filtered-content .row-facts-cols .row-fact-col-clamp,
+#students-filtered-content .row-facts-cols .row-fact-col-clamp {
+    max-width: none;
+}
+/* Actions only: row-facts-cols sits nested inside row-facts-track, a
+   sibling of the fixed-320px Description column inside .row-facts
+   (_actions_rows.html) - unlike Referrals/Students, where row-facts
+   *is* row-facts-cols (dual class) and already gets width: 100% in
+   the >=701px grid band (own rule, above), so growing its row-fact-col
+   children is enough on its own. Here the track itself still needs to
+   claim the leftover width first before there's anything for
+   row-facts-cols - a plain block, width auto by default - to stretch
+   into and hand down to its own row-fact-col children. flex: 1 1 0
+   (grow AND shrink), not the grow-only 1 0 auto used on the columns
+   above - the track itself carries no text content of its own to protect
+   from shrinking (fillFactsColumns, panel.js, sets its flex-basis
+   explicitly off row-facts-cols' own natural sum instead, own comment
+   there), unlike its children which need flex-shrink: 0 to genuinely
+   overflow into a scroll rather than getting squashed. */
+#actions-filtered-content .row-facts-track {
+    flex: 1 1 0;
+    min-width: 0;
+}
+/* Description-to-strip divider dropped too (live feedback: "Description
+   has its right divider still" - the border-left/padding-left divider is
+   on row-facts-track itself, own rule above/comment "Divider between
+   Description and the data strip", so it survived the earlier "lose the
+   gaps in this mode" pass, which only touched the divider BETWEEN
+   Due/Created/Referral/Status, row-fact-col's own border-left, not this
+   one). Same reasoning as that pass - each section already reads as its
+   own column once it's filling real, deliberate space, so the line
+   marking where Description ends isn't needed here either. Unconditional,
+   same as the rest of this block, since row-facts-track's own @container
+   action-facts rule (above) already drops this divider independently once
+   Description itself promotes to its own full-width line - the two
+   conditions overlap in effect (no divider either way) rather than one
+   ever needing to override the other. */
+#actions-filtered-content .row-facts-track {
+    border-left: none;
+    padding-left: 0;
 }
 /* True mobile stacked format (live feedback: "it should go into the mobile
    format when very narrow" - below ~700px the grid band's own "buttons"
@@ -5285,37 +5228,29 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
     letter-spacing: 0.03em;
     font-weight: 600;
 }
-/* Dividers moved onto each column's own border-left instead of a separate
-   .mc-vdivider flex item (ported from Actions - that page's own comment on
-   #actions-filtered-content .row-facts-cols has the full reasoning). */
+/* gap: var(--space-md), not 0 - see Referrals' own identical rule/comment
+   for why (the divider that used to supply this spacing is gone entirely
+   now, live feedback: "lets simplify by losing the vertical dividers in
+   data cols everywhere") - confirmed live via Playwright, a real bug:
+   PASTORAL and BEHAVIOUR ran together with literally zero px between them
+   once both the border and its margin were removed without this being
+   restored. */
 #students-filtered-content .row-facts-cols {
-    gap: 0;
+    gap: var(--space-md);
 }
+/* Divider dropped everywhere (live feedback: "lets simplify by losing the
+   vertical dividers in data cols everywhere") - edited directly here
+   rather than left as a border-adding rule with a later override removing
+   it again - that two-layer pattern already caused a real bug once
+   (this exact rule's old override losing a cascade-order fight to the
+   border-adding copy below it, confirmed live via Playwright: margin-left
+   still rendering, still invisible to syncFactsColumnWidths' border-box-
+   only width math, still overflowing the strip). One rule with the final
+   answer can't drift out of sync with itself the way two layered ones can. */
 #students-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
-    border-left: 1px solid var(--border-strong);
-    margin-left: var(--space-md);
-    padding-left: var(--space-md);
-}
-#students-filtered-content .entity-row.chosen .row-facts-cols > .row-fact-col:not(:first-child) {
-    border-left-color: var(--accent-border);
-}
-/* Re-drops the divider at wide desktop (own rule + full reasoning,
-   "Divider dropped at this width", earlier in this file) - that override
-   sits BEFORE this section in source order, and this section's own divider
-   rule just above shares its exact selector/specificity, so plain cascade
-   order let Students' copy win back over it (confirmed live via
-   Playwright: margin-left: var(--space-md) still rendering here, and
-   still invisible to syncFactsColumnWidths' border-box-only width math,
-   still overflowing the strip by exactly that margin on every row).
-   Referrals'/Actions' own divider rules both sit earlier in the file than
-   that override, so only Students needed this second, later copy to
-   actually win. */
-@media (min-width: 1401px) {
-    #students-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
-        border-left: none;
-        margin-left: 0;
-        padding-left: 0;
-    }
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
 }
 /* Column 1 (DOB/YOA) needs no reveal rule of its own - nothing hides it
    (wireStudentFactsOverflow, students.html, only ever measures/hides from

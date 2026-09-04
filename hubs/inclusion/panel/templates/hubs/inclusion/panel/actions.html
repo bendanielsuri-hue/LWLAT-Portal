@@ -4,7 +4,7 @@
 {% block title %}Actions{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=348">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=357">
 {% endblock %}
 
 
@@ -249,98 +249,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     })();
 
-    // Status data col fit-detection (>=1401px only) - live feedback: "I
-    // want status to switch [to dropdown] now if it doesn't fit or if
-    // below breakpoint" - the plain 1401px viewport breakpoint (panel.css)
-    // still covers "below breakpoint"; this covers "doesn't fit" even
-    // above it. Column widths are intrinsic/per-row now (#154), not a
-    // page-wide computed max, so two rows at the identical viewport width
-    // can genuinely need different amounts of room here - a flat
-    // breakpoint alone can't see that, only a real per-row measurement can.
-    //
-    // Not an offsetTop wrap-point check (first attempt, live feedback: "it
-    // swaps if it reached edge of entity row, but we need to take into
-    // account the button section and the vertical divider before it") -
-    // every .row-fact-col is flex-shrink: 0 (panel.css) so nothing here
-    // shrinks to disguise a too-tight fit, but relying on flex-wrap to have
-    // already visibly broken the strip onto a second line only ever
-    // confirms the row-facts-shell's OWN clientWidth ran out, wherever the
-    // grid actually put that boundary - not whether there's genuinely still
-    // room once .row-btn-row's own divider (its border-left/padding-left,
-    // on the very element being measured against) is accounted for.
-    //
-    // Also not row-width-minus-thumb-width-minus-buttons-width (second
-    // attempt - overcorrected the other way, live feedback: "now I never
-    // see the fused status changer"): the "details" grid area
-    // (row-facts-shell's own track) spans BOTH the thumb column and the
-    // header column - "everything in Action section... line up on left
-    // with left of student image" (grid-template-areas' own comment, above)
-    // - so it does NOT sit to the right of the thumb the way that
-    // subtraction assumed; that math was double-subtracting the thumb
-    // column out of a track that already includes it, under-reporting the
-    // real available width by roughly the thumb's own size on every row.
-    // Reads the boundary directly off the rendered boxes instead of
-    // reconstructing it from column widths: row-btn-row's own left edge
-    // (its border-left divider's outer edge, since that border/padding live
-    // on the same box being measured) minus one grid column-gap is exactly
-    // where the details track ends; the row's own content-box left edge
-    // (outer rect plus its own padding-left/border-left) is where it
-    // starts - the difference is the real available width regardless of
-    // how the thumb/header split it internally.
-    (function wireActionStatusColOverflow() {
-        var container = document.getElementById('actions-filtered-content');
-        if (!container) return;
-        function refresh() {
-            var wide = window.matchMedia('(min-width: 1401px)').matches;
-            container.querySelectorAll('.entity-row').forEach(function (row) {
-                if (!wide) {
-                    row.classList.remove('status-col-narrow');
-                    return;
-                }
-                var factsCols = row.querySelector('.row-facts-cols');
-                var btnRow = row.querySelector('.row-btn-row');
-                if (!factsCols || !btnRow) return;
-                // Un-hide before measuring - a stale narrow class has
-                // already collapsed the status column via display: none,
-                // which would otherwise under-report the strip's real
-                // one-line width forever regardless of how much room opens
-                // up later (same trap wireActionStatusOverflow's own
-                // comment documents).
-                row.classList.remove('status-col-narrow');
-                var rowStyle = getComputedStyle(row);
-                var rowRect = row.getBoundingClientRect();
-                var contentLeft = rowRect.left + parseFloat(rowStyle.paddingLeft) + parseFloat(rowStyle.borderLeftWidth);
-                var columnGap = parseFloat(rowStyle.columnGap) || 0;
-                var detailsRight = btnRow.getBoundingClientRect().left - columnGap;
-                var available = detailsRight - contentLeft;
-                // .row-facts is flex-wrap: nowrap unconditionally on this
-                // page already (panel.css, container-query crop replaced
-                // the old wrap-to-second-line approach) - flex-shrink: 0 on
-                // every column (panel.css) means nothing here shrinks
-                // either, so scrollWidth is already the strip's genuine
-                // one-line width with no extra measurement trick needed.
-                var needed = factsCols.scrollWidth;
-                row.classList.toggle('status-col-narrow', needed > available + 1);
-            });
-        }
-        var lastWidth = null;
-        function refreshIfWidthChanged() {
-            var width = container.clientWidth;
-            if (width === lastWidth) return;
-            lastWidth = width;
-            refresh();
-        }
-        var refreshOnResize = window.rafThrottle ? window.rafThrottle(refreshIfWidthChanged) : refreshIfWidthChanged;
-        refresh();
-        lastWidth = container.clientWidth;
-        window.addEventListener('resize', refreshOnResize);
-        if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(refreshOnResize).observe(container);
-        }
-        if (typeof MutationObserver !== 'undefined') {
-            new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
-        }
-    })();
+    // Status control fit-detection has gone through several JS-measurement
+    // designs over time (wireActionStatusColOverflow, then status-col-tight
+    // via syncFactsColumnWidths, panel.js) - #157 replaced all of it with a
+    // plain CSS @container query (panel.css: .row-fact-col-status/
+    // @container action-row) once Status moved to sit between Description
+    // and the data strip (_actions_rows.html) rather than living inside the
+    // strip's own width-synced column group - nothing left here for JS to
+    // measure or toggle.
 
     // Facts-strip overflow guard (Created At/By, Assigned to/Due) - was a
     // JS measurement (wireActionFactsOverflow, same mechanism as Referrals'/

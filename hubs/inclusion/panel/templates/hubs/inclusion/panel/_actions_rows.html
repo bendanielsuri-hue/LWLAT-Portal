@@ -166,6 +166,40 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                     <span class="row-fact-label">Description</span>
                     <span>{% if action.note %}{{ action.note }}{% else %}<span class="empty-note-inline">No description.</span>{% endif %}</span>
                 </div>
+                {% comment %}
+                Status fused control, relocated here between Description and
+                the Due/Created/Referral strip (live feedback: "new plan for
+                responsive layout... move fused status changer to after
+                description and before data cols" - replaces the old design
+                where this lived as a fourth column INSIDE row-facts-cols/
+                row-facts-track, only ever shown once >=1401px AND the whole
+                strip's own natural content fit too (status-col-tight,
+                panel.js/panel.css)). As a direct sibling of Description and
+                row-facts-track instead, it no longer needs the rest of the
+                strip to fit alongside it at all - if Due/Created/Referral
+                don't fit, THEY wrap to their own line below (row-facts-track,
+                unchanged flex-wrap behaviour) while Description and this
+                control keep sharing the first line, Description growing to
+                fill whatever room is left beside it. Hidden only once that
+                first line itself gets too narrow for both (@container
+                action-row, panel.css) - the fused control drops out and
+                row-btn-row's own dropdown copy (below) appears in its place,
+                the same "two independent forms" swap as before, just with a
+                different container query as the trigger instead of
+                status-col-tight.
+                {% endcomment %}
+                <div class="row-fact-col row-fact-col-status" data-col="status">
+                    <span class="row-fact-label">Status</span>
+                    <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-segmented-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
+                        <div class="ui-segmented ui-segmented--action-status">
+                            {% for value, label in status_choices %}
+                            <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
                 <div class="row-facts-track">
                 <div class="row-facts-cols">
                 <div class="row-fact-col" data-col="due">
@@ -194,34 +228,6 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                     <span>{{ action.referral.concern_category|default:"—" }}</span>
                     <span><span class="status-pill {{ action.referral.status }}">{{ action.referral.get_status_display }}</span>{% if action.referral.review_pill_label %} <span class="status-pill {{ action.referral.review_pill_class }}">{{ action.referral.review_pill_label }}</span>{% endif %}</span>
                 </div>
-                {% comment %}
-                Status data col, wide desktop only (panel.css, >=1401px -
-                live feedback: "can Wide Action have a Status Col with the
-                fused Status changer"). Own separate <form> from the one
-                still in row-btn-row below, not the same element relocated -
-                same "two independent forms, never one shared" convention
-                the segmented/dropdown swap already established (see that
-                form's own comment, panel.css: a hidden-but-still-submitting
-                duplicate field silently overrides the real one on submit).
-                Hidden below 1401px (panel.css) in favour of row-btn-row's
-                own copy, which already swaps itself to the compact dropdown
-                below 1401px - that existing "if it doesn't fit, drop to the
-                dropdown" behaviour needed no changes, it just never
-                triggers up here since this column only ever shows once
-                there's room to spare.
-                {% endcomment %}
-                <div class="row-fact-col row-fact-col-status" data-col="status">
-                    <span class="row-fact-label">Status</span>
-                    <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-segmented-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
-                        <div class="ui-segmented ui-segmented--action-status">
-                            {% for value, label in status_choices %}
-                            <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
-                            {% endfor %}
-                        </div>
-                    </form>
-                </div>
                 </div>
                 <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">{% include 'icons/arrow_left_svg.html' %}</button>
                 <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">{% include 'icons/arrow_right_svg.html' %}</button>
@@ -231,25 +237,34 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
         </div>
     </div>
     <div class="row-btn-row row-btn-row-stacked">
-        <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-segmented-form action-status-segmented-form--buttons">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
-            <div class="ui-segmented ui-segmented--action-status">
-                {% for value, label in status_choices %}
-                <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
-                {% endfor %}
-            </div>
-        </form>
         {% comment %}
-        Mobile-only (≤480px) status dropdown (#119 follow-up: "make Status
-        a dropdown in mobile mode... fit on same line as buttons") - a
-        separate <form>, not a second control folded into the segmented
-        one above (see panel.css's own comment on why: a hidden-but-still-
-        submitting field in a shared form silently overrides the real
-        control's value). Same status-pill + centred-select recipe the
-        "View Actions" modal's own per-row status control already uses
-        (_action_row.html, data-action-status-select) - a proven pattern in
-        this app already.
+        The buttons column's own segmented control (a form with the extra
+        action-status-segmented-form--buttons class) used to live here as a
+        third alternative alongside this dropdown - removed (audited while
+        wiring the leftover-threshold Status swap, #155 follow-up): tracing
+        every CSS rule touching it showed it was hidden at EVERY width, not
+        just some - the <=1400px band hides the whole .action-status-
+        segmented-form base class (catching this modifier too) and shows
+        this dropdown instead, while the >=1401px band explicitly hides
+        this modifier a second time in favour of the data column's own copy
+        (_actions_rows.html's row-fact-col-status). No width was ever left
+        for it to actually render in - pure dead markup/CSS/submit target,
+        confirmed via `git log -S` before removal.
+        This dropdown itself (#119 follow-up: "make Status a dropdown in
+        mobile mode... fit on same line as buttons") now covers three
+        different situations under one control, not just its original
+        mobile one: every width <=1400px (panel.css), AND >=1401px once
+        syncFactsColumnWidths (panel.js) finds the row's natural content
+        genuinely doesn't fit even there and adds status-col-tight to the
+        list root (#155 follow-up, live feedback: "the status data col
+        should disappear and the dropdown appears in button section...
+        based on extra space being below a threshold"). A separate <form>,
+        not a second control folded into the segmented one above (see
+        panel.css's own comment on why: a hidden-but-still-submitting field
+        in a shared form silently overrides the real control's value).
+        Same status-pill + centred-select recipe the "View Actions" modal's
+        own per-row status control already uses (_action_row.html,
+        data-action-status-select) - a proven pattern in this app already.
         {% endcomment %}
         <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-select-form">
             {% csrf_token %}
