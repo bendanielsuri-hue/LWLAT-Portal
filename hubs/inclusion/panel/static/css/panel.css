@@ -3004,6 +3004,17 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .bd-pill.bd-medium { background: var(--priority-medium-bg); color: var(--priority-medium-text); }
 .bd-pill.bd-low { background: var(--priority-low-bg); color: var(--priority-low-text); }
 .bd-pill.bd-untriaged { background: var(--badge-bg); color: var(--text-faint); }
+/* Student identity flags (SEN/PP/EAL/LAC/YC/MA, _students_rows.html) -
+   text-secondary, not bd-untriaged's own text-faint (live feedback: "the
+   Student flag pills next to student name on Students is a little hard to
+   read" - bd-untriaged's low contrast is deliberate there, signalling
+   "nothing assigned yet" for an actually-empty priority count elsewhere,
+   _meetings_rows.html; reused here purely because it was the nearest
+   existing muted pill, but these flags are real, meaningful data about the
+   student, not an unset/empty state, so they need to actually read at a
+   glance). Same badge-bg background as bd-untriaged - only the text
+   contrast needed fixing, not the whole pill's colour family. */
+.bd-pill.bd-flag { background: var(--badge-bg); color: var(--text-secondary); }
 /* Stands in for the whole New/Review (+ Priority) cluster when a card has
    no referrals at all - same warning tone as .status-pill.open/.delayed
    rather than a neutral one, since an empty agenda this close to the
@@ -3203,11 +3214,27 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     -webkit-mask-image: linear-gradient(to right, transparent, black var(--mask-left-reach), black calc(100% - var(--mask-right-reach)), transparent);
     transition: --mask-left-reach 200ms ease, --mask-right-reach 200ms ease;
 }
+/* 30px = the arrow's own 28px diameter + its 2px inset (row-facts-arrow,
+   below) - was 24px, tuned for this arrow's old 24px size; left unmatched
+   after that grew to 28px (live feedback: "does the button cover the now
+   revealed data col on scroll" - a few px of sharp, unfaded text could
+   peek from beside/under the button rather than being cushioned by this
+   fade the way the rest of the edge is). Keeps the arrow sitting over the
+   fade's own transparent-to-opaque transition rather than past its far
+   edge. */
 .row-facts-cols.is-cut-left {
-    --mask-left-reach: 24px;
+    --mask-left-reach: 30px;
 }
 .row-facts-cols.is-cut-right {
-    --mask-right-reach: 24px;
+    --mask-right-reach: 30px;
+}
+/* Wider still on touch - matches the arrow's own touch-sized 36px
+   diameter + inset (38px) now that it shows there too. */
+html.nav-touch-mode .row-facts-cols.is-cut-left {
+    --mask-left-reach: 38px;
+}
+html.nav-touch-mode .row-facts-cols.is-cut-right {
+    --mask-right-reach: 38px;
 }
 /* Drag-to-scroll cursor - reinstated (#157 follow-up - .row-facts-cols
    scrolls again, own base rule above; briefly removed at #156 while this
@@ -3222,25 +3249,34 @@ html:not(.nav-touch-mode) .row-facts-cols {
 .row-facts-cols.is-dragging {
     cursor: grabbing;
 }
-/* Prev/next arrows (non-touch only - touch already has native swipe, same
-   "device, not width, decides" split as the drag cursor above) - live
-   feedback: "can we have a next and back arrow for each row instead", in
-   place of a native scrollbar (rejected earlier: "not sure I like the
-   scroll bar appearing on every row"). .row-facts-track wraps just the
-   scrolling .row-facts-cols (_students_rows.html/_referrals_rows.html/
-   _actions_rows.html) - position: relative, no overflow/scroll of its own,
-   so the arrows (position: absolute against IT) stay fixed at the row's
-   own visible edges regardless of the inner track's scroll position - the
-   same containing-block fix the mask fade (above) already needed once, now
-   applied from the start here instead of repeating that mistake.
+/* Prev/next arrows - standardised to match the filter bar's own carousel
+   arrows (live feedback: "standardise the move right and left arrow. I
+   like the one used on filters" - .filter-secondary-fields-arrow, own
+   rules further below in this file): same 28px circle/border/shadow/hover
+   recipe and the same '‹'/'›' text-glyph buttons (_students_rows.html/
+   _referrals_rows.html/_actions_rows.html), not the arrow_left_svg/
+   arrow_right_svg icons this used before. Shown on touch now too (used to
+   be non-touch only - "touch already has native swipe" - live follow-up:
+   "if we include it on touch devices as well, its even more clear there
+   is extra content"; native swipe still works underneath regardless, this
+   is purely an additional visible affordance now).
+   .row-facts-track wraps just the scrolling .row-facts-cols - position:
+   relative, no overflow/scroll of its own, so the arrows (position:
+   absolute against IT) stay fixed at the row's own visible edges
+   regardless of the inner track's scroll position - the same containing-
+   block fix the mask fade (above) already needed once, now applied from
+   the start here instead of repeating that mistake.
    display: none by default, shown per arrow via the general sibling
    combinator against .row-facts-cols' own .is-cut-left/-right (panel.js) -
    an arrow only ever offers to scroll toward genuinely more content, same
    condition the fade already uses, no separate JS-driven enabled/disabled
-   state needed. 24px, inset (not overflowing the row's own edge, the way
-   .stats-carousel-arrow's larger 48px circle does elsewhere) - .entity-list
-   clips overflow (cards.css), so anything hanging past the row's edge would
-   just get cut off. */
+   state needed - the filter arrows' own is-at-edge (opacity fade, JS-
+   driven per scroll event) reaches the identical "only show toward real
+   content" result a different way; no need to replace this element's own
+   already-working mechanism just to match that one too. Inset (not
+   overflowing the row's own edge, the way .stats-carousel-arrow's larger
+   48px circle does elsewhere) - .entity-list clips overflow (cards.css),
+   so anything hanging past the row's edge would just get cut off. */
 .row-facts-track {
     position: relative;
 }
@@ -3249,14 +3285,14 @@ html:not(.nav-touch-mode) .row-facts-cols {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     border: 1px solid var(--border-strong);
     background: var(--bg-surface);
     color: var(--text-primary);
     box-shadow: var(--shadow-sm);
-    font-size: var(--font-md);
+    font-size: var(--font-lg);
     line-height: 1;
     padding: 0;
     cursor: pointer;
@@ -3274,9 +3310,42 @@ html:not(.nav-touch-mode) .row-facts-cols {
 .row-facts-arrow--next {
     right: 2px;
 }
-html:not(.nav-touch-mode) .row-facts-cols.is-cut-left ~ .row-facts-arrow--prev,
-html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next {
+.row-facts-cols.is-cut-left ~ .row-facts-arrow--prev,
+.row-facts-cols.is-cut-right ~ .row-facts-arrow--next {
     display: flex;
+}
+/* Bigger on touch - same touch-only upsizing the filter arrows use (own
+   rule further below, "the left and right seem a little small for touch
+   devices") - a real fingertip target now that these show on touch too,
+   not just a mouse-hover one. */
+html.nav-touch-mode .row-facts-arrow {
+    width: 36px;
+    height: 36px;
+}
+/* Referrals'/Students' own left-arrow-only fix (live feedback: "left
+   arrow is too far in to card" - true below 701px only, both pages'
+   >=701px grid band cancels the bleed this depends on back to 0, own
+   rules further below). .row-facts-arrow--prev's base left: 2px (above)
+   assumes .row-facts-track's own left edge IS the visible content's left
+   edge - true on Actions (row-facts-track sits nested INSIDE the bled
+   ancestor there, so track's own box already reflects the shift), but
+   false here: Referrals'/Students' own .row-facts carries ITS OWN
+   independent bleed (margin-left: calc(-1 * (42px + var(--space-md/sm))),
+   own rules further below) while being track's CHILD, not its parent -
+   the visible content slides left out from under a track box that never
+   moves, so the arrow (anchored to track) landed ~58px right of the
+   content's true edge, on top of whichever column happened to be there
+   instead of at the strip's actual left boundary. Only the prev/left
+   arrow needs this - the bleed only extends the LEFT edge (negative
+   margin-left, width increased by the exact same amount), so the right
+   edge - and so the next arrow - was already correct. */
+@media (max-width: 700px) {
+    #referrals-filtered-content .row-facts-arrow--prev {
+        left: calc(-1 * (42px + var(--space-md)) + 2px);
+    }
+    #students-filtered-content .row-facts-arrow--prev {
+        left: calc(-1 * (42px + var(--space-sm)) + 2px);
+    }
 }
 /* .entity-row.chosen tints to var(--primary-light) (cards.css) - matches
    the arrow's own resting fill to it, same reasoning the mask fade's
@@ -3331,20 +3400,53 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
    span:last-child max-width (above) already uses, since a span cap
    survives being a totally different element to whatever inline style
    JS sets on the box around it. */
+/* One shared cap across every free-text column (live feedback: "I think we
+   should standardise!" - a Behaviour-specific 22ch override, tried first
+   right after tightening this to 13ch for Ethnicity, worked but left two
+   different numbers to keep track of for what's meant to be the same
+   mechanism). 18ch (bumped once more from an initial 17ch, live feedback:
+   "lets make it 18ch") favours Behaviour's own everyday default text - "No
+   incidents logged"/"No positive logged" - reading in full ("can we be
+   less mean on truncation in general! Students Behaviour data is
+   truncated") over how hard this clips the longest Ethnicity values
+   ("Ethnicity could be truncated more!" - see 26ch's own history below,
+   the first number tried here). */
 .row-fact-col-clamp {
-    max-width: 26ch;
+    max-width: 18ch;
 }
 .row-fact-col-clamp span:not(.row-fact-label) {
-    max-width: 26ch;
+    max-width: 18ch;
 }
-/* Initials by default, full name only once wide desktop has room to spare
-   (_actions_rows.html's own comment on row-fact-col[data-col="due"] has the
-   full reasoning) - two independent spans rather than one whose text
-   swaps, so panel.css can size/hide each independently the same way the
-   Status data col/dropdown pair already does. */
-#actions-filtered-content .row-fact-assignee--full,
-#referrals-filtered-content .row-fact-assignee--full,
-#students-filtered-content .row-fact-assignee--full {
+/* Exempt from the span-level cap above - a line of status-pill chips
+   (Actions' own Referral column, _actions_rows.html) isn't free text to
+   truncate, and 13ch clipped it mid-chip, hiding the second pill
+   (review_pill_label) entirely (live feedback: "the referral pills on
+   action page are truncated too much so second pill is hidden... this
+   must always show"). overflow: visible + no width cap - the pills simply
+   read past the column's own nominal width when there are two, same as
+   any other column's own MAX_BONUS_PX bonus growth (fillFactsColumns,
+   panel.js) already lets happen elsewhere. */
+.row-fact-col-clamp .row-fact-pills-line {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+/* Full name at every width, initials never shown (live feedback trail:
+   "in Wide mode we can get away with using full names, switch to initials
+   for only narrower modes" -> "can names change to initials at mobile
+   breakpoint instead" -> "if the data cols all fit with a full name, then
+   stay full name, if not change to initials" -> "keep it simple, mobile
+   names are full as well regardless" - each attempt to gate the swap on
+   width/fit alone got walked back one step further; full name
+   unconditionally is the settled answer, not a breakpoint this needs to
+   revisit again). Both spans still render (_actions_rows.html etc.) rather
+   than deleting the --initials one outright - kept as a template hook this
+   rule can flip back to instantly if that ever changes again, without
+   re-adding the markup. */
+#actions-filtered-content .row-fact-assignee--initials,
+#referrals-filtered-content .row-fact-assignee--initials,
+#students-filtered-content .row-fact-assignee--initials {
     display: none;
 }
 /* Description folded into the facts strip as its own column (live
@@ -3531,6 +3633,19 @@ html:not(.nav-touch-mode) .row-facts-cols.is-cut-right ~ .row-facts-arrow--next 
     flex: 0 1 auto;
     font-size: var(--font-sm);
     color: var(--text-secondary);
+}
+/* Student name more prominent than the Year/House/Form group data it
+   shares a line with (live feedback: "Student name needs to be more
+   prominent than the group data") - text-primary + a heavier weight against
+   the line's own text-secondary/regular default (both pages' own
+   row-facts-primary-plain rules, above), same "visual weight should match
+   importance" reasoning (H1, PRINCIPLES-DESIGN.md) Due/Created's own
+   label-vs-value split already uses. Unscoped to one page - both Actions'
+   and Referrals' own copy of this line use the identical span/class
+   (_actions_rows.html/_referrals_rows.html). */
+.row-facts-primary-name {
+    color: var(--text-primary);
+    font-weight: 600;
 }
 /* row-gap split from column-gap (live feedback: "if pills do overflow,
    space then looks inconsistent in the header between line" - once the
@@ -4409,25 +4524,6 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
     padding-top: var(--space-sm);
     padding-bottom: var(--space-sm);
 }
-/* Full names instead of initials (live feedback: "in Wide mode we can get
-   away with using full names, switch to initials for only narrower
-   modes") - same >=1401px breakpoint as the fused Status data col above.
-   Columns size intrinsically to whichever span is visible now (#154 -
-   col_widths/the --col-w-* custom properties are gone, views.py/
-   _actions_rows.html), so there's no width rule left to set at either
-   band - only the initials<->full-name swap itself. */
-@media (min-width: 1401px) {
-    #actions-filtered-content .row-fact-assignee--initials,
-    #referrals-filtered-content .row-fact-assignee--initials,
-    #students-filtered-content .row-fact-assignee--initials {
-        display: none;
-    }
-    #actions-filtered-content .row-fact-assignee--full,
-    #referrals-filtered-content .row-fact-assignee--full,
-    #students-filtered-content .row-fact-assignee--full {
-        display: block;
-    }
-}
 /* Fills the row's own available width when it fits, scrolls (one line
    always, own rule above) when it doesn't - history: #154's original
    permanent-scroll strip sized to its own intrinsic content and left the
@@ -4466,7 +4562,7 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    .row-facts-cols > .row-fact-col:not(:first-child) rule (Referrals'/
    Actions'/Students' own base rules, above/below) for where that's
    actually set; nothing left to override here any more. */
-/* .row-fact-col-clamp's own max-width: 26ch (base rule, above) exists to
+/* .row-fact-col-clamp's own max-width: 18ch (base rule, above) exists to
    stop one unusually long Ethnicity/Behaviour/concern-category value
    stretching that one column under the old intrinsic-width scroll strip -
    harmless there since every column just sized to its own content

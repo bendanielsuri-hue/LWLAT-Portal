@@ -87,15 +87,16 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
             </div>
             {% comment %}
             Student name folded into the same demoted row-facts-primary-plain
-            line/styling as Year-House-Reg, not its own .entity-title line
-            any more - Action is the title now, this is context underneath
-            it. No hover/chosen fake-bold (INT-M4) needed here either since
-            it's no longer .entity-title - that affordance now belongs to
-            Action's own entity-title instead (panel.css: the old
-            .actions-list-row cancel-fake-bold-on-Concern rule, which used
-            to protect the name's exclusive claim to it, is gone).
+            line as Year-House-Reg, not its own .entity-title line any more -
+            Action is the title now, this is context underneath it. Still
+            its own inner span (row-facts-primary-name), styled more
+            prominently than the Year/House/Form that follows it (live
+            feedback: "Student name needs to be more prominent than the
+            group data") - the line reads as one unit but the name is what
+            identifies the row, so it keeps more visual weight than the
+            group-info suffix even while sharing the line.
             {% endcomment %}
-            <span class="row-facts-primary-plain">{{ action.referral.student }} &middot; Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; House {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; Form {{ action.referral.student.reg_form }}{% endif %}</span>
+            <span class="row-facts-primary-plain"><span class="row-facts-primary-name">{{ action.referral.student }}</span> &middot; Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; House {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; Form {{ action.referral.student.reg_form }}{% endif %}</span>
         </div>
         {% comment %}
         row-action-details: now just the facts strip (Description/Due/
@@ -226,11 +227,32 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                 <div class="row-fact-col row-fact-col-clamp" data-col="referral">
                     <span class="row-fact-label">Referral</span>
                     <span>{{ action.referral.concern_category|default:"—" }}</span>
-                    <span><span class="status-pill {{ action.referral.status }}">{{ action.referral.get_status_display }}</span>{% if action.referral.review_pill_label %} <span class="status-pill {{ action.referral.review_pill_class }}">{{ action.referral.review_pill_label }}</span>{% endif %}</span>
+                    {% comment %}
+                    row-fact-pills-line - exempted from row-fact-col-clamp's
+                    own span-level max-width (panel.css) - that clamp exists
+                    to truncate genuinely free-text values (Ethnicity,
+                    Behaviour, this column's own Concern Category line
+                    above), and was tightened (13ch, live feedback:
+                    "Ethnicity could be truncated more!") specifically for
+                    those. Applied to THIS line too as an unintended side
+                    effect since it shares the class - clipping a pill mid-
+                    chip instead of truncating text, hiding the second one
+                    (review_pill_label) entirely (live feedback: "the
+                    referral pills on action page are truncated too much so
+                    second pill is hidden... this must always show").
+                    {% endcomment %}
+                    <span class="row-fact-pills-line"><span class="status-pill {{ action.referral.status }}">{{ action.referral.get_status_display }}</span>{% if action.referral.review_pill_label %} <span class="status-pill {{ action.referral.review_pill_class }}">{{ action.referral.review_pill_label }}</span>{% endif %}</span>
                 </div>
                 </div>
-                <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">{% include 'icons/arrow_left_svg.html' %}</button>
-                <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">{% include 'icons/arrow_right_svg.html' %}</button>
+                {% comment %}
+                Text glyphs ('‹'/'›'), not the arrow_left_svg/arrow_right_svg
+                icons - standardised to match the filter bar's own carousel
+                arrows (live feedback: "standardise the move right and left
+                arrow. I like the one used on filters" - main.js's
+                wireScrollCarousel/filter-secondary-fields-arrow, panel.css).
+                {% endcomment %}
+                <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">&lsaquo;</button>
+                <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">&rsaquo;</button>
                 </div>
             </div>
             </div>

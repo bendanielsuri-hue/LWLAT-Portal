@@ -3068,9 +3068,26 @@ function fillFactsColumns(columns, strip) {
             // individually.
             var statusCol = row.querySelector('.row-fact-col-status');
             if (statusCol && stripKeys.length) {
-                var trackBonus = track.getBoundingClientRect().width - stripNaturalSum;
-                var perColumnBonus = Math.max(0, Math.min(trackBonus / stripKeys.length, MAX_BONUS_PX));
-                statusCol.style.marginRight = perColumnBonus + 'px';
+                // Only meaningful while Track is actually sharing Status'
+                // own line (wide desktop) - the moment normal flex-wrap
+                // drops Track to its own line below Description+Status
+                // (any narrower width, confirmed live via Playwright:
+                // Track's top stops matching Status' top well before wide
+                // desktop), there's no adjacent Track bonus left for this
+                // margin to visually match any more, and it just reads as a
+                // dead, unexplained gap after Status instead (live
+                // feedback: "Status has kept extra space to its right" -
+                // reproduced at ~1300px, where Track had already wrapped
+                // below but Status still carried Track's stale bonus
+                // margin from whenever it last computed one).
+                var sameLine = Math.abs(track.getBoundingClientRect().top - statusCol.getBoundingClientRect().top) < 1;
+                if (sameLine) {
+                    var trackBonus = track.getBoundingClientRect().width - stripNaturalSum;
+                    var perColumnBonus = Math.max(0, Math.min(trackBonus / stripKeys.length, MAX_BONUS_PX));
+                    statusCol.style.marginRight = perColumnBonus + 'px';
+                } else {
+                    statusCol.style.marginRight = '0px';
+                }
             }
         });
     }
@@ -3149,12 +3166,36 @@ function updateActionStatusVisibility() {
     if (!row) return;
     var shell = row.querySelector('.row-facts-shell');
     var facts = row.querySelector('.row-facts');
+    var desc = row.querySelector('.row-fact-col-description');
     var statusCol = row.querySelector('.row-fact-col-status');
-    if (!shell || !facts || !statusCol) return;
-    var descriptionNatural = 320; // matches fillFactsColumns' own NATURAL_OVERRIDE.description baseline - kept in sync by hand
+    if (!shell || !facts || !desc || !statusCol) return;
+    // Description's LIVE rendered width, not a hardcoded 320 baseline -
+    // fillFactsColumns gives it flex-grow: 1 (natural 320px + up to
+    // MAX_BONUS_PX/100px), so it's actually wider than 320 on any row with
+    // leftover line space, which is most of them. A fixed 320 undercounted
+    // "needed" by up to that same 100px, so this flipped to the fused
+    // control staying visible on a line Description+Status had already
+    // outgrown - normal flex-wrap then dropped Status onto its own line
+    // below Description, alone, with a wide stretch of empty room next to
+    // it, well before "narrow" ever went true (live feedback: "status
+    // disappears when there is still space to its right... should be
+    // almost 0 white space before it disappears" - the actual bug was the
+    // opposite of too-early hiding: the swap was arriving too LATE relative
+    // to when Desc+Status stopped sharing a line in the first place).
+    // refreshFactsStrips (below) now runs syncFactsColumnWidths before this
+    // function specifically so this measurement reflects the CURRENT
+    // viewport's grown width, not a stale one left over from the previous
+    // pass.
+    var descriptionCurrent = desc.getBoundingClientRect().width;
     var gapPx = parseFloat(getComputedStyle(facts).columnGap) || 0;
-    var needed = descriptionNatural + gapPx + statusCol.getBoundingClientRect().width;
-    var narrow = needed > shell.getBoundingClientRect().width;
+    var needed = descriptionCurrent + gapPx + statusCol.getBoundingClientRect().width;
+    // .row-facts bleeds 42px + var(--space-md) wider than its own shell
+    // parent (panel.css, #154's bleed rule, negative margin-left + calc
+    // width) - measuring shell's own width here undercounted the real
+    // available room by that same 58px. facts is the flex container
+    // Description/Status/Track actually lay out inside, so it's the one
+    // whose real (bled) width answers whether they fit.
+    var narrow = needed > facts.getBoundingClientRect().width;
     listRoot.classList.toggle('status-col-narrow', narrow);
 }
 document.addEventListener('scroll', function (e) {
@@ -3173,10 +3214,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // column's own rendered width (flex-basis), which in turn changes
     // whether/how far row-facts-cols overflows, so markAllFactsStripEdges
     // needs to see the post-sync layout, not measure edges against widths
-    // that are about to change underneath it.
+    // that are about to change underneath it. updateActionStatusVisibility
+    // needs that same post-sync layout too now - it reads Description's
+    // live rendered width (own comment there), which syncFactsColumnWidths
+    // is what actually sets.
     function refreshFactsStrips() {
-        updateActionStatusVisibility();
         syncFactsColumnWidths();
+        updateActionStatusVisibility();
         markAllFactsStripEdges();
     }
     refreshFactsStrips();
@@ -3191,24 +3235,59 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     window.addEventListener('resize', refresh);
 });
-// Per-row prev/next arrows (non-touch only, CSS hides them in touch mode -
-// touch already has native swipe) - live feedback: "can we have a next and
-// back arrow for each row instead" (raised while discussing how to give
-// desktop a real scroll affordance without going back to "a native
-// scrollbar on every row", the thing that prompted hiding it in the first
-// place). Delegated click on document, same "covers rows that don't exist
-// yet" reasoning as the drag-to-scroll/scroll listeners above - clicking
-// either button scrolls its own row's track by roughly one viewport's
-// worth, smoothly; .is-cut-left/-right (above) already hide whichever
-// arrow has nothing left to reveal, so there's no separate enabled/
-// disabled state to manage here beyond that. */
+// Per-row prev/next arrows (shown on every device now - own comment,
+// panel.css, "if we include it on touch devices as well, its even more
+// clear there is extra content"; native swipe still works underneath
+// regardless) - live feedback: "can we have a next and back arrow for each
+// row instead" (raised while discussing how to give desktop a real scroll
+// affordance without going back to "a native scrollbar on every row", the
+// thing that prompted hiding it in the first place). Delegated click on
+// document, same "covers rows that don't exist yet" reasoning as the
+// drag-to-scroll/scroll listeners above.
+// Finds the actual next/prev CUT-OFF column (not just "the first column in
+// the DOM", tried first - that measured whatever column happened to be
+// first regardless of scroll position or direction, so it read as "moves a
+// small, wrong-feeling increment" once the row had scrolled anywhere past
+// its start) by comparing each column's current getBoundingClientRect
+// against the track's own visible edges, then scrolls exactly enough to
+// bring that column's far edge past the button - not just past the track's
+// raw edge, or the newly-revealed column would end up sitting right back
+// underneath the same button that just revealed it (live feedback: "I want
+// the next cut off data col to be fully visible plus a little more so it
+// is not beneath the next button"). BUTTON_CLEARANCE_PX is the button's own
+// current width (28px, 36px on touch - panel.css) plus a little breathing
+// room past it. .is-cut-left/-right (above) already hide whichever arrow
+// has nothing left to reveal, so there's no separate enabled/disabled
+// state to manage here beyond that.
 document.addEventListener('click', function (e) {
     var btn = e.target.closest('.row-facts-arrow');
     if (!btn) return;
     var track = btn.parentElement.querySelector('.row-facts-cols');
     if (!track) return;
-    var dir = btn.classList.contains('row-facts-arrow--prev') ? -1 : 1;
-    track.scrollBy({ left: dir * track.clientWidth * 0.8, behavior: 'smooth' });
+    var isPrev = btn.classList.contains('row-facts-arrow--prev');
+    var cols = Array.prototype.slice.call(track.querySelectorAll('.row-fact-col'));
+    if (!cols.length) return;
+    var trackRect = track.getBoundingClientRect();
+    var clearance = btn.getBoundingClientRect().width + 8;
+    var target = null;
+    var i;
+    if (isPrev) {
+        // Last column whose left edge sits before the track's own visible
+        // left edge - the column currently cut off on the left.
+        for (i = cols.length - 1; i >= 0; i--) {
+            if (cols[i].getBoundingClientRect().left < trackRect.left - 1) { target = cols[i]; break; }
+        }
+        if (!target) return;
+        track.scrollBy({ left: target.getBoundingClientRect().left - trackRect.left - clearance, behavior: 'smooth' });
+    } else {
+        // First column whose right edge sits past the track's own visible
+        // right edge - the column currently cut off on the right.
+        for (i = 0; i < cols.length; i++) {
+            if (cols[i].getBoundingClientRect().right > trackRect.right + 1) { target = cols[i]; break; }
+        }
+        if (!target) return;
+        track.scrollBy({ left: target.getBoundingClientRect().right - trackRect.right + clearance, behavior: 'smooth' });
+    }
 });
 
 // Shared drag-and-drop for moving referrals onto/off/around a panel's agenda

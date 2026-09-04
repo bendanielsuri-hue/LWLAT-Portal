@@ -36,12 +36,12 @@ markup in one place means both call sites can never drift apart.
         <div class="row-title-row">
             <div class="entity-title">{{ s.first_name }} {{ s.last_name }}</div>
             {% if s.has_pills %}
-            {% if s.sen_status %}<span class="bd-pill bd-untriaged">SEN {{ s.sen_status }}</span>{% endif %}
-            {% if s.is_pp %}<span class="bd-pill bd-untriaged">PP</span>{% endif %}
-            {% if s.is_eal %}<span class="bd-pill bd-untriaged">EAL</span>{% endif %}
-            {% if s.is_lac %}<span class="bd-pill bd-untriaged">LAC</span>{% endif %}
-            {% if s.is_young_carer %}<span class="bd-pill bd-untriaged">YC</span>{% endif %}
-            {% if s.is_more_able %}<span class="bd-pill bd-untriaged">MA</span>{% endif %}
+            {% if s.sen_status %}<span class="bd-pill bd-flag">SEN {{ s.sen_status }}</span>{% endif %}
+            {% if s.is_pp %}<span class="bd-pill bd-flag">PP</span>{% endif %}
+            {% if s.is_eal %}<span class="bd-pill bd-flag">EAL</span>{% endif %}
+            {% if s.is_lac %}<span class="bd-pill bd-flag">LAC</span>{% endif %}
+            {% if s.is_young_carer %}<span class="bd-pill bd-flag">YC</span>{% endif %}
+            {% if s.is_more_able %}<span class="bd-pill bd-flag">MA</span>{% endif %}
             {% endif %}
             <span class="row-facts-primary-plain">Year {{ s.year_group }}{% if s.house %} &middot; House {{ s.house }}{% endif %}{% if s.reg_form %} &middot; Form {{ s.reg_form }}{% endif %}</span>
         </div>
@@ -117,23 +117,39 @@ markup in one place means both call sites can never drift apart.
                     <span>AA {{ s.attendance_authorised_pct }}% &middot; UA {{ s.attendance_unauthorised_pct }}%</span>
                 </div>
             </div>
-            <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">{% include 'icons/arrow_left_svg.html' %}</button>
-            <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">{% include 'icons/arrow_right_svg.html' %}</button>
+            {% comment %}
+            Text glyphs, standardised to match the filter bar's own arrows -
+            same change/reasoning as Actions' copy (_actions_rows.html).
+            {% endcomment %}
+            <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">&lsaquo;</button>
+            <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">&rsaquo;</button>
         </div>
         </div>
     </div>
     <div class="btn-row">
+        {% comment %}
+        btn-secondary (live feedback: "could we make the Actions and
+        Referrals [count buttons] less plain" - plain .btn's neutral
+        bg-surface/border read as flat next to the rest of the card; the
+        accent-tinted secondary tier (buttons.css) gives them some visual
+        weight without going as loud as a solid .btn-primary fill).
+        {% endcomment %}
         {% if s.actions_count > 0 %}
-        <a href="{% url 'inclusion_panel_actions' %}?name={{ s.id }}" class="btn btn-sm">Actions<span class="btn-count-badge">{{ s.actions_count }}</span></a>
+        <a href="{% url 'inclusion_panel_actions' %}?name={{ s.id }}" class="btn btn-secondary btn-sm">Actions<span class="btn-count-badge">{{ s.actions_count }}</span></a>
         {% else %}
-        <span class="btn btn-sm btn-disabled" aria-disabled="true">Actions</span>
+        <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true">Actions</span>
         {% endif %}
         <div class="btn-row-fused">
             {% if s.referrals_count > 0 %}
-            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-sm">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
+            <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}" class="btn btn-secondary btn-sm">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
             {% else %}
-            <span class="btn btn-sm btn-disabled" aria-disabled="true">Referrals</span>
+            <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true">Referrals</span>
             {% endif %}
+            {% comment %}
+            Back to plain .btn-add's solid fill (live feedback: "I preferred
+            the + button before" - reverts the btn-secondary.btn-add toning-
+            down from this same session's earlier "too prominent" request).
+            {% endcomment %}
             <button type="button" class="btn btn-add btn-sm" data-btn-slot="new-referral" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}" aria-label="New Referral"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span></button>
         </div>
     </div>

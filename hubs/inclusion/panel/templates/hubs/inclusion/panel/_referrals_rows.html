@@ -56,7 +56,14 @@ convention as Students' own _students_rows.html.
                     <span class="status-pill {{ referral.status }}">{{ referral.get_status_display }}</span>
                 </div>
             </div>
-            <span class="row-facts-primary-plain">{{ referral.student }} &middot; Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; House {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; Form {{ referral.student.reg_form }}{% endif %}</span>
+            {% comment %}
+            Student name as its own inner span (row-facts-primary-name),
+            styled more prominently than the Year/House/Form that follows it
+            in the same row-facts-primary-plain line (live feedback: "Student
+            name needs to be more prominent than the group data" - same
+            treatment as Actions' own copy, _actions_rows.html).
+            {% endcomment %}
+            <span class="row-facts-primary-plain"><span class="row-facts-primary-name">{{ referral.student }}</span> &middot; Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; House {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; Form {{ referral.student.reg_form }}{% endif %}</span>
         </div>
         {% comment %}
         row-referral-details: now just the facts strip - Concern/pills moved
@@ -106,16 +113,24 @@ convention as Students' own _students_rows.html.
                     <span>{{ referral.incomplete_actions_count }} Incomplete</span>
                 </div>
             </div>
-            <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">{% include 'icons/arrow_left_svg.html' %}</button>
-            <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">{% include 'icons/arrow_right_svg.html' %}</button>
+            {% comment %}
+            Text glyphs, standardised to match the filter bar's own arrows -
+            same change/reasoning as Actions' copy (_actions_rows.html).
+            {% endcomment %}
+            <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">&lsaquo;</button>
+            <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">&rsaquo;</button>
         </div>
         </div>
     </div>
     <div class="btn-row row-btn-row">
+        {% comment %}
+        btn-secondary - same "less plain" pass as Students' own Actions/
+        Referrals count buttons (_students_rows.html).
+        {% endcomment %}
         {% if referral.actions_count %}
-        <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student.id }}" class="btn btn-sm">Actions<span class="btn-count-badge">{{ referral.actions_count }}</span></a>
+        <a href="{% url 'inclusion_panel_actions' %}?name={{ referral.student.id }}" class="btn btn-secondary btn-sm">Actions<span class="btn-count-badge">{{ referral.actions_count }}</span></a>
         {% else %}
-        <span class="btn btn-sm btn-disabled" aria-disabled="true">Actions</span>
+        <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true">Actions</span>
         {% endif %}
         <button type="button" class="btn btn-primary btn-sm" data-view-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel_referrals' %}">Referral Details</button>
     </div>
