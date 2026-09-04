@@ -1039,7 +1039,8 @@ def inclusion_panel_search(request):
         results = [{
             'id': s.id,
             'name': f'{s.first_name} {s.last_name}',
-            'subtitle': f'Year {s.year_group}' + (f' · {s.reg_form}' if s.reg_form else '') if s.year_group else '',
+            'subtitle': (f'Year {s.year_group}' + (f' · {s.reg_form}' if s.reg_form else '') if s.year_group else '')
+                + f' · #{s.admission_number}',
         } for s in students]
         return JsonResponse({'results': results})
 
@@ -1099,13 +1100,11 @@ def inclusion_panel_search(request):
         results.append({
             'kind': 'student',
             'title': f'{student.last_name}, {student.first_name}',
-            'subtitle': f'Year {student.year_group}' if student.year_group else 'Student',
+            'subtitle': (f'Year {student.year_group}' if student.year_group else 'Student') + f' · #{student.admission_number}',
             'links': [
                 {'label': 'Student', 'url': f'{students_url}?{param}', 'disabled': False},
                 {'label': f'Referrals ({referrals_count})', 'url': f'{referrals_url}?{param}', 'disabled': referrals_count == 0},
-                # Actions' Name filter is a student-id select, not a text
-                # search (issue #13) - unlike Students/Referrals above.
-                {'label': f'Actions ({actions_count})', 'url': f'{actions_url}?name={student.id}', 'disabled': actions_count == 0},
+                {'label': f'Actions ({actions_count})', 'url': f'{actions_url}?{param}', 'disabled': actions_count == 0},
             ],
         })
 
@@ -1607,7 +1606,7 @@ def inclusion_panel_referrals(request):
         referrals_qs = referrals_qs.filter(referral__academic_year_id=academic_year_filter)
     if name_filter:
         referrals_qs = referrals_qs.filter(
-            Q(student__first_name__icontains=name_filter) | Q(student__last_name__icontains=name_filter)
+            _token_name_filter(name_filter.split(), 'student__first_name', 'student__last_name')
         )
     if status_filter == 'active':
         referrals_qs = referrals_qs.exclude(status='closed')

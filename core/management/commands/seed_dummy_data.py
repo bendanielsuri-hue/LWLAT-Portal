@@ -141,6 +141,7 @@ class Command(BaseCommand):
             year_group = year_groups[i % len(year_groups)]
             reg_form = f'{year_group}{FORM_LETTERS[i % len(FORM_LETTERS)]}'
             upn = f'X9000{i:04d}A123'
+            admission_number = f'{10000 + i}'
             dob_year = 2026 - year_group - 5
             sen_status = _sen_status(i)
             send_need = SEND_NEEDS[i % len(SEND_NEEDS)] if sen_status else ''
@@ -148,6 +149,7 @@ class Command(BaseCommand):
             _, created_flag = Student.objects.update_or_create(
                 upn=upn,
                 defaults={
+                    'admission_number': admission_number,
                     'first_name': first_name,
                     'last_name': last_name,
                     'year_group': year_group,

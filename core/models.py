@@ -175,6 +175,10 @@ class StaffGroupMember(models.Model):
 
 class Student(models.Model):
     upn = models.CharField(max_length=20, unique=True)  # Unique Pupil Number
+    # School-facing ID, distinct from UPN (a DfE-wide identifier staff don't
+    # recognise on sight) - shown alongside name wherever students can share
+    # a name, so staff can tell two "Amelia Brown"s apart.
+    admission_number = models.CharField(max_length=20, unique=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     year_group = models.PositiveSmallIntegerField()
