@@ -2868,6 +2868,211 @@ function markFactsStripEdges(track) {
 function markAllFactsStripEdges(root) {
     (root || document).querySelectorAll('.row-facts-cols').forEach(markFactsStripEdges);
 }
+// Facts strip column alignment at wide desktop (#155 follow-up) - the
+// grow-to-fill CSS above (panel.css, row-facts-cols > row-fact-col) started
+// out growing each row's columns off that row's OWN content, same
+// "shrink-wrap first, then split the leftover" flex algorithm the old
+// permanent-scroll strip's intrinsic widths already used - but live
+// feedback: "columns in this mode should align all the way down", i.e.
+// Behaviour on row 3 should be exactly as wide as Behaviour on row 1, not
+// sized to its own row's shorter/longer values. CSS alone can't express
+// "match a sibling row's column", so this measures every row's natural
+// (shrink-to-fit) width per data-col across the whole list and takes the
+// widest as that column's shared natural width.
+// A second live-feedback round ("Dob vs Behaviour?" - DOB, genuinely short
+// content, rendered wider than Behaviour, genuinely long content) ruled out
+// plain equal flex-grow too: splitting the row's leftover space into equal
+// ABSOLUTE shares regardless of a column's own content length gives DOB
+// the exact same fixed bonus as Behaviour, so a short column's mostly-empty
+// box grows by the same amount as a long column's nearly-full one and ends
+// up looking disproportionately padded. Scaling every column's natural
+// width by the SAME multiplier instead (below) keeps that proportion -
+// a column that started twice as wide as another still ends up twice as
+// wide, just with both scaled up together to fill the row exactly, so the
+// "how full does this column look" ratio survives the fill.
+// Same "measure once, publish one shared number" shape as
+// wireStudentButtonColumnWidth's own --students-btn-col-w (students.html),
+// just per-column instead of a single custom property, and applied
+// directly as each element's flex-basis rather than through a CSS variable
+// (nothing here needs one value read from many different property
+// positions the way that grid-template-columns figure does).
+// .row-fact-col-clamp's own max-width: 26ch (base rule, above) still caps
+// what counts as "natural" width for Ethnicity/Behaviour/Referral's concern
+// category before scaling - it constrains the measurement itself
+// (getBoundingClientRect respects max-width regardless of flex-basis), so
+// one unusually long value still can't blow its whole column (and so
+// everything scaled alongside it) out on its own.
+function syncFactsColumnWidths() {
+    var wide = window.matchMedia('(min-width: 1401px)').matches;
+    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content').forEach(function (listRoot) {
+        // Scoped to [data-col] rather than ".row-facts-cols > .row-fact-col"
+        // specifically so Actions' own Description column is included too -
+        // it's a sibling of row-facts-track inside .row-facts, not a child
+        // of row-facts-cols, but still carries data-col="description"
+        // (_actions_rows.html) for exactly this reason (live feedback: "I
+        // want it to get the extra space as it looks cramped in comparison
+        // now" - it was fixed at 320px, own rule panel.css, #154, and
+        // stayed that way while Due/Created/Referral/Status all grew around
+        // it). Referrals/Students have no such element, so this widening
+        // changes nothing for them.
+        var columns = listRoot.querySelectorAll('.row-fact-col[data-col]');
+        if (!wide) {
+            columns.forEach(function (col) { col.style.flexGrow = ''; col.style.flexBasis = ''; });
+            return;
+        }
+        var groups = {};
+        columns.forEach(function (col) {
+            var key = col.getAttribute('data-col');
+            (groups[key] || (groups[key] = [])).push(col);
+        });
+        // Three separate passes over EVERY column - reset all, then measure
+        // all, then apply all - never interleaved key-by-key. An earlier
+        // version reset+measured one data-col group at a time; while
+        // measuring group N, every other group in the same rows still held
+        // its PREVIOUS sync's computed pixel width (not yet reset), so that
+        // group's reading came out contaminated by whatever leftover
+        // state happened to still be sitting on its row-mates - confirmed
+        // live (Behaviour reading narrower than DOB despite genuinely
+        // longer content, #155 follow-up). Resetting every column first,
+        // with nothing left in a stale state, then reading only once every
+        // reset has actually landed, is the only way to guarantee each
+        // measurement is a genuine, independent natural width.
+        // flexGrow: 0 too, not just flexBasis: 'auto' - the CSS rule
+        // (panel.css) sets flex-grow: 1 unconditionally, and grow keeps
+        // claiming whatever's left in the row regardless of an item's OWN
+        // flex-basis, so measuring with grow still on would report "content
+        // width plus this row's current share of leftover space" instead of
+        // pure content width.
+        columns.forEach(function (col) { col.style.flexGrow = '0'; col.style.flexBasis = 'auto'; });
+        // Description's own "natural" width is a fixed baseline (320px,
+        // matching row-fact-col-description's original flex: 0 0 320px,
+        // panel.css/#154), not measured off the DOM like every other
+        // column - it holds free-form wrapping text, and flex-basis: auto
+        // on a flex item with wrapping content sizes toward fit-content of
+        // the WHOLE text on one line, not a stable "how much room does this
+        // genuinely need" figure the way a short label/value pair's
+        // non-wrapping spans give (a long note could ask for 600px+, a
+        // short one almost nothing) - a per-row-variable figure would make
+        // the row's total "natural" size, and so how much bonus is left for
+        // everyone else, swing wildly with whatever a single row's
+        // description happens to say, instead of being a stable, shared
+        // figure like every other column already is. Set directly here
+        // (not left at 'auto' like everything else) so the scrollWidth
+        // reading just below sees this same stable baseline too. The fixed
+        // baseline still grows by the same per-column bonus as everything
+        // else below - it's just measured differently, not exempted from
+        // growth (unlike Status, which is exempted entirely).
+        var NATURAL_OVERRIDE = { description: 320 };
+        Object.keys(groups).forEach(function (key) {
+            if (!Object.prototype.hasOwnProperty.call(NATURAL_OVERRIDE, key)) return;
+            groups[key].forEach(function (col) { col.style.flexBasis = NATURAL_OVERRIDE[key] + 'px'; });
+        });
+        var natural = {};
+        var sumNatural = 0;
+        Object.keys(groups).forEach(function (key) {
+            var max;
+            if (Object.prototype.hasOwnProperty.call(NATURAL_OVERRIDE, key)) {
+                max = NATURAL_OVERRIDE[key];
+            } else {
+                max = 0;
+                groups[key].forEach(function (col) { max = Math.max(max, col.getBoundingClientRect().width); });
+            }
+            natural[key] = max;
+            sumNatural += max;
+        });
+        // Representative available width for this list's facts strip - read
+        // from row-facts itself, not row-facts-cols or row-facts-track.
+        // Referrals/Students: row-facts *is* row-facts-cols (dual class), so
+        // this is unchanged from before. Actions: row-facts is the OUTER row
+        // holding Description alongside row-facts-track/row-facts-cols - now
+        // that Description is also one of this function's growable columns
+        // (live feedback: "I want it to get the extra space"), "available"
+        // has to mean the whole row's width, not just the narrower slice
+        // left over after Description's old fixed 320px was already carved
+        // out of it. row-facts is a plain block (width: auto) that always
+        // fills whatever content-box its own parent hands it regardless of
+        // its OWN children's current size (block boxes don't shrink-to-fit),
+        // so reading it directly is accurate on every page with no
+        // per-page branching needed.
+        var strip = listRoot.querySelector('.row-facts');
+        var available = strip ? strip.getBoundingClientRect().width : 0;
+        // strip.scrollWidth was tried here instead of this manual sum - it
+        // was meant to sidestep hand-deriving every gap/margin/divider by
+        // reading the browser's own rendered total directly - but
+        // scrollWidth only ever reveals OVERFLOW: when content is smaller
+        // than the box (exactly the case here, since the whole point is
+        // finding how much room is spare), it floors at clientWidth and
+        // can't report anything smaller (confirmed live via Playwright:
+        // scrollWidth stuck at 1220, equal to available, even once track/
+        // cols measured a genuine, much smaller 602px underneath it) - the
+        // wrong tool for "how much is UNUSED" rather than "how much
+        // overflows". Back to summing natural[] directly, but this time
+        // adding the one real gap that sum still doesn't cover: .row-facts'
+        // own flex gap between its DIRECT children - for Referrals/Students
+        // that's every data-col column directly (gap already 0, own ID-
+        // scoped rule, panel.css, so this adds nothing there), but for
+        // Actions .row-facts' only two direct children are Description and
+        // row-facts-track, 16px apart (own base rule, panel.css) - a gap
+        // this function's per-data-col sum was never going to include no
+        // matter how many individual columns it enumerated, since it isn't
+        // any single column's own space. Computed from strip's own actual
+        // child count/gap rather than hardcoded, so it's automatically 0
+        // wherever there's nothing to add and automatically right if this
+        // markup ever gains or loses a top-level sibling.
+        var stripGapPx = strip ? parseFloat(getComputedStyle(strip).columnGap) || 0 : 0;
+        var stripChildCount = strip ? strip.children.length : 0;
+        var stripGapTotal = stripGapPx * Math.max(stripChildCount - 1, 0);
+        var naturalTotal = sumNatural + stripGapTotal;
+        // Leftover split evenly and ADDED to every column's own natural width
+        // (live feedback: "the bonus space should be added evenly") - not
+        // multiplied through a shared scale factor (tried first): once every
+        // row already shares the same natural widths (measured above,
+        // clamped consistently for every row - the actual cause of the
+        // earlier "DOB ended up wider than Behaviour" bug, not equal bonus
+        // itself, which never reverses a natural-width ordering that's
+        // already consistent), a flat per-column bonus keeps a short column
+        // looking short and a long column looking long, just each with the
+        // same fixed amount of breathing room added - proportional scaling
+        // instead gave a longer column a proportionally BIGGER bonus, which
+        // read as an oversized gap inside it once the row had much more
+        // width to spare than 5 short columns genuinely need ("now Attendance
+        // has lots of space").
+        // Only added when positive - if natural content is already wider
+        // than the row, leave every column at its natural width instead of
+        // shrinking it to fit. flex-shrink: 0 (base rule, panel.css) then
+        // lets that genuine overflow show through exactly as before, which
+        // Actions' own wireActionStatusColOverflow (actions.html) still
+        // relies on to fall the fused Status control back to the
+        // buttons-column dropdown when a row truly doesn't fit.
+        // Actions' own Status column (data-col="status") is excluded from
+        // the bonus - it holds a fixed 3-choice segmented control
+        // (.ui-segmented), not free text, so it has no real use for extra
+        // width the way a short label/value column does. It's still part
+        // of naturalTotal above (its own space is real and still has to
+        // come out of "available" before anyone else's leftover is
+        // computed), it just never receives a SHARE of what's left over -
+        // confirmed live via Playwright: giving it a bonus stretched the
+        // column (.row-fact-col-status, a flex item in a column flex
+        // container) wider than the segmented control actually needs, and
+        // since the control's own <form> is display: contents (own rule,
+        // panel.css - its children become direct flex items of that
+        // column, cross-axis stretched to the column's full width by the
+        // column's own default align-items: stretch) the control's outer
+        // border stretched right along with it while its buttons stayed
+        // their own natural width inside - a visibly empty pill with dead
+        // space after the last button ("outline extends past Not
+        // Required").
+        var FIXED_KEYS = { status: true };
+        var keys = Object.keys(groups);
+        var growableKeys = keys.filter(function (key) { return !FIXED_KEYS[key]; });
+        var leftover = available - naturalTotal;
+        var bonus = growableKeys.length > 0 && leftover > 0 ? leftover / growableKeys.length : 0;
+        keys.forEach(function (key) {
+            var width = Math.floor(natural[key] + (FIXED_KEYS[key] ? 0 : bonus));
+            groups[key].forEach(function (col) { col.style.flexGrow = '0'; col.style.flexBasis = width + 'px'; });
+        });
+    });
+}
 document.addEventListener('scroll', function (e) {
     var track = e.target;
     if (!track.classList || !track.classList.contains('row-facts-cols')) return;
@@ -2880,8 +3085,17 @@ document.addEventListener('scroll', function (e) {
 // ButtonLayout's own MutationObserver/ResizeObserver pair (actions.html)
 // uses for its per-row measurement.
 document.addEventListener('DOMContentLoaded', function () {
-    markAllFactsStripEdges();
-    var refresh = window.rafThrottle ? window.rafThrottle(function () { markAllFactsStripEdges(); }) : markAllFactsStripEdges;
+    // syncFactsColumnWidths runs first on every refresh - it changes each
+    // column's own rendered width (flex-basis), which in turn changes
+    // whether/how far row-facts-cols overflows, so markAllFactsStripEdges
+    // needs to see the post-sync layout, not measure edges against widths
+    // that are about to change underneath it.
+    function refreshFactsStrips() {
+        syncFactsColumnWidths();
+        markAllFactsStripEdges();
+    }
+    refreshFactsStrips();
+    var refresh = window.rafThrottle ? window.rafThrottle(refreshFactsStrips) : refreshFactsStrips;
     document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content').forEach(function (container) {
         if (typeof MutationObserver !== 'undefined') {
             new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
