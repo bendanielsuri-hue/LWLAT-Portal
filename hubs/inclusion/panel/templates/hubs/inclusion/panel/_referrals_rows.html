@@ -87,17 +87,18 @@ convention as Students' own _students_rows.html.
                 <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" data-col="raised">
                     <span class="row-fact-label">Raised</span>
                     <span>{{ referral.created_at|date:"d/m/y" }}</span>
-                    <span title="{% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}">By {% if referral.raised_by %}{{ referral.raised_by|initials }}{% else %}Unassigned{% endif %}</span>
+                    <span class="row-fact-assignee row-fact-assignee--initials" title="{% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}">By {% if referral.raised_by %}{{ referral.raised_by|initials }}{% else %}Unassigned{% endif %}</span>
+                    <span class="row-fact-assignee row-fact-assignee--full" title="{% if referral.raised_by %}{{ referral.raised_by.first_name }} {{ referral.raised_by.last_name }}{% else %}Unassigned{% endif %}">By {% if referral.raised_by %}{{ referral.raised_by|full_name }}{% else %}Unassigned{% endif %}</span>
                 </div>
-                <div class="row-fact-col{% if not referral.previous_panel_date and not referral.next_panel_date %} row-fact-col-empty{% endif %}" data-col="panels">
-                    <span class="row-fact-label">Panel</span>
-                    <span>Prev {{ referral.previous_panel_date|date:"d/m/y"|default:"—" }}</span>
-                    <span>Next {{ referral.next_panel_date|date:"d/m/y"|default:"—" }}</span>
+                <div class="row-fact-col{% if not referral.previous_panel_date %} row-fact-col-empty{% endif %}" data-col="panels">
+                    <span class="row-fact-label">Prev Panel</span>
+                    <span>{{ referral.previous_panel_date|date:"d/m/y"|default:"—" }}</span>
+                    <span>{{ referral.previous_panel_group|default:"—" }}</span>
                 </div>
                 <div class="row-fact-col{% if not referral.priority and not referral.next_review_date %} row-fact-col-empty{% endif %}" data-col="priorityreview">
-                    <span class="row-fact-label">Priority</span>
-                    <span>{{ referral.get_priority_display|default:"—" }}</span>
-                    <span>Due {{ referral.next_review_date|date:"d/m/y"|default:"—" }}</span>
+                    <span class="row-fact-label">Review</span>
+                    <span>Due: {{ referral.next_review_date|date:"d/m/y"|default:"—" }}</span>
+                    <span>Priority: {{ referral.get_priority_display|default:"—" }}</span>
                 </div>
                 <div class="row-fact-col" data-col="actionsstatus">
                     <span class="row-fact-label">Actions</span>
