@@ -6,4 +6,4 @@ class CoreConfig(AppConfig):
     name = 'core'
     # Shown in the footer on pages that aren't owned by a specific hub (MAT
     # home, Portal Admin) - see docs/adr/0011.
-    VERSION = '0.1.0'
+    VERSION = '0.1.1'

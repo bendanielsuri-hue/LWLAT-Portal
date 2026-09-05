@@ -195,6 +195,10 @@ class Student(models.Model):
     )
     date_of_birth = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    # Matches Staff.photo's shape. Placeholder-only for now - real student
+    # photos are more safeguarding-sensitive than staff photos and need a
+    # deliberate sign-off before this holds anything but dummy data (#140).
+    photo = models.ImageField(upload_to='student_photos/', blank=True, null=True)
 
     # Inclusion/SEND context fields.
     is_pp = models.BooleanField('Pupil Premium', default=False)
