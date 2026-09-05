@@ -225,6 +225,56 @@
     border-bottom-right-radius: var(--radius-xl);
 }
 
+/* My Referrals/My Actions end-of-list stripe (#157) - same striped end-cap
+   as .filtered-content .entity-list::after (see that rule's own comment,
+   further down this file, for the full "why a real flex box, not a
+   background" history). #referrals-card/#actions-card are the same shape
+   above 1180px: a height-bounded card (.list-page-shell .panel-card) whose
+   .panel-list is already display:flex column/flex:1/overflow-y:auto, so a
+   short list leaves bare card background below it instead of the stripe.
+   Reuses the same --list-endcap-height/--list-endcap-clearance custom
+   properties main.js's setupListEndCapHeight already computes globally
+   (FAB/tabbar geometry) rather than duplicating that math - they resolve to
+   0 below 1180px (mobile tabbar/FAB not visible there) and this box's
+   flex-grow has nothing to fill anyway once .panel-card goes height:auto
+   at that width (Stack mode, above), so no separate breakpoint is needed
+   here the way the mobile-only .entity-list version once had. */
+#my-referrals-list::after,
+#my-actions-list::after {
+    content: "";
+    display: block;
+    flex: 1 0 var(--list-endcap-height, 47px);
+    margin-bottom: var(--list-endcap-clearance, 4px);
+    border-top: 1px solid var(--border-strong);
+    background-color: var(--bg-surface);
+    background-image: repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--border-strong) 15%, transparent) 0 5px,
+        transparent 5px 11px
+    );
+}
+@media (min-width: 480px) {
+    #my-referrals-list::after,
+    #my-actions-list::after {
+        margin-bottom: 0;
+    }
+}
+/* Same "empty-note takes the whole box, not just its flex share" fix as
+   .filtered-content .entity-list > .empty-note (see that rule's comment) -
+   #my-referrals-list/#my-actions-list are the ul itself (position:relative
+   set here since .panel-list's own base rule, above, doesn't need it
+   otherwise), the empty-note li is its sole child in that case. */
+#my-referrals-list,
+#my-actions-list {
+    position: relative;
+}
+#my-referrals-list > .empty-note,
+#my-actions-list > .empty-note {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+}
+
 /* Belt-and-braces: every direct child of a shell panel-card needs min-height:
    0, not just the scrolling list. Flex items default to min-height: auto,
    which floors them at their content's min-content size — a non-scrolling
