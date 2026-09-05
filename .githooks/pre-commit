@@ -1,0 +1,16 @@
+#!/bin/sh
+# Patch-bumps each touched app's VERSION (ADR 0011) before the commit lands.
+# See scripts/bump_versions.py for the ownership/skip rules, #149/#150 for
+# the decision trail. Enabled via `git config core.hooksPath .githooks`
+# (one-time, per clone - see CLAUDE.md).
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+PYTHON="$REPO_ROOT/.venv/Scripts/python.exe"
+if [ ! -x "$PYTHON" ]; then
+    PYTHON="$REPO_ROOT/.venv/bin/python"
+fi
+if [ ! -x "$PYTHON" ]; then
+    PYTHON="python"
+fi
+
+"$PYTHON" "$REPO_ROOT/scripts/bump_versions.py"

@@ -61,6 +61,14 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file 
 - If a hub page throws `OperationalError: no such table: ...`, it means migrations haven't been run locally yet — run `migrate` (and reseed if the table is one of the demo-data ones above).
 - New models/migrations: if you add fields/models to `core` or `hubs.inclusion`, run `manage.py makemigrations` and commit the generated migration file(s) — migrations are tracked in git even though the database itself isn't.
 
+### Per-app VERSION auto-bump
+
+Each app's `VERSION` (ADR 0011) patch-bumps automatically on any commit touching that app's own files (`hubs/<name>/**`, `core/**`), via a `.githooks/pre-commit` hook (`scripts/bump_versions.py`) — see #149/#150 for the full decision trail. **Not enabled by default per clone** — run once after cloning:
+```
+git config core.hooksPath .githooks
+```
+Editing an app's `VERSION` line by hand in the same commit (e.g. a deliberate minor/major bump, see `/suggest-version-bump`) skips the auto-bump for that app so it doesn't get clobbered. A handful of portal-wide files (`static/css/layout/layout.css`, `static/css/style.css`, `static/js/main.js`, `templates/layout.html`, `templates/hubs/_hub_sidebar.html`, `templates/icons/**`, `mysite/**`, `portal/**`) are nobody's own and never trigger a bump — see `scripts/bump_versions.py` for the exact ownership rules.
+
 ### Module rollout status, Portal Admin hub, tiered portal settings
 
 Domain vocabulary and mechanism for `Module` (rollout/visibility cascade), the developer-only Portal Admin hub, and tiered `School`/`CategorySettings`/`MatSettings` resolution now live in [core/CONTEXT.md](core/CONTEXT.md) — see the Language section there. ADRs [0002](docs/adr/0002-module-visibility-cascade-rules.md) and [0003](docs/adr/0003-tiered-portal-settings-resolution.md) hold the why.
