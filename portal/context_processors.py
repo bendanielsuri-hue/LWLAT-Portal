@@ -82,6 +82,36 @@ def footer_meta(request):
     }
 
 
+# Same prefix ordering/pitfall as _HUB_APP_LABELS_BY_URL_PREFIX above (Panel
+# before Inclusion) - kept as its own list rather than folding into
+# HUB_NAV_ITEMS (portal/views.py), which only carries one entry per *rail*
+# row and has no row at all for Panel (a nested sub-app of Inclusion, not its
+# own rail item) or Portal Admin's icon key.
+_HUB_ICON_BY_URL_PREFIX = [
+    ('staff/', 'icons/staff_svg.html'),
+    ('student/', 'icons/student_svg.html'),
+    ('services/', 'icons/services_svg.html'),
+    ('registers/', 'icons/registers_svg.html'),
+    ('inclusion/panel/', 'icons/panel_shield_svg.html'),
+    ('inclusion/', 'icons/send_svg.html'),
+    ('careers/', 'icons/careers_svg.html'),
+    ('resources/', 'icons/resources_svg.html'),
+    ('portal-admin/', 'icons/shield_check_svg.html'),
+]
+
+
+def hub_icon(request):
+    # Drives the sidebar header's own app icon (#142) - resolved centrally
+    # here rather than threaded through every hub's _hub_context()/
+    # _panel_base_context() helper, so adding a hub can't forget to set it.
+    path = request.path.lstrip('/')
+    icon = next(
+        (icon for prefix, icon in _HUB_ICON_BY_URL_PREFIX if path.startswith(prefix)),
+        '',
+    )
+    return {'hub_icon': icon}
+
+
 def current_identity(request):
     # Surfaces the sidebar's "current user" identity switcher on every hub
     # (not just the Inclusion Panel) — see core.identity for the cookie/

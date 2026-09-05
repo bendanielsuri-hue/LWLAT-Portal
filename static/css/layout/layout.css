@@ -172,12 +172,36 @@ html, body {
    overflow:hidden rule above (and .nav-scroll's own overflow-y:auto) — only
    safe once the sidebar is at rest in its fixed 64px collapsed width;
    .hub-side specifically (not every .side-nav.collapsed variant) so the
-   width-animated expand/collapse transition elsewhere isn't affected. */
+   width-animated expand/collapse transition elsewhere isn't affected.
+   Reverted back to collapsed-only scope (was briefly widened to cover the
+   collapse-toggle's own expanded-mode tooltip, live feedback since disabled
+   the collapse-toggle's expanded tooltip outright, see
+   .collapse-toggle .icon-tooltip-host::after above) - the wider scope
+   turned out to be exactly what let the sidebar's own width transition show
+   a raw content reflow instead of a clean reveal (live feedback: "title and
+   menu items switch from 1 line to two lines... should just slide in or
+   out") - the .side-nav-inner pin below needs this back to hidden to work. */
 .side-nav.hub-side.collapsed {
     overflow: visible;
 }
 .side-nav.hub-side.collapsed .nav-scroll {
     overflow: visible;
+}
+/* Desktop's own version of the touch fix just below - pins the sidebar's
+   real content to its final expanded width the instant .collapsed is
+   removed (main.js, same frame - no gradual reflow to catch), so .side-nav
+   itself (240px<->64px, overflow:hidden above) just reveals progressively
+   more of an already-fully-laid-out column as its own width transitions,
+   rather than nav-title/.menu-label genuinely re-wrapping line count in
+   real time against whatever intermediate width the animation is currently
+   at (live feedback: "title and menu items switch from 1 line to two
+   lines... should just slide in or out"). Going the other way (collapsed
+   added) needs no equivalent care - nav-title goes display:none and every
+   .menu-label goes opacity:0 + white-space:nowrap in that same instant
+   (both already true, further down), so there's nothing text-shaped left
+   for the still-shrinking outer box to catch mid-reflow. */
+.side-nav.hub-side:not(.collapsed) .side-nav-inner {
+    width: 240px;
 }
 /* Labels fade via opacity rather than being display:none'd, and rows stay
    justify-content:flex-start at all times. Forced single-line so a wrapped
@@ -258,23 +282,22 @@ html, body {
 .side-nav.hub-side.collapsed .hubs-trigger {
     display: flex;
 }
-/* Collapsed mode: the toggle reads as a normal full-width row */
+/* Collapsed mode: centred like every other collapsed row (live feedback:
+   flex-start read as pushed too far right relative to the rest of the
+   rail) - matches .side-nav.collapsed a/.nav-row-btn/etc.'s own centring
+   above rather than the left-packed full-width-row treatment this used to
+   get back when it didn't share a row with .hub-icon-mark. */
 .side-nav.collapsed .nav-header-top-row {
-    justify-content: flex-start;
+    justify-content: center;
 }
 .side-nav.collapsed .nav-row-btn {
     width: 100%;
 }
-.side-nav.collapsed .collapse-toggle {
-    justify-content: flex-start;
-    padding-left: 6px;
-    padding-right: 6px;
-}
-.side-nav.collapsed .collapse-toggle:hover,
-.side-nav.collapsed .collapse-toggle:focus-visible {
-    background: transparent;
-    transform: translateX(3px);
-}
+/* No collapsed-specific override left for .collapse-toggle itself below
+   this point - now that it's a plain 44px square in every state (same
+   shape as the rail, live feedback), the base .collapse-toggle rules above
+   (size, centring, hover fill) already apply identically here with nothing
+   left to un-do from an old "full-width row" treatment. */
 
 .side-nav .nav-header {
     flex-shrink: 0;
@@ -282,61 +305,163 @@ html, body {
        padding directly - but .nav-header-top-row's own -8px margin-top +
        this container's 12px (--space-sm) gap before .exit-hub nets +4px on
        top of that padding (the collapse-toggle row still occupies that gap
-       even though the button itself is display:none on desktop), so
-       .exit-hub actually landed 4px lower than .breadcrumbs despite the
-       equal padding value. --space-md (16px) here cancels that +4px out so
-       "SEND & Provision" and the breadcrumb trail land on the same y. */
+       even at widths where the button itself is CSS-hidden), so .exit-hub
+       actually landed 4px lower than .breadcrumbs despite the equal padding
+       value. --space-md (16px) here cancels that +4px out so "SEND &
+       Provision" and the breadcrumb trail land on the same y. */
     padding: var(--space-md) var(--space-lg) var(--space-md);
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
 }
+/* #142 grilling originally wanted the local menu's first row flush on the
+   global rail's own 48px grid line - dropped (live feedback) once the
+   header icon grew to 88px: a single shared padding-bottom couldn't hit
+   that line for both a plain hub (no back-to-hub row) and a nested app
+   (with one) at that size, and any fixed value would drift again the
+   moment a hub title wraps to two lines. Row height/gap still deliberately
+   matches the rail's own pitch (.nav-menu's 44px+4px, same as
+   .hub-rail-item) - that rhythm match is what's kept; the header's own
+   height is left to size naturally off its real content instead of being
+   forced to a computed total. */
 /* Collapse/expand toggle's own row, pinned to the top-right corner */
+/* Shares this row with .hub-icon-mark (#142) - centred via justify-content
+   regardless of the toggle button also sitting in the row, since the
+   toggle is pulled out of flex flow (position:absolute below) rather than
+   competing for space with the icon the way space-between would. margin-top
+   removed - was tuned for this row holding only the (28px) toggle button;
+   now the icon dominates the row's real height instead, so that old offset
+   no longer applies. */
 .nav-header-top-row {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    width: 100%;
-    margin-top: -8px;
-}
-/* Corner control: icon-only at rest, label grows in from the icon on hover */
-.collapse-toggle {
-    flex-shrink: 0;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 28px;
-    padding: 0 4px;
+    width: 100%;
+}
+/* Pinned to the row's top-right corner (live feedback: not vertically
+   centred against the icon/logo) rather than mirroring the icon's own
+   vertical middle - reads as a corner control sitting above/beside the
+   badge, not a peer aligned to it. right offset (not a plain 0) corrects
+   for .nav-header's own right padding (--space-lg, 20px) being wider than
+   .nav-scroll's (--space-sm, 12px) - menu rows' real right edge sits 8px
+   further out than nav-header's padding box does, so plain right:0 landed
+   this button 8px short of lining up with them (live feedback). */
+.nav-header-top-row .collapse-toggle {
+    position: absolute;
+    right: calc(var(--space-sm) - var(--space-lg));
+    top: 0;
+}
+/* Collapsed: the icon is gone (display:none, above) and the toggle reverts
+   to a normal full-width flow row rather than staying pinned to the corner -
+   matches every other collapsed row's own full-width treatment. */
+.side-nav.collapsed .nav-header-top-row .collapse-toggle {
+    position: static;
+    transform: none;
+}
+/* Same 44px box as .hub-rail-item's own icon (live feedback: "stay same
+   shape as it is in rail") - one consistent size/shape in every state
+   (expanded corner control, collapsed rail row) rather than a smaller
+   28px "corner control" shape that only matched the rail once collapsed. */
+.collapse-toggle {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
 }
+/* Centres the icon glyph itself regardless of state (live feedback: "icon
+   in the middle as well") - the shared .menu-icon class normally reserves
+   margin-right for an icon+label row, which would skew this icon off-centre
+   in a label-less square button. */
+.side-nav .collapse-toggle .menu-icon {
+    margin-right: 0;
+}
+/* Same hover fill every other rail-style row in this exact sidebar already
+   uses against its --bg-nav backdrop - the collapsed local rail's own
+   icon-only rows (.side-nav.collapsed .nav-row-btn:hover .menu-icon, etc.,
+   below) and the global rail's own hover pill both land on this pairing
+   (--bg-rail fill on a --bg-nav surface), so this button now reads as one
+   more row of that same family instead of a one-off exception. */
 .collapse-toggle:hover,
 .collapse-toggle:focus-visible {
-    background: transparent;
+    background: var(--bg-rail);
 }
 .collapse-toggle svg {
-    width: 20px;
-    height: 20px;
+    width: 26px;
+    height: 26px;
     display: block;
     flex-shrink: 0;
     transition: transform var(--transition-fast);
 }
-.collapse-toggle-label {
-    overflow: hidden;
-    white-space: nowrap;
-    max-width: 0;
-    opacity: 0;
-    font-size: var(--font-md);
-    transition: opacity var(--transition-fast), max-width var(--transition-base), margin-left var(--transition-base);
+/* Icon reflects state without swapping sides (live feedback: "should not
+   change side, just not have fill") - left portion solid at rest (panel
+   open), same left position but outline-only (a plain divider line instead
+   of the fill) once .collapsed - both elements always render
+   (sidebar_toggle_svg.html), CSS just swaps which one shows, so it works
+   identically whichever mode (touch open/close or desktop collapse/expand)
+   set .collapsed. */
+.collapse-toggle .sidebar-toggle-divider {
+    display: none;
 }
-.side-nav:not(.collapsed) .collapse-toggle:hover .collapse-toggle-label,
-.side-nav:not(.collapsed) .collapse-toggle:focus-visible .collapse-toggle-label {
-    opacity: 1;
-    max-width: 100px;
-    margin-left: var(--space-xs);
+.side-nav.collapsed .collapse-toggle .sidebar-toggle-fill-left {
+    display: none;
+}
+.side-nav.collapsed .collapse-toggle .sidebar-toggle-divider {
+    display: block;
+}
+/* Text label dropped (live feedback: "lose the roll over have text expand,
+   not needed") - the button stays icon-only always now, identified by its
+   data-tooltip/aria-label instead. Element kept in markup (main.js still
+   syncs its text for anything reading textContent) but never shown. */
+.collapse-toggle-label {
+    display: none;
+}
+/* Sidebar identity icon (#142): a circle rather than the rail's own
+   rounded-square, 88px with a 56px icon (bolder fill than the box's own
+   half-size default - "bigger icon" round-2 winner) and a --primary-dark
+   ring for definition against --bg-nav ("dark ring" round-2 winner).
+   align-self:center rather than the row's usual flex-start - matches
+   .nav-title's own centered text and the collapsed rail's existing
+   "center, not flex-start" treatment for icon-only rows. Solid fill
+   (--primary, same colour language as .btn-primary) picked after a live
+   click-through round against tint/ring/neutral/gradient/split
+   alternatives, then bigger-icon+dark-ring picked from a second round
+   against halo/inner-disc/dark-icon/notch - see #142 for both trails. */
+.hub-icon-mark {
+    align-self: center;
+    flex-shrink: 0;
+    width: 88px;
+    height: 88px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.hub-icon-mark svg {
+    width: 56px;
+    height: 56px;
+    display: block;
+}
+.hub-icon-mark--solid {
+    background: var(--primary);
+    color: #fff;
+    border: 2px solid var(--primary-dark);
+}
+/* Collapsed rail (touch, or desktop above 1200px manually toggled): dropped
+   entirely rather than shrunk/reflowed into the icon-only column - it's
+   purely decorative (no click target, nothing it does), so it doesn't earn
+   a place in the narrow rail the way every other row there does. */
+.side-nav.collapsed .hub-icon-mark {
+    display: none;
 }
 
 /* "Back to hub" link: collapsed mode shows only the arrow; expanded mode reads
@@ -791,6 +916,38 @@ main { position: relative; }
     clip-path: none;
     transition: none;
 }
+/* The collapse-toggle's own tooltip in expanded mode is NOT this ::after
+   mechanism (see .rail-tooltip-fixed just below, positioned by main.js
+   instead) - a plain ::after here is clipped by .side-nav's own
+   overflow:hidden, which the sidebar's width-transition genuinely needs to
+   stay hidden (removing it caused a worse bug - the expanding sidebar's
+   real content flashing in at full width before the box visually caught up,
+   live feedback: "should just slide in or out"). position:fixed escapes
+   that clipping entirely instead of fighting it. Collapsed mode still uses
+   the plain ::after above unaffected - .side-nav.hub-side.collapsed is a
+   resting state, not a transition, so overflow is safely visible there. */
+.rail-tooltip-fixed {
+    position: fixed;
+    z-index: var(--z-tooltip);
+    height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    font-size: var(--font-base);
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.rail-tooltip-fixed[hidden] {
+    display: none;
+}
 /* Global rail hover state reads as a small card, not a tooltip bubble: real
    --bg-surface (not --tooltip-bg's dark annotation layer) with a border, no
    caret - now shared with the collapsed local rail's card above. */
@@ -819,11 +976,6 @@ main { position: relative; }
 .hub-rail .icon-tooltip-host:focus-visible::after,
 .side-nav.collapsed .icon-tooltip-host:hover::after,
 .side-nav.collapsed .icon-tooltip-host:focus-visible::after {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0) scale(1);
-}
-.side-nav.collapsed .collapse-toggle:hover .icon-tooltip-host::after,
-.side-nav.collapsed .collapse-toggle:focus-visible .icon-tooltip-host::after {
     opacity: 1;
     transform: translateY(-50%) translateX(0) scale(1);
 }
@@ -1257,9 +1409,12 @@ main { position: relative; }
 /* Collapsed sidebar's icon-only rows now signal hover/active via the pill
    fill above instead (matching .hub-rail, which never nudged its own svg
    either) - overrides the generic nudge above, which still applies to
-   every other (labelled) row. */
-.side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):hover .menu-icon,
-.side-nav.collapsed .icon-tooltip-host:not(.collapse-toggle):focus-visible .menu-icon {
+   every other (labelled) row. Collapse-toggle included now too (live
+   feedback: match the collapsed back-arrow's hover exactly) - it used to
+   be deliberately excluded here back when it kept its own translateX nudge
+   instead of the pill fill. */
+.side-nav.collapsed .icon-tooltip-host:hover .menu-icon,
+.side-nav.collapsed .icon-tooltip-host:focus-visible .menu-icon {
     transform: none;
 }
 

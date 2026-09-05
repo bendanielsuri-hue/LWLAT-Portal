@@ -1417,6 +1417,22 @@ document.addEventListener('DOMContentLoaded', function () {
         var hoverCapableMql = window.matchMedia('(hover: hover) and (pointer: fine)');
         var touchRailMql = window.matchMedia('(min-width: 480px) and (max-width: 1180px)');
 
+        // #142: desktop's own manual collapse/expand, persisted per-viewer -
+        // only meaningful above 1200px (below that the rail is already
+        // force-collapsed regardless, see locked() below and responsive.css's
+        // matching @media block). Storage read/write wrapped - some browser
+        // contexts (private windows, blocked site data) throw on access.
+        var MANUAL_COLLAPSE_KEY = 'pref-sidebar-collapsed';
+        function manualCollapsePreferred() {
+            try { return localStorage.getItem(MANUAL_COLLAPSE_KEY) === '1'; } catch (e) { return false; }
+        }
+        function setManualCollapsePreferred(value) {
+            try { localStorage.setItem(MANUAL_COLLAPSE_KEY, value ? '1' : '0'); } catch (e) { /* ignore */ }
+        }
+        function wideDesktop() {
+            return hoverCapableMql.matches && !narrowMql.matches && !isTouchNav();
+        }
+
         function locked() {
             // The dev breakpoint preview iframe (layout.html) can't make a
             // real mouse report hover:none/pointer:coarse, so it forces
@@ -1429,17 +1445,25 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function updateToggleLabel() {
-            // Desktop never shows this button (CSS-hidden, see
-            // responsive.css) so only the touch open/close label applies -
-            // but hubTitlePrefix below still needs `collapsed` for desktop's
-            // own locked-rail state too.
-            var expanded = nav.classList.contains('touch-expanded');
+            // wideDesktop() gets its own collapse/expand wording - "Open/
+            // Close menu" (below) describes touch's temporary widen-in-place
+            // overlay, which isn't what this button does above 1200px.
+            // hubTitlePrefix still keys off plain `collapsed` either way.
             var collapsed = nav.classList.contains('collapsed');
-            var label = expanded ? 'Close menu' : 'Open menu';
-            toggle.setAttribute('aria-label', label);
-            toggle.setAttribute('aria-expanded', String(expanded));
-            toggleIconEls.forEach(function (el) { el.setAttribute('data-tooltip', label); });
-            if (toggleLabelEl) toggleLabelEl.textContent = expanded ? 'Close' : 'Menu';
+            if (wideDesktop()) {
+                var desktopLabel = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+                toggle.setAttribute('aria-label', desktopLabel);
+                toggle.setAttribute('aria-expanded', String(!collapsed));
+                toggleIconEls.forEach(function (el) { el.setAttribute('data-tooltip', desktopLabel); });
+                if (toggleLabelEl) toggleLabelEl.textContent = collapsed ? 'Expand' : 'Collapse';
+            } else {
+                var expanded = nav.classList.contains('touch-expanded');
+                var label = expanded ? 'Close menu' : 'Open menu';
+                toggle.setAttribute('aria-label', label);
+                toggle.setAttribute('aria-expanded', String(expanded));
+                toggleIconEls.forEach(function (el) { el.setAttribute('data-tooltip', label); });
+                if (toggleLabelEl) toggleLabelEl.textContent = expanded ? 'Close' : 'Menu';
+            }
             // Hub landing pages render their H1 as "Dashboard" with a hidden
             // "<Hub Name> " prefix (see e.g. hubs/inclusion/templates/hubs/inclusion/hub.html)
             // — once the sidebar collapses to an icon-only rail, the hub name
@@ -1477,7 +1501,11 @@ document.addEventListener('DOMContentLoaded', function () {
             // Leaving touch range (resize, dev breakpoint preview switch)
             // shouldn't leave a stray .touch-expanded/backdrop behind.
             if (nav.classList.contains('touch-expanded')) closeTouchExpand();
-            nav.classList.toggle('collapsed', locked());
+            // Below 1200px this is always locked() (forced icon-only,
+            // nothing to remember); at/above it, follow whatever the viewer
+            // last manually chose (#142) - defaults to expanded (today's
+            // only behaviour) until they ever toggle it themselves.
+            nav.classList.toggle('collapsed', locked() || (wideDesktop() && manualCollapsePreferred()));
             updateToggleLabel();
         }
 
@@ -1491,14 +1519,51 @@ document.addEventListener('DOMContentLoaded', function () {
         touchRailMql.addEventListener('change', syncCollapsed);
         touchNavListeners.push(syncCollapsed);
 
+        // Expanded-mode tooltip for this button (collapsed mode already has
+        // its own working ::after tooltip - see layout.css). A plain ::after
+        // here would be clipped by .side-nav's own overflow:hidden, which
+        // the width-transition genuinely needs kept hidden (removing it
+        // caused a worse bug - see .rail-tooltip-fixed's own comment in
+        // layout.css). position:fixed + real coordinates from
+        // getBoundingClientRect() escapes that clipping instead of fighting
+        // it - appended once to <body>, well outside the sidebar's own
+        // overflow-clipped subtree.
+        var railTooltip = document.createElement('div');
+        railTooltip.className = 'rail-tooltip-fixed';
+        railTooltip.hidden = true;
+        document.body.appendChild(railTooltip);
+        function showRailTooltip() {
+            if (touchRailActive() || nav.classList.contains('collapsed')) return;
+            var rect = toggle.getBoundingClientRect();
+            railTooltip.textContent = toggle.getAttribute('aria-label') || '';
+            railTooltip.style.left = (rect.right + 8) + 'px';
+            railTooltip.style.top = (rect.top + rect.height / 2) + 'px';
+            railTooltip.style.transform = 'translateY(-50%)';
+            railTooltip.hidden = false;
+        }
+        function hideRailTooltip() {
+            railTooltip.hidden = true;
+        }
+        toggle.addEventListener('mouseenter', showRailTooltip);
+        toggle.addEventListener('mouseleave', hideRailTooltip);
+        toggle.addEventListener('focus', showRailTooltip);
+        toggle.addEventListener('blur', hideRailTooltip);
+
         toggle.addEventListener('click', function (e) {
             e.preventDefault();
-            // Touch-only control - the toggle is CSS-hidden for any
-            // hover-capable pointer (responsive.css), but guard anyway in
-            // case it's reached some other way (e.g. keyboard focus
-            // retained from a wider layout, or a pointer type change).
-            if (!touchRailActive()) return;
-            if (nav.classList.contains('touch-expanded')) closeTouchExpand(); else openTouchExpand();
+            hideRailTooltip();
+            if (touchRailActive()) {
+                if (nav.classList.contains('touch-expanded')) closeTouchExpand(); else openTouchExpand();
+                return;
+            }
+            // Below 1200px the button is CSS-hidden (responsive.css) - guard
+            // anyway in case it's reached some other way (keyboard focus
+            // retained from a wider layout, a pointer type change mid-tab).
+            if (!wideDesktop()) return;
+            var collapsedNow = !nav.classList.contains('collapsed');
+            nav.classList.toggle('collapsed', collapsedNow);
+            setManualCollapsePreferred(collapsedNow);
+            updateToggleLabel();
         });
         // A link inside the temporarily-widened rail navigating to a new
         // page doesn't need an explicit close - the page reload takes care
@@ -3416,6 +3481,15 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             var searchDebounce = null;
             form.querySelectorAll('input[type=text], input[type=search]').forEach(function (input) {
                 input.addEventListener('input', function () {
+                    // A row-click link (Students/Referrals -> Actions, or a
+                    // search result) may have pinned this form's hidden
+                    // `student` id field to one exact student (views.py's
+                    // `_student_id_filter`) - the moment the user edits this
+                    // box by hand, drop that pin so typing a new search
+                    // isn't silently ignored in favour of the stale exact
+                    // match.
+                    var studentIdField = form.querySelector('input[name=student]');
+                    if (studentIdField) studentIdField.value = '';
                     clearTimeout(searchDebounce);
                     if (input.value.trim().length === 1) return;
                     searchDebounce = setTimeout(function () {

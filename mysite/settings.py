@@ -94,6 +94,7 @@ TEMPLATES = [
                 'portal.context_processors.module_settings',
                 'portal.context_processors.portal_settings',
                 'portal.context_processors.footer_meta',
+                'portal.context_processors.hub_icon',
             ],
         },
     },

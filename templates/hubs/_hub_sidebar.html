@@ -7,11 +7,12 @@ separate off-canvas drawer (the original #114 approach) or the old
 permanently-narrow inline expand, this corner toggle temporarily widens
 the same rail in place to show full labels as an overlay, then collapses
 back down on next tap or a tap outside (main.js setupSidebarCollapse).
-Desktop has no manual collapse/expand control at all - this toggle is
-CSS-hidden outright for a hover-capable pointer (responsive.css). A
-narrowed desktop window still locks permanently to the icon-only rail,
-just with nothing to click to leave it - nowhere wider to expand to there
-anyway.
+Desktop (#142) now shares this same button/class rather than a second
+control: above the 1200px auto-collapse threshold it manually adds/removes
+.collapsed (persisted to localStorage, main.js), reusing the exact
+icon-only rail visual a narrowed window already forces below that width -
+CSS only hides the button itself within that already-locked range
+(responsive.css), where there's nowhere to toggle to.
 {% endcomment %}
 <nav class="side-nav hub-side expanded" id="hub-sidebar-nav" data-hub="{{ hub_title|lower }}">
     {% comment %}
@@ -27,15 +28,48 @@ anyway.
     {% endcomment %}
     <div class="side-nav-inner">
     <div class="nav-header">
+        {% comment %}
+        Sidebar identity icon (#142) - bare, rail-matching treatment (same
+        rounded-square box as .hub-rail-item's own svg, no permanent fill)
+        rather than the rejected circular badge, so it reads as the same
+        icon language as the global rail rather than a third shape. Shares
+        this row with the collapse-toggle (to its right, live feedback) -
+        the icon stays horizontally centred in the row regardless
+        (justify-content:center, layout.css), the toggle is pulled out of
+        that centring via position:absolute so it doesn't skew the icon off
+        centre. Renders ABOVE the back-to-hub row deliberately, not directly
+        above the title as first agreed: .exit-hub + .nav-title's own -16px
+        margin (below) is a real, pixel-measured hack that lands nav-title
+        on the exact same y as the page's own h1 - inserting a 44px icon
+        between them would break that alignment with no way to compress it
+        back out. Keeping exit-hub and nav-title immediately adjacent
+        preserves it; a plain hub with no back-to-hub row simply gets
+        icon-then-title with nothing to protect. Dropped entirely (not
+        reflowed into the icon-only column) when .collapsed - it's purely
+        decorative with no click target, so it doesn't earn a place in the
+        narrow rail the way every other row there does (live feedback).
+        Resolved centrally by URL prefix (portal.context_processors.hub_icon)
+        rather than threaded through every hub's own view context, so a new
+        hub can't forget to set it - empty (plain hub-less pages, e.g. the
+        MAT homepage) renders nothing.
+        {% endcomment %}
         <div class="nav-header-top-row">
-            <button type="button" class="collapse-toggle" id="sidebar-collapse-toggle" aria-label="Open menu">
+            {% if hub_icon %}
+            <div class="hub-icon-mark hub-icon-mark--solid" aria-hidden="true">{% include hub_icon %}</div>
+            {% endif %}
+            <button type="button" class="collapse-toggle" id="sidebar-collapse-toggle" aria-label="Toggle sidebar">
                 {% comment %}
-                Touch/tablet only now - CSS-hidden for a hover-capable pointer
-                (responsive.css), so this burger (menu_svg) is the only icon
-                this button ever shows (main.js updateToggleLabel keeps its
-                aria-label/tooltip text in sync with open/closed state).
+                The standard "toggle sidebar" glyph (rounded panel outline +
+                a vertical divider near the left edge - same symbol Canva/
+                Notion/VS Code all use) rather than a directional chevron -
+                it's a static "there's a panel here, tap to show/hide it"
+                icon, not an arrow, so it doesn't need to flip/rotate between
+                states. Covers both touch's open/close and desktop's
+                collapse/expand meaning with one icon - main.js
+                (updateToggleLabel) keeps its aria-label/tooltip text in sync
+                with whichever applies.
                 {% endcomment %}
-                <span class="menu-icon icon-tooltip-host" data-tooltip="Open menu">{% include 'icons/menu_svg.html' %}</span>
+                <span class="menu-icon icon-tooltip-host" data-tooltip="Toggle sidebar">{% include 'icons/sidebar_toggle_svg.html' %}</span>
                 <span class="collapse-toggle-label" id="sidebar-collapse-toggle-label">Menu</span>
             </button>
         </div>

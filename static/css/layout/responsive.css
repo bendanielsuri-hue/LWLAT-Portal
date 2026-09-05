@@ -73,13 +73,19 @@
     }
 }
 
-/* Collapse/expand toggle: desktop has no manual collapse control at all, so
-   this is hidden outright for a hover-capable pointer - a narrowed desktop
-   window locks the rail permanently below instead (nowhere to toggle to).
-   Touch keeps it visible up to 1180px instead (see the touch-expand block
-   below) - it's what temporarily widens the rail in place there. */
-html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
-    display: none;
+/* Collapse/expand toggle (#142): only hidden for a hover-capable pointer
+   within the already-locked <=1200px range (main.js's own narrowMql
+   threshold, matching the auto-collapse block at the top of this file) -
+   nothing to toggle to there, the rail is forced icon-only regardless of
+   this button. Above 1200px it's a real manual desktop control now (main.js
+   setupSidebarCollapse), reusing this exact button/class rather than adding
+   a second one. Touch keeps it visible up to 1180px throughout (see the
+   touch-expand block below) - it's what temporarily widens the rail in
+   place there. */
+@media (max-width: 1200px) {
+    html:not(.nav-touch-mode) .side-nav.hub-side .collapse-toggle {
+        display: none;
+    }
 }
 
 /* Tablet/touch rail expand-in-place (#114 follow-up, widened #129): touch
