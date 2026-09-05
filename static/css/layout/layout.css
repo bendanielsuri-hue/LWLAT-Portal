@@ -162,7 +162,6 @@ html, body {
 .side-nav.collapsed {
     width: 64px;
 }
-.side-nav.collapsed .nav-title,
 .side-nav.collapsed .nav-search,
 .side-nav.collapsed .nav-footer-divider {
     display: none;
@@ -231,6 +230,35 @@ html, body {
     padding-left: var(--space-xs);
     padding-right: var(--space-xs);
 }
+/* Matches .nav-menu's own collapsed gap (--space-xxs, below) - nav-header's
+   base gap (--space-sm, 12px) is tuned for the expanded header's own
+   roomier rows and read as a much bigger gap than the tightly-packed
+   collapsed rail rows below it (live feedback: "big gap between menu icon
+   and hub [Hub Menu switcher] - this should match gap between menu
+   items"). */
+.side-nav.collapsed .nav-header {
+    gap: var(--space-xxs);
+}
+/* Reserves the same header height the expanded state's icon mark + "Back
+   to hub" pill + title actually take up (pixel-measured via
+   getBoundingClientRect: 208px, padding+88px icon mark+12px gap+~24px pill+
+   title), so .nav-menu's first row lands on the same y whichever state
+   .side-nav is in instead of jumping up to fill the now-empty header (live
+   feedback: "get the menu page items to match the same position when
+   expanded" - first asked for tablet, then "this needs to work in desktop
+   mode as well with compact menu"). One shared number, not a per-platform
+   one - desktop and touch render the exact same header markup at the exact
+   same widths regardless of viewport width, so their expanded heights come
+   out identical; only how much of that height is actually filled at rest
+   differs (desktop keeps Settings/School's collapsed row further down
+   unaffected either way - this is header-only). Only the toggle occupies
+   this box at rest now (Hub Menu/back-icon both dropped from the collapsed
+   rail entirely, every platform - see the .hubs-trigger/.exit-hub rules
+   above) - the rest is intentionally blank reserved space, not filled with
+   anything (justify-content:flex-start, base .nav-header rule). */
+.side-nav.hub-side.collapsed .nav-header {
+    min-height: 208px;
+}
 /* Was flex-start, relying on exact-fit padding math (12px container + 2px
    row padding = the 44px icon pill's own width) to LOOK centred without
    actually being centred - that only holds as long as the row's content is
@@ -243,7 +271,7 @@ html, body {
    room on the left). center matches .hub-rail-item's own real approach
    (width:100% + justify-content:center, below) instead of reimplementing it
    by hand - robust regardless of what invisible content rides along. */
-.side-nav.collapsed a,
+.side-nav.collapsed a:not(.exit-hub),
 .side-nav.collapsed .nav-row-btn,
 .side-nav.collapsed .school-nav-option,
 .side-nav.collapsed .staff-nav-option {
@@ -264,7 +292,6 @@ html, body {
    the row's edge (live feedback: "hover effect looks cut off"). */
 .side-nav.collapsed.hub-side .nav-menu a,
 .side-nav.collapsed .nav-row-btn,
-.side-nav.collapsed .exit-hub,
 .side-nav.collapsed .school-nav-option,
 .side-nav.collapsed .staff-nav-option {
     padding: 0 var(--space-xxs);
@@ -282,13 +309,40 @@ html, body {
 .side-nav.hub-side.collapsed .hubs-trigger {
     display: flex;
 }
-/* Collapsed mode: centred like every other collapsed row (live feedback:
-   flex-start read as pushed too far right relative to the rest of the
-   rail) - matches .side-nav.collapsed a/.nav-row-btn/etc.'s own centring
-   above rather than the left-packed full-width-row treatment this used to
-   get back when it didn't share a row with .hub-icon-mark. */
-.side-nav.collapsed .nav-header-top-row {
-    justify-content: center;
+/* Hub Menu specifically (:not(.settings-trigger) - that class also carries
+   .hubs-trigger, further specificity than the two rules above so it wins
+   for this one only, leaving Settings' own display:none/flex toggle
+   untouched) - the header copy above the back button never un-hides now,
+   on any platform (live feedback: tablet's "lose the current hub button",
+   then desktop's own "lose the hub and selected hub button in compact rail
+   mode") - the footer stand-in below (.hub-menu-tablet-trigger, despite
+   its name, is desktop's own compact-rail stand-in too now) is the one
+   place Hub Menu is ever reached from this sidebar, on every platform. */
+.side-nav.hub-side .hubs-trigger:not(.settings-trigger) {
+    display: none;
+}
+/* Stand-in for the header's own (now permanently hidden) Hub Menu button
+   (_hub_sidebar.html) - tablet/touch only (responsive.css un-hides it for
+   both the collapsed rest state and .touch-expanded), NOT desktop's own
+   compact rail - live feedback there was explicit: "in desktop, I want hub
+   menu button gone. It is available if user expand menu. Better to keep it
+   simple" - desktop's collapsed rail drops Hub Menu with no stand-in at
+   all, reachable again the moment the rail is expanded (global hub-rail,
+   or the manual expand toggle). Touch genuinely needs one - the global rail
+   itself is hidden outright below 1180px (regardless of collapse state),
+   so without this there'd be no way to reach it there at all. */
+.side-nav.hub-side .hub-menu-tablet-trigger {
+    display: none;
+}
+/* School switcher: dropped from the compact/icon-only rail (desktop
+   locked-narrow, manually collapsed, or touch's rest state) - live
+   feedback wanted the rail's footer down to just Hub Menu/Settings there.
+   Still reachable via Settings (the settings-switch-school-group in
+   _settings_content.html) whenever this row itself is hidden. Un-hidden
+   again once expanded (desktop's own non-collapsed rail, or touch's
+   expand-in-place - both drop .collapsed). */
+.side-nav.collapsed .switch-school {
+    display: none;
 }
 .side-nav.collapsed .nav-row-btn {
     width: 100%;
@@ -325,13 +379,11 @@ html, body {
    height is left to size naturally off its real content instead of being
    forced to a computed total. */
 /* Collapse/expand toggle's own row, pinned to the top-right corner */
-/* Shares this row with .hub-icon-mark (#142) - centred via justify-content
+/* Shares this row with .hub-icon-mark (#142, live feedback: "I want the
+   app and expand to share the row") - centred via justify-content
    regardless of the toggle button also sitting in the row, since the
    toggle is pulled out of flex flow (position:absolute below) rather than
-   competing for space with the icon the way space-between would. margin-top
-   removed - was tuned for this row holding only the (28px) toggle button;
-   now the icon dominates the row's real height instead, so that old offset
-   no longer applies. */
+   competing for space with the icon the way space-between would. */
 .nav-header-top-row {
     position: relative;
     display: flex;
@@ -352,17 +404,17 @@ html, body {
     right: calc(var(--space-sm) - var(--space-lg));
     top: 0;
 }
-/* Collapsed: the icon is gone (display:none, above) and the toggle reverts
-   to a normal full-width flow row rather than staying pinned to the corner -
-   matches every other collapsed row's own full-width treatment. */
+/* Collapsed: the icon is pulled out of flow (position:absolute, above),
+   so the toggle is the only real content left in this row - back to a
+   plain centred flow item instead of the corner-pin above, which was
+   tuned against the icon/expanded-width layout and landed off-centre in
+   the narrow 64px rail (live feedback: "the menu icon is too far to the
+   right"). */
 .side-nav.collapsed .nav-header-top-row .collapse-toggle {
     position: static;
-    transform: none;
 }
 /* Same 44px box as .hub-rail-item's own icon (live feedback: "stay same
-   shape as it is in rail") - one consistent size/shape in every state
-   (expanded corner control, collapsed rail row) rather than a smaller
-   28px "corner control" shape that only matched the rail once collapsed. */
+   shape as it is in rail"). */
 .collapse-toggle {
     flex-shrink: 0;
     width: 44px;
@@ -408,6 +460,21 @@ html, body {
    (sidebar_toggle_svg.html), CSS just swaps which one shows, so it works
    identically whichever mode (touch open/close or desktop collapse/expand)
    set .collapsed. */
+/* Touch/tablet gets the plain menu/burger icon instead of the panel glyph -
+   same button, just swap which of the two already-rendered icon spans
+   shows (_hub_sidebar.html), same pattern as the panel glyph's own
+   fill-left/divider swap just below. .side-nav .menu-icon (further down
+   this file) sets display:flex at 2-class specificity AND comes later in
+   the file - three classes here beats that regardless of source order. */
+.side-nav .collapse-toggle .toggle-icon-touch {
+    display: none;
+}
+html.nav-touch-mode .side-nav .collapse-toggle .toggle-icon-desktop {
+    display: none;
+}
+html.nav-touch-mode .side-nav .collapse-toggle .toggle-icon-touch {
+    display: flex;
+}
 .collapse-toggle .sidebar-toggle-divider {
     display: none;
 }
@@ -456,16 +523,56 @@ html, body {
     color: #fff;
     border: 2px solid var(--primary-dark);
 }
-/* Collapsed rail (touch, or desktop above 1200px manually toggled): dropped
-   entirely rather than shrunk/reflowed into the icon-only column - it's
-   purely decorative (no click target, nothing it does), so it doesn't earn
-   a place in the narrow rail the way every other row there does. */
+/* Fades out (opacity) rather than an instant disappearance (live feedback:
+   "can the app icon fade out and in, not just disappear") - "Hub button"
+   in earlier live feedback turned out to mean the Hub Menu switcher, not
+   this icon (see _hub_sidebar.html). position:absolute while collapsed
+   pulls it out of the row's own flex flow - at 88px wide it doesn't fit
+   the 64px collapsed rail, and even invisible (opacity:0) its box was
+   still there to lay out against, skewing the toggle off-centre and
+   opening a gap before the next row (reported live: "the menu icon is too
+   far to the right", "big gap between menu icon and hub"). Taking it out
+   of flow here means the toggle is the row's only real flex item once
+   collapsed, so the row's own justify-content:center actually centres it. */
 .side-nav.collapsed .hub-icon-mark {
-    display: none;
+    opacity: 0;
+    position: absolute;
+    transition: opacity var(--transition-base);
 }
 
-/* "Back to hub" link: collapsed mode shows only the arrow; expanded mode reads
-   as a small secondary title centered above .nav-title. */
+/* Dropped from the collapsed/compact rail entirely, every platform (live
+   feedback: tablet's "lose the hub icon in rail", then desktop's own "lose
+   the hub ... button in compact rail mode") - it'd just be a bare, tapless
+   icon-only "which hub am I in" duplicate with nowhere to go (a real link,
+   but to the same place as tapping the rail's own expand toggle gets you
+   anyway). Expanded (.collapsed dropped, desktop's own non-collapsed rail
+   or touch's expand-in-place both included) keeps its real "SEND &
+   Provision"-style label pill unaffected - only the collapsed icon-only row
+   goes. */
+.side-nav.hub-side.collapsed .exit-hub {
+    display: none;
+}
+/* Wraps .exit-hub + .nav-title (_hub_sidebar.html) so hovering/focusing
+   either one highlights both as one visual unit (live feedback: "can back
+   button and hub name look like same button when hovered") - plain
+   :hover/:focus-within on this wrapper already fires for the wrapper
+   itself or any descendant, no JS/:has() needed. gap matches nav-header's
+   own former gap between these two rows (they used to be direct siblings
+   there) so nothing shifts now that they're nested one level deeper. */
+.nav-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    /* .nav-header has align-items:flex-start (not the flex default
+       "stretch") - .exit-hub/.nav-title both already set their own
+       align-self:stretch to fill whichever parent they're in regardless,
+       but that only stretches them to *this* group's own width, and
+       without this, the group itself shrink-wrapped to its content's
+       natural width instead of nav-header's real 240px, dragging the pill
+       and title left of centre under the icon (reported live as
+       everything "looking offset"). */
+    align-self: stretch;
+}
 .exit-hub {
     padding: 11px 14px;
 }
@@ -475,20 +582,27 @@ html, body {
     white-space: nowrap;
     transition: opacity var(--transition-fast);
 }
-.side-nav:not(.collapsed) .exit-hub:hover .menu-label,
-.side-nav:not(.collapsed) .exit-hub:focus-visible .menu-label {
+.nav-title-group:hover .menu-label,
+.nav-title-group:focus-within .menu-label {
     opacity: 1;
 }
-.side-nav:not(.collapsed) .exit-hub {
+/* .side-nav.hub-side (3 classes), not a bare .exit-hub - needs to beat the
+   generic .side-nav .nav-row-btn {display:flex} rule (2 classes, further
+   down this file) which .exit-hub also matches (it carries both classes,
+   _hub_sidebar.html) - lost that fight after a refactor dropped this rule
+   to 1-class specificity, silently reverting to the plain icon+label row
+   look (reported live: back-to-hub showed its arrow icon again instead of
+   the centred pill). */
+.side-nav.hub-side .exit-hub {
     display: block;
     align-self: stretch;
     text-align: center;
     padding: 0;
 }
-.side-nav:not(.collapsed) .exit-hub .menu-icon {
+.side-nav.hub-side .exit-hub .menu-icon {
     display: none;
 }
-.side-nav:not(.collapsed) .exit-hub .menu-label {
+.side-nav.hub-side .exit-hub .menu-label {
     opacity: 1;
     /* Matches .breadcrumbs' own font-size (navigation.css) - the two are the
        same kind of "where am I" wayfinding text, one per layout tree, so
@@ -522,23 +636,44 @@ html, body {
 /* Same hover treatment as .breadcrumbs a:hover (navigation.css) - primary-
    light fill + active-text colour + the fake-bold text-shadow trick (not a
    real weight change, though this label is already 600 at rest so there's
-   no wrap risk here either way - kept for the identical hover recipe). */
-.side-nav:not(.collapsed) .exit-hub:hover .menu-label,
-.side-nav:not(.collapsed) .exit-hub:focus-visible .menu-label {
+   no wrap risk here either way - kept for the identical hover recipe).
+   Triggered by the shared .nav-title-group wrapper (above), not .exit-hub
+   alone, so hovering/focusing .nav-title lights this pill up too. */
+/* .side-nav.hub-side (5 class-equivalents with :hover/:focus-within) - the
+   shared .side-nav .nav-row-btn:hover .menu-label nudge (translateX(3px),
+   further down this file) is 4, and exit-hub carries the nav-row-btn class
+   too, so a same-or-lower-specificity override here previously lost that
+   fight regardless of source order (reported live: "hub button [the back-
+   to-hub pill] should not move on hover" - it was sliding sideways). */
+.side-nav.hub-side .nav-title-group:hover .menu-label,
+.side-nav.hub-side .nav-title-group:focus-within .menu-label {
     background: var(--primary-light);
     color: var(--active-text);
     text-shadow: var(--hover-fake-bold);
-    /* Overrides the shared nav-row-btn nudge (translateX(3px), further up
-       this file) - this label is centred as its own pill/chip, not part of
-       a left-aligned icon+label row, so the sideways slide read as an odd
-       wobble rather than the row-nudge feedback it works as everywhere
-       else. Fill + bold text alone carry the hover here. */
+    /* This label is centred as its own pill/chip, not part of a left-
+       aligned icon+label row, so the sideways slide read as an odd wobble
+       rather than the row-nudge feedback it works as everywhere else. Fill
+       + bold text alone carry the hover here. */
     transform: none;
 }
-.side-nav:not(.collapsed) .exit-hub:hover,
-.side-nav:not(.collapsed) .exit-hub:focus-visible {
+.exit-hub:hover,
+.exit-hub:focus-visible {
     background: transparent;
     transform: none;
+}
+/* .nav-title reacts too once either row in the group is hovered/focused,
+   but colour-only (no background fill) - a filled pill big enough for this
+   much larger title text read as a heavy, oversized block rather than a
+   subtle "this is part of the same control" cue (live feedback: "the hover
+   is affecting app name" - the fill specifically, not the highlight
+   itself). The small pill above stays the only actual filled chip; this
+   just confirms the two react together. Only meaningful when nav-title is
+   the nav-title-link variant (a real link to back_to_hub_url,
+   _hub_sidebar.html) - a plain hub's nav-title has no .nav-title-group
+   sibling to react to and isn't clickable anyway. */
+.nav-title-group:hover .nav-title-link,
+.nav-title-group:focus-within .nav-title-link {
+    color: var(--primary-dark);
 }
 /* Pulls .nav-title closer to the exit-hub label so the two read as one
    stacked title pair, and lands "Inclusion Panel" on the same y as the page
@@ -553,47 +688,28 @@ html, body {
    *values* never produced matching visual gaps - the sidebar always had
    12px baked in on top.
 
-   Now that .exit-hub's own row matches .breadcrumbs' height exactly (24px
-   each, both padding: 3px 8px + line-height: 1.4 - see .exit-hub .menu-label
-   above), the two trees are symmetric: exit-hub bottom == breadcrumbs
-   bottom == 44.19, h1 top = 38.19 (margin -6px). Solving
-   44.19 + 12 (gap) + margin = 38.19 gives margin = -18 for exact alignment;
-   -16px nudges 2px of that back in as deliberate breathing room (live
-   feedback), at the cost of the exact h1 alignment (now ~2px lower than
-   the page title).
-
-   The "titles collide on hover" report that briefly pushed this to -10px
-   turned out to be a different, unrelated bug - the global rail's own
-   tooltip card (not this margin) overlapping the sidebar header when
-   hovering the rail's top icon. See #<ticket> for that; reverted this back
-   to -16px since it wasn't actually the cause. */
-.side-nav:not(.collapsed) .exit-hub + .nav-title {
+   .exit-hub's own row matches .breadcrumbs' height exactly (24px each,
+   both padding: 3px 8px + line-height: 1.4 - see .exit-hub .menu-label
+   above), so the two trees are symmetric: exit-hub bottom == breadcrumbs
+   bottom == 44.19, h1 top = 38.19. Solving 44.19 + 12 (gap) + margin =
+   38.19 gives margin = -18 for exact alignment; -16px nudges 2px of that
+   back in as deliberate breathing room (live feedback), at the cost of the
+   exact h1 alignment (now ~2px lower than the page title). (A same-height-
+   as-menu-rows version of .exit-hub was tried and reverted - live feedback
+   settled on "Y is not important for these" instead, so this reverts to
+   its original short pill height and this original -16px.) */
+.exit-hub + .nav-title {
     margin-top: -16px;
 }
-/* Touch/tablet's temporary single-rail expand (.touch-expanded, main.js
-   openTouchExpand) shows every other row as icon+label (Hubs stand-in,
-   local_menu, Settings) - Back to hub losing its icon to read as a
-   centered title-only row (desktop's permanently-expanded sidebar
-   treatment above) made it the odd one out here. Restore the normal
-   icon+label row so it matches its neighbours in this state. */
-.side-nav.touch-expanded .exit-hub {
-    display: flex;
-    align-items: center;
-    text-align: left;
-    padding: 11px 14px;
-}
-.side-nav.touch-expanded .exit-hub .menu-icon {
-    display: flex;
-}
-.side-nav.touch-expanded .exit-hub .menu-label {
-    opacity: 1;
-    font-size: inherit;
-    font-weight: 400;
-    color: inherit;
-}
-.side-nav.touch-expanded .exit-hub + .nav-title {
-    margin-top: 0;
-}
+/* Touch/tablet's temporary single-rail expand (.touch-expanded) used to
+   force Back to hub into an icon+label row here (rather than desktop's
+   centered pill above) and drop it outright once responsive.css's own
+   expand-in-place feature shipped (a real row was reportedly too tall for
+   the shorter touch layout) - live feedback wants it back, matching
+   desktop exactly. No override needed any more: .touch-expanded removes
+   .collapsed (main.js), so the .exit-hub pill
+   rules above already apply here unaided once responsive.css stops
+   force-hiding it (see the .exit-hub display:none carve-out there). */
 
 .side-nav .nav-scroll {
     flex: 1;
@@ -1307,7 +1423,28 @@ main { position: relative; }
    the base --font-4xl above. */
 .side-nav.hub-side .nav-title {
     color: var(--primary);
-    font-size: var(--font-5xl);
+    /* Was --font-5xl (matching .page-heading h1 exactly, see the comment
+       above) - live feedback wanted it a touch smaller, and settling here
+       also lets touch/tablet's own nav-title (responsive.css) match this
+       exact size instead of needing its own smaller override. */
+    font-size: var(--font-3xl);
+    /* Fixed height (not auto) so this row's own reserved space (below)
+       never depends on how many lines it wraps to - it otherwise wrapped
+       differently at the collapsed rail's narrower padding (.nav-header
+       above) even while invisible, which defeated the point of reserving
+       space at all (live feedback: "I still want the menu icons to be at
+       same Y position"). Matches its old 2-line max at the touch rail's
+       own 280px width. */
+    height: 56px;
+    overflow: hidden;
+}
+/* display:none, not just visibility:hidden - no longer reserving this
+   space while collapsed (live feedback: "Y is not important for these",
+   "they need to appear one after another... using normal spacing" - a
+   dead 56px gap between the back button and .nav-menu read as broken
+   spacing, not "tight". */
+.side-nav.collapsed .nav-title {
+    display: none;
 }
 .nav-title-link {
     display: block;
@@ -2120,12 +2257,19 @@ html.nav-touch-mode .list-card .entity-list::-webkit-scrollbar {
     font-weight: 600;
     color: var(--text-secondary);
 }
-/* Touch/tablet only - see responsive.css's .nav-touch-mode block, which
-   un-hides this alongside hiding the sidebar's own standalone Switch
-   School row (desktop keeps that one instead, so this would otherwise be
-   a duplicate there). */
+/* Un-hidden below whenever the sidebar's own standalone Switch School row
+   is hidden (a real duplicate otherwise) - touch/tablet always (responsive.css),
+   or any collapsed icon-only rail (desktop locked-narrow or manually
+   collapsed - .switch-school is dropped from that rail too, above). */
 .settings-switch-school-group {
     display: none;
+}
+/* :has() rather than a shared ancestor - the Settings overlay
+   (.settings-nav, _settings_content.html) and the hub sidebar are separate
+   subtrees under <body>, not nested. Same pattern this file already uses
+   for .global-nav:has(.side-nav.hub-side.collapsed) above. */
+body:has(.side-nav.hub-side.collapsed) .settings-switch-school-group {
+    display: flex;
 }
 
 /* Primary colour swatches */

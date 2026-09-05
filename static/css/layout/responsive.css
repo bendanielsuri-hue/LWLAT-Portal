@@ -26,7 +26,14 @@
     .hub-rail {
         display: none;
     }
-    .side-nav:not(.overlay-nav) .nav-title,
+    /* .nav-title excluded from this list now (used to be here too) - it
+       needs to keep its real display:block/height at every width so its
+       reserved space (layout.css, visibility:hidden not display:none) stays
+       consistent between collapsed/expanded and .nav-menu below it never
+       shifts Y position (live feedback: "I still want the menu icons to be
+       at same Y position"). A bare width-based display:none here fired
+       regardless of collapsed state, which zeroed that reserved space out
+       at rest specifically, undoing the whole point. */
     .side-nav:not(.overlay-nav) .nav-search,
     .side-nav:not(.overlay-nav) .nav-footer-divider {
         display: none;
@@ -172,14 +179,9 @@
     html.nav-touch-mode .side-nav.hub-side.touch-expanded .side-nav-inner {
         width: 280px;
     }
-    /* Back-to-hub is a full extra row here on top of Hub Menu doing the same
-       "leave this hub" job one tap further in - tablet's tighter vertical
-       space (rows for local_menu, Hub Menu, Settings, School, Staff all
-       competing) drops it in this mode only. Desktop keeps it (both the
-       expanded centred-title treatment and the manual-collapse icon row). */
-    html.nav-touch-mode .side-nav.hub-side .exit-hub {
-        display: none;
-    }
+    /* No touch-specific exit-hub hide needed here any more - it's inside
+       .nav-identity-group now (_hub_sidebar.html), which already hides
+       outright whenever .collapsed (layout.css) - touch rest included. */
 
     /* Undoes the plain forced-icon-only styling the <=900px auto-collapse
        block above still applies by bare width regardless of .collapsed -
@@ -189,32 +191,11 @@
     html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-search {
         display: block;
     }
-    /* nav-title (the app name) is the one row that doesn't exist at all in
-       collapsed rail mode - unlike every other row below, it isn't already
-       on screen waiting to be relabelled. Reserves its space at rest too
-       (display:block, not none) so opening never has to grow a height into
-       existence - just fades the text in. .side-nav-inner (above) is only
-       pinned to 280px wide once .touch-expanded - at rest it's back to
-       ~64px, so this invisible text would wrap into many more, much
-       shorter lines there than its 1-2 lines at 280px, making the row
-       itself taller at rest and pushing every row below down further than
-       in the expanded state (rail-mode icons sitting lower than expanded's).
-       Fixed height + overflow:hidden clips that - safe since it's opacity:0
-       at rest anyway, nothing visible to clip. Smaller font than desktop's
-       own --font-4xl nav-title - that size read as oversized in this
-       narrower 280px rail, and read as excess padding around a hub name
-       that's often just one line anyway. */
-    html.nav-touch-mode .side-nav.hub-side .nav-title {
-        display: block;
-        height: 56px;
-        overflow: hidden;
-        font-size: var(--font-2xl);
-        opacity: 0;
-        transition: opacity var(--transition-base);
-    }
-    html.nav-touch-mode .side-nav.hub-side.touch-expanded .nav-title {
-        opacity: 1;
-    }
+    /* No .nav-title/.hub-icon-mark overrides needed here any more - both
+       keep their real display at every width now, only ever toggling
+       visibility (layout.css, keyed on .collapsed) - which already covers
+       touch rest/expanded the same way it covers desktop's manual toggle,
+       with nothing touch-specific left to override. */
     /* Replaced with one above Hub Menu instead (both rest and expanded) -
        separates it/Settings from the local_menu list above now that they've
        moved down into .nav-footer together. */
@@ -245,14 +226,30 @@
         padding-left: var(--space-sm);
         padding-right: var(--space-sm);
     }
-    /* Hub Menu/Settings triggers: normally only shown as the icon-only
-       .collapsed rail's stand-in for the global hub-rail (layout.css) - the
-       rail is unreachable at this width regardless of collapse state
-       (hidden outright, base <=900px block above), and .touch-expanded
-       drops .collapsed while open, so force them visible here too or Hub
-       Menu/Settings would have no way to be reached at all while
-       expanded. */
-    html.nav-touch-mode .side-nav.hub-side.touch-expanded .hubs-trigger {
+    /* Settings: normally only shown as the icon-only .collapsed rail's
+       stand-in for the global hub-rail (layout.css) - the rail is
+       unreachable at this width regardless of collapse state (hidden
+       outright, base <=900px block above), and .touch-expanded drops
+       .collapsed while open, so force it visible here too or Settings would
+       have no way to be reached at all while expanded. Scoped to
+       .settings-trigger specifically, not the bare .hubs-trigger class it
+       also carries - Hub Menu's own header copy is permanently hidden now
+       (layout.css, "lose the hub button" - both tablet and desktop), and a
+       bare .hubs-trigger selector here would have re-shown it against that
+       rule (5 classes+html beats that rule's 4). The footer's own Hub Menu
+       stand-in (.hub-menu-tablet-trigger, layout.css) still needs its own
+       separate un-hide just below - .touch-expanded dropping .collapsed
+       affects it exactly the same way. */
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .settings-trigger {
+        display: flex;
+    }
+    /* Footer Hub Menu stand-in (layout.css): touch only, both states it can
+       be in here - rest (.collapsed, desktop's own compact rail doesn't get
+       this at all any more, see the layout.css comment) and .touch-expanded
+       (which drops .collapsed, so needs its own separate un-hide same as
+       Settings above). */
+    html.nav-touch-mode .side-nav.hub-side.collapsed .hub-menu-tablet-trigger,
+    html.nav-touch-mode .side-nav.hub-side.touch-expanded .hub-menu-tablet-trigger {
         display: flex;
     }
     /* The <=900px base block above already hides .hub-rail there (it

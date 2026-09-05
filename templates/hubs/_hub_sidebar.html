@@ -29,29 +29,26 @@ CSS only hides the button itself within that already-locked range
     <div class="side-nav-inner">
     <div class="nav-header">
         {% comment %}
-        Sidebar identity icon (#142) - bare, rail-matching treatment (same
-        rounded-square box as .hub-rail-item's own svg, no permanent fill)
-        rather than the rejected circular badge, so it reads as the same
-        icon language as the global rail rather than a third shape. Shares
-        this row with the collapse-toggle (to its right, live feedback) -
-        the icon stays horizontally centred in the row regardless
+        Icon shares this row with the collapse-toggle (to its right) - the
+        icon stays horizontally centred in the row regardless
         (justify-content:center, layout.css), the toggle is pulled out of
         that centring via position:absolute so it doesn't skew the icon off
-        centre. Renders ABOVE the back-to-hub row deliberately, not directly
-        above the title as first agreed: .exit-hub + .nav-title's own -16px
-        margin (below) is a real, pixel-measured hack that lands nav-title
-        on the exact same y as the page's own h1 - inserting a 44px icon
-        between them would break that alignment with no way to compress it
-        back out. Keeping exit-hub and nav-title immediately adjacent
-        preserves it; a plain hub with no back-to-hub row simply gets
-        icon-then-title with nothing to protect. Dropped entirely (not
-        reflowed into the icon-only column) when .collapsed - it's purely
-        decorative with no click target, so it doesn't earn a place in the
-        narrow rail the way every other row there does (live feedback).
-        Resolved centrally by URL prefix (portal.context_processors.hub_icon)
-        rather than threaded through every hub's own view context, so a new
-        hub can't forget to set it - empty (plain hub-less pages, e.g. the
-        MAT homepage) renders nothing.
+        centre (live feedback: "I want the app [icon] and expand [toggle]
+        to share the row"). Renders ABOVE the back-to-hub row deliberately,
+        not directly above the title: .exit-hub + .nav-title's own -16px
+        margin (layout.css) is a real, pixel-measured hack that lands
+        nav-title on the exact same y as the page's own h1 - inserting the
+        icon between them would break that alignment with no way to
+        compress it back out. Keeping exit-hub and nav-title immediately
+        adjacent preserves it; a plain hub with no back-to-hub row simply
+        gets icon-then-title with nothing to protect. Icon just disappears
+        outright while collapsed now (plain display:none, layout.css) -
+        live feedback: "on compact can the icon just disappear" - no fade/
+        reserved-space machinery. Resolved centrally by URL prefix
+        (portal.context_processors.hub_icon) rather than threaded through
+        every hub's own view context, so a new hub can't forget to set it -
+        empty (plain hub-less pages, e.g. the MAT homepage) renders
+        nothing.
         {% endcomment %}
         <div class="nav-header-top-row">
             {% if hub_icon %}
@@ -59,17 +56,24 @@ CSS only hides the button itself within that already-locked range
             {% endif %}
             <button type="button" class="collapse-toggle" id="sidebar-collapse-toggle" aria-label="Toggle sidebar">
                 {% comment %}
-                The standard "toggle sidebar" glyph (rounded panel outline +
+                Desktop: the "toggle sidebar" glyph (rounded panel outline +
                 a vertical divider near the left edge - same symbol Canva/
                 Notion/VS Code all use) rather than a directional chevron -
                 it's a static "there's a panel here, tap to show/hide it"
                 icon, not an arrow, so it doesn't need to flip/rotate between
-                states. Covers both touch's open/close and desktop's
-                collapse/expand meaning with one icon - main.js
-                (updateToggleLabel) keeps its aria-label/tooltip text in sync
-                with whichever applies.
+                states. Touch/tablet gets the plain menu/burger icon instead
+                (same glyph the mobile bottom tabbar's own Menu tab uses,
+                icons/menu_svg.html) - live feedback preferred it there,
+                CSS-swapped on html.nav-touch-mode (layout.css) rather than
+                the panel glyph's own internal fill/divider swap, since this
+                is a genuinely different icon rather than a state variant of
+                the same one. main.js (updateToggleLabel) keeps both spans'
+                aria-label/tooltip text in sync with whichever applies -
+                querySelectorAll('.icon-tooltip-host') already covers
+                whichever of the two is actually visible.
                 {% endcomment %}
-                <span class="menu-icon icon-tooltip-host" data-tooltip="Toggle sidebar">{% include 'icons/sidebar_toggle_svg.html' %}</span>
+                <span class="menu-icon toggle-icon-desktop icon-tooltip-host" data-tooltip="Toggle sidebar">{% include 'icons/sidebar_toggle_svg.html' %}</span>
+                <span class="menu-icon toggle-icon-touch icon-tooltip-host" data-tooltip="Toggle sidebar">{% include 'icons/menu_svg.html' %}</span>
                 <span class="collapse-toggle-label" id="sidebar-collapse-toggle-label">Menu</span>
             </button>
         </div>
@@ -85,13 +89,41 @@ CSS only hides the button itself within that already-locked range
         in-app search rather than the portal-wide app-switcher search, so it
         stays reachable only from the expanded global rail.
         {% endcomment %}
-        {% if back_to_hub_url %}
-        <a href="{{ back_to_hub_url }}" class="exit-hub nav-row-btn icon-tooltip-host" data-tooltip="{{ back_to_hub_label }}">
-            <span class="menu-icon">{% include 'icons/arrow_left_svg.html' %}</span>
-            <span class="menu-label">{{ back_to_hub_label }}</span>
-        </a>
-        {% endif %}
-        <div class="nav-title">{{ hub_title }}</div>
+        {% comment %}
+        Hub Menu: the collapsed-only stand-in for the hidden global rail
+        (only reachable this way once the rail hides itself, see the
+        comment above) - moved here, above the back button, out of
+        nav-footer (live feedback: "hub button need to move to top... above
+        the back button"). No Y-position reservation for this one (live
+        feedback: "do not worry about y on hub button") - it only ever
+        shows collapsed, so nothing needs to hold its space open while
+        expanded.
+        {% endcomment %}
+        <button type="button" class="hubs-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#hubs-nav-overlay" aria-label="Hub Menu" data-tooltip="Hub Menu">
+            <span class="menu-icon">{% include 'icons/switch_apps_svg.html' %}</span>
+            <span class="menu-label">Hub Menu</span>
+        </button>
+        {% comment %}
+        .nav-title-group wraps the back-to-hub pill and the hub name so
+        hovering either one highlights both as one visual unit (live
+        feedback: "can back button and hub name look like same button when
+        hovered") - plain CSS :hover on the wrapper already fires whenever
+        the mouse is over it or any descendant, no JS/:has() needed. Title
+        becomes a real link to the same back_to_hub_url too (nav-title-link,
+        already used elsewhere for a clickable title) rather than just
+        looking clickable without being it.
+        {% endcomment %}
+        <div class="nav-title-group">
+            {% if back_to_hub_url %}
+            <a href="{{ back_to_hub_url }}" class="exit-hub nav-row-btn icon-tooltip-host" data-tooltip="{{ back_to_hub_label }}">
+                <span class="menu-icon">{% if hub_icon %}{% include hub_icon %}{% else %}{% include 'icons/arrow_left_svg.html' %}{% endif %}</span>
+                <span class="menu-label">{{ back_to_hub_label }}</span>
+            </a>
+            <a href="{{ back_to_hub_url }}" class="nav-title nav-title-link">{{ hub_title }}</a>
+            {% else %}
+            <div class="nav-title">{{ hub_title }}</div>
+            {% endif %}
+        </div>
     </div>
     <div class="nav-scroll">
         <ul class="nav-menu">
@@ -102,24 +134,13 @@ CSS only hides the button itself within that already-locked range
     </div>
     <div class="nav-footer">
         {% comment %}
-        Tablet/touch only (responsive.css, hidden by default in layout.css) -
-        desktop's manually-collapsed rail shares this same Hub Menu button
-        but doesn't get a divider above it; School/Staff below already have
-        their own .nav-footer-divider there.
+        User/School/Settings, in that order (live feedback: "at the bottom
+        should be User, then school then setting") - was Settings/School/
+        Staff. Divider moved up here with them (was between School and
+        Staff) so it still separates the hub-switching row above from this
+        identity/settings group below, rather than splitting the group
+        itself in the middle.
         {% endcomment %}
-        <div class="nav-header-divider hub-menu-divider"></div>
-        <button type="button" class="hubs-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#hubs-nav-overlay" aria-label="Hub Menu" data-tooltip="Hub Menu">
-            <span class="menu-icon">{% include 'icons/switch_apps_svg.html' %}</span>
-            <span class="menu-label">Hub Menu</span>
-        </button>
-        <button type="button" class="settings-trigger hubs-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#settings-nav-overlay" aria-label="Settings" data-tooltip="Settings">
-            <span class="menu-icon">{% include 'icons/cog_svg.html' %}</span>
-            <span class="menu-label">Settings</span>
-        </button>
-        <button type="button" class="switch-school nav-row-btn icon-tooltip-host" data-overlay-target="#school-nav-overlay" data-tooltip="{{ current_school_label }}">
-            <span class="menu-icon">{% if logo_url %}<img src="{{ logo_url }}" alt="" class="school-logo-img">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}</span>
-            <span class="menu-label school-current-label">{{ current_school_label }}</span>
-        </button>
         {% if current_staff_list %}
         <div class="nav-footer-divider"></div>
         <button type="button" class="switch-staff nav-row-btn current-user-trigger icon-tooltip-host" data-overlay-target="#staff-nav-overlay" data-tooltip="{{ current_staff.first_name }} {{ current_staff.last_name }}">
@@ -131,6 +152,32 @@ CSS only hides the button itself within that already-locked range
             </span>
         </button>
         {% endif %}
+        <button type="button" class="switch-school nav-row-btn icon-tooltip-host" data-overlay-target="#school-nav-overlay" data-tooltip="{{ current_school_label }}">
+            <span class="menu-icon">{% if logo_url %}<img src="{{ logo_url }}" alt="" class="school-logo-img">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}</span>
+            <span class="menu-label school-current-label">{{ current_school_label }}</span>
+        </button>
+        {% comment %}
+        Tablet-expanded-only stand-in for the header's own Hub Menu button
+        (live feedback: "hub menu needs to be above settings in tablet so
+        that it shows up when expanded") - the header one (.hubs-trigger
+        above) only ever un-hides on .collapsed (fade+height trick just
+        above), and touch-expand (main.js) drops .collapsed in favour of
+        .touch-expanded, so it stayed permanently height:0 there with no
+        way to reach the global rail's hub-switcher once expanded on
+        tablet. Rather than teach that same rule about a second class too,
+        this is a separate row, hidden everywhere by default and shown only
+        for .touch-expanded (below) - grouped with School/Settings here
+        since that's the only place it's ever visible, not up in the header
+        alongside the icon/back button/title cluster.
+        {% endcomment %}
+        <button type="button" class="hub-menu-tablet-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#hubs-nav-overlay" aria-label="Hub Menu" data-tooltip="Hub Menu">
+            <span class="menu-icon">{% include 'icons/switch_apps_svg.html' %}</span>
+            <span class="menu-label">Hub Menu</span>
+        </button>
+        <button type="button" class="settings-trigger hubs-trigger nav-row-btn icon-tooltip-host" data-overlay-target="#settings-nav-overlay" aria-label="Settings" data-tooltip="Settings">
+            <span class="menu-icon">{% include 'icons/cog_svg.html' %}</span>
+            <span class="menu-label">Settings</span>
+        </button>
     </div>
     </div>
 </nav>
