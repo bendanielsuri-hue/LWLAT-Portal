@@ -972,6 +972,18 @@ def _response_groups(referral):
     return groups
 
 
+def _student_id_filter(request):
+    # Row-click links (Students/Referrals -> Actions, and the Student/
+    # Referrals/Actions links in search results) pass this alongside the
+    # display-only `name` param so two students sharing a name resolve to
+    # an exact row instead of both matching a text search - see issue #13
+    # follow-up. Cleared client-side (main.js) the moment the user edits
+    # the name-search box by hand, so it never pins a stale student once
+    # they start typing a new search.
+    raw = request.GET.get('student') or ''
+    return int(raw) if raw.isdigit() else None
+
+
 def _token_name_filter(tokens, *fields):
     # Every whitespace-separated token must match somewhere across the given
     # fields (AND across tokens, OR across fields per token) - "Be S" finds
@@ -1088,7 +1100,10 @@ def inclusion_panel_search(request):
     actions_url = reverse('inclusion_panel_actions')
 
     def name_param(student):
-        return f'name={quote(f"{student.first_name} {student.last_name}")}'
+        # `student=<id>` makes the match exact even when another student
+        # shares this name; `name=` stays alongside it purely to populate
+        # the destination page's search box with something readable.
+        return f'name={quote(f"{student.first_name} {student.last_name}")}&student={student.id}'
 
     results = []
 
@@ -1292,6 +1307,7 @@ def inclusion_panel_students(request):
     is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
 
     name_filter = request.GET.get('name') or ''
+    student_filter = _student_id_filter(request)
     year_filter = request.GET.get('year') or ''
     house_filter = request.GET.get('house') or ''
     reg_filter = request.GET.get('reg') or ''
@@ -1345,8 +1361,10 @@ def inclusion_panel_students(request):
         # above at all.
         has_overdue_actions=Exists(overdue_actions_subquery),
     ).select_related('school', 'form_tutor').prefetch_related('attendance_days', 'behaviour_incidents')
-    if name_filter:
-        students = students.filter(_token_name_filter(name_filter.split(), 'first_name', 'last_name'))
+    if student_filter:
+        students = students.filter(pk=student_filter)
+    elif name_filter:
+        students = students.filter(_token_name_filter(name_filter.split(), 'first_name', 'last_name', 'admission_number'))
     if year_filter:
         students = students.filter(year_group=year_filter)
     if house_filter:
@@ -1499,6 +1517,7 @@ def inclusion_panel_students(request):
         'has_houses': has_houses,
         'houses': houses,
         'name_filter': name_filter,
+        'student_filter': student_filter or '',
         'year_filter': year_filter,
         'house_filter': house_filter,
         'reg_filter': reg_filter,
@@ -1543,6 +1562,7 @@ def inclusion_panel_referrals(request):
     current_staff = _current_staff(request)
 
     name_filter = request.GET.get('name') or ''
+    student_filter = _student_id_filter(request)
     status_filter = request.GET.get('status') or ''
     # Status (lifecycle: active/closed) and Panel Stage (where in the panel
     # process - unassigned/assigned/discussing/review tiers) are two
@@ -1604,9 +1624,11 @@ def inclusion_panel_referrals(request):
     )
     if academic_year_filter:
         referrals_qs = referrals_qs.filter(referral__academic_year_id=academic_year_filter)
-    if name_filter:
+    if student_filter:
+        referrals_qs = referrals_qs.filter(student_id=student_filter)
+    elif name_filter:
         referrals_qs = referrals_qs.filter(
-            _token_name_filter(name_filter.split(), 'student__first_name', 'student__last_name')
+            _token_name_filter(name_filter.split(), 'student__first_name', 'student__last_name', 'student__admission_number')
         )
     if status_filter == 'active':
         referrals_qs = referrals_qs.exclude(status='closed')
@@ -1718,6 +1740,7 @@ def inclusion_panel_referrals(request):
         'status_choices': InclusionReferral.STATUS_CHOICES,
         'staff_list': staff_queryset_for_school_key(school_key),
         'name_filter': name_filter,
+        'student_filter': student_filter or '',
         'status_filter': status_filter,
         'stage_filter': stage_filter,
         'stage_choices': stage_choices,
@@ -2178,6 +2201,7 @@ def inclusion_panel_actions(request):
     next_week_end = week_end + datetime.timedelta(days=7)
 
     name_filter = request.GET.get('name') or ''
+    student_filter = _student_id_filter(request)
     category_filter = request.GET.get('category') or ''
     assigned_filter = request.GET.get('assigned') or ''
     # Who raised the referral this action belongs to - not the action's own
@@ -2243,9 +2267,14 @@ def inclusion_panel_actions(request):
     if academic_year_filter:
         actions_qs = actions_qs.filter(academic_year_id=academic_year_filter)
 
-    if name_filter:
+    if student_filter:
+        actions_qs = actions_qs.filter(referral__student_id=student_filter)
+    elif name_filter:
         actions_qs = actions_qs.filter(
-            _token_name_filter(name_filter.split(), 'referral__student__first_name', 'referral__student__last_name')
+            _token_name_filter(
+                name_filter.split(),
+                'referral__student__first_name', 'referral__student__last_name', 'referral__student__admission_number',
+            )
         )
     if category_filter:
         actions_qs = actions_qs.filter(category_id=category_filter)
@@ -2377,6 +2406,7 @@ def inclusion_panel_actions(request):
         'week_start': week_start,
         'week_end': week_end,
         'name_filter': name_filter,
+        'student_filter': student_filter or '',
         'category_filter': category_filter,
         'assigned_filter': assigned_filter,
         'referred_by_filter': referred_by_filter,

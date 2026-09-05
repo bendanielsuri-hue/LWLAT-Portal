@@ -8,4 +8,4 @@ class PanelConfig(AppConfig):
     # Shown in the footer on /inclusion/panel/... pages - versions separately
     # from the SEND & Provision hub above it, since Panel is its own
     # AppConfig (label='panel') and evolves independently - see docs/adr/0011.
-    VERSION = '0.1.1'
+    VERSION = '0.1.2'
