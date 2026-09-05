@@ -101,8 +101,8 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=455">
-    <script src="{% static 'js/main.js' %}?v=245" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=464">
+    <script src="{% static 'js/main.js' %}?v=247" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -131,6 +131,44 @@
             <button type="button" class="hub-rail-item icon-tooltip-host nav-row-btn" data-overlay-target="#settings-nav-overlay" data-tooltip="Settings" aria-label="Settings">{% include 'icons/cog_svg.html' %}</button>
             </div>
         </nav>
+        {% comment %}
+        Mirrors main.js's own positionHubRailSeam() but runs synchronously
+        the instant the rail markup above has been parsed, same reasoning/
+        pattern as the hub-sidebar-nav sync script further down this file -
+        without it, the seam/fill (layout.css's .js-preload rules just above
+        it, matching the ones here) default to "no active item" and only
+        get cut into their real notched shape once main.js's deferred script
+        measures the active icon, which can paint visibly in between on a
+        page load. Kept a duplicate of positionHubRailSeam rather than
+        exposing that closure-local function globally to call from here -
+        main.js still runs its own copy afterwards as normal, a no-op once
+        this already got it right.
+        {% endcomment %}
+        <script>
+        (function () {
+            var rail = document.querySelector('.hub-rail-inner');
+            var seamTop = document.getElementById('hub-rail-seam-top');
+            var seamBottom = document.getElementById('hub-rail-seam-bottom');
+            var activeFill = document.getElementById('hub-rail-active-fill');
+            if (!rail || !seamTop || !seamBottom || !activeFill) return;
+            try {
+                var active = rail.querySelector('.hub-rail-item.active');
+                if (active) {
+                    var railRect = rail.getBoundingClientRect();
+                    var pillRect = (active.querySelector('svg') || active).getBoundingClientRect();
+                    var top = pillRect.top - railRect.top;
+                    seamTop.style.height = top + 'px';
+                    seamBottom.style.top = (top + pillRect.height) + 'px';
+                    activeFill.style.top = top + 'px';
+                    activeFill.style.height = pillRect.height + 'px';
+                    activeFill.style.left = (pillRect.left - railRect.left) + 'px';
+                }
+            } catch (e) { }
+            seamTop.style.visibility = 'visible';
+            seamBottom.style.visibility = 'visible';
+            activeFill.style.visibility = 'visible';
+        })();
+        </script>
 
         <div class="nav-stack">
         <div class="overlay-slot">
@@ -214,9 +252,9 @@
 
         {% block hub_sidebar %}{% endblock %}
         {% comment %}
-        Mirrors main.js's own locked()/touchRailActive() decision (desktop
-        has no manual override to also account for now - see
-        setupSidebarCollapse) but runs synchronously the instant the sidebar
+        Mirrors main.js's own locked()/touchRailActive()/wideDesktop()+
+        manualCollapsePreferred() decision (see setupSidebarCollapse) but
+        runs synchronously the instant the sidebar
         markup above has been parsed, rather than waiting for main.js's
         deferred DOMContentLoaded handler - same reasoning as the
         nav-touch-mode class above, closes the other half of the same flash
@@ -243,11 +281,14 @@
             if (!nav) return;
             try {
                 var touch = document.documentElement.classList.contains('nav-touch-mode');
-                var locked = window.matchMedia('(max-width: 900px)').matches
-                    && window.matchMedia('(hover: hover) and (pointer: fine)').matches
-                    && !touch;
+                var narrow = window.matchMedia('(max-width: 1200px)').matches;
+                var hoverCapable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+                var locked = narrow && hoverCapable && !touch;
                 var touchRail = window.matchMedia('(min-width: 480px) and (max-width: 1180px)').matches && touch;
-                if (touchRail || locked) {
+                var wideDesktop = hoverCapable && !narrow && !touch;
+                var manualCollapsed = false;
+                try { manualCollapsed = localStorage.getItem('pref-sidebar-collapsed') === '1'; } catch (e) { }
+                if (touchRail || locked || (wideDesktop && manualCollapsed)) {
                     nav.classList.add('collapsed');
                 }
             } catch (e) { }

@@ -267,6 +267,19 @@ function setupFilterBarMoreFilters(bar) {
     // click at wide desktop just because that's what search-bearing bars
     // do. Read once here, reused inside measure() below.
     var hasSearchField = !!bar.querySelector('[data-filter-pinned]');
+    // Read once, up front, so the button can be *created* already in its
+    // final open/closed state below rather than starting closed (aria-
+    // expanded="false", which forms.css fills solid with --primary - "View
+    // filters") and only being flipped open a few lines later once measure()
+    // and the auto-open block have both run. Both of those still happen in
+    // this same synchronous call, so nothing should ever actually paint the
+    // in-between state - but this is exactly the class of bug the rest of
+    // this file goes out of its way to make structurally impossible rather
+    // than trust timing for (js-preload, the sidebar's own sync reveal
+    // script in layout.html, isFilterBarMobile's own head-script mirror) -
+    // live feedback: "the hide filters button loads in primary before
+    // changing to not active".
+    var willAutoOpen = isTrayBar && hasSearchField && !(window.isFilterBarMobile && window.isFilterBarMobile());
     if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
         var retryMqls = isTrayBar
             ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 768px)'), window.studentsPortraitMql || window.matchMedia('(orientation: portrait)'), window.studentsPortraitWideMql || window.matchMedia('(min-width: 900px)')]
@@ -465,7 +478,7 @@ function setupFilterBarMoreFilters(bar) {
     moreFiltersBtn.type = 'button';
     moreFiltersBtn.className = 'btn btn-sm btn-secondary more-filters-toggle';
     moreFiltersBtn.setAttribute('data-more-filters', '');
-    moreFiltersBtn.setAttribute('aria-expanded', 'false');
+    moreFiltersBtn.setAttribute('aria-expanded', willAutoOpen ? 'true' : 'false');
     moreFiltersBtn.hidden = true;
     var icon = document.createElement('span');
     icon.className = 'more-filters-toggle-icon';

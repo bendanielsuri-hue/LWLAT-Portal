@@ -34,14 +34,11 @@ CSS only hides the button itself within that already-locked range
         (justify-content:center, layout.css), the toggle is pulled out of
         that centring via position:absolute so it doesn't skew the icon off
         centre (live feedback: "I want the app [icon] and expand [toggle]
-        to share the row"). Renders ABOVE the back-to-hub row deliberately,
-        not directly above the title: .exit-hub + .nav-title's own -16px
-        margin (layout.css) is a real, pixel-measured hack that lands
-        nav-title on the exact same y as the page's own h1 - inserting the
-        icon between them would break that alignment with no way to
-        compress it back out. Keeping exit-hub and nav-title immediately
-        adjacent preserves it; a plain hub with no back-to-hub row simply
-        gets icon-then-title with nothing to protect. Icon just disappears
+        to share the row"). Renders ABOVE .nav-title-group deliberately, in
+        its own row, rather than inline with the title - the back-to-hub
+        pill row that used to sit between the two is gone (live feedback:
+        "lose the hub name"), so nav-title now sits directly under the icon.
+        Icon just disappears
         outright while collapsed now (plain display:none, layout.css) -
         live feedback: "on compact can the icon just disappear" - no fade/
         reserved-space machinery. Resolved centrally by URL prefix
@@ -104,21 +101,13 @@ CSS only hides the button itself within that already-locked range
             <span class="menu-label">Hub Menu</span>
         </button>
         {% comment %}
-        .nav-title-group wraps the back-to-hub pill and the hub name so
-        hovering either one highlights both as one visual unit (live
-        feedback: "can back button and hub name look like same button when
-        hovered") - plain CSS :hover on the wrapper already fires whenever
-        the mouse is over it or any descendant, no JS/:has() needed. Title
-        becomes a real link to the same back_to_hub_url too (nav-title-link,
-        already used elsewhere for a clickable title) rather than just
-        looking clickable without being it.
+        Dropped the separate "back to hub" pill/label row (live feedback:
+        "lose the hub name") - the app title below is already a real link to
+        back_to_hub_url (nav-title-link) when one exists, so back-navigation
+        isn't lost, just no longer has its own visible row above the title.
         {% endcomment %}
         <div class="nav-title-group">
             {% if back_to_hub_url %}
-            <a href="{{ back_to_hub_url }}" class="exit-hub nav-row-btn icon-tooltip-host" data-tooltip="{{ back_to_hub_label }}">
-                <span class="menu-icon">{% if hub_icon %}{% include hub_icon %}{% else %}{% include 'icons/arrow_left_svg.html' %}{% endif %}</span>
-                <span class="menu-label">{{ back_to_hub_label }}</span>
-            </a>
             <a href="{{ back_to_hub_url }}" class="nav-title nav-title-link">{{ hub_title }}</a>
             {% else %}
             <div class="nav-title">{{ hub_title }}</div>
