@@ -283,7 +283,7 @@ Menu switcher instead - see its own comment below.
     <div class="mobile-more-sheet-body">
         <ul class="mobile-more-sheet-list">
             {% for item in local_menu %}
-            <li><a href="{{ item.url }}"><span class="mobile-tab-icon">{% include item.icon %}</span>{{ item.name }}</a></li>
+            <li><a href="{{ item.url }}" class="{% active_menu_item request.path item local_menu %}"><span class="mobile-tab-icon">{% include item.icon %}</span>{{ item.name }}</a></li>
             {% endfor %}
         </ul>
     </div>
@@ -688,8 +688,16 @@ Menu switcher instead - see its own comment below.
     .mobile-more-sheet-x:hover { color: var(--text-primary); }
     .mobile-more-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--space-lg) var(--space-lg); }
     .mobile-more-sheet-list { list-style: none; margin: 0 0 var(--space-md); padding: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
-    .mobile-more-sheet-list a { display: flex; align-items: center; gap: var(--space-sm); color: var(--text-primary); text-decoration: none; padding: var(--space-xs) 0; }
+    .mobile-more-sheet-list a { display: flex; align-items: center; gap: var(--space-sm); color: var(--text-primary); text-decoration: none; padding: var(--space-xs) var(--space-sm); margin: 0 calc(-1 * var(--space-sm)); border-radius: var(--radius-sm); }
     .mobile-more-sheet-list .mobile-tab-icon svg { width: 18px; height: 18px; }
+    {% comment %}
+    Same active signal as the desktop/tablet local menu (primary-light fill
+    + active-text colour + fake bold, layout.css .side-nav:not(.collapsed)
+    .nav-menu a.active) - this sheet is just the phone-width stand-in for
+    that same menu, so it was the one place the current page had no
+    indicator at all.
+    {% endcomment %}
+    .mobile-more-sheet-list a.active { background: var(--primary-light); color: var(--active-text); text-shadow: var(--hover-fake-bold); }
     {% comment %}
     Back to {{ hub_title }}'s parent hub / Change Hub - primary/secondary,
     same weighting convention as any other btn-primary/btn-secondary pair in
