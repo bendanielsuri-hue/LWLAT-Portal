@@ -234,13 +234,86 @@
    short list leaves bare card background below it instead of the stripe.
    Reuses the same --list-endcap-height/--list-endcap-clearance custom
    properties main.js's setupListEndCapHeight already computes globally
-   (FAB/tabbar geometry) rather than duplicating that math - they resolve to
-   0 below 1180px (mobile tabbar/FAB not visible there) and this box's
-   flex-grow has nothing to fill anyway once .panel-card goes height:auto
-   at that width (Stack mode, above), so no separate breakpoint is needed
-   here the way the mobile-only .entity-list version once had. */
-#my-referrals-list::after,
-#my-actions-list::after {
+   (FAB/tabbar geometry) rather than duplicating that math.
+   min-width: 1181px (unlike the original #157 version, which had no
+   breakpoint guard at all) - #referrals-card #my-referrals-list turns this
+   same ul into a horizontal carousel row below that (further down this
+   file), where the box's own flex: 1 0 47px sized it as a *width*, not a
+   height, rendering as a narrow vertical striped sliver stuck on the end
+   of the horizontal scroll (live feedback: "stripe should not appear at
+   end in carousel mode") - the #157 comment's original assumption ("flex-
+   grow has nothing to fill anyway once .panel-card goes height:auto") only
+   holds for a plain single-column stack, not this carousel, which does
+   still lay the ul out as a real (horizontally) scrollable flex row. */
+@media (min-width: 1181px) {
+    #my-referrals-list::after,
+    #my-actions-list::after {
+        content: "";
+        display: block;
+        flex: 1 0 var(--list-endcap-height, 47px);
+        margin-bottom: var(--list-endcap-clearance, 4px);
+        border-top: 1px solid var(--border-strong);
+        background-color: var(--bg-surface);
+        background-image: repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--border-strong) 15%, transparent) 0 5px,
+            transparent 5px 11px
+        );
+    }
+}
+/* Same "empty-note takes the whole box, not just its flex share" fix as
+   .filtered-content .entity-list > .empty-note (see that rule's comment) -
+   #my-referrals-list/#my-actions-list are the ul itself (position:relative
+   set here since .panel-list's own base rule, above, doesn't need it
+   otherwise), the empty-note li is its sole child in that case. */
+#my-referrals-list,
+#my-actions-list {
+    position: relative;
+}
+/* Truly-empty case: rather than trust flex-grow to size the ::after stripe
+   against a 4-level-deep flex-height chain (.panel-card > .referral-
+   carousel-wrap > #my-referrals-list > ::after - live feedback found this
+   silently rendering as a blank white box instead, "this needs to show
+   when there is no meetings/actions/referrals as well"), pull the stripe
+   itself out of that flex flow and pin it directly to the list's own box
+   with inset: 0 - it then fills whatever height the ul actually has,
+   full stop, with no flex-basis/flex-grow arithmetic to get wrong. Scoped
+   to :has(> .empty-note) only - the "some rows, card not full" case just
+   above still wants the real flex-based end-cap, not a box covering the
+   real rows too. z-index/position:relative on .empty-note (not inset: 0
+   any more) guarantees it paints over this now-absolute stripe regardless
+   of DOM order (an ::after normally comes after its host's real children,
+   so without this the stripe would paint on top of, not under, the
+   message). Desktop/list mode only (>=1181px) - #referrals-card/
+   #actions-card's own id-scoped override (further down) turns these into
+   a horizontal carousel row below that, where live feedback was explicit
+   this stripe should never appear at all. */
+@media (min-width: 1181px) {
+    #my-referrals-list:has(> .empty-note)::after,
+    #my-actions-list:has(> .empty-note)::after {
+        position: absolute;
+        inset: 0;
+        margin: 0;
+    }
+    #my-referrals-list > .empty-note,
+    #my-actions-list > .empty-note {
+        position: relative;
+        z-index: 1;
+    }
+}
+
+/* Upcoming Panel Meetings gets the same end-of-list stripe (live feedback:
+   "this also needs the striped no content effect like My Referrals") -
+   #upcoming-meetings-list is .panel-list too (base rule stays flex column
+   at every width, unlike #my-referrals-list/#my-actions-list, which get
+   overridden into a horizontal carousel row below 1181px - see that id-
+   scoped override further down). Reused unconditionally rather than only
+   above 1181px specifically *because* it never becomes a carousel (no
+   equivalent #meeting-card #upcoming-meetings-list row-flex override
+   exists anywhere in this file) - the stripe is safe at every width here,
+   the opposite reasoning from why My Referrals/My Actions' own version
+   needed no extra breakpoint either. */
+#upcoming-meetings-list::after {
     content: "";
     display: block;
     flex: 1 0 var(--list-endcap-height, 47px);
@@ -254,25 +327,25 @@
     );
 }
 @media (min-width: 480px) {
-    #my-referrals-list::after,
-    #my-actions-list::after {
+    #upcoming-meetings-list::after {
         margin-bottom: 0;
     }
 }
-/* Same "empty-note takes the whole box, not just its flex share" fix as
-   .filtered-content .entity-list > .empty-note (see that rule's comment) -
-   #my-referrals-list/#my-actions-list are the ul itself (position:relative
-   set here since .panel-list's own base rule, above, doesn't need it
-   otherwise), the empty-note li is its sole child in that case. */
-#my-referrals-list,
-#my-actions-list {
+#upcoming-meetings-list {
     position: relative;
 }
-#my-referrals-list > .empty-note,
-#my-actions-list > .empty-note {
+/* Truly-empty case - see #my-referrals-list/#my-actions-list's identical
+   :has(> .empty-note) rule/comment above for why this pins the stripe with
+   inset: 0 instead of trusting flex-grow. No breakpoint guard needed here
+   (unlike that pair) - this list never becomes a carousel at any width. */
+#upcoming-meetings-list:has(> .empty-note)::after {
     position: absolute;
     inset: 0;
     margin: 0;
+}
+#upcoming-meetings-list > .empty-note {
+    position: relative;
+    z-index: 1;
 }
 
 /* Belt-and-braces: every direct child of a shell panel-card needs min-height:
@@ -2348,7 +2421,15 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         background: var(--bg-well);
         gap: var(--space-xxs);
     }
-    .list-page-shell .panel-list li {
+    /* :not(.empty-note) - this generic "gapped card" treatment gave the
+       placeholder row its own opaque background (plus border/shadow),
+       painting solid over the empty-of-content stripe that sits directly
+       behind it (#my-referrals-list/#my-actions-list/#upcoming-meetings-
+       list's own :has(> .empty-note)::after rules, above) regardless of
+       stacking order - the stripe was rendering, just permanently hidden
+       under this row's own fill. .empty-note stays a plain, background-
+       less placeholder here so that stripe actually shows through. */
+    .list-page-shell .panel-list li:not(.empty-note) {
         background: var(--bg-surface);
         border: 1px solid var(--border-color);
         box-shadow: var(--card-shadow);
