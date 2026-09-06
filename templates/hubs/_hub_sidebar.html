@@ -1,5 +1,6 @@
 {% load static %}
 {% load hub_extras %}
+{% load avatar_extras %}
 {% comment %}
 Tablet/touch rail (#114 follow-up, widened #129): touch has no :hover, so
 the icon-only rail's tooltips can't identify a row - rather than a
@@ -133,10 +134,11 @@ CSS only hides the button itself within that already-locked range
         {% if current_staff_list %}
         <div class="nav-footer-divider"></div>
         <button type="button" class="switch-staff nav-row-btn current-user-trigger icon-tooltip-host" data-overlay-target="#staff-nav-overlay" data-tooltip="{{ current_staff.first_name }} {{ current_staff.last_name }}">
-            <span class="menu-icon">{% include 'icons/avatar_placeholder_svg.html' %}</span>
+            <span class="menu-icon current-user-avatar-wrap">
+                <span class="avatar-initials {{ current_staff|avatar_color_class }}">{{ current_staff|initials }}</span>
+            </span>
             <span class="menu-label-stack">
                 <span class="user-name">{{ current_staff.first_name }} {{ current_staff.last_name }}</span>
-                <span class="user-school">{{ current_staff.school.name|default:'MAT' }}</span>
                 <span class="user-role">{{ current_staff.job_title }}</span>
             </span>
         </button>
