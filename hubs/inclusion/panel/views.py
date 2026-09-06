@@ -18,7 +18,9 @@ from core.identity import (
     staff_queryset_for_school_key,
     student_queryset_for_school_key,
 )
-from core.models import AcademicYear, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student
+from core.models import (
+    AcademicYear, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student, Term,
+)
 from core.modules import filter_by_module, module_map
 from core.student_history import (
     attendance_authorised_pct,
@@ -2842,13 +2844,8 @@ def inclusion_panel_meetings(request):
 
     panel_group_filter = request.GET.get('panel_group') or ''
     chair_filter = request.GET.get('chair') or ''
-    # No `or ''` here (unlike the other filters) - the absence of the param
-    # entirely (first load) is distinguished from an explicit empty
-    # selection ("All Years", submitted by the filter-bar <form> as
-    # `academic_year=`) so first load can default to the current year while
-    # a deliberate "All Years" choice still sticks on every later request.
-    academic_year_param = request.GET.get('academic_year')
-    academic_year_filter = academic_year_param or ''
+    academic_year_filter = request.GET.get('academic_year') or ''
+    term_filter = request.GET.get('term') or ''
     status_filter = request.GET.get('status') or ''
     my_meetings_filter = request.GET.get('my_meetings') == '1' and current_staff is not None
     # Computed once, reused both by the My Meetings filter below and by each
@@ -2862,33 +2859,122 @@ def inclusion_panel_meetings(request):
     # below are applied, same convention as inclusion_hub's year_group_choices -
     # so Panel Group/Chair/Academic Year don't shrink each other's dropdowns.
     base_panels = _panels_for_school_key(
-        Panel.objects.exclude(status='void').select_related('chair', 'panel_group__default_chair', 'academic_year'),
+        Panel.objects.exclude(status='void').select_related(
+            'chair', 'panel_group__school', 'panel_group__default_chair', 'academic_year'
+        ),
         school_key,
     )
+    # #121: School Term data col/filter - a term's actual dates can be a
+    # school-specific override (core.models.Term.school) rather than the
+    # same MAT-wide dates for every panel, so "which term is this panel in"
+    # has to be resolved per panel (the panel's own school, falling back to
+    # MAT-wide) rather than one shared calendar. No academic_year_id filter
+    # here (unlike an earlier pass) - the "most recently ended" fallback
+    # below (live feedback: "we should be able to get term based on
+    # scheduled date"/"most recently ended term", for a meeting scheduled in
+    # a holiday gap no Term row actually covers) can need to look into a
+    # DIFFERENT academic year's terms than the panel's own (e.g. a date just
+    # after one year's Summer term ends but before the next year's own
+    # AcademicYear.start_date has technically rolled over). Term is a small,
+    # rarely-changing table - fetching every row for the relevant schools
+    # once, rather than year-scoping the query too, is simpler and still
+    # cheap. Batched once here rather than one query per panel/card.
+    school_ids_for_terms = {
+        p.panel_group.school_id for p in base_panels if p.panel_group_id and p.panel_group.school_id
+    }
+    terms_by_school = {}
+    for term in Term.objects.filter(Q(school_id__in=school_ids_for_terms) | Q(school_id__isnull=True)):
+        terms_by_school.setdefault(term.school_id, []).append(term)
+
+    def _resolve_term(panel):
+        school_id = panel.panel_group.school_id if panel.panel_group_id else None
+        school_terms = terms_by_school.get(school_id, []) if school_id else []
+        mat_terms = terms_by_school.get(None, [])
+        for candidates in (school_terms, mat_terms):
+            exact = next((t for t in candidates if t.start_date <= panel.date <= t.end_date), None)
+            if exact:
+                return exact
+        # No term actually covers this date (a holiday gap) - fall back to
+        # whichever term most recently ended, so a meeting scheduled during
+        # a break still shows the term it's following up on rather than a
+        # blank. Own school's calendar still takes priority over MAT-wide,
+        # same as the exact-match check above.
+        for candidates in (school_terms, mat_terms):
+            ended = [t for t in candidates if t.end_date <= panel.date]
+            if ended:
+                return max(ended, key=lambda t: t.end_date)
+        return None
+
     chairs_by_id = {}
     academic_years_present = {}
+    # Term names ("autumn"/"spring"/"summer") actually present, keyed on name
+    # alone - not (academic_year, name) - live feedback: "can we have it show
+    # summer without year, we have a dropdown for Ac year" - Term and
+    # Academic Year are two independent filters that combine (own comment,
+    # term_filter application below), not one combined "Summer 2025/26"
+    # option per year.
+    term_names_present = set()
     for panel in base_panels:
         chair = panel.effective_chair
         if chair:
             chairs_by_id[chair.id] = chair
         if panel.academic_year_id:
             academic_years_present[panel.academic_year_id] = panel.academic_year
+        term = _resolve_term(panel)
+        if term:
+            term_names_present.add(term.name)
     chair_choices = sorted(chairs_by_id.values(), key=lambda s: (s.last_name, s.first_name))
     academic_year_choices = [
         (ay.id, ay.label)
         for ay in sorted(academic_years_present.values(), key=lambda ay: ay.start_date, reverse=True)
     ]
+    # Term.TERM_CHOICES order (Autumn/Spring/Summer), not alphabetical or
+    # discovery order - a fixed chronological order reads better in a
+    # dropdown than whatever order base_panels happened to iterate in.
+    term_choices = [
+        (name, display)
+        for name, display in Term.TERM_CHOICES if name in term_names_present
+    ]
+    # #121 follow-up: cascading Term options, scoped to whichever Academic
+    # Year is selected - live feedback: "if I select academic year, can term
+    # filter be filtered to available terms... can this be a standard link
+    # throughout ecosystem" - same {parent_value: [child_options]} JSON map
+    # + rebuild-on-change convention Students' own Year->Reg Group cascade
+    # already uses (forms_by_year_json, above/hubs/CLAUDE.md), not a new
+    # mechanism. Queried directly off Term's own academic_year FK (not
+    # _resolve_term's panel-by-panel resolution, which can cross into a
+    # DIFFERENT year via its holiday-gap fallback) - this map is about which
+    # terms genuinely BELONG to a year, not which term a given date lands
+    # nearest to.
+    term_names_by_academic_year = {}
+    for ay_id, name in Term.objects.filter(
+        academic_year_id__in=academic_years_present, name__in=term_names_present,
+    ).values_list('academic_year_id', 'name').distinct():
+        term_names_by_academic_year.setdefault(ay_id, set()).add(name)
+    terms_by_academic_year = {
+        str(ay_id): [[name, display] for name, display in Term.TERM_CHOICES if name in names]
+        for ay_id, names in term_names_by_academic_year.items()
+    }
+    # #121 follow-up: no default academic year applied on first load - live
+    # feedback: "Panel meetings should not have any default filters applied,
+    # academic year seem to be added" - was previously defaulted to
+    # AcademicYear.for_date(today) whenever the param was omitted entirely
+    # (the old academic_year_param/academic_year_filter split existed only
+    # to distinguish that from an explicit "All Years" selection - gone now
+    # that nothing defaults). current_academic_year is still exposed to the
+    # template (highlighting "today's" year in the dropdown, say) even
+    # though it no longer drives a default filter.
     current_academic_year = AcademicYear.for_date(today).id
-    if academic_year_param is None and current_academic_year in academic_years_present:
-        academic_year_filter = str(current_academic_year)
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
         academic_year_filter = ''
+    if term_filter and not any(term_filter == value for value, _ in term_choices):
+        term_filter = ''
 
     panels = _panels_for_school_key(
         Panel.objects.exclude(status='void').select_related(
-            'chair', 'panel_group__school', 'panel_group__default_chair'
+            'chair', 'panel_group__school', 'panel_group__default_chair', 'academic_year'
         ).prefetch_related(
-            'panel_referrals__referral',
+            'panel_referrals__referral', 'members',
         ).order_by('date'),
         school_key,
     )
@@ -2921,6 +3007,16 @@ def inclusion_panel_meetings(request):
     past_meetings = []
     next_marked = False
     for panel in panels:
+        # #121: Term filter is applied here, in Python, rather than as a
+        # queryset .filter() - which specific Term row is "this panel's
+        # term" depends on a per-panel school resolution (_resolve_term,
+        # above), not a single shared date range every panel can be
+        # filtered against at the DB level.
+        term = _resolve_term(panel)
+        if term_filter and (not term or term.name != term_filter):
+            continue
+        term_label = term.get_name_display() if term else None
+
         active_referrals = [pr for pr in panel.panel_referrals.all() if pr.removed_at is None]
         referral_count = len(active_referrals)
         is_next = panel.status not in ('complete', 'delayed') and panel.date >= today and not next_marked
@@ -2937,6 +3033,17 @@ def inclusion_panel_meetings(request):
             duration_display = _format_duration(sum(
                 (pr.duration for pr in discussed if pr.duration), datetime.timedelta(),
             ))
+            # #121 follow-up: Closed/Future Review counts - live feedback:
+            # "can we have a data col for referrals closed/referrals for
+            # future review" - follow_up_status == 'incomplete' is a
+            # discussed referral flagged for a future review that hasn't
+            # happened yet (_ensure_followup_minimum/the real Panel Agenda
+            # follow-up flow); blank or 'complete' both mean nothing's still
+            # outstanding from this meeting - blank because it was never
+            # flagged (closed outright), 'complete' because whatever review
+            # it was flagged for has itself since happened.
+            closed_count = sum(1 for pr in discussed if pr.follow_up_status != 'incomplete')
+            future_review_count = len(discussed) - closed_count
             priority_counts = None
         else:
             new_count = sum(
@@ -2946,6 +3053,22 @@ def inclusion_panel_meetings(request):
             review_count = referral_count - new_count
             priority_counts = Counter(pr.referral.priority or 'untriaged' for pr in active_referrals)
             duration_display = None
+            closed_count = None
+            future_review_count = None
+
+        # #121: Attendance only means anything once a meeting has actually
+        # started - a draft/ready/delayed-before-starting panel has no
+        # PanelMember rows yet at all. checked_in_count reads panel.members
+        # (prefetched, above) rather than querying - free once prefetched.
+        checked_in_count = sum(1 for pm in panel.members.all() if pm.checked_in_at) if panel.started_at else None
+        # #121: Discussion progress only means anything for a meeting that's
+        # actually live right now (running, or delayed - still started, just
+        # past its typical duration without ending) - complete/upcoming
+        # panels already show the same information via New/Review, above.
+        discussed_so_far = (
+            sum(1 for pr in active_referrals if pr.discussion_status == 'discussed')
+            if panel.status in ('running', 'delayed') else None
+        )
 
         entry = {
             'panel': panel,
@@ -2955,6 +3078,11 @@ def inclusion_panel_meetings(request):
             'review_count': review_count,
             'priority_counts': priority_counts,
             'duration_display': duration_display,
+            'closed_count': closed_count,
+            'future_review_count': future_review_count,
+            'checked_in_count': checked_in_count,
+            'discussed_so_far': discussed_so_far,
+            'term_label': term_label,
             # Start/Continue Meeting, Edit Agenda, Delete are all only for
             # this panel's own group members - matches the live Agenda
             # page's can_start_meeting gate. Everyone else gets View Agenda.
@@ -2991,7 +3119,8 @@ def inclusion_panel_meetings(request):
         panel_groups = panel_groups.filter(Q(school_id=school_key) | Q(school__isnull=True))
 
     active_filter_count = sum(
-        1 for v in (panel_group_filter, chair_filter, academic_year_filter, status_filter, my_meetings_filter) if v
+        1 for v in (panel_group_filter, chair_filter, academic_year_filter, term_filter, status_filter, my_meetings_filter)
+        if v
     )
 
     context = {
@@ -3006,6 +3135,9 @@ def inclusion_panel_meetings(request):
         'academic_year_choices': academic_year_choices,
         'academic_year_filter': academic_year_filter,
         'current_academic_year': current_academic_year,
+        'term_choices': term_choices,
+        'term_filter': term_filter,
+        'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
         'status_choices': Panel.STATUS_CHOICES,
         'status_filter': status_filter,
         'my_meetings_filter': my_meetings_filter,

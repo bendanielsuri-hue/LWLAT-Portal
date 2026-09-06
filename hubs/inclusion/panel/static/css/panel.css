@@ -3051,8 +3051,22 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    --border-color, not --border-strong - same "nested row shouldn't
    outweigh the outer .list-card boundary" reasoning as .list-card
    .entity-row (layout.css). */
+/* padding-top/bottom: 0 here (left/right stay) - #121 follow-up, live
+   feedback: "please use Referrals page as a template" / "it's the entity
+   row margins, they don't match" - matches #referrals-filtered-content
+   .entity-row's own >=701px grid-band fix exactly (own comment there: "the
+   buttons are only missing some margin bottom... lose the margin above and
+   vertically center" - outer top/bottom padding sat OUTSIDE the buttons
+   column's own stretched box, so once the body's data cols grew taller
+   than the button stack, that redundant outer inset stacked on top of the
+   already-centred slack and read as excess space above/below the buttons,
+   "pushing the row taller" than it needed to be). meeting-card-header's own
+   padding-top and row-facts-track's own padding-bottom (below) now supply
+   that same --space-md inset locally instead - matching padding-top/bottom
+   added to meeting-card-actions (below) so both stretched columns still
+   line up edge-to-edge. */
 .meeting-card {
-    padding: var(--space-md) var(--space-lg);
+    padding: 0 var(--space-lg);
     display: flex;
     align-items: stretch;
     gap: var(--space-md);
@@ -3096,25 +3110,42 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .meeting-card.chosen h3 { text-shadow: var(--hover-fake-bold); }
 
 .meeting-card-body { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; gap: 6px; }
+/* #121: MAT/aggregate-view school crest sits beside a two-line text stack
+   (meeting-card-header-text: title-row + date-line together) - matches
+   Referrals' own header exactly, where row-title-row holds BOTH its
+   Concern+pills line and its Name/Year/House/Form line indented beside the
+   avatar, with only the facts strip below living outside that column (own
+   comment, row-facts-track). align-items: center vertically centres the
+   42px .entity-thumb.is-logo (cards.css) against the whole two-line text
+   stack, same as #referrals-filtered-content .entity-thumb-group's
+   align-self: center against its own two-line header. */
+.meeting-card-header { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; padding-top: var(--space-sm); }
+.meeting-card-thumb { flex: 0 0 auto; }
+.meeting-card-header-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 auto; }
 .meeting-card-title-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: nowrap; min-width: 0; }
 .meeting-card-title-row h3 { margin: 0; font-size: var(--font-md); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meeting-card-title-row .status-pill { flex-shrink: 0; }
-/* MAT/aggregate-view school logo - inline in the title row only (not a
-   full-height column), so single-school cards render identically to the
-   aggregate view and rows 2/3 never shift regardless of whether it's shown. */
-.meeting-card-logo-inline { display: inline-flex; align-items: center; color: var(--text-faint); flex-shrink: 0; }
-.meeting-card-logo-inline svg { width: 16px; height: 16px; }
 .meeting-date-line { font-size: var(--font-sm); margin-top: 1px; color: var(--text-secondary); }
 .meeting-info-label { font-weight: 600; margin-right: var(--space-xxs); }
 .meeting-info-label::after { content: ":"; }
 
 
-.meeting-card-breakdown { border-top: 1px solid var(--border-color); margin-top: var(--space-xs); padding-top: var(--space-xs); display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-.breakdown-cluster-label { font-size: var(--font-2xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-faint); flex-shrink: 0; }
-.meeting-card-breakdown .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 var(--space-sm); }
-.meeting-card-duration-line { font-size: var(--font-xs); color: var(--text-secondary); }
-.meeting-card-duration-line .duration-label { font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.03em; font-size: var(--font-2xs); margin-right: 4px; }
-.meeting-card-duration-line .duration-value { font-weight: 600; color: var(--text-primary); }
+/* #121: New/Review/Priority/Duration breakdown ported onto the shared
+   Referrals/Actions/Students data-cols vocabulary (#113) instead of its own
+   bespoke pill-cluster-plus-divider layout - .row-facts/.row-facts-cols/
+   .row-fact-col/.row-fact-label (below, shared rules) plus a
+   #meetings-filtered-content-scoped copy of the same per-page overrides
+   those three pages already carry (own rules, further below). Gets the
+   whole mechanism for free: per-column label-on-top, one shared column
+   width down the whole list (syncFactsColumnWidths, panel.js), permanent
+   horizontal scroll with prev/next arrows once a card's columns don't fit
+   (same delegated document-level wiring, no page-specific JS needed -
+   panel.js's own selectors just needed #meetings-filtered-content added to
+   their list, see there). .bd-pill's own colour coding (below) stays -
+   unlike Referrals/Students' plain-text columns, New/Review/Priority read
+   at a glance specifically because they're colour-coded, so each column's
+   data line is still a .bd-pill, just laid out via row-fact-col instead of
+   the old flat pill-cluster. See _meetings_rows.html. */
 
 /* Breakdown pills - New/Review reuse the same green/caution tokens as
    Panel Agenda Setup's type-new/type-followup pills (same real-world
@@ -3153,18 +3184,160 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    Meetings review). */
 .bd-pill.bd-empty { background: var(--color-warning-bg); color: var(--color-warning); }
 
-/* Row action buttons (Start/Continue Meeting, Edit Agenda): auto-sized and
-   horizontal instead of a full-width vertical stack, so a two-button card
-   doesn't burn a tall column of mostly-empty button for no reason. */
-/* flex-wrap: wrap, not nowrap - the not-yet-started case now carries three
-   buttons (Start Meeting, Edit Agenda, Delete, added see grilling session
-   2026-07-13 Panel Meetings review) instead of the two this column was
-   originally sized for, so it can no longer assume everything fits one
-   line at every viewport width; justify-content: flex-end keeps a
-   wrapped second line right-aligned like the first instead of drifting
-   left. */
-.meeting-card-actions { flex: 0 0 auto; display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; border-left: 1px solid var(--border-color); padding-left: var(--space-lg); gap: var(--space-xs); }
-.meeting-card-actions .btn { width: auto; white-space: nowrap; }
+/* Row action buttons (Start/Continue Meeting, Edit Agenda) - #121: vertical
+   stack at desktop/tablet width now, same .row-btn-row-stacked convention
+   Actions uses (own rule, panel.css) - "buttons column spans both rows
+   full height, vertically centred" (per-ticket brief) reads more naturally
+   as a centred column of full-width buttons than a right-aligned wrapped
+   row. align-items: stretch is load-bearing, not cosmetic - without it
+   each button in a column keeps its own natural content width instead of
+   matching the column's widest button (same reasoning as Actions' own
+   row-btn-row-stacked comment). justify-content: center vertically centres
+   a short button stack against the card's own (potentially taller)
+   height, same as before. */
+.meeting-card-actions { flex: 0 0 auto; display: flex; flex-direction: column; flex-wrap: nowrap; justify-content: center; align-items: stretch; border-left: 1px solid var(--border-color); padding: var(--space-xs) 0 var(--space-xs) var(--space-lg); gap: var(--space-xs); }
+.meeting-card-actions .btn { white-space: nowrap; }
+/* Delete's <form> (_meetings_rows.html, data-row-remove-form) is a plain
+   block box, not a .btn itself - align-items: stretch (above) stretches
+   the form to the column's own width, but its .btn child still only takes
+   its own content width inside that now-wide box unless told otherwise. */
+.meeting-card-actions form { display: flex; }
+.meeting-card-actions form .btn { flex: 1 1 auto; }
+
+/* #121: Meeting card at 375px - "table -> stacked card" per #113's shared
+   vocabulary, same treatment as Referrals'/Actions' own #118/#119 blocks:
+   card wraps onto its own lines instead of the desktop row+action-column
+   split, buttons drop to a full-width row below and fill it edge-to-edge
+   instead of staying right-aligned in dead space. Threshold matches
+   Referrals/Actions' own 700px (not 480px) for the same reason - the
+   action column leaves too little room for the title/breakdown text below
+   that width. */
+@media (max-width: 700px) {
+    /* padding tightened to --space-sm/12px, matching the page's own 12px
+       margin at this width (#116 phone reclaim) - same convention as
+       Referrals'/Students' own mobile .entity-row rule. flex-wrap: wrap is
+       what actually lets .meeting-card-actions (flex: 0 0 auto) drop to its
+       own line below instead of just shrinking in place. */
+    .meeting-card {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        padding: var(--space-md) var(--space-sm);
+    }
+    /* .meeting-card itself supplies the top/bottom inset again at this
+       width (base rule, above) - the local-inset split (meeting-card-
+       header's own padding-top, meeting-card-actions' own padding-top/
+       bottom) only exists to compensate for align-items: stretch matching
+       actions' height to a taller body (desktop). Once actions drops to
+       its own full-width row below instead of stretching (own rule,
+       below), that reason is gone - without resetting these back to 0,
+       header and the outer card would both contribute a top inset, and
+       actions' own padding would pad its now-unstretched row a second
+       time on top of the card's own bottom padding. */
+    .meeting-card-header {
+        padding-top: 0;
+    }
+    /* Group name + status pills routinely don't fit one line once the
+       action column disappears from beside them - let the row wrap and the
+       name break instead of ellipsis-truncating into unreadable fragments. */
+    .meeting-card-title-row {
+        flex-wrap: wrap;
+    }
+    .meeting-card-title-row h3 {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+    }
+    /* Border/padding assumed the actions column sat beside the card body
+       (desktop/tablet) - once it wraps onto its own line, a left border
+       reads as a stray mark with nothing left to divide (same fix as
+       Referrals' own .row-btn-row mobile rule). flex: 1 1 100% forces the
+       column onto its own line - without it .meeting-card-body's own
+       flex-shrink lets everything keep fitting one line right up until the
+       card is uselessly narrow, so wrap never actually triggers.
+       flex-direction/align-items override the base rule's desktop vertical
+       stack back to a horizontal row - same "stacked column at desktop,
+       row at true mobile" swap as Actions' own row-btn-row-stacked mobile
+       override (panel.css, #actions-filtered-content .row-btn-row.row-btn-
+       row-stacked). */
+    .meeting-card-actions {
+        border-left: none;
+        padding: 0;
+        flex: 1 1 100%;
+        flex-direction: row;
+        align-items: center;
+    }
+    /* Equal-width buttons fill the row edge-to-edge instead of leaving a
+       dead gap on the right - same convention as Referrals'/Actions' own
+       .row-btn-row > * mobile rule. */
+    .meeting-card-actions > * {
+        flex: 1 1 0;
+    }
+    /* Same "card itself supplies the inset again at this width" reset as
+       meeting-card-header's own padding-top, above. */
+    #meetings-filtered-content .row-facts-track {
+        padding-bottom: 0;
+    }
+}
+
+/* #121: Meetings' own copy of Referrals'/Actions'/Students' shared data-cols
+   ID-scoped overrides (#113) - label caption styling + column gap. No
+   divider between columns (live feedback on those three pages already
+   settled that - "lets simplify by losing the vertical dividers in data
+   cols everywhere", #referrals-filtered-content .row-facts-cols >
+   .row-fact-col:not(:first-child), above - each column already reads as
+   its own section once syncFactsColumnWidths, panel.js, gives it real
+   width). No avatar-bleed margin-left/width override needed either (unlike
+   #referrals-filtered-content .row-facts, above) - meeting cards have no
+   student thumb for the strip to bleed out from under, so .row-facts sits
+   flush in .meeting-card-body already. */
+#meetings-filtered-content .row-fact-label {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+}
+#meetings-filtered-content .row-facts-cols {
+    gap: var(--space-md);
+}
+/* Local bottom inset - part of the same "entity-row margins don't match"
+   fix as .meeting-card's own padding-top/bottom: 0 (above) - this is the
+   LAST child in .meeting-card-body, so it supplies the card's own bottom
+   edge locally instead of the (now-removed) outer padding-bottom doing it.
+   --space-xs, not --space-md - matches #referrals-filtered-content
+   .row-referral-details' own padding-bottom exactly (own comment there:
+   "Small symmetric top/bottom inset"), not a bigger, invented value - live
+   feedback: "more space under the data cols, compared to referral page"
+   confirmed this was --space-md (16px) where Referral's own convention is
+   --space-xs (8px). */
+#meetings-filtered-content .row-facts-track {
+    padding-bottom: var(--space-xs);
+}
+/* .row-fact-col's own align-items default (normal, computes to stretch for
+   a flex item - spec) stretches every child to the COLUMN's own width -
+   harmless for Referrals'/Students'/Actions' plain-text lines (text just
+   left-aligns inside a wider box, no visible difference), but syncFacts
+   ColumnWidths (panel.js) deliberately sizes this column to the widest
+   value down the WHOLE list, so a .bd-pill sitting in a narrower row than
+   its neighbour stretched into an oversized, mostly-empty badge instead of
+   staying sized to its own text. align-self: flex-start opts every pill
+   back out of that stretch, sized to its own content regardless of what
+   the column itself has grown to. */
+#meetings-filtered-content .row-fact-col .bd-pill {
+    align-self: flex-start;
+}
+/* .row-fact-col's shared gap (1px, base rule) reads as noticeably tighter
+   under a .bd-pill than under plain text - live feedback: "data cols that
+   have pills look closer to heading than if its text". Not a real 1px vs
+   1px difference: a pill's own coloured box starts right at its border, so
+   the tiny gap disappears visually the instant the background begins,
+   while plain text's own line-height leaves real whitespace above the
+   glyph even at the same 1px gap. Only the label-to-first-pill gap needs
+   the extra room - pill-to-pill (Priority's own multiple lines) stays
+   tight on purpose, they're one cluster. */
+#meetings-filtered-content .row-fact-col .row-fact-label + .bd-pill {
+    margin-top: var(--space-xxs);
+}
 
 /* .entity-thumb showing a school crest instead of the student's own photo
    (Referrals/Students row markup, is_aggregate_view branch) - live
@@ -3189,7 +3362,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    to the row's full content height, divided from the row body. See
    issues #8/#10/#12. */
 .row-title-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
-.row-title-row .meeting-card-logo-inline img { width: 16px; height: 16px; object-fit: contain; }
 /* Referrals' two status pills (#118 mobile follow-up) - display: contents
    at every width by default, so the wrapper is invisible to layout and
    each pill behaves exactly like a direct row-title-row child, same as
@@ -3233,7 +3405,18 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    flipped to target the name (which no longer carries .entity-title to
    cancel it on anyway). Students' own single entity-title (the name,
    nothing else) was never in scope of this rule and is unaffected. */
-.row-facts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
+/* align-items: flex-start, not center (#121) - every .row-fact-label
+   should start at the same y position regardless of how many data lines
+   follow it in that particular column. Referrals'/Actions'/Students' own
+   columns are always a fixed, schema-defined line count (e.g. date+"By X",
+   always exactly 2 lines) so centering vs top-aligning was never visibly
+   different there - genuinely a no-op for them, changed here rather than
+   overridden per page so any column that DOES end up variable-height (like
+   Meetings' own Priority, 0-4 lines depending on which levels are actually
+   present) gets the correct behaviour automatically instead of needing its
+   own one-off fix - live feedback: "if there was a data col with one line,
+   I would want it to act the same". */
+.row-facts { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
 .row-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
 /* Accent on .chosen too (live feedback: "vertical dividers between data
    cols should also change to primary fill if row is active") - unlike the
@@ -6348,20 +6531,6 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-    }
-    /* .filter-bar-flat only (Meetings - not the plain .filter-bar-no-search
-       the SEND & Provision hub also carries, which keeps the reservation
-       above: its own Group Info/SEN & Support/Demographics groups sit side
-       by side in one row and genuinely mix 1- and 2-line labels ("Looked
-       After"/"Young Carer" beside "Year"/"Reg"), so they still need a
-       shared floor to stay aligned). Meetings' one flat "Panel" group never
-       has that problem - none of its 5 labels ever wrap - so the 2-line
-       floor was pure dead space above every control, on a bar the live
-       feedback that started this whole variant was already asking to
-       "reduce top and bottom padding" of. min-height: auto lets each
-       label's box shrink back to its own real (1-line) content height. */
-    .filter-bar-tray.filter-bar-flat .filter-secondary-fields:not([hidden]) .filter-field label {
-        min-height: auto;
     }
     /* Drops the "chip" treatment (primary-light fill, padding grow,
        rounded corners, adjacent-active corner-squaring) an active field
@@ -10648,6 +10817,20 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 .attendance-dialog-footer .btn-row { margin-top: 0; }
 .attendance-summary { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 600; }
 .attendance-summary strong { color: var(--text-primary); }
+/* #121: at 375px the modal shell (.modal-dialog--wide, above) is down to
+   ~345px (92vw) - the summary text and Cancel/Start Meeting no longer fit
+   one row. Stack summary above the buttons and let the buttons fill the
+   row edge-to-edge, same convention as Referrals'/Actions' own mobile
+   .row-btn-row/.btn-row rules. */
+@media (max-width: 700px) {
+    .attendance-dialog-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .attendance-dialog-footer .btn-row > * {
+        flex: 1 1 0;
+    }
+}
 
 /* Attendance-dialog member cards (B1b) - photo, an affiliation strip
    (school logo+name / "MAT-wide" / "External"), name, Chair/expertise

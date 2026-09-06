@@ -11,45 +11,169 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
 {% for m in meetings %}
 <div class="meeting-card selectable" tabindex="0" role="button" aria-pressed="false">
     <div class="meeting-card-body">
-        <div class="meeting-card-title-row">
+        {% comment %}
+        #121: school crest lives beside a two-line text stack (title-row +
+        date-line together), matching Referrals' own header exactly - its
+        row-title-row holds BOTH the Concern+pills line AND the Name/Year/
+        House/Form line, both indented beside the avatar, with only the
+        row-facts details strip below living outside that column (own
+        comment further below). A prior pass put date-line as its own
+        full-width sibling below meeting-card-header entirely, which put it
+        flush under the thumb instead of indented beside it like Referrals'
+        own second line - live feedback: "the second line of header is not
+        in same place as referrals page". Reuses .entity-thumb.is-logo
+        directly (cards.css: 42px square, object-fit: contain), same as
+        Referrals'/Students'. Panel_group can be null (Unassigned Group) or
+        MAT-wide (school itself null) - Django's dot-lookup silently
+        resolves both to falsy without erroring, same as every other
+        chained lookup in this template.
+        {% endcomment %}
+        <div class="meeting-card-header">
             {% if is_aggregate_view %}
-            <span class="meeting-card-logo-inline">{% include 'icons/school_logo_placeholder_svg.html' %}</span>
+            <div class="meeting-card-thumb">
+                <div class="entity-thumb is-logo">
+                    {% if m.panel.panel_group.school.logo_url %}
+                    <img src="{{ m.panel.panel_group.school.logo_url }}" alt="{{ m.panel.panel_group.school.name }}">
+                    {% else %}
+                    {% include 'icons/school_logo_placeholder_svg.html' %}
+                    {% endif %}
+                </div>
+            </div>
             {% endif %}
-            <h3>{{ m.panel.panel_group.name|default:"Unassigned Group" }}</h3>
-            <span class="status-pill {{ m.panel.status }}">{{ m.panel.get_status_display }}</span>
-            {% if m.panel.auto_ended %}<span class="status-pill danger" title="Ended automatically after running well past this group's typical meeting length">Auto-ended</span>{% endif %}
-            {% if m.is_next %}<span class="status-pill next-panel">Next Panel</span>{% elif m.panel.date == today %}<span class="status-pill in_panel">Today</span>{% endif %}
+            <div class="meeting-card-header-text">
+                <div class="meeting-card-title-row">
+                    <h3>{{ m.panel.panel_group.name|default:"Unassigned Group" }}</h3>
+                    <span class="status-pill {{ m.panel.status }}">{{ m.panel.get_status_display }}</span>
+                    {% if m.panel.auto_ended %}<span class="status-pill danger" title="Ended automatically after running well past this group's typical meeting length">Auto-ended</span>{% endif %}
+                    {% if m.is_next %}<span class="status-pill next-panel">Next Panel</span>{% elif m.panel.date == today %}<span class="status-pill in_panel">Today</span>{% endif %}
+                </div>
+                {% comment %}
+                #121 follow-up: Chair moved out to its own data col (below) -
+                live feedback: "we could move chair from second line of
+                header" - so the date-line is just date/time now.
+                {% endcomment %}
+                <div class="meeting-date-line">{{ m.panel.date }}{% if m.panel.time %} at {{ m.panel.time|time:'H:i' }}{% endif %}</div>
+            </div>
         </div>
-        <div class="meeting-date-line">{{ m.panel.date }}{% if m.panel.time %} at {{ m.panel.time|time:'H:i' }}{% endif %} &middot; <span class="meeting-info-label">Chair</span>{{ m.panel.effective_chair|default:"—" }}</div>
-        {% if m.panel.status == 'complete' %}
-        <div class="meeting-card-breakdown">
-            <span class="breakdown-cluster-label">Discussed Referrals</span>
-            {% if m.new_count or m.review_count %}
-            <span class="bd-pill bd-new">{{ m.new_count }} New</span>
-            <span class="bd-pill bd-review">{{ m.review_count }} Review</span>
-            {% else %}
-            <span class="bd-pill bd-empty">No Referrals</span>
-            {% endif %}
-            <span class="mc-vdivider"></span>
-            <span class="meeting-card-duration-line"><span class="duration-label">Meeting Duration</span><span class="duration-value">{{ m.duration_display|default:"—" }}</span></span>
+        {% comment %}
+        #121: ported onto Referrals'/Actions'/Students' own shared data-cols
+        markup (#113) - row-facts-track wraps the scrolling row-facts/
+        row-facts-cols strip plus its prev/next arrows, one row-fact-col per
+        topic with the label on its own top line, same convention as e.g.
+        _referrals_rows.html's Raised/Panels/Review/Actions columns. Gets
+        per-column width sync + horizontal scroll/arrows for free from the
+        existing shared JS (panel.js's syncFactsColumnWidths/markFactsStripEdges
+        - both delegated or list-scoped by ID, #meetings-filtered-content
+        added to their selector list, panel.js). Each column's data line
+        stays a coloured .bd-pill rather than plain text (unlike Referrals'
+        own columns) - New/Review/Priority are meant to read at a glance,
+        which the shared columns' plain-text convention doesn't give up,
+        it's just not what those OTHER pages' own data happens to need.
+        {% endcomment %}
+        <div class="row-facts-track">
+            <div class="row-facts row-facts-cols">
+                {% comment %}
+                #121 follow-up: School Term added under the academic year
+                (live feedback: "add school term under academic year, may
+                need to update label") - label renamed Academic Year -> Term
+                since the column now leads with the more specific fact. Moved
+                to the FIRST column (live feedback: "lets move term to first
+                data col") - when/which term reads as the most orienting fact
+                to lead with, ahead of who's running it or what's on the
+                agenda. m.term_label is resolved server-side (views.py) since
+                a term's actual dates can be a school-specific override
+                (core.models.Term.school) rather than the same MAT-wide
+                dates for every panel.
+                {% endcomment %}
+                <div class="row-fact-col" data-col="term">
+                    <span class="row-fact-label">Term</span>
+                    <span>{{ m.panel.academic_year.label|default:"—" }}</span>
+                    <span>{{ m.term_label|default:"—" }}</span>
+                </div>
+                {% comment %}
+                #121 follow-up: Chair (moved off the date-line, above) and
+                Attendance combined into one Staff column - live feedback:
+                "lets have staff section data col with chair and number of
+                members attended" (went through a couple of denominator
+                attempts - roster count pre-start, "X of Y attended" once
+                started - before settling on "lets keep it simple, how many
+                attended, not out of number" for a started/complete meeting,
+                then "lets lose number of members in upcoming panel
+                meetings" for the pre-start case too - Chair alone is enough
+                before the meeting has actually happened).
+                {% endcomment %}
+                <div class="row-fact-col" data-col="staff">
+                    <span class="row-fact-label">Staff</span>
+                    <span>Chair: {{ m.panel.effective_chair|default:"—" }}</span>
+                    {% if m.checked_in_count is not None %}
+                    <span>{{ m.checked_in_count }} Attended</span>
+                    {% endif %}
+                </div>
+                {% comment %}
+                #121 follow-up: one shared data-col="referrals" for both
+                branches now (was "discussed" vs "referrals") - live
+                feedback: "have referrals col to be same width and position
+                but different heading, Assigned or Discussed, depending".
+                Two different data-col names meant syncFactsColumnWidths
+                (panel.js) treated them as two unrelated columns, keyed
+                separately, so a mixed list of upcoming ("Assigned"/not-yet-
+                discussed) and past ("Discussed") meetings never actually
+                shared one synced width/position the way every other shared
+                column here does - only the label needed to differ, not the
+                column identity.
+                {% endcomment %}
+                <div class="row-fact-col" data-col="referrals">
+                    <span class="row-fact-label">{% if m.panel.status == 'complete' %}Discussed{% else %}Assigned{% endif %}</span>
+                    {% if m.new_count or m.review_count %}
+                    <span class="bd-pill bd-new">{{ m.new_count }} New</span>
+                    <span class="bd-pill bd-review">{{ m.review_count }} Review</span>
+                    {% else %}
+                    <span class="bd-pill bd-empty">No Referrals</span>
+                    {% endif %}
+                </div>
+                {% if m.panel.status == 'complete' %}
+                {% comment %}
+                #121 follow-up: Closed/To Review folded into this column
+                (not its own) - live feedback: "can we have a data col for
+                referrals closed/referrals for future review, maybe combine
+                with duration as this has 1 line", then "change data col
+                Duration heading to discussion, change future review to 'to
+                review'" - label renamed since the column now covers the
+                whole outcome of the discussion, not just its duration.
+                {% endcomment %}
+                <div class="row-fact-col" data-col="duration">
+                    <span class="row-fact-label">Discussion</span>
+                    <span>{{ m.duration_display|default:"—" }}</span>
+                    {% if m.closed_count or m.future_review_count %}
+                    <span>{{ m.closed_count }} Closed &middot; {{ m.future_review_count }} To Review</span>
+                    {% endif %}
+                </div>
+                {% else %}
+                {% if m.new_count or m.review_count %}
+                <div class="row-fact-col" data-col="priority">
+                    <span class="row-fact-label">Priority</span>
+                    {% if m.priority_counts.high %}<span class="bd-pill bd-high">{{ m.priority_counts.high }} High</span>{% endif %}
+                    {% if m.priority_counts.medium %}<span class="bd-pill bd-medium">{{ m.priority_counts.medium }} Medium</span>{% endif %}
+                    {% if m.priority_counts.low %}<span class="bd-pill bd-low">{{ m.priority_counts.low }} Low</span>{% endif %}
+                    {% if m.priority_counts.untriaged %}<span class="bd-pill bd-untriaged">{{ m.priority_counts.untriaged }} Untriaged</span>{% endif %}
+                </div>
+                {% endif %}
+                {% endif %}
+                {% comment %}
+                Discussion progress - only a running/delayed (still live)
+                meeting has anything to report here; complete/upcoming panels
+                already say the same thing via New/Review, above.
+                {% endcomment %}
+                {% if m.discussed_so_far is not None %}
+                <div class="row-fact-col" data-col="progress">
+                    <span class="row-fact-label">Discussion</span>
+                    <span>{{ m.discussed_so_far }} of {{ m.referral_count }} Discussed</span>
+                </div>
+                {% endif %}
+            </div>
+            <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">&lsaquo;</button>
+            <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">&rsaquo;</button>
         </div>
-        {% else %}
-        <div class="meeting-card-breakdown">
-            {% if m.new_count or m.review_count %}
-            <span class="breakdown-cluster-label">Referrals</span>
-            <span class="bd-pill bd-new">{{ m.new_count }} New</span>
-            <span class="bd-pill bd-review">{{ m.review_count }} Review</span>
-            <span class="mc-vdivider"></span>
-            <span class="breakdown-cluster-label">Priority</span>
-            {% if m.priority_counts.high %}<span class="bd-pill bd-high">{{ m.priority_counts.high }} High</span>{% endif %}
-            {% if m.priority_counts.medium %}<span class="bd-pill bd-medium">{{ m.priority_counts.medium }} Medium</span>{% endif %}
-            {% if m.priority_counts.low %}<span class="bd-pill bd-low">{{ m.priority_counts.low }} Low</span>{% endif %}
-            {% if m.priority_counts.untriaged %}<span class="bd-pill bd-untriaged">{{ m.priority_counts.untriaged }} Untriaged</span>{% endif %}
-            {% else %}
-            <span class="bd-pill bd-empty">No Referrals</span>
-            {% endif %}
-        </div>
-        {% endif %}
     </div>
     <div class="meeting-card-actions">
         {% if m.panel.status == 'complete' %}

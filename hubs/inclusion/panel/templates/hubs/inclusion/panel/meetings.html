@@ -4,7 +4,7 @@
 {% block title %}Panel Meetings{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=227">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=379">
 {% endblock %}
 
 
@@ -60,27 +60,33 @@ JS needed.
 {% comment %}
 Ported to Students/Referrals/Actions' own responsive slide-over tray
 (live feedback, /grill-with-docs session) - .filter-bar-tray is the
-shared opt-in hook (panel.css/main.js). One flat "Panel" category (live
-feedback: "let's have everything under panel for now") rather than a
-multi-group split - Meetings isn't tied to one student the way Referrals/
-Actions are (a meeting covers many students' referrals), so the Year/
-House/Reg Group Info pattern doesn't apply here, and there aren't enough
-naturally distinct concepts left to justify more than one group yet. No
-pinned search field - none of these 5 fields are free text.
+shared opt-in hook (panel.css/main.js). No pinned search field - none of
+these 5 fields are free text.
 
 .filter-bar-no-search (forms.css/main.js) - live feedback: "no search on
 filter bar, without one there is space for the filters to not be
 underneath the bar" - with nothing pinned in the sticky row to grow into
-that space, the 5 fields below stay inline in that same row at every
-width above mobile instead of hiding behind a "View filters" click, which
-is genuinely needed on Students/Referrals/Actions only because Search
-itself needs the room. .filter-bar-flat alongside it - Meetings' one flat
-"Panel" group (comment above) has no real header to show, unlike the SEND
-& Provision hub landing page (also .filter-bar-no-search, but keeps its
-own 3 real groups/headers - hub.html's own comment).
+that space, the fields below stay inline in that same row at every width
+above mobile instead of hiding behind a "View filters" click, which is
+genuinely needed on Students/Referrals/Actions only because Search itself
+needs the room.
+
+#121 follow-up: split into two real .filter-section-label groups - "Panel"
+(which panel, who's running it, its state: Panel Group/Chair/Status/My
+Meetings) and "Schedule" (purely when: Academic Year/Term) - matching SEND
+& Provision's own multi-group format (hub.html: Group Info/SEN/
+Demographics) rather than the single flat, unlabelled group this page used
+before (.filter-bar-flat dropped - live feedback: "match SEND & Provision's
+filter format"). Status/My Meetings started out in this second group
+(then called "Schedule & Status") but moved into Panel - live feedback:
+"lets move Status and My Meetings to Panel group in filters", then
+"Schedule & Status, no longer accurate" once Status itself had left. The
+grouping mechanism itself (.filter-section-label parsing, mobile group
+counts, etc, main.js) is already generic/shared - no CSS/JS changes needed
+beyond this template split.
 {% endcomment %}
 <div class="list-card">
-<form method="get" class="filter-bar filter-bar-tray filter-bar-no-search filter-bar-flat" data-ajax-target="#meetings-filtered-content">
+<form method="get" class="filter-bar filter-bar-tray filter-bar-no-search" data-ajax-target="#meetings-filtered-content">
     <div class="filter-bar-sticky-row">
         <span class="filter-bar-label">Filters <span class="filter-bar-toggle-icon" aria-hidden="true">{% include 'icons/arrow_down_svg.html' %}</span> <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
     </div>
@@ -105,15 +111,13 @@ own 3 real groups/headers - hub.html's own comment).
             {% endfor %}
         </select>
     </div>
-    <div class="filter-field{% if academic_year_filter %} filter-field--active{% endif %}">
-        <label for="academic-year-filter">Academic Year</label>
-        <select id="academic-year-filter" name="academic_year">
-            <option value="">All Years</option>
-            {% for year, label in academic_year_choices %}
-            <option value="{{ year }}" {% if academic_year_filter == year|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-    </div>
+    {% comment %}
+    #121 follow-up: Status/My Meetings moved here from the second group -
+    live feedback: "lets move Status and My Meetings to Panel group in
+    filters" - which panel/who's running it/its current state read as one
+    "Panel" concept together, leaving the second group for purely
+    when-scoped fields (Academic Year/Term).
+    {% endcomment %}
     <div class="filter-field{% if status_filter %} filter-field--active{% endif %}">
         <label for="status-filter">Status</label>
         <select id="status-filter" name="status" class="ui-select--center">
@@ -130,15 +134,43 @@ own 3 real groups/headers - hub.html's own comment).
             <button type="button" id="my-meetings-toggle" class="toggle-pill{% if my_meetings_filter %} on{% endif %}" aria-pressed="{% if my_meetings_filter %}true{% else %}false{% endif %}" aria-label="My Meetings"><span class="toggle-knob"></span></button>
         </div>
     </div>
+    <div class="filter-section-label">Schedule</div>
+    <div class="filter-field{% if academic_year_filter %} filter-field--active{% endif %}">
+        <label for="academic-year-filter">Academic Year</label>
+        <select id="academic-year-filter" name="academic_year">
+            <option value="">All Years</option>
+            {% for year, label in academic_year_choices %}
+            <option value="{{ year }}" {% if academic_year_filter == year|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
     {% comment %}
-    academic_year= explicit (not just omitted) so Clear Filters truly clears
-    the year too, instead of the "no param" default re-applying the current
-    academic year right back (see inclusion_panel_meetings' academic_year_param).
+    #121 follow-up: School Term filter - live feedback: "add school term
+    under academic year... should add this to filters bar as well", then
+    "can we have it show summer without year, we have a dropdown for Ac
+    year" - Term and Academic Year are two independent filters that combine
+    (views.py: term_filter matches on term.name alone, regardless of which
+    academic year that term's dates actually fall in), not one combined
+    "Summer 2025/26" option per year - a bare term name is unambiguous once
+    Academic Year is its own separate control. Options cascade to whichever
+    year is selected (terms_by_academic_year_json, below) - live feedback:
+    "if I select academic year, can term filter be filtered to available
+    terms" - same cascading-select convention Students' own Year->Reg Group
+    filter uses (forms_by_year_json, students.html), not a new mechanism.
     {% endcomment %}
-    <a href="{% url 'inclusion_panel_meetings' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    <div class="filter-field{% if term_filter %} filter-field--active{% endif %}">
+        <label for="term-filter">Term</label>
+        <select id="term-filter" name="term">
+            <option value="">All Terms</option>
+            {% for value, label in term_choices %}
+            <option value="{{ value }}" {% if term_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <a href="{% url 'inclusion_panel_meetings' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
     </div>
     <div class="filter-bar-sticky-footer">
-        <a href="{% url 'inclusion_panel_meetings' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
+        <a href="{% url 'inclusion_panel_meetings' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
         <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
     </div>
     </div>
@@ -159,6 +191,46 @@ document.addEventListener('DOMContentLoaded', function () {
     var myMeetingsInput = document.getElementById('my-meetings-input');
     var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
     if (window.wireListInfiniteScroll) window.wireListInfiniteScroll('meetings-filtered-content');
+
+    {% comment %}
+    #121 follow-up: Term cascades to whichever Academic Year is selected -
+    live feedback: "if I select academic year, can term filter be filtered
+    to available terms... can this be a standard link throughout ecosystem"
+    - same {parent_value: [child_options]} JSON map + rebuild-on-change
+    convention as Students' own Year->Reg Group cascade (students.html:
+    formsByYear/refreshRegOptions), not a new mechanism - only difference is
+    each Term option is a [value, label] pair (a bare term name repeats
+    every year, so option.value != option.textContent the way Reg Group's
+    own value==label options are), so the option-rebuild loop needs both.
+    {% endcomment %}
+    var yearFilter = document.getElementById('academic-year-filter');
+    var termFilter = document.getElementById('term-filter');
+    if (yearFilter && termFilter) {
+        var allTerms = Array.prototype.slice.call(termFilter.options).slice(1)
+            .map(function (o) { return [o.value, o.textContent]; });
+        var termsByYear = JSON.parse('{{ terms_by_academic_year_json|escapejs }}');
+
+        function refreshTermOptions() {
+            var year = yearFilter.value;
+            var terms = year ? (termsByYear[year] || []) : allTerms;
+            var previous = termFilter.value;
+            termFilter.innerHTML = '<option value="">All Terms</option>';
+            terms.forEach(function (pair) {
+                var opt = document.createElement('option');
+                opt.value = pair[0];
+                opt.textContent = pair[1];
+                termFilter.appendChild(opt);
+            });
+            termFilter.value = terms.some(function (pair) { return pair[0] === previous; }) ? previous : '';
+            // Term is enhanced into a custom popover control by
+            // enhanceFormControls() on page load, same as Students' own Reg
+            // Group - mutating the underlying native <select>'s options
+            // above doesn't by itself refresh that popover's cached option
+            // list (own comment, students.html).
+            if (termFilter._uiSelect) termFilter._uiSelect.refresh();
+        }
+        yearFilter.addEventListener('change', refreshTermOptions);
+    }
 
     if (myMeetingsToggle && myMeetingsInput) {
         myMeetingsToggle.addEventListener('click', function () {

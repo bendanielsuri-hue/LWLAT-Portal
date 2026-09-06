@@ -3117,7 +3117,7 @@ function fillFactsColumns(columns, strip) {
 // of where in the DOM it actually sits.
 function syncFactsColumnWidths() {
     var perRow = !window.matchMedia('(min-width: 701px)').matches;
-    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content').forEach(function (listRoot) {
+    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (listRoot) {
         function scopedColumns(root) {
             var cols = Array.prototype.slice.call(root.querySelectorAll('.row-fact-col[data-col]'));
             return cols.filter(function (col) { return col.getAttribute('data-col') !== 'status'; });
@@ -3225,7 +3225,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     refreshFactsStrips();
     var refresh = window.rafThrottle ? window.rafThrottle(refreshFactsStrips) : refreshFactsStrips;
-    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content').forEach(function (container) {
+    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (container) {
         if (typeof MutationObserver !== 'undefined') {
             new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
         }
