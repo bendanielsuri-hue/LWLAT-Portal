@@ -628,6 +628,16 @@ html.nav-touch-mode .side-nav .collapse-toggle .toggle-icon-touch {
     flex-shrink: 0;
     padding: var(--space-md) var(--space-lg) var(--space-lg);
 }
+/* Hide on touch (feedback_hide_scrollbar_touch_mode convention) - the
+   touch-expanded rail (responsive.css) is exactly where a touch viewer
+   would actually see this scroll region; same sweep that caught Meetings'
+   own .meeting-list missing it. */
+html.nav-touch-mode .side-nav .nav-scroll {
+    scrollbar-width: none;
+}
+html.nav-touch-mode .side-nav .nav-scroll::-webkit-scrollbar {
+    display: none;
+}
 
 /* .nav-stack groups the overlay panels with the hub sidebar as a single flex
    item — overlay panels absolutely position inside it and don't contribute to
@@ -1720,6 +1730,19 @@ main {
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+}
+/* Hide on touch (feedback_hide_scrollbar_touch_mode convention) - true
+   phone width already gets this via _hub_sidebar.html's own
+   body:has(.mobile-tabbar) main rule, but a real touch tablet (480-1180px,
+   no bottom tabbar) fell through that gap entirely until this same sweep
+   (prompted by Meetings' own .meeting-list missing it - live feedback:
+   "I thought we documented this so that all pages that were touch did not
+   show these") caught it too. */
+html.nav-touch-mode main {
+    scrollbar-width: none;
+}
+html.nav-touch-mode main::-webkit-scrollbar {
+    display: none;
 }
 /* Padding on an inner wrapper, not the scrolling element — position:sticky
    children measure their stuck offset against the scroll container's padding

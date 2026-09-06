@@ -86,6 +86,18 @@
     margin-bottom: calc(-1 * var(--space-lg));
     padding-bottom: var(--space-lg);
 }
+/* Hide on touch (feedback_hide_scrollbar_touch_mode convention - same pair
+   as layout.css's .list-card .entity-list) - swept the rest of this file's
+   own overflow:auto scroll regions for the same gap once Meetings' own
+   .meeting-list turned up missing it (live feedback, panel meetings in
+   tablet mode: "I thought we documented this so that all pages that were
+   touch did not show these"). */
+html.nav-touch-mode .list-page-shell .panel-list {
+    scrollbar-width: none;
+}
+html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
+    display: none;
+}
 
 /* Contains the whole carousel's own z-index layering (stacked cards 1-10,
    fade 15, arrows 20, filter dropdown 30 - all below, ≤1180px) inside its
@@ -3216,6 +3228,19 @@ html:not(.nav-touch-mode) .meeting-card:hover h3,
    its own content width inside that now-wide box unless told otherwise. */
 .meeting-card-actions form { display: flex; }
 .meeting-card-actions form .btn { flex: 1 1 auto; }
+/* Drop icons before wrapping, keep the text - live feedback: "buttons
+   don't fit... could we lose either the text or icons", then, once the
+   icon-only result actually shipped: "I did not want this, lose the icons
+   if it does not fit" - text reads as more important to keep than the
+   icon here. updateMeetingActionsOverflow (panel.js) measures each row's
+   natural (icon+label) width against the space actually available and
+   adds this class when it doesn't fit; flex-wrap (≤700px block, below) is
+   what still catches the rare case where even text-only doesn't fit.
+   Each button keeps its accessible name via aria-label
+   (_meetings_rows.html) regardless of this class either way. */
+.meeting-card-actions.hide-icons .btn-icon {
+    display: none;
+}
 
 /* #121: Meeting card at 375px - "table -> stacked card" per #113's shared
    vocabulary, same treatment as Referrals'/Actions' own #118/#119 blocks:
@@ -3277,13 +3302,33 @@ html:not(.nav-touch-mode) .meeting-card:hover h3,
         padding: 0;
         flex: 1 1 100%;
         flex-direction: row;
+        /* wrap - last-resort fallback once icons-only (JS, own comment
+           above) still doesn't fit; a genuinely tiny width with 3 icon
+           buttons wraps the odd one onto its own second line instead of
+           squeezing/clipping (live feedback screenshot: Delete cut off). */
+        flex-wrap: wrap;
         align-items: center;
     }
     /* Equal-width buttons fill the row edge-to-edge instead of leaving a
        dead gap on the right - same convention as Referrals'/Actions' own
-       .row-btn-row > * mobile rule. */
-    .meeting-card-actions > * {
+       .row-btn-row > * mobile rule. min-width so a wrapped line's lone
+       button doesn't stretch edge-to-edge on its own (reads oddly once
+       there's only one item left on a line) - content width + a floor
+       instead, same idea as the row-fact-col min-width considered earlier
+       this session (reverted there, kept here: these are real tap targets,
+       not data columns, so a consistent minimum tap-target width matters
+       more than letting them shrink arbitrarily). */
+    /* .disabled-btn-tooltip-wrap's own display: contents (buttons.css)
+       removes it from the box tree, so its .btn child becomes the real
+       flex item here directly - `>` combinators still match against the
+       DOM tree regardless (own base rule above never reaches it), so it
+       needs its own explicit copy of this same sizing to size/grow the
+       same as every other button in the row instead of falling back to
+       the flex default (0 1 auto, content-sized only). */
+    .meeting-card-actions > *,
+    .meeting-card-actions > .disabled-btn-tooltip-wrap > .btn {
         flex: 1 1 0;
+        min-width: 84px;
     }
     /* Same "card itself supplies the inset again at this width" reset as
        meeting-card-header's own padding-top, above. */
@@ -8759,6 +8804,19 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
     background: var(--bg-well);
     gap: var(--space-xxs);
 }
+/* Hide on touch, same pair every other overflow:auto list already gets
+   (layout.css's html.nav-touch-mode .list-card .entity-list) - live
+   feedback: "Panel meeting in tablet mode is showing a scroll bar! I
+   thought we documented this so that all pages that were touch did not
+   show these" - .meeting-list was a genuine miss, not scoped along with
+   .entity-list when this convention was written since Meetings uses its
+   own row shape/class instead of sharing .entity-list. */
+html.nav-touch-mode .meeting-list {
+    scrollbar-width: none;
+}
+html.nav-touch-mode .meeting-list::-webkit-scrollbar {
+    display: none;
+}
 
 /* Multi-column setup/discussion layouts */
 .setup-columns, .discussion-columns {
@@ -11479,4 +11537,50 @@ dialog#panel-search-dialog .modal-body {
     }
     .panel-home-cards #referrals-card .tab-row::before { content: "My Referrals"; }
     .panel-home-cards #actions-card .tab-row::before { content: "My Actions"; }
+}
+
+/* ==================== Touch scrollbar-hide audit ====================
+   feedback_hide_scrollbar_touch_mode (memory): any overflow:auto scroll
+   region should hide its native scrollbar on touch (html.nav-touch-mode),
+   same pair layout.css's .list-card .entity-list already uses - momentum
+   scroll already signals scrollability there, a mouse/trackpad user still
+   sees it elsewhere. Meetings' own .meeting-list turned up missing this
+   (live feedback: "I thought we documented this so that all pages that
+   were touch did not show these"), which prompted sweeping every other
+   overflow:auto region in this file for the same gap - these are the ones
+   that were never actually covered (a handful of others, e.g. the Home
+   carousels/#my-referrals-list, .stats-carousel-track, .row-facts-cols,
+   already hide their scrollbar unconditionally for everyone, not just
+   touch - nothing to add there). Grouped here as one sweep rather than
+   scattered at each individual rule, since there's no shared reasoning
+   worth repeating a dozen times over. */
+html.nav-touch-mode .activity-list,
+html.nav-touch-mode .discussion-col-body,
+html.nav-touch-mode .setup-col-body,
+html.nav-touch-mode .panel-card .tab-row,
+html.nav-touch-mode .dsl-briefing-list-col,
+html.nav-touch-mode .dsl-briefing-detail-col,
+html.nav-touch-mode .note-thread,
+html.nav-touch-mode dialog.modal-dialog .modal-body,
+html.nav-touch-mode .member-card-row,
+html.nav-touch-mode .panel-group-modal-scroll,
+html.nav-touch-mode .panel-search-results,
+html.nav-touch-mode .member-result-list,
+html.nav-touch-mode .referral-student-results {
+    scrollbar-width: none;
+}
+html.nav-touch-mode .activity-list::-webkit-scrollbar,
+html.nav-touch-mode .discussion-col-body::-webkit-scrollbar,
+html.nav-touch-mode .setup-col-body::-webkit-scrollbar,
+html.nav-touch-mode .panel-card .tab-row::-webkit-scrollbar,
+html.nav-touch-mode .dsl-briefing-list-col::-webkit-scrollbar,
+html.nav-touch-mode .dsl-briefing-detail-col::-webkit-scrollbar,
+html.nav-touch-mode .note-thread::-webkit-scrollbar,
+html.nav-touch-mode dialog.modal-dialog .modal-body::-webkit-scrollbar,
+html.nav-touch-mode .member-card-row::-webkit-scrollbar,
+html.nav-touch-mode .panel-group-modal-scroll::-webkit-scrollbar,
+html.nav-touch-mode .panel-search-results::-webkit-scrollbar,
+html.nav-touch-mode .member-result-list::-webkit-scrollbar,
+html.nav-touch-mode .referral-student-results::-webkit-scrollbar {
+    display: none;
 }

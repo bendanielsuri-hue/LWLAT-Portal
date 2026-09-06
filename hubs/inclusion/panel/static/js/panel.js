@@ -3198,6 +3198,72 @@ function updateActionStatusVisibility() {
     var narrow = needed > facts.getBoundingClientRect().width;
     listRoot.classList.toggle('status-col-narrow', narrow);
 }
+// Meetings' own action-button row (up to 3: Start/Continue Meeting, Edit
+// Agenda, Delete) doesn't always fit at narrow widths - live feedback:
+// "buttons don't fit... could we lose either the text or icons before we
+// get it to wrap", then, once dropping text first actually shipped: "I did
+// not want this, lose the icons if it does not fit" - text stays, icon
+// goes. Per-row (not per-list like updateActionStatusVisibility above)
+// since each card's own button set/labels differ by status. scrollWidth,
+// not getBoundingClientRect().width - a button already flex-shrunk below
+// its own content's natural size (row's flex: 1 1 0, panel.css) still
+// reports its true, unclipped content width via scrollWidth even though
+// the rendered box itself is narrower (the text visually overflows the
+// shrunk box with nowrap set and no ellipsis, exactly the "Delete cut
+// off" screenshot this was written against) - getBoundingClientRect()
+// would only ever report the shrunk box's own current size, never what it
+// actually needs.
+function updateMeetingActionsOverflow() {
+    document.querySelectorAll('#meetings-filtered-content .meeting-card-actions').forEach(function (actions) {
+        // Remove before measuring, same "un-hide before measuring" reasoning
+        // as updateActionStatusVisibility above - a stale class from a wider
+        // previous measurement would otherwise report an already-hidden
+        // icon's width as 0 and never ask for it back.
+        actions.classList.remove('hide-icons');
+        // Every direct child is a real flex item/slot in this row - NOT
+        // necessarily a .btn itself: a disabled button with a tooltip
+        // (_disabled_btn.html, when its `title` param is set) wraps the
+        // actual .btn in an extra <span title="..."> for the tooltip,
+        // which is the direct child here instead. Filtering children down
+        // to just el.matches('.btn') (tried first) silently dropped that
+        // wrapper - and so its whole rendered width - out of the "does
+        // this fit" sum entirely, undercounting the row and never
+        // triggering the fallback even when a disabled Start Meeting was
+        // visibly taking up just as much room as anything else in the row.
+        var items = Array.prototype.slice.call(actions.children);
+        // A single button can't overflow against itself; View Meeting/View
+        // Agenda's own plain-text branches (_meetings_rows.html) only ever
+        // render one item, same reason this never applies there.
+        if (items.length < 2) return;
+        // Guard: every slot needs a .btn-label somewhere inside it for
+        // hide-icons to leave anything behind - true for every button here
+        // today (own comment, _meetings_rows.html), but a future
+        // icon-only addition with no label should fail safe here rather
+        // than silently going blank.
+        var allHaveLabels = items.every(function (slot) {
+            var btn = slot.matches('.btn') ? slot : slot.querySelector('.btn');
+            return !!(btn && btn.querySelector('.btn-label'));
+        });
+        if (!allHaveLabels) return;
+        var gapPx = parseFloat(getComputedStyle(actions).columnGap || getComputedStyle(actions).rowGap || getComputedStyle(actions).gap) || 0;
+        var natural = gapPx * (items.length - 1);
+        items.forEach(function (slot) {
+            // The slot itself (own comment above), not a nested .btn - its
+            // scrollWidth is what the flex row actually has to fit,
+            // whether or not it happens to be the .btn directly. Exception:
+            // .disabled-btn-tooltip-wrap (_disabled_btn.html) is
+            // display: contents (buttons.css) precisely so it generates no
+            // box of its own - scrollWidth on it is always 0, so measure
+            // its .btn child (the thing that actually renders/sizes) here
+            // instead.
+            var box = slot.matches('.disabled-btn-tooltip-wrap') ? slot.querySelector('.btn') : slot;
+            natural += box ? box.scrollWidth : 0;
+        });
+        if (natural > actions.getBoundingClientRect().width) {
+            actions.classList.add('hide-icons');
+        }
+    });
+}
 document.addEventListener('scroll', function (e) {
     var track = e.target;
     if (!track.classList || !track.classList.contains('row-facts-cols')) return;
@@ -3221,6 +3287,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function refreshFactsStrips() {
         syncFactsColumnWidths();
         updateActionStatusVisibility();
+        updateMeetingActionsOverflow();
         markAllFactsStripEdges();
     }
     refreshFactsStrips();

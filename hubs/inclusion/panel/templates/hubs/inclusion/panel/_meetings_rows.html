@@ -185,6 +185,22 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
             <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">&rsaquo;</button>
         </div>
     </div>
+    {% comment %}
+    Up to 3 buttons here at once (Start Meeting/Continue Meeting + Edit
+    Agenda + Delete) don't all fit at very narrow widths - live feedback:
+    "buttons don't fit... could we lose either the text or icons before we
+    get it to wrap", then, once dropping text first actually shipped: "I
+    did not want this, lose the icons if it does not fit" - text stays,
+    icon goes. Each button's icon is wrapped in .btn-icon and its text in
+    .btn-label (aria-label/title restate the same text so the accessible
+    name survives either way, updateMeetingActionsOverflow, panel.js) so
+    icons can be hidden first, text alone as the fallback - flex-wrap
+    (panel.css, ≤700px block) is the last resort if even text-only still
+    doesn't fit. View Meeting/View Agenda (below) are deliberately left
+    plain text with no icon - each only ever renders alone in its own
+    branch, never sharing a row with anything else, so there's nothing to
+    overflow.
+    {% endcomment %}
     <div class="meeting-card-actions">
         {% if m.panel.status == 'complete' %}
         {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/document_svg.html" label="Summary" title="Coming soon" %}
@@ -198,7 +214,7 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
         in - Continue Meeting goes straight to the Panel Agenda page,
         same as before, instead of opening the attendance dialog.
         {% endcomment %}
-        <a href="{% url 'inclusion_panel_meeting_start' m.panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Continue Meeting</a>
+        <a href="{% url 'inclusion_panel_meeting_start' m.panel.id %}" class="btn btn-secondary btn-sm" aria-label="Continue Meeting" title="Continue Meeting"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> <span class="btn-label">Continue Meeting</span></a>
         {% else %}
         {% comment %}
         Opens the Attendance dialog in place (see the #meeting-start-dialog
@@ -206,13 +222,13 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
         page only navigates to the Panel Agenda once the meeting has
         actually started from inside that dialog.
         {% endcomment %}
-        <button type="button" class="btn btn-secondary btn-sm" data-open-meeting-start-trigger data-panel-id="{{ m.panel.id }}"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Meeting</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-open-meeting-start-trigger data-panel-id="{{ m.panel.id }}" aria-label="Start Meeting" title="Start Meeting"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> <span class="btn-label">Start Meeting</span></button>
         {% endif %}
         {% if not m.panel.started_at %}
-        <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Agenda</a>
+        <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm" aria-label="Edit Agenda" title="Edit Agenda"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> <span class="btn-label">Edit Agenda</span></a>
         <form method="post" action="{% url 'inclusion_panel_meeting_delete' m.panel.id %}" data-row-remove-form data-confirm-message="Delete this panel meeting? This cannot be undone.">
             {% csrf_token %}
-            <button type="submit" class="btn btn-delete btn-sm"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Delete</button>
+            <button type="submit" class="btn btn-delete btn-sm" aria-label="Delete" title="Delete"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> <span class="btn-label">Delete</span></button>
         </form>
         {% endif %}
         {% else %}
