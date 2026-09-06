@@ -22,6 +22,28 @@ class Command(BaseCommand):
 
         expertise_list = list(Expertise.objects.filter(name__in=EXPERTISE_NAMES).order_by('order'))
 
+        # The one MAT-wide Panel Group MAT Panel Meetings belong to (see
+        # hubs/inclusion/panel/CONTEXT.md) - seeded with a real standing
+        # roster of MAT staff (is_mat_staff, set by seed_benjamin_admin),
+        # same convention as every school group's default roster, rather
+        # than left empty. Ad-hoc invited attendees beyond this roster are
+        # out of scope here - see #161.
+        mat_group, _ = PanelGroup.objects.get_or_create(
+            is_mat_wide=True, defaults={'name': 'MAT Panel', 'school': None, 'is_active': True},
+        )
+        mat_staff_pool = list(Staff.objects.filter(is_mat_staff=True, is_active=True).order_by('id'))
+        for idx, staff in enumerate(mat_staff_pool):
+            PanelGroupMember.objects.update_or_create(
+                panel_group=mat_group, staff=staff,
+                defaults={'expertise': expertise_list[idx % len(expertise_list)] if expertise_list else None},
+            )
+        if mat_group.default_chair_id is None and mat_staff_pool:
+            mat_group.default_chair = mat_staff_pool[0]
+            mat_group.save(update_fields=['default_chair'])
+        self.stdout.write(self.style.SUCCESS(
+            f'{mat_group.name}: {len(mat_staff_pool)} MAT staff member(s) seeded.'
+        ))
+
         for school in School.objects.filter(is_active=True):
             group_name = 'Babington Panel' if school.name == 'Babington Academy' else f'{school.name} Panel'
             group, _ = PanelGroup.objects.get_or_create(

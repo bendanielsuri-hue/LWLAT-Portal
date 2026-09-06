@@ -208,6 +208,9 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
         {% elif m.can_manage %}
         {% if not m.panel.started_at and not m.referral_count %}
         {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/play_svg.html" label="Start Meeting" title="Add at least one referral to the agenda before starting" %}
+        {% elif m.mat_start_blocked %}
+        {% comment %}Only one MAT Panel Meeting may run at a time - see CONTEXT.md.{% endcomment %}
+        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/play_svg.html" label="Start Meeting" title="Another MAT Panel Meeting is already running - only one can run at a time" %}
         {% elif m.panel.started_at %}
         {% comment %}
         A meeting already 'running' has nothing left to reschedule/check

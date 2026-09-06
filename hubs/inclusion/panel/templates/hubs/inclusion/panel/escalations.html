@@ -5,7 +5,7 @@
 {% block title %}Escalations{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=216">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=393">
 {% endblock %}
 
 
@@ -73,6 +73,20 @@ page has no filters yet) - .list-card doesn't require one.
             <div class="entity-title">{{ escalation.referral.student }}</div>
             <div class="entity-meta">Escalated by {{ escalation.escalated_by|default:"—" }} on {{ escalation.escalated_at|date:"d/m/Y H:i" }}</div>
             <div class="entity-meta">{{ escalation.reason }}</div>
+            {% comment %}
+            Quick Launch (docs/adr/0015): appends to the already-running MAT
+            Panel Meeting if there is one, otherwise creates one directly in
+            'running' status with this referral pre-added and discussion
+            already started - see inclusion_panel_escalation_quick_launch.
+            Hidden entirely (not disabled) if the MAT-wide Panel Group hasn't
+            been seeded yet, same convention as can_create_meeting elsewhere.
+            {% endcomment %}
+            {% if not mat_group_missing %}
+            <form method="post" action="{% url 'inclusion_panel_escalation_quick_launch' escalation.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> {% if running_mat_panel %}Add to Running MAT Meeting{% else %}Launch MAT Meeting{% endif %}</button>
+            </form>
+            {% endif %}
             <form method="post" action="{% url 'inclusion_panel_escalation_resolve' escalation.id %}" class="escalation-resolve-form" data-row-remove-form>
                 {% csrf_token %}
                 <textarea name="resolution_notes" placeholder="Resolution notes..."></textarea>

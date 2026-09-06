@@ -169,9 +169,20 @@ class PanelGroup(models.Model):
     )
     default_chair = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
     is_active = models.BooleanField(default=True)
+    # The one PanelGroup a MAT Panel Meeting (see hubs/inclusion/panel/CONTEXT.md)
+    # belongs to - distinct from `school=null`, which just means "no school",
+    # not "this is the MAT-wide group". A `Panel` in this group is what makes it
+    # a MAT Panel Meeting rather than an ordinary school one; the constraint
+    # below keeps that identification unambiguous.
+    is_mat_wide = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'inclusion_panelgroup'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['is_mat_wide'], condition=Q(is_mat_wide=True), name='unique_mat_wide_panel_group',
+            ),
+        ]
 
     def __str__(self):
         return self.name
@@ -491,6 +502,15 @@ class Escalation(models.Model):
     class Meta:
         ordering = ['-escalated_at']
         db_table = 'inclusion_escalation'
+        constraints = [
+            # At most one *open* Escalation per referral at a time - history is
+            # kept (escalate -> resolve -> escalate again later is fine), but a
+            # referral's escalation state is otherwise binary. See
+            # hubs/inclusion/panel/CONTEXT.md's Escalation entry.
+            models.UniqueConstraint(
+                fields=['referral'], condition=Q(status='open'), name='unique_open_escalation_per_referral',
+            ),
+        ]
 
     def __str__(self):
         return f'Escalation #{self.pk} - {self.referral}'

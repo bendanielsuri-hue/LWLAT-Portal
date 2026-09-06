@@ -20,6 +20,7 @@ urlpatterns = [
 
     path('escalations/', views.inclusion_panel_escalations, name='inclusion_panel_escalations'),
     path('escalations/<int:escalation_id>/resolve/', views.inclusion_panel_escalation_resolve, name='inclusion_panel_escalation_resolve'),
+    path('escalations/<int:escalation_id>/quick-launch/', views.inclusion_panel_escalation_quick_launch, name='inclusion_panel_escalation_quick_launch'),
 
     path('meetings/', views.inclusion_panel_meetings, name='inclusion_panel_meetings'),
     path('meetings/new/', views.inclusion_panel_meeting_new, name='inclusion_panel_meeting_new'),

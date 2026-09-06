@@ -4,7 +4,7 @@
 {% block title %}Escalate to MAT{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=216">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=393">
 {% endblock %}
 
 
@@ -21,6 +21,15 @@
 {% block content %}
 <p>{{ referral.student }}</p>
 
+{% if already_escalated %}
+{% comment %}
+A referral's escalation state is binary - at most one open Escalation at a
+time (CONTEXT.md, backed by unique_open_escalation_per_referral). This
+referral already has one open, so a second can't be raised until it's
+resolved on the Escalations screen.
+{% endcomment %}
+<p class="empty-note">This referral already has an open escalation. Resolve it on the <a href="{% url 'inclusion_panel_escalations' %}">Escalations</a> screen before escalating again.</p>
+{% else %}
 <form method="post">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
@@ -28,7 +37,7 @@
     <div class="field-group">
         <label for="escalated_by">Escalated By</label>
         <select id="escalated_by" name="escalated_by">
-            <option value="">Select staff memberÃƒÂ¢Ã¢‚Â¬Ã‚Â¦</option>
+            <option value="">Select staff member…</option>
             {% for staff in staff_list %}
             <option value="{{ staff.id }}">{{ staff.first_name }} {{ staff.last_name }}</option>
             {% endfor %}
@@ -42,4 +51,5 @@
 
     <button type="submit" class="btn btn-primary">Escalate</button>
 </form>
+{% endif %}
 {% endblock %}

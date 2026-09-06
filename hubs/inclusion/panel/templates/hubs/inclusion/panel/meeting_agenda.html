@@ -5,7 +5,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=216">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=393">
 {% endblock %}
 
 
@@ -144,6 +144,8 @@ regardless if the browser closes entirely before that happens.
                 <button type="submit" class="btn btn-primary">End Panel Meeting</button>
             </form>
         </div>
+        {% elif mat_start_blocked %}
+        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary" icon="icons/play_svg.html" label="Start Meeting" title="Another MAT Panel Meeting is already running - only one can run at a time" %}
         {% elif can_start_meeting %}
         {% if agenda_is_empty %}
         {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary" icon="icons/play_svg.html" label="Start Meeting" title="Add at least one referral to the agenda before starting" %}
@@ -162,7 +164,9 @@ regardless if the browser closes entirely before that happens.
         <div class="setup-col-body">
         {% if is_pre_start %}
         <p class="members-register-placeholder">{{ checked_in_count }} of {{ members|length }} checked in</p>
-        {% if can_start_meeting %}
+        {% if mat_start_blocked %}
+        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/play_svg.html" label="Take Attendance" title="Another MAT Panel Meeting is already running - only one can run at a time" %}
+        {% elif can_start_meeting %}
         {% if agenda_is_empty %}
         {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/play_svg.html" label="Take Attendance" title="Add at least one referral to the agenda before starting" %}
         {% else %}
@@ -203,7 +207,16 @@ regardless if the browser closes entirely before that happens.
     <div class="agenda-section setup-col">
         <div class="setup-col-header">
             <h2>Students {% if agenda_readonly %}Deferred{% else %}Pending{% endif %} <span class="count" data-count-key="heading" data-count="{{ pending|length }}">({{ pending|length }})</span></h2>
-            <a href="{% url 'inclusion_panel_meeting_setup' panel.id %}" class="btn btn-subtle btn-sm"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add to Agenda</a>
+            {% comment %}
+            Page-load count only (docs/adr/0015) of open Escalations not yet
+            on this running MAT panel's agenda - prompts the chair toward
+            the same Add to Agenda link Setup's add_referral already
+            supports append-only against a running panel.
+            {% endcomment %}
+            <a href="{% url 'inclusion_panel_meeting_setup' panel.id %}" class="btn btn-subtle btn-sm">
+                <span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add to Agenda
+                {% if new_escalations_count %}<span class="btn-count-badge" title="{{ new_escalations_count }} new escalated referral{{ new_escalations_count|pluralize }} not yet on this agenda">{{ new_escalations_count }}</span>{% endif %}
+            </a>
         </div>
         <div class="setup-col-body">
         <div class="entity-list entity-list--bleed" data-drop-zone="pending">

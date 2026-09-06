@@ -300,6 +300,33 @@ def _referral_review_pill(referral):
     return _review_label(discussed_count), 'type-followup'
 
 
+def _referral_escalation_pill(referral):
+    # Independent of both the status pill and review pill above - a referral
+    # can be assigned/discussing at a school panel AND carry an open
+    # Escalation at the same time (see CONTEXT.md's Escalation entry), so this
+    # can never be folded into either. Requires referral.escalations
+    # prefetched, same convention as review pill's panel_referrals.
+    if any(e.status == 'open' for e in referral.escalations.all()):
+        return 'Escalated', 'type-escalated'
+    return None, None
+
+
+def _mat_panel_group():
+    # The one PanelGroup a MAT Panel Meeting belongs to - see
+    # PanelGroup.is_mat_wide and CONTEXT.md's MAT Panel Meeting entry. None
+    # if it hasn't been seeded yet (see seed_panel_groups).
+    return PanelGroup.objects.filter(is_mat_wide=True, is_active=True).first()
+
+
+def _mat_panel_running(exclude=None):
+    # Only one MAT Panel Meeting may be `running` at a time - see CONTEXT.md.
+    # School Panels have no equivalent limit.
+    qs = Panel.objects.filter(panel_group__is_mat_wide=True, status='running')
+    if exclude is not None:
+        qs = qs.exclude(pk=exclude.pk)
+    return qs.first()
+
+
 def _panel_referral_stage(pr):
     # This PanelReferral's progress through its own panel — distinct from
     # InclusionReferral.status, which aggregates across every panel a referral has
@@ -390,10 +417,18 @@ def _apply_attendance_action(request, panel, action):
     # implementation rather than re-deriving these rules twice (ENG-S1).
     if action == 'start_meeting':
         starter = _current_staff(request)
+        # Only one MAT Panel Meeting may run at a time - see CONTEXT.md.
+        # School Panels have no equivalent limit, so this only ever blocks
+        # when panel.panel_group is the MAT-wide group.
+        mat_blocked = (
+            panel.panel_group_id and panel.panel_group.is_mat_wide
+            and _mat_panel_running(exclude=panel) is not None
+        )
         if (
             panel.status not in ('running', 'complete', 'void')
             and panel.panel_referrals.filter(removed_at__isnull=True).exists()
             and _is_group_member(starter, panel)
+            and not mat_blocked
         ):
             starter_gm = PanelGroupMember.objects.get(panel_group_id=panel.panel_group_id, staff=starter, is_active=True)
             now = timezone.now()
@@ -1622,7 +1657,7 @@ def inclusion_panel_referrals(request):
     referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related(
         'student', 'student__school', 'raised_by', 'referral',
     ).prefetch_related(
-        'responses__question', 'panel_referrals__panel__panel_group',
+        'responses__question', 'panel_referrals__panel__panel_group', 'escalations',
     )
     if academic_year_filter:
         referrals_qs = referrals_qs.filter(referral__academic_year_id=academic_year_filter)
@@ -1717,6 +1752,7 @@ def inclusion_panel_referrals(request):
         )
         referral.next_review_date = next_review_pr.follow_up_date if next_review_pr else None
         referral.review_pill_label, referral.review_pill_class = _referral_review_pill(referral)
+        referral.escalation_pill_label, referral.escalation_pill_class = _referral_escalation_pill(referral)
 
     active_filter_count = sum(
         1 for v in (
@@ -2133,14 +2169,19 @@ def inclusion_panel_action_status_update(request, referral_id):
 
 def inclusion_panel_referral_escalate(request, referral_id):
     referral = get_object_or_404(InclusionReferral, pk=referral_id)
+    already_escalated = referral.escalations.filter(status='open').exists()
 
     if request.method == 'POST':
-        staff_id = request.POST.get('escalated_by') or None
-        Escalation.objects.create(
-            referral=referral,
-            escalated_by_id=staff_id,
-            reason=request.POST.get('reason', ''),
-        )
+        # A referral's escalation state is binary - at most one open
+        # Escalation at a time (see CONTEXT.md, backed by
+        # unique_open_escalation_per_referral). Silently no-op a resubmit
+        # instead of letting the constraint raise.
+        if not already_escalated:
+            Escalation.objects.create(
+                referral=referral,
+                escalated_by_id=request.POST.get('escalated_by') or None,
+                reason=request.POST.get('reason', ''),
+            )
         # Escalating doesn't change anything about this referral's own
         # panel/discussion state, so its status is left as whatever
         # _sync_referral_status already computed (normally 'open', since
@@ -2151,6 +2192,7 @@ def inclusion_panel_referral_escalate(request, referral_id):
     return render(request, 'hubs/inclusion/panel/escalate_form.html', {
         **_panel_base_context(request),
         'referral': referral,
+        'already_escalated': already_escalated,
         'staff_list': staff_queryset_for_school_key(current_school_key(request)),
         'next': request.GET.get('next', ''),
     })
@@ -2169,12 +2211,18 @@ def inclusion_panel_escalations(request):
     open_count = escalations.count()
     resolved_count = all_escalations.filter(status='resolved').count()
     students_count = all_escalations.values('referral__student_id').distinct().count()
+    running_mat_panel = _mat_panel_running()
     return render(request, 'hubs/inclusion/panel/escalations.html', {
         **_panel_base_context(request),
         'escalations': escalations,
         'open_count': open_count,
         'resolved_count': resolved_count,
         'students_count': students_count,
+        # Drives the Launch/Add-to-running-meeting button label - see
+        # inclusion_panel_escalation_quick_launch, which re-checks this
+        # server-side rather than trusting this page-load snapshot.
+        'running_mat_panel': running_mat_panel,
+        'mat_group_missing': _mat_panel_group() is None,
     })
 
 
@@ -2189,6 +2237,54 @@ def inclusion_panel_escalation_resolve(request, escalation_id):
         if is_ajax:
             return JsonResponse({'success': True})
     return redirect('inclusion_panel_escalations')
+
+
+def inclusion_panel_escalation_quick_launch(request, escalation_id):
+    # "Launch MAT Meeting" from the Escalations screen - see CONTEXT.md's MAT
+    # Panel Meeting entry and docs/adr/0015. Branches on whether a MAT panel
+    # is already running: if so, append this escalation's referral onto its
+    # live agenda (the same generic add_referral path Setup uses); otherwise
+    # create one directly in 'running' status with this referral pre-added
+    # and discussion already started. Only one MAT Panel Meeting may run at
+    # a time, so this is also the only place a MAT Panel is ever created
+    # outside the normal "New Panel Meeting" flow.
+    escalation = get_object_or_404(Escalation, pk=escalation_id, status='open')
+    if request.method != 'POST':
+        return redirect('inclusion_panel_escalations')
+
+    mat_group = _mat_panel_group()
+    if mat_group is None:
+        return redirect('inclusion_panel_escalations')
+
+    running = _mat_panel_running()
+    if running is not None:
+        pr, created = PanelReferral.objects.get_or_create(panel=running, referral=escalation.referral)
+        if created:
+            pr.agenda_order = _next_agenda_order(running)
+            pr.save()
+        elif pr.removed_at is not None:
+            pr.removed_at = None
+            pr.removed_by = None
+            pr.agenda_order = _next_agenda_order(running)
+            pr.save()
+        _sync_referral_status(pr.referral)
+        return redirect('inclusion_panel_meeting_agenda', panel_id=running.id)
+
+    now = timezone.now()
+    panel = Panel.objects.create(
+        date=timezone.localdate(now), time=timezone.localtime(now).time(),
+        panel_group=mat_group, chair_follows_default=True,
+        status='running', started_at=now,
+    )
+    pr = PanelReferral.objects.create(
+        panel=panel, referral=escalation.referral, agenda_order=_next_agenda_order(panel),
+        discussion_status='pending', discussion_started_at=now,
+    )
+    _sync_referral_status(pr.referral)
+    # Same query-string convention as start_discussion above - this is the
+    # actual start-of-discussion moment, so the Discussion page may auto-pop
+    # the Safeguarding Note modal.
+    return redirect(reverse('inclusion_panel_discussion', kwargs={'panel_referral_id': pr.id}) + '?discussion_started=1')
 
 
 def inclusion_panel_actions(request):
@@ -2250,7 +2346,7 @@ def inclusion_panel_actions(request):
     actions_qs = Action.objects.filter(referral__student__in=scoped_students).select_related(
         'referral__student', 'referral__student__school', 'referral__raised_by',
         'assigned_to_staff', 'category', 'created_by',
-    ).prefetch_related('referral__panel_referrals')
+    ).prefetch_related('referral__panel_referrals', 'referral__escalations')
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
 
@@ -2388,6 +2484,7 @@ def inclusion_panel_actions(request):
         # Status on the Actions page") - same pill Referrals' own row shows
         # (_referral_review_pill, shared with inclusion_panel_referrals).
         action.referral.review_pill_label, action.referral.review_pill_class = _referral_review_pill(action.referral)
+        action.referral.escalation_pill_label, action.referral.escalation_pill_class = _referral_escalation_pill(action.referral)
 
     active_filter_count = sum(
         1 for v in (
@@ -3087,6 +3184,12 @@ def inclusion_panel_meetings(request):
             # this panel's own group members - matches the live Agenda
             # page's can_start_meeting gate. Everyone else gets View Agenda.
             'can_manage': panel.panel_group_id is not None and panel.panel_group_id in my_group_ids,
+            # Only one MAT Panel Meeting may run at a time - see CONTEXT.md.
+            'mat_start_blocked': (
+                bool(panel.panel_group_id and panel.panel_group.is_mat_wide)
+                and panel.status not in ('running', 'complete', 'void')
+                and _mat_panel_running(exclude=panel) is not None
+            ),
         }
         meetings.append(entry)
         (past_meetings if panel.status == 'complete' else upcoming_meetings).append(entry)
@@ -3345,7 +3448,15 @@ def inclusion_panel_meeting_setup(request, panel_id):
         .exclude(discussion_status='deferred')
         .values_list('referral_id', flat=True)
     ).exclude(status='closed').prefetch_related('responses__question__category')
-    if panel.panel_group_id and panel.panel_group.school_id:
+    if panel.panel_group_id and panel.panel_group.is_mat_wide:
+        # A MAT Panel Meeting's agenda may only ever contain referrals with
+        # an open Escalation, MAT-wide rather than school-scoped - see
+        # CONTEXT.md's MAT Panel Meeting entry. Replaces the school-scoped
+        # filter below rather than skipping it, since panel_group.school_id
+        # is None for the MAT group and would otherwise leave this list
+        # completely unfiltered.
+        unassigned_referrals = unassigned_referrals.filter(escalations__status='open').distinct()
+    elif panel.panel_group_id and panel.panel_group.school_id:
         unassigned_referrals = unassigned_referrals.filter(student__school_id=panel.panel_group.school_id)
 
     agenda = panel.panel_referrals.filter(removed_at__isnull=True).select_related(
@@ -3804,6 +3915,19 @@ def inclusion_panel_meeting_agenda(request, panel_id):
     # start_meeting above), so status is the only reliable "hasn't started
     # yet" signal.
     is_pre_start = panel.status not in ('running', 'complete')
+    is_mat_panel = bool(panel.panel_group_id and panel.panel_group.is_mat_wide)
+    # Blocks Start/Take Attendance the same way _apply_attendance_action's
+    # server-side gate does - see CONTEXT.md's "only one MAT Panel Meeting
+    # running at a time".
+    mat_start_blocked = is_mat_panel and is_pre_start and _mat_panel_running(exclude=panel) is not None
+    # Page-load count only (not live-polled - see docs/adr/0015) of open
+    # Escalations not yet on this running MAT panel's own agenda, prompting
+    # the chair toward the existing Add to Agenda link.
+    new_escalations_count = None
+    if is_mat_panel and panel.status == 'running':
+        new_escalations_count = Escalation.objects.filter(status='open').exclude(
+            referral__panel_referrals__panel=panel, referral__panel_referrals__removed_at__isnull=True,
+        ).values('referral_id').distinct().count()
 
     return render(request, 'hubs/inclusion/panel/meeting_agenda.html', {
         **_panel_base_context(request),
@@ -3823,7 +3947,10 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'members_in_attendance': members_in_attendance,
         'members_not_in_attendance': members_not_in_attendance,
         'is_pre_start': is_pre_start,
-        'can_start_meeting': is_pre_start and _is_group_member(current_staff, panel),
+        'can_start_meeting': is_pre_start and _is_group_member(current_staff, panel) and not mat_start_blocked,
+        'mat_start_blocked': mat_start_blocked,
+        'is_mat_panel': is_mat_panel,
+        'new_escalations_count': new_escalations_count,
         # Gates the inactivity-warning poll (initInactivityWarning, panel.js)
         # - only worth polling from while the panel is actually running and
         # this viewer could do anything about a warning (ping/End Panel
