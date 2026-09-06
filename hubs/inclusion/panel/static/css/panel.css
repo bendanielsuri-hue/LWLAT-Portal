@@ -3005,6 +3005,25 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .status-pill.in_panel,
 .status-pill.next-panel,
 .status-pill.review_scheduled { background: var(--primary-light); color: var(--active-text); }
+/* .chosen rows across every list page (.entity-row.chosen, .meeting-card.
+   chosen, .panel-list li.chosen, etc.) already fill their own whole
+   background with that same var(--primary-light) wash the base rule above
+   uses, so this pill became genuinely invisible - same flat colour on
+   flat colour - the moment its own row got selected (live feedback,
+   screenshot: "Issue pith [pill] primary fills when list item is
+   selected. Can't see the pill background" - Next Panel, Panel Meetings).
+   Scoped to .chosen specifically (own follow-up: "can we have it only
+   change if row is selected") rather than bumping the base rule
+   unconditionally - color-mix at 30%, not the plain 15% mix, doubles the
+   concentration to guarantee real contrast against the row's own lighter
+   wash behind it, in any theme, while staying in the same colour family
+   (still reads as "this row's own accent", not a random new hue). One
+   shared .chosen selector, not each page's own chosen-row class spelled
+   out separately - every page already reuses this same marker class. */
+.chosen .status-pill.running,
+.chosen .status-pill.in_panel,
+.chosen .status-pill.next-panel,
+.chosen .status-pill.review_scheduled { background: color-mix(in srgb, var(--primary) 30%, var(--bg-surface)); }
 .status-pill.delayed,
 .status-pill.awaiting_review { background: var(--color-warning-bg); color: var(--color-warning); }
 .status-pill.closed { background: var(--color-positive-bg); color: var(--color-positive); }
