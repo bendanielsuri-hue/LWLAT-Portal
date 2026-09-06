@@ -4,7 +4,7 @@
 {% block title %}Referrals{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=393">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=395">
 {% endblock %}
 
 
@@ -192,6 +192,23 @@ curated More Filters button at mobile/narrow-desktop widths.
             {% endfor %}
         </select>
     </div>
+    {% comment %}
+    #121 follow-up, applied here to match Meetings (live feedback: "add Term
+    to Actions and referrals like meeting page") - Term and Academic Year
+    are two independent filters that combine (views.py: term_filter matches
+    on term.name alone), not one combined "Summer 2025/26" option per year.
+    Options cascade to whichever year is selected (terms_by_academic_year_json,
+    below) - same cascading-select convention as Meetings'/Students' own.
+    {% endcomment %}
+    <div class="filter-field{% if term_filter %} filter-field--active{% endif %}">
+        <label for="term-filter">Term</label>
+        <select id="term-filter" name="term">
+            <option value="">All Terms</option>
+            {% for value, label in term_choices %}
+            <option value="{{ value }}" {% if term_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
     <div class="filter-field{% if raised_by_filter %} filter-field--active{% endif %}">
         <label for="raised-by-filter">Referrer</label>
         <select id="raised-by-filter" name="raised_by">
@@ -212,19 +229,18 @@ curated More Filters button at mobile/narrow-desktop widths.
         </select>
     </div>
     {% comment %}
-    academic_year= explicit (not just omitted) so Clear Filters truly
-    clears the year too, instead of the "no param" default re-applying
-    the current academic year right back (see inclusion_panel_referrals'
-    academic_year_param). setupFilterBarMoreFilters (main.js) finds this
-    exact link (.filter-bar-clear, excluding the sticky-footer's own
-    second instance below) and moves it into the auto-built
-    .filter-actions-right alongside "More filters" on desktop/tablet -
-    same convention as Students.
+    No default filters applied any more (#121 follow-up), so a plain URL
+    with no params is enough to clear everything - unlike the old
+    academic_year= workaround this used to need. setupFilterBarMoreFilters
+    (main.js) finds this exact link (.filter-bar-clear, excluding the
+    sticky-footer's own second instance below) and moves it into the
+    auto-built .filter-actions-right alongside "More filters" on
+    desktop/tablet - same convention as Students.
     {% endcomment %}
-    <a href="{% url 'inclusion_panel_referrals' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
     </div>
     <div class="filter-bar-sticky-footer">
-        <a href="{% url 'inclusion_panel_referrals' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
+        <a href="{% url 'inclusion_panel_referrals' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
         <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
     </div>
     </div>
@@ -304,6 +320,34 @@ document.addEventListener('DOMContentLoaded', function () {
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
     // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
+
+    // Academic Year -> Term cascading (same pattern as
+    // inclusion_panel_meetings, meetings.html) - named academicYearFilter/
+    // termFilter here, not yearFilter, since that name's already taken by
+    // the Year Group -> Reg cascade above.
+    var academicYearFilter = document.getElementById('academic-year-filter');
+    var termFilter = document.getElementById('term-filter');
+    if (academicYearFilter && termFilter) {
+        var allTerms = Array.prototype.slice.call(termFilter.options).slice(1)
+            .map(function (o) { return [o.value, o.textContent]; });
+        var termsByYear = JSON.parse('{{ terms_by_academic_year_json|escapejs }}');
+
+        function refreshTermOptions() {
+            var year = academicYearFilter.value;
+            var terms = year ? (termsByYear[year] || []) : allTerms;
+            var previous = termFilter.value;
+            termFilter.innerHTML = '<option value="">All Terms</option>';
+            terms.forEach(function (pair) {
+                var opt = document.createElement('option');
+                opt.value = pair[0];
+                opt.textContent = pair[1];
+                termFilter.appendChild(opt);
+            });
+            termFilter.value = terms.some(function (pair) { return pair[0] === previous; }) ? previous : '';
+            if (termFilter._uiSelect) termFilter._uiSelect.refresh();
+        }
+        academicYearFilter.addEventListener('change', refreshTermOptions);
+    }
 });
 </script>
 {% endblock %}

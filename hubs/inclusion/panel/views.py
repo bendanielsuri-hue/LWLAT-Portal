@@ -19,7 +19,7 @@ from core.identity import (
     student_queryset_for_school_key,
 )
 from core.models import (
-    AcademicYear, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student, Term,
+    AcademicYear, MatSettings, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student, Term,
 )
 from core.modules import filter_by_module, module_map
 from core.student_history import (
@@ -209,6 +209,97 @@ def _panels_for_school_key(panels_qs, key):
     return panels_qs.filter(
         Q(panel_group__isnull=True) | Q(panel_group__school__isnull=True) | Q(panel_group__school_id=key)
     )
+
+
+def _term_choices_and_ranges(base_qs, school_ids, academic_years_present, term_filter, academic_year_filter, date_field, school_field):
+    # Shared by Referrals/Actions' own Term filter (mirrors Panel Meetings'
+    # #121 Term filter, views.py inclusion_panel_meetings - "please use
+    # Referrals page as a template" cuts both ways: Meetings got Term
+    # first, Referrals/Actions were the ones missing it). Term rows are a
+    # tiered school-override/MAT-wide lookup (core.models.Term.school,
+    # same tiered pattern as core.portal_settings.resolve_portal_settings),
+    # so which date range "Autumn" means for a given school can differ -
+    # this resolves that per school rather than assuming one shared
+    # calendar, same reasoning as inclusion_panel_meetings' own
+    # _resolve_term. Unlike Meetings (which resolves one Term per panel in
+    # Python, including a holiday-gap "most recently ended" fallback -
+    # sensible for "which term is this meeting following up on"), Referrals/
+    # Actions are filtered by their own created_at falling inside a term's
+    # exact date range at the DB level - no fallback for a date that lands
+    # in a genuine holiday gap, which just yields no match for any term
+    # (reasonable: a referral/action has no equivalent "which term is this
+    # following up on" question the way a scheduled meeting does).
+    # base_qs is the school-scoped queryset (no term/academic_year filter
+    # applied yet) used to check whether a term actually HAS anything in it
+    # - live feedback: "if I select 2026/27, I should only see Autumn term
+    # as Spring and Summer is in the future!" - every Term row on the
+    # calendar (including ones nothing's been created in yet) used to be
+    # offered as a choice; this restricts choices to terms an .exists()
+    # check confirms have at least one matching row, same "don't offer an
+    # option that yields nothing" principle academic_year_choices/
+    # panel_group choices etc already follow elsewhere on this page.
+    # Returns (term_filter, term_choices, terms_by_academic_year_json_source,
+    # term_q or None) - term_q is a Q object to .filter() by when
+    # term_filter is set, or Q(pk__in=[]) if the selected term doesn't
+    # exist for any relevant school/year (nothing should match), or None
+    # when term_filter is empty.
+    terms_qs = Term.objects.filter(Q(school_id__in=school_ids) | Q(school_id__isnull=True))
+    if academic_years_present:
+        terms_qs = terms_qs.filter(academic_year_id__in=academic_years_present)
+    by_school = {}
+    mat_wide = []
+    for term in terms_qs:
+        if term.school_id:
+            by_school.setdefault(term.school_id, []).append(term)
+        else:
+            mat_wide.append(term)
+
+    term_names_present = set()
+    terms_by_academic_year_ids = {}
+    for sid in school_ids:
+        for term in (by_school.get(sid) or mat_wide):
+            exists = base_qs.filter(**{
+                school_field: sid,
+                f'{date_field}__date__gte': term.start_date,
+                f'{date_field}__date__lte': term.end_date,
+            }).exists()
+            if exists:
+                term_names_present.add(term.name)
+                terms_by_academic_year_ids.setdefault(str(term.academic_year_id), set()).add(term.name)
+
+    term_choices = [(name, display) for name, display in Term.TERM_CHOICES if name in term_names_present]
+    if term_filter and not any(term_filter == value for value, _ in term_choices):
+        term_filter = ''
+    terms_by_academic_year = {
+        ay_id: [[name, display] for name, display in Term.TERM_CHOICES if name in names]
+        for ay_id, names in terms_by_academic_year_ids.items()
+    }
+
+    term_q = None
+    if term_filter:
+        for_this_term = terms_qs.filter(name=term_filter)
+        if academic_year_filter:
+            for_this_term = for_this_term.filter(academic_year_id=academic_year_filter)
+        by_school_for_term = {}
+        mat_wide_for_term = []
+        for term in for_this_term:
+            if term.school_id:
+                by_school_for_term.setdefault(term.school_id, []).append(term)
+            else:
+                mat_wide_for_term.append(term)
+        matched_any = False
+        for sid in school_ids:
+            for term in (by_school_for_term.get(sid) or mat_wide_for_term):
+                clause = Q(**{
+                    school_field: sid,
+                    f'{date_field}__date__gte': term.start_date,
+                    f'{date_field}__date__lte': term.end_date,
+                })
+                term_q = clause if not matched_any else term_q | clause
+                matched_any = True
+        if not matched_any:
+            term_q = Q(pk__in=[])
+    return term_filter, term_choices, terms_by_academic_year, term_q
 
 
 def _stop_discussion_timer(panel_referral):
@@ -1618,11 +1709,8 @@ def inclusion_panel_referrals(request):
     year_filter = request.GET.get('year') or ''
     house_filter = request.GET.get('house') or ''
     reg_filter = request.GET.get('reg') or ''
-    # No `or ''` here - absence of the param entirely (first load) is
-    # distinguished from an explicit "All Years" selection, same convention
-    # as inclusion_panel_meetings' academic_year_filter.
-    academic_year_param = request.GET.get('academic_year')
-    academic_year_filter = academic_year_param or ''
+    academic_year_filter = request.GET.get('academic_year') or ''
+    term_filter = request.GET.get('term') or ''
 
     academic_years_present = {
         ay.id: ay for ay in AcademicYear.objects.filter(
@@ -1633,11 +1721,27 @@ def inclusion_panel_referrals(request):
         (ay.id, ay.label)
         for ay in sorted(academic_years_present.values(), key=lambda ay: ay.start_date, reverse=True)
     ]
+    # No default academic year applied on first load - same #121 follow-up
+    # call as inclusion_panel_meetings' own identical comment: "should not
+    # have any default filters applied, academic year seem to be added".
+    # current_academic_year is still exposed to the template (highlighting
+    # "today's" year in the dropdown) even though it no longer drives a
+    # default filter.
     current_academic_year = AcademicYear.for_date(today).id
-    if academic_year_param is None and current_academic_year in academic_years_present:
-        academic_year_filter = str(current_academic_year)
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
         academic_year_filter = ''
+
+    # Term filter (#121 follow-up applied to Referrals too - live feedback:
+    # "add Term to Actions and referrals like meeting page") - see
+    # _term_choices_and_ranges' own comment for the school-override lookup
+    # and why this filters by date range at the DB level rather than
+    # resolving one Term per referral in Python the way Meetings does.
+    school_ids_for_terms = list(scoped_students.values_list('school_id', flat=True).distinct())
+    term_filter, term_choices, terms_by_academic_year, term_q = _term_choices_and_ranges(
+        InclusionReferral.objects.filter(student__in=scoped_students),
+        school_ids_for_terms, academic_years_present.keys(), term_filter, academic_year_filter,
+        'referral__created_at', 'student__school_id',
+    )
 
     # Option lists computed from the school-scoped set, before the filters
     # below are applied - same convention as inclusion_panel_students' own
@@ -1661,6 +1765,8 @@ def inclusion_panel_referrals(request):
     )
     if academic_year_filter:
         referrals_qs = referrals_qs.filter(referral__academic_year_id=academic_year_filter)
+    if term_q is not None:
+        referrals_qs = referrals_qs.filter(term_q)
     if student_filter:
         referrals_qs = referrals_qs.filter(student_id=student_filter)
     elif name_filter:
@@ -1758,7 +1864,7 @@ def inclusion_panel_referrals(request):
         1 for v in (
             name_filter, status_filter, stage_filter, raised_by_filter, concern_filter,
             priority_filter, panel_group_filter, overdue_actions_filter, academic_year_filter,
-            year_filter, house_filter, reg_filter,
+            term_filter, year_filter, house_filter, reg_filter,
         ) if v
     )
 
@@ -1785,6 +1891,9 @@ def inclusion_panel_referrals(request):
         'raised_by_filter': raised_by_filter,
         'academic_year_filter': academic_year_filter,
         'academic_year_choices': academic_year_choices,
+        'term_filter': term_filter,
+        'term_choices': term_choices,
+        'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
         'concern_filter': concern_filter,
         'concern_choices': concern_question.choice_list() if concern_question else [],
         'priority_filter': priority_filter,
@@ -2316,11 +2425,8 @@ def inclusion_panel_actions(request):
     # Due Date consolidates the old separate Overdue Only/Due This Week
     # toggles into one dropdown with a few more tiers (issue #13).
     due_filter = request.GET.get('due') or ''
-    # No `or ''` here - absence of the param entirely (first load) is
-    # distinguished from an explicit "All Years" selection, same convention
-    # as inclusion_panel_meetings' academic_year_filter.
-    academic_year_param = request.GET.get('academic_year')
-    academic_year_filter = academic_year_param or ''
+    academic_year_filter = request.GET.get('academic_year') or ''
+    term_filter = request.GET.get('term') or ''
     # Group Info (live feedback, same as Referrals - #grill-with-docs
     # session): the referred student's own cohort fields, same params/
     # choices as inclusion_panel_students' own Group Info group.
@@ -2357,13 +2463,28 @@ def inclusion_panel_actions(request):
         (ay.id, ay.label)
         for ay in sorted(academic_years_present.values(), key=lambda ay: ay.start_date, reverse=True)
     ]
+    # No default academic year applied on first load - same #121 follow-up
+    # call as inclusion_panel_meetings'/inclusion_panel_referrals' own
+    # identical comment. current_academic_year is still exposed to the
+    # template (highlighting "today's" year in the dropdown) even though it
+    # no longer drives a default filter.
     current_academic_year = AcademicYear.for_date(today).id
-    if academic_year_param is None and current_academic_year in academic_years_present:
-        academic_year_filter = str(current_academic_year)
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
         academic_year_filter = ''
     if academic_year_filter:
         actions_qs = actions_qs.filter(academic_year_id=academic_year_filter)
+
+    # Term filter (#121 follow-up applied to Actions too - live feedback:
+    # "add Term to Actions and referrals like meeting page") - see
+    # _term_choices_and_ranges' own comment for the school-override lookup.
+    school_ids_for_terms = list(scoped_students.values_list('school_id', flat=True).distinct())
+    term_filter, term_choices, terms_by_academic_year, term_q = _term_choices_and_ranges(
+        visible_actions_for(current_staff, Action.objects.filter(referral__student__in=scoped_students)),
+        school_ids_for_terms, academic_years_present.keys(), term_filter, academic_year_filter,
+        'created_at', 'referral__student__school_id',
+    )
+    if term_q is not None:
+        actions_qs = actions_qs.filter(term_q)
 
     if student_filter:
         actions_qs = actions_qs.filter(referral__student_id=student_filter)
@@ -2489,7 +2610,7 @@ def inclusion_panel_actions(request):
     active_filter_count = sum(
         1 for v in (
             name_filter, category_filter, assigned_filter, referred_by_filter, concern_filter, status_filter,
-            due_filter, academic_year_filter, year_filter, house_filter, reg_filter,
+            due_filter, academic_year_filter, term_filter, year_filter, house_filter, reg_filter,
         ) if v
     )
 
@@ -2515,6 +2636,9 @@ def inclusion_panel_actions(request):
         'due_filter': due_filter,
         'academic_year_filter': academic_year_filter,
         'academic_year_choices': academic_year_choices,
+        'term_filter': term_filter,
+        'term_choices': term_choices,
+        'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
         'years': years,
         'year_filter': year_filter,
         'forms': forms,
@@ -3011,6 +3135,11 @@ def inclusion_panel_meetings(request):
     # term_filter application below), not one combined "Summer 2025/26"
     # option per year.
     term_names_present = set()
+    # Per-year version of the same resolution, for the cascade map below -
+    # keyed on the PANEL's own academic_year_id (not whichever year the
+    # resolved Term row happens to belong to - the holiday-gap fallback in
+    # _resolve_term can cross into a different year's Term).
+    term_names_by_year_seen = {}
     for panel in base_panels:
         chair = panel.effective_chair
         if chair:
@@ -3020,6 +3149,8 @@ def inclusion_panel_meetings(request):
         term = _resolve_term(panel)
         if term:
             term_names_present.add(term.name)
+            if panel.academic_year_id:
+                term_names_by_year_seen.setdefault(panel.academic_year_id, set()).add(term.name)
     chair_choices = sorted(chairs_by_id.values(), key=lambda s: (s.last_name, s.first_name))
     academic_year_choices = [
         (ay.id, ay.label)
@@ -3042,15 +3173,21 @@ def inclusion_panel_meetings(request):
     # _resolve_term's panel-by-panel resolution, which can cross into a
     # DIFFERENT year via its holiday-gap fallback) - this map is about which
     # terms genuinely BELONG to a year, not which term a given date lands
-    # nearest to.
-    term_names_by_academic_year = {}
-    for ay_id, name in Term.objects.filter(
-        academic_year_id__in=academic_years_present, name__in=term_names_present,
-    ).values_list('academic_year_id', 'name').distinct():
-        term_names_by_academic_year.setdefault(ay_id, set()).add(name)
+    # nearest to. UPDATE: that "genuinely belong to a year" reading turned
+    # out too loose in practice - a Term ROW existing for 2026/27's Summer
+    # is true of every academic year on the calendar, regardless of whether
+    # any panel has actually been scheduled in it yet (live feedback: "Panel
+    # meetings filter is showing summer option with 2026/27 selected" - only
+    # Autumn had real panels that year, Summer's Term row just happened to
+    # exist because summer 2025/26 DID have real panels, adding "summer" to
+    # the global term_names_present set above). Switched to
+    # term_names_by_year_seen (built alongside term_names_present, above) -
+    # actual per-panel resolved terms grouped by that panel's own academic
+    # year, same "don't offer an option that yields nothing" principle now
+    # applied to Referrals/Actions' own Term filter too.
     terms_by_academic_year = {
         str(ay_id): [[name, display] for name, display in Term.TERM_CHOICES if name in names]
-        for ay_id, names in term_names_by_academic_year.items()
+        for ay_id, names in term_names_by_year_seen.items()
     }
     # #121 follow-up: no default academic year applied on first load - live
     # feedback: "Panel meetings should not have any default filters applied,
@@ -3253,6 +3390,9 @@ def inclusion_panel_meetings(request):
         'upcoming_meetings_count': upcoming_meetings_count,
         'past_meetings_count': past_meetings_count,
         'page_obj': page_obj,
+        # MAT Panel Meetings (panel_group.school is null) show the MAT-wide
+        # logo instead of the generic placeholder - no single school to crest.
+        'mat_logo_url': getattr(MatSettings.objects.first(), 'logo_url', ''),
     }
     if page_obj.has_next():
         next_params = request.GET.copy()

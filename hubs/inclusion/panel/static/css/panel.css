@@ -1230,6 +1230,17 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
         flex: 0 0 100%;
         border: none;
     }
+    /* #my-referrals-list's own padding-top: 52px (above) exists purely to
+       clear "Circle Break" - the avatar circle a real card's .panel-thumb
+       pokes above its own top edge (live feedback: "you can only see the
+       bottom half of the circle"). An empty list has no card, so no thumb,
+       so that reserved 52px is just dead air above the centred message -
+       :has() beats the plain-id rule above regardless of source order
+       (id + pseudo-class outranks a bare id), so this wins without needing
+       !important. */
+    #my-referrals-list:has(> li.empty-note) {
+        padding-top: 0;
+    }
     /* Own row at the bottom of the (now column-direction, thumb-above-name)
        card, centered like the rest of its content. Not flex: 0 0 100% -
        that was sized for the old row-direction card, where 100% meant
@@ -1564,6 +1575,12 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
     #my-actions-list > li.empty-note {
         flex: 0 0 100%;
         border: none;
+    }
+    /* See #my-referrals-list:has(> li.empty-note)'s own identical addition
+       for why - #my-actions-list carries the same 52px Circle Break
+       padding-top with nothing to clear when it's empty. */
+    #my-actions-list:has(> li.empty-note) {
+        padding-top: 0;
     }
     /* The current/"active" card (whichever one's nearest the viewport's
        centre - updateState, home.html, same card the dots/count already
@@ -3506,6 +3523,33 @@ html:not(.nav-touch-mode) .meeting-card:hover h3,
    dividers are column borders now, own ID-scoped .chosen rule further
    below) - this shared rule simply doesn't match there any more. */
 .entity-row.chosen .row-facts .mc-vdivider { border-left-color: var(--accent-border); }
+/* GLOBAL safety net, not another per-page copy: .row-facts' own border-top
+   (the horizontal divider above the facts strip) AND .mc-vdivider (the
+   vertical dividers between individual facts) never got a .chosen accent
+   override that actually reaches every page - caught on Meetings
+   specifically (live feedback: "active list row divider does not change
+   to primary colour like it does on referrals page", then "vertical
+   divider also need to be primary!" once the horizontal one was fixed but
+   the vertical ones right beside it still weren't), because Meetings'
+   chosen-row marker is .meeting-card.chosen, not .entity-row.chosen, so
+   the two rules just above (Referrals/Students' own fix, for border-top
+   and .mc-vdivider respectively) never matched it. Rather than add a
+   THIRD and FOURTH page-specific copy - exactly the fragile per-page-
+   re-assertion pattern the CONVENTION comment above (.entity-row.chosen >
+   .row-btn-row) already warns silently breaks the moment a new page's own
+   divider rule forgets it - this uses a plain .chosen descendant selector
+   (matches .entity-row.chosen, .meeting-card.chosen, .panel-list
+   li.chosen, or whatever the NEXT page's own marker class turns out to
+   be, no enumeration needed) plus !important, which beats any page's own
+   id-scoped divider colour regardless of specificity. This is now the one
+   place a "chosen row's dividers go accent" bug gets fixed for every
+   current and future page - nothing page-specific to remember to add. */
+.chosen .row-facts {
+    border-top-color: var(--accent-border) !important;
+}
+.chosen .row-facts .mc-vdivider {
+    border-left-color: var(--accent-border) !important;
+}
 /* Permanent horizontal scroll, one row always (#157 follow-up - live
    feedback with a screenshot of Students at mobile width: "Data cols must
    always be one row, so it needs to be scrollable if it does not fit" -
@@ -8372,8 +8416,21 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    definite, deliberate boundary line) over a diagonal-stripe fill
    (from the "diagonal stripes" prototype - subtler than a flat
    colour statement, reads as texture/pattern rather than a loud
-   block) instead of either alone. */
-.filtered-content .entity-list::after {
+   block) instead of either alone.
+   GLOBAL hook, not per-page: only .entity-list ever got this treatment,
+   so Meetings' own list (.meeting-list, no .entity-list anywhere in its
+   markup) shipped with a plain, unstyled "No panel meetings yet." instead
+   (live feedback: "No panel meeting need the same striped effect as other
+   pages, can this be global so it is not forgotten") - the exact class of
+   bug the .chosen-divider fix above already got caught for. .filtered-list
+   is a shared marker class any filtered-content list wrapper can carry
+   alongside its own specific class (.meeting-list filtered-list, in
+   _meetings_filtered_content.html) - the two selectors below cover today's
+   pages (.entity-list, left as-is rather than risking a rename across
+   Students/Referrals/Actions) and this one shared hook for Meetings and
+   any future page, so nothing page-specific needs adding again. */
+.filtered-content .entity-list::after,
+.filtered-content .filtered-list::after {
     content: "";
     display: block;
     /* var(--list-endcap-height, 47px), not a bare 47px - live feedback:
@@ -8455,7 +8512,8 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    positionFilterTray's tray-to-tabbar gap and isn't safe to touch for
    this box alone. */
 @media (min-width: 480px) {
-    .filtered-content .entity-list::after {
+    .filtered-content .entity-list::after,
+    .filtered-content .filtered-list::after {
         margin-bottom: 0;
     }
 }
@@ -8467,7 +8525,8 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    wireStudentsInfiniteScroll (main.js) splices in the next page, the old
    sentinel is removed with it - this reverts to the plain end stripe
    automatically, or gets re-added if that new page has its own next one. */
-.filtered-content .entity-list:has(.list-load-sentinel)::after {
+.filtered-content .entity-list:has(.list-load-sentinel)::after,
+.filtered-content .filtered-list:has(.list-load-sentinel)::after {
     content: "Loading more…";
     display: flex;
     align-items: center;
@@ -8484,10 +8543,12 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    Taking the label out of flow lets the stripe (still flex: 1 0 ..., now
    the only flex child) grow to the card's full height, then re-centres the
    label on top of it via absolute positioning instead of flex sharing. */
-.filtered-content .entity-list {
+.filtered-content .entity-list,
+.filtered-content .filtered-list {
     position: relative;
 }
-.filtered-content .entity-list > .empty-note {
+.filtered-content .entity-list > .empty-note,
+.filtered-content .filtered-list > .empty-note {
     position: absolute;
     inset: 0;
     margin: 0;
@@ -8713,33 +8774,13 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
     }
 }
 
-/* Narrow desktop only (html.filter-bar-mobile-mode, main.js - same class/
-   band as the filter tray above, <=900px + hover-capable, real portrait
-   tablets excluded). Originally Students-scoped (body:has(.students-page-
-   shell)) - live feedback: "can we reduce the page margins and also hide
-   the breadcrumbs and helper buttons," refined to "keep the helper buttons
-   but lose the breadcrumbs" once it came up that Search/+Referral have no
-   bottom-tab-bar proxy to fall back on at desktop width the way they do on
-   true mobile (responsive.css's own <=480px version of this same pair of
-   rules relies on that fallback existing - this page's own version
-   deliberately doesn't touch .page-header-extras for that reason).
-   Generalized to every list page sharing this same .filter-bar-tray/
-   mobile-mode mechanism (Referrals/Actions/Meetings too, not just
-   Students) - live feedback: "Students loses breadcrumbs at narrow widths,
-   can we apply to all pages" - body:has(.filtered-content) generically,
-   same convention as the .list-card/.filter-bar-tray borderless-tray fix
-   above (was also Students-only, :has(#students-filtered-content), before
-   generalizing the same way. The page-margin reduction this block used to
-   also apply (.main-inner padding, animated) was dropped (live feedback:
-   "keep the number of changes manageable on resizing", same session as the
-   checkAll() resize-stutter fix above) - breadcrumbs still hide outright (a
-   discrete, one-time toggle, not something that animates/recomputes across
-   a resize the way an animated padding value does). */
-@media (max-width: 900px) {
-    html.filter-bar-mobile-mode body:has(.filtered-content) .breadcrumbs {
-        display: none;
-    }
-}
+/* Narrow-desktop breadcrumb hiding (html.filter-bar-mobile-mode) used to
+   live here, page-by-page opt-in via body:has(.filtered-content)/
+   .panel-columns - moved to the portal-wide static/css/layout/
+   responsive.css (plain html.filter-bar-mobile-mode .breadcrumbs, no
+   body:has() qualifier) once live feedback found yet another page shape
+   the opt-in list had missed. Every hub gets it automatically now; nothing
+   Panel-specific left to override here. */
 
 /* Action status segmented control (Actions list row) - each state gets its own
    semantic active color instead of the generic .ui-segmented-option.active

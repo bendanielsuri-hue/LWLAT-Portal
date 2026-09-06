@@ -4,7 +4,7 @@
 {% block title %}Actions{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=393">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=395">
 {% endblock %}
 
 
@@ -187,14 +187,27 @@ own raised_by_filter) replaces Name in the Referrals group.
         </select>
     </div>
     {% comment %}
-    academic_year= explicit (not just omitted) so Clear Filters truly clears
-    the year too, instead of the "no param" default re-applying the current
-    academic year right back (see inclusion_panel_actions' academic_year_param).
+    #121 follow-up, applied here to match Meetings/Referrals (live feedback:
+    "add Term to Actions and referrals like meeting page") - see Referrals'
+    own identical comment for the full reasoning.
     {% endcomment %}
-    <a href="{% url 'inclusion_panel_actions' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    <div class="filter-field{% if term_filter %} filter-field--active{% endif %}">
+        <label for="term-filter">Term</label>
+        <select id="term-filter" name="term">
+            <option value="">All Terms</option>
+            {% for value, label in term_choices %}
+            <option value="{{ value }}" {% if term_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% comment %}
+    No default filters applied any more (#121 follow-up) - a plain URL with
+    no params clears everything now, same convention as Meetings/Referrals.
+    {% endcomment %}
+    <a href="{% url 'inclusion_panel_actions' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
     </div>
     <div class="filter-bar-sticky-footer">
-        <a href="{% url 'inclusion_panel_actions' %}?academic_year=" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
+        <a href="{% url 'inclusion_panel_actions' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
         <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
     </div>
     </div>
@@ -307,6 +320,33 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (yearFilter) yearFilter.addEventListener('change', refreshRegOptions);
     if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
+
+    // Academic Year -> Term cascading (see Referrals' own identical block
+    // for the full reasoning) - academicYearFilter/termFilter, not
+    // yearFilter, since that name's already taken by Year Group -> Reg.
+    var academicYearFilter = document.getElementById('academic-year-filter');
+    var termFilter = document.getElementById('term-filter');
+    if (academicYearFilter && termFilter) {
+        var allTerms = Array.prototype.slice.call(termFilter.options).slice(1)
+            .map(function (o) { return [o.value, o.textContent]; });
+        var termsByYear = JSON.parse('{{ terms_by_academic_year_json|escapejs }}');
+
+        function refreshTermOptions() {
+            var year = academicYearFilter.value;
+            var terms = year ? (termsByYear[year] || []) : allTerms;
+            var previous = termFilter.value;
+            termFilter.innerHTML = '<option value="">All Terms</option>';
+            terms.forEach(function (pair) {
+                var opt = document.createElement('option');
+                opt.value = pair[0];
+                opt.textContent = pair[1];
+                termFilter.appendChild(opt);
+            });
+            termFilter.value = terms.some(function (pair) { return pair[0] === previous; }) ? previous : '';
+            if (termFilter._uiSelect) termFilter._uiSelect.refresh();
+        }
+        academicYearFilter.addEventListener('change', refreshTermOptions);
+    }
 });
 </script>
 {% endblock %}

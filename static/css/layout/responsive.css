@@ -495,6 +495,26 @@
        for the real rules. */
 }
 
+/* Narrow desktop (html.filter-bar-mobile-mode, main.js - <=900px + hover-
+   capable, or true phone width; real portrait tablets excluded), portal-
+   wide. Started as an Inclusion Panel-only rule scoped to pages with a
+   filter bar (body:has(.filtered-content)), generalized there from
+   Students to every list page sharing that mechanism, then again to Panel
+   Home (body:has(.panel-columns)) once live feedback found it missing on
+   that one dashboard-shaped page ("homepage has breadcrumbs at narrow
+   widths, should match other pages"). Rather than keep enumerating each
+   new page shape that happens to lack whatever wrapper class the rule was
+   last scoped to, this drops the body:has() qualifier entirely - .filter-
+   bar-mobile-mode already means "narrow enough that breadcrumbs are dead
+   weight" regardless of which hub/page owns the breadcrumb, so every page
+   gets the same behaviour by construction instead of by enumeration. The
+   plain <=480px version above stays too, as a CSS-only (no-JS) fallback -
+   this one only takes over once main.js's synchronous first-paint
+   classification (layout.html head script) has run. */
+html.filter-bar-mobile-mode .breadcrumbs {
+    display: none;
+}
+
 /* Card-switcher/switch-card-group (Home Row 1, Meeting Setup's Settings/
    Referral Selection/Panel Agenda tabs) and the app-footer (#128): moved
    from <=1024px to <=1180px (#116 follow-up) to match the sidebar's own
