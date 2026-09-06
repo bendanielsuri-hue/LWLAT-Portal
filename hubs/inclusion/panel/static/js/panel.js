@@ -3198,23 +3198,33 @@ function updateActionStatusVisibility() {
     var narrow = needed > facts.getBoundingClientRect().width;
     listRoot.classList.toggle('status-col-narrow', narrow);
 }
-// Meetings' own action-button row (up to 3: Start/Continue Meeting, Edit
-// Agenda, Delete) doesn't always fit at narrow widths - live feedback:
-// "buttons don't fit... could we lose either the text or icons before we
-// get it to wrap", then, once dropping text first actually shipped: "I did
-// not want this, lose the icons if it does not fit" - text stays, icon
-// goes. Per-row (not per-list like updateActionStatusVisibility above)
-// since each card's own button set/labels differ by status. scrollWidth,
-// not getBoundingClientRect().width - a button already flex-shrunk below
-// its own content's natural size (row's flex: 1 1 0, panel.css) still
-// reports its true, unclipped content width via scrollWidth even though
-// the rendered box itself is narrower (the text visually overflows the
-// shrunk box with nowrap set and no ellipsis, exactly the "Delete cut
-// off" screenshot this was written against) - getBoundingClientRect()
-// would only ever report the shrunk box's own current size, never what it
-// actually needs.
-function updateMeetingActionsOverflow() {
-    document.querySelectorAll('#meetings-filtered-content .meeting-card-actions').forEach(function (actions) {
+// Any horizontally-stacked row of 2+ buttons doesn't always fit at narrow
+// widths - live feedback on Meetings' own action row first: "buttons don't
+// fit... could we lose either the text or icons before we get it to wrap",
+// then, once dropping text first actually shipped: "I did not want this,
+// lose the icons if it does not fit" - text stays, icon goes; then
+// generalized further: "can we make all the buttons work this way when
+// horizontally stacked" - scoped to Referrals/Actions/Students' own
+// row-level button pairs (BUTTON_ROW_SELECTORS below), the same class of
+// list-page pattern Meetings' own case came from. Per-row (not per-list
+// like updateActionStatusVisibility above) since each row's own button
+// set/labels can differ (Meetings: status; Actions: whether a referral
+// exists to link to). scrollWidth, not getBoundingClientRect().width - a
+// button already flex-shrunk below its own content's natural size (a
+// row's flex: 1 1 0/list-card's flex-wrap) still reports its true,
+// unclipped content width via scrollWidth even though the rendered box
+// itself is narrower (the text visually overflows the shrunk box with
+// nowrap set and no ellipsis, exactly the "Delete cut off" screenshot
+// this was written against) - getBoundingClientRect() would only ever
+// report the shrunk box's own current size, never what it actually needs.
+var BUTTON_ROW_SELECTORS = [
+    '#meetings-filtered-content .meeting-card-actions',
+    '#referrals-filtered-content .row-btn-row',
+    '#actions-filtered-content .action-row-buttons',
+    '#students-filtered-content .btn-row',
+].join(', ');
+function updateButtonRowOverflow() {
+    document.querySelectorAll(BUTTON_ROW_SELECTORS).forEach(function (actions) {
         // Remove before measuring, same "un-hide before measuring" reasoning
         // as updateActionStatusVisibility above - a stale class from a wider
         // previous measurement would otherwise report an already-hidden
@@ -3224,27 +3234,27 @@ function updateMeetingActionsOverflow() {
         // necessarily a .btn itself: a disabled button with a tooltip
         // (_disabled_btn.html, when its `title` param is set) wraps the
         // actual .btn in an extra <span title="..."> for the tooltip,
-        // which is the direct child here instead. Filtering children down
-        // to just el.matches('.btn') (tried first) silently dropped that
-        // wrapper - and so its whole rendered width - out of the "does
-        // this fit" sum entirely, undercounting the row and never
-        // triggering the fallback even when a disabled Start Meeting was
-        // visibly taking up just as much room as anything else in the row.
+        // which is the direct child here instead, and Students' own fused
+        // Referrals+New Referral pair (btn-row-fused) is a whole wrapper
+        // div, not a .btn. Filtering children down to just
+        // el.matches('.btn') (tried first, Meetings only) silently
+        // dropped a tooltip wrapper - and so its whole rendered width -
+        // out of the "does this fit" sum entirely, undercounting the row
+        // and never triggering the fallback even when a disabled Start
+        // Meeting was visibly taking up just as much room as anything
+        // else in the row. Every direct child's own scrollWidth, whatever
+        // it actually is, is what the row genuinely has to fit.
         var items = Array.prototype.slice.call(actions.children);
         // A single button can't overflow against itself; View Meeting/View
         // Agenda's own plain-text branches (_meetings_rows.html) only ever
         // render one item, same reason this never applies there.
         if (items.length < 2) return;
-        // Guard: every slot needs a .btn-label somewhere inside it for
-        // hide-icons to leave anything behind - true for every button here
-        // today (own comment, _meetings_rows.html), but a future
-        // icon-only addition with no label should fail safe here rather
-        // than silently going blank.
-        var allHaveLabels = items.every(function (slot) {
-            var btn = slot.matches('.btn') ? slot : slot.querySelector('.btn');
-            return !!(btn && btn.querySelector('.btn-label'));
-        });
-        if (!allHaveLabels) return;
+        // No "does every item have a label" guard needed here (Meetings
+        // used to check this) - buttons.css's own .hide-icons
+        // .btn:has(.btn-label) .btn-icon selector already only ever hides
+        // an icon that has a label to fall back on, so a mixed row (some
+        // buttons with an icon+label, some plain text, Students' own
+        // icon-only "+ New Referral" with neither) is always safe as-is.
         var gapPx = parseFloat(getComputedStyle(actions).columnGap || getComputedStyle(actions).rowGap || getComputedStyle(actions).gap) || 0;
         var natural = gapPx * (items.length - 1);
         items.forEach(function (slot) {
@@ -3287,7 +3297,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function refreshFactsStrips() {
         syncFactsColumnWidths();
         updateActionStatusVisibility();
-        updateMeetingActionsOverflow();
+        updateButtonRowOverflow();
         markAllFactsStripEdges();
     }
     refreshFactsStrips();

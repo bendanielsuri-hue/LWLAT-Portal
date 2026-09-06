@@ -142,6 +142,28 @@ html.nav-touch-mode .btn {
 .disabled-btn-tooltip-wrap {
     display: contents;
 }
+/* Drop icons before wrapping, keep the text, for any horizontally-stacked
+   button row that opts in - originally Meetings-only (live feedback:
+   "buttons don't fit... could we lose either the text or icons", then,
+   once icon-only actually shipped: "I did not want this, lose the icons
+   if it does not fit" - text matters more than the icon), generalized
+   portal-wide (live feedback: "can we make all the buttons work this way
+   when horizontally stacked" - scoped to Referrals/Actions/Students' own
+   row-level Edit/Delete-style button rows, same class of list-page
+   pattern Meetings' own case came from). updateButtonRowOverflow
+   (panel.js) measures a row's natural (icon+label) width against the
+   space actually available and adds .hide-icons to the row when it
+   doesn't fit; each row's own flex-wrap (.btn-row's base rule above, or
+   Meetings' own ≤700px block, panel.css) is what still catches the rare
+   case where even text-only doesn't fit.
+   :has(.btn-label) - only a button that actually HAS a text label loses
+   its icon; an icon-only button (no .btn-label at all, e.g. Students'
+   own fused "+ New Referral") is never touched, so it can never end up
+   with neither an icon nor a label to show. Each button keeps its
+   accessible name via aria-label regardless of this class either way. */
+.hide-icons .btn:has(.btn-label) .btn-icon {
+    display: none;
+}
 /* .btn's own unconditional `display: inline-flex` above is author CSS, which
    always beats the browser's `[hidden] { display: none }` UA-stylesheet rule
    regardless of specificity - same trap dialog.modal-dialog:not([open]) and
