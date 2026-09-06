@@ -10,6 +10,7 @@ one place means both call sites can never drift apart - same convention as
 Students/Referrals' own _students_rows.html/_referrals_rows.html.
 {% endcomment %}
 {% for action in actions %}
+{% url 'inclusion_panel_action_set_status' action.id as action_status_url %}
 <div class="entity-row selectable actions-list-row{% if is_aggregate_view %} has-dual-thumb{% endif %}" tabindex="0" role="button" aria-pressed="false">
     <div class="entity-thumb-group">
         {% comment %}
@@ -191,9 +192,9 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                 {% endcomment %}
                 <div class="row-fact-col row-fact-col-status" data-col="status">
                     <span class="row-fact-label">Status</span>
-                    <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-segmented-form">
+                    <form method="post" action="{{ action_status_url }}" class="action-status-segmented-form">
                         {% csrf_token %}
-                        <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
+                        <input type="hidden" name="next" value="{{ actions_list_url }}">
                         <div class="ui-segmented ui-segmented--action-status">
                             {% for value, label in status_choices %}
                             <button type="submit" name="status" value="{{ value }}" class="ui-segmented-option{% if action.status == value %} active{% endif %}">{{ label }}</button>
@@ -288,9 +289,9 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
         own per-row status control already uses (_action_row.html,
         data-action-status-select) - a proven pattern in this app already.
         {% endcomment %}
-        <form method="post" action="{% url 'inclusion_panel_action_set_status' action.id %}" class="action-status-select-form">
+        <form method="post" action="{{ action_status_url }}" class="action-status-select-form">
             {% csrf_token %}
-            <input type="hidden" name="next" value="{% url 'inclusion_panel_actions' %}">
+            <input type="hidden" name="next" value="{{ actions_list_url }}">
             <select name="status" class="status-pill ui-select--center {{ action.status }}" onchange="this.form.submit()">
                 {% for value, label in status_choices %}
                 <option value="{{ value }}"{% if action.status == value %} selected{% endif %}>{{ label }}</option>
@@ -298,7 +299,7 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
             </select>
         </form>
         <div class="btn-row action-row-buttons">
-            <button type="button" class="btn btn-sm btn-secondary" data-view-referral-trigger data-referral-id="{{ action.referral.id }}" data-next="{% url 'inclusion_panel_actions' %}">Referral Details</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-view-referral-trigger data-referral-id="{{ action.referral.id }}" data-next="{{ actions_list_url }}">Referral Details</button>
             <button type="button" class="btn btn-primary btn-sm" data-add-action-trigger data-referral-id="{{ action.referral.id }}" data-edit-action-id="{{ action.id }}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> <span class="btn-label">Edit Action</span></button>
         </div>
     </div>

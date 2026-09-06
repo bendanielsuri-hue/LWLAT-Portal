@@ -1736,7 +1736,7 @@ def inclusion_panel_referrals(request):
     # _term_choices_and_ranges' own comment for the school-override lookup
     # and why this filters by date range at the DB level rather than
     # resolving one Term per referral in Python the way Meetings does.
-    school_ids_for_terms = list(scoped_students.values_list('school_id', flat=True).distinct())
+    school_ids_for_terms = list(scoped_students.order_by().values_list('school_id', flat=True).distinct())
     term_filter, term_choices, terms_by_academic_year, term_q = _term_choices_and_ranges(
         InclusionReferral.objects.filter(student__in=scoped_students),
         school_ids_for_terms, academic_years_present.keys(), term_filter, academic_year_filter,
@@ -1761,7 +1761,7 @@ def inclusion_panel_referrals(request):
     referrals_qs = InclusionReferral.objects.filter(student__in=scoped_students).select_related(
         'student', 'student__school', 'raised_by', 'referral',
     ).prefetch_related(
-        'responses__question', 'panel_referrals__panel__panel_group', 'escalations',
+        'responses__question', 'panel_referrals__panel__panel_group', 'escalations', 'actions',
     )
     if academic_year_filter:
         referrals_qs = referrals_qs.filter(referral__academic_year_id=academic_year_filter)
@@ -1830,9 +1830,10 @@ def inclusion_panel_referrals(request):
     referrals = list(page_obj.object_list)
     for referral in referrals:
         referral.is_unassigned = _is_referral_unassigned(referral)
-        referral.actions_count = referral.actions.count()
-        referral.completed_actions_count = referral.actions.filter(status='complete').count()
-        referral.incomplete_actions_count = referral.actions.filter(status='incomplete').count()
+        referral_actions = referral.actions.all()
+        referral.actions_count = len(referral_actions)
+        referral.completed_actions_count = sum(1 for a in referral_actions if a.status == 'complete')
+        referral.incomplete_actions_count = sum(1 for a in referral_actions if a.status == 'incomplete')
         referral.can_delete = (
             referral.is_unassigned and current_staff is not None and referral.raised_by_id == current_staff.id
         )
@@ -2452,7 +2453,7 @@ def inclusion_panel_actions(request):
     actions_qs = Action.objects.filter(referral__student__in=scoped_students).select_related(
         'referral__student', 'referral__student__school', 'referral__raised_by',
         'assigned_to_staff', 'category', 'created_by',
-    ).prefetch_related('referral__panel_referrals', 'referral__escalations')
+    ).prefetch_related('referral__panel_referrals', 'referral__escalations', 'referral__responses__question')
     actions_qs = visible_actions_for(current_staff, actions_qs)
     categories = visible_categories_for(current_staff)
 
@@ -2477,7 +2478,7 @@ def inclusion_panel_actions(request):
     # Term filter (#121 follow-up applied to Actions too - live feedback:
     # "add Term to Actions and referrals like meeting page") - see
     # _term_choices_and_ranges' own comment for the school-override lookup.
-    school_ids_for_terms = list(scoped_students.values_list('school_id', flat=True).distinct())
+    school_ids_for_terms = list(scoped_students.order_by().values_list('school_id', flat=True).distinct())
     term_filter, term_choices, terms_by_academic_year, term_q = _term_choices_and_ranges(
         visible_actions_for(current_staff, Action.objects.filter(referral__student__in=scoped_students)),
         school_ids_for_terms, academic_years_present.keys(), term_filter, academic_year_filter,
@@ -2555,8 +2556,9 @@ def inclusion_panel_actions(request):
     # Overdue callout pill. concern_category (#119 follow-up, "Student >
     # Referral > Action" 3-section row) is the same per-row lookup
     # inclusion_panel_referrals' own loop already does for the Referrals
-    # list (_primary_concern_category, above) - same convention, same lack
-    # of prefetch_related for referral__responses (accepted there already).
+    # list (_primary_concern_category, above) - same convention, backed by
+    # actions_qs' own 'referral__responses__question' prefetch above so
+    # this loop doesn't re-query per row.
     for action in actions:
         action.is_overdue = action.status == 'incomplete' and action.due_date is not None and action.due_date < today
         action.days_overdue = (today - action.due_date).days if action.is_overdue else 0
@@ -2619,6 +2621,7 @@ def inclusion_panel_actions(request):
     context = {
         **_panel_base_context(request),
         'actions': actions,
+        'actions_list_url': reverse('inclusion_panel_actions'),
         'categories': categories,
         'staff_list': staff_queryset_for_school_key(school_key),
         'status_choices': Action.STATUS_CHOICES,

@@ -1283,11 +1283,13 @@ document.addEventListener('DOMContentLoaded', function () {
     /* 900px - live feedback: "some bigger tablets in portrait may benefit
        from seeing the filters" - a portrait iPad Pro 12.9" (1024px) has
        exactly the room to show the inline bar like desktop does, so the
-       touch+portrait branch above (which otherwise has no width floor at
-       all) needs its own separate cap here, wider than studentsNarrowMql's
-       768px - that number is tuned for narrowed *desktop* windows and would
-       still catch a standard portrait iPad (768-834px) if reused here,
-       which is exactly the tray behaviour this cap exists to keep. */
+       touch+portrait branch above needs its own explicit cap here even
+       though it now happens to share studentsNarrowMql's own 900px value -
+       the two are read independently (touch+portrait vs narrowed desktop)
+       and only coincide numerically after the #121-era unification, above;
+       this cap still exists to keep a standard portrait iPad (768-834px)
+       from being caught by the touch+portrait branch's otherwise-unbounded
+       width. */
     var portraitWideMql = window.matchMedia('(min-width: 900px)');
     function isFilterBarMobile() {
         return trueMobileMql.matches || (studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches);

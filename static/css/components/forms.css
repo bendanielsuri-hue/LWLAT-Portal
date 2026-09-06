@@ -749,15 +749,20 @@
         display: none;
     }
     /* FOUC prevention (live feedback: "the page loads with it open and I
-       see it snap close, can it load closed?") - at this width every
-       non-pinned field/header always ends up behind "View filters"
-       (narrowTablet branch, measure(), main.js), a deterministic outcome
-       rather than one depending on live overflow measurement the way
-       desktop's placement does - so unlike desktop, this can be decided by
-       plain CSS before JS ever runs at all, rather than starting visible
-       (the template's own plain, un-JS'd markup has nothing hiding these
-       yet) and only getting hidden a beat later once setupFilterBarMore
-       Filters's first measure() finishes. */
+       see it snap close, can it load closed?"; also, separately, "I see two
+       rows of filters which then becomes one row" when this was narrowed to
+       only the narrowTablet range - the raw un-JS'd field list wraps as a
+       plain flex-wrap grid, several rows tall, which is uglier than either
+       state either side of it) - kept at the original unbounded
+       min-width:481px rather than capped to narrowTablet/narrowed-desktop:
+       showing the raw, un-grouped field list at desktop/tablet-wide widths
+       while waiting for setupFilterBarMoreFilters's own auto-open (main.js)
+       to build the real single-row category strip is worse than the height
+       jump it was meant to avoid, so this hides every non-pinned field
+       everywhere above mobile and leaves the height jump (55px sticky-row-
+       only -> the real single-row strip's own settled height) as the
+       lesser-bad option until that JS-built strip can be reproduced
+       server-side instead. */
     .filter-bar-tray .filter-field:not([data-filter-pinned]),
     .filter-bar-tray .filter-section-label {
         display: none;
