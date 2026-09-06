@@ -1254,14 +1254,18 @@ document.addEventListener('DOMContentLoaded', function () {
     // class entirely, so Referrals/Actions/Meetings keep their existing
     // View-filters behaviour unchanged at every width.
     var trueMobileMql = window.matchMedia('(max-width: 480px)');
-    /* 768px, not 900px - live feedback: "narrow desktop mode activates a
-       little early, is there a narrower breakpoint" - a tablet-portrait-
-       width boundary, kept as this single source of truth (isFilterBarMobile/
+    /* 900px - live feedback: "have more changes occur at the same
+       breakpoint" - unified with the sidenav's own auto-collapse width
+       (setupSidebarCollapse's narrowMql, below) and setupPageExtrasOverflow/
+       the KPI carousel's auto-width cutoff (both already 900px), so a
+       narrowed desktop window hits every one of these transitions together
+       instead of drifting through several different in-between states.
+       Kept as this single source of truth (isFilterBarMobile/
        isFilterBarNarrowDesktop below and the retry fallback near the top of
        this file all read from this one query rather than each hardcoding
-       their own number). Width-gated branch is now non-touch only (below) -
-       a real portrait tablet is covered separately, by orientation. */
-    var studentsNarrowMql = window.matchMedia('(max-width: 768px)');
+       their own number). Width-gated branch is non-touch only (below) - a
+       real portrait tablet is covered separately, by orientation. */
+    var studentsNarrowMql = window.matchMedia('(max-width: 900px)');
     /* Real portrait tablets used to be deliberately excluded from all of
        this (live feedback, earlier in this same thread: "I did not want the
        filter change on narrow mobile to affect portrait tablet. It is only
@@ -1425,7 +1429,11 @@ document.addEventListener('DOMContentLoaded', function () {
         // label/hub-rail in their expanded state crammed into the now-
         // narrow rail. Must match responsive.css's own threshold exactly -
         // the two aren't otherwise linked to each other in any way that
-        // would catch a mismatch automatically.
+        // would catch a mismatch automatically. (Live feedback tried
+        // unifying this back to 900px for consistency with the other
+        // narrow-desktop systems, then reversed that: "I think the side
+        // nav should go back to 1200" - kept deliberately wider than those
+        // again, same original reasoning.)
         var narrowMql = window.matchMedia('(max-width: 1200px)');
         var hoverCapableMql = window.matchMedia('(hover: hover) and (pointer: fine)');
         var touchRailMql = window.matchMedia('(min-width: 480px) and (max-width: 1180px)');

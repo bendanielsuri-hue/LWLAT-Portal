@@ -26,6 +26,11 @@ FUTURE_OFFSETS_DAYS = [7, 45]
 # different day would otherwise just keep whatever date the panel already
 # has, however far "a week's time" has drifted from it.
 FUTURE_OFFSET_TOLERANCE_DAYS = 3
+# Upcoming draft panels get a time too (Panel.time is optional - a real
+# meeting sets it via Meeting Setup) so the date-line reads "date at time"
+# for seeded data same as it would for a real one - matches the 13:30 slot
+# _complete_panel_times already uses for finished panels' started_at.
+DRAFT_MEETING_TIME = datetime.time(hour=13, minute=30)
 DISCUSSION_MINUTES = [12, 18, 25, 9]
 # How many of the most recent past panel's discussed referrals get flagged
 # as needing a review, so the Panel Agenda Setup Referral Selection "Reviews
@@ -292,10 +297,18 @@ class Command(BaseCommand):
                 else:
                     Panel.objects.create(
                         panel_group=group, date=target_date, status='draft', chair=group.default_chair,
+                        time=DRAFT_MEETING_TIME,
                     )
                     self.stdout.write(self.style.SUCCESS(
                         f'Created draft panel {target_date} for {group.name} ({school.name}).'
                     ))
+
+            # Backfill: draft panels kept/rescheduled above (rather than
+            # freshly created) predate DRAFT_MEETING_TIME and would otherwise
+            # never pick one up on a rerun.
+            Panel.objects.filter(panel_group=group, status='draft', time__isnull=True).update(
+                time=DRAFT_MEETING_TIME
+            )
 
             for panel in Panel.objects.filter(panel_group=group):
                 self._backfill_chair(panel, group)

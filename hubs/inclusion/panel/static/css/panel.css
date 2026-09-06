@@ -3095,8 +3095,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 }
 /* Fake bold via text-shadow (INT-M4), not font-weight — the title is
    ellipsis-truncated but flex-sized to its own content, so a real weight
-   change widens it and nudges the status pills beside it sideways. */
-.meeting-card:hover h3,
+   change widens it and nudges the status pills beside it sideways.
+   html:not(.nav-touch-mode) on the :hover half only - same touch-sticky-
+   hover fix as cards.css's .selectable:hover .entity-title (its own
+   comment has the full reasoning): tapping the row-facts-arrow prev/next
+   buttons nested inside this card leaves the card's own :hover stuck on
+   for touch browsers with no real pointer to later un-hover it.
+   :focus-visible stays unconditional (real keyboard focus). */
+html:not(.nav-touch-mode) .meeting-card:hover h3,
 .meeting-card:focus-visible h3 {
     text-shadow: var(--hover-fake-bold);
 }
@@ -3124,6 +3130,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .meeting-card-header-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 auto; }
 .meeting-card-title-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: nowrap; min-width: 0; }
 .meeting-card-title-row h3 { margin: 0; font-size: var(--font-md); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* One flex child, not loose siblings of h3 - so the whole pill group moves
+   to the next line together once .meeting-card-title-row wraps (<=700px,
+   own rule below), rather than whichever pill runs out of room wrapping
+   alone while the rest stay on the name's own line. flex-wrap: wrap here
+   too, purely as a safety net for a card with enough pills that even the
+   group alone doesn't fit one line at very narrow widths. */
+.meeting-card-pills { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; }
 .meeting-card-title-row .status-pill { flex-shrink: 0; }
 .meeting-date-line { font-size: var(--font-sm); margin-top: 1px; color: var(--text-secondary); }
 .meeting-info-label { font-weight: 600; margin-right: var(--space-xxs); }
@@ -3277,6 +3290,21 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #meetings-filtered-content .row-facts-track {
         padding-bottom: 0;
     }
+    /* No divider above the data-cols strip in this compact layout - live
+       feedback: "can we lose the horizontal line in narrow mode", plus
+       "is there more space above button row than on referrals page" (yes:
+       Referrals' own #referrals-filtered-content .row-facts, above, drops
+       this same border-top/padding-top unconditionally at every width -
+       Meetings had never gotten the same override, so it was still
+       carrying the shared .row-facts base rule's margin-top+padding-top+
+       border-top here on top of everything else). margin-top kept (not
+       zeroed like Referrals') for breathing room between the date-line/
+       pills above and the data-cols strip below, now that there's no line
+       to supply visual separation instead. */
+    #meetings-filtered-content .row-facts {
+        padding-top: 0;
+        border-top: none;
+    }
 }
 
 /* #121: Meetings' own copy of Referrals'/Actions'/Students' shared data-cols
@@ -3298,7 +3326,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     font-weight: 600;
 }
 #meetings-filtered-content .row-facts-cols {
-    gap: var(--space-md);
+    gap: var(--space-lg);
 }
 /* Local bottom inset - part of the same "entity-row margins don't match"
    fix as .meeting-card's own padding-top/bottom: 0 (above) - this is the
@@ -3660,19 +3688,6 @@ html.nav-touch-mode .row-facts-arrow {
     #students-filtered-content .row-facts-arrow--prev {
         left: calc(-1 * (42px + var(--space-sm)) + 2px);
     }
-}
-/* .entity-row.chosen tints to var(--primary-light) (cards.css) - matches
-   the arrow's own resting fill to it, same reasoning the mask fade's
-   --facts-fade-color equivalent used to need before it switched to
-   revealing the real background instead (own comment, mask-image above) -
-   an arrow keeps a real painted background (it has to, to sit legibly on
-   top of the scrolled text under it), so it can't get that same trick for
-   free and needs its own explicit override. */
-.entity-row.chosen .row-facts-arrow {
-    background: var(--primary-light);
-}
-.entity-row.chosen .row-facts-arrow:hover {
-    background: color-mix(in srgb, var(--primary) 15%, var(--primary-light));
 }
 /* min-width: 0 (live feedback: "Referral col can get really big, can we
    truncate long referral categories") - a flex item's default min-width is
@@ -4181,7 +4196,7 @@ html.nav-touch-mode .row-facts-arrow {
    between them once both the border and its margin were removed without
    this being restored. */
 #referrals-filtered-content .row-facts-cols {
-    gap: var(--space-md);
+    gap: var(--space-lg);
 }
 /* Divider dropped everywhere (live feedback: "lets simplify by losing the
    vertical dividers in data cols everywhere") - each column already reads
@@ -4476,7 +4491,7 @@ html.nav-touch-mode .row-facts-arrow {
    above for why (the divider that used to supply this spacing is gone
    entirely now). */
 #actions-filtered-content .row-facts-cols {
-    gap: var(--space-md);
+    gap: var(--space-lg);
 }
 /* Divider dropped everywhere (live feedback: "lets simplify by losing the
    vertical dividers in data cols everywhere") - edited directly here
@@ -5666,7 +5681,7 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    once both the border and its margin were removed without this being
    restored. */
 #students-filtered-content .row-facts-cols {
-    gap: var(--space-md);
+    gap: var(--space-lg);
 }
 /* Divider dropped everywhere (live feedback: "lets simplify by losing the
    vertical dividers in data cols everywhere") - edited directly here
@@ -8456,8 +8471,21 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
        !important needed on .entity-list's own rule below - nothing else
        sets its padding-bottom, unlike .main-inner's own zeroing above
        (which still needs it, for the reason given where it's declared). */
-    body:has(.filtered-content .entity-list) .main-inner {
+    body:has(.filtered-content .entity-list) .main-inner,
+    body:has(.filtered-content .meeting-list) .main-inner {
         padding-bottom: 0 !important;
+    }
+    /* Meetings' own row list (.meeting-list, not .entity-list - it doesn't
+       share entity-list's row shape) was excluded from the block above
+       until now, leaving .main-inner's full bottom-tabbar clearance in
+       place unconsumed: since .meeting-list scrolls internally within a
+       height-bounded shell, that reserved space just sat empty below the
+       whole page instead of being felt as scroll clearance - live feedback:
+       "gap at bottom of page above bottom nav". Giving .meeting-list this
+       same padding-bottom moves the clearance onto its own trailing edge,
+       same fix as .entity-list's (layout.css). */
+    .meeting-list {
+        padding-bottom: calc(47px + 18px + var(--space-lg));
     }
 }
 /* html.filter-bar-mobile-mode, not @media (max-width: 480px) - live
@@ -8636,23 +8664,28 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
 
 /* Narrow desktop only (html.filter-bar-mobile-mode, main.js - same class/
    band as the filter tray above, <=900px + hover-capable, real portrait
-   tablets excluded), Students-scoped (body:has(.students-page-shell), not
-   the shared .main-inner/.breadcrumbs classes every hub page uses) - live
-   feedback: "can we reduce the page margins and also hide the breadcrumbs
-   and helper buttons," refined to "keep the helper buttons but lose the
-   breadcrumbs" once it came up that Search/+Referral have no bottom-tab-bar
-   proxy to fall back on at desktop width the way they do on true mobile
-   (responsive.css's own <=480px version of this same pair of rules relies
-   on that fallback existing - this page's own version deliberately doesn't
-   touch .page-header-extras for that reason). The page-margin reduction
-   this block used to also apply (.main-inner padding, animated) was
-   dropped (live feedback: "keep the number of changes manageable on
-   resizing", same session as the checkAll() resize-stutter fix above) -
-   breadcrumbs still hide outright (a discrete, one-time toggle, not
-   something that animates/recomputes across a resize the way an animated
-   padding value does). */
+   tablets excluded). Originally Students-scoped (body:has(.students-page-
+   shell)) - live feedback: "can we reduce the page margins and also hide
+   the breadcrumbs and helper buttons," refined to "keep the helper buttons
+   but lose the breadcrumbs" once it came up that Search/+Referral have no
+   bottom-tab-bar proxy to fall back on at desktop width the way they do on
+   true mobile (responsive.css's own <=480px version of this same pair of
+   rules relies on that fallback existing - this page's own version
+   deliberately doesn't touch .page-header-extras for that reason).
+   Generalized to every list page sharing this same .filter-bar-tray/
+   mobile-mode mechanism (Referrals/Actions/Meetings too, not just
+   Students) - live feedback: "Students loses breadcrumbs at narrow widths,
+   can we apply to all pages" - body:has(.filtered-content) generically,
+   same convention as the .list-card/.filter-bar-tray borderless-tray fix
+   above (was also Students-only, :has(#students-filtered-content), before
+   generalizing the same way. The page-margin reduction this block used to
+   also apply (.main-inner padding, animated) was dropped (live feedback:
+   "keep the number of changes manageable on resizing", same session as the
+   checkAll() resize-stutter fix above) - breadcrumbs still hide outright (a
+   discrete, one-time toggle, not something that animates/recomputes across
+   a resize the way an animated padding value does). */
 @media (max-width: 900px) {
-    html.filter-bar-mobile-mode body:has(.students-page-shell) .breadcrumbs {
+    html.filter-bar-mobile-mode body:has(.filtered-content) .breadcrumbs {
         display: none;
     }
 }

@@ -394,8 +394,16 @@
 .selectable { cursor: pointer; }
 /* Fake bold via text-shadow (INT-M4), not font-weight — a real weight
    change widens the title text, which can wrap it onto an extra line or
-   nudge a sibling pill sideways the moment the pointer arrives. */
-.selectable:hover .entity-title,
+   nudge a sibling pill sideways the moment the pointer arrives.
+   html:not(.nav-touch-mode) on the :hover half only - touch browsers apply
+   :hover the moment a tap lands anywhere inside the row (including a
+   nested button, e.g. the row-facts-arrow prev/next scroll buttons,
+   panel.css) and then leave it "stuck" on until something else is tapped,
+   since there's no real pointer to later leave the element - live
+   feedback: "when I click left arrow, sometimes some text goes bold".
+   :focus-visible stays unconditional - a real keyboard focus indicator,
+   not a touch hover artifact. */
+html:not(.nav-touch-mode) .selectable:hover .entity-title,
 .selectable:focus-visible .entity-title {
     text-shadow: var(--hover-fake-bold);
 }

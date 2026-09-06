@@ -43,9 +43,19 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
             <div class="meeting-card-header-text">
                 <div class="meeting-card-title-row">
                     <h3>{{ m.panel.panel_group.name|default:"Unassigned Group" }}</h3>
-                    <span class="status-pill {{ m.panel.status }}">{{ m.panel.get_status_display }}</span>
-                    {% if m.panel.auto_ended %}<span class="status-pill danger" title="Ended automatically after running well past this group's typical meeting length">Auto-ended</span>{% endif %}
-                    {% if m.is_next %}<span class="status-pill next-panel">Next Panel</span>{% elif m.panel.date == today %}<span class="status-pill in_panel">Today</span>{% endif %}
+                    {% comment %}
+                    Pills wrapped in their own flex group (not siblings of h3
+                    directly) so they move to the next line as one unit when
+                    they don't fit beside the name, instead of splitting -
+                    whichever pill happens to run out of room wrapping alone
+                    while the rest stay up top. Live feedback: "if the pills
+                    do not fit, can they overflow onto next row together".
+                    {% endcomment %}
+                    <div class="meeting-card-pills">
+                        <span class="status-pill {{ m.panel.status }}">{{ m.panel.get_status_display }}</span>
+                        {% if m.panel.auto_ended %}<span class="status-pill danger" title="Ended automatically after running well past this group's typical meeting length">Auto-ended</span>{% endif %}
+                        {% if m.is_next %}<span class="status-pill next-panel">Next Panel</span>{% elif m.panel.date == today %}<span class="status-pill in_panel">Today</span>{% endif %}
+                    </div>
                 </div>
                 {% comment %}
                 #121 follow-up: Chair moved out to its own data col (below) -
