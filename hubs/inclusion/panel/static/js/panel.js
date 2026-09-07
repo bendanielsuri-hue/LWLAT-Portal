@@ -2860,13 +2860,91 @@ document.addEventListener('DOMContentLoaded', function () {
 // arrow (below) is visible, so the fade only ever shows - and an arrow
 // only ever offers to scroll - when there's genuinely more of the strip
 // hidden in that direction.
+/* Measurement cache generation for the facts-strip/button-row refresh
+   below (diagnosed 2026-09-07 via CDP layout metrics: a 16-step resize
+   sweep of Students cost 1819 layouts / 2637 style recalcs with JS on
+   versus 109 / 109 with JS off - the homepage, which has none of this
+   machinery, cost 15. The whole gap was this refresh re-running its full
+   measure pass on every frame of a resize).
+   The insight the cache rests on: every "natural" width this refresh
+   measures is CONTENT-driven, not container-driven, so a pure resize
+   cannot change any of the numbers it re-derives. .row-fact-col is
+   flex-shrink: 0 (panel.css) and gets measured at flex-grow: 0 /
+   flex-basis: auto, so a column's measured width is its own content's
+   width, full stop - narrowing the window can't squeeze it, and
+   .row-fact-col-clamp's own cap is in ch (font-relative), not a
+   percentage of anything. Same for a button row's natural width
+   (updateButtonRowOverflow): the sum of its buttons' own scrollWidths.
+   So the measure pass only needs redoing when the CONTENT changes (rows
+   added/removed/swapped by the MutationObserver, fonts finishing loading)
+   or when a mode flips that changes what gets measured (the 701px
+   per-row/per-list band). Bumping this counter is what says "those
+   numbers are stale"; a resize deliberately does NOT bump it, so a
+   resize now re-runs only the genuinely width-dependent decisions
+   (does Description still fit beside Status, is a strip cut off, has a
+   button row outgrown its box) against cached numbers, instead of
+   re-measuring everything from scratch.
+   The width-dependent half is still real work, which is why the resize
+   path is also debounced rather than run per frame - see the wiring at
+   the bottom of this file. */
+var factsMeasureGeneration = 0;
+function invalidateFactsMeasurements() {
+    factsMeasureGeneration++;
+}
+/* Trailing-edge debounce: runs once the size has actually stopped
+   changing, rather than once per animation frame while it changes.
+   Deliberately trailing-only (no leading call) - everything it drives is
+   a correct-at-rest concern (shared column basis, cut-off fades, whether
+   Status still fits), and CSS flex-grow keeps redistributing space live
+   underneath it throughout the drag regardless, so there is nothing to
+   see mid-drag that the browser isn't already doing for free. */
+function debounceTrailing(fn, wait) {
+    var timer = null;
+    return function () {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(function () {
+            timer = null;
+            fn();
+        }, wait);
+    };
+}
+/* Exposed for the per-page inline scripts that run their own per-row
+   measurement on resize (students.html's shared buttons-column width,
+   actions.html's button-wrap detection) - they have exactly the same
+   "correct at rest, pointless per frame" shape as the refresh above, and
+   were re-measuring every row on every frame of a drag before this.
+   Pairs with window.rafThrottle (main.js), which stays the right tool
+   for a content change that has to land on the next frame. */
+window.debounceTrailing = debounceTrailing;
 function markFactsStripEdges(track) {
     var scrollable = track.scrollWidth - track.clientWidth;
     track.classList.toggle('is-cut-left', track.scrollLeft > 1);
     track.classList.toggle('is-cut-right', scrollable > 1 && track.scrollLeft < scrollable - 1);
 }
 function markAllFactsStripEdges(root) {
-    (root || document).querySelectorAll('.row-facts-cols').forEach(markFactsStripEdges);
+    /* Read every track first, THEN write every class - never interleaved
+       per-track the way a plain forEach(markFactsStripEdges) does. Each
+       is-cut-left/right toggle dirties layout, so an interleaved loop makes
+       the NEXT track's scrollWidth read force a fresh synchronous layout:
+       one forced layout per row instead of one for the whole list. Same
+       read-pass/write-pass split as fillFactsColumns and
+       updateButtonRowOverflow below, and the reason this whole refresh
+       stopped being O(rows) forced layouts - see the perf note on
+       factsMeasureGeneration above. */
+    var tracks = (root || document).querySelectorAll('.row-facts-cols');
+    var states = [];
+    tracks.forEach(function (track) {
+        var scrollable = track.scrollWidth - track.clientWidth;
+        states.push({
+            track: track,
+            cutLeft: track.scrollLeft > 1,
+            cutRight: scrollable > 1 && track.scrollLeft < scrollable - 1,
+        });
+    });
+    states.forEach(function (state) {
+        state.track.classList.toggle('is-cut-left', state.cutLeft);
+        state.track.classList.toggle('is-cut-right', state.cutRight);
+    });
 }
 // Facts strip fill algorithm (#155, then #156 follow-up: "extend this to
 // tablet modes"/"extend to mobile if there is space", then "globally,
@@ -2897,12 +2975,21 @@ function markAllFactsStripEdges(root) {
 // (getBoundingClientRect respects max-width regardless of flex-basis), so
 // one unusually long value still can't blow its whole column out on its
 // own.
-function fillFactsColumns(columns, strip) {
-    var groups = {};
-    columns.forEach(function (col) {
-        var key = col.getAttribute('data-col');
-        (groups[key] || (groups[key] = [])).push(col);
-    });
+/* The expensive half of fillFactsColumns, split out so it can be skipped
+   whenever the content behind it hasn't changed (see
+   factsMeasureGeneration above for why a resize can't change any of these
+   numbers). Cached on the scope element the widths are shared across -
+   the list root in the >=701px shared-column band, the row itself in the
+   per-row band below it (syncFactsColumnWidths passes whichever applies),
+   so the two bands can't read each other's numbers. */
+function naturalFactsColumnWidths(groups, columns, cacheHost, NATURAL_OVERRIDE) {
+    var keys = Object.keys(groups);
+    var cached = cacheHost && cacheHost._factsNaturalCache;
+    if (cached && cached.generation === factsMeasureGeneration
+        && cached.keys.length === keys.length
+        && cached.keys.every(function (key, i) { return key === keys[i]; })) {
+        return cached.natural;
+    }
     // Reset all, then measure all, then apply all - never interleaved
     // key-by-key. An earlier version reset+measured one data-col group at
     // a time; while measuring group N, every other group still held its
@@ -2918,6 +3005,43 @@ function fillFactsColumns(columns, strip) {
     // scope's current share of leftover space" instead of pure content
     // width.
     columns.forEach(function (col) { col.style.flexGrow = '0'; col.style.flexBasis = 'auto'; });
+    /* Description parked at its own override baseline for the duration of
+       the measure pass regardless of whether it's currently promoted -
+       its natural width is a constant (NATURAL_OVERRIDE) that this pass
+       never reads off the DOM, and every other column is flex-shrink: 0
+       (panel.css), so no sibling's reading depends on which basis
+       Description happens to be holding while they're measured. Its real
+       final value - including the promoted case's cleared basis - is set
+       by fillFactsColumns' apply pass, which runs on cache hits too. */
+    if (groups.description) {
+        groups.description.forEach(function (col) { col.style.flexBasis = NATURAL_OVERRIDE.description + 'px'; });
+    }
+    var natural = {};
+    keys.forEach(function (key) {
+        var max;
+        if (Object.prototype.hasOwnProperty.call(NATURAL_OVERRIDE, key)) {
+            max = NATURAL_OVERRIDE[key];
+        } else {
+            max = 0;
+            groups[key].forEach(function (col) { max = Math.max(max, col.getBoundingClientRect().width); });
+        }
+        natural[key] = max;
+    });
+    if (cacheHost) {
+        cacheHost._factsNaturalCache = {
+            generation: factsMeasureGeneration,
+            keys: keys.slice(),
+            natural: natural,
+        };
+    }
+    return natural;
+}
+function fillFactsColumns(columns, strip, cacheHost) {
+    var groups = {};
+    columns.forEach(function (col) {
+        var key = col.getAttribute('data-col');
+        (groups[key] || (groups[key] = [])).push(col);
+    });
     // Description's own "natural" width is a fixed baseline (320px,
     // matching row-fact-col-description's original flex: 0 0 320px,
     // panel.css/#154) rather than measured off the DOM like every other
@@ -2933,27 +3057,15 @@ function fillFactsColumns(columns, strip) {
     // always wins over stylesheet specificity.
     var NATURAL_OVERRIDE = { description: 320 };
     var shell = columns.length ? columns[0].closest('.row-facts-shell') : null;
+    /* Read before the reset pass below, not after it as this used to -
+       row-facts-shell is container-type: inline-size (panel.css), and an
+       inline-size container's own width is by definition independent of
+       its contents (that independence is what makes container queries
+       non-circular in the first place), so resetting the columns inside
+       it cannot move this number. Reading it first is what lets the reset
+       pass be skipped entirely on a cache hit. */
     var descriptionPromoted = !!(shell && groups.description && shell.getBoundingClientRect().width <= 600);
-    if (descriptionPromoted) {
-        groups.description.forEach(function (col) { col.style.flexBasis = ''; });
-    } else {
-        Object.keys(groups).forEach(function (key) {
-            if (!Object.prototype.hasOwnProperty.call(NATURAL_OVERRIDE, key)) return;
-            groups[key].forEach(function (col) { col.style.flexBasis = NATURAL_OVERRIDE[key] + 'px'; });
-        });
-    }
-    var natural = {};
-    Object.keys(groups).forEach(function (key) {
-        if (key === 'description' && descriptionPromoted) return;
-        var max;
-        if (Object.prototype.hasOwnProperty.call(NATURAL_OVERRIDE, key)) {
-            max = NATURAL_OVERRIDE[key];
-        } else {
-            max = 0;
-            groups[key].forEach(function (col) { max = Math.max(max, col.getBoundingClientRect().width); });
-        }
-        natural[key] = max;
-    });
+    var natural = naturalFactsColumnWidths(groups, columns, cacheHost, NATURAL_OVERRIDE);
     // MAX_BONUS_PX caps how much flex-grow can add on top of each column's
     // own natural width (live feedback with a Referrals screenshot: "its
     // the extra white space that I want capped! Could we make this 100px
@@ -2969,12 +3081,96 @@ function fillFactsColumns(columns, strip) {
     // line (same mechanism Description's own cap, below, already relies
     // on) - no extra JS math needed to reroute it manually.
     var MAX_BONUS_PX = 100;
+    /* Ragged lists - rows that don't all carry the SAME set of columns -
+       can't be aligned by flex-grow at all, and Meetings is the one list
+       that is ragged: a complete meeting has an extra Discussion column
+       that an upcoming one doesn't (_meetings_rows.html), while
+       Assigned/Discussed already deliberately share one data-col so they
+       line up. Live feedback: "I wanted the columns of completed and not
+       completed rows to have same width. Assigned and discussed should
+       be treated as same column, only difference is that completed have
+       an extra discussion col".
+       Why grow can't do it: every column here already gets the same
+       shared flex-basis, but flex-grow divides each row's OWN leftover
+       space among that row's OWN items - so a 3-column row splits the
+       leftover three ways and a 4-column row splits it four ways, and
+       every shared column ends up a different width depending only on
+       how many columns happen to sit beside it (measured live: Staff
+       230.5px wide at x=168 on a 3-column row against 225.7px at x=163
+       on a 4-column one). No per-row grow factor can fix that; the
+       columns have to stop growing per row and take one fixed width
+       instead.
+       So: compute the bonus ONCE for the whole list, from the fullest
+       row's column set, and hand every column that same fixed width with
+       grow off. The fullest row still fills the track exactly as before,
+       and a shorter row now lays its columns out at identical widths and
+       positions, simply stopping earlier and leaving its trailing space
+       empty - which is exactly what "completed just have an extra
+       column" means.
+       Uniform lists (every other page) are untouched: with one column
+       set, every row already had the same leftover split the same number
+       of ways, so grow was already producing this same answer. */
+    var stripsSeen = [];
+    var stripKeySets = [];
+    columns.forEach(function (col) {
+        var ownStrip = col.closest('.row-facts-cols');
+        if (!ownStrip) return;
+        var i = stripsSeen.indexOf(ownStrip);
+        if (i === -1) {
+            stripsSeen.push(ownStrip);
+            stripKeySets.push([col.getAttribute('data-col')]);
+        } else {
+            stripKeySets[i].push(col.getAttribute('data-col'));
+        }
+    });
+    var firstSignature = stripKeySets.length ? stripKeySets[0].join(',') : '';
+    var ragged = false;
+    var fullestSet = stripKeySets.length ? stripKeySets[0] : [];
+    stripKeySets.forEach(function (set) {
+        if (set.join(',') !== firstSignature) ragged = true;
+        if (set.length > fullestSet.length) fullestSet = set;
+    });
+    var sharedBonus = 0;
+    if (ragged && strip && fullestSet.length) {
+        var trackGap = parseFloat(getComputedStyle(strip).columnGap) || 0;
+        var fullestNatural = 0;
+        fullestSet.forEach(function (key) { fullestNatural += (natural[key] || 0); });
+        var trackRoom = strip.clientWidth
+            - fullestNatural
+            - trackGap * Math.max(fullestSet.length - 1, 0);
+        sharedBonus = Math.max(0, Math.min(trackRoom / fullestSet.length, MAX_BONUS_PX));
+    }
     Object.keys(groups).forEach(function (key) {
         if (key === 'description' && descriptionPromoted) {
-            groups[key].forEach(function (col) { col.style.maxWidth = ''; });
+            /* Full final state set here, not half-inherited from the
+               measure pass's reset the way it used to be - that reset no
+               longer runs on a cache hit, so anything it used to leave
+               behind has to be stated explicitly or a promoted
+               Description would keep whichever basis the previous,
+               unpromoted run applied. flexBasis cleared (so the
+               @container promotion rule's own flex: 0 0 100% can win,
+               which an inline value would outrank) and flexGrow pinned
+               to 0 to match it. */
+            groups[key].forEach(function (col) {
+                col.style.flexBasis = '';
+                col.style.flexGrow = '0';
+                col.style.maxWidth = '';
+            });
             return;
         }
         groups[key].forEach(function (col) {
+            if (ragged) {
+                // One fixed width for this column on every row (see the
+                // ragged-list note above) - grow off, so a row's own
+                // column count can no longer change how wide its columns
+                // come out. max-width pinned to the same number keeps it
+                // exact rather than merely capped.
+                var fixed = (natural[key] + sharedBonus) + 'px';
+                col.style.flexBasis = fixed;
+                col.style.flexGrow = '0';
+                col.style.maxWidth = fixed;
+                return;
+            }
             col.style.flexBasis = natural[key] + 'px';
             // Explicitly set to 1, not just cleared - clearing would fall
             // back to whatever CSS itself says, and Description
@@ -3050,45 +3246,61 @@ function fillFactsColumns(columns, strip) {
         stripNaturalSum += stripGapPx * Math.max(stripKeys.length - 1, 0);
         var trackBasis = stripNaturalSum + 'px';
         var trackGrow = String(Math.max(stripKeys.length, 1));
+        /* Three separate passes over the rows - write every track, THEN
+           read every track/Status box, THEN write every Status margin -
+           rather than one pass doing all three per row. The read in the
+           middle is a deliberate forced layout (it has to see Track's
+           real grown width), and interleaving it per row made that one
+           forced layout per ROW: the previous row's marginRight write
+           dirtied layout again before the next row's read. Split this
+           way the whole list costs exactly one, which is what turned the
+           per-row cost of this refresh from O(rows) synchronous layouts
+           into a constant. */
+        var trackRows = [];
         groups.description.forEach(function (descCol) {
             var row = descCol.closest('.entity-row');
             var track = row ? row.querySelector('.row-facts-track') : null;
             if (!track) return;
             track.style.flexBasis = trackBasis;
             track.style.flexGrow = trackGrow;
-            // Read back Track's own actual grown width (forces layout) to
-            // find its real average per-column bonus, then give Status
-            // that same amount as its own trailing margin - matches
-            // whatever Due/Created/Referral actually received this run
-            // instead of guessing a fixed number, and naturally shrinks to
-            // 0 whenever there's no genuine leftover to share in the first
-            // place. Clamped to MAX_BONUS_PX (above) purely as a safety
-            // net - it should never actually exceed that in practice,
-            // since every column inside Track is already capped there
-            // individually.
             var statusCol = row.querySelector('.row-fact-col-status');
-            if (statusCol && stripKeys.length) {
-                // Only meaningful while Track is actually sharing Status'
-                // own line (wide desktop) - the moment normal flex-wrap
-                // drops Track to its own line below Description+Status
-                // (any narrower width, confirmed live via Playwright:
-                // Track's top stops matching Status' top well before wide
-                // desktop), there's no adjacent Track bonus left for this
-                // margin to visually match any more, and it just reads as a
-                // dead, unexplained gap after Status instead (live
-                // feedback: "Status has kept extra space to its right" -
-                // reproduced at ~1300px, where Track had already wrapped
-                // below but Status still carried Track's stale bonus
-                // margin from whenever it last computed one).
-                var sameLine = Math.abs(track.getBoundingClientRect().top - statusCol.getBoundingClientRect().top) < 1;
-                if (sameLine) {
-                    var trackBonus = track.getBoundingClientRect().width - stripNaturalSum;
-                    var perColumnBonus = Math.max(0, Math.min(trackBonus / stripKeys.length, MAX_BONUS_PX));
-                    statusCol.style.marginRight = perColumnBonus + 'px';
-                } else {
-                    statusCol.style.marginRight = '0px';
-                }
+            if (statusCol && stripKeys.length) trackRows.push({ track: track, statusCol: statusCol });
+        });
+        // Read back Track's own actual grown width (forces layout) to
+        // find its real average per-column bonus, then give Status
+        // that same amount as its own trailing margin - matches
+        // whatever Due/Created/Referral actually received this run
+        // instead of guessing a fixed number, and naturally shrinks to
+        // 0 whenever there's no genuine leftover to share in the first
+        // place. Clamped to MAX_BONUS_PX (above) purely as a safety
+        // net - it should never actually exceed that in practice,
+        // since every column inside Track is already capped there
+        // individually.
+        trackRows.forEach(function (entry) {
+            var trackRect = entry.track.getBoundingClientRect();
+            // Only meaningful while Track is actually sharing Status'
+            // own line (wide desktop) - the moment normal flex-wrap
+            // drops Track to its own line below Description+Status
+            // (any narrower width, confirmed live via Playwright:
+            // Track's top stops matching Status' top well before wide
+            // desktop), there's no adjacent Track bonus left for this
+            // margin to visually match any more, and it just reads as a
+            // dead, unexplained gap after Status instead (live
+            // feedback: "Status has kept extra space to its right" -
+            // reproduced at ~1300px, where Track had already wrapped
+            // below but Status still carried Track's stale bonus
+            // margin from whenever it last computed one).
+            entry.sameLine = Math.abs(trackRect.top - entry.statusCol.getBoundingClientRect().top) < 1;
+            entry.trackWidth = trackRect.width;
+        });
+        trackRows.forEach(function (entry) {
+            if (!entry.sameLine) {
+                entry.statusCol.style.marginRight = '0px';
+                return;
             }
+            var trackBonus = entry.trackWidth - stripNaturalSum;
+            var perColumnBonus = Math.max(0, Math.min(trackBonus / stripKeys.length, MAX_BONUS_PX));
+            entry.statusCol.style.marginRight = perColumnBonus + 'px';
         });
     }
 }
@@ -3136,17 +3348,25 @@ function syncFactsColumnWidths() {
                 return col.getAttribute('data-col') !== 'status' && !col.classList.contains('row-fact-col-description');
             });
         }
+        /* Third argument is the element the measured widths get cached on
+           (naturalFactsColumnWidths) - the row in per-row mode, the list
+           root in shared mode, matching whatever scope those widths are
+           actually shared across. Crossing the 701px band swaps which
+           element that is, and the band change invalidates the cache
+           outright anyway (see the matchMedia wiring at the bottom of
+           this file), so neither band can ever read numbers the other
+           one measured. */
         if (perRow) {
             listRoot.querySelectorAll('.entity-row').forEach(function (row) {
                 var columns = scopedColumns(row);
                 if (!columns.length) return;
-                fillFactsColumns(columns, row.querySelector('.row-facts-cols'));
+                fillFactsColumns(columns, row.querySelector('.row-facts-cols'), row);
             });
             return;
         }
         var columns = scopedColumns(listRoot);
         if (!columns.length) return;
-        fillFactsColumns(columns, listRoot.querySelector('.row-facts-cols'));
+        fillFactsColumns(columns, listRoot.querySelector('.row-facts-cols'), listRoot);
     });
 }
 // Decides whether Actions' fused Status control fits beside Description on
@@ -3238,55 +3458,147 @@ var BUTTON_ROW_SELECTORS = [
     '#students-filtered-content .btn-row',
 ].join(', ');
 function updateButtonRowOverflow() {
+    /* Restructured into strict write-pass / read-pass / write-pass phases
+       across the whole list (it used to do all three per row, so each
+       row's hide-icons write forced the next row's measurement to
+       re-layout from scratch - one synchronous layout per row). The
+       natural width itself - the sum of the row's own buttons'
+       scrollWidths - is content-driven and cannot change with viewport
+       width, so it's cached per row against factsMeasureGeneration and
+       only re-measured when the content actually changes. What still has
+       to be re-decided on every resize is only the comparison against
+       the row's own current box width. */
+    var rows = [];
     document.querySelectorAll(BUTTON_ROW_SELECTORS).forEach(function (actions) {
-        // Remove before measuring, same "un-hide before measuring" reasoning
-        // as updateActionStatusVisibility above - a stale class from a wider
-        // previous measurement would otherwise report an already-hidden
-        // icon's width as 0 and never ask for it back.
-        actions.classList.remove('hide-icons');
-        // Every direct child is a real flex item/slot in this row - NOT
-        // necessarily a .btn itself: a disabled button with a tooltip
-        // (_disabled_btn.html, when its `title` param is set) wraps the
-        // actual .btn in an extra <span title="..."> for the tooltip,
-        // which is the direct child here instead, and Students' own fused
-        // Referrals+New Referral pair (btn-row-fused) is a whole wrapper
-        // div, not a .btn. Filtering children down to just
-        // el.matches('.btn') (tried first, Meetings only) silently
-        // dropped a tooltip wrapper - and so its whole rendered width -
-        // out of the "does this fit" sum entirely, undercounting the row
-        // and never triggering the fallback even when a disabled Start
-        // Meeting was visibly taking up just as much room as anything
-        // else in the row. Every direct child's own scrollWidth, whatever
-        // it actually is, is what the row genuinely has to fit.
+        // Every direct child is a real flex item/slot in this row (see the
+        // note in the measure pass below).
         var items = Array.prototype.slice.call(actions.children);
         // A single button can't overflow against itself; View Meeting/View
         // Agenda's own plain-text branches (_meetings_rows.html) only ever
         // render one item, same reason this never applies there.
         if (items.length < 2) return;
-        // No "does every item have a label" guard needed here (Meetings
-        // used to check this) - buttons.css's own .hide-icons
-        // .btn:has(.btn-label) .btn-icon selector already only ever hides
-        // an icon that has a label to fall back on, so a mixed row (some
-        // buttons with an icon+label, some plain text, Students' own
-        // icon-only "+ New Referral" with neither) is always safe as-is.
-        var gapPx = parseFloat(getComputedStyle(actions).columnGap || getComputedStyle(actions).rowGap || getComputedStyle(actions).gap) || 0;
-        var natural = gapPx * (items.length - 1);
-        items.forEach(function (slot) {
-            // The slot itself (own comment above), not a nested .btn - its
-            // scrollWidth is what the flex row actually has to fit,
-            // whether or not it happens to be the .btn directly. Exception:
-            // .disabled-btn-tooltip-wrap (_disabled_btn.html) is
-            // display: contents (buttons.css) precisely so it generates no
-            // box of its own - scrollWidth on it is always 0, so measure
-            // its .btn child (the thing that actually renders/sizes) here
-            // instead.
-            var box = slot.matches('.disabled-btn-tooltip-wrap') ? slot.querySelector('.btn') : slot;
-            natural += box ? box.scrollWidth : 0;
+        var cached = actions._btnRowNaturalCache;
+        rows.push({
+            actions: actions,
+            items: items,
+            natural: cached && cached.generation === factsMeasureGeneration ? cached.natural : null,
         });
-        if (natural > actions.getBoundingClientRect().width) {
-            actions.classList.add('hide-icons');
-        }
     });
+    if (!rows.length) return;
+    // Remove before measuring, same "un-hide before measuring" reasoning
+    // as updateActionStatusVisibility above - a stale class from a wider
+    // previous measurement would otherwise report an already-hidden
+    // icon's width as 0 and never ask for it back. Done for EVERY row up
+    // front (not just the ones being re-measured) because the row's own
+    // box width, read in the next pass, can itself depend on whether its
+    // icons are currently hidden - reading that while a stale hide-icons
+    // was still applied would latch the row into the hidden state.
+    rows.forEach(function (entry) { entry.actions.classList.remove('hide-icons'); });
+    rows.forEach(function (entry) {
+        /* Only a genuinely HORIZONTAL row can overflow horizontally -
+           live feedback: "Buttons have lost their icons in desktop mode,
+           I only want these to disappear if buttons do not fit in
+           mobile/very narrow mode when buttons are horizontally
+           stacked". Above the narrow bands these containers are
+           flex-direction: column (Meetings' meeting-card-actions,
+           Actions' action-row-buttons - the buttons sit one above
+           another in a ~128px column beside the row's content), so the
+           sum of their widths on one line - 399px for three buttons -
+           was being compared against that 128px column and "overflowed"
+           every time, dropping every icon at every desktop width. In a
+           column layout that sum describes a line that does not exist:
+           each button has the full column width to itself, and the only
+           thing that could overflow is their combined HEIGHT, which
+           this fallback has no answer for anyway.
+           Tested against the live computed direction rather than a px
+           breakpoint copied from the stylesheet - "are these buttons
+           actually side by side" is exactly the question, and each page
+           flips to column at its own width (panel.css), so a hardcoded
+           number here would be a second source of truth to keep in
+           sync. A non-flex container is skipped for the same reason:
+           the one-line sum below only describes a flex row. */
+        var cs = getComputedStyle(entry.actions);
+        entry.horizontal = cs.display.indexOf('flex') !== -1 && cs.flexDirection.indexOf('row') === 0;
+        if (!entry.horizontal) return;
+        entry.available = entry.actions.getBoundingClientRect().width;
+        if (entry.natural === null) entry.natural = measureButtonRowNatural(entry.actions, entry.items);
+    });
+    rows.forEach(function (entry) {
+        if (entry.horizontal && entry.natural > entry.available) entry.actions.classList.add('hide-icons');
+    });
+}
+/* Meetings' button column, sized once for the whole list instead of per
+   card - live feedback: "Button collumn width should match all the way
+   down!". .meeting-card-actions is flex: 0 0 auto (panel.css), so each
+   card's column sized to its OWN buttons: a card offering Start Meeting/
+   Edit Agenda/Delete came out wider than one offering only View Meeting
+   (measured live: 128px against 124.7px), and the border-left down the
+   left edge of that column made every mismatch read as a ragged vertical
+   line down the list.
+   Same shared-width convention Students (--students-btn-col-w, its own
+   inline script) and Escalations (syncEscalationButtonWidths) already
+   use for the same complaint on their own lists, expressed as one custom
+   property on the list root rather than an inline width per row - one
+   write instead of one per card, and the actual sizing stays in CSS.
+   Only applied while the column really is a vertical side column: at the
+   narrow widths where it turns into a full-width horizontal row
+   (panel.css) every card's column is already the same width by
+   construction, and forcing a min-width there would just make it
+   overflow. Same live flex-direction test, and same reasoning, as the
+   icon-dropping guard above. */
+function syncMeetingsButtonColumnWidth() {
+    var listRoot = document.getElementById('meetings-filtered-content');
+    if (!listRoot) return;
+    var columnsList = listRoot.querySelectorAll('.meeting-card-actions');
+    if (!columnsList.length) return;
+    // Cleared before measuring, not just overwritten after - otherwise a
+    // previous pass's own shared width is what gets measured back and the
+    // column could only ever grow (same reasoning as Students' own
+    // buttons-column measurement and updateButtonRowOverflow's un-hide).
+    listRoot.style.removeProperty('--meetings-btn-col-w');
+    var vertical = getComputedStyle(columnsList[0]).flexDirection.indexOf('column') === 0;
+    if (!vertical) return;
+    var max = 0;
+    columnsList.forEach(function (col) { max = Math.max(max, col.getBoundingClientRect().width); });
+    if (max > 0) listRoot.style.setProperty('--meetings-btn-col-w', max + 'px');
+}
+/* The content-driven half of updateButtonRowOverflow, split out so its
+   result can be cached per row - see the note there. Every item passed in
+   is a real flex item/slot in this row - NOT necessarily a .btn itself: a
+   disabled button with a tooltip (_disabled_btn.html, when its `title`
+   param is set) wraps the actual .btn in an extra <span title="..."> for
+   the tooltip, which is the direct child here instead, and Students' own
+   fused Referrals+New Referral pair (btn-row-fused) is a whole wrapper
+   div, not a .btn. Filtering children down to just el.matches('.btn')
+   (tried first, Meetings only) silently dropped a tooltip wrapper - and
+   so its whole rendered width - out of the "does this fit" sum entirely,
+   undercounting the row and never triggering the fallback even when a
+   disabled Start Meeting was visibly taking up just as much room as
+   anything else in the row. Every direct child's own scrollWidth,
+   whatever it actually is, is what the row genuinely has to fit. */
+function measureButtonRowNatural(actions, items) {
+    // No "does every item have a label" guard needed here (Meetings
+    // used to check this) - buttons.css's own .hide-icons
+    // .btn:has(.btn-label) .btn-icon selector already only ever hides
+    // an icon that has a label to fall back on, so a mixed row (some
+    // buttons with an icon+label, some plain text, Students' own
+    // icon-only "+ New Referral" with neither) is always safe as-is.
+    var gapPx = parseFloat(getComputedStyle(actions).columnGap || getComputedStyle(actions).rowGap || getComputedStyle(actions).gap) || 0;
+    var natural = gapPx * (items.length - 1);
+    items.forEach(function (slot) {
+        // The slot itself (own comment above), not a nested .btn - its
+        // scrollWidth is what the flex row actually has to fit,
+        // whether or not it happens to be the .btn directly. Exception:
+        // .disabled-btn-tooltip-wrap (_disabled_btn.html) is
+        // display: contents (buttons.css) precisely so it generates no
+        // box of its own - scrollWidth on it is always 0, so measure
+        // its .btn child (the thing that actually renders/sizes) here
+        // instead.
+        var box = slot.matches('.disabled-btn-tooltip-wrap') ? slot.querySelector('.btn') : slot;
+        natural += box ? box.scrollWidth : 0;
+    });
+    actions._btnRowNaturalCache = { generation: factsMeasureGeneration, natural: natural };
+    return natural;
 }
 document.addEventListener('scroll', function (e) {
     var track = e.target;
@@ -3312,19 +3624,60 @@ document.addEventListener('DOMContentLoaded', function () {
         syncFactsColumnWidths();
         updateActionStatusVisibility();
         updateButtonRowOverflow();
+        // After updateButtonRowOverflow, never before: dropping a row's
+        // icons changes how wide its buttons are, so measuring the shared
+        // column first would size it against widths that are about to
+        // change underneath it (same ordering reasoning as
+        // syncFactsColumnWidths running ahead of the two functions above).
+        syncMeetingsButtonColumnWidth();
         markAllFactsStripEdges();
     }
     refreshFactsStrips();
-    var refresh = window.rafThrottle ? window.rafThrottle(refreshFactsStrips) : refreshFactsStrips;
+    /* Two different triggers with two different urgencies (#the resize
+       stutter diagnosed 2026-09-07 - see factsMeasureGeneration above for
+       the measurements).
+       Content changes are urgent and rare: new rows have no widths at all
+       until this runs, so they refresh on the next frame, and they're the
+       one thing that genuinely invalidates the cached measurements.
+       Resizes are the opposite - frequent, and never invalidating - so
+       they only re-run the width-dependent decisions, and only once the
+       drag has actually stopped. Running them per frame instead was the
+       whole bug: this refresh was re-measuring every row on every frame
+       of a resize while the side-nav's own CSS width transition was
+       competing for the same main thread, which is what made the card
+       visibly jump instead of glide. */
+    var refreshSoon = window.rafThrottle ? window.rafThrottle(refreshFactsStrips) : refreshFactsStrips;
+    function refreshAfterContentChange() {
+        invalidateFactsMeasurements();
+        refreshSoon();
+    }
+    var refreshAfterResize = debounceTrailing(refreshFactsStrips, 120);
     document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (container) {
         if (typeof MutationObserver !== 'undefined') {
-            new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
+            /* childList only, never attributes - this refresh's own work
+               IS a pile of style/class writes on these containers'
+               descendants, so an attribute-sensitive observer here would
+               re-trigger itself forever. */
+            new MutationObserver(refreshAfterContentChange).observe(container, { childList: true, subtree: true });
         }
         if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(refresh).observe(container);
+            new ResizeObserver(refreshAfterResize).observe(container);
         }
     });
-    window.addEventListener('resize', refresh);
+    window.addEventListener('resize', refreshAfterResize);
+    /* The 701px band decides whether widths are shared per-list or
+       per-row (syncFactsColumnWidths), i.e. which element the cached
+       measurements even belong to - so crossing it has to invalidate
+       them, and can't wait for the debounce the way an ordinary resize
+       can. */
+    if (window.matchMedia) {
+        window.matchMedia('(min-width: 701px)').addEventListener('change', refreshAfterContentChange);
+    }
+    /* Late webfont swaps change text metrics - and so every natural width
+       measured before them - without any resize or DOM mutation firing to
+       say so. Cheap one-off correction that the old per-frame refresh got
+       for free by simply never trusting a previous measurement. */
+    window.addEventListener('load', refreshAfterContentChange);
 });
 // Per-row prev/next arrows (shown on every device now - own comment,
 // panel.css, "if we include it on touch devices as well, its even more

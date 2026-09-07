@@ -242,12 +242,24 @@ document.addEventListener('DOMContentLoaded', function () {
     (function wireActionButtonLayout() {
         var container = document.getElementById('actions-filtered-content');
         if (!container) return;
+        {% comment %}
+        Read every row first, then write every class - never interleaved
+        per row. row-buttons-wrapped changes the row's own layout, so
+        toggling it inside the loop forced the NEXT row's offsetTop read
+        to re-run layout from scratch: one synchronous layout per row
+        rather than one for the whole list. Same read-pass/write-pass
+        split as panel.js's own facts-strip refresh, for the same reason.
+        {% endcomment %}
         function refresh() {
+            var states = [];
             container.querySelectorAll('.entity-row').forEach(function (row) {
                 var thumb = row.querySelector('.entity-thumb');
                 var btnRow = row.querySelector('.row-btn-row');
                 if (!thumb || !btnRow) return;
-                row.classList.toggle('row-buttons-wrapped', btnRow.offsetTop > thumb.offsetTop + 2);
+                states.push({ row: row, wrapped: btnRow.offsetTop > thumb.offsetTop + 2 });
+            });
+            states.forEach(function (state) {
+                state.row.classList.toggle('row-buttons-wrapped', state.wrapped);
             });
         }
         var lastWidth = null;
@@ -257,7 +269,18 @@ document.addEventListener('DOMContentLoaded', function () {
             lastWidth = width;
             refresh();
         }
-        var refreshOnResize = window.rafThrottle ? window.rafThrottle(refreshIfWidthChanged) : refreshIfWidthChanged;
+        {% comment %}
+        Debounced rather than rAF-throttled on the resize path, same
+        reasoning as students.html's own buttons-column measurement: the
+        lastWidth guard never fires mid-drag (the width genuinely is
+        changing every frame), so this re-measured every row on every
+        frame. Whether a row's buttons have wrapped is a correct-at-rest
+        question; the MutationObserver below stays immediate because a
+        newly swapped-in row has no wrap state at all until this runs.
+        {% endcomment %}
+        var refreshOnResize = window.debounceTrailing
+            ? window.debounceTrailing(refreshIfWidthChanged, 120)
+            : refreshIfWidthChanged;
         refresh();
         lastWidth = container.clientWidth;
         window.addEventListener('resize', refreshOnResize);

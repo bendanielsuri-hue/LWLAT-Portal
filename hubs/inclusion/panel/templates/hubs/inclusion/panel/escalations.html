@@ -231,7 +231,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (escalationsList && typeof MutationObserver !== 'undefined') {
         new MutationObserver(syncEscalationButtonWidths).observe(escalationsList, { childList: true, subtree: true });
     }
-    window.addEventListener('resize', window.rafThrottle ? window.rafThrottle(syncEscalationButtonWidths) : syncEscalationButtonWidths);
+    {% comment %}
+    Debounced rather than rAF-throttled, same reasoning as students.html's
+    and actions.html's own per-row resize measurement: a shared button
+    width is a correct-at-rest concern, and re-running this every frame of
+    a drag was part of what made these list pages stutter on resize while
+    the side-nav's own width transition was running (measured 2026-09-07).
+    The MutationObserver above stays immediate - appended rows have no
+    synced width until it runs.
+    {% endcomment %}
+    window.addEventListener('resize', window.debounceTrailing ? window.debounceTrailing(syncEscalationButtonWidths, 120) : syncEscalationButtonWidths);
 });
 </script>
 {% endblock %}

@@ -544,7 +544,24 @@ document.addEventListener('DOMContentLoaded', function () {
             lastWidth = width;
             refresh();
         }
-        var refreshOnResize = window.rafThrottle ? window.rafThrottle(refreshIfWidthChanged) : refreshIfWidthChanged;
+        {% comment %}
+        Debounced on the resize path, not rAF-throttled as this used to be.
+        The lastWidth guard above only skips a re-measure when the width
+        DIDN'T change, which is never true mid-drag - so a resize used to
+        re-measure all 50 rows on every single frame, and this was the
+        single biggest remaining contributor to the list pages' resize
+        stutter after panel.js's own refresh was fixed (measured
+        2026-09-07: 1500 of the ~1800 getBoundingClientRect calls in a
+        16-step resize sweep of this page came from right here).
+        A shared buttons-column width is a correct-at-rest concern - while
+        the drag is in flight the grid track simply keeps its last value,
+        which is invisible - so settling once the drag stops is enough.
+        Content changes (studentsContentObservers) stay immediate: a newly
+        appended row has no measurement at all until this runs.
+        {% endcomment %}
+        var refreshOnResize = window.debounceTrailing
+            ? window.debounceTrailing(refreshIfWidthChanged, 120)
+            : refreshIfWidthChanged;
         refresh();
         lastWidth = container.clientWidth;
         studentsContentObservers.push(refresh);

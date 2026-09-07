@@ -3258,6 +3258,20 @@ html:not(.nav-touch-mode) .meeting-card:hover h3,
    height, same as before. */
 .meeting-card-actions { flex: 0 0 auto; display: flex; flex-direction: column; flex-wrap: nowrap; justify-content: center; align-items: stretch; border-left: 1px solid var(--border-color); padding: var(--space-xs) 0 var(--space-xs) var(--space-lg); gap: var(--space-xs); }
 .meeting-card-actions .btn { white-space: nowrap; }
+/* One shared width for every card's button column down the whole list -
+   live feedback: "Button collumn width should match all the way down!".
+   flex: 0 0 auto (above) sizes each column to its OWN buttons, so a card
+   offering Start Meeting/Edit Agenda/Delete came out wider than one
+   offering just View Meeting, and this column's own border-left turned
+   every few-px mismatch into a visibly ragged line down the list.
+   --meetings-btn-col-w is measured and set on #meetings-filtered-content
+   by syncMeetingsButtonColumnWidth (panel.js) - the widest column in the
+   list - and is deliberately absent (falling back to auto, i.e. the
+   per-card behaviour above) both before that JS has run and at the
+   narrow widths where this column stops being a vertical side column,
+   where a forced min-width would only cause overflow. Same
+   custom-property convention as Students' own --students-btn-col-w. */
+#meetings-filtered-content .meeting-card-actions { min-width: var(--meetings-btn-col-w, auto); }
 /* Delete's <form> (_meetings_rows.html, data-row-remove-form) is a plain
    block box, not a .btn itself - align-items: stretch (above) stretches
    the form to the column's own width, but its .btn child still only takes
