@@ -138,29 +138,24 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
             its own line-clamp (panel.css) instead of disappearing.
             {% endcomment %}
             {% comment %}
-            row-facts-shell exists purely to hold container-type: inline-size
-            (panel.css) - a size-query container can't itself be the element
-            an @container rule changes a layout-affecting property on (its
-            own size would then depend on a style that depends on its own
-            size, a cycle browsers refuse to resolve) - splitting the query
-            container (this shell) from the element actually being restyled
-            (.row-facts, below) sidesteps that. Description stays a direct
-            .row-facts flex item, fixed 320px width - ordinary flex-wrap
-            already drops the row-facts-cols group below it once both no
-            longer fit side by side (min-width: 200px, below), but a wrapped
-            item doesn't automatically claim the rest of its own now-empty
-            line - the @container rule (_actions_filtered_content.html)
-            forces Description to flex-basis: 100% once the shell itself
-            genuinely has no room left for both, so it reads as a deliberate
-            full-width promotion rather than a fixed-width column stranded
-            with dead space beside it (live feedback: "if data cols do not
-            fit, I want data col to move to own row and Description to be
-            full width"). row-facts-cols is its own separate scrollable
-            strip (Due/Created/Referral/Status), not the same element as
-            row-facts - a permanent horizontal scroll region (overflow-x:
-            auto, panel.css) rather than wrapping the way Description does,
-            so these columns never need cropping/hiding and never push the
-            row taller.
+            Three items on one line here: Description, the fused Status
+            control, and row-facts-track (which wraps the horizontally
+            scrolling Due/Created/Referral strip). While all three fit, they
+            share the line's spare room equally - one share per data column,
+            one for Description, one for Status (which takes its share as a
+            trailing margin, since a stretched segmented control is
+            unreadable). Once they don't, the whole strip drops to its own
+            line below and Description + Status keep the line above, with
+            Description growing into the freed room (live feedback: "if the
+            data cols do not fit, they need to drop to own line leaving
+            description and status on their own line"). updateFactsLineLayout
+            (panel.js) decides both, measured from each row's real content
+            widths; row-facts-shell still exists to hold container-type:
+            inline-size (panel.css) for the no-JS fallback's own query.
+            row-facts-cols is a permanent horizontal scroll region
+            (overflow-x: auto, panel.css) rather than a wrapping one, so its
+            columns never need cropping/hiding and never push the row
+            taller - whichever line it ends up on.
             {% endcomment %}
             <div class="row-facts-shell">
             <div class="row-facts">
@@ -179,16 +174,17 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                 panel.js/panel.css)). As a direct sibling of Description and
                 row-facts-track instead, it no longer needs the rest of the
                 strip to fit alongside it at all - if Due/Created/Referral
-                don't fit, THEY wrap to their own line below (row-facts-track,
-                unchanged flex-wrap behaviour) while Description and this
-                control keep sharing the first line, Description growing to
-                fill whatever room is left beside it. Hidden only once that
-                first line itself gets too narrow for both (@container
-                action-row, panel.css) - the fused control drops out and
-                row-btn-row's own dropdown copy (below) appears in its place,
-                the same "two independent forms" swap as before, just with a
-                different container query as the trigger instead of
-                status-col-tight.
+                don't fit, THEY drop to their own line below while
+                Description and this control keep the first line. Hidden
+                only once that first line itself is too narrow for both
+                (status-col-narrow, updateFactsLineLayout/panel.js) - the
+                fused control drops out and row-btn-row's own dropdown copy
+                (below) appears in its place, the same "two independent
+                forms" swap as before. One class drives both halves, so the
+                two are exact complements - never both visible, never
+                neither (live feedback: "the status dropdown in button
+                section should only appear if the Status fused control is
+                hidden").
                 {% endcomment %}
                 <div class="row-fact-col row-fact-col-status" data-col="status">
                     <span class="row-fact-label">Status</span>

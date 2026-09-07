@@ -3893,39 +3893,48 @@ html.nav-touch-mode .row-facts-arrow {
    feedback: "descripion could be treated as a Data col?" - was previously
    a separate full-width .action-note line below the strip, its own
    vertical line of card height).
-   flex: 0 0 320px, a fixed width again - flex-grow was tried (#154, letting
-   Description claim leftover row width whenever the scroll strip didn't
-   need it) and reverted (live feedback: "Description should have a fixed
-   width, lose max width" - a fixed column reads as a stable, predictable
-   part of the row regardless of how much the strip beside it happens to
-   need, matching every other column's own fixed-width convention rather
-   than being the one exception that resizes based on a sibling). 320px
-   comfortably fits a full sentence or two before the 2-line clamp (below)
-   kicks in - the same figure this column used before #154 ever touched it.
+   flex: 1 0 320px - 320px natural width (it comfortably fits a full
+   sentence or two before the 2-line clamp below kicks in), plus a share of
+   whatever the line has spare, exactly like every column in the strip
+   beside it (live feedback: "the Status and Description needs to also
+   share the extra space when all on one line"). The share comes out equal
+   per column rather than proportional because row-facts-track is given a
+   matching flex-basis/flex-grow pair by fillFactsColumns (panel.js, own
+   comment) - grow: 1 here is one column's worth of that same split.
+   History worth knowing before changing this back: a fixed flex: 0 0 320px
+   stood here for a while (live feedback then: "Description should have a
+   fixed width, lose max width"), because at the time growing it meant
+   growing the TEXT's own measure, which read as unstable. That objection
+   is answered by the span-level max-width below (the box grows, the
+   paragraph's own reading measure doesn't - the share lands as white space
+   to its right, matching how a data column's own bonus reads), not by
+   pinning the box.
    .row-facts' own gap (--space-md/16px, below) is what spaces Description
    from the scroll strip beside/below it - see that rule's own comment for
-   the "why 16px" history. Overridden to flex: 0 0 100% inside the
-   @container action-facts (max-width: 600px) rule further below, once the
-   row genuinely has no room left for both. */
+   the "why 16px" history. Once the strip no longer fits on this line it
+   moves to its own line below instead (.facts-cols-wrapped, further
+   below), and Description simply keeps growing into the room that frees
+   up - nothing here needs overriding for that case. */
 #actions-filtered-content .row-fact-col-description,
 #escalations-filtered-content .row-fact-col-description {
-    flex: 0 0 320px;
+    flex: 1 0 320px;
     min-width: 0;
-    /* max-width is set inline by fillFactsColumns (panel.js, MAX_BONUS_PX)
-       once JS runs - this 420px (320px natural baseline + the same 100px
-       cap every other column gets) is just the pre-JS/no-JS fallback, kept
-       in sync by hand. History (#157 follow-up): first a one-off hardcoded
+    /* 420px = the 320px natural baseline + the same 100px bonus cap every
+       other column gets (FACTS_MAX_BONUS_PX, panel.js) - a plain CSS cap
+       here rather than an inline width from JS, since flex-grow is what
+       hands this column its share now and max-width is the browser's own
+       way of freezing an item mid-grow (it redistributes the remainder to
+       whatever is still growable on the line, no JS arithmetic needed).
+       Lifted once the strip wraps away and Description has the line to
+       itself (.facts-cols-wrapped, below).
+       History (#157 follow-up): first a one-off hardcoded
        400px here on its own (live feedback: "Description and Status are
        way too far apart on medium width... Status would be better left
        aligned with space to its right" / "I do think we need a max white
        space"), generalised into the same per-column mechanism once the
        exact same unbounded-growth problem turned up on OTHER columns too
        (live feedback, a Referrals screenshot: "its the extra white space
-       that I want capped! Could we make this 100px maximum?"). Reset to
-       none by JS once Description promotes to its own full-width line
-       (@container action-facts <= 600px, below) - that width is a
-       deliberate one, not stray leftover, so it must never be clamped back
-       down. */
+       that I want capped! Could we make this 100px maximum?"). */
     max-width: 420px;
 }
 /* Value line only (not the label) - still real sentence-level content
@@ -4813,10 +4822,10 @@ html.nav-touch-mode .row-facts-arrow {
    any of its three columns, so none of them can be dropped outright the
    same way - only hidden one at a time under real space pressure (the
    overflow guard, below). */
-/* Facts-strip overflow handling (#154) - Due/Created/Referral/Status
-   itself is a permanent horizontal scroll, not a container-query wrap
-   (row-facts-cols, own base rule above) - it never needs to crop or hide a
-   column, only Description's own promotion (below) still needs one.
+/* Facts-strip overflow handling (#154) - Due/Created/Referral itself is a
+   permanent horizontal scroll, not a wrap (row-facts-cols, own base rule
+   above): it never crops or hides a column, it just scrolls once the line
+   it lands on is too narrow for all of it.
    History: wireActionFactsOverflow (JS measurement, removed) ->
    flex-wrap:wrap + a hardcoded max-height crop (also removed) ->
    flex-wrap:nowrap + overflow-x:hidden (showed a column half-cut at the
@@ -4825,15 +4834,11 @@ html.nav-touch-mode .row-facts-arrow {
    @container breakpoint (col_widths/fact_thresholds.wrap, views.py) that
    wrapped Due/Created/Referral onto their own line below Description ->
    #154's permanently-scrollable strip, no breakpoint of its own needed at
-   all -> this: a real @container breakpoint is back, but only for
-   Description's own promotion (below), and with a plain static threshold,
-   not a Python-computed one - #154 also made every column's width
-   intrinsic/per-row rather than a page-wide computed max, so there's no
-   longer a real per-row px figure to compute in the first place; a fixed
-   600px reads as "Description's own 320px + the data strip's own 200px
-   floor (min-width, below) + some breathing room" close enough, and
-   correctness here only ever means "did it visibly wrap", which a rough
-   number still gets right. */
+   all -> a static @container breakpoint for Description's own full-width
+   promotion -> this: the whole strip moves to its own line instead, and
+   the decision is measured in JS from the row's own real content widths
+   (updateFactsLineLayout, panel.js), with that @container threshold kept
+   only as the no-JS fallback (below). */
 #actions-filtered-content .row-facts,
 #escalations-filtered-content .row-facts {
     gap: var(--space-md);
@@ -4857,12 +4862,12 @@ html.nav-touch-mode .row-facts-arrow {
    "DUE left border looks off, no padding" - the individual-column dividers
    never had this problem since their own padding-left/margin-left always
    travel together as one pair; this divider only copied the border half).
-   Cancelled entirely once row-facts-cols wraps onto its own line below
-   Description (@container action-facts, further below) - a vertical
-   column boundary stops making sense the moment there's no longer a
-   column to its left, and Due should align flush-left under Description
-   instead (live feedback: "Due does not want left divider and should
-   align with description when data cols move to next row"). */
+   Dropped again unconditionally further below (own rule/comment, "lose
+   the gaps in this mode") - which also covers the wrapped shape, where a
+   vertical column boundary stops making sense the moment there's no
+   longer a column to its left (live feedback: "Due does not want left
+   divider and should align with description when data cols move to next
+   row"). */
 #actions-filtered-content .row-facts-track,
 #escalations-filtered-content .row-facts-track {
     border-left: 1px solid var(--border-strong);
@@ -4901,73 +4906,77 @@ html.nav-touch-mode .row-facts-arrow {
     container-type: inline-size;
     container-name: escalation-facts;
 }
-/* Description promotion (live feedback: "if data cols do not fit, I want
-   data col to move to own row and Description to be full width") -
-   row-facts-cols already moves to its own line once ordinary flex-wrap
-   (row-facts' own base rule, panel.css) runs out of room for both, but a
-   flex item that just wrapped doesn't automatically claim the rest of ITS
-   OWN now-empty line - flex-basis: 100% here is what actually stretches
-   Description across it instead of leaving it stranded at 320px with dead
-   space beside it.
-   .row-facts-track's own divider (border-left + padding-left, above) only
-   makes sense while it sits BESIDE Description on the same line - once it
-   drops to its own line below, that same border reads as a stray mark
-   dangling above Due instead of a real column boundary, and the padding
-   that used to give the line breathing room instead just knocks Due out of
-   alignment with Description above it (live feedback: "Due does not want
-   left divider and should align with description when data cols move to
-   next row"). Cancelled in the same breakpoint that causes the wrap, since
-   it's the same condition. */
+/* Data strip on its own line (live feedback: "if the data cols do not fit,
+   they need to drop to own line leaving description and status on their
+   own line"). updateFactsLineLayout (panel.js) decides this per row and
+   sets row-facts-track's own flex-basis: 100%/flex-grow: 0 inline, since
+   it already writes an inline basis on every track anyway and inline
+   always beats a stylesheet rule; this class carries everything else the
+   wrapped shape needs.
+   What this replaced: the same wrap used to be a side effect of promoting
+   DESCRIPTION to flex-basis: 100% (an @container action-facts/
+   escalation-facts query on row-facts-shell, at a fixed 600px/900px). That
+   put Description alone on line 1 and pushed the fused Status control DOWN
+   onto line 2 beside the strip - the wrong pairing (Status belongs with
+   Description, which is what it acts on), and on a guessed threshold
+   rather than the row's own real content widths. row-facts-shell keeps its
+   container-type (below) as the no-JS fallback's query container only. */
+#actions-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description,
+#escalations-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description {
+    /* flex: 1 1 0, not the base rule's 1 0 320px - Description is the only
+       growable item left on this line, so a 0 basis simply resolves to
+       "whatever is left beside Status", and the shrink it gains matters at
+       true-mobile widths where the line itself is narrower than the 320px
+       baseline (an unshrinkable 320px column would overflow the card).
+       Cap lifted with it: there is no sibling column's bonus left to keep
+       in proportion, so stopping at 420px would just leave dead space. */
+    flex: 1 1 0;
+    max-width: none;
+}
+/* Text's own max-width: 320px (base rule, above) is deliberate for the
+   BESIDE-the-strip case (live feedback there: "I am wanting the added
+   space to add white space to the right of description, not extra width
+   for text") - that reasoning doesn't hold once the strip has dropped away
+   (live feedback here: "when data cols drop to new line, can description
+   use full width"). */
+#actions-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description span:last-child,
+#escalations-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description span:last-child {
+    max-width: none;
+}
+/* No-JS fallback only - switched off outright by the facts-line-managed
+   class updateFactsLineLayout (panel.js) puts on the list the first time
+   it runs, rather than left to fight it: these thresholds are the old
+   guessed ones (Actions' 600px = Description's 320px + the strip's own
+   200px floor + breathing room; Escalations' 900px was never measured
+   against its own four-column strip), so where the two disagree, the
+   measured answer must be the one that survives. Kept at all so the row
+   still degrades into the same shape - strip on its own line, Description
+   filling the line above it - rather than a squashed single line, if
+   scripts fail. */
 @container action-facts (max-width: 600px) {
-    /* max-width: none too, not just flex: 0 0 100% - confirmed live via
-       Playwright (Escalations' own copy of this bug, own comment below):
-       the base rule's own max-width: 420px (above) still clamps the
-       rendered box back down even once flex-basis genuinely computes to
-       100%, so the row never actually overflows enough to force row-facts'
-       own flex-wrap - it just sits at 420px next to a squeezed Track,
-       looking identical to the unpromoted state. */
-    #actions-filtered-content .row-fact-col-description {
-        flex: 0 0 100%;
+    #actions-filtered-content:not(.facts-line-managed) .row-facts-track {
+        flex-basis: 100%;
+        flex-grow: 0;
+    }
+    #actions-filtered-content:not(.facts-line-managed) .row-fact-col-description {
+        flex: 1 1 0;
         max-width: none;
     }
-    /* Text's own max-width: 320px (base rule, above) is deliberate for the
-       BESIDE-the-strip case (live feedback there: "I am wanting the added
-       space to add white space to the right of description, not extra
-       width for text") - that reasoning doesn't hold once Description has
-       the whole line to itself instead of sharing it with Track (live
-       feedback here: "when data cols drop to new line, can description use
-       full width" - the box was already promoting correctly, own comment
-       above, but the text inside it was still wrapping at the old 320px
-       regardless, leaving the same dead space this rule exists elsewhere
-       to avoid, just on the wrong side of the same coin). */
-    #actions-filtered-content .row-fact-col-description span:last-child {
+    #actions-filtered-content:not(.facts-line-managed) .row-fact-col-description span:last-child {
         max-width: none;
-    }
-    #actions-filtered-content .row-facts-track {
-        border-left: none;
-        padding-left: 0;
     }
 }
 @container escalation-facts (max-width: 900px) {
-    /* max-width: none too - live feedback: "data cols do not flow on own
-       line if it needs to scroll", confirmed live via Playwright: flex-
-       basis was correctly computing to 100% here already, but the base
-       rule's own max-width: 420px (above) clamped the rendered box back
-       down regardless, so Track never actually lost enough room to wrap
-       below it - Reason just sat at 420px next to a squeezed Track. */
-    #escalations-filtered-content .row-fact-col-description {
-        flex: 0 0 100%;
+    #escalations-filtered-content:not(.facts-line-managed) .row-facts-track {
+        flex-basis: 100%;
+        flex-grow: 0;
+    }
+    #escalations-filtered-content:not(.facts-line-managed) .row-fact-col-description {
+        flex: 1 1 0;
         max-width: none;
     }
-    /* Text's own max-width: 320px (base rule, above) - see Actions' own
-       identical override/comment, same @container block, for why this
-       needs resetting too once Reason has the whole line to itself. */
-    #escalations-filtered-content .row-fact-col-description span:last-child {
+    #escalations-filtered-content:not(.facts-line-managed) .row-fact-col-description span:last-child {
         max-width: none;
-    }
-    #escalations-filtered-content .row-facts-track {
-        border-left: none;
-        padding-left: 0;
     }
 }
 /* #119: Actions row at 375px and tablet width (481-1179px) - the two real
@@ -5090,14 +5099,24 @@ html.nav-touch-mode .row-facts-arrow {
 #actions-filtered-content.status-col-narrow .action-status-select-form {
     display: block;
 }
-/* Same trigger styling as the true-mobile/tablet dropdown already used for
-   this same swap prior to this redesign - shape/width/height fixes
-   explained on that original copy, own comment history (git blame). */
+/* (DES-S1) Same height as the .btn-sm buttons stacked directly beneath it
+   (live feedback: "Status dropdown should also be height of a button if it
+   is showing") - it sits in the button column, so a shorter control there
+   reads as a misaligned odd one out. Matching .btn-sm's own box exactly is
+   what does it: --space-xs vertical padding + a 1px border (both already
+   here) AND --font-sm, which the select's .status-pill class would
+   otherwise shrink a step below button text and take the control's height
+   down with it. line-height: normal for the same reason - .status-pill's
+   own line-height: 1 is a pill's tight fit, not a button's.
+   The rest (width/min-width/box-sizing) is the shape fix inherited from
+   the true-mobile/tablet copy of this same dropdown swap - own comment
+   history (git blame). */
 #actions-filtered-content.status-col-narrow .action-status-select-form .ui-select-trigger {
     padding-top: var(--space-xs);
     padding-bottom: var(--space-xs);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
     width: 100%;
     min-width: 0 !important;
     box-sizing: border-box;
@@ -5199,12 +5218,13 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    Due/Created/Referral/Status, row-fact-col's own border-left, not this
    one). Same reasoning as that pass - each section already reads as its
    own column once it's filling real, deliberate space, so the line
-   marking where Description ends isn't needed here either. Unconditional,
-   same as the rest of this block, since row-facts-track's own @container
-   action-facts rule (above) already drops this divider independently once
-   Description itself promotes to its own full-width line - the two
-   conditions overlap in effect (no divider either way) rather than one
-   ever needing to override the other. */
+   marking where Description ends isn't needed here either.
+   Unconditional, so it covers the wrapped shape too (.facts-cols-wrapped,
+   above) - once the strip drops to its own line, a border on its left edge
+   would read as a stray mark dangling above Due rather than a column
+   boundary, and the padding beside it would knock Due out of alignment
+   with Description above (live feedback: "Due does not want left divider
+   and should align with description when data cols move to next row"). */
 #actions-filtered-content .row-facts-track,
 #escalations-filtered-content .row-facts-track {
     border-left: none;
