@@ -267,19 +267,6 @@ function setupFilterBarMoreFilters(bar) {
     // click at wide desktop just because that's what search-bearing bars
     // do. Read once here, reused inside measure() below.
     var hasSearchField = !!bar.querySelector('[data-filter-pinned]');
-    // Read once, up front, so the button can be *created* already in its
-    // final open/closed state below rather than starting closed (aria-
-    // expanded="false", which forms.css fills solid with --primary - "View
-    // filters") and only being flipped open a few lines later once measure()
-    // and the auto-open block have both run. Both of those still happen in
-    // this same synchronous call, so nothing should ever actually paint the
-    // in-between state - but this is exactly the class of bug the rest of
-    // this file goes out of its way to make structurally impossible rather
-    // than trust timing for (js-preload, the sidebar's own sync reveal
-    // script in layout.html, isFilterBarMobile's own head-script mirror) -
-    // live feedback: "the hide filters button loads in primary before
-    // changing to not active".
-    var willAutoOpen = isTrayBar && hasSearchField && !(window.isFilterBarMobile && window.isFilterBarMobile());
     if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
         var retryMqls = isTrayBar
             ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 768px)'), window.studentsPortraitMql || window.matchMedia('(orientation: portrait)'), window.studentsPortraitWideMql || window.matchMedia('(min-width: 900px)')]
@@ -478,7 +465,17 @@ function setupFilterBarMoreFilters(bar) {
     moreFiltersBtn.type = 'button';
     moreFiltersBtn.className = 'btn btn-sm btn-secondary more-filters-toggle';
     moreFiltersBtn.setAttribute('data-more-filters', '');
-    moreFiltersBtn.setAttribute('aria-expanded', willAutoOpen ? 'true' : 'false');
+    // Always seeded closed (live feedback: "the search filters are all
+    // loading open" - a stale willAutoOpen flag used to seed this 'true' for
+    // any search-bearing tray bar at desktop width, a leftover from before
+    // auto-open-if-already-active was removed entirely (see measure()'s own
+    // "No auto-open-if-already-active any more" comment) that never got
+    // cleaned up alongside it. measure()'s own "preserve the user's own
+    // explicit state across a remeasure" logic reads this same attribute as
+    // its wasExpanded baseline - seeding it 'true' here meant the very
+    // FIRST measure() call "preserved" a state the user never actually
+    // chose, reopening the panel it had just closed a line earlier.
+    moreFiltersBtn.setAttribute('aria-expanded', 'false');
     moreFiltersBtn.hidden = true;
     var icon = document.createElement('span');
     icon.className = 'more-filters-toggle-icon';
@@ -604,43 +601,22 @@ function setupFilterBarMoreFilters(bar) {
             // which a fresh wireScrollCarousel call here would do.
             if (updateSecondaryArrows) updateSecondaryArrows();
         }
-        // No pinned Search field (Meetings/the SEND & Provision hub) - live
-        // feedback: "no search on filter bar, without one there is space
-        // for the filters to not be underneath the bar... we can lose the
-        // show/hide filters". Reuses the exact same secondaryRow/groups the
-        // toggle-gated bars build just above (current chip/card styling,
-        // not the dead pre-tray .filter-field default) rather than leaving
-        // fields to fall back to their bare, unstyled display - just forces
-        // the panel permanently open and the toggle permanently hidden
-        // instead of gating it behind a click. flex-basis override
-        // (forms.css, .filter-bar-no-search) is what actually keeps this
-        // panel inline beside "Filters" instead of dropping to its own
-        // full-width row below, same as the toggle-gated version does once
-        // expanded.
-        // Same mobile/narrow-desktop/portrait-tablet exclusion as the
-        // groups-building block above (that gate's own comment) - live
-        // feedback: "I see a second filter bar reduce in height [on load],
-        // stays as a thin 1px line". Without it, this ran unconditionally
-        // at every width including mobile, forcing secondaryRow open (and
-        // so the mobile tray's own .filter-bar-collapsible box open to its
-        // real content height) for the brief window before the page's
-        // mobile-mode classification lands - once html.filter-bar-mobile-
-        // mode is added a moment later, the tray's own close animation
-        // (panel.css, its own height/border-bottom-color transition) plays
-        // to snap it back to genuinely collapsed, visible as an unwanted
-        // open-then-close flash on every load at these widths. Skipping
-        // this block in mobile mode instead leaves secondaryRow in its
-        // already-closed default (set at the top of this function) - the
-        // exact same resting state every other tray bar starts in, opened
-        // only by the shared "Filters" label tap handler (below,
-        // document-level click listener), matching a no-search bar's own
-        // "every width above mobile" design already documented on the
-        // sibling gate.
-        if (isTrayBar && !hasSearchField && groups.length && !window.matchMedia('(max-width: 480px)').matches && !(isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
-            secondaryRow.hidden = false;
-            moreFiltersBtn.hidden = true;
-            moreFiltersBtn.setAttribute('aria-expanded', 'false');
-        }
+        // No-pinned-Search bars (Meetings/the SEND & Provision hub) used to
+        // be forced permanently open here, with the toggle permanently
+        // hidden (live feedback then: "no search on filter bar... we can
+        // lose the show/hide filters") - reversed (live feedback: "can no
+        // search filters have a show/hide filters button as well", "should
+        // default closed") now that every bar is expected to default closed
+        // behind the same click-to-open toggle regardless of whether it has
+        // a pinned Search field. No override needed any more: the
+        // groups-building block above already creates and shows
+        // moreFiltersBtn for these bars exactly like every other one - this
+        // used to exist purely to undo that. .filter-bar-no-search
+        // (forms.css) - the styling that assumed permanently-open, scrolling
+        // under "Filters" - is no longer applied in the templates that used
+        // to opt into it (meetings.html, safeguarding_notes.html, hub.html);
+        // its rules are now unused but left in forms.css rather than
+        // stripped blind in the same pass as this behavioural change.
         // Preserve the user's own explicit open/closed state across a
         // remeasure instead of resetting it back to closed - live
         // feedback: "still reopening. Also it loads open" - the
@@ -737,33 +713,16 @@ function setupFilterBarMoreFilters(bar) {
     }
 
     measure();
-    // Open by default on desktop for a search-bearing bar (Students/
-    // Referrals/Actions) - live feedback: "can Filters with search be open
-    // by default on desktop mode unless its narrow". Reverses part of the
-    // 2026-08-20 "no auto-open at any width above mobile any more" change
-    // (wireMoreFiltersToggle's own comment, below) but only for this class
-    // of bar - a .filter-bar-no-search bar (Meetings/the SEND & Provision
-    // hub) has no toggle to open in the first place (main.js, above: the
-    // hide-behind-toggle grouping is skipped for it entirely), so this
-    // never applies there regardless. isFilterBarMobile() (not a bare
-    // width check) is the same "narrow" boundary every other decision in
-    // this file already uses - true phone, a narrowed desktop window, or
-    // touch+portrait all count. Sets the button/panel straight to their
-    // final "open" state rather than calling moreFiltersBtn.click() - a
-    // page load should render already-open, not visibly play the reveal
-    // animation the instant the page appears. secondaryRow.hidden = false
-    // here, not animateSecondaryFieldsToggle - matches wireMoreFiltersToggle's
-    // own <=480px branch (that animation is desktop/tablet-only there too).
-    // The very next remeasure (a real resize, or the touch/orientation
-    // retrigger below) reads this back via measure()'s own wasExpanded
-    // check and keeps it open, so this only needs to run once at setup -
-    // it isn't reapplied on every resize, so a user who closes it manually
-    // stays closed rather than being forced back open.
-    if (isTrayBar && hasSearchField && !(window.isFilterBarMobile && window.isFilterBarMobile())) {
-        secondaryRow.hidden = false;
-        moreFiltersBtn.setAttribute('aria-expanded', 'true');
-        setMoreFiltersLabel(moreFiltersBtn);
-    }
+    // Search-bearing bars (Students/Referrals/Actions/Escalations) used to
+    // force themselves open by default on desktop here (live feedback back
+    // then: "can Filters with search be open by default on desktop mode
+    // unless its narrow") - reversed again (live feedback now: "should
+    // default closed", "still loads page open" after the willAutoOpen fix
+    // above turned out not to be the only thing forcing this open). Every
+    // filter bar, search or not, now defaults closed behind its toggle at
+    // every width, matching wireMoreFiltersToggle's own "always loads
+    // closed... purely click-driven" default for the curated-mode bars that
+    // never had this override in the first place.
     // Exposed so a touch/orientation-only transition into or out of
     // Students' filter-bar-mobile-mode (syncFilterBarMobileClass, above -
     // e.g. the dev breakpoint preview's touch toggle, or a hybrid device

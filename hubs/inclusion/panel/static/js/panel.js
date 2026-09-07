@@ -3115,12 +3115,26 @@ function fillFactsColumns(columns, strip) {
 // @container query (both panel.css) - this function would otherwise still
 // pick it up via the general .row-fact-col[data-col] selector regardless
 // of where in the DOM it actually sits.
+// .row-fact-col-description (Actions' Description, Escalations' Reason) is
+// filtered out too (live feedback: "data cols do not flow on own line if
+// it needs to scroll" - confirmed live via Playwright: this function was
+// setting an inline flex-basis/max-width on it on every refresh, which
+// (being inline) always outranks the @container promotion rule's own
+// class-scoped flex: 0 0 100% regardless of how narrow the row-facts-shell
+// actually is, permanently pinning it at its ~320px natural width and
+// silently defeating the promotion CSS alone was supposed to own). Same
+// reasoning as Status: this column already has its own complete, working
+// CSS-only sizing mechanism (base flex: 0 0 320px + the @container
+// promotion, panel.css) - JS's shared-natural-width sync is neither needed
+// nor safe to apply on top of it.
 function syncFactsColumnWidths() {
     var perRow = !window.matchMedia('(min-width: 701px)').matches;
-    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (listRoot) {
+    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (listRoot) {
         function scopedColumns(root) {
             var cols = Array.prototype.slice.call(root.querySelectorAll('.row-fact-col[data-col]'));
-            return cols.filter(function (col) { return col.getAttribute('data-col') !== 'status'; });
+            return cols.filter(function (col) {
+                return col.getAttribute('data-col') !== 'status' && !col.classList.contains('row-fact-col-description');
+            });
         }
         if (perRow) {
             listRoot.querySelectorAll('.entity-row').forEach(function (row) {
@@ -3302,7 +3316,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     refreshFactsStrips();
     var refresh = window.rafThrottle ? window.rafThrottle(refreshFactsStrips) : refreshFactsStrips;
-    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (container) {
+    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (container) {
         if (typeof MutationObserver !== 'undefined') {
             new MutationObserver(refresh).observe(container, { childList: true, subtree: true });
         }
@@ -3336,6 +3350,35 @@ document.addEventListener('DOMContentLoaded', function () {
 // room past it. .is-cut-left/-right (above) already hide whichever arrow
 // has nothing left to reveal, so there's no separate enabled/disabled
 // state to manage here beyond that.
+// Custom rAF-driven scroll, not track.scrollBy({behavior:'smooth'}) (tried
+// first) - live feedback: "it jumps on all pages, not smooth scroll".
+// Native smooth-scroll silently degrades to an instant jump on some
+// browser/OS combinations once the OS's own "reduce motion"/"show
+// animations" accessibility setting is off - Chrome in particular takes
+// that as permission to skip the easing entirely rather than erroring or
+// falling back, so there's no reliable way to detect "did it actually
+// animate" from JS after the fact. Driving the scroll ourselves guarantees
+// the same slide everywhere regardless of that OS setting, while still
+// deliberately honouring prefers-reduced-motion (skip to an instant jump)
+// for anyone who's actually asked for reduced motion, rather than
+// overriding their real accessibility preference.
+function animatedScrollBy(el, deltaX, duration) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.scrollLeft += deltaX;
+        return;
+    }
+    var start = el.scrollLeft;
+    var startTime = null;
+    duration = duration || 320;
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function step(timestamp) {
+        if (startTime === null) startTime = timestamp;
+        var progress = Math.min((timestamp - startTime) / duration, 1);
+        el.scrollLeft = start + deltaX * easeOutCubic(progress);
+        if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
 document.addEventListener('click', function (e) {
     var btn = e.target.closest('.row-facts-arrow');
     if (!btn) return;
@@ -3355,7 +3398,7 @@ document.addEventListener('click', function (e) {
             if (cols[i].getBoundingClientRect().left < trackRect.left - 1) { target = cols[i]; break; }
         }
         if (!target) return;
-        track.scrollBy({ left: target.getBoundingClientRect().left - trackRect.left - clearance, behavior: 'smooth' });
+        animatedScrollBy(track, target.getBoundingClientRect().left - trackRect.left - clearance);
     } else {
         // First column whose right edge sits past the track's own visible
         // right edge - the column currently cut off on the right.
@@ -3363,7 +3406,7 @@ document.addEventListener('click', function (e) {
             if (cols[i].getBoundingClientRect().right > trackRect.right + 1) { target = cols[i]; break; }
         }
         if (!target) return;
-        track.scrollBy({ left: target.getBoundingClientRect().right - trackRect.right + clearance, behavior: 'smooth' });
+        animatedScrollBy(track, target.getBoundingClientRect().right - trackRect.right + clearance);
     }
 });
 

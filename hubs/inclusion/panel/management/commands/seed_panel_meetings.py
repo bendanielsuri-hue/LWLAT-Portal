@@ -295,6 +295,7 @@ class Command(BaseCommand):
                             f'Found upcoming panel {kept.date} for {group.name} ({school.name}).'
                         ))
                 else:
+                    target_date = _unique_nudge(today + datetime.timedelta(days=offset), school, used_dates)
                     Panel.objects.create(
                         panel_group=group, date=target_date, status='draft', chair=group.default_chair,
                         time=DRAFT_MEETING_TIME,

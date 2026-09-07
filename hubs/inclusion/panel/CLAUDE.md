@@ -74,6 +74,7 @@ manage.py seed_panel_groups         # Expertise tags + one PanelGroup per active
 manage.py seed_demo_referrals       # 5 unassigned Referrals with placeholder responses
 manage.py seed_panel_meetings       # Past (complete) + upcoming Panel rows per group
 manage.py seed_referral_actions     # Tops up 2-3 Actions on every discussed (Complete/Needs Review) referral
+manage.py seed_escalations          # Escalates a deterministic subset of Referrals to MAT-level attention
 ```
 
 `seed_benjamin_admin` (also here) sets `is_mat_staff=True`, `is_developer=True`, `school=None` on Benjamin Suri. Depends only on `seed_dummy_data`.

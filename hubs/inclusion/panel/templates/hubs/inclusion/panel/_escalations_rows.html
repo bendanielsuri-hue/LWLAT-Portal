@@ -1,0 +1,112 @@
+{% load avatar_extras %}
+{% comment %}
+Row markup only, no .entity-list wrapper - same split as Referrals' own
+_referrals_rows.html (shared by the initial/filtered render and the
+infinite-scroll continuation response).
+{% endcomment %}
+{% for escalation in escalations %}
+<div class="entity-row escalation-row{% if is_aggregate_view %} has-dual-thumb{% endif %}">
+    <div class="entity-thumb-group">
+        {% if is_aggregate_view %}
+        <div class="entity-thumb is-logo entity-thumb-school">
+            {% if escalation.referral.student.school.logo_url %}<img src="{{ escalation.referral.student.school.logo_url }}" alt="{{ escalation.referral.student.school.name }}">{% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+        </div>
+        {% endif %}
+        <div class="entity-thumb entity-thumb-student">
+            {% if escalation.referral.student.photo %}
+            <img src="{{ escalation.referral.student.photo.url }}" alt="">
+            {% else %}
+            <span class="avatar-initials {{ escalation.referral.student|avatar_color_class }}">{{ escalation.referral.student.first_name|first }}{{ escalation.referral.student.last_name|first }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="entity-body">
+        <div class="row-title-row">
+            <div class="row-title-secondary">
+                <div class="entity-title row-secondary-text">{{ escalation.concern_category|default:"—" }}</div>
+                <div class="row-title-pills">
+                    <span class="status-pill {% if escalation.status == 'resolved' %}closed{% else %}open{% endif %}">{{ escalation.get_status_display }}</span>
+                </div>
+            </div>
+            <span class="row-facts-primary-plain"><span class="row-facts-primary-name">{{ escalation.referral.student }}</span> &middot; Year {{ escalation.referral.student.year_group }}{% if escalation.referral.student.house %} &middot; House {{ escalation.referral.student.house }}{% endif %}{% if escalation.referral.student.reg_form %} &middot; Form {{ escalation.referral.student.reg_form }}{% endif %}</span>
+        </div>
+        {% comment %}
+        Reason folded into the facts strip as its own hero column (live
+        feedback: "is this the escalation reason? can this be a hero data
+        col like on the actions page" - ported from Actions' own
+        row-fact-col-description, _actions_rows.html/panel.css: a fixed-
+        width, wrapping/line-clamped column that sits outside the
+        horizontally-scrolling row-facts-cols strip, not a full-width plain
+        paragraph line (which had no grid-area of its own and floated
+        wherever CSS grid's auto-placement happened to put it - the bug
+        behind "seeing it in the top right").
+        {% endcomment %}
+        <div class="row-referral-details">
+            <div class="row-facts-shell">
+            <div class="row-facts">
+                <div class="row-fact-col row-fact-col-description" data-col="reason">
+                    <span class="row-fact-label">Reason</span>
+                    <span>{{ escalation.reason }}</span>
+                </div>
+                <div class="row-facts-track">
+                <div class="row-facts-cols">
+                <div class="row-fact-col" data-col="escalated">
+                    <span class="row-fact-label">Escalated</span>
+                    <span>{{ escalation.escalated_at|date:"d/m/y" }}</span>
+                    <span class="row-fact-assignee row-fact-assignee--initials" title="{% if escalation.escalated_by %}{{ escalation.escalated_by.first_name }} {{ escalation.escalated_by.last_name }}{% else %}Unassigned{% endif %}">By {% if escalation.escalated_by %}{{ escalation.escalated_by|initials }}{% else %}Unassigned{% endif %}</span>
+                    <span class="row-fact-assignee row-fact-assignee--full" title="{% if escalation.escalated_by %}{{ escalation.escalated_by.first_name }} {{ escalation.escalated_by.last_name }}{% else %}Unassigned{% endif %}">By {% if escalation.escalated_by %}{{ escalation.escalated_by|full_name }}{% else %}Unassigned{% endif %}</span>
+                </div>
+                <div class="row-fact-col{% if not escalation.next_panel_date %} row-fact-col-empty{% endif %}" data-col="panels">
+                    <span class="row-fact-label">Next Panel</span>
+                    <span>{{ escalation.next_panel_date|date:"d/m/y"|default:"—" }}</span>
+                    <span>{{ escalation.next_panel_group|default:"—" }}</span>
+                </div>
+                <div class="row-fact-col{% if not escalation.resolved_at %} row-fact-col-empty{% endif %}" data-col="resolved">
+                    <span class="row-fact-label">Resolved</span>
+                    <span>{{ escalation.resolved_at|date:"d/m/y"|default:"—" }}</span>
+                </div>
+                <div class="row-fact-col" data-col="actionsstatus">
+                    <span class="row-fact-label">Actions</span>
+                    <span>{{ escalation.completed_actions_count }} Complete</span>
+                    <span>{{ escalation.incomplete_actions_count }} Incomplete</span>
+                </div>
+                </div>
+                <button type="button" class="row-facts-arrow row-facts-arrow--prev" aria-label="Scroll left" tabindex="-1">&lsaquo;</button>
+                <button type="button" class="row-facts-arrow row-facts-arrow--next" aria-label="Scroll right" tabindex="-1">&rsaquo;</button>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+    {% comment %}
+    Quick Launch only now (docs/adr/0015) - the inline Resolve button/
+    resolution-notes textarea that used to sit beside it is gone (live
+    feedback: "should Resolve be done within a Panel Meeting" - resolving
+    an escalation is now something that happens by discussing it at a MAT
+    Panel Meeting, not a standalone action here; inclusion_panel_escalation_
+    resolve is left in place for that flow to call into later). Appends to
+    the already-running MAT Panel Meeting if there is one, otherwise
+    creates one directly in 'running' status with this referral pre-added
+    and discussion already started - see
+    inclusion_panel_escalation_quick_launch. Hidden entirely (not disabled)
+    if the MAT-wide Panel Group hasn't been seeded yet, same convention as
+    can_create_meeting elsewhere.
+    {% endcomment %}
+    <div class="btn-row row-btn-row">
+        {% if escalation.status == 'open' and not mat_group_missing %}
+        <form method="post" action="{% url 'inclusion_panel_escalation_quick_launch' escalation.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> {% if running_mat_panel %}Add to Running Meeting{% else %}Launch Meeting{% endif %}</button>
+        </form>
+        {% endif %}
+        <button type="button" class="btn btn-secondary btn-sm" data-view-referral-trigger data-referral-id="{{ escalation.referral.id }}" data-next="{% url 'inclusion_panel_escalations' %}">Referral Details</button>
+    </div>
+</div>
+{% empty %}
+{% if not page_obj or page_obj.number == 1 %}
+<p class="empty-note">No escalations found.</p>
+{% endif %}
+{% endfor %}
+{% if page_obj.has_next %}
+<div class="list-load-sentinel" data-next-page-url="{{ next_page_url }}"></div>
+{% endif %}

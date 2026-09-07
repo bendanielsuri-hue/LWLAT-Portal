@@ -1,11 +1,10 @@
 {% extends 'hubs/inclusion/panel/_base.html' %}
 {% load static %}
-{% load avatar_extras %}
 
 {% block title %}Escalations{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=395">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=399">
 {% endblock %}
 
 
@@ -21,99 +20,218 @@
 
 {% comment %}
 Mobile-only compact stats line beside the page title (same
-.page-subtitle-stats/.stats-strip convention as students.html/referrals.html/
-actions.html/meetings.html/safeguarding_notes.html) - duplicates the footer
-stats-strip's own three numbers below, same order. No AJAX filter bar on
-this page (unlike those), so nothing keeps the two in sync live - both are
-just computed fresh on every full-page load/reload instead.
+.page-subtitle-stats/.stats-strip convention as referrals.html's own block).
 {% endcomment %}
 {% block page_subtitle %}
 <div class="page-subtitle-stats stats-strip">
     <div class="stat-card">
-        <div class="stat-value">{{ open_count }}</div>
-        <div class="stat-label">Open</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ resolved_count }}</div>
-        <div class="stat-label">Resolved</div>
+        <div class="stat-value">{{ escalations_count }}</div>
+        <div class="stat-label">Escalations</div>
     </div>
     <div class="stat-card">
         <div class="stat-value">{{ students_count }}</div>
         <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ resolved_count }}</div>
+        <div class="stat-label">Resolved</div>
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<p>Referrals raised for MAT-level attention.</p>
+
+<div class="list-page-shell list-page-shell--header-stats">
 
 {% comment %}
-Wrapped in the same .list-page-shell > .list-card > .filtered-content
-structure as every other list page (Students/Referrals/Actions/Panel
-Meetings/Safeguarding Notes) - this page previously had none of that
-chrome, just a bare .entity-list, which is why its own stats-strip footer
-didn't get the same "chrome bar" styling (panel.css, .filtered-content
-.stats-strip) those pages already share. No filter-bar <form> here (this
-page has no filters yet) - .list-card doesn't require one.
+Filter-bar merged into the list-card as its header - direct port of
+Referrals' own filter bar (referrals.html), one hop further through
+Escalation.referral to reach the same student/priority/responses fields
+Referrals already filters on. Status here is Escalation's own open/resolved
+(no separate Panel Stage - an Escalation doesn't carry the richer
+discussing/review-tier states InclusionReferral's `status` does), and
+Referrer is renamed Escalated By to match the field it actually filters
+(`escalated_by`, not `raised_by`) - see the Referral/Escalation section
+split below for why it lives in Escalation, not Referral.
 {% endcomment %}
-<div class="list-page-shell list-page-shell--header-stats">
 <div class="list-card">
-<div class="filtered-content">
-<div class="entity-list">
-    {% for escalation in escalations %}
-    <div class="entity-row">
-        <div class="entity-thumb">
-            {% if escalation.referral.student.photo %}
-            <img src="{{ escalation.referral.student.photo.url }}" alt="">
-            {% else %}
-            <span class="avatar-initials {{ escalation.referral.student|avatar_color_class }}">{{ escalation.referral.student.first_name|first }}{{ escalation.referral.student.last_name|first }}</span>
-            {% endif %}
-        </div>
-        <div class="entity-body">
-            <div class="entity-title">{{ escalation.referral.student }}</div>
-            <div class="entity-meta">Escalated by {{ escalation.escalated_by|default:"—" }} on {{ escalation.escalated_at|date:"d/m/Y H:i" }}</div>
-            <div class="entity-meta">{{ escalation.reason }}</div>
-            {% comment %}
-            Quick Launch (docs/adr/0015): appends to the already-running MAT
-            Panel Meeting if there is one, otherwise creates one directly in
-            'running' status with this referral pre-added and discussion
-            already started - see inclusion_panel_escalation_quick_launch.
-            Hidden entirely (not disabled) if the MAT-wide Panel Group hasn't
-            been seeded yet, same convention as can_create_meeting elsewhere.
-            {% endcomment %}
-            {% if not mat_group_missing %}
-            <form method="post" action="{% url 'inclusion_panel_escalation_quick_launch' escalation.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> {% if running_mat_panel %}Add to Running MAT Meeting{% else %}Launch MAT Meeting{% endif %}</button>
-            </form>
-            {% endif %}
-            <form method="post" action="{% url 'inclusion_panel_escalation_resolve' escalation.id %}" class="escalation-resolve-form" data-row-remove-form>
-                {% csrf_token %}
-                <textarea name="resolution_notes" placeholder="Resolution notes..."></textarea>
-                <button type="submit" class="btn btn-primary btn-sm">Resolve</button>
-            </form>
+<form method="get" class="filter-bar filter-bar-tray" data-ajax-target="#escalations-filtered-content">
+    <div class="filter-bar-sticky-row">
+        <span class="filter-bar-label">Filters <span class="filter-bar-toggle-icon" aria-hidden="true">{% include 'icons/arrow_down_svg.html' %}</span> <span class="filter-bar-count{% if not active_filter_count %} filter-bar-count--empty{% endif %}">{{ active_filter_count }}</span></span>
+        <div class="filter-field filter-field--search{% if name_filter %} filter-field--active{% endif %}" data-filter-pinned>
+            <span class="filter-search-icon" aria-hidden="true">{% include 'icons/search_svg.html' %}</span>
+            <label for="name-search" class="sr-only">Name Search</label>
+            <input type="text" id="name-search" name="name" placeholder="Find items" value="{{ name_filter }}">
+            <input type="hidden" name="student" value="{{ student_filter }}">
         </div>
     </div>
-    {% empty %}
-    <p class="empty-note">No open escalations.</p>
-    {% endfor %}
+    <div class="filter-bar-collapsible">
+    <div class="filter-bar-collapsible-inner">
+    {% comment %}
+    Referral (the referred student's own cohort/urgency context) before
+    Escalation (the escalation event itself: its own status, who raised it,
+    when) - same "identity -> what/how urgent -> who's handling it" ordering
+    Referrals' own filter bar uses (referrals.html), collapsed from three
+    groups to two: no separate Group Info section, and no House/Reg fields
+    at all (live feedback: "MAT level are not going to care about house and
+    reg" - both are school-internal pastoral groupings with no meaning
+    across schools, unlike Year Group, which is still a genuine cohort
+    comparison MAT-wide - folded in here rather than left alone under its
+    own now near-empty heading). No Panel Group filter either (live
+    feedback: "not sure we should have Panel Group here as a referral can be
+    seen by different groups before escalation" - a single-value filter
+    doesn't cleanly describe a referral that may have passed through several
+    panel groups before ever being escalated; the row's own Next Panel fact
+    column still shows the referral's own upcoming panel without implying
+    it's the only one that's ever seen it).
+    {% endcomment %}
+    <div class="filter-section-label">Referral</div>
+    <div class="filter-field{% if year_filter %} filter-field--active{% endif %}">
+        <label for="year-filter">Year</label>
+        <select id="year-filter" name="year" class="ui-select--center">
+            <option value="">All</option>
+            {% for year in years %}
+            <option value="{{ year }}" {% if year_filter == year|stringformat:'s' %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if concern_filter %} filter-field--active{% endif %}">
+        <label for="concern-filter">Concern Category</label>
+        <select id="concern-filter" name="concern">
+            <option value="">All</option>
+            {% for c in concern_choices %}
+            <option value="{{ c }}" {% if concern_filter == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if priority_filter %} filter-field--active{% endif %}">
+        <label for="priority-filter">Priority</label>
+        <select id="priority-filter" name="priority">
+            <option value="">All</option>
+            {% for value, label in priority_choices %}
+            <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-section-label">Escalation</div>
+    <div class="filter-field{% if status_filter %} filter-field--active{% endif %}">
+        <label for="status-filter">Status</label>
+        <select id="status-filter" name="status">
+            <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if escalated_by_filter %} filter-field--active{% endif %}">
+        <label for="escalated-by-filter">Escalated By</label>
+        <select id="escalated-by-filter" name="escalated_by">
+            <option value="" {% if not escalated_by_filter %}selected{% endif %}>All</option>
+            <option value="unassigned" {% if escalated_by_filter == 'unassigned' %}selected{% endif %}>Unassigned</option>
+            {% for staff in staff_list %}
+            <option value="{{ staff.id }}" {% if escalated_by_filter == staff.id|stringformat:'s' %}selected{% endif %}>{{ staff.first_name }} {{ staff.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if academic_year_filter %} filter-field--active{% endif %}">
+        <label for="academic-year-filter">Academic Year</label>
+        <select id="academic-year-filter" name="academic_year">
+            <option value="">All Years</option>
+            {% for year, label in academic_year_choices %}
+            <option value="{{ year }}" {% if academic_year_filter == year|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-field{% if term_filter %} filter-field--active{% endif %}">
+        <label for="term-filter">Term</label>
+        <select id="term-filter" name="term">
+            <option value="">All Terms</option>
+            {% for value, label in term_choices %}
+            <option value="{{ value }}" {% if term_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <a href="{% url 'inclusion_panel_escalations' %}" class="btn btn-sm btn-secondary filter-bar-clear">Clear Filters</a>
+    </div>
+    <div class="filter-bar-sticky-footer">
+        <a href="{% url 'inclusion_panel_escalations' %}" class="btn btn-sm btn-secondary filter-bar-clear filter-bar-clear--sticky">Clear Filters</a>
+        <button type="button" class="btn btn-sm btn-secondary filter-bar-close" data-filter-bar-close>Close</button>
+    </div>
+    </div>
+</form>
+
+<div id="escalations-filtered-content" class="filtered-content">
+    <div class="filter-bar-overlay" data-filter-bar-close aria-hidden="true"></div>
+    {% include 'hubs/inclusion/panel/_escalations_filtered_content.html' %}
+</div>
 </div>
 
-<div class="stats-strip">
-    <div class="stat-card">
-        <div class="stat-value">{{ open_count }}</div>
-        <div class="stat-label">Open</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ resolved_count }}</div>
-        <div class="stat-label">Resolved</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ students_count }}</div>
-        <div class="stat-label">Students</div>
-    </div>
 </div>
-</div>
-</div>
-</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var filterBar = document.querySelector('form.filter-bar');
+    var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+    if (window.wireListInfiniteScroll) window.wireListInfiniteScroll('escalations-filtered-content');
+
+    if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
+    // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).
+
+    // Academic Year -> Term cascading (same pattern as
+    // inclusion_panel_referrals/inclusion_panel_meetings).
+    var academicYearFilter = document.getElementById('academic-year-filter');
+    var termFilter = document.getElementById('term-filter');
+    if (academicYearFilter && termFilter) {
+        var allTerms = Array.prototype.slice.call(termFilter.options).slice(1)
+            .map(function (o) { return [o.value, o.textContent]; });
+        var termsByYear = JSON.parse('{{ terms_by_academic_year_json|escapejs }}');
+
+        function refreshTermOptions() {
+            var year = academicYearFilter.value;
+            var terms = year ? (termsByYear[year] || []) : allTerms;
+            var previous = termFilter.value;
+            termFilter.innerHTML = '<option value="">All Terms</option>';
+            terms.forEach(function (pair) {
+                var opt = document.createElement('option');
+                opt.value = pair[0];
+                opt.textContent = pair[1];
+                termFilter.appendChild(opt);
+            });
+            termFilter.value = terms.some(function (pair) { return pair[0] === previous; }) ? previous : '';
+            if (termFilter._uiSelect) termFilter._uiSelect.refresh();
+        }
+        academicYearFilter.addEventListener('change', refreshTermOptions);
+    }
+
+    {% comment %}
+    Button column width, synced across every row (panel.css: escalations
+    only, own comment there) - live feedback: "I want all rows button
+    section to be same size" then, once a guessed fixed px looked padded
+    rather than sized: "still look wide, should be the width of the largest
+    button". Reset every row's own inline min-width to '' first so a rerun
+    (after infinite scroll appends more rows) measures each row's true
+    natural content width, not whatever a previous run already forced it
+    to; matchMedia guard mirrors syncFactsColumnWidths' own per-row-below-
+    701px/per-list-above convention (panel.js) - this column's own >=701px
+    grid-area only exists at that width, and an inline min-width in the
+    <701px band (row-btn-row goes flex: 1 1 100% there, panel.css) would
+    just force unwanted overflow instead of doing anything useful.
+    {% endcomment %}
+    function syncEscalationButtonWidths() {
+        var rows = document.querySelectorAll('#escalations-filtered-content .row-btn-row');
+        if (!rows.length) return;
+        rows.forEach(function (row) { row.style.minWidth = ''; });
+        if (!window.matchMedia('(min-width: 701px)').matches) return;
+        var max = 0;
+        rows.forEach(function (row) { max = Math.max(max, row.scrollWidth); });
+        if (max > 0) rows.forEach(function (row) { row.style.minWidth = max + 'px'; });
+    }
+    syncEscalationButtonWidths();
+    var escalationsList = document.getElementById('escalations-filtered-content');
+    if (escalationsList && typeof MutationObserver !== 'undefined') {
+        new MutationObserver(syncEscalationButtonWidths).observe(escalationsList, { childList: true, subtree: true });
+    }
+    window.addEventListener('resize', window.rafThrottle ? window.rafThrottle(syncEscalationButtonWidths) : syncEscalationButtonWidths);
+});
+</script>
 {% endblock %}

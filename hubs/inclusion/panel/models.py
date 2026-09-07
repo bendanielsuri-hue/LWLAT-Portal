@@ -490,6 +490,23 @@ class Action(models.Model):
 
 class Escalation(models.Model):
     STATUS_CHOICES = [('open', 'Open'), ('resolved', 'Resolved')]
+    # Escalate to MAT form (escalate_form.html) offers these as a dropdown
+    # plus a free-text "Other" option, rather than a bare textarea - live
+    # feedback: "Escalation Reason could benefit from being a choice of
+    # option... with one option being custom and showing a freeform text
+    # box". Plain strings, not (value, label) tuples - the reason IS the
+    # text stored on `reason` below, not a coded value needing a separate
+    # label. Not a `choices=` constraint on the `reason` field itself -
+    # that would reject the free-text "Other" answer at the DB level, and
+    # `reason` is meant to hold a real sentence either way, not one of a
+    # closed set of stored keys. seed_escalations.py reuses this same list
+    # so its demo data reads as genuine answers, not invented copy.
+    REASON_CHOICES = [
+        'Concerns have escalated beyond what the school-level panel can resolve alone.',
+        'Family has requested MAT-level involvement after repeated attempts at school level.',
+        'Safeguarding threshold may be met - needs MAT-level oversight as a precaution.',
+        'Multiple agencies now involved; needs coordinating at MAT level.',
+    ]
 
     referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='escalations')
     escalated_by = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')

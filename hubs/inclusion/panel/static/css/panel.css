@@ -3777,7 +3777,8 @@ html.nav-touch-mode .row-facts-arrow {
    margin-left, width increased by the exact same amount), so the right
    edge - and so the next arrow - was already correct. */
 @media (max-width: 700px) {
-    #referrals-filtered-content .row-facts-arrow--prev {
+    #referrals-filtered-content .row-facts-arrow--prev,
+    #escalations-filtered-content .row-facts-arrow--prev {
         left: calc(-1 * (42px + var(--space-md)) + 2px);
     }
     #students-filtered-content .row-facts-arrow--prev {
@@ -3870,6 +3871,7 @@ html.nav-touch-mode .row-facts-arrow {
    re-adding the markup. */
 #actions-filtered-content .row-fact-assignee--initials,
 #referrals-filtered-content .row-fact-assignee--initials,
+#escalations-filtered-content .row-fact-assignee--initials,
 #students-filtered-content .row-fact-assignee--initials {
     display: none;
 }
@@ -3891,7 +3893,8 @@ html.nav-touch-mode .row-facts-arrow {
    the "why 16px" history. Overridden to flex: 0 0 100% inside the
    @container action-facts (max-width: 600px) rule further below, once the
    row genuinely has no room left for both. */
-#actions-filtered-content .row-fact-col-description {
+#actions-filtered-content .row-fact-col-description,
+#escalations-filtered-content .row-fact-col-description {
     flex: 0 0 320px;
     min-width: 0;
     /* max-width is set inline by fillFactsColumns (panel.js, MAX_BONUS_PX)
@@ -3949,7 +3952,8 @@ html.nav-touch-mode .row-facts-arrow {
    gap on the right" language every other column already has - rather than
    the box's own bonus paradoxically making a paragraph read as MORE
    cramped (fewer, wider lines) instead of less. */
-#actions-filtered-content .row-fact-col-description span:last-child {
+#actions-filtered-content .row-fact-col-description span:last-child,
+#escalations-filtered-content .row-fact-col-description span:last-child {
     white-space: normal;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -3977,30 +3981,64 @@ html.nav-touch-mode .row-facts-arrow {
 .entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
 /* Primary-accent divider only once the row is actually .chosen - a resting
    row keeps the plain neutral divider, matching the "only colour up when
-   active" rule the row-title-secondary divider below follows too. */
-.entity-row.chosen > .row-btn-row { border-left-color: var(--accent-border); }
+   active" rule the row-title-secondary divider below follows too.
+   !important (live feedback: "I wanted this to be a global change so it is
+   never forgotten" - this exact bug had already recurred three times:
+   Actions, then Referrals, then Students, each needing its own ID-scoped
+   #<page>-filtered-content .entity-row.chosen > .row-btn-row re-assertion
+   just to win back a colour this shared rule was already trying to set,
+   because a plain #<page>-filtered-content .row-btn-row border-left (1 ID +
+   1 class) always outranks this bare .entity-row.chosen > .row-btn-row (0
+   ID + 2 classes) on specificity, regardless of source order or how many
+   more classes get piled onto the shared side - normal CSS specificity can
+   never fix this without an ID of its own, which a genuinely shared rule
+   can't have. !important sidesteps the specificity fight entirely instead
+   of relying on every future page remembering its own copy of the fix (the
+   thing that kept not happening) - covers both class conventions in use
+   (.row-btn-row: Referrals/Actions/Escalations; .btn-row: Students) so a
+   new list page needs neither variant re-declared. The three per-page
+   re-assertions this superseded are gone - grep panel.css's own history if
+   one needs restoring for reference. */
+.entity-row.chosen > .row-btn-row,
+.entity-row.chosen > .btn-row {
+    border-left-color: var(--accent-border) !important;
+}
+/* A <form>-wrapped button (e.g. Escalations' Launch Meeting - a POST, not a
+   plain link like Referral Details/Actions) is a plain block box, not a
+   .btn itself - row-btn-row/btn-row's own align-items: stretch (their base
+   rules) stretches the FORM to the column's full width, but its .btn child
+   still only takes its own content width inside that now-wide box unless
+   told otherwise (live feedback: "why is Referral Details so wide" - it
+   wasn't wide, Launch Meeting's button was narrow, next to a form that
+   only looked the same width as everything else). Same fix as Meetings'
+   identical Delete-form case, .meeting-card-actions form/.btn above -
+   generic here (not page-ID-scoped) since any row-btn-row/btn-row column
+   can end up mixing a form-wrapped button with plain ones. */
+.row-btn-row form,
+.btn-row form {
+    display: flex;
+}
+.row-btn-row form .btn,
+.btn-row form .btn {
+    flex: 1 1 auto;
+}
 /* CONVENTION - every .entity-row divider goes accent when .chosen, not just
    the vertical one before the buttons column (live feedback: "active wide
    desktop mode, the dividers are not changing primary colour... it does but
    only on vertical divider before buttons, needs to be on all" - caught on
    Actions' own horizontal header divider, .entity-row::before in its
    >=701px grid band, which never had a .chosen rule at all).
-   This shared rule alone is NOT enough to make that happen, and never will
-   be - every page defines its OWN copy of a divider (row-btn-row's
-   border-left here is unusually shared; .entity-row::before, each page's
-   horizontal grid-band divider, is declared fresh per #<page>-filtered-
-   content ID, content:'' included, since a pseudo-element's box only
-   exists where something actually sets `content`). An ID-scoped selector
-   (1 ID + 1 class) always outranks this shared one (0 ID + 2 classes)
-   regardless of source order, so each page's own unconditional divider
-   rule silently wins back the neutral colour even while .chosen is true -
-   the exact bug .row-btn-row's own "Re-asserts the shared rule" comments
-   (Actions/Referrals/Students, below) already document for the vertical
-   divider. Any NEW per-page divider must add its own matching
-   #<page>-filtered-content .entity-row.chosen::before (or whatever the
-   divider's own selector is) re-assertion in the SAME id scope - see
-   those three pages' own copies for the pattern - or it'll silently stay
-   neutral forever, exactly like this one did until caught live. */
+   The buttons-column divider above is a genuinely shared rule now (see its
+   own !important comment) and needs nothing further per page. .entity-row
+   ::before is different - it's not shared at all, each page declares its
+   OWN copy of that pseudo-element fresh per #<page>-filtered-content ID
+   (content:'' included, since a pseudo-element's box only exists where
+   something actually sets `content`), so there's no single shared rule to
+   harden with !important here. Any NEW per-page ::before divider must still
+   add its own matching #<page>-filtered-content .entity-row.chosen::before
+   re-assertion in the SAME id scope - see Actions'/Referrals'/Escalations'
+   own copies for the pattern - or it'll silently stay neutral forever,
+   exactly like the buttons-column one did until caught live. */
 /* align-items: stretch (live feedback: "the buttons and dropdown are not
    all inline vertically. All should be width of widest") - flex-start
    (tried originally) left each child at its own natural content width,
@@ -4033,6 +4071,7 @@ html.nav-touch-mode .row-facts-arrow {
    its own narrower, mobile-only copy of this rule until now, so its
    desktop/tablet gap stayed at the wider un-tightened default). */
 #referrals-filtered-content .row-title-row,
+#escalations-filtered-content .row-title-row,
 #students-filtered-content .row-title-row,
 #actions-filtered-content .row-title-row {
     row-gap: var(--space-xxs);
@@ -4052,7 +4091,8 @@ html.nav-touch-mode .row-facts-arrow {
    "referral info" section under the student's identity; the one real
    divider left is row-facts' own border-top (or .entity-row::before in the
    grid band), separating this whole header block from the facts strip. */
-#referrals-filtered-content .row-title-row .row-facts-primary-plain {
+#referrals-filtered-content .row-title-row .row-facts-primary-plain,
+#escalations-filtered-content .row-title-row .row-facts-primary-plain {
     display: inline;
     flex: 0 1 auto;
     font-size: var(--font-sm);
@@ -4081,7 +4121,8 @@ html.nav-touch-mode .row-facts-arrow {
    other read as uneven rather than a consistent stack of lines. column-gap
    stays --space-xs - that's the horizontal breathing room between the
    title text and a pill sharing the same line, unrelated to this. */
-#referrals-filtered-content .row-title-row .row-title-secondary {
+#referrals-filtered-content .row-title-row .row-title-secondary,
+#escalations-filtered-content .row-title-row .row-title-secondary {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -4098,7 +4139,8 @@ html.nav-touch-mode .row-facts-arrow {
    underneath the name, while the name still keeps its own distinct hover/
    selection fake-bold affordance (INT-M4) concern deliberately never
    picked up. */
-#referrals-filtered-content .row-title-row .row-secondary-text {
+#referrals-filtered-content .row-title-row .row-secondary-text,
+#escalations-filtered-content .row-title-row .row-secondary-text {
     font-weight: 600;
     font-size: var(--font-lg);
     color: var(--text-primary);
@@ -4111,7 +4153,8 @@ html.nav-touch-mode .row-facts-arrow {
    category be more prominent") - same size .status-pill already assumes
    everywhere else, so the shrink is gone; the default (unscoped)
    .status-pill sizing is the right match again without an override. */
-#referrals-filtered-content .row-title-pills {
+#referrals-filtered-content .row-title-pills,
+#escalations-filtered-content .row-title-pills {
     display: flex;
     gap: var(--space-xs);
     flex-wrap: nowrap;
@@ -4152,7 +4195,8 @@ html.nav-touch-mode .row-facts-arrow {
        page's own margin at this width (live feedback, above: "reduce the
        left and right padding in the entity rows to match page margin") -
        only top/bottom needed the extra room. */
-    #referrals-filtered-content .entity-row {
+    #referrals-filtered-content .entity-row,
+    #escalations-filtered-content .entity-row {
         flex-wrap: wrap;
         align-items: flex-start;
         row-gap: var(--space-md);
@@ -4169,7 +4213,8 @@ html.nav-touch-mode .row-facts-arrow {
        true when a sibling can shrink to near-zero. Same fix Students' own
        mobile block (#students-filtered-content .btn-row, below) already
        uses for the same reason. */
-    #referrals-filtered-content .entity-row > .row-btn-row {
+    #referrals-filtered-content .entity-row > .row-btn-row,
+    #escalations-filtered-content .entity-row > .row-btn-row {
         border-left: none;
         padding-left: 0;
         flex: 1 1 100%;
@@ -4179,7 +4224,8 @@ html.nav-touch-mode .row-facts-arrow {
        dead gap on the right, live feedback: "buttons do not seem to fit
        available horizontal space on mobile mode". Equal flex: 1 each fills
        the row edge to edge instead. */
-    #referrals-filtered-content .row-btn-row > * {
+    #referrals-filtered-content .row-btn-row > *,
+    #escalations-filtered-content .row-btn-row > * {
         flex: 1;
     }
     /* row-gap only, not the shorthand gap (base rule, above, sets both
@@ -4192,7 +4238,8 @@ html.nav-touch-mode .row-facts-arrow {
        wrapped line inside row-title-row itself, not a separate margined
        block. column-gap stays at 8px - that's the horizontal spacing
        between concern/pills on the same line, unrelated to this gap. */
-    #referrals-filtered-content .row-title-row {
+    #referrals-filtered-content .row-title-row,
+    #escalations-filtered-content .row-title-row {
         row-gap: var(--space-xxs);
     }
     /* #118 third follow-up used to hide the whole fact strip below this
@@ -4257,7 +4304,8 @@ html.nav-touch-mode .row-facts-arrow {
    still starting under the avatar. .row-facts is a plain block child of
    .entity-body here, not a flex item of .row-title-row, so the bleed is
    width+margin-left rather than row-title-secondary's flex-basis trick. */
-#referrals-filtered-content .row-facts {
+#referrals-filtered-content .row-facts,
+#escalations-filtered-content .row-facts {
     padding-top: 0;
     border-top: none;
     margin-left: calc(-1 * (42px + var(--space-md)));
@@ -4268,13 +4316,15 @@ html.nav-touch-mode .row-facts-arrow {
    hide the whole strip below 1180px (display: none, above), then wrap at
    a computed breakpoint - now it just scrolls at every width instead,
    same as Actions/Students. */
-#referrals-filtered-content .row-fact-col {
+#referrals-filtered-content .row-fact-col,
+#escalations-filtered-content .row-fact-col {
     transition: margin-left 0.2s ease, padding-left 0.2s ease, border-left-width 0.2s ease;
 }
 /* Label line of each column (live feedback, ported from Actions: "Can
    label have different format?" - same small-caption convention as the
    "GROUP INFO"/"ACTIONS"/"REFERRALS" filter-bar section labels, T1). */
-#referrals-filtered-content .row-fact-label {
+#referrals-filtered-content .row-fact-label,
+#escalations-filtered-content .row-fact-label {
     font-size: var(--font-xs);
     color: var(--text-muted);
     text-transform: uppercase;
@@ -4290,7 +4340,8 @@ html.nav-touch-mode .row-facts-arrow {
    own PASTORAL and BEHAVIOUR labels ran together with literally zero px
    between them once both the border and its margin were removed without
    this being restored. */
-#referrals-filtered-content .row-facts-cols {
+#referrals-filtered-content .row-facts-cols,
+#escalations-filtered-content .row-facts-cols {
     gap: var(--space-lg);
 }
 /* Divider dropped everywhere (live feedback: "lets simplify by losing the
@@ -4307,7 +4358,8 @@ html.nav-touch-mode .row-facts-arrow {
    itself. .entity-row.chosen's own accent-border re-assertion this used
    to need (own comment, same place) is gone for the same reason - there's
    no border left to recolour. */
-#referrals-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
+#referrals-filtered-content .row-facts-cols > .row-fact-col:not(:first-child),
+#escalations-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
     border-left: none;
     margin-left: 0;
     padding-left: 0;
@@ -4344,7 +4396,8 @@ html.nav-touch-mode .row-facts-arrow {
    content to hold alongside it. */
 .row-student-details { display: contents; }
 @media (min-width: 701px) {
-    #referrals-filtered-content .entity-row {
+    #referrals-filtered-content .entity-row,
+    #escalations-filtered-content .entity-row {
         display: grid;
         grid-template-columns: auto 1fr auto;
         grid-template-areas:
@@ -4367,7 +4420,8 @@ html.nav-touch-mode .row-facts-arrow {
            thrown off by an asymmetric outer box. */
         padding-top: 0;
     }
-    #referrals-filtered-content .entity-body { display: contents; }
+    #referrals-filtered-content .entity-body,
+    #escalations-filtered-content .entity-body { display: contents; }
     /* align-self: center + matching padding-top/bottom (ported from
        Actions' own fix - live feedback there: "more space under the header
        area than above... use Playwright" caught the header row's grid
@@ -4379,14 +4433,17 @@ html.nav-touch-mode .row-facts-arrow {
        (var(--space-sm) each) on both thumb and header, not the old
        asymmetric top-only inset, so centring an item with equal internal
        padding doesn't just reproduce the same imbalance one level up. */
-    #referrals-filtered-content .entity-thumb-group { grid-area: thumb; align-self: center; padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
-    #referrals-filtered-content .row-title-row {
+    #referrals-filtered-content .entity-thumb-group,
+    #escalations-filtered-content .entity-thumb-group { grid-area: thumb; align-self: center; padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
+    #referrals-filtered-content .row-title-row,
+    #escalations-filtered-content .row-title-row {
         grid-area: header;
         align-self: center;
         padding-top: var(--space-sm);
         padding-bottom: var(--space-sm);
     }
-    #referrals-filtered-content .entity-row::before {
+    #referrals-filtered-content .entity-row::before,
+    #escalations-filtered-content .entity-row::before {
         content: '';
         grid-column: 1 / 3;
         grid-row: 2;
@@ -4397,7 +4454,8 @@ html.nav-touch-mode .row-facts-arrow {
        this ID-scoped border-top would otherwise always win over the shared
        .entity-row.chosen rule and keep this divider neutral even when
        .chosen. */
-    #referrals-filtered-content .entity-row.chosen::before {
+    #referrals-filtered-content .entity-row.chosen::before,
+    #escalations-filtered-content .entity-row.chosen::before {
         border-top-color: var(--accent-border);
     }
     /* display: flex + flex-direction: column + justify-content: center,
@@ -4412,7 +4470,8 @@ html.nav-touch-mode .row-facts-arrow {
        secondary no longer lives in here at all (moved up into
        row-title-row - see that comment, above), so its own bleed-cancel
        rule that used to sit here is gone too. */
-    #referrals-filtered-content .row-referral-details {
+    #referrals-filtered-content .row-referral-details,
+    #escalations-filtered-content .row-referral-details {
         grid-area: details;
         display: flex;
         flex-direction: column;
@@ -4422,11 +4481,13 @@ html.nav-touch-mode .row-facts-arrow {
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
     }
-    #referrals-filtered-content .row-facts {
+    #referrals-filtered-content .row-facts,
+    #escalations-filtered-content .row-facts {
         margin-left: 0;
         width: 100%;
     }
-    #referrals-filtered-content .row-btn-row {
+    #referrals-filtered-content .row-btn-row,
+    #escalations-filtered-content .row-btn-row {
         grid-area: buttons;
         border-left: 1px solid var(--border-color);
         padding-left: var(--space-lg);
@@ -4458,17 +4519,25 @@ html.nav-touch-mode .row-facts-arrow {
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
     }
-    /* Re-asserts the shared .entity-row.chosen > .row-btn-row rule
-       (cards.css/panel.css - swaps this divider's colour to var(--accent-
-       border) when the row is selected) - same specificity bug Actions had
-       (live feedback there: "on desktop wide, active row, the border is
-       not switching to primary") and the same fix: #referrals-filtered-
-       content .row-btn-row (1 ID + 1 class) was beating the shared
-       .entity-row.chosen > .row-btn-row rule (0 ID + 2 classes) on
-       specificity regardless of source order. */
-    #referrals-filtered-content .entity-row.chosen > .row-btn-row {
-        border-left-color: var(--accent-border);
-    }
+    /* Escalations only: unlike Referrals/Actions/Students, this page's
+       buttons column doesn't always hold the same buttons - Launch Meeting
+       only shows for open, unresolved-by-the-MAT-group escalations, so a
+       resolved row's column would otherwise be exactly as wide as its one
+       remaining Referral Details button, narrower than an open row's two-
+       button column (live feedback: "I want all rows button section to be
+       same size"). Each .entity-row is its OWN grid (this "buttons" column
+       is sized per row, not shared list-wide the way a real HTML table's
+       columns would be), so nothing makes rows agree on a width on its own.
+       No fixed px guess here (tried first, live feedback: "still look wide,
+       should be the width of the largest button" - a guessed value read as
+       padding, not sizing) - syncEscalationButtonWidths (escalations.html)
+       measures every row's own natural content width and sets min-width
+       inline to the largest one, same "measure naturally, then share the
+       max across the list" approach fillFactsColumns (panel.js) already
+       uses for facts columns. */
+    /* .entity-row.chosen > .row-btn-row's own !important (cards.css/
+       panel.css) now covers this globally - no per-page re-assertion
+       needed here any more. */
 }
 /* Wide desktop used to swap the buttons column to a horizontal row here
    (live feedback originally: "in wide desktop it should be horizontal
@@ -4683,6 +4752,7 @@ html.nav-touch-mode .row-facts-arrow {
    name. flex-start reproduces the fixed-thumb's real effective behaviour
    instead of guessing at what "centred" should mean here. */
 #referrals-filtered-content .entity-thumb-group,
+#escalations-filtered-content .entity-thumb-group,
 #students-filtered-content .entity-thumb-group,
 #actions-filtered-content .entity-thumb-group {
     display: flex;
@@ -4708,6 +4778,7 @@ html.nav-touch-mode .row-facts-arrow {
    student-only depending on is_aggregate_view, never showing both). */
 @media (max-width: 700px) {
     #referrals-filtered-content .entity-row.has-dual-thumb .entity-thumb-student,
+    #escalations-filtered-content .entity-row.has-dual-thumb .entity-thumb-student,
     #students-filtered-content .entity-row.has-dual-thumb .entity-thumb-student,
     #actions-filtered-content .entity-row.has-dual-thumb .entity-thumb-student {
         display: none;
@@ -4749,10 +4820,12 @@ html.nav-touch-mode .row-facts-arrow {
    floor (min-width, below) + some breathing room" close enough, and
    correctness here only ever means "did it visibly wrap", which a rough
    number still gets right. */
-#actions-filtered-content .row-facts {
+#actions-filtered-content .row-facts,
+#escalations-filtered-content .row-facts {
     gap: var(--space-md);
 }
-#actions-filtered-content .row-facts-cols {
+#actions-filtered-content .row-facts-cols,
+#escalations-filtered-content .row-facts-cols {
     flex: 0 1 auto;
     min-width: 200px;
 }
@@ -4776,7 +4849,8 @@ html.nav-touch-mode .row-facts-arrow {
    column to its left, and Due should align flush-left under Description
    instead (live feedback: "Due does not want left divider and should
    align with description when data cols move to next row"). */
-#actions-filtered-content .row-facts-track {
+#actions-filtered-content .row-facts-track,
+#escalations-filtered-content .row-facts-track {
     border-left: 1px solid var(--border-strong);
     padding-left: var(--space-md);
 }
@@ -4796,6 +4870,23 @@ html.nav-touch-mode .row-facts-arrow {
     container-type: inline-size;
     container-name: action-facts;
 }
+/* Own container name/threshold, not a shared one with Actions (live
+   feedback: "if reason and datacols do not fit, datacols should move to
+   own line like on actions page" - Actions' 600px (below) is tuned for ITS
+   own strip, Due/Created/Referral, three columns; Escalations' Reason sits
+   beside a wider four-column strip (Escalated/Next Panel/Resolved/Actions)
+   whose content (dates, staff names, two-line Complete/Incomplete counts)
+   needs real room before it comfortably fits alongside a 320px Reason
+   column without scrolling - reusing Actions' narrower 600px left the strip
+   permanently scrolling at ordinary desktop widths, long before the row
+   was actually narrow enough to justify Reason dropping full-width. 900px
+   is a first estimate, not measured against this page's own real content
+   the way Actions' 600px was (#154) - revisit if it still scrolls sooner
+   than it should, or promotes before it needs to. */
+#escalations-filtered-content .row-facts-shell {
+    container-type: inline-size;
+    container-name: escalation-facts;
+}
 /* Description promotion (live feedback: "if data cols do not fit, I want
    data col to move to own row and Description to be full width") -
    row-facts-cols already moves to its own line once ordinary flex-wrap
@@ -4814,10 +4905,53 @@ html.nav-touch-mode .row-facts-arrow {
    next row"). Cancelled in the same breakpoint that causes the wrap, since
    it's the same condition. */
 @container action-facts (max-width: 600px) {
+    /* max-width: none too, not just flex: 0 0 100% - confirmed live via
+       Playwright (Escalations' own copy of this bug, own comment below):
+       the base rule's own max-width: 420px (above) still clamps the
+       rendered box back down even once flex-basis genuinely computes to
+       100%, so the row never actually overflows enough to force row-facts'
+       own flex-wrap - it just sits at 420px next to a squeezed Track,
+       looking identical to the unpromoted state. */
     #actions-filtered-content .row-fact-col-description {
         flex: 0 0 100%;
+        max-width: none;
+    }
+    /* Text's own max-width: 320px (base rule, above) is deliberate for the
+       BESIDE-the-strip case (live feedback there: "I am wanting the added
+       space to add white space to the right of description, not extra
+       width for text") - that reasoning doesn't hold once Description has
+       the whole line to itself instead of sharing it with Track (live
+       feedback here: "when data cols drop to new line, can description use
+       full width" - the box was already promoting correctly, own comment
+       above, but the text inside it was still wrapping at the old 320px
+       regardless, leaving the same dead space this rule exists elsewhere
+       to avoid, just on the wrong side of the same coin). */
+    #actions-filtered-content .row-fact-col-description span:last-child {
+        max-width: none;
     }
     #actions-filtered-content .row-facts-track {
+        border-left: none;
+        padding-left: 0;
+    }
+}
+@container escalation-facts (max-width: 900px) {
+    /* max-width: none too - live feedback: "data cols do not flow on own
+       line if it needs to scroll", confirmed live via Playwright: flex-
+       basis was correctly computing to 100% here already, but the base
+       rule's own max-width: 420px (above) clamped the rendered box back
+       down regardless, so Track never actually lost enough room to wrap
+       below it - Reason just sat at 420px next to a squeezed Track. */
+    #escalations-filtered-content .row-fact-col-description {
+        flex: 0 0 100%;
+        max-width: none;
+    }
+    /* Text's own max-width: 320px (base rule, above) - see Actions' own
+       identical override/comment, same @container block, for why this
+       needs resetting too once Reason has the whole line to itself. */
+    #escalations-filtered-content .row-fact-col-description span:last-child {
+        max-width: none;
+    }
+    #escalations-filtered-content .row-facts-track {
         border-left: none;
         padding-left: 0;
     }
@@ -4990,6 +5124,7 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    trigger. */
 #actions-filtered-content .row-facts-cols > .row-fact-col,
 #referrals-filtered-content .row-facts-cols > .row-fact-col,
+#escalations-filtered-content .row-facts-cols > .row-fact-col,
 #students-filtered-content .row-facts-cols > .row-fact-col {
     flex: 1 0 auto;
 }
@@ -5018,6 +5153,7 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    "normal" width for an outlier to look wrong against. */
 #actions-filtered-content .row-facts-cols .row-fact-col-clamp,
 #referrals-filtered-content .row-facts-cols .row-fact-col-clamp,
+#escalations-filtered-content .row-facts-cols .row-fact-col-clamp,
 #students-filtered-content .row-facts-cols .row-fact-col-clamp {
     max-width: none;
 }
@@ -5036,7 +5172,8 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    explicitly off row-facts-cols' own natural sum instead, own comment
    there), unlike its children which need flex-shrink: 0 to genuinely
    overflow into a scroll rather than getting squashed. */
-#actions-filtered-content .row-facts-track {
+#actions-filtered-content .row-facts-track,
+#escalations-filtered-content .row-facts-track {
     flex: 1 1 0;
     min-width: 0;
 }
@@ -5054,7 +5191,8 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
    Description itself promotes to its own full-width line - the two
    conditions overlap in effect (no divider either way) rather than one
    ever needing to override the other. */
-#actions-filtered-content .row-facts-track {
+#actions-filtered-content .row-facts-track,
+#escalations-filtered-content .row-facts-track {
     border-left: none;
     padding-left: 0;
 }
@@ -5103,7 +5241,8 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
        an explicit value rather than entity-row's own row-gap - row-title-
        row's flex: 0 1 auto (not a full flex-basis: 100%) leaves it
        ambiguous whether row-gap actually bridges this particular pair. */
-    #actions-filtered-content .row-facts {
+    #actions-filtered-content .row-facts,
+    #escalations-filtered-content .row-facts {
         margin-top: var(--space-md);
         padding-top: 0;
         border-top: none;
@@ -5430,20 +5569,9 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
     }
-    /* Re-asserts the shared .entity-row.chosen > .row-btn-row rule
-       (cards.css/panel.css - swaps this divider's colour to var(--accent-
-       border) when the row is selected) - live feedback: "on desktop wide,
-       active row, the border is not switching to primary". That shared
-       rule was losing the cascade to the plain border-left set just above:
-       #actions-filtered-content .row-btn-row (1 ID + 1 class) beats
-       .entity-row.chosen > .row-btn-row (0 ID + 2 classes) on specificity
-       regardless of which one comes later in the file, so the accent
-       colour never actually took effect once this page got its own ID-
-       scoped border-left override. Needs the same ID-scoped treatment to
-       win back. */
-    #actions-filtered-content .entity-row.chosen > .row-btn-row {
-        border-left-color: var(--accent-border);
-    }
+    /* .entity-row.chosen > .row-btn-row's own !important (cards.css/
+       panel.css) now covers this globally - no per-page re-assertion
+       needed here any more. */
     /* Content vertically centred in the now full-height box - the base
        .row-btn-row-stacked rule's own justify-content: center (panel.css,
        above) already does this; a top-aligned-with-gap override lived here
@@ -5930,17 +6058,9 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
     }
-    /* Students' buttons container is .btn-row, not .row-btn-row like
-       Referrals/Actions - the shared .entity-row.chosen > .row-btn-row
-       accent-colour rule (cards.css/panel.css) never matched it at all,
-       so this was never wired up here (same bug family as Actions'/
-       Referrals' own specificity miss, live feedback there: "on desktop
-       wide, active row, the border is not switching to primary" - ported
-       here as part of "lets implement all changes to students and
-       referrals"). */
-    #students-filtered-content .entity-row.chosen > .btn-row {
-        border-left-color: var(--accent-border);
-    }
+    /* .entity-row.chosen > .btn-row's own !important (cards.css/panel.css)
+       now covers this globally - no per-page re-assertion needed here any
+       more. */
 }
 /* Wide desktop used to swap the buttons column to a horizontal row here too
    (live feedback originally: "in wide desktop it should be horizontal
@@ -9316,8 +9436,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
 .agenda-table tr:last-child td { border-bottom: none; }
 .agenda-table .empty-row td { color: var(--text-muted); text-align: center; padding: var(--space-lg); }
 
-.escalation-resolve-form { display: flex; gap: var(--space-xs); align-items: flex-start; margin-top: var(--space-xs); }
-.escalation-resolve-form textarea { flex: 1; min-height: 38px; }
 
 /* Student identity cell (Referrals / Actions tables) — same thumb format as the Students screen */
 .student-cell { display: flex; align-items: center; gap: var(--space-sm); }

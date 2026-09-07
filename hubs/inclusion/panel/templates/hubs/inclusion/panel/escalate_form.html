@@ -45,11 +45,43 @@ resolved on the Escalations screen.
     </div>
 
     <div class="field-group">
-        <label for="reason">Reason</label>
-        <textarea id="reason" name="reason" required></textarea>
+        <label for="reason_choice">Reason</label>
+        <select id="reason_choice" name="reason_choice" required>
+            <option value="">Select a reason…</option>
+            {% for choice in reason_choices %}
+            <option value="{{ choice }}">{{ choice }}</option>
+            {% endfor %}
+            <option value="__other__">Other (please specify)</option>
+        </select>
+    </div>
+
+    {% comment %}
+    Hidden by default, shown only once "Other" is picked (script below) -
+    live feedback: "Escalation Reason could benefit from being a choice of
+    option... with one option being custom and showing a freeform text
+    box". required is toggled alongside visibility so a hidden field can't
+    block submission, and a shown one can't be skipped.
+    {% endcomment %}
+    <div class="field-group" id="reason-other-group" hidden>
+        <label for="reason_other">Please specify</label>
+        <textarea id="reason_other" name="reason_other"></textarea>
     </div>
 
     <button type="submit" class="btn btn-primary">Escalate</button>
 </form>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var choiceField = document.getElementById('reason_choice');
+    var otherGroup = document.getElementById('reason-other-group');
+    var otherField = document.getElementById('reason_other');
+    function syncOtherVisibility() {
+        var isOther = choiceField.value === '__other__';
+        otherGroup.hidden = !isOther;
+        otherField.required = isOther;
+    }
+    choiceField.addEventListener('change', syncOtherVisibility);
+    syncOtherVisibility();
+});
+</script>
 {% endif %}
 {% endblock %}

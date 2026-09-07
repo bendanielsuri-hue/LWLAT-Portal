@@ -2287,10 +2287,17 @@ def inclusion_panel_referral_escalate(request, referral_id):
         # unique_open_escalation_per_referral). Silently no-op a resubmit
         # instead of letting the constraint raise.
         if not already_escalated:
+            # 'reason_choice' is one of Escalation.REASON_CHOICES' preset
+            # sentences, or the '__other__' sentinel (escalate_form.html)
+            # meaning "use the free-text reason_other box instead" - see
+            # Escalation.REASON_CHOICES' own comment for why this isn't a
+            # `choices=` constraint on the model field itself.
+            reason_choice = request.POST.get('reason_choice', '')
+            reason = request.POST.get('reason_other', '').strip() if reason_choice == '__other__' else reason_choice
             Escalation.objects.create(
                 referral=referral,
                 escalated_by_id=request.POST.get('escalated_by') or None,
-                reason=request.POST.get('reason', ''),
+                reason=reason,
             )
         # Escalating doesn't change anything about this referral's own
         # panel/discussion state, so its status is left as whatever
@@ -2304,36 +2311,183 @@ def inclusion_panel_referral_escalate(request, referral_id):
         'referral': referral,
         'already_escalated': already_escalated,
         'staff_list': staff_queryset_for_school_key(current_school_key(request)),
+        'reason_choices': Escalation.REASON_CHOICES,
         'next': request.GET.get('next', ''),
     })
 
 
 def inclusion_panel_escalations(request):
-    scoped_students = student_queryset_for_school_key(current_school_key(request))
-    all_escalations = Escalation.objects.filter(
-        referral__student__in=scoped_students,
-    ).select_related('referral__student')
-    escalations = all_escalations.filter(status='open')
-    # Same style stats-strip as Students/Referrals/Actions/Panel Meetings/
-    # Safeguarding Notes (all_escalations, not the open-only `escalations`
-    # this page actually lists, so Resolved has a real count to show even
-    # though this screen never lists resolved rows itself).
-    open_count = escalations.count()
-    resolved_count = all_escalations.filter(status='resolved').count()
-    students_count = all_escalations.values('referral__student_id').distinct().count()
+    # Modelled directly on inclusion_panel_referrals (live feedback: "lets
+    # do escalations page, this can be modelled after the Referrals page")
+    # - same filter-bar/facts-strip/infinite-scroll chrome, field paths
+    # walked one hop further through Escalation.referral (an InclusionReferral)
+    # to reach the same underlying student/priority/responses/panel_referrals/
+    # actions relations Referrals already filters on.
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    school_key = current_school_key(request)
+    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
+    scoped_students = student_queryset_for_school_key(school_key)
+    today = timezone.localdate()
+
+    name_filter = request.GET.get('name') or ''
+    student_filter = _student_id_filter(request)
+    status_filter = request.GET.get('status') or ''
+    escalated_by_filter = request.GET.get('escalated_by') or ''
+    concern_filter = request.GET.get('concern') or ''
+    priority_filter = request.GET.get('priority') or ''
+    year_filter = request.GET.get('year') or ''
+    academic_year_filter = request.GET.get('academic_year') or ''
+    term_filter = request.GET.get('term') or ''
+
+    academic_years_present = {
+        ay.id: ay for ay in AcademicYear.objects.filter(
+            referrals__inclusion_detail__escalations__isnull=False,
+            referrals__inclusion_detail__student__in=scoped_students,
+        ).distinct()
+    }
+    academic_year_choices = [
+        (ay.id, ay.label)
+        for ay in sorted(academic_years_present.values(), key=lambda ay: ay.start_date, reverse=True)
+    ]
+    # No default academic year applied on first load - same #121 follow-up
+    # call as Referrals'/Meetings' own identical comment.
+    current_academic_year = AcademicYear.for_date(today).id
+    if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
+        academic_year_filter = ''
+
+    school_ids_for_terms = list(scoped_students.order_by().values_list('school_id', flat=True).distinct())
+    # escalated_at (Escalation's own field), not the referral's created_at -
+    # Term should place this by when it was actually escalated, not when the
+    # underlying referral was first raised.
+    term_filter, term_choices, terms_by_academic_year, term_q = _term_choices_and_ranges(
+        Escalation.objects.filter(referral__student__in=scoped_students),
+        school_ids_for_terms, academic_years_present.keys(), term_filter, academic_year_filter,
+        'escalated_at', 'referral__student__school_id',
+    )
+
+    # Year only - not House/Reg (live feedback: "MAT level are not going to
+    # care about house and reg" - both are school-internal pastoral
+    # groupings with no meaning across schools, unlike Year Group, which is
+    # still a real cohort comparison MAT-wide (a Year 9 at one school is a
+    # genuine peer of a Year 9 at another). Referrals/Students keep House/
+    # Reg since those pages are worked school-by-school, not MAT-wide.
+    years = sorted({y for y in scoped_students.values_list('year_group', flat=True) if y is not None})
+
+    escalations_qs = Escalation.objects.filter(referral__student__in=scoped_students).select_related(
+        'referral', 'referral__student', 'referral__student__school', 'escalated_by', 'referral__referral',
+    ).prefetch_related(
+        'referral__responses__question', 'referral__panel_referrals__panel__panel_group', 'referral__actions',
+    )
+    if academic_year_filter:
+        escalations_qs = escalations_qs.filter(referral__referral__academic_year_id=academic_year_filter)
+    if term_q is not None:
+        escalations_qs = escalations_qs.filter(term_q)
+    if student_filter:
+        escalations_qs = escalations_qs.filter(referral__student_id=student_filter)
+    elif name_filter:
+        escalations_qs = escalations_qs.filter(
+            _token_name_filter(
+                name_filter.split(),
+                'referral__student__first_name', 'referral__student__last_name', 'referral__student__admission_number',
+            )
+        )
+    if status_filter:
+        escalations_qs = escalations_qs.filter(status=status_filter)
+    if escalated_by_filter == 'unassigned':
+        escalations_qs = escalations_qs.filter(escalated_by__isnull=True)
+    elif escalated_by_filter:
+        escalations_qs = escalations_qs.filter(escalated_by_id=escalated_by_filter)
+    if concern_filter:
+        escalations_qs = escalations_qs.filter(
+            referral__responses__question__label='Main Concern Category', referral__responses__answer=concern_filter
+        )
+    if priority_filter:
+        escalations_qs = escalations_qs.filter(referral__priority=priority_filter)
+    if year_filter:
+        escalations_qs = escalations_qs.filter(referral__student__year_group=year_filter)
+    escalations_qs = escalations_qs.distinct()
+
+    # Totals for the stats-strip - computed against the full filtered
+    # queryset before pagination slices it down, same convention as
+    # Referrals' own total_referrals_count/etc.
+    total_escalations_count = escalations_qs.count()
+    total_students_count = escalations_qs.values('referral__student_id').distinct().count()
+    total_resolved_count = escalations_qs.filter(status='resolved').count()
+
+    ESCALATIONS_PAGE_SIZE = 50
+    page_obj, page_number, is_continuation = _paginate_for_infinite_scroll(
+        escalations_qs, request, is_ajax, ESCALATIONS_PAGE_SIZE
+    )
+
+    escalations = list(page_obj.object_list)
+    for escalation in escalations:
+        referral = escalation.referral
+        escalation.concern_category = _primary_concern_category(referral)
+        referral_actions = referral.actions.all()
+        escalation.actions_count = len(referral_actions)
+        escalation.completed_actions_count = sum(1 for a in referral_actions if a.status == 'complete')
+        escalation.incomplete_actions_count = sum(1 for a in referral_actions if a.status == 'incomplete')
+        upcoming_prs = sorted(
+            (pr for pr in referral.panel_referrals.all() if pr.removed_at is None and pr.panel.date >= today),
+            key=lambda pr: pr.panel.date,
+        )
+        next_panel = upcoming_prs[0].panel if upcoming_prs else None
+        escalation.next_panel_group = next_panel.panel_group if next_panel else None
+        escalation.next_panel_date = next_panel.date if next_panel else None
+
+    active_filter_count = sum(
+        1 for v in (
+            name_filter, status_filter, escalated_by_filter, concern_filter, priority_filter,
+            academic_year_filter, term_filter, year_filter,
+        ) if v
+    )
+
+    concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
     running_mat_panel = _mat_panel_running()
-    return render(request, 'hubs/inclusion/panel/escalations.html', {
+
+    context = {
         **_panel_base_context(request),
         'escalations': escalations,
-        'open_count': open_count,
-        'resolved_count': resolved_count,
-        'students_count': students_count,
+        'status_choices': Escalation.STATUS_CHOICES,
+        'staff_list': staff_queryset_for_school_key(school_key),
+        'name_filter': name_filter,
+        'student_filter': student_filter or '',
+        'status_filter': status_filter,
+        'escalated_by_filter': escalated_by_filter,
+        'academic_year_filter': academic_year_filter,
+        'academic_year_choices': academic_year_choices,
+        'term_filter': term_filter,
+        'term_choices': term_choices,
+        'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
+        'concern_filter': concern_filter,
+        'concern_choices': concern_question.choice_list() if concern_question else [],
+        'priority_filter': priority_filter,
+        'priority_choices': InclusionReferral.PRIORITY_CHOICES,
+        'years': years,
+        'year_filter': year_filter,
+        'active_filter_count': active_filter_count,
+        'students_count': total_students_count,
+        'escalations_count': total_escalations_count,
+        'resolved_count': total_resolved_count,
+        'is_aggregate_view': is_aggregate_view,
+        'page_obj': page_obj,
         # Drives the Launch/Add-to-running-meeting button label - see
         # inclusion_panel_escalation_quick_launch, which re-checks this
         # server-side rather than trusting this page-load snapshot.
         'running_mat_panel': running_mat_panel,
         'mat_group_missing': _mat_panel_group() is None,
-    })
+    }
+    if page_obj.has_next():
+        next_params = request.GET.copy()
+        next_params['page'] = page_number + 1
+        context['next_page_url'] = request.path + '?' + next_params.urlencode()
+    if is_continuation:
+        template = 'hubs/inclusion/panel/_escalations_rows.html'
+    elif is_ajax:
+        template = 'hubs/inclusion/panel/_escalations_filtered_content.html'
+    else:
+        template = 'hubs/inclusion/panel/escalations.html'
+    return render(request, template, context)
 
 
 def inclusion_panel_escalation_resolve(request, escalation_id):
