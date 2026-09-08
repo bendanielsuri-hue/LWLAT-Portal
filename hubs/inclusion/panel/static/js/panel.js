@@ -3004,7 +3004,27 @@ function naturalFactsColumnWidths(groups, columns, cacheHost) {
     // measuring with grow still on would report "content width plus this
     // scope's current share of leftover space" instead of pure content
     // width.
-    columns.forEach(function (col) { col.style.flexGrow = '0'; col.style.flexBasis = 'auto'; });
+    columns.forEach(function (col) {
+        col.style.flexGrow = '0';
+        col.style.flexBasis = 'auto';
+        /* max-width deliberately ISN'T reset here for most columns (own
+           comment above - a stale, smaller cap from an earlier measure is
+           what stops one outlier value from blowing out a shared column
+           width). A column holding a pills line (Actions' Referral) is
+           the one exception: the pills line was explicitly exempted from
+           that same outlier-suppression already (live feedback: "the
+           referral pills on action page are truncated too much... this
+           must always show", panel.css) precisely because chips aren't
+           free text that SHOULD get clipped - so a stale cap left over
+           from a narrower measurement (a shorter concern-category value,
+           fewer/shorter pills on a different row, a pre-scroll layout
+           pass) must not be allowed to silently starve it on a later
+           measurement the way it's allowed to for genuine free text
+           (Ethnicity/Behaviour) - live feedback with a screenshot: "when
+           I scroll to the right, I am still getting Referral pill cut
+           off". */
+        if (col.querySelector('.row-fact-pills-line')) col.style.maxWidth = '';
+    });
     var natural = {};
     keys.forEach(function (key) {
         var max = 0;
@@ -3220,6 +3240,28 @@ function fillFactsColumns(columns, strip, cacheHost) {
         track._factsColumnCount = Math.max(stripKeys.length, 1);
         track.style.flexBasis = track._factsNaturalWidth + 'px';
         track.style.flexGrow = String(track._factsColumnCount);
+        /* Caps track at exactly what its own children can ever actually
+           use - each column already stops growing at natural+
+           FACTS_MAX_BONUS_PX (own loop, above), so the combined ceiling
+           for all of them is that same sum plus one MAX_BONUS_PX per
+           column. Without this, track had no cap of its own (unlike every
+           other participant on this line - Description caps at +100,
+           the spacer caps at +100), so once Description AND the spacer
+           both hit THEIR caps, the browser's own flex "freeze and
+           redistribute" pass had nowhere left to send their unused grow
+           potential except track - which doesn't feed it to Due/Created/
+           Referral (a separate, nested flex context, row-facts-cols) at
+           all, so it just sat as one large orphaned gap between Referral
+           and the buttons column (live feedback with a screenshot: "Data
+           cols are not getting same extra space as Status/Description" -
+           they were, individually, up to their own cap; the REST of
+           track's oversized share was simply unusable dead space, not
+           extra room for them). Freezing track at its own real ceiling
+           lets that genuinely-unused remainder show up once, honestly, as
+           blank space after the whole facts area instead - the same
+           "nothing left needs it" outcome any other maxed-out flex layout
+           reaches on a sufficiently wide screen. */
+        track.style.maxWidth = (track._factsNaturalWidth + track._factsColumnCount * FACTS_MAX_BONUS_PX) + 'px';
     });
 }
 // Decides, per list or per row depending on width band, what shared
@@ -3286,28 +3328,45 @@ function syncFactsColumnWidths() {
         fillFactsColumns(columns, listRoot.querySelector('.row-facts-cols'), listRoot);
     });
 }
-// Owns Actions'/Escalations' whole facts-LINE layout - the two decisions
-// fillFactsColumns above deliberately leaves alone, both of which need
-// numbers that only exist once every column's shared width is settled:
-//   1. Does the data strip still fit beside Description (and, on Actions,
-//      the fused Status control)? If not it drops to its own line below
-//      them, full width, and Description grows into the room that frees
-//      up (live feedback: "if the data cols do not fit, they need to drop
-//      to own line leaving description and status on their own line").
-//      Note what does NOT happen any more: Description used to be the item
-//      promoted to a full-width line of its own (an @container query on
-//      row-facts-shell, panel.css), which pushed Status DOWN onto line 2
-//      alongside the strip - the wrong pairing, and on a fixed 600px
-//      threshold rather than the row's own real content widths.
-//   2. Does the fused Status control itself still fit beside Description
-//      on that first line? Once it doesn't, it hides and the button
-//      column's dropdown copy takes over (live feedback: "if Description
-//      width goes below certain threshold fused status hide and the
-//      dropdown in button section appears"). Both are driven by the one
-//      status-col-narrow class (panel.css), so the fused control and the
-//      dropdown are exact complements by construction - never both, never
-//      neither (live feedback: "the status dropdown in button section
-//      should only appear if the Status fused control is hidden").
+// Owns Actions'/Escalations' whole facts-LINE layout - the one decision
+// fillFactsColumns above deliberately leaves alone, needing numbers that
+// only exist once every column's shared width is settled: does the data
+// strip still fit beside Description (and, on Actions, the fused Status
+// control)? If not it drops to its own line below them, full width, and
+// Description grows into the room that frees up (live feedback: "if the
+// data cols do not fit, they need to drop to own line leaving description
+// and status on their own line"). Note what does NOT happen any more:
+// Description used to be the item promoted to a full-width line of its own
+// (an @container query on row-facts-shell, panel.css), which pushed Status
+// DOWN onto line 2 alongside the strip - the wrong pairing, and on a fixed
+// 600px threshold rather than the row's own real content widths.
+// Whether the fused Status control itself still fits beside Description on
+// that first line is NOT decided here any more, unlike the strip - a real
+// min-width on Description (.facts-cols-wrapped .row-fact-col-description,
+// panel.css) makes .row-facts' own flex-wrap: wrap push Status onto a line
+// of its own natively, the instant it doesn't fit, in both directions on
+// every resize frame (live feedback: "have Status have its own row if it
+// does not fit on same line with description", then "if I then widen the
+// window, status should go back to being on same row as Description" - a
+// JS class toggled on the debounced resize tick, tried first, could only
+// ever catch up after the fact in either direction). Replaces the earlier
+// design where Status hid outright and a dropdown in the button column
+// took over (live feedback: "lose the Status dropdown altogether in the
+// button area") - one control, one place, at every width; the row just
+// grows a third line when it needs to.
+// The matching "share the line's spare room" bonus after Status (live
+// feedback: "I want the white space between to be same as the data col
+// extra so it looks consistent") is no longer computed here either - a
+// real flex-item spacer (row-facts-status-spacer, _actions_rows.html/
+// panel.css) claims it natively now, growing/shrinking in lockstep with
+// Description's own CSS-driven bonus on every frame of a resize. The old
+// version computed it here instead and wrote it as an inline margin-right,
+// which only refreshed on the debounced resize tick (120ms after the drag
+// stops, factsMeasureGeneration's own comment above has the stutter-fix
+// history) - live feedback: "the extra space to the right of [status] does
+// not reduce like the other data cols" was that lag becoming visible, not
+// a wrong number. Handing the growth to real CSS removes the lag outright
+// instead of shortening the debounce.
 // Every threshold is measured against NATURAL widths (Description's fixed
 // 320px baseline + Status' own content width + the strip's natural sum),
 // never against what anything is currently rendered at. Rendered widths
@@ -3329,11 +3388,6 @@ function updateFactsLineLayout() {
     ['actions-filtered-content', 'escalations-filtered-content'].forEach(function (id) {
         var listRoot = document.getElementById(id);
         if (!listRoot) return;
-        // Un-hide before measuring - a stale status-col-narrow from a
-        // PREVIOUS run has already collapsed Status via display: none
-        // (panel.css), which would otherwise measure as a false 0 width
-        // here and never be counted as needing room again.
-        listRoot.classList.remove('status-col-narrow');
         var entries = [];
         listRoot.querySelectorAll('.entity-row').forEach(function (row) {
             var facts = row.querySelector('.row-facts');
@@ -3346,6 +3400,10 @@ function updateFactsLineLayout() {
                 statusCol: statusCol,
                 width: facts.getBoundingClientRect().width,
                 gap: parseFloat(getComputedStyle(facts).columnGap) || 0,
+                // Status is never display:none any more (own-row replaces
+                // hiding it), so this is always a real measurement - no
+                // stale-zero-width risk the old status-col-narrow toggle
+                // had to guard against by un-hiding before every measure.
                 statusWidth: statusCol ? statusCol.getBoundingClientRect().width : 0,
                 // Falls back to the rendered width only before
                 // fillFactsColumns has ever run on this row (first paint of
@@ -3361,46 +3419,18 @@ function updateFactsLineLayout() {
         // decisions is measured, and a guessed threshold disagreeing with a
         // measured one can only make the layout wrong.
         listRoot.classList.add('facts-line-managed');
-        // Status' show/hide stays a LIST-level class, matching the dropdown
-        // it swaps with (also list-level - it lives in a separate
-        // row-btn-row subtree with no shared ancestor below the list) - and
-        // every row in one list measures the same anyway, since the strip's
-        // natural widths are shared across the whole list.
-        var narrow = false;
         entries.forEach(function (entry) {
             var desc = FACTS_DESCRIPTION_NATURAL_PX;
-            var statusShown = !!entry.statusCol;
-            var statusRoom = statusShown ? entry.statusWidth + entry.gap : 0;
+            var statusRoom = entry.statusCol ? entry.statusWidth + entry.gap : 0;
             var fits = desc + statusRoom + entry.gap + entry.stripNatural <= entry.width;
-            if (!fits && statusShown && desc + statusRoom > entry.width) {
-                // Only once the strip has ALREADY given up its place on this
-                // line does Status' own fit become the question - hiding it
-                // any earlier would be hiding a control that still has room,
-                // to make space for a strip that is about to move away
-                // regardless.
-                statusShown = false;
-                statusRoom = 0;
-                narrow = true;
-                fits = desc + entry.gap + entry.stripNatural <= entry.width;
-            }
             entry.wrapped = !fits;
-            /* Equal share for every participant on the line, worked out
-               algebraically rather than measured back off the DOM (which
-               would need a second layout pass to see grow's own result):
-               with N = strip columns + Description + Status, handing Status
-               a margin of one share leaves exactly N-1 shares of free space
-               for flex to split between Description (grow 1) and track
-               (grow = column count), so every column and the gap after
-               Status all come out the same width - which is what "share the
-               extra space" has to mean for a control that can't itself grow
-               (live feedback: "I want the white space between to be same as
-               the data col extra so it looks consistent"). Zero on a wrapped
-               row: there is no adjacent column bonus left for it to match,
-               so it would just read as a dead unexplained gap (live
-               feedback: "Status has kept extra space to its right"). */
-            var units = entry.columnCount + 1 + (statusShown ? 1 : 0);
-            var free = entry.width - (desc + statusRoom + entry.gap + entry.stripNatural);
-            entry.statusMargin = fits ? Math.max(0, Math.min(free / units, FACTS_MAX_BONUS_PX)) : 0;
+            // Whether Status itself still fits beside Description once the
+            // strip has already moved away is no longer decided here - a
+            // real min-width on Description (.facts-cols-wrapped .row-fact-
+            // col-description, panel.css) makes .row-facts' own flex-wrap
+            // push Status onto its own line natively the moment it doesn't,
+            // continuously and in both directions on every resize frame -
+            // no class/JS in the loop for that particular handoff any more.
         });
         entries.forEach(function (entry) {
             entry.row.classList.toggle('facts-cols-wrapped', entry.wrapped);
@@ -3410,9 +3440,15 @@ function updateFactsLineLayout() {
                specificity, so a wrapped row has to be un-set from here too. */
             entry.track.style.flexBasis = entry.wrapped ? '100%' : (entry.stripNatural + 'px');
             entry.track.style.flexGrow = entry.wrapped ? '0' : String(entry.columnCount);
-            if (entry.statusCol) entry.statusCol.style.marginRight = entry.statusMargin + 'px';
+            /* max-width has to travel with basis/grow, not stay at
+               whatever fillFactsColumns set it to - that cap (own comment
+               there) assumes track is still competing for a SHARE of the
+               line beside Description/the spacer; once wrapped, track is
+               ALONE on its own full-width line and flex-basis: 100% needs
+               to actually reach 100%, which a smaller leftover max-width
+               would silently defeat. */
+            entry.track.style.maxWidth = entry.wrapped ? 'none' : (entry.stripNatural + entry.columnCount * FACTS_MAX_BONUS_PX) + 'px';
         });
-        listRoot.classList.toggle('status-col-narrow', narrow);
     });
 }
 // Any horizontally-stacked row of 2+ buttons doesn't always fit at narrow

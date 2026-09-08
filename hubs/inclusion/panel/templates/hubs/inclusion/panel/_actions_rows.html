@@ -139,23 +139,32 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
             {% endcomment %}
             {% comment %}
             Three items on one line here: Description, the fused Status
-            control, and row-facts-track (which wraps the horizontally
-            scrolling Due/Created/Referral strip). While all three fit, they
-            share the line's spare room equally - one share per data column,
-            one for Description, one for Status (which takes its share as a
-            trailing margin, since a stretched segmented control is
-            unreadable). Once they don't, the whole strip drops to its own
-            line below and Description + Status keep the line above, with
+            control (plus its row-facts-status-spacer sibling, below), and
+            row-facts-track (which wraps the horizontally scrolling Due/
+            Created/Referral strip). While all three fit, they share the
+            line's spare room equally via native CSS flex-grow - one share
+            per data column, one for Description, one for the spacer after
+            Status (a stretched segmented control itself is unreadable, so
+            it never grows - the spacer claims its share as trailing gap
+            instead). Once the strip doesn't fit, it drops to its own line
+            below and Description + Status keep the line above, with
             Description growing into the freed room (live feedback: "if the
             data cols do not fit, they need to drop to own line leaving
-            description and status on their own line"). updateFactsLineLayout
-            (panel.js) decides both, measured from each row's real content
-            widths; row-facts-shell still exists to hold container-type:
-            inline-size (panel.css) for the no-JS fallback's own query.
-            row-facts-cols is a permanent horizontal scroll region
-            (overflow-x: auto, panel.css) rather than a wrapping one, so its
-            columns never need cropping/hiding and never push the row
-            taller - whichever line it ends up on.
+            description and status on their own line"). If Description and
+            Status themselves then don't fit together either, Status drops
+            to a third line of its own (live feedback: "lose the Status
+            dropdown altogether in the button area... have Status have its
+            own row") - Description's own min-width once wrapped (panel.css)
+            makes .row-facts' native flex-wrap push Status down by itself,
+            no extra JS decision needed for that specific handoff.
+            updateFactsLineLayout (panel.js) decides everything upstream of
+            that (whether the strip fits at all), measured from each row's
+            real content widths; row-facts-shell still exists to hold
+            container-type: inline-size (panel.css) for the no-JS
+            fallback's own query. row-facts-cols is a permanent horizontal
+            scroll region (overflow-x: auto, panel.css) rather than a
+            wrapping one, so its columns never need cropping/hiding and
+            never push the row taller - whichever line it ends up on.
             {% endcomment %}
             <div class="row-facts-shell">
             <div class="row-facts">
@@ -170,21 +179,16 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                 description and before data cols" - replaces the old design
                 where this lived as a fourth column INSIDE row-facts-cols/
                 row-facts-track, only ever shown once >=1401px AND the whole
-                strip's own natural content fit too (status-col-tight,
-                panel.js/panel.css)). As a direct sibling of Description and
-                row-facts-track instead, it no longer needs the rest of the
-                strip to fit alongside it at all - if Due/Created/Referral
-                don't fit, THEY drop to their own line below while
-                Description and this control keep the first line. Hidden
-                only once that first line itself is too narrow for both
-                (status-col-narrow, updateFactsLineLayout/panel.js) - the
-                fused control drops out and row-btn-row's own dropdown copy
-                (below) appears in its place, the same "two independent
-                forms" swap as before. One class drives both halves, so the
-                two are exact complements - never both visible, never
-                neither (live feedback: "the status dropdown in button
-                section should only appear if the Status fused control is
-                hidden").
+                strip's own natural content fit too). As a direct sibling of
+                Description and row-facts-track instead, it no longer needs
+                the rest of the strip to fit alongside it at all - if Due/
+                Created/Referral don't fit, THEY drop to their own line
+                below while Description and this control keep the first
+                line. Once that first line itself is too narrow for both,
+                Status drops to a full-width row of its own instead -
+                Description's own min-width (panel.css) forces this
+                natively via .row-facts' flex-wrap, no JS decision needed -
+                there is only ever this one control, at every width.
                 {% endcomment %}
                 <div class="row-fact-col row-fact-col-status" data-col="status">
                     <span class="row-fact-label">Status</span>
@@ -198,6 +202,29 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                         </div>
                     </form>
                 </div>
+                {% comment %}
+                Real flex item, not a JS-computed margin-right on Status
+                itself - the old approach (git history) set an inline
+                margin-right on row-fact-col-status every 120ms-debounced
+                resize tick (updateFactsLineLayout, panel.js), computed as
+                "one equal share of the line's free space" to match Due/
+                Created/Referral's own bonus. That debounce is deliberate
+                (a 2026-09-07 fix for a resize-drag stutter) but meant this
+                gap sat frozen mid-drag while Description/the data columns
+                kept reflowing live via native CSS flex-grow underneath it
+                (live feedback: "the extra space to the right of [status]
+                does not reduce like the other data cols" - the mismatch
+                was the debounce lag becoming visible, not a wrong number).
+                A genuine sibling flex item with its own capped flex-grow
+                (panel.css) claims exactly the same per-column share the
+                old formula computed, but via the browser's own flex
+                engine - same continuous, un-debounced reflow every other
+                column already gets for free. Hidden via CSS the moment the
+                row wraps (facts-cols-wrapped) - once Description has the
+                line to itself there's no sibling bonus left for it to
+                match.
+                {% endcomment %}
+                <span class="row-facts-status-spacer" aria-hidden="true"></span>
                 <div class="row-facts-track">
                 <div class="row-facts-cols">
                 <div class="row-fact-col" data-col="due">
@@ -208,9 +235,9 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
                     room to spare (live feedback: "in Wide mode we can get
                     away with using full names, switch to initials for only
                     narrower modes") - same "two independent renderings, CSS
-                    picks which one's visible" convention the Status data
-                    col/dropdown swap already uses on this page. Both columns
-                    size intrinsically to whichever span is visible.
+                    picks which one's visible" convention used elsewhere on
+                    this page. Both columns size intrinsically to whichever
+                    span is visible.
                     {% endcomment %}
                     <span class="row-fact-assignee row-fact-assignee--initials" title="{{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}">For {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned"|initials }}</span>
                     <span class="row-fact-assignee row-fact-assignee--full" title="{{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned" }}">For {{ action.assigned_to_staff|default:action.assigned_to_group|default:"Unassigned"|full_name }}</span>
@@ -257,43 +284,14 @@ Students/Referrals' own _students_rows.html/_referrals_rows.html.
     </div>
     <div class="row-btn-row row-btn-row-stacked">
         {% comment %}
-        The buttons column's own segmented control (a form with the extra
-        action-status-segmented-form--buttons class) used to live here as a
-        third alternative alongside this dropdown - removed (audited while
-        wiring the leftover-threshold Status swap, #155 follow-up): tracing
-        every CSS rule touching it showed it was hidden at EVERY width, not
-        just some - the <=1400px band hides the whole .action-status-
-        segmented-form base class (catching this modifier too) and shows
-        this dropdown instead, while the >=1401px band explicitly hides
-        this modifier a second time in favour of the data column's own copy
-        (_actions_rows.html's row-fact-col-status). No width was ever left
-        for it to actually render in - pure dead markup/CSS/submit target,
-        confirmed via `git log -S` before removal.
-        This dropdown itself (#119 follow-up: "make Status a dropdown in
-        mobile mode... fit on same line as buttons") now covers three
-        different situations under one control, not just its original
-        mobile one: every width <=1400px (panel.css), AND >=1401px once
-        syncFactsColumnWidths (panel.js) finds the row's natural content
-        genuinely doesn't fit even there and adds status-col-tight to the
-        list root (#155 follow-up, live feedback: "the status data col
-        should disappear and the dropdown appears in button section...
-        based on extra space being below a threshold"). A separate <form>,
-        not a second control folded into the segmented one above (see
-        panel.css's own comment on why: a hidden-but-still-submitting field
-        in a shared form silently overrides the real control's value).
-        Same status-pill + centred-select recipe the "View Actions" modal's
-        own per-row status control already uses (_action_row.html,
-        data-action-status-select) - a proven pattern in this app already.
+        The button-area Status dropdown that used to live here (a second
+        <form>, shown whenever the fused segmented control above couldn't
+        fit beside Description) is gone (live feedback: "lose the Status
+        dropdown altogether in the button area") - Status now drops to its
+        own full-width row (status-own-row, updateFactsLineLayout/panel.js
+        + panel.css) instead of hiding and handing off to a dropdown here.
+        One control, one place, at every width.
         {% endcomment %}
-        <form method="post" action="{{ action_status_url }}" class="action-status-select-form">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ actions_list_url }}">
-            <select name="status" class="status-pill ui-select--center {{ action.status }}" onchange="this.form.submit()">
-                {% for value, label in status_choices %}
-                <option value="{{ value }}"{% if action.status == value %} selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-        </form>
         <div class="btn-row action-row-buttons">
             <button type="button" class="btn btn-sm btn-secondary" data-view-referral-trigger data-referral-id="{{ action.referral.id }}" data-next="{{ actions_list_url }}">Referral Details</button>
             <button type="button" class="btn btn-primary btn-sm" data-add-action-trigger data-referral-id="{{ action.referral.id }}" data-edit-action-id="{{ action.id }}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> <span class="btn-label">Edit Action</span></button>

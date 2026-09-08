@@ -3864,13 +3864,43 @@ html.nav-touch-mode .row-facts-arrow {
    must always show"). overflow: visible + no width cap - the pills simply
    read past the column's own nominal width when there are two, same as
    any other column's own MAX_BONUS_PX bonus growth (fillFactsColumns,
-   panel.js) already lets happen elsewhere. */
-.row-fact-col-clamp .row-fact-pills-line {
+   panel.js) already lets happen elsewhere.
+   span.row-fact-pills-line, not the bare-class selector this was - the
+   rule above beats a bare-class version of this on specificity alone
+   (0,2,1 vs 0,2,0: :not() counts as a class for specificity purposes,
+   and its own span element selector adds one more, so the "exemption"
+   was actually LOSING to the very cap it was meant to lift regardless of
+   appearing later in the file - confirmed live via getComputedStyle:
+   the pills line's own max-width was still resolving to 126px/18ch, not
+   none, live feedback with a screenshot: "Referral pills are still cut
+   off... I am seeing this in narrow desktop and also mobile mode").
+   Adding the same span element selector here matches that specificity
+   exactly, so source order (this rule comes after) decides it correctly
+   this time. */
+.row-fact-col-clamp span.row-fact-pills-line {
     max-width: none;
     overflow: visible;
     text-overflow: clip;
     white-space: nowrap;
 }
+/* The box itself (this same .row-fact-col-clamp) is already unconditionally
+   uncapped whenever it sits inside .row-facts-cols (own rule, below,
+   #actions-filtered-content .row-facts-cols .row-fact-col-clamp -
+   #students-filtered-content's Ethnicity/Behaviour is the one real free-
+   text use of this class that's NOT inside a nested row-facts-cols the
+   same way, so it's the one still governed by the 18ch cap above). So
+   the actual pills-clipping bug (live feedback with a screenshot: "the
+   referral pills are cut off... when I scroll to the right, I am still
+   getting Referral pill cut off") was never this box's own max-width -
+   it was fillFactsColumns' own inline max-width (natural + 100px, panel.js)
+   landing short, because naturalFactsColumnWidths deliberately leaves a
+   STALE max-width in place across repeated measurements for every OTHER
+   column (own comment there - it's what stops one outlier value from
+   blowing out a shared column's width) - the wrong default specifically
+   for a pills line, which was already exempted from that same outlier-
+   suppression once, for text-clamping, at the span level (above); own
+   fix now lives there too, clearing any stale cap before measuring a
+   column that holds one. */
 /* Full name at every width, initials never shown (live feedback trail:
    "in Wide mode we can get away with using full names, switch to initials
    for only narrower modes" -> "can names change to initials at mobile
@@ -4072,11 +4102,6 @@ html.nav-touch-mode .row-facts-arrow {
    status control and the button pair line up flush on both edges
    regardless of which one happens to be the intrinsically wider one. */
 .row-btn-row-stacked { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--space-xs); }
-/* Status changer's mobile-only dropdown replacement (_actions_rows.html,
-   #119 follow-up) - hidden above 480px by default, where the real
-   segmented control (.action-status-segmented-form) is the one shown; the
-   ≤480px block (below) flips both. */
-.action-status-select-form { display: none; }
 
 /* Name-to-group-info gap, both pages, every width (live feedback: "There
    is a fair bit of white space between name and group info. Can we
@@ -4929,9 +4954,43 @@ html.nav-touch-mode .row-facts-arrow {
        true-mobile widths where the line itself is narrower than the 320px
        baseline (an unshrinkable 320px column would overflow the card).
        Cap lifted with it: there is no sibling column's bonus left to keep
-       in proportion, so stopping at 420px would just leave dead space. */
+       in proportion, so stopping at 420px would just leave dead space.
+       min-width restored above 701px only (own rule, below) - true mobile
+       still needs the unrestricted shrink this rule describes. */
     flex: 1 1 0;
     max-width: none;
+}
+/* Real min-width, not left at the base rule's min-width: 0 (Description's
+   own general rule, above) - live feedback: "Description needs a min
+   width so that Status goes to own row earlier". Below this floor,
+   .row-facts' own flex-wrap: wrap (base rule, above) pushes Status onto a
+   line of its own NATIVELY the moment Description(min 320px) + Status no
+   longer both fit - no JS decision needed for this specific handoff (the
+   status-own-row class this replaced only ever toggled flex-basis: 100%
+   on Status, which forcing a bare CSS min-width on Description achieves
+   as a side effect, for free, and continuously - it responds to every
+   frame of a resize in either direction, not just after the debounced
+   tick updateFactsLineLayout runs on, live feedback: "if I then widen the
+   window, status should go back to being on same row as Description").
+   It also happened to be what caused Status' own control to stretch full
+   width when its own-row was forced via flex-basis: 100% (a .row-fact-col
+   is display: flex; flex-direction: column with no align-items override,
+   so its default stretch applies along what is, in a column-direction
+   flex container, the HORIZONTAL cross axis - every child including the
+   segmented control's own box stretched to Status' new full-row width).
+   Status keeps its own untouched flex: 0 0 auto (base rule, above) here -
+   wrapped alone onto its own line by the browser rather than deliberately
+   forced there, it renders at its own natural content width same as
+   always, left-aligned, no stretch.
+   Scoped to >=701px only - true mobile's own card width can itself dip
+   below 320px, where an unshrinkable Description would overflow the card
+   outright rather than handing Status a line of its own (the very
+   scenario the unscoped base rule, above, was written to avoid). */
+@media (min-width: 701px) {
+    #actions-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description,
+    #escalations-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description {
+        min-width: 320px;
+    }
 }
 /* Text's own max-width: 320px (base rule, above) is deliberate for the
    BESIDE-the-strip case (live feedback there: "I am wanting the added
@@ -5018,51 +5077,60 @@ html.nav-touch-mode .row-facts-arrow {
 #actions-filtered-content .action-status-segmented-form {
     display: contents;
 }
-/* Segmented control <-> dropdown swap - two separate <form>s, not one form
-   holding both controls toggled by visibility, since a hidden-but-still-
-   enabled second "status" field in the same form would submit its own
-   (stale) value alongside whichever control the user actually used, and
-   Django's QueryDict.get() returns the LAST value for a repeated key,
-   silently overriding the real click with the hidden field's stale one -
-   separate forms can't cross-contaminate like that. What decides which one
-   shows moved off a flat viewport breakpoint entirely (this used to be a
-   plain @media (max-width: 1400px) block here - live feedback then: "in
-   wide desktop it should be the fused status selector, not the dropdown")
-   onto status-col-narrow (updateActionStatusVisibility, panel.js) below,
-   once the fused control itself relocated out of the always-narrow
-   data-columns strip and started needing much more than a flat 1400px
-   viewport cutoff to decide whether it has room (own comment there has
-   the fuller reasoning + live feedback trail). */
 /* Status fused control (_actions_rows.html, live feedback: "new plan for
    responsive layout... move fused status changer to after description and
    before data cols. If it all fits these can all fit side by side. If not
    the data cols goes to new line. Description then widens with fused next
    to it to fill row. If Description width goes below certain threshold
-   fused status hide and the dropdown in button section appears") -
-   replaces the old design (a data column inside row-facts-cols, shown only
-   >=1401px AND only once syncFactsColumnWidths/status-col-tight, panel.js,
-   confirmed the WHOLE strip's natural content fit too). As a direct
-   sibling of Description/row-facts-track now, this control no longer needs
-   the rest of the strip to fit alongside it - so it shows at far more
-   widths than before (live feedback confirming the redesign's intent:
-   "this should mean that fused status changer should appear at more
-   widths before disappearing"). flex: 0 0 auto - natural content width,
-   doesn't grow (leaves any bonus space to Description beside it) or
-   shrink (a squashed segmented control is unreadable).
-   margin-right: 0 here, a no-JS/first-paint fallback only - fillFactsColumns
-   (panel.js) always sets this inline once it runs, to however much bonus
-   Due/Created/Referral actually received (own comment, panel.js) rather
-   than a flat guess, so the gap after Status reads as the SAME kind of
-   "extra" as every data column's own bonus, not a different, arbitrary
-   amount (live feedback: "I want the white space between to be same as
-   the data col extra so it looks consistent" - a fixed gap here, tried
-   first, needed a completely different history to explain why ITS number
-   was whatever it was next to columns whose own bonus is directly
-   readable off their content). */
+   fused status [gets its own row]") - replaces the old design (a data
+   column inside row-facts-cols, shown only >=1401px AND only once
+   syncFactsColumnWidths/status-col-tight, panel.js, confirmed the WHOLE
+   strip's natural content fit too). As a direct sibling of Description/
+   row-facts-track now, this control no longer needs the rest of the strip
+   to fit alongside it - so it shows beside Description at far more widths
+   than before. flex: 0 0 auto - natural content width, doesn't grow (the
+   sibling spacer below claims any bonus space instead) or shrink (a
+   squashed segmented control is unreadable). */
 #actions-filtered-content .row-fact-col-status {
     flex: 0 0 auto;
-    margin-right: 0;
 }
+/* Real flex-item spacer, not a JS-computed margin-right on Status itself -
+   own comment, updateFactsLineLayout (panel.js), has the full history of
+   why (live feedback: "the extra space to the right of [status] does not
+   reduce like the other data cols" - a JS-computed inline margin only
+   refreshed on the debounced resize tick, lagging visibly behind
+   Description's own live CSS-driven growth). flex: 1 0 0 + the same
+   FACTS_MAX_BONUS_PX cap every data column's own bonus uses (100px, kept
+   in sync with panel.js's constant of the same name) makes this claim
+   exactly one column's worth of the line's spare room, natively, in the
+   same flex pass as Description (flex: 1 0 320px, above) and the track
+   (flex-grow: column count, panel.js) - three peers splitting the same
+   leftover pool the browser already recomputes every frame, no JS needed.
+   Hidden the moment the row wraps (facts-cols-wrapped, below) - once
+   Description has the line to itself there is no sibling bonus left for
+   this to match, and an unmatched growing spacer would just read as a
+   dead gap (live feedback, of the old margin-based version: "Status has
+   kept extra space to its right"). */
+#actions-filtered-content .row-facts-status-spacer {
+    flex: 1 0 0;
+    max-width: 100px;
+}
+#actions-filtered-content .entity-row.facts-cols-wrapped .row-facts-status-spacer {
+    display: none;
+}
+/* Status drops to its own full-width third line once it no longer fits
+   beside Description even with the data strip already gone - replaces
+   the old design where it hid outright and a dropdown in the button
+   column took over (live feedback: "lose the Status dropdown altogether
+   in the button area... have Status have its own row if it does not fit
+   on same line with description"). No class/JS decision needed for this
+   one - Description's own min-width (.facts-cols-wrapped .row-fact-col-
+   description, below) is what forces it, natively, via .row-facts' own
+   flex-wrap: wrap (base rule, above): own comment there has the fuller
+   reasoning, including why an explicit flex-basis: 100% here (a first
+   attempt) was actively wrong - it stretched the segmented control's own
+   box full-width too, since .row-fact-col's default cross-axis stretch
+   applies to Status' own children.  */
 /* Referral Details/Edit Action stacked vertically by default now (live
    feedback: "action page in wide desktop, the button section should be
    vertically stacked like Referrals is") - was previously scoped to
@@ -5075,56 +5143,6 @@ html.nav-touch-mode .row-facts-arrow {
 #actions-filtered-content .action-row-buttons {
     flex-direction: column;
     align-items: stretch;
-}
-/* Fused control drops to the dropdown once Description can no longer read
-   comfortably beside it on their shared first line (live feedback: "if
-   Description width goes below certain threshold fused status hide and
-   the dropdown in button section appears"). status-col-narrow
-   (updateActionStatusVisibility, panel.js) decides this, not a
-   @container query - a first attempt queried .entity-row's own width
-   (thumb group + body + buttons column together), the one shared ancestor
-   between this control (inside row-facts-shell) and the dropdown (a
-   separate row-btn-row subtree) - but entity-row's width bundles in
-   overhead unrelated to whether Description and Status themselves fit
-   together, and doesn't change just because Due/Created/Referral happens
-   to wrap away and free up real room on this line (live feedback: "when
-   Status and description are on same line, status disappears too soon in
-   that scenario"). Measuring row-facts-shell's own width directly against
-   Description's natural baseline + Status' own natural width answers the
-   real question regardless of what Due/Created/Referral are doing - own
-   comment, panel.js, has the fuller reasoning. */
-#actions-filtered-content.status-col-narrow .row-fact-col-status {
-    display: none;
-}
-#actions-filtered-content.status-col-narrow .action-status-select-form {
-    display: block;
-}
-/* (DES-S1) Same height as the .btn-sm buttons stacked directly beneath it
-   (live feedback: "Status dropdown should also be height of a button if it
-   is showing") - it sits in the button column, so a shorter control there
-   reads as a misaligned odd one out. Matching .btn-sm's own box exactly is
-   what does it: --space-xs vertical padding + a 1px border (both already
-   here) AND --font-sm, which the select's .status-pill class would
-   otherwise shrink a step below button text and take the control's height
-   down with it. line-height: normal for the same reason - .status-pill's
-   own line-height: 1 is a pill's tight fit, not a button's.
-   The rest (width/min-width/box-sizing) is the shape fix inherited from
-   the true-mobile/tablet copy of this same dropdown swap - own comment
-   history (git blame). */
-#actions-filtered-content.status-col-narrow .action-status-select-form .ui-select-trigger {
-    padding-top: var(--space-xs);
-    padding-bottom: var(--space-xs);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-sm);
-    width: 100%;
-    min-width: 0 !important;
-    box-sizing: border-box;
-    line-height: normal;
-}
-html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-select-form .ui-select-trigger {
-    padding-top: var(--space-sm);
-    padding-bottom: var(--space-sm);
 }
 /* Fills the row's own available width when it fits, scrolls (one line
    always, own rule above) when it doesn't - history: #154's original
@@ -5286,57 +5304,73 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
         padding-left: 0;
         flex: 1 1 100%;
     }
-    /* Status changer + buttons share one row at this width (#119
-       follow-up: "make Status a dropdown in mobile mode... fit on same
-       line as buttons") - overrides the base .row-btn-row-stacked rule's
-       flex-direction: column (panel.css, above) and the grid band's own
-       vertical stack (the dropdown swap above is already active at this
-       width, ≤1400px - only true mobile goes horizontal like this).
-       align-items: center
-       vertically centres the compact select against the taller buttons
-       beside it. */
-    #actions-filtered-content .entity-row > .row-btn-row.row-btn-row-stacked {
-        flex-direction: row;
-        align-items: center;
+    /* Description always takes the whole line to itself at this width, not
+       just whenever the JS-measured wrapped state happens to agree (live
+       feedback with a screenshot: mobile squeezed both onto one shared
+       half-width line each, DESCRIPTION truncating to "DESCRI...") - a
+       mobile card is narrow enough that sharing a line never reads well
+       even on the rare row where the fit math (measured against the
+       strip, not against each other - own comment, updateFactsLineLayout,
+       panel.js) says the pair technically could share it. No inline style
+       from JS to beat (only row-facts-track gets one), so a plain
+       stylesheet rule is enough - no !important/class needed.
+       Status itself gets NO matching flex-basis: 100% here - a first
+       attempt gave it one directly (live feedback with a screenshot: "when
+       status is on own row, its getting full width border") - same bug,
+       same cause, as the desktop version of this already fixed once (own
+       comment, .facts-cols-wrapped .row-fact-col-description, above): a
+       .row-fact-col is a column flex container with no align-items
+       override, so its default stretch applies along its HORIZONTAL cross
+       axis, and a full-basis Status box stretched its own segmented
+       control's box right along with it. Description's own flex-basis:
+       100% already leaves Status nothing to share line 1 with regardless -
+       .row-facts' native flex-wrap (base rule, above) pushes it onto line 2
+       for free, still at its own untouched flex: 0 0 auto (base rule,
+       above) natural content width, left-aligned, no stretch.
+       !important on both properties here, not a plain override - this
+       lost to the desktop wrapped-state rule's own higher specificity
+       (.entity-row.facts-cols-wrapped .row-fact-col-description, above:
+       2 classes beat this rule's 1) regardless of the media query or
+       source order, since specificity is compared before either of those
+       (live feedback with a screenshot: still squeezed onto a shared
+       half-width line at true mobile, confirming the wrapped rule was
+       the one actually winning). !important is the correct tool for a
+       narrow, deliberate, width-gated override like this one rather than
+       chasing the wrapped rule's exact specificity by hand. */
+    #actions-filtered-content .row-fact-col-description {
+        flex-basis: 100% !important;
+        max-width: none !important;
     }
-    /* .action-row-buttons' own align-self: flex-end (base rule,
-       unconditional) is meant for the desktop/tablet column layout above
-       (bottom-align the button pair under the taller segmented control) -
-       wrong once this row goes horizontal, where flex-end instead bottom-
-       aligns it against the select vertically. Overridden back to center
-       to match the parent's own align-items above. */
-    #actions-filtered-content .entity-row > .row-btn-row.row-btn-row-stacked > .action-row-buttons {
-        align-self: center;
+    #actions-filtered-content .row-fact-col-description span:last-child {
+        max-width: none !important;
     }
-    /* Equal thirds across the whole row (#119 follow-up: "wanted dropdown
-       to be on same row so third width and same height as the buttons") -
-       flex-grow 1 on the select form, 2 on the button pair's own container
-       (which then splits that into two equal shares below, flex:1 each) -
-       three flex-basis-0 items growing 1:1:1 total lands each one at
-       exactly a third, regardless of content width, rather than the
-       select claiming only its own auto content width like the very first
-       version of this did (live feedback screenshot: select stacked above
-       the buttons, not sharing the row at even thirds). display: block
-       itself is set by the wider dropdown-swap rule, above - only the
-       flex sizing for this specific horizontal layout lives here. */
-    #actions-filtered-content .action-status-select-form {
-        flex: 1 1 0;
-        min-width: 0;
+    /* Spacer's own "matching bonus" only ever makes sense when Status
+       shares a line with Description (own rule, above) - moot now that
+       they never do at this width, and, unhidden, would otherwise sit as
+       an empty flex item on Status' new full-width line, absorbing
+       nothing but still occupying gap. */
+    #actions-filtered-content .row-facts-status-spacer {
+        display: none;
     }
+    /* No dropdown to share this row with any more (the fused Status
+       control now gets its own row instead, above) - .row-btn-row-stacked
+       has only .action-row-buttons left inside it at this width, so its
+       own flex-direction is moot; just Referral Details/Edit Action, back
+       to a horizontal pair matching Referrals' own true-mobile button row
+       (#referrals-filtered-content .row-btn-row > *, above) instead of
+       .action-row-buttons' unconditional column stack (own rule, above -
+       live feedback with a screenshot: "The button should be horizontal
+       stack like referrals page". The column stack reads fine at desktop/
+       tablet width beside the taller segmented control, but at true
+       mobile there's no segmented control sharing this column any more to
+       justify the extra height, and two full-width stacked buttons read
+       as needlessly tall). */
     #actions-filtered-content .action-row-buttons {
-        /* Back to a horizontal row (overrides the wider ≤1400px band's own
-           flex-direction: column, above) - true mobile shares the dropdown
-           and the two buttons on one row instead of stacking everything,
-           so the pair needs to stay side by side within its own third of
-           that row. */
         flex-direction: row;
-        align-items: center;
-        flex: 2 1 0;
-        min-width: 0;
+        align-items: stretch;
     }
     #actions-filtered-content .action-row-buttons > * {
         flex: 1;
-        min-width: 0;
     }
 }
 /* #119 follow-up ("buttons auto fit width", then live feedback with a
@@ -8611,27 +8645,24 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
        than that floor just to make room, or the FAB goes back to
        overlapping the last real row. */
     flex: 1 0 var(--list-endcap-height, 47px);
-    /* var(--list-endcap-clearance, main.js) - live feedback: "slightly
-       less overlap. This is for both!" (the tray's own gap got the same
-       treatment, positionFilterTray). Without this the box sits flush
-       with the scroll container's own bottom, so the FAB's full
-       protrusion overlaps it; this margin lifts the box's bottom edge
-       clear of the tabbar by a small amount instead, trimming the
-       overlap without shrinking the box's own visible height. Resolves to
-       0 above mobile width, same reasoning as the height above. */
-    /* fabOverlapClearance() (main.js) falls back to a non-zero value
-       (19 * 0.35) when the FAB/tabbar aren't visible, not 0 - true above
-       true-mobile width, where this box should sit flush with zero gap
-       below it ("definitely do not want [a gap] after" it, live feedback)
-       rather than inheriting a leftover fraction of that fallback. */
-    margin-bottom: var(--list-endcap-clearance, 4px);
-    /* var(--border-strong), not var(--accent-border) (live feedback:
-       "Change the boundary line to also not be primary colour") -
-       --accent-border is still a softened primary tint under the
-       hood (themes.css), so this drops primary entirely rather than
-       just diluting it, landing on the same neutral the stripe below
-       already uses and the mobile tabbar's own border-top uses too. */
-    border-top: 1px solid var(--border-strong);
+    /* No border-top any more (live feedback: "shorter for mobile as well
+       and without the bottom border" - the divider line read as an extra
+       boundary once the box itself was already shortened below). The
+       stripe fill (below) is enough of a boundary on its own. */
+    /* margin-bottom dropped to a flat 0 (own rule further below used to
+       reserve var(--list-endcap-clearance,4px) here specifically to lift
+       the box's bottom edge clear of the tabbar) - live feedback with a
+       screenshot: "extra beige bottom just above the nav bar in mobile".
+       That gap was never page background bleeding through some OTHER
+       element - .entity-list's own background genuinely IS the page's
+       beige/cream tone (the gutter colour between gapped cards, own
+       comment below), so any margin reserved here, inside the list's own
+       flex column, shows as exactly that colour. Once the box itself is
+       this short (halved below, mobile-only), there's no room left to
+       spare for a deliberate clearance gap too - the FAB simply overlaps
+       the whole box now instead of just its bottom half, which is what
+       "much shorter" already implies. */
+    margin-bottom: 0;
     /* var(--bg-surface), not var(--bg-well) - tried var(--bg-well) when
        .entity-list itself first moved onto that surface (layout.css's
        gapped-card redesign), but the stripe's own 15% mix (below) reads
@@ -8660,15 +8691,36 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
         transparent 5px 11px
     );
 }
-/* fabOverlapClearance()'s own fallback (main.js, see the base rule's
-   comment above) never actually reaches 0 above true-mobile width -
-   forced here instead of fixing the shared JS function, which also feeds
-   positionFilterTray's tray-to-tabbar gap and isn't safe to touch for
-   this box alone. */
+/* Hidden outright above true-mobile width now (live feedback: "it should
+   only show in mobile... it is really only necessary on full page cards
+   on mobile due to the FAB overlapping the page" - the whole reason this
+   box exists is to keep the FAB's own protrusion, mobile-only, from
+   sitting on top of real row content; --list-endcap-height's underlying
+   JS math already resolves to 0 above mobile (base rule's own comment),
+   but flex-grow: 1 there has nothing stopping it from filling leftover
+   vertical space in a SHORT list on a tall desktop viewport regardless of
+   that 0 basis - display: none is the one change that can't leave a
+   residual band behind the way relying on a 0 basis alone could). */
 @media (min-width: 480px) {
     .filtered-content .entity-list::after,
     .filtered-content .filtered-list::after {
-        margin-bottom: 0;
+        display: none;
+    }
+}
+/* Halved (live feedback with a screenshot: "should be much shorter for
+   mobile as well") - still at least fabProtrusionAboveTabbar()'s own
+   single reach (not halved further than that), so the FAB's full
+   protrusion still lands inside the box rather than spilling onto real
+   row content above it; it now just covers the WHOLE box instead of only
+   the bottom half of a taller one. Scoped here rather than changing
+   setupListEndCapHeight (main.js) itself - that same --list-endcap-height
+   custom property also sizes My Referrals'/My Actions'/Upcoming Panel
+   Meetings' own end-of-list stripes (own comment, above), which weren't
+   part of this ask and keep their existing height. */
+@media (max-width: 480px) {
+    .filtered-content .entity-list::after,
+    .filtered-content .filtered-list::after {
+        flex-basis: calc(var(--list-endcap-height, 47px) / 2);
     }
 }
 /* (INT-S2) While .list-load-sentinel is still in the DOM (_students_rows.html:
@@ -8746,13 +8798,21 @@ html.nav-touch-mode #actions-filtered-content.status-col-narrow .action-status-s
        until now, leaving .main-inner's full bottom-tabbar clearance in
        place unconsumed: since .meeting-list scrolls internally within a
        height-bounded shell, that reserved space just sat empty below the
-       whole page instead of being felt as scroll clearance - live feedback:
-       "gap at bottom of page above bottom nav". Giving .meeting-list this
-       same padding-bottom moves the clearance onto its own trailing edge,
-       same fix as .entity-list's (layout.css). */
-    .meeting-list {
-        padding-bottom: calc(47px + 18px + var(--space-lg));
-    }
+       whole page instead of being felt as scroll clearance - live feedback
+       then: "gap at bottom of page above bottom nav".
+       No longer needed at all, and actively wrong now - .meeting-list is
+       also a .filtered-list (_meetings_filtered_content.html), so it
+       already gets the same shortened, margin-free ::after end-cap every
+       other list page does (own rule, above) once that stripe itself
+       stopped needing a separate FAB-clearance reservation. This padding
+       was a SEPARATE, hardcoded ~85px slab added back when the ::after
+       mechanism didn't cover Meetings yet - stacking it on top of the
+       now-fixed stripe just reintroduced the exact gap that stripe fix
+       was meant to remove (live feedback with a screenshot: "when
+       scrolled down there should not be the beige gap... page should end
+       in stripes directly above mobile bottom nav" - confirmed live via
+       Playwright: .meeting-list's own padding-bottom, not the stripe,
+       accounted for the ~104px gap between the last card and the tabbar). */
 }
 /* html.filter-bar-mobile-mode, not @media (max-width: 480px) - live
    feedback: "I do not want this line here [above Filters] in portrait
