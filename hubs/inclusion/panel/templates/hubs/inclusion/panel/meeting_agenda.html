@@ -5,7 +5,7 @@
 {% block title %}Panel Agenda{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=400">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=402">
 {% endblock %}
 
 
@@ -200,7 +200,7 @@ regardless if the browser closes entirely before that happens.
         {% endif %}
         </div>
         <div class="setup-col-footer">
-            <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ panel.panel_group_id|default:'' }}" {% if not panel.panel_group_id %}disabled title="Assign a Panel Group first"{% endif %}><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Group<span class="btn-label-break">Membership</span></button>
+            <button type="button" class="btn btn-subtle btn-sm" data-open-group-edit-trigger data-group-id="{{ panel.panel_group_id|default:'' }}" {% if not panel.panel_group_id %}disabled data-disabled-reason="Assign a Panel Group first"{% endif %}><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit Group<span class="btn-label-break">Membership</span></button>
         </div>
     </div>
 
@@ -248,14 +248,14 @@ regardless if the browser closes entirely before that happens.
                             <input type="hidden" name="form_action" value="move_agenda_referral">
                             <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
                             <input type="hidden" name="direction" value="up">
-                            <button type="submit" class="agenda-order-btn" {% if forloop.first %}disabled{% endif %} aria-label="Promote (move up in agenda order)" title="Promote">{% include 'icons/arrow_up_svg.html' %}</button>
+                            <button type="submit" class="agenda-order-btn" {% if forloop.first %}disabled{% endif %} aria-label="Promote (move up in agenda order)" title="Promote" data-disabled-reason="Already first on the agenda">{% include 'icons/arrow_up_svg.html' %}</button>
                         </form>
                         <form method="post">
                             {% csrf_token %}
                             <input type="hidden" name="form_action" value="move_agenda_referral">
                             <input type="hidden" name="panel_referral_id" value="{{ pr.id }}">
                             <input type="hidden" name="direction" value="down">
-                            <button type="submit" class="agenda-order-btn" {% if forloop.last %}disabled{% endif %} aria-label="Demote (move down in agenda order)" title="Demote">{% include 'icons/arrow_down_svg.html' %}</button>
+                            <button type="submit" class="agenda-order-btn" {% if forloop.last %}disabled{% endif %} aria-label="Demote (move down in agenda order)" title="Demote" data-disabled-reason="Already last on the agenda">{% include 'icons/arrow_down_svg.html' %}</button>
                         </form>
                     </div>
                 </div>

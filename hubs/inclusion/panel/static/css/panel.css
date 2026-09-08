@@ -4299,8 +4299,16 @@ html.nav-touch-mode .row-facts-arrow {
        dead gap on the right, live feedback: "buttons do not seem to fit
        available horizontal space on mobile mode". Equal flex: 1 each fills
        the row edge to edge instead. */
+    /* The .disabled-btn-tooltip-wrap companions (see .meeting-card-actions'
+       own copy of this pattern above for the full why): that wrapper is
+       display: contents, so its .btn child is the real flex item here while
+       `>` still matches the wrapper in the DOM - Referrals' disabled
+       "Actions" button gets one built around it (wireDisabledTooltips,
+       main.js) the moment a referral has no actions. */
     #referrals-filtered-content .row-btn-row > *,
-    #escalations-filtered-content .row-btn-row > * {
+    #escalations-filtered-content .row-btn-row > *,
+    #referrals-filtered-content .row-btn-row > .disabled-btn-tooltip-wrap > .btn,
+    #escalations-filtered-content .row-btn-row > .disabled-btn-tooltip-wrap > .btn {
         flex: 1;
     }
     /* row-gap only, not the shorthand gap (base rule, above, sets both
@@ -7126,7 +7134,11 @@ html.nav-touch-mode .row-facts-arrow {
     #students-filtered-content .btn-row {
         flex-wrap: nowrap;
     }
-    #students-filtered-content .btn-row > * {
+    /* .disabled-btn-tooltip-wrap companion - same reason as Referrals' copy
+       above; Students' own "Actions" button is disabled (and so wrapped)
+       whenever the student has none. */
+    #students-filtered-content .btn-row > *,
+    #students-filtered-content .btn-row > .disabled-btn-tooltip-wrap > .btn {
         flex: 1 1 0;
         min-width: 0;
     }
@@ -8749,6 +8761,25 @@ html.nav-touch-mode .row-facts-arrow {
     .filtered-content .filtered-list::after {
         flex-basis: calc(var(--list-endcap-height, 47px) / 2);
     }
+}
+/* GLOBAL, every width: the mobile-only hide above is about the FAB, and an
+   EMPTY list has no FAB problem to solve - it has a whole card of blank
+   space instead, which reads as broken/still-loading rather than "nothing
+   here" (live feedback with a desktop screenshot of Escalations: "no
+   escalations should have striped effect. Is there a way of making this a
+   global CSS styling so it is not forgotten"). Same two shared hooks as the
+   base rule (.entity-list + .filtered-list), so this is one rule for every
+   current and future filtered list page rather than a per-page opt-in - the
+   same "make it global so it can't be forgotten" pattern as the .chosen
+   divider net and the .filtered-list hook itself.
+   :has(> .empty-note) adds a class to the selector, so this outranks the
+   min-width: 480px display: none above regardless of media/source order.
+   The empty-note is already taken out of flow (own rule below), leaving the
+   stripe as the list's only flex child - flex-grow: 1 then fills the card
+   with it and the message centres on top. */
+.filtered-content .entity-list:has(> .empty-note)::after,
+.filtered-content .filtered-list:has(> .empty-note)::after {
+    display: block;
 }
 /* (INT-S2) While .list-load-sentinel is still in the DOM (_students_rows.html:
    {% if page_obj.has_next %}), a further page is genuinely pending - the

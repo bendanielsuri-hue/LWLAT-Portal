@@ -5,18 +5,18 @@ element itself never shows a tooltip, so it has to sit on a plain wrapping
 element that still receives hover instead. `title` is optional: omit it
 when the label alone is explanation enough.
 
-.disabled-btn-tooltip-wrap (buttons.css: display: contents) - when this
-sits as a flex item in a row of real buttons (e.g. Panel Meetings' own
-.meeting-card-actions), a plain wrapping <span> becomes the actual flex
-item instead of the .btn inside it, but .btn's own inline-flex sizing
-still shrinks it to its natural content width regardless of the wrapper's
-own (differently-computed) flex box - the two disagreed and the button
-visually overflowed its own slot into the next one (live feedback,
-screenshot: "Start meeting looks like its colliding"). display: contents
-removes the wrapper from the box/layout tree entirely (title/hover still
-resolve off the DOM, not the render tree, so the tooltip keeps working)
-so .btn itself becomes the real flex item and sizes exactly like every
-other button in the row.
+.disabled-btn-tooltip-wrap (buttons.css: display: inline-flex + a
+fill rule for its .btn child) - when this sits as a flex item in a row of
+real buttons (e.g. Panel Meetings' own .meeting-card-actions), a plain
+inline <span> wrapper becomes the actual flex item instead of the .btn
+inside it, but .btn's own inline-flex sizing still shrinks it to its
+natural content width regardless of the wrapper's own (differently-
+computed) flex box - the two disagreed and the button visually overflowed
+its own slot into the next one (live feedback, screenshot: "Start meeting
+looks like its colliding"). display: contents was the first fix for that
+and broke the tooltip itself - a contents box is no box, so there was
+nothing for the pointer to land on and no tooltip ever appeared. See that
+rule's own comment for the current shape.
 
 Params: classes (extra .btn modifier classes, e.g. "btn-secondary btn-sm"),
 icon (icon template path, optional), label (button text), title (tooltip

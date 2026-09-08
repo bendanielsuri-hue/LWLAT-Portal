@@ -2774,7 +2774,13 @@ function wireRowRemoveForm(form) {
         e.preventDefault();
         form.dataset.submitting = '1';
         var submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        // (INT-U3/F1) Disabled only while the request is in flight - the
+        // reason says so rather than reading as a permanently blocked
+        // action; the catch below re-enables it.
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.dataset.disabledReason = 'Working on it…';
+        }
         fetch(form.action, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },

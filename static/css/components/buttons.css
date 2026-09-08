@@ -136,11 +136,33 @@ html.nav-touch-mode .btn {
 .btn-row { display: flex; gap: var(--space-xs); flex-wrap: wrap; align-items: center; flex-shrink: 0; }
 .btn-row .btn { flex-shrink: 0; }
 .btn-row[hidden] { display: none; }
-/* _disabled_btn.html's own optional title-tooltip wrapper - see that
-   file's own comment for why this needs to be display: contents rather
-   than a normal box wherever it sits inside a flex row of real buttons. */
+/* (INT-U3) The hoverable wrapper that carries a disabled button's "why"
+   tooltip, since the button itself can't receive hover while disabled.
+   Built two ways: by hand in _disabled_btn.html (its `title` param), and
+   automatically by wireDisabledTooltips (main.js) around any control
+   carrying data-disabled-reason.
+   display: inline-flex, NOT display: contents (which this was until live
+   feedback: "I still get no tool tip when i hover inactive action"). The
+   whole job of this element is to be the thing the pointer lands on when
+   the disabled control inside it refuses the hover - and display: contents
+   generates no box at all, so there is nothing to hit: the pointer fell
+   straight through to whatever ancestor had a real box, which is not where
+   the title lives. contents was chosen to stop a plain inline <span>
+   wrapper from becoming a mis-sized flex item in a row of buttons
+   (_disabled_btn.html's own comment has that history) - inline-flex fixes
+   that properly instead: the wrapper shrink-wraps the button, so it takes
+   exactly the size the button would have taken, and when a row's own
+   `> *` rule stretches it, the .btn below fills it. */
 .disabled-btn-tooltip-wrap {
-    display: contents;
+    display: inline-flex;
+    min-width: 0;
+}
+/* Fill whatever the wrapper was sized to by its row (a `> *` flex rule now
+   lands on the wrapper, not the button), so a stretched slot doesn't leave
+   a content-width button sitting in a wider box. */
+.disabled-btn-tooltip-wrap > .btn {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 /* Drop icons before wrapping, keep the text, for any horizontally-stacked
    button row that opts in - originally Meetings-only (live feedback:

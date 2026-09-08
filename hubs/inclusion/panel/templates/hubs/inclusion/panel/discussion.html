@@ -5,7 +5,7 @@
 {% block title %}Panel Discussion{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=221">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=223">
 {% endblock %}
 
 
@@ -121,7 +121,7 @@
             <input type="hidden" name="follow_up_date" id="follow-up-date" value="{{ panel_referral.follow_up_date|date:'Y-m-d' }}">
             <div class="btn-row">
                 <button type="button" class="btn btn-sm" data-modal-close>Cancel</button>
-                <button type="submit" class="btn btn-secondary btn-sm" id="confirm-end-discussion-btn" disabled>Confirm End Discussion</button>
+                <button type="submit" class="btn btn-secondary btn-sm" id="confirm-end-discussion-btn" disabled data-disabled-reason="Choose whether a follow-up is needed first">Confirm End Discussion</button>
             </div>
         </form>
     </div>
@@ -602,10 +602,17 @@ document.addEventListener('DOMContentLoaded', function () {
         var requiresFollowup = followupInput.value === 'yes';
         var hasChoice = followupInput.value === 'yes' || followupInput.value === 'no';
         dateGroup.hidden = !requiresFollowup;
+        // (INT-U3) The reason moves with the state - the two ways this
+        // button can be blocked have different fixes, so a single static
+        // reason would be wrong half the time. wireDisabledTooltips
+        // (main.js) mirrors whichever is current onto the hoverable
+        // wrapper; the button itself can't show a tooltip while disabled.
         if (!hasChoice) {
             confirmBtn.disabled = true;
+            confirmBtn.dataset.disabledReason = 'Choose whether a follow-up is needed first';
         } else if (requiresFollowup) {
             confirmBtn.disabled = !dateInput.value;
+            confirmBtn.dataset.disabledReason = 'Pick a follow-up date first';
         } else {
             confirmBtn.disabled = false;
         }
