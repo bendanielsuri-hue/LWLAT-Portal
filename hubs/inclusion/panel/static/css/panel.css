@@ -2406,24 +2406,28 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    background fill or full outline - a full outline would paint over
    .chosen's own left accent bar below and make it disappear on hover,
    cards.css's own comment has the full story), bolder primary fill + fuller
-   inset accent once .chosen (click-to-select) — both spanning the full
-   card width via the negative margin above. :not(.chosen) so hovering an
-   already-chosen row leaves its own thicker/filled accent alone. */
-.panel-list li:hover:not(.chosen),
-.panel-list li:focus-visible:not(.chosen) {
-    /* var(--border-color) — kept in sync with cards.css's .selectable:hover;
+   fill once .chosen (click-to-select) — both spanning the full card width
+   via the negative margin above. The bar is a hover/focus marker only now
+   (cards.css has the live-feedback trail), so no :not(.chosen) exclusion -
+   hovering an already-chosen row shows it over that row's fill too. */
+.panel-list li:hover,
+.panel-list li:focus-visible {
+    /* var(--accent-border) — kept in sync with cards.css's .selectable:hover;
        see SYNC markers there for the shared-pattern list. */
-    box-shadow: inset 6px 0 0 var(--border-color);
+    box-shadow: inset 6px 0 0 var(--accent-border);
 }
 /* Fake bold via text-shadow (INT-M4), not font-weight — see cards.css's
    .selectable:hover .entity-title for why. */
 .panel-list li:hover .panel-item-title,
-.panel-list li:focus-visible .panel-item-title {
+.panel-list li:focus-visible .panel-item-title,
+.panel-list li:hover .panel-preview-title,
+.panel-list li:focus-visible .panel-preview-title {
     text-shadow: var(--hover-fake-bold);
 }
-.panel-list li.chosen { background: var(--primary-light); box-shadow: inset 6px 0 0 var(--accent-border); }
+.panel-list li.chosen { background: var(--primary-light); }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
-.panel-list li.chosen .panel-item-title { text-shadow: var(--hover-fake-bold); }
+.panel-list li.chosen .panel-item-title,
+.panel-list li.chosen .panel-preview-title { text-shadow: var(--hover-fake-bold); }
 .panel-list li.chosen:hover { background: var(--primary-light); }
 .panel-list li.empty-note:hover { box-shadow: none; }
 
@@ -2463,15 +2467,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         border: 1px solid var(--border-color);
         box-shadow: var(--card-shadow);
     }
-    /* Combines the accent bar with var(--card-shadow) in one box-shadow
-       list - box-shadow isn't additive across separate declarations, so
-       restating it here (same fix as .list-card .entity-row's own hover/
-       chosen overrides, layout.css) is what keeps the shadow from
-       disappearing on hover/chosen. */
-    .list-page-shell .panel-list li:hover:not(.chosen),
-    .list-page-shell .panel-list li:focus-visible:not(.chosen) {
-        box-shadow: inset 6px 0 0 var(--border-color), var(--card-shadow);
-    }
     /* background restated (not just relying on the base .panel-list
        li.chosen rule, cards.css-equivalent) - that base rule and this
        file's own .list-page-shell .panel-list li (above) are the same
@@ -2480,11 +2475,35 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        confirmed live: chosen rows on Home showed a plain bg-surface card
        with no primary fill or accent bar at all, reading as just another
        bordered rectangle instead of a selected row.
-       border-left-color also restated here (SYNC: .list-card .entity-row.chosen,
-       layout.css) so the row's own left border blends into the accent bar
-       instead of showing as a separate sliver in front of it. */
+       Sits ABOVE the hover/focus rule below, not after it, for the same
+       source-order reason: a chosen row and a hovered row tie on
+       specificity here too (3 classes + type each, :hover counting as a
+       class), so whichever comes last wins outright. With this block last,
+       a chosen row's own box-shadow silently replaced the hover bar, so
+       hovering a selected row looked different from hovering any other one
+       (live feedback: "hover on active My actions is not the same as hover
+       when inactive"). box-shadow kept here anyway (rather than left to the
+       base li rule) so this block stands alone as the chosen row's full
+       resting state. */
     .list-page-shell .panel-list li.chosen {
         background: var(--primary-light);
+        box-shadow: var(--card-shadow);
+    }
+    /* Combines the accent bar with var(--card-shadow) in one box-shadow
+       list - box-shadow isn't additive across separate declarations, so
+       restating it here (same fix as .list-card .entity-row's own hover
+       override, layout.css) is what keeps the shadow from disappearing on
+       hover. Last of the three rules deliberately - see .chosen's own
+       source-order comment above. */
+    /* :not(.empty-note), matching the base "gapped card" rule above - the
+       placeholder row is not selectable and has no card chrome, but these
+       selectors tie with .panel-list li.empty-note:hover's own box-shadow:
+       none reset (3 classes + type each) and sit later in the file, so
+       without this the empty state picked up a full hover bar + accent
+       border of its own (live feedback: "when there are no referrals I seem
+       to have a hover rectangle on No open Referrals"). */
+    .list-page-shell .panel-list li:not(.empty-note):hover,
+    .list-page-shell .panel-list li:not(.empty-note):focus-visible {
         border-left-color: var(--accent-border);
         box-shadow: inset 6px 0 0 var(--accent-border), var(--card-shadow);
     }
@@ -3127,19 +3146,21 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 /* Row standard (see .selectable in cards.css): inset outline, not a
    background fill - stays visible against the card's own border regardless.
    Left-edge accent bar (see cards.css's .selectable:hover comment for the
-   full reasoning), not a full outline - a full outline painted over
-   .chosen's own left accent bar below and made it disappear on hover.
-   :not(.chosen) so hovering an already-chosen card leaves its own
-   thicker/filled accent alone. */
-.meeting-card:hover:not(.chosen),
-.meeting-card:focus-visible:not(.chosen) {
+   full reasoning), not a full outline. Hover/focus only - .chosen is a
+   fill, with no bar of its own to collide with, so this applies to a
+   chosen card too. */
+.meeting-card:hover,
+.meeting-card:focus-visible {
     /* SYNC: cards.css's .selectable:hover is the source of truth for bar
        width/hover colour/chosen colour (see its own SYNC comment).
        Combined with var(--card-shadow) (base rule, above) in one box-shadow
        list - box-shadow isn't additive across separate declarations, so
        restating it here is what keeps the card's own drop shadow from
-       disappearing on hover. */
-    box-shadow: inset 6px 0 0 var(--border-color), var(--card-shadow);
+       disappearing on hover. border-left-color (SYNC: .list-card
+       .entity-row:hover, layout.css) blends the card's own left border into
+       the bar instead of leaving it as a separate sliver in front. */
+    border-left-color: var(--accent-border);
+    box-shadow: inset 6px 0 0 var(--accent-border), var(--card-shadow);
 }
 /* Fake bold via text-shadow (INT-M4), not font-weight — the title is
    ellipsis-truncated but flex-sized to its own content, so a real weight
@@ -3154,12 +3175,11 @@ html:not(.nav-touch-mode) .meeting-card:hover h3,
 .meeting-card:focus-visible h3 {
     text-shadow: var(--hover-fake-bold);
 }
-/* box-shadow combines the accent bar with var(--card-shadow) (base rule,
-   above) - see .meeting-card:hover's own comment on why both need
-   restating together here. border-left-color (SYNC: .list-card
-   .entity-row.chosen, layout.css) blends the card's own left border into
-   the accent bar instead of leaving it as a separate sliver in front. */
-.meeting-card.chosen { background: var(--primary-light); border-left-color: var(--accent-border); box-shadow: inset 6px 0 0 var(--accent-border), var(--card-shadow); }
+/* Fill only - the accent bar (and its border-left-color companion) is a
+   hover/focus marker now, on .meeting-card:hover above, not on .chosen
+   (cards.css). No box-shadow restatement needed either: with no bar of its
+   own, the base rule's own var(--card-shadow) just stands. */
+.meeting-card.chosen { background: var(--primary-light); }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .meeting-card.chosen h3 { text-shadow: var(--hover-fake-bold); }
 
@@ -3528,15 +3548,10 @@ html:not(.nav-touch-mode) .meeting-card:hover h3,
    I would want it to act the same". */
 .row-facts { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
 .row-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
-/* Accent on .chosen too (live feedback: "vertical dividers between data
-   cols should also change to primary fill if row is active") - unlike the
-   header/buttons dividers (CONVENTION comment, .entity-row.chosen >
-   .row-btn-row, below), Referrals/Students redeclare no border-left colour
-   of their own, so this one shared rule is enough for them. Actions no
-   longer has any .mc-vdivider elements in its own facts strip at all (its
-   dividers are column borders now, own ID-scoped .chosen rule further
-   below) - this shared rule simply doesn't match there any more. */
-.entity-row.chosen .row-facts .mc-vdivider { border-left-color: var(--accent-border); }
+/* The "vertical dividers between data cols go primary when the row is
+   active" rule (live feedback) that used to sit here, scoped to
+   .entity-row.chosen, is gone - the GLOBAL .chosen .mc-vdivider safety net
+   below supersedes it for every page and marker class at once. */
 /* GLOBAL safety net, not another per-page copy: .row-facts' own border-top
    (the horizontal divider above the facts strip) AND .mc-vdivider (the
    vertical dividers between individual facts) never got a .chosen accent
@@ -3558,10 +3573,20 @@ html:not(.nav-touch-mode) .meeting-card:hover h3,
    id-scoped divider colour regardless of specificity. This is now the one
    place a "chosen row's dividers go accent" bug gets fixed for every
    current and future page - nothing page-specific to remember to add. */
-.chosen .row-facts {
+.chosen .row-facts,
+.chosen .panel-item-actions {
     border-top-color: var(--accent-border) !important;
 }
-.chosen .row-facts .mc-vdivider {
+/* .mc-vdivider unscoped, not .row-facts .mc-vdivider - the class is the
+   portal's one "vertical divider inside a row" convention, and scoping it
+   to the facts strip missed the other place it's used: Home's My Actions
+   rows divide their student/details columns with a
+   .panel-item-body--two-col .mc-vdivider, outside any .row-facts (live
+   feedback: "My Actions needs primary dividers when active as well").
+   .panel-item-actions (above) is that same card's horizontal divider above
+   its status changer - same convention, same reason. Both stay in this one
+   global block rather than becoming per-card copies. */
+.chosen .mc-vdivider {
     border-left-color: var(--accent-border) !important;
 }
 /* Permanent horizontal scroll, one row always (#157 follow-up - live
@@ -4047,13 +4072,24 @@ html.nav-touch-mode .row-facts-arrow {
    never fix this without an ID of its own, which a genuinely shared rule
    can't have. !important sidesteps the specificity fight entirely instead
    of relying on every future page remembering its own copy of the fix (the
-   thing that kept not happening) - covers both class conventions in use
-   (.row-btn-row: Referrals/Actions/Escalations; .btn-row: Students) so a
-   new list page needs neither variant re-declared. The three per-page
-   re-assertions this superseded are gone - grep panel.css's own history if
-   one needs restoring for reference. */
-.entity-row.chosen > .row-btn-row,
-.entity-row.chosen > .btn-row {
+   thing that kept not happening) - covers every button-column class
+   convention in use (.row-btn-row: Referrals/Actions/Escalations;
+   .btn-row: Students; .meeting-card-actions: Meetings) so a new list page
+   needs no variant re-declared. The three per-page re-assertions this
+   superseded are gone - grep panel.css's own history if one needs
+   restoring for reference.
+   Keyed off a bare descendant .chosen, not .entity-row.chosen > ... - same
+   generalisation (and same live feedback: "I thought I made a global css
+   that dealt with this so it would not get forgotten") as the .chosen
+   .row-facts safety net above: Meetings' chosen-row marker is
+   .meeting-card.chosen, not .entity-row.chosen, so the old anchored child
+   selector silently skipped it and a selected meeting card's buttons
+   divider stayed neutral. A bare .chosen matches whatever marker class the
+   NEXT page turns out to use too, and a descendant (not child) combinator
+   survives a button column nested a level deeper inside the row. */
+.chosen .row-btn-row,
+.chosen .btn-row,
+.chosen .meeting-card-actions {
     border-left-color: var(--accent-border) !important;
 }
 /* A <form>-wrapped button (e.g. Escalations' Launch Meeting - a POST, not a
@@ -9505,24 +9541,22 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
     background: var(--bg-surface-alt);
 }
 .agenda-table td { padding: var(--space-sm) var(--space-md); font-size: var(--font-base); border-bottom: 1px solid var(--border-faint); }
-/* Row standard (see .selectable in cards.css): an inset outline on hover
-   (only wired up where a row's cells are plain text/links, e.g.
+/* Row standard (see .selectable in cards.css): a left-edge accent bar on
+   hover (only wired up where a row's cells are plain text/links, e.g.
    referrals/actions — not on rows that hold their own form controls), and
-   a bolder --primary-light + inset accent for rows marked .chosen. */
-/* Left-edge accent bar on hover (see cards.css's .selectable:hover comment
-   for the full reasoning), not a full outline - a full outline painted
-   over .chosen's own left accent bar below and made it disappear on
-   hover. :not(.chosen) so hovering an already-chosen row leaves its own
-   thicker/filled accent alone. */
-.agenda-table tbody tr:hover:not(.chosen),
-.agenda-table tbody tr:focus-visible:not(.chosen) {
+   a --primary-light fill for rows marked .chosen.
+   Not a full outline (see cards.css's .selectable:hover comment for the
+   full reasoning). Hover/focus only - .chosen has no bar of its own to
+   collide with, so this applies to a chosen row too. */
+.agenda-table tbody tr:hover,
+.agenda-table tbody tr:focus-visible {
     /* SYNC: cards.css's .selectable:hover is the source of truth (see its
        own SYNC comment). No border-left-color companion needed here, unlike
        .list-card .entity-row/.meeting-card/.panel-list li - table rows have
        no border of their own to blend into (just cell border-bottoms). */
-    box-shadow: inset 6px 0 0 var(--border-color);
+    box-shadow: inset 6px 0 0 var(--accent-border);
 }
-.agenda-table tbody tr.chosen { background: var(--primary-light); box-shadow: inset 6px 0 0 var(--accent-border); }
+.agenda-table tbody tr.chosen { background: var(--primary-light); }
 /* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
 .agenda-table tbody tr.chosen td:first-child { text-shadow: var(--hover-fake-bold); }
 .agenda-table tbody tr.chosen:hover { background: var(--primary-light); }
@@ -9987,9 +10021,12 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
     overflow-y: auto;
     padding: var(--space-md) var(--space-lg);
     min-width: 0;
-    /* Same inset accent bar .entity-row.chosen already uses (cards.css) -
-       reused here (prototyped as connector option 1 of 3) so the detail
-       pane visibly reads as that chosen row's own content. */
+    /* Same inset accent bar the shared row hover/focus state uses
+       (.selectable:hover, cards.css) - reused here (prototyped as connector
+       option 1 of 3) so the detail pane visibly reads as the chosen row's
+       own content. Deliberately kept on this pane even though .chosen rows
+       themselves are fill-only now: here it's a connector between two
+       panes, not a selection marker competing with one. */
     box-shadow: inset 3px 0 0 var(--accent-border);
 }
 /* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card).

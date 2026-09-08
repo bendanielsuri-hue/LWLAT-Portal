@@ -2051,7 +2051,7 @@ html:not(.nav-touch-mode) .list-card .entity-list {
    list-page treatment. No :not(.chosen) guard needed here (unlike the old
    zebra rule) - this selector's specificity (2 classes) no longer outranks
    .entity-row.chosen's (cards.css, also 2 classes, loaded later), so
-   .chosen's own background/accent bar wins on its own. No border-radius -
+   .chosen's own background fill wins on its own. No border-radius -
    rows are flush to the list-card's own left/right edge (no side margin
    on .entity-list, above), so a rounded corner here would just expose the
    well underneath at a mismatched radius rather than reading as a card. */
@@ -2076,20 +2076,18 @@ html:not(.nav-touch-mode) .list-card .entity-list {
    cascade) took over. Scoped to .list-card - the shared rule's other
    consumers (modal pickers, Panel Agenda rosters, etc.) never had a
    card-shadow to begin with. */
-.list-card .entity-row:hover:not(.chosen),
-.list-card .entity-row:focus-visible:not(.chosen) {
-    box-shadow: inset 6px 0 0 var(--border-color), var(--card-shadow);
-}
 /* border-left-color, not just the box-shadow bar - an inset shadow paints
    inside the border, not over it (the border itself is drawn after/on top,
    see .list-card .entity-row's own border: 1px solid var(--border-color)
    above), so without this the row's plain left border edge still showed as
-   its own 1px sliver in front of the accent bar once chosen (live feedback:
-   "rectangle within border"). Matching the border to the bar's own colour
-   makes the two read as one continuous accent edge instead of a border
-   framing a bar. Only -color, not the full border-left shorthand - width/
-   style stay whatever the base rule already set. */
-.list-card .entity-row.chosen {
+   its own 1px sliver in front of the accent bar (live feedback: "rectangle
+   within border"). Matching the border to the bar's own colour makes the
+   two read as one continuous accent edge instead of a border framing a
+   bar. Only -color, not the full border-left shorthand - width/style stay
+   whatever the base rule already set. Lives on :hover/:focus-visible now,
+   not .chosen - the bar is a hover-only marker (cards.css). */
+.list-card .entity-row:hover,
+.list-card .entity-row:focus-visible {
     border-left-color: var(--accent-border);
     box-shadow: inset 6px 0 0 var(--accent-border), var(--card-shadow);
 }
@@ -2098,11 +2096,8 @@ html:not(.nav-touch-mode) .list-card .entity-list {
    there) combined with --card-shadow the same way the unconditional rules
    above do. */
 @media (max-width: 480px) {
-    .list-card .entity-row:hover:not(.chosen),
-    .list-card .entity-row:focus-visible:not(.chosen) {
-        box-shadow: inset 3px 0 0 var(--border-color), var(--card-shadow);
-    }
-    .list-card .entity-row.chosen {
+    .list-card .entity-row:hover,
+    .list-card .entity-row:focus-visible {
         box-shadow: inset 3px 0 0 var(--accent-border), var(--card-shadow);
     }
 }
