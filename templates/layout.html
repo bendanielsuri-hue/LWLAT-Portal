@@ -101,8 +101,8 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=484">
-    <script src="{% static 'js/main.js' %}?v=256" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=485">
+    <script src="{% static 'js/main.js' %}?v=257" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -284,7 +284,7 @@
                 var narrow = window.matchMedia('(max-width: 1200px)').matches;
                 var hoverCapable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
                 var locked = narrow && hoverCapable && !touch;
-                var touchRail = window.matchMedia('(min-width: 480px) and (max-width: 1180px)').matches && touch;
+                var touchRail = window.matchMedia('(min-width: 481px) and (max-width: 1180px)').matches && touch;
                 var wideDesktop = hoverCapable && !narrow && !touch;
                 var manualCollapsed = false;
                 try { manualCollapsed = localStorage.getItem('pref-sidebar-collapsed') === '1'; } catch (e) { }
@@ -433,6 +433,32 @@
                     </button>
                     <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="768" data-bp-h="1024" data-bp-touch="true" data-tooltip="Tablet Portrait · 768×1024 (basic iPad)">
                         {% include 'icons/bp_tablet_portrait_svg.html' %}
+                    </button>
+                    {% comment %}
+                    600x800, non-touch: the 481-700px band had no preset at
+                    all, so nothing exercised the one state where a page uses
+                    the stacked-card list format (panel.css's <=700px rules)
+                    while still getting DESKTOP page chrome - full 32px margin,
+                    visible breadcrumbs, locked icon rail. Those <=700px rules
+                    were written for exactly this "mobile layout on a plainly
+                    desktop-shaped window" case (their own comments say so) and
+                    it was the only tier you had to hand-resize to see.
+                    data-bp-touch deliberately omitted (false) for the same
+                    reason - a touch preset here would exercise the tablet rail
+                    instead, which the two iPad presets already cover.
+                    {% endcomment %}
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="600" data-bp-h="800" data-tooltip="Narrow window · 600×800 (stacked rows, desktop chrome)">
+                        {% include 'icons/bp_narrow_svg.html' %}
+                    </button>
+                    {% comment %}
+                    430x932 (iPhone Pro Max class) - the top edge of the phone
+                    tier. Same tier as the 375 preset below, but 375 alone never
+                    showed how phone chrome behaves near its own <=480px
+                    boundary, which is precisely where two off-by-one bugs
+                    shipped - see the breakpoint registry in responsive.css.
+                    {% endcomment %}
+                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="430" data-bp-h="932" data-bp-touch="true" data-tooltip="Mobile Large · 430×932 (top of the phone tier)">
+                        {% include 'icons/bp_mobile_large_svg.html' %}
                     </button>
                     <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="375" data-bp-h="667" data-bp-touch="true" data-tooltip="Mobile · 375×667">
                         {% include 'icons/bp_mobile_svg.html' %}

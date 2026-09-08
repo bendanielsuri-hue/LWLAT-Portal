@@ -1,5 +1,71 @@
 /* Responsive overrides — must load last to win the cascade */
 
+/* ---------------------------------------------------------------------------
+   BREAKPOINT REGISTRY — the canonical tier list for the whole portal.
+
+   Every individual breakpoint in this codebase already carries a comment
+   justifying its own value; what was missing was anywhere stating the SET.
+   Without that, each new rule picked whichever number looked closest, and two
+   boundary bugs shipped from exactly that (see "Boundary rule" below). Add a
+   tier here before using a new number anywhere; if a rule doesn't fit an
+   existing tier, that's a design question, not a CSS one.
+
+   Tier      Range        Owns
+   -------   ----------   ------------------------------------------------
+   phone     <= 480px     Global phone chrome: .main-inner 12px margin,
+                          breadcrumbs hidden, page-header actions hidden,
+                          mobile bottom tab bar (_hub_sidebar.html), the
+                          filter-bar tap-to-expand collapse, compact KPI
+                          grid, dashboard card/chart phone treatments.
+                          JS: trueMobileMql (main.js).
+   stacked   <= 700px     List rows give up their desktop row+action-column
+                          split for the stacked-card format (Referrals,
+                          Actions, Meetings, Students; panel.css only).
+                          Deliberately WIDER than phone: the action column
+                          starves the details text well before 480px.
+   narrow    <= 900px     Narrowed-desktop filter-bar mode, page-header
+                          actions overflow menu, form field stacking, card
+                          layouts. JS: studentsNarrowMql (main.js).
+   tablet    <= 1024px    Dashboard KPI strip 3-up grid, breakdown-grid
+                          rhythm, the 2-column breakdown-grid--top band
+                          (which is floored at 481px - see its own comment).
+   touch     <= 1180px    Touch/tablet rail expand-in-place, card-switcher
+                          tab collapse, app-footer hidden. Matches the
+                          latest iPad's 1180px logical viewport.
+                          JS: touchRailMql (main.js).
+   rail      <= 1200px    Hub sidebar auto-collapses to the 64px icon rail;
+                          global hub-rail hidden. JS: narrowMql (main.js).
+
+   Boundary rule: a tier's max is N and the matching min is N+1. NEVER pair
+   `max-width: N` with `min-width: N`, and never express a tier's floor as
+   `max-width: N-1`. Both mistakes were live in this codebase:
+
+     - panel.css paired `min-width: 480px` (endcap `display: none`) against
+       `max-width: 480px`. Both matched at exactly 480px and set different
+       properties, so `display: none` was never overridden - the end-of-list
+       stripe silently vanished at that one width.
+     - the mobile tab bar, Panel Home's phone reclaim and two carousel bleeds
+       used `max-width: 479px` while global phone chrome used `max-width:
+       480px`. At exactly 480px the page took phone margins and hid its
+       breadcrumbs but kept the desktop sidebar and rendered no tab bar.
+
+   Both are now normalised to <= 480 / >= 481. Same applies to the 700/701 and
+   1180/1181 pairs, which were already correct.
+
+   Known deliberate exception: main.js's portraitWideMql is `min-width: 900px`
+   against studentsNarrowMql's `max-width: 900px`. Both match at exactly 900px,
+   but they are read as separate branches of one OR (isFilterBarMobile) rather
+   than as competing declarations, and 900px is meant to be inclusively "wide
+   enough to show filters inline" - so the overlap is harmless here. Left as
+   is; do not copy the pattern.
+
+   Not a tier: html.filter-bar-mobile-mode / html.filter-bar-narrow-desktop
+   (main.js). These are classes precisely because they combine width with
+   pointer type and orientation, which no single media query expresses - see
+   main.js's syncFilterBarMobileClass. Rules that need "narrow enough that
+   this is dead weight, whatever the device" key off the class, not a width.
+   --------------------------------------------------------------------------- */
+
 @media (max-width: 1200px) {
     /* Below 1200px the hub sidebar auto-collapses into icon-only mode - the
        same locked-rail state a narrowed desktop window gets regardless of
@@ -113,8 +179,9 @@
    480-1180px, not 480-900px (the original #114 range) - landscape tablet
    (the latest iPad's 1180px logical viewport - iPad 11th gen/Air 10.9")
    is still a touch surface without :hover, not "desktop with room to
-   spare" (#129 follow-up grilling). Lower-bounded at 480px so it never
-   fights the sub-480 mobile bottom-tab-bar's own handling of this same
+   spare" (#129 follow-up grilling). Lower-bounded at 481px (the phone tier's
+   ceiling is 480 - see the breakpoint registry at the top of this file) so it
+   never fights the <=480px mobile bottom-tab-bar's own handling of this same
    sidebar (_hub_sidebar.html's inline <style>, body:has(.mobile-tabbar)).
 
    Gated on the .nav-touch-mode class (main.js), not a bare hover:none media
@@ -123,7 +190,7 @@
    there. main.js sets the class from real hover:none OR the preview's
    forced-touch override, so previewing either Tablet preset exercises the
    same expand-in-place a genuine touch device gets. */
-@media (min-width: 480px) and (max-width: 1180px) {
+@media (min-width: 481px) and (max-width: 1180px) {
     html.nav-touch-mode .side-nav.hub-side.touch-expanded {
         position: absolute;
         inset: 0;
@@ -416,9 +483,11 @@
 
     /* SEND & Provision dashboard KPI strip: smaller, 3-up rather than the
        flex-wrap row today's (tablet/desktop-only, unchanged) layout uses. */
+    /* Only the deltas from the <=1024px block further down - display: grid
+       and the 3-column template are already in force here (this range is
+       wholly inside that one) and restating them just creates a second place
+       to keep in sync. Tighter gap + smaller type is all phone width adds. */
     .stats-strip--compact {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
         gap: var(--space-xs);
     }
     .stats-strip--compact .stat-card {
@@ -586,8 +655,14 @@ html.filter-bar-mobile-mode .breadcrumbs {
     .stats-strip--compact {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: var(--space-sm);
     }
+    /* gap deliberately NOT set here - it moved to the min-width: 481px block
+       below. This <=1024px block sits LATER in the file than the <=480px one,
+       so at phone width both match and, on equal specificity, this one won
+       the tie: the phone tier's own tighter --space-xs gap was being silently
+       overridden by --space-sm and never actually shipped. Splitting the gap
+       out by floor rather than reordering the blocks keeps display/columns in
+       the one place that owns them for every width <=1024px. */
 
     /* _hub_dashboard_content.html renders two separate .breakdown-grid
        blocks back to back (donut/trend/gender, then year/school/need). Its
@@ -626,6 +701,13 @@ html.filter-bar-mobile-mode .breadcrumbs {
     }
     .breakdown-grid--top .breakdown-card--lg {
         grid-column: 1 / -1;
+    }
+
+    /* Tablet gap for the KPI strip whose display/columns are set in the
+       <=1024px block above - floored at 481px so it can't reach down and
+       clobber the phone tier's own tighter gap. See that block's comment. */
+    .stats-strip--compact {
+        gap: var(--space-sm);
     }
 }
 

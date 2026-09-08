@@ -320,11 +320,16 @@ Menu switcher instead - see its own comment below.
 </dialog>
 
 <style>
-    /* Only ever shown below 480px — matches the phone tier this issue is
-       actually about (tablet keeps the icon-rail collapse, see #129
-       grilling). */
+    {% comment %}
+    Only ever shown at 480px and below — matches the phone tier this issue is
+    actually about (tablet keeps the icon-rail collapse, see #129 grilling).
+    Was max-width: 479px, one pixel short of the phone tier every other rule
+    uses: at exactly 480px the page took phone margins and hid its breadcrumbs
+    but kept the desktop sidebar and rendered no tab bar at all. See the
+    breakpoint registry at the top of static/css/layout/responsive.css.
+    {% endcomment %}
     .mobile-tabbar { display: none; }
-    @media (max-width: 479px) {
+    @media (max-width: 480px) {
         body:has(.mobile-tabbar) .side-nav.hub-side { display: none; }
         {% comment %}
         #129 shrank main itself via margin-bottom, which stopped the bar
@@ -745,7 +750,7 @@ Menu switcher instead - see its own comment below.
     (body:has(.mobile-tabbar) — every hub page, in practice) so it can
     never bleed into desktop/tablet's centred-card behaviour.
     {% endcomment %}
-    @media (max-width: 479px) {
+    @media (max-width: 480px) {
         body:has(.mobile-tabbar) dialog.modal-dialog {
             /* !important on top/bottom specifically - panel.css has its own
                dialog#panel-search-dialog[open] (+3 others) ID rule setting
@@ -797,7 +802,7 @@ Menu switcher instead - see its own comment below.
     here) to --bg-surface, matching Menu/Settings/Search/+Referral — every
     pop now shares one background colour (#129 grilling).
     {% endcomment %}
-    @media (max-width: 479px) {
+    @media (max-width: 480px) {
         body:has(.mobile-tabbar) .side-nav.overlay-nav {
             position: fixed;
             inset: auto 0 0 0;
@@ -1109,7 +1114,7 @@ Menu switcher instead - see its own comment below.
         // creates brand-new elements appended straight to <body>, outside
         // that subtree, so without this guard they showed up as plain
         // unstyled rows at the bottom of the page on desktop.
-        if (!window.matchMedia('(max-width: 479px)').matches) return;
+        if (!window.matchMedia('(max-width: 480px)').matches) return;
 
         function iconHTML(templateId) {
             var t = document.getElementById(templateId);

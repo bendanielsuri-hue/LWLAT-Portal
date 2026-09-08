@@ -173,10 +173,22 @@ function setupOverflowTabs(row) {
         fadeLeft.style.backgroundColor = sampleBackground(rowRect.left + 8);
         fadeRight.style.backgroundColor = sampleBackground(rowRect.right - 8);
     }
-    row.addEventListener('scroll', measure);
-    window.addEventListener('resize', measure);
+    /* Throttled on every async trigger, not just resize: measure() runs two
+       document.elementFromPoint hit-tests plus a getComputedStyle per call
+       (sampleBackground, above), and scroll fires far more often than resize
+       does. One coalesced run per frame is all the fades can actually paint
+       anyway. The initial call below stays direct so the fades are correct on
+       the first frame rather than one rAF late.
+
+       The window listener is kept alongside the ResizeObserver here (unlike
+       the two carousels further down, where it was redundant): measure()
+       samples a colour by viewport coordinate, so it has to re-run when the
+       row merely MOVES, which a size-only observer never reports. */
+    var measureSoon = rafThrottle(measure);
+    row.addEventListener('scroll', measureSoon, { passive: true });
+    window.addEventListener('resize', measureSoon);
     if (typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(measure).observe(row);
+        new ResizeObserver(measureSoon).observe(row);
     }
     measure();
 
@@ -318,7 +330,16 @@ function setupFilterBarMoreFilters(bar) {
     var hasSearchField = !!bar.querySelector('[data-filter-pinned]');
     if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
         var retryMqls = isTrayBar
-            ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql || window.matchMedia('(max-width: 768px)'), window.studentsPortraitMql || window.matchMedia('(orientation: portrait)'), window.studentsPortraitWideMql || window.matchMedia('(min-width: 900px)')]
+            /* No `|| window.matchMedia(...)` fallbacks here any more - they
+               were unreachable (the DOMContentLoaded handler assigns all
+               three globals well before this function's only call site) and
+               one of them silently disagreed with the real value it stood in
+               for (768px vs studentsNarrowMql's 900px). A stale fallback that
+               can never fire is worse than none: it reads as a second, wrong
+               source of truth for a tier that has exactly one. If these are
+               ever genuinely undefined the TypeError is the correct outcome -
+               it means the init order broke, which is the actual bug. */
+            ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql, window.studentsPortraitMql, window.studentsPortraitWideMql]
             : [window.matchMedia('(min-width: 481px)')];
         function retrySetupAboveMobile() {
             retryMqls.forEach(function (mql) { mql.removeEventListener('change', retrySetupAboveMobile); });
@@ -791,7 +812,10 @@ function setupFilterBarMoreFilters(bar) {
         lastWidth = width;
         measure();
     });
-    window.addEventListener('resize', handleResize);
+    /* No window resize listener: handleResize early-returns unless
+       bar.clientWidth actually changed, so the ResizeObserver on that same
+       bar already fires on exactly - and only - the transitions it acts on.
+       The window listener just added a second wake-up for the same event. */
     if (typeof ResizeObserver !== 'undefined') {
         new ResizeObserver(handleResize).observe(bar);
     }
@@ -816,10 +840,12 @@ function wireFilterCutoffEdges(bar, track) {
         bar.classList.toggle('filter-bar-cut-left', track.scrollLeft > 1);
         bar.classList.toggle('filter-bar-cut-right', scrollable > 1 && track.scrollLeft < scrollable - 1);
     }
+    /* update() reads nothing but track's own scroll/client/scrollWidth, so
+       the ResizeObserver on track covers every width change a window resize
+       could cause - the window listener was a duplicate wake-up. */
     track.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', rafThrottle(update));
     if (typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(update).observe(track);
+        new ResizeObserver(rafThrottle(update)).observe(track);
     }
     update();
 }
@@ -937,7 +963,7 @@ function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nex
     }
     updateArrows();
     track.addEventListener('scroll', updateArrows, { passive: true });
-    window.addEventListener('resize', updateArrows);
+    window.addEventListener('resize', rafThrottle(updateArrows));
     return updateArrows;
 }
 
@@ -1464,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // again, same original reasoning.)
         var narrowMql = window.matchMedia('(max-width: 1200px)');
         var hoverCapableMql = window.matchMedia('(hover: hover) and (pointer: fine)');
-        var touchRailMql = window.matchMedia('(min-width: 480px) and (max-width: 1180px)');
+        var touchRailMql = window.matchMedia('(min-width: 481px) and (max-width: 1180px)');
 
         // #142: desktop's own manual collapse/expand, persisted per-viewer -
         // only meaningful above 1200px (below that the rail is already
@@ -1679,7 +1705,10 @@ document.addEventListener('DOMContentLoaded', function () {
         activeFill.style.left = left + 'px';
     }
     positionHubRailSeam();
-    window.addEventListener('resize', positionHubRailSeam);
+    /* Throttled: positionHubRailSeam takes two getBoundingClientRect reads
+       and then writes five inline styles, so an unthrottled run per resize
+       event is a read/write layout thrash on the hottest possible path. */
+    window.addEventListener('resize', rafThrottle(positionHubRailSeam));
 
     // Generic overlay nav handling: "Switch Hub", "Select School", "Select User" and
     // "Settings" are absolutely-positioned layers stacked inside one shared
@@ -2381,7 +2410,12 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         }
 
         applyHeight();
-        window.addEventListener('resize', applyHeight);
+        /* Kept alongside the ResizeObserver below (which watches the header
+           and its trailing siblings): the shell's target height is derived
+           from the viewport too, so a resize that leaves both observed
+           elements the same size still has to re-run. Throttled, since it
+           measures and then writes inline styles. */
+        window.addEventListener('resize', rafThrottle(applyHeight));
         if (typeof ResizeObserver !== 'undefined') {
             var ro = new ResizeObserver(applyHeight);
             ro.observe(header);
@@ -2708,8 +2742,8 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
 
         prev.addEventListener('click', function () { track.scrollBy({ left: -step(), behavior: 'smooth' }); });
         next.addEventListener('click', function () { track.scrollBy({ left: step(), behavior: 'smooth' }); });
-        track.addEventListener('scroll', updateState);
-        window.addEventListener('resize', updateState);
+        track.addEventListener('scroll', updateState, { passive: true });
+        window.addEventListener('resize', rafThrottle(updateState));
         wrap.addEventListener('keydown', function (e) {
             if (e.key === 'ArrowRight') { e.preventDefault(); track.scrollBy({ left: step(), behavior: 'smooth' }); }
             else if (e.key === 'ArrowLeft') { e.preventDefault(); track.scrollBy({ left: -step(), behavior: 'smooth' }); }
@@ -2999,12 +3033,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         if (overlayEl) overlayEl.style.bottom = statsStrip ? statsStrip.getBoundingClientRect().height + 'px' : '';
     }
     if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', function () {
+        /* Throttled - visualViewport resize fires every frame of the
+           on-screen keyboard's slide-in animation, and this handler does a
+           document-wide querySelectorAll plus a getBoundingClientRect per
+           open tray on each one. */
+        window.visualViewport.addEventListener('resize', rafThrottle(function () {
             document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
                 var box = bar.querySelector('.filter-bar-collapsible');
                 if (box) positionFilterTray(bar, box);
             });
-        });
+        }));
     }
 
     // .entity-list::after's own "end of content" stripe (panel.css) - live
@@ -3029,8 +3067,11 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             document.documentElement.style.setProperty('--list-endcap-clearance', fabOverlapClearance() + 'px');
         }
         apply();
-        if (window.visualViewport) window.visualViewport.addEventListener('resize', apply);
-        window.addEventListener('resize', apply);
+        /* visualViewport resize fires continuously while the on-screen
+           keyboard animates in, so this one especially wants coalescing. */
+        var applySoon = rafThrottle(apply);
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', applySoon);
+        window.addEventListener('resize', applySoon);
     })();
 
     // Mobile filter bar collapse (see responsive.css's ≤480px block, #114):

@@ -39,7 +39,15 @@
       content section (not pinned), never at the top of a page. */
 
 body {
+    /* 100vh first as the fallback for browsers without dynamic viewport
+       units; 100dvh wins where supported. On mobile Safari/Chrome 100vh is
+       the *largest* viewport (URL bar retracted), so a nominally full-height
+       page overshoots by the bar's height and can never quite settle - dvh
+       tracks the bar as it collapses instead. Pairs with, rather than
+       replaces, the visualViewport handling in main.js (which is about the
+       on-screen keyboard, a separate problem dvh does not solve). */
     min-height: 100vh;
+    min-height: 100dvh;
     background-color: var(--bg-page);
     color: var(--text-primary);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
@@ -1779,7 +1787,12 @@ html.nav-touch-mode main::-webkit-scrollbar {
     top: 0;
     z-index: var(--z-page-header);
     background: linear-gradient(to bottom, var(--bg-page) calc(100% - var(--space-md)), transparent 100%);
-    margin: -32px -32px 0;
+    /* Tokenised, not a hardcoded -32px: this negative bleed must always
+       equal .main-inner's own padding or the sticky header overshoots the
+       viewport edge. The <=480px override (responsive.css) already tracks
+       the token this way - the base rule was the odd one out, silently
+       correct only while --space-2xl happened to be 32px. */
+    margin: calc(-1 * var(--space-2xl)) calc(-1 * var(--space-2xl)) 0;
     /* Top matches .nav-header's own top padding (layout.css) - both headers
        now start at the same 20px offset from their container's top edge. */
     padding: var(--space-lg) var(--space-2xl) var(--space-md);
