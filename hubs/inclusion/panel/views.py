@@ -1390,7 +1390,6 @@ def inclusion_panel_home(request):
                 else 'MAT-wide'
             ),
             'school_logo_url': school.logo_url if school else '',
-            'referrals_assigned': panel.panel_referrals.filter(removed_at__isnull=True).count(),
             'panel_group_members_count': (
                 panel.panel_group.members.count() if panel.panel_group_id else 0
             ),

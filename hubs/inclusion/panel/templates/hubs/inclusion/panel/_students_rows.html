@@ -139,19 +139,31 @@ markup in one place means both call sites can never drift apart.
         {% else %}
         <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true">Actions</span>
         {% endif %}
+        {% comment %}
+        Two shapes, not one pill with a dead slot: with referrals to show,
+        the count link fuses to an icon-only "+" add trigger; with none, the
+        whole thing collapses to a single labelled New Referral button
+        (live feedback: "is it worth turning the whole thing into a new
+        referral button when there isn't a referral?"). A disabled
+        "Referrals" slot carried no information a zero count didn't already
+        imply, and it left the "+" leaning on its icon alone to say what it
+        does - the collapsed form spells that out and gives the row's only
+        live action the full width instead. Actions keeps its disabled slot
+        deliberately: nothing in this row creates one, so there's no action
+        for it to collapse into.
+        Both branches use plain .btn-add's solid fill (live feedback: "I
+        preferred the + button before" - reverts an earlier
+        btn-secondary.btn-add toning-down), so the collapsed button reads as
+        the same control as the "+" it stands in for.
+        {% endcomment %}
+        {% if s.referrals_count > 0 %}
         <div class="btn-row-fused">
-            {% if s.referrals_count > 0 %}
             <a href="{% url 'inclusion_panel_referrals' %}?name={{ s.first_name|add:' '|add:s.last_name|urlencode }}&student={{ s.id }}" class="btn btn-secondary btn-sm">Referrals<span class="btn-count-badge">{{ s.referrals_count }}</span></a>
-            {% else %}
-            <span class="btn btn-secondary btn-sm btn-disabled" aria-disabled="true">Referrals</span>
-            {% endif %}
-            {% comment %}
-            Back to plain .btn-add's solid fill (live feedback: "I preferred
-            the + button before" - reverts the btn-secondary.btn-add toning-
-            down from this same session's earlier "too prominent" request).
-            {% endcomment %}
             <button type="button" class="btn btn-add btn-sm" data-btn-slot="new-referral" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}" aria-label="New Referral"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span></button>
         </div>
+        {% else %}
+        <button type="button" class="btn btn-add btn-sm" data-btn-slot="new-referral" data-new-referral-trigger data-student-id="{{ s.id }}" data-next="{% url 'inclusion_panel_students' %}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> New Referral</button>
+        {% endif %}
     </div>
 </div>
 {% empty %}
