@@ -1756,8 +1756,27 @@ document.addEventListener('DOMContentLoaded', function () {
     function isShortTouch() {
         return isTouchNav() && shortViewportMql.matches;
     }
+    /* (#187) Every width uses the tray now - live feedback: "I think we make
+       all the filter modes work like mobile. It's a great compromise!"
+
+       This was the one tier test in the filter bar: true meant the slide-down
+       tray, false meant the "View filters" panel and the dynamic-overflow
+       measurement that fills it. Two rendering paths, two sets of rules to
+       keep in step, and the reason several bugs on this branch only appeared
+       at one width - the panel path is where "View filters" stopped opening,
+       and it needed its own copy of the section-scroll wiring.
+
+       Kept as a function rather than deleted at every call site: the callers
+       still read better saying WHY they branch, the widths are still real
+       (isFilterBarNarrowDesktop below still distinguishes them for styling),
+       and if the panel ever comes back this is the one line to restore.
+
+       The old expression, for that day:
+         trueMobileMql.matches || isShortTouch() ||
+         (studentsNarrowMql.matches && !isTouchNav()) ||
+         (isTouchNav() && portraitMql.matches && !portraitWideMql.matches) */
     function isFilterBarMobile() {
-        return trueMobileMql.matches || isShortTouch() || (studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches);
+        return true;
     }
     // The narrow-desktop sub-case specifically (filter-bar-mobile-mode minus
     // true phone width) - live feedback: "all I can see is the overlay" -

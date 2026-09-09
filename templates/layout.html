@@ -114,7 +114,14 @@
                     // short AND under 480px wide there's no horizontal room to
                     // spare either, so that case keeps the bottom bar.
                     root.classList.toggle('phone-chrome-side', shortTouch && !trueMobile);
-                    var filterBarMobile = trueMobile || shortTouch || (narrow && !touch) || (touch && portrait && !portraitWide);
+                    // (#187) Always true - every width renders the tray, so
+                    // there is no longer a panel path to classify away from.
+                    // Still spelled as a variable rather than inlined: this
+                    // copy exists only to get the first paint right (comment
+                    // above), and it stays readable next to main.js's own
+                    // isFilterBarMobile(), which carries the full reasoning
+                    // and the old expression.
+                    var filterBarMobile = true;
                     var filterBarNarrowDesktop = !trueMobile && !shortTouch && ((narrow && !touch) || (touch && portrait && !portraitWide));
                     root.classList.toggle('filter-bar-mobile-mode', filterBarMobile);
                     root.classList.toggle('filter-bar-narrow-desktop', filterBarNarrowDesktop);
@@ -129,7 +136,7 @@
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}?v=512">
-    <script src="{% static 'js/main.js' %}?v=282" defer></script>
+    <script src="{% static 'js/main.js' %}?v=283" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
