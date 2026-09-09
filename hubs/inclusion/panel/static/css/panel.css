@@ -1698,8 +1698,7 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        the card's actual bottom edge via margin-top: auto - wins over
        .panel-item-col--student .panel-item-actions' own fixed margin-top
        (cards.css) on specificity (id + class beats two classes), keeping
-       that rule's divider (border-top/padding-top) but overriding the
-       margin. See the dropdown swap directly below for the other half of
+       that rule's padding-top but overriding the margin. See the dropdown swap directly below for the other half of
        "move status changer to last item... replace with a dropdown", and
        #my-actions-list > li's own align-items: stretch (above) for why
        there's room to push into at all. */
@@ -1743,13 +1742,6 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
            instead of blending into it. */
         box-shadow: var(--shadow-emphasis, var(--shadow-lg));
     }
-    /* No horizontal divider between what were two columns - they're one
-       centred stack now, nothing left to divide (live feedback: "lose the
-       horizontal dividers"). */
-    #my-actions-list .panel-item-body--two-col .mc-vdivider {
-        display: none;
-    }
-
     .action-carousel-fade-l,
     .action-carousel-fade-r {
         position: absolute;
@@ -2654,13 +2646,10 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 .panel-item-col--centered { display: flex; flex-direction: column; justify-content: center; }
 .panel-item-thumb-row { display: flex; align-items: center; gap: var(--space-sm); }
 .panel-item-thumb-details { min-width: 0; }
-/* Horizontal rule between the student details and the status switch below -
-   .panel-item-actions' own top edge, not a separate <hr>. */
-.panel-item-col--student .panel-item-actions { margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--border-color); }
-/* .mc-vdivider (meeting-card.css convention) only carries its border/stretch
-   styling when scoped to a known parent - .panel-item-body--two-col's own
-   gap already provides the spacing either side, so no extra margin here. */
-.panel-item-body--two-col .mc-vdivider { border-left: 1px solid var(--border-color); align-self: stretch; }
+/* Spacing between the student details and the status switch below - no
+   rule any more, dropped with every other in-row divider (HISTORY comment,
+   .row-btn-row). */
+.panel-item-col--student .panel-item-actions { margin-top: var(--space-sm); padding-top: var(--space-sm); }
 
 /* #116 phone-width overrides: below the tablet floor, the row is single-
    column full width, not the ~375px-wide slice it gets on a 320px-min
@@ -2669,15 +2658,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
 @media (max-width: 480px) {
     .panel-item-body--two-col { flex-direction: column; gap: var(--space-sm); }
     .panel-item-col--student { flex-basis: auto; }
-    /* Same rule swaps from a vertical rule to a horizontal one, echoing the
-       student column's own status-switch divider just above it - one
-       consistent "section break" look stacked instead of side-by-side. */
-    .panel-item-body--two-col .mc-vdivider {
-        border-left: none;
-        border-top: 1px solid var(--border-color);
-        align-self: stretch;
-    }
-
     /* My Referrals row: Edit/Delete keep their icons but drop the text
        label, staying inline next to the thumb/title instead of wrapping to
        a second row or forcing the row taller. */
@@ -2941,18 +2921,13 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         flex-direction: column;
         gap: var(--space-sm);
     }
-    /* No dividers at all in this stacked layout (live feedback: "lose the
-       horizontal dividers... this is only for one column setup") - not
-       just the vertical .mc-vdivider between what used to be two columns,
-       but also the status changer's own top border (below), which existed
-       to separate it from the name/details sitting directly above it in
-       the *side-by-side* layout - now that other content (Category/
-       Description) sits between them (order, below), that border would
-       read as an orphaned rule with nothing to divide. */
-    #my-actions-list .panel-item-body--two-col .mc-vdivider {
-        display: none;
-    }
-    /* display: contents on the student column only (not centered) -
+    /* The status changer's own top border goes too in this stacked layout
+       (live feedback: "lose the horizontal dividers... this is only for one
+       column setup") - it existed to separate it from the name/details
+       sitting directly above it in the *side-by-side* layout; now that
+       other content (Category/Description) sits between them (order,
+       below), that border would read as an orphaned rule with nothing to
+       divide. */    /* display: contents on the student column only (not centered) -
        flattens its own two children (thumb-row, status changer) out into
        the row's own flex flow so they can be reordered independently
        around the centered column, rather than only being able to move the
@@ -2968,7 +2943,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     }
     /* Status changer last, at the card's own bottom (live feedback: "can
        the status change be at bottom of card") - overrides its own
-       side-by-side-layout top border/spacing (.panel-item-col--student
+       side-by-side-layout spacing (.panel-item-col--student
        .panel-item-actions, below) now that it's not sitting directly
        under the name/details any more. Centred (live feedback: "can the
        Status changer be centred") - .panel-item-body--two-col's own
@@ -2980,7 +2955,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
         order: 3;
         margin-top: 0;
         padding-top: 0;
-        border-top: none;
         justify-content: center;
     }
 }
@@ -3241,14 +3215,14 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    row-btn-row-stacked comment). justify-content: center vertically centres
    a short button stack against the card's own (potentially taller)
    height, same as before. */
-.meeting-card-actions { flex: 0 0 auto; display: flex; flex-direction: column; flex-wrap: nowrap; justify-content: center; align-items: stretch; border-left: 1px solid var(--border-color); padding: var(--space-xs) 0 var(--space-xs) var(--space-lg); gap: var(--space-xs); }
+.meeting-card-actions { flex: 0 0 auto; display: flex; flex-direction: column; flex-wrap: nowrap; justify-content: center; align-items: stretch; padding: var(--space-xs) 0 var(--space-xs) var(--space-lg); gap: var(--space-xs); }
 .meeting-card-actions .btn { white-space: nowrap; }
 /* One shared width for every card's button column down the whole list -
    live feedback: "Button collumn width should match all the way down!".
    flex: 0 0 auto (above) sizes each column to its OWN buttons, so a card
    offering Start Meeting/Edit Agenda/Delete came out wider than one
-   offering just View Meeting, and this column's own border-left turned
-   every few-px mismatch into a visibly ragged line down the list.
+   offering just View Meeting, which read as a ragged right-hand edge
+   down the list even now that the column's own divider line is gone.
    --meetings-btn-col-w is measured and set on #meetings-filtered-content
    by syncMeetingsButtonColumnWidth (panel.js) - the widest column in the
    list - and is deliberately absent (falling back to auto, i.e. the
@@ -3320,7 +3294,6 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        override (panel.css, #actions-filtered-content .row-btn-row.row-btn-
        row-stacked). */
     .meeting-card-actions {
-        border-left: none;
         padding: 0;
         flex: 1 1 100%;
         flex-direction: row;
@@ -3357,20 +3330,16 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     #meetings-filtered-content .row-facts-track {
         padding-bottom: 0;
     }
-    /* No divider above the data-cols strip in this compact layout - live
-       feedback: "can we lose the horizontal line in narrow mode", plus
-       "is there more space above button row than on referrals page" (yes:
-       Referrals' own #referrals-filtered-content .row-facts, above, drops
-       this same border-top/padding-top unconditionally at every width -
-       Meetings had never gotten the same override, so it was still
-       carrying the shared .row-facts base rule's margin-top+padding-top+
-       border-top here on top of everything else). margin-top kept (not
-       zeroed like Referrals') for breathing room between the date-line/
-       pills above and the data-cols strip below, now that there's no line
-       to supply visual separation instead. */
+    /* Extra padding above the data-cols strip dropped in this compact
+       layout - live feedback: "is there more space above button row than
+       on referrals page" (yes: Referrals' own #referrals-filtered-content
+       .row-facts, above, zeroes this at every width, Meetings never had
+       the same override). margin-top kept (not zeroed like Referrals') for
+       breathing room between the date-line/pills above and the data-cols
+       strip below. The divider that used to sit here went with every other
+       in-row divider (HISTORY comment, .row-btn-row). */
     #meetings-filtered-content .row-facts {
         padding-top: 0;
-        border-top: none;
     }
 }
 
@@ -3511,49 +3480,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
    present) gets the correct behaviour automatically instead of needing its
    own one-off fix - live feedback: "if there was a data col with one line,
    I would want it to act the same". */
-.row-facts { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--border-color); font-size: var(--font-sm); color: var(--text-secondary); }
-.row-facts .mc-vdivider { border-left: 1px solid var(--border-strong); align-self: stretch; margin: 0 2px; }
-/* The "vertical dividers between data cols go primary when the row is
-   active" rule (live feedback) that used to sit here, scoped to
-   .entity-row.chosen, is gone - the GLOBAL .chosen .mc-vdivider safety net
-   below supersedes it for every page and marker class at once. */
-/* GLOBAL safety net, not another per-page copy: .row-facts' own border-top
-   (the horizontal divider above the facts strip) AND .mc-vdivider (the
-   vertical dividers between individual facts) never got a .chosen accent
-   override that actually reaches every page - caught on Meetings
-   specifically (live feedback: "active list row divider does not change
-   to primary colour like it does on referrals page", then "vertical
-   divider also need to be primary!" once the horizontal one was fixed but
-   the vertical ones right beside it still weren't), because Meetings'
-   chosen-row marker is .meeting-card.chosen, not .entity-row.chosen, so
-   the two rules just above (Referrals/Students' own fix, for border-top
-   and .mc-vdivider respectively) never matched it. Rather than add a
-   THIRD and FOURTH page-specific copy - exactly the fragile per-page-
-   re-assertion pattern the CONVENTION comment above (.entity-row.chosen >
-   .row-btn-row) already warns silently breaks the moment a new page's own
-   divider rule forgets it - this uses a plain .chosen descendant selector
-   (matches .entity-row.chosen, .meeting-card.chosen, .panel-list
-   li.chosen, or whatever the NEXT page's own marker class turns out to
-   be, no enumeration needed) plus !important, which beats any page's own
-   id-scoped divider colour regardless of specificity. This is now the one
-   place a "chosen row's dividers go accent" bug gets fixed for every
-   current and future page - nothing page-specific to remember to add. */
-.chosen .row-facts,
-.chosen .panel-item-actions {
-    border-top-color: var(--accent-border) !important;
-}
-/* .mc-vdivider unscoped, not .row-facts .mc-vdivider - the class is the
-   portal's one "vertical divider inside a row" convention, and scoping it
-   to the facts strip missed the other place it's used: Home's My Actions
-   rows divide their student/details columns with a
-   .panel-item-body--two-col .mc-vdivider, outside any .row-facts (live
-   feedback: "My Actions needs primary dividers when active as well").
-   .panel-item-actions (above) is that same card's horizontal divider above
-   its status changer - same convention, same reason. Both stay in this one
-   global block rather than becoming per-card copies. */
-.chosen .mc-vdivider {
-    border-left-color: var(--accent-border) !important;
-}
+.row-facts { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); }
 /* Permanent horizontal scroll, one row always (#157 follow-up - live
    feedback with a screenshot of Students at mobile width: "Data cols must
    always be one row, so it needs to be scrollable if it does not fit" -
@@ -4037,42 +3964,16 @@ html.nav-touch-mode .row-facts-arrow {
     padding-bottom: calc(0.35em - 1.09px);
 }
 .entity-list[data-selectable] > .entity-row { align-items: stretch; }
-.entity-row > .row-btn-row { border-left: 1px solid var(--border-color); padding-left: var(--space-lg); }
-/* Primary-accent divider only once the row is actually .chosen - a resting
-   row keeps the plain neutral divider, matching the "only colour up when
-   active" rule the row-title-secondary divider below follows too.
-   !important (live feedback: "I wanted this to be a global change so it is
-   never forgotten" - this exact bug had already recurred three times:
-   Actions, then Referrals, then Students, each needing its own ID-scoped
-   #<page>-filtered-content .entity-row.chosen > .row-btn-row re-assertion
-   just to win back a colour this shared rule was already trying to set,
-   because a plain #<page>-filtered-content .row-btn-row border-left (1 ID +
-   1 class) always outranks this bare .entity-row.chosen > .row-btn-row (0
-   ID + 2 classes) on specificity, regardless of source order or how many
-   more classes get piled onto the shared side - normal CSS specificity can
-   never fix this without an ID of its own, which a genuinely shared rule
-   can't have. !important sidesteps the specificity fight entirely instead
-   of relying on every future page remembering its own copy of the fix (the
-   thing that kept not happening) - covers every button-column class
-   convention in use (.row-btn-row: Referrals/Actions/Escalations;
-   .btn-row: Students; .meeting-card-actions: Meetings) so a new list page
-   needs no variant re-declared. The three per-page re-assertions this
-   superseded are gone - grep panel.css's own history if one needs
-   restoring for reference.
-   Keyed off a bare descendant .chosen, not .entity-row.chosen > ... - same
-   generalisation (and same live feedback: "I thought I made a global css
-   that dealt with this so it would not get forgotten") as the .chosen
-   .row-facts safety net above: Meetings' chosen-row marker is
-   .meeting-card.chosen, not .entity-row.chosen, so the old anchored child
-   selector silently skipped it and a selected meeting card's buttons
-   divider stayed neutral. A bare .chosen matches whatever marker class the
-   NEXT page turns out to use too, and a descendant (not child) combinator
-   survives a button column nested a level deeper inside the row. */
-.chosen .row-btn-row,
-.chosen .btn-row,
-.chosen .meeting-card-actions {
-    border-left-color: var(--accent-border) !important;
-}
+/* No divider line left of the buttons column - dropped everywhere (live
+   feedback: "lose the horizontal and vertical dividers on lists"), the
+   same simplification the data-col dividers and the row-facts rule above
+   already went through. padding-left survives on its own: it was always
+   the thing actually separating the buttons from the row's text, the line
+   only ever restated it. The global .chosen accent rule that used to
+   colour this divider (and the per-page !important fight behind it) went
+   with it - a chosen row is already marked by its own fill/accent bar
+   (cards.css). */
+.entity-row > .row-btn-row { padding-left: var(--space-lg); }
 /* A <form>-wrapped button (e.g. Escalations' Launch Meeting - a POST, not a
    plain link like Referral Details/Actions) is a plain block box, not a
    .btn itself - row-btn-row/btn-row's own align-items: stretch (their base
@@ -4092,23 +3993,17 @@ html.nav-touch-mode .row-facts-arrow {
 .btn-row form .btn {
     flex: 1 1 auto;
 }
-/* CONVENTION - every .entity-row divider goes accent when .chosen, not just
-   the vertical one before the buttons column (live feedback: "active wide
-   desktop mode, the dividers are not changing primary colour... it does but
-   only on vertical divider before buttons, needs to be on all" - caught on
-   Actions' own horizontal header divider, .entity-row::before in its
-   >=701px grid band, which never had a .chosen rule at all).
-   The buttons-column divider above is a genuinely shared rule now (see its
-   own !important comment) and needs nothing further per page. .entity-row
-   ::before is different - it's not shared at all, each page declares its
-   OWN copy of that pseudo-element fresh per #<page>-filtered-content ID
-   (content:'' included, since a pseudo-element's box only exists where
-   something actually sets `content`), so there's no single shared rule to
-   harden with !important here. Any NEW per-page ::before divider must still
-   add its own matching #<page>-filtered-content .entity-row.chosen::before
-   re-assertion in the SAME id scope - see Actions'/Referrals'/Escalations'
-   own copies for the pattern - or it'll silently stay neutral forever,
-   exactly like the buttons-column one did until caught live. */
+/* HISTORY - list rows used to carry three internal dividers: a vertical
+   line before the buttons column, a horizontal .entity-row::before between
+   the header and the facts strip (declared fresh per page inside its own
+   >=701px grid band), and .mc-vdivider between data columns. All three are
+   gone (live feedback: "lose the horizontal and vertical dividers on
+   lists" - mobile had already dropped them, and the data-col dividers went
+   in an earlier pass of the same call). With them went the whole family of
+   "divider goes accent when .chosen" re-assertions they needed. A row's
+   chosen/hover state is carried by its own fill and left accent bar
+   (cards.css) alone now. Don't reintroduce a divider inside a list row
+   without revisiting this. */
 /* align-items: stretch (live feedback: "the buttons and dropdown are not
    all inline vertically. All should be width of widest") - flex-start
    (tried originally) left each child at its own natural content width,
@@ -4280,7 +4175,6 @@ html.nav-touch-mode .row-facts-arrow {
        uses for the same reason. */
     #referrals-filtered-content .entity-row > .row-btn-row,
     #escalations-filtered-content .entity-row > .row-btn-row {
-        border-left: none;
         padding-left: 0;
         flex: 1 1 100%;
     }
@@ -4358,16 +4252,11 @@ html.nav-touch-mode .row-facts-arrow {
        Referrals specifically. */
 }
 
-/* No divider below Concern (desktop's own row-facts-cols fact strip,
-   still visible there - #referrals-filtered-content .row-facts, right
-   after row-title-row's own Concern line) - live feedback: "we can lose
-   the horizontal line below concern category". Concern (row-title-
-   secondary, above) already carries its own divider directly above it now
-   ("move the horizontal divider to above the concern category"); the
-   shared .row-facts base rule's own border-top (above) landing immediately
-   after read as a second, redundant line right underneath. Overrides that
-   border-top/padding-top; margin-top stays so there's still breathing room
-   between Concern and the fact strip, just no line. margin-left/width
+/* No extra padding above the fact strip (live feedback: "we can lose the
+   horizontal line below concern category" - the divider itself is gone
+   from the base rule now, portal-wide; this override survives for the
+   padding it also zeroed). margin-top stays so there's still breathing
+   room between Concern and the fact strip. margin-left/width
    bleed this block out from under .entity-body's indent too, same 42px +
    --space-md avatar-offset math as row-title-secondary's own bleed above -
    live feedback: "the referral data is still aligned to student image"
@@ -4380,7 +4269,6 @@ html.nav-touch-mode .row-facts-arrow {
 #referrals-filtered-content .row-facts,
 #escalations-filtered-content .row-facts {
     padding-top: 0;
-    border-top: none;
     margin-left: calc(-1 * (42px + var(--space-md)));
     width: calc(100% + 42px + var(--space-md));
 }
@@ -4515,22 +4403,6 @@ html.nav-touch-mode .row-facts-arrow {
         padding-top: var(--space-sm);
         padding-bottom: var(--space-sm);
     }
-    #referrals-filtered-content .entity-row::before,
-    #escalations-filtered-content .entity-row::before {
-        content: '';
-        grid-column: 1 / 3;
-        grid-row: 2;
-        align-self: start;
-        border-top: 1px solid var(--border-color);
-    }
-    /* Accent re-assertion (CONVENTION comment, .entity-row.chosen > .row-btn-row above) -
-       this ID-scoped border-top would otherwise always win over the shared
-       .entity-row.chosen rule and keep this divider neutral even when
-       .chosen. */
-    #referrals-filtered-content .entity-row.chosen::before,
-    #escalations-filtered-content .entity-row.chosen::before {
-        border-top-color: var(--accent-border);
-    }
     /* display: flex + flex-direction: column + justify-content: center,
        not block (ported from Actions' own fix - live feedback there: "data
        cols [should] take up available vertical space and [be] vertically
@@ -4562,7 +4434,6 @@ html.nav-touch-mode .row-facts-arrow {
     #referrals-filtered-content .row-btn-row,
     #escalations-filtered-content .row-btn-row {
         grid-area: buttons;
-        border-left: 1px solid var(--border-color);
         padding-left: var(--space-lg);
         align-self: stretch;
         /* Vertically stacked, not side by side (live feedback: "like
@@ -4627,9 +4498,9 @@ html.nav-touch-mode .row-facts-arrow {
    wireReferralButtonLayout (referrals.html), which only ever existed to
    feed this band's own per-slot width variables, was removed along with
    it. */
-/* No divider above the facts line, in every mode (#117 follow-up, live
-   feedback: "lose the horizontal divider above details") - overrides the
-   shared .row-facts base rule's own border-top/padding-top (above).
+/* No extra padding above the facts line, in every mode (#117 follow-up,
+   live feedback: "lose the horizontal divider above details" - the divider
+   half of this is now the base rule's own behaviour portal-wide).
    margin-left/width bleed added later (live feedback: "the data cols align
    left to the logo... wastes space" - the Students column rework left
    row-facts genuinely indented under the avatar after all, unlike the
@@ -4646,17 +4517,9 @@ html.nav-touch-mode .row-facts-arrow {
 #students-filtered-content .row-facts {
     margin-top: var(--space-xxs);
     padding-top: 0;
-    border-top: none;
     margin-left: calc(-1 * (42px + var(--space-sm)));
     width: calc(100% + 42px + var(--space-sm));
 }
-/* Actions restores its own copy of that divider (live feedback: "another
-   horizontal line after action description") - it reads as separating the
-   description from the Assigned/Due|Created|Referral fact strip below it,
-   distinct from the header divider above row-title-secondary (#119, above)
-   which separates the student name from the Action/Referral section
-   instead - two different boundaries, not a redundant repeat of the same
-   one. */
 /* Tightened from the shared base rule's var(--space-xs) (8px) margin-top
    AND var(--space-xs) padding-top - live feedback: "reduce the padding/
    margin thats above" the facts strip - the two stack into 16px of total
@@ -4682,16 +4545,7 @@ html.nav-touch-mode .row-facts-arrow {
 #actions-filtered-content .row-facts {
     margin-top: var(--space-xxs);
     padding-top: var(--space-xxs);
-    border-top: 1px solid var(--border-color);
     align-items: flex-start;
-}
-/* Accent re-assertion (CONVENTION comment, .entity-row.chosen > .row-btn-row,
-   above) - below 701px this is the ONLY header/facts divider (the grid
-   band's own .entity-row::before, above, doesn't exist there), so it needs
-   the exact same treatment or a chosen row's divider stays neutral below
-   701px even after the >=701px one is fixed. */
-#actions-filtered-content .entity-row.chosen .row-facts {
-    border-top-color: var(--accent-border);
 }
 /* Label line of each one-fact-per-column pair (live feedback: "change from
    pairs of data to Label then field for all... so Label on top row with
@@ -5303,16 +5157,14 @@ html.nav-touch-mode .row-facts-arrow {
         row-gap: var(--space-md);
         padding: var(--space-md) var(--space-sm);
     }
-    /* Cancels .row-facts' own unconditional border-top/margin-top/
-       padding-top (its base rule, above) - that divider/spacing was tuned
-       for the pre-#154 shape, where .row-facts was JUST the data-columns
-       strip sitting below a separate Description block, so the line read
-       as "Description ends here, data starts". Post-#154, .row-facts wraps
-       BOTH Description and the scroll strip together (own comment, above),
-       so that same border-top now paints directly above Description
-       instead - a stray line between the row's title and its own
-       description, not the boundary it used to mark (live feedback: "we
-       have a horizontal line, also spacing above description"). Explicit
+    /* Cancels .row-facts' own unconditional margin-top/padding-top (its
+       base rule, above) - that spacing was tuned for the pre-#154 shape,
+       where .row-facts was JUST the data-columns strip sitting below a
+       separate Description block. Post-#154, .row-facts wraps BOTH
+       Description and the scroll strip together (own comment, above), so
+       it now sits directly under the row's title instead (live feedback:
+       "we have a horizontal line, also spacing above description").
+       Explicit
        margin-top: var(--space-md), not a plain cancel to 0, for the same
        reason Students'/Referrals' identical override (own comments) uses
        an explicit value rather than entity-row's own row-gap - row-title-
@@ -5322,10 +5174,8 @@ html.nav-touch-mode .row-facts-arrow {
     #escalations-filtered-content .row-facts {
         margin-top: var(--space-md);
         padding-top: 0;
-        border-top: none;
     }
     #actions-filtered-content .entity-row > .row-btn-row {
-        border-left: none;
         padding-left: 0;
         flex: 1 1 100%;
     }
@@ -5553,21 +5403,6 @@ html.nav-touch-mode .row-facts-arrow {
        so it reads as one continuous line under the student header/thumb
        only, stopping right at the vertical divider beside the buttons
        column. */
-    #actions-filtered-content .entity-row::before {
-        content: '';
-        grid-column: 1 / 3;
-        grid-row: 2;
-        align-self: start;
-        border-top: 1px solid var(--border-color);
-    }
-    /* Accent re-assertion (live feedback: "active wide desktop mode, the
-       dividers are not changing primary colour... only on vertical divider
-       before buttons, needs to be on all" - the CONVENTION comment on
-       .entity-row.chosen > .row-btn-row, above, explains why this needs its
-       own copy rather than being covered by that one shared rule). */
-    #actions-filtered-content .entity-row.chosen::before {
-        border-top-color: var(--accent-border);
-    }
     /* padding-bottom trimmed from var(--space-md) (16px) to var(--space-sm)
        (12px), then to var(--space-xs) (8px) in a follow-up pass (live
        feedback: "entity card has a bottom margin that is not needed if
@@ -5614,31 +5449,20 @@ html.nav-touch-mode .row-facts-arrow {
     #actions-filtered-content .row-facts {
         margin-left: 0;
         width: 100%;
-        /* border-top/margin-top/padding-top cancelled (live feedback:
-           "lose the double horizontal line") - row-facts' own base-rule
-           divider (above) used to sit below a real content section
-           (row-title-secondary/action-note) with its own vertical gap
-           before it; now that row-action-details is nothing but this facts
-           strip, that divider sits directly under .entity-row::before's
-           grid-line divider (above, "under the student header") with
-           nothing between them, reading as two adjacent lines rather than
-           one. .entity-row::before already spans exactly this same
-           boundary, so it's the single source of this divider in this
-           band; the base rule's own copy is only needed for the <701px
-           band, which has no ::before line of its own. */
-        border-top: none;
+        /* margin-top/padding-top cancelled (live feedback: "lose the
+           double horizontal line", when both this and the header divider
+           still drew a line here) - row-action-details is nothing but this
+           facts strip now, so it needs no extra inset of its own on top of
+           the grid row's own spacing. */
         margin-top: 0;
         padding-top: 0;
     }
-    /* Vertical divider left of the buttons column (live feedback) - restores
-       the shared .entity-row > .row-btn-row convention (panel.css, above)
-       that grid-area: buttons alone doesn't carry with it; naturally
-       confined to just this grid row's own height (not the header row
-       above) since row-btn-row's box only ever occupies the "buttons"
-       area. */
+    /* padding-left restates the shared .entity-row > .row-btn-row gap
+       (panel.css, above) that grid-area: buttons alone doesn't carry with
+       it. The divider line that used to sit in that gap is gone
+       everywhere now (see that base rule's own comment). */
     #actions-filtered-content .row-btn-row {
         grid-area: buttons;
-        border-left: 1px solid var(--border-color);
         padding-left: var(--space-lg);
         /* Stretched to the full height of its grid area (live feedback,
            across two rounds: first "vertical divider [should be] height of
@@ -6081,19 +5905,6 @@ html.nav-touch-mode .row-facts-arrow {
         padding-top: var(--space-sm);
         padding-bottom: var(--space-sm);
     }
-    #students-filtered-content .entity-row::before {
-        content: '';
-        grid-column: 1 / 3;
-        grid-row: 2;
-        align-self: start;
-        border-top: 1px solid var(--border-color);
-    }
-    /* Accent re-assertion - see the CONVENTION comment on
-       .entity-row.chosen > .row-btn-row (above) for why this needs its own
-       copy; ported here alongside Actions'/Referrals' own matching fix. */
-    #students-filtered-content .entity-row.chosen::before {
-        border-top-color: var(--accent-border);
-    }
     /* grid-area: details moved onto the new .row-student-details wrapper
        (below), not .row-facts itself any more - ported from Actions'/
        Referrals' own centering fix (live feedback: "data cols [should]
@@ -6120,7 +5931,6 @@ html.nav-touch-mode .row-facts-arrow {
     }
     #students-filtered-content .btn-row {
         grid-area: buttons;
-        border-left: 1px solid var(--border-color);
         padding-left: var(--space-lg);
         align-self: stretch;
         /* Vertically stacked, not side by side (live feedback: "like
