@@ -1181,9 +1181,9 @@ main { position: relative; }
 .dev-bp-option:disabled:hover { color: var(--text-secondary); }
 
 /* Every control here carries a permanent text label (live feedback) -
-   Desktop/Tablet/Mobile/Orientation named outright rather than left to a
-   tooltip, so you never have to hover four unfamiliar glyphs to find the one
-   you want.
+   the three tiers named outright rather than left to a tooltip, so you never
+   have to hover unfamiliar device silhouettes to find the one you want, and
+   the orientation button reading out "Portrait"/"Landscape".
 
    Consequence: this cluster is now ~290px wide rather than ~150px, and it sits
    at the footer's far right past Report Issue, so it's the first thing to
@@ -1204,6 +1204,30 @@ main { position: relative; }
     font-weight: 600;
     white-space: nowrap;
 }
+/* The orientation label reads out "Portrait"/"Landscape", which aren't the same
+   width - and since this cluster is right-aligned in the footer, that swap
+   slides Desktop/Tablet/Mobile sideways. Transitioned rather than jumped
+   (INT-M1).
+
+   Two declared ch widths, not width:auto: a transition needs the *declared*
+   value to change, and swapping the text alone leaves width declared as auto in
+   both states, so nothing would animate - interpolate-size/calc-size() (INT-M5)
+   doesn't help for the same reason. ch (the width of "0", comfortably wider
+   than these lowercase letters average) over a measured px value keeps this
+   CSS-only and keeps it correct across the data-text-size settings, at the cost
+   of a little trailing slack inside the box.
+
+   overflow:hidden because the text swaps instantly while the box animates: on
+   the grow, the last character is briefly clipped instead of overflowing into
+   the tooltip host's edge. */
+.dev-bp-orient-label {
+    display: inline-block;
+    overflow: hidden;
+    width: 8ch;
+    text-align: left;
+    transition: width var(--transition-fast);
+}
+.dev-bp-orient-label.is-landscape { width: 9ch; }
 .dev-bp-tier { position: relative; display: flex; }
 /* The caret is the open/closed signal now that the label is always on. It
    ships pointing down; these menus open UPWARD out of the footer, so flip it

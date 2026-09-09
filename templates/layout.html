@@ -101,7 +101,7 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=488">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=489">
     <script src="{% static 'js/main.js' %}?v=257" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
@@ -509,17 +509,20 @@
                     <button type="button" class="dev-bp-option icon-tooltip-host" id="dev-bp-rotate" disabled data-tooltip="Rotate · pick a device first">
                         {% include 'icons/bp_rotate_svg.html' %}
                         {% comment %}
-                        Names the control, not its current value - so this label
-                        is static, where a "Portrait"/"Landscape" readout would
-                        have to change as you pressed it. That matters here
-                        because the cluster is right-aligned in the footer: a
-                        label that changed width would shove Desktop/Tablet/
-                        Mobile sideways, i.e. clicking this button would move
-                        the buttons either side of it. Which way round you
-                        currently are is carried by the active fill (landscape)
-                        plus the tooltip, both set in syncChrome().
+                        Reads out the CURRENT orientation rather than naming the
+                        control, so the state is legible without hovering for a
+                        tooltip - the tier labels beside it work the same way,
+                        naming where you are rather than where a click goes.
+
+                        The two words aren't the same width, and this cluster is
+                        right-aligned in the footer, so the swap does move
+                        Desktop/Tablet/Mobile sideways - that width change is
+                        transitioned rather than jumped (INT-M1), see
+                        .dev-bp-orient-label in layout.css. Markup carries the
+                        portrait default so it's right before syncChrome() first
+                        runs; after that the JS owns the text.
                         {% endcomment %}
-                        <span class="dev-bp-label">Orientation</span>
+                        <span class="dev-bp-label dev-bp-orient-label">Portrait</span>
                     </button>
                 </div>
             </div>
@@ -857,10 +860,16 @@
             });
             rotateBtn.disabled = (bpTier === 'desktop');
             rotateBtn.classList.toggle('active', bpLandscape && bpTier !== 'desktop');
-            // The button's own label is the static word "Orientation", so the
-            // tooltip is what carries both the current state and the action -
-            // see the comment on that span in the markup for why the label
-            // itself can't be the readout.
+            // Label states the orientation you're IN, tooltip states what the
+            // click would DO. The class is what the width transition keys on -
+            // the text swap alone can't drive a CSS transition, since width
+            // stays declared as the same value either way (see layout.css).
+            // Both stay accurate on Desktop, where the button is disabled but
+            // still shows the remembered orientation it will apply once you
+            // enter a tier.
+            var orientLabel = rotateBtn.querySelector('.dev-bp-orient-label');
+            orientLabel.textContent = bpLandscape ? 'Landscape' : 'Portrait';
+            orientLabel.classList.toggle('is-landscape', bpLandscape);
             rotateBtn.dataset.tooltip = bpTier === 'desktop'
                 ? 'Orientation · pick a device first'
                 : (bpLandscape ? 'Landscape · click for portrait' : 'Portrait · click for landscape');
