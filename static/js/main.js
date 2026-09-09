@@ -2989,9 +2989,27 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // bottom limit caps the tray's maxHeight at nothing. It constrains
         // width, which the left/width anchoring below already handles via the
         // bar's own rect - it does not constrain height at all.
-        var tabbarVisible = tabbar && tabbar.getClientRects().length !== 0 &&
-            !document.documentElement.classList.contains('phone-chrome-side');
+        var sideStrip = document.documentElement.classList.contains('phone-chrome-side');
+        var tabbarVisible = tabbar && tabbar.getClientRects().length !== 0 && !sideStrip;
         var bottomLimit = tabbarVisible ? tabbar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+        /* In the `short` tier the tab bar is a side strip and constrains
+           nothing vertically (above), but the counts strip is sticky to the
+           foot of the viewport there - so IT is this tier's bottom furniture,
+           playing exactly the role the tabbar plays in portrait. Without this
+           the tray sized itself to the full viewport height and its last
+           fields sat underneath the counts, unreachable however far you
+           scrolled inside it (live feedback: "I can't get to bottom of filters
+           if screen is this short"). Same intent as the tabbar gap this
+           function already documents: stop short of the furniture, don't run
+           under it. */
+        if (sideStrip) {
+            var shell = bar.closest('.list-page-shell') || document;
+            var strips = shell.querySelectorAll('.stats-strip');
+            var stats = strips.length ? strips[strips.length - 1] : null;
+            if (stats && stats.getClientRects().length !== 0) {
+                bottomLimit = Math.min(bottomLimit, stats.getBoundingClientRect().top);
+            }
+        }
         box.style.top = barBottom + 'px';
         // (INT-R2) left/width anchored to the bar's own rect, not the base CSS rule's
         // left: 0; right: 0 (panel.css) - true phone width has no side nav,
