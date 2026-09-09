@@ -10,7 +10,7 @@ All DB tables keep their original `inclusion_*` names (set via `Meta.db_table` o
 
 **Referral lifecycle:**
 - `ReferralCategory` / `ReferralQuestion` / `ReferralResponse` — questionnaire structure and answers
-- `Referral` — one referral per student (`status`: open / assigned / discussing / review_scheduled / awaiting_review / overdue_review / closed, aggregated by `_sync_referral_status`. `assigned`/`discussing` = genuinely on a panel's live agenda right now (same words as `_panel_referral_stage`'s stage_key). The other three cover "discussed before, follow-up due, not on any current agenda" tiered by days until the follow-up's due date: `review_scheduled` (>7 days away), `awaiting_review` (within 7 days either side), `overdue_review` (>7 days past))
+- `Referral` — one referral per student (`status`: open / assigned / discussing / review_scheduled / awaiting_review / overdue_review / closed, aggregated by `lifecycle.sync_referral_status`. `assigned`/`discussing` = genuinely on a panel's live agenda right now (same words as `lifecycle.stage`'s stage_key). The other three cover "discussed before, follow-up due, not on any current agenda" tiered by days until the follow-up's due date: `review_scheduled` (>7 days away), `awaiting_review` (within 7 days either side), `overdue_review` (>7 days past))
 - `Action` / `ActionCategory` — tasks arising from referrals; `ActionCategory.is_sensitive` controls visibility for non-panel staff
 
 Safeguarding notes now live in `core.models.SafeguardingNote`, not here — see this app's own CONTEXT.md and `core/CONTEXT.md`. Decoupled from Panel entirely (#77-#81); only `PanelReferral.briefing_ready` below stays panel-side.
@@ -30,12 +30,26 @@ Safeguarding notes now live in `core.models.SafeguardingNote`, not here — see 
 
 - `_is_panel_staff(staff)` — lightweight role check: `PanelGroupMember.objects.filter(staff=staff).exists()`. Controls sensitive `ActionCategory` visibility and `SafeguardingNote` read access (writing is gated further, to `core.models.Staff.is_dsl`). No real auth yet.
 - `visible_categories_for(staff, categories=None)` / `visible_actions_for(staff, actions)` — single owner for "hide `is_sensitive` categories/actions from non-panel staff". Every view touching `ActionCategory`/`Action` querysets for display should filter through these instead of re-deriving `_is_panel_staff(...)` and excluding inline.
-- `_sync_referral_status(referral)` — recalculates `Referral.status` from active `PanelReferral` states. Call after any PanelReferral add/remove/discuss.
 - `_due_followups(panel, as_of)` — scoped to the referral's student's current school (any active Panel Group there, not just the one that originally discussed it — see [#70](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/70)), matching `unassigned_referrals`' own school-level scoping; a MAT-wide group or an ungrouped panel sees nothing due. Pulling follow-ups onto the agenda is only done from Panel Agenda Setup (`inclusion_panel_meeting_setup`'s "Reviews Due" tab, `add_followup_to_agenda` action) — the live Panel Agenda page has no agenda-composition UI of its own, it's for running a meeting whose agenda was already decided.
-- `_panel_referral_stage(pr)` — returns `(stage_key, label)` for a single PanelReferral: `discussing` / `assigned` / `requires_follow_up` / `complete`.
-- `_set_referral_priority(referral_id, priority)` / `_reorder_panel_referrals(panel, ordered_ids)` / `_remove_referral_from_agenda(pr, removed_by_id)` — single owner for the agenda mutations Panel Agenda Setup and the live Panel Agenda page both expose (`update_priority`/`reorder_agenda`/remove-or-unassign form actions). Each call site keeps its own guard (Setup has none pre-meeting; Agenda gates on `_panel_is_ended`/discussion_status) — only the mutation body is shared.
 - `_panel_member_roster(panel)` — "who's on this panel," used by both Panel Agenda Setup and the live Panel Agenda page. Reads the live `PanelGroupMember` roster for any non-`complete` panel; for a `complete` panel, reads only members with a `PanelMember` row (i.e. who actually checked in) instead, so a finished meeting's attendance record doesn't change if the group's membership changes later.
 - `_safeguarding_note_rows(request)` — one row per student+upcoming-panel pair, MAT-wide/school-switcher scoped (same convention as `_due_followups`), backing the Safeguarding Notes screen (`safeguarding_notes.html`, renamed from "Safeguarding Briefings" - #84; URL/route and Python names renamed to match in #85). `row.notes` is that student's whole active `core.models.SafeguardingNote` list (no panel filter — every row for the same student shows the same notes, see #77-#81); `row.history` is that student's retired notes, most-recently-retired first, excluding any note retired automatically by an edit (`retirement_reason == 'superseded'`) - History is Delete-only (#83).
+
+## Referral lifecycle (`lifecycle.py`) and reconciliation (`reconcile.py`)
+
+Both were underscore-private functions inside `views.py` until they were lifted out — see [ADR 0019](../../../docs/adr/0019-panel-reconciliation-is-one-entry-point-with-an-injected-clock.md). Tests live in `tests/test_lifecycle.py` and `tests/test_reconcile.py`.
+
+**`lifecycle.py` — what a referral's status is, and every transition allowed to change it.** `InclusionReferral.status` is derived, never set by hand: it aggregates across every active `PanelReferral` row. The mutations resync it as part of the act, so **there is no "remember to call sync" rule any more** — that invariant used to be carried by eleven call sites and a sentence in this file.
+
+- Verbs (each resyncs): `mark_discussed(pr, requires_followup, follow_up_date, now=None)` / `defer(pr)` / `remove_from_agenda(pr, removed_by_id, now=None)` / `stop_discussion_timer(pr, now=None)`.
+- Agenda mutations shared by Panel Agenda Setup and the live Panel Agenda page: `set_referral_priority(referral_id, priority)` / `reorder_panel_referrals(panel, ordered_ids)`. Each call site keeps its own guard (Setup has none pre-meeting; Agenda gates on `lifecycle.panel_is_ended`/discussion_status) — only the mutation body is shared.
+- Reads: `stage(pr)` → `(stage_key, label)` for a single PanelReferral (`discussing`/`assigned`/`deferred`/`requires_follow_up`/`complete`) — distinct from the referral-wide aggregate. `is_last_open_review(pr)`, `panel_is_ended(panel)`, `panel_had_any_discussion(panel)`.
+- `sync_referral_status(referral, today=None)` stays public for bulk loops and data repair. **A new mutation path should become a verb here rather than a new caller of this.**
+
+**`reconcile.py` — the transitions nobody clicks.** A meeting going `delayed`, a stale meeting auto-ending, a quiet discussion timer stopping. One entry point, `reconcile_panels(now=None)`; `now` is a parameter throughout, which is what makes `STALE_PANEL_TIMEOUT` (60 min), `STALE_PANEL_WARNING_LEAD` (5 min) and `STALE_DISCUSSION_TIMEOUT` (30 min) testable at all.
+
+- Still called from panel views on read, so GET requests still write rows — deliberate and temporary, because there is no scheduler in this project. `manage.py reconcile_panels` is the scheduled path; ADR 0019 has the full reasoning and the migration.
+- `reconcile.py` imports `lifecycle.py`, never the reverse. An auto-ended meeting resyncs referral statuses by exactly the same path a manual End Panel Meeting does.
+- The stale-panel timeout measures from `panel_last_activity_at(panel)`, not from `started_at` — notes, attendance changes, any `PanelReferral` touch (`updated_at` is `auto_now`) and the "Still here" ping all count (#114).
 
 ## Filter bar (Referral/Actions dashboards)
 

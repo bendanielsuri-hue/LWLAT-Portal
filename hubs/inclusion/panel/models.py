@@ -48,13 +48,13 @@ class ReferralQuestion(models.Model):
 class InclusionReferral(models.Model):
     # 'assigned'/'discussing' mean it's genuinely on a panel's live agenda
     # right now (pending or actively being discussed) - same words as
-    # _panel_referral_stage's per-meeting stage_key, deliberately, so the
+    # lifecycle.stage's per-meeting stage_key, deliberately, so the
     # same real-world moment reads identically everywhere. The other three
     # cover a referral that's been discussed before and has a follow-up
     # due but isn't on any current agenda (the Reviews Due queue), tiered
     # by how close that follow-up date is: 'review_scheduled' (more than a
     # week away), 'awaiting_review' (within a week either side of it), or
-    # 'overdue_review' (more than a week past it). See _sync_referral_status.
+    # 'overdue_review' (more than a week past it). See lifecycle.sync_referral_status.
     STATUS_CHOICES = [
         ('open', 'Open'),
         ('review_scheduled', 'Review Scheduled'),
@@ -216,11 +216,11 @@ class Panel(models.Model):
         ('running', 'Running'),
         ('delayed', 'Delayed'),
         ('complete', 'Complete'),
-        # A meeting that was ended (manually or via _sync_stale_running_panels)
+        # A meeting that was ended (manually or via reconcile.reconcile_stale_running_panels)
         # with zero referrals ever actually discussed - not worth keeping as a
         # real completed meeting, but attendance/history rows are kept rather
         # than hard-deleted. Deliberately not exposed in any status filter -
-        # see end_panel_meeting/_sync_stale_running_panels in views.py.
+        # see end_panel_meeting (views.py) and reconcile.close_stale_panel.
         ('void', 'Void'),
     ]
 
@@ -247,7 +247,7 @@ class Panel(models.Model):
     # discussion work, just confirmation someone's actually watching. Counted
     # alongside the others in _panel_last_activity_at.
     last_confirmed_at = models.DateTimeField(null=True, blank=True)
-    # Set by _sync_stale_running_panels (views.py) when a running meeting is
+    # Set by reconcile.close_stale_panel when a running meeting is
     # force-completed for running 2x past this group's typical duration with
     # no End Panel Meeting click - an abandoned meeting's elapsed time is an
     # outlier, not a real data point about how long this group's meetings
@@ -324,10 +324,10 @@ class PanelMember(models.Model):
 
 
 class PanelReferral(models.Model):
-    # 'deferred' - the meeting ended (manually or via _sync_stale_running_panels'
+    # 'deferred' - the meeting ended (manually or via reconcile.reconcile_stale_running_panels'
     # auto-end) while this referral was still 'pending'. The row is kept, not
     # removed, so this panel's own history still shows it was queued but not
-    # reached - see _sync_referral_status/_panel_referral_stage in views.py,
+    # reached - see lifecycle.sync_referral_status/lifecycle.stage,
     # which both treat 'deferred' as non-blocking so the referral becomes
     # pickable again for a future panel without needing removed_at.
     DISCUSSION_CHOICES = [('pending', 'Pending'), ('discussed', 'Discussed'), ('deferred', 'Deferred')]

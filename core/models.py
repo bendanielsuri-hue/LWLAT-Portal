@@ -475,8 +475,8 @@ class Referral(models.Model):
     # Minimal cross-type status for reporting/search only — NOT a state machine.
     # Type-specific detail tables (e.g. InclusionReferral) own their own richer
     # status where needed and are responsible for keeping this field in sync
-    # (see hubs/inclusion/panel/models.py::InclusionReferral and the existing
-    # _sync_referral_status() convention in hubs/inclusion/panel/views.py).
+    # (see hubs/inclusion/panel/models.py::InclusionReferral and the
+    # hubs.inclusion.panel.lifecycle module, which owns that projection).
     STATUS_OPEN = 'open'
     STATUS_CLOSED = 'closed'
     STATUS_CHOICES = [(STATUS_OPEN, 'Open'), (STATUS_CLOSED, 'Closed')]
