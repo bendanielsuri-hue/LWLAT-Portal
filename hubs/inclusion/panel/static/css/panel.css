@@ -6832,6 +6832,169 @@ html.nav-touch-mode .row-facts-arrow {
 .filter-bar-tray .filter-bar-sections .filter-section-label::after {
     flex: 1 0 12px;
 }
+
+/* ======================================================================
+   #186: a section's fields never wrap - one line that scrolls instead
+
+   Two problems, one root, both from wrapping inside a category:
+   a ragged last line left dead space beside the last field (at 390px
+   Referral wrapped 4 + 1 and "Overdue Actions" sat alone with two thirds
+   of a row empty), and a trigger that grew to fit a long value reflowed
+   every field after it onto new lines. A single scrolling line has
+   neither.
+
+   Nothing below is tiered by width. The layout follows the same fact #185
+   settled on - which host rendered the sections - and every piece of
+   scroll chrome follows a second, measured one: whether that particular
+   track overflows. A bar whose filters all fit (Meetings, the SEND &
+   Provision hub) draws no fade, no arrows and does not scroll, at any
+   width, without a breakpoint knowing anything about it.
+
+   The trade, stated plainly because this codebase already made the
+   opposite call once (de5fa4f, "a filter you cannot see is a filter you
+   do not use"): a cut-off filter is less visible than a wrapped one. Three
+   overlapping affordances pay for that - the fade, the arrows, and hover-
+   to-reveal (main.js) - and what is hidden is now 1-2 fields inside a
+   named category rather than a whole strip of unlabelled ones.
+   ====================================================================== */
+/* The TRAY: sections still pack onto lines as they fit (shared rules
+   above - 1 per row at 390px because nothing else fits, 2 at portrait
+   tablet), and each section's own fields row is what scrolls. */
+.filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields,
+/* WIDE DESKTOP: the panel is a single line of categories and the strip
+   itself scrolls (#186 reverses de5fa4f's wrap here). */
+.filter-bar-tray .filter-secondary-fields .filter-bar-sections {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Keeps a swipe that runs out of track from chaining into the tray's
+       own vertical scroll, or into the page's back gesture on iOS. */
+    overscroll-behavior-x: contain;
+    /* One number for "how far in is clear of the fade", read by the mask
+       gradients below, by scroll-padding just underneath, and by main.js's
+       arrow stepper via getComputedStyle. All three have to agree, or an
+       arrow press lands a field under the gradient that advertised it. */
+    --filter-scroll-fade: 28px;
+    scroll-padding-inline: var(--filter-scroll-fade);
+    /* No scrollbar at any width or input mode, not just the usual
+       html.nav-touch-mode pair (project convention): one per section is
+       several bars of chrome stacked down a tray, and the convention exists
+       because hiding a scrollbar normally costs the only affordance there
+       is - here it is the third, after the fade and the arrows. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields::-webkit-scrollbar,
+.filter-bar-tray .filter-secondary-fields .filter-bar-sections::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+/* Edge fade, on whichever end still has travel (main.js sets these classes
+   from measurement). A mask, not a gradient overlay: the track is
+   transparent over the tray's own fill, so an overlay would have to know
+   that colour and would draw a hard edge the moment a theme changed it.
+   Masking fades the CONTENT out instead, which is colour-blind by
+   construction. The half-visible field at the cut does most of the work;
+   the fade only makes it read as deliberate rather than as clipping. */
+.filter-scroll-more-right {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--filter-scroll-fade)), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--filter-scroll-fade)), transparent 100%);
+}
+.filter-scroll-more-left {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--filter-scroll-fade)), transparent 100%);
+    mask-image: linear-gradient(to left, #000 calc(100% - var(--filter-scroll-fade)), transparent 100%);
+}
+.filter-scroll-more-left.filter-scroll-more-right {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--filter-scroll-fade), #000 calc(100% - var(--filter-scroll-fade)), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 var(--filter-scroll-fade), #000 calc(100% - var(--filter-scroll-fade)), transparent 100%);
+}
+/* Grab affordance, only while the track can actually move - is-draggable/
+   is-dragging come from wireScrollCarousel (main.js), the same drag
+   handling every other carousel in the app already uses. */
+.filter-bar-tray .filter-group-fields.is-draggable,
+.filter-bar-tray .filter-bar-sections.is-draggable {
+    cursor: grab;
+}
+.filter-bar-tray .filter-group-fields.is-dragging,
+.filter-bar-tray .filter-bar-sections.is-dragging {
+    cursor: grabbing;
+    /* Or the drag selects label text as it passes over it. */
+    user-select: none;
+}
+/* Prev/next, the pair the desktop strip used to carry before it wrapped
+   (.filter-secondary-fields-arrow, deleted in de5fa4f) - back per track.
+
+   In the tray they hang on the caption row, which is already a flex line
+   with a tick running out to each end, so an arrow at each end lands in
+   chrome that exists, costs the fields row no width and never covers a
+   control. The caption sits UNDER its fields (.filter-group is
+   column-reverse), so they read as that section's own footer controls.
+
+   Only built for a track that measures as overflowing, and each disables
+   at its own end of the travel rather than disappearing - a pair that
+   vanishes makes the caption row twitch its width as you scroll it.
+   :not([hidden]) is load-bearing: wireScrollCarousel hides an arrow via the
+   `hidden` property, whose display: none comes from the UA stylesheet, and
+   any author display here would outrank it. */
+.filter-scroll-arrow {
+    display: none;
+}
+.filter-scroll-active .filter-scroll-arrow:not([hidden]) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    /* 22px is the VISIBLE size, matched to the caption's own text so a pair
+       per section does not shout over four captions. The tap target is a
+       separate 44px, below. */
+    position: relative;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+}
+.filter-scroll-active .filter-scroll-arrow[disabled] {
+    opacity: 0.35;
+    cursor: default;
+}
+/* (DES-S3) The real 44px tap target, invisible, over the 22px circle -
+   small to look at, big to hit, which is the only way to clear the floor
+   here without the button out-weighing the caption it sits on.
+
+   Deliberately not centred: the caption sits only --space-micro (2px) under
+   its own fields row, so a symmetric 44px box would reach up into the
+   bottom edge of the dropdowns above and swallow taps meant for them.
+   Extended down and sideways instead, into the row gap that already
+   separates this section from the next. 2 + 22 + 20 = 44 tall,
+   11 + 22 + 11 = 44 wide. */
+.filter-scroll-active .filter-scroll-arrow::after {
+    content: "";
+    position: absolute;
+    inset: -2px -11px -20px;
+}
+/* The panel strip has no per-section caption to hang arrows on - what
+   scrolls there is the whole line - so its pair sits at the panel's own
+   left/right edges, vertically centred. */
+.filter-scroll-active .filter-scroll-arrow--panel:not([hidden]) {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+.filter-scroll-active .filter-scroll-arrow--panel[data-filter-scroll-arrow="prev"] {
+    left: calc(var(--space-xs) * -1);
+}
+.filter-scroll-active .filter-scroll-arrow--panel[data-filter-scroll-arrow="next"] {
+    right: calc(var(--space-xs) * -1);
+}
+
 /* #135 follow-up (2026-08-20, live feedback: "lose the overlay on the
    filtered content for all modes but mobile") - narrow tablet briefly
    reused mobile's own dimmed click-to-close backdrop here (widened to this

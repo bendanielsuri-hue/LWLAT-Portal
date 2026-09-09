@@ -352,6 +352,53 @@
            right underneath. */
         border-radius: 0;
     }
+    /* (#186) Out of flow again, floating over the list rather than pushing
+       it down.
+
+       This reverses the 2026-08-20 change the comment above describes ("for
+       this mode, not mobile, the filter shelf pushes the content down as
+       this can be kept open"), and the cost is exactly the thing that
+       decision bought: the panel now covers the top rows while open, so it
+       stops being something you leave open while working down the list.
+       What it buys back is one behaviour at every width - live feedback:
+       "I think all filter modes should overlay, not push content" - and a
+       panel that is now a single scrolling line rather than four wrapped
+       rows (panel.css) has far less to cover the list WITH.
+
+       The containing block is .filter-bar itself: it is position: sticky,
+       which counts as positioned, so top: 100% means "directly under the
+       bar" without anything here needing to know the bar's height. The
+       inline insets pin both edges instead of the flex-basis trick the flow
+       version needed (its own comment above), so the width comes out right
+       without arithmetic on the bleed margins.
+
+       Explicit background/border/shadow because an out-of-flow box has the
+       entity list showing through it otherwise - the flow version could
+       share .filter-bar's own fill and read as one continuous surface, and
+       that is exactly what a floating panel must not do. */
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) {
+        position: absolute;
+        top: calc(100% + var(--space-xs));
+        left: 0;
+        right: 0;
+        z-index: 30;
+        /* Cancels the flow-mode sizing above: a basis claiming a full row of
+           .filter-fields-wrap, and the bleed margins baked into it. Out of
+           flow the box is placed by its own insets instead. */
+        flex-basis: auto;
+        margin: 0;
+        padding: var(--space-md) var(--space-lg);
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        box-shadow: 0 10px 28px rgba(15, 23, 36, 0.14);
+        /* A lid, so a panel can never grow past the viewport it floats over -
+           the flow version deliberately had none ("this can be kept open"
+           reads as no artificial scroll-bounded lid), but a floating box that
+           runs off the bottom of the screen has no way back. */
+        max-height: min(60vh, 420px);
+        overflow-y: auto;
+    }
     /* No scrollbar on a touch device (portal convention - every
        overflow: auto element gets this pair) - html.nav-touch-mode is set
        live off a real hover: none match or the dev breakpoint preview's

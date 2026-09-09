@@ -772,6 +772,9 @@ function setupFilterBarMoreFilters(bar) {
         // with the tray already open.
         if (window.resyncFilterTriggerWidths) window.resyncFilterTriggerWidths(bar);
         groupFilterSections(bar);
+        // After grouping, never before: the tracks this measures are the
+        // wrappers groupFilterSections has just built or unwound (#186).
+        wireFilterSectionScroll(bar);
     }
 
     measure();
@@ -831,7 +834,17 @@ window.setupFilterBarMoreFilters = setupFilterBarMoreFilters;
 // re-registering the click handlers each time - re-calling this whole
 // function on every remeasure would stack a fresh, duplicate click listener
 // on the same prev/next buttons instead.
-function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nextSelector) {
+//
+// options.scrollTo(track, direction) replaces what one arrow press moves,
+// for a track whose items are NOT equal width. The default below nudges by
+// one card plus the gap, which is exact for a carousel of uniform cards
+// (senco/stats/referral/action all are) and lands mid-item for anything
+// else - a filter row, where a toggle sits beside "Concern Category", can
+// leave a dropdown half shown after a press that was meant to reveal it.
+// Everything else - the wheel redirect, drag-to-scroll, arrow auto-hide and
+// the edge state - is identical either way, which is the whole reason to
+// pass a stepper rather than fork the function.
+function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nextSelector, options) {
     var track = wrap.querySelector(trackSelector);
     var prevBtn = wrap.querySelector(prevSelector);
     var nextBtn = wrap.querySelector(nextSelector);
@@ -842,8 +855,15 @@ function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nex
         return card ? card.offsetWidth + 12 : track.clientWidth;
     }
 
-    prevBtn.addEventListener('click', function () { track.scrollBy({ left: -step(), behavior: 'smooth' }); });
-    nextBtn.addEventListener('click', function () { track.scrollBy({ left: step(), behavior: 'smooth' }); });
+    var customScroll = options && options.scrollTo;
+    prevBtn.addEventListener('click', function () {
+        if (customScroll) { customScroll(track, -1); return; }
+        track.scrollBy({ left: -step(), behavior: 'smooth' });
+    });
+    nextBtn.addEventListener('click', function () {
+        if (customScroll) { customScroll(track, 1); return; }
+        track.scrollBy({ left: step(), behavior: 'smooth' });
+    });
 
     // A mouse wheel only ever reports deltaY, so without this a horizontal-
     // only track (nothing to scroll vertically) just ignores the user's wheel
@@ -1160,6 +1180,191 @@ function groupFilterSections(bar) {
         group.appendChild(fieldsBox);
     });
 }
+
+/* #186: a filter section's fields never wrap - they sit on one line that
+   scrolls horizontally - and this is the measuring half of that.
+
+   Two kinds of track, one mechanism. In the TRAY each section owns its own
+   fields row and that row scrolls; at wide desktop the "View filters" panel
+   is a single line of categories and the strip itself scrolls. Both get the
+   same edge fade, the same prev/next pair, the same drag/wheel handling and
+   the same hover-to-reveal - only what counts as an "item" differs, which is
+   why sectionScrollItems() exists rather than two near-copies of all this.
+
+   Nothing here is tiered by width. A track that fits shows no fade, no
+   arrows and does not scroll, at any width - which is what a bar with three
+   filters (Meetings, the SEND & Provision hub) gets for free. What decides
+   the layout is which host rendered the sections (.filter-bar-sections,
+   #185) and whether that particular track measures as overflowing.
+
+   Why scroll at all: a wrapped section leaves dead space beside a ragged
+   last line (at 390px, Referral wrapped 4 + 1 and left "Overdue Actions"
+   alone with two thirds of a row empty), and a trigger that grew to fit a
+   long value reflowed every field after it onto new lines. One line that
+   scrolls has neither failure mode. See #186 for the alternatives tried
+   against the real page and rejected. */
+function filterSectionTracks(bar) {
+    return bar.querySelectorAll(
+        '.filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields,' +
+        '.filter-secondary-fields .filter-bar-sections'
+    );
+}
+/* The panel strip carries the sections class itself; a tray row is the box
+   inside a section. */
+function isFilterPanelStrip(track) {
+    return track.classList.contains('filter-bar-sections');
+}
+function sectionScrollItems(track) {
+    return Array.prototype.slice.call(
+        track.querySelectorAll(isFilterPanelStrip(track) ? ':scope > .filter-group' : ':scope > .filter-field')
+    );
+}
+/* Whatever the arrows and the "can scroll" state hang off: the section for a
+   tray row, the panel box itself for the strip. */
+function filterSectionScrollHost(track) {
+    return track.closest('.filter-group') || track.closest('.filter-secondary-fields');
+}
+/* How wide the fade is, read back off the track's own custom property so the
+   stylesheet stays the single source of truth: the mask gradients, this
+   stepper and scroll-padding-inline all have to agree about where "clear of
+   the fade" is, or an arrow press lands a field underneath the very gradient
+   that advertised it. */
+function filterSectionFade(track) {
+    var v = parseFloat(window.getComputedStyle(track).getPropertyValue('--filter-scroll-fade'));
+    return isFinite(v) ? v : 28;
+}
+/* One arrow press = "show me the item I can only half see".
+
+   Not wireScrollCarousel's own default step of one card width: that is exact
+   for a carousel of identical cards and lands mid-field here, where a toggle
+   sits beside "Concern Category". The landing is inset by the fade at
+   whichever end the item arrives, the same inset scroll-padding-inline hands
+   the browser. */
+function stepFilterSectionScroll(track, direction) {
+    var trackRect = track.getBoundingClientRect();
+    var pad = filterSectionFade(track);
+    var left = trackRect.left + pad;
+    var right = trackRect.right - pad;
+    var found = null;
+    var list = sectionScrollItems(track);
+    if (direction > 0) {
+        for (var i = 0; i < list.length; i++) {
+            var r = list[i].getBoundingClientRect();
+            if (r.right > right + 1) { found = r.left - left; break; }
+        }
+    } else {
+        for (var j = list.length - 1; j >= 0; j--) {
+            var pr = list[j].getBoundingClientRect();
+            if (pr.left < left - 1) { found = pr.right - right; break; }
+        }
+    }
+    if (found === null) found = direction * track.clientWidth;
+    scrollFilterSectionBy(track, found);
+}
+function scrollFilterSectionBy(track, delta) {
+    var max = track.scrollWidth - track.clientWidth;
+    track.scrollTo({ left: Math.max(0, Math.min(max, track.scrollLeft + delta)), behavior: 'smooth' });
+}
+/* Hover a partly-hidden item and it brings itself fully into view, moving by
+   the MINIMUM needed - so it slides toward the pointer rather than out from
+   under it, and a track with nothing cut never moves at all. (An earlier
+   proximity version - pointer near the end of a track pans it, faster the
+   closer in - was rejected on the page for exactly that: it moved content
+   under a stationary mouse, so a dropdown near the edge ran away from the
+   pointer aiming at it. See #186.)
+
+   The delay stops a sweep across the track triggering anything; the cooldown
+   stops the smooth scroll chaining, since other cut items pass under the
+   stationary pointer as the track moves and would each ask for their turn.
+   Mouse only - touch already has the swipe. */
+var FILTER_SECTION_HOVER_MS = 150;
+var FILTER_SECTION_HOVER_COOLDOWN_MS = 320;
+function revealFilterSectionItem(track, item) {
+    var trackRect = track.getBoundingClientRect();
+    var pad = filterSectionFade(track);
+    var r = item.getBoundingClientRect();
+    var delta = 0;
+    if (r.right > trackRect.right - pad + 1) delta = r.right - (trackRect.right - pad);
+    else if (r.left < trackRect.left + pad - 1) delta = r.left - (trackRect.left + pad);
+    if (!delta) return false;
+    scrollFilterSectionBy(track, delta);
+    return true;
+}
+/* The fade goes on whichever end still has travel. A mask, not a gradient
+   overlay: the track is transparent over the tray's own fill, so an overlay
+   would have to know that colour and would draw a hard edge the moment a
+   theme changed it - masking fades the content itself instead. */
+function updateFilterSectionScroll(track) {
+    var host = filterSectionScrollHost(track);
+    var max = track.scrollWidth - track.clientWidth;
+    var can = max > 1;
+    if (host) host.classList.toggle('filter-scroll-active', can);
+    track.classList.toggle('filter-scroll-more-left', can && track.scrollLeft > 1);
+    track.classList.toggle('filter-scroll-more-right', can && track.scrollLeft < max - 1);
+}
+/* Arrows are built once per track and left in place; wireScrollCarousel's own
+   updateArrows hides them again whenever the track stops overflowing.
+   Everything they then do - drag-to-scroll, the vertical-wheel-to-horizontal
+   redirect, the auto-hide, the edge state - comes from that shared helper
+   rather than a fourth copy of the same logic, which its own comment asks
+   for. */
+function wireFilterSectionScroll(bar) {
+    Array.prototype.forEach.call(filterSectionTracks(bar), function (track) {
+        var host = filterSectionScrollHost(track);
+        if (!host) return;
+        var strip = isFilterPanelStrip(track);
+        if (!track.dataset.filterScrollBound) {
+            track.dataset.filterScrollBound = '1';
+            track.addEventListener('scroll', function () { updateFilterSectionScroll(track); }, { passive: true });
+            var hoverTimer = null;
+            var hoverUntil = 0;
+            track.addEventListener('pointerover', function (e) {
+                if (e.pointerType !== 'mouse') return;
+                if (track.scrollWidth - track.clientWidth <= 1) return;
+                var item = e.target.closest && e.target.closest(strip ? '.filter-group' : '.filter-field');
+                if (!item || item.parentNode !== track) return;
+                window.clearTimeout(hoverTimer);
+                if (Date.now() < hoverUntil) return;
+                hoverTimer = window.setTimeout(function () {
+                    if (revealFilterSectionItem(track, item)) {
+                        hoverUntil = Date.now() + FILTER_SECTION_HOVER_COOLDOWN_MS;
+                    }
+                }, FILTER_SECTION_HOVER_MS);
+            });
+            track.addEventListener('pointerleave', function () { window.clearTimeout(hoverTimer); });
+        }
+        // Tray: the caption row (.filter-group's other child), where an arrow
+        // at each end lands in chrome that already exists and costs the fields
+        // row no width. Panel: the panel box itself, arrows at its own
+        // left/right edges, since what scrolls there is the whole strip and
+        // there is no per-section caption to hang them on.
+        var mount = strip ? host : host.querySelector(':scope > .filter-section-label');
+        if (mount && !mount.querySelector('.filter-scroll-arrow')) {
+            ['prev', 'next'].forEach(function (dir) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'filter-scroll-arrow' + (strip ? ' filter-scroll-arrow--panel' : '');
+                btn.dataset.filterScrollArrow = dir;
+                btn.setAttribute('aria-label', (dir === 'prev' ? 'Previous' : 'More') +
+                    (strip ? ' filter categories' : ' filters in this section'));
+                btn.textContent = dir === 'prev' ? '‹' : '›';
+                if (dir === 'prev') mount.insertBefore(btn, mount.firstChild);
+                else mount.appendChild(btn);
+            });
+            host._filterScrollUpdate = wireScrollCarousel(
+                host,
+                strip ? ':scope > .filter-bar-sections' : ':scope > .filter-group-fields',
+                strip ? '.filter-group' : '.filter-field',
+                '.filter-scroll-arrow[data-filter-scroll-arrow="prev"]',
+                '.filter-scroll-arrow[data-filter-scroll-arrow="next"]',
+                { scrollTo: stepFilterSectionScroll }
+            );
+        }
+        if (host._filterScrollUpdate) host._filterScrollUpdate();
+        updateFilterSectionScroll(track);
+    });
+}
+
 
 // #135 follow-up (DES-L7): wraps a genuinely multi-word field label onto 2
 // lines - live feedback corrected an earlier version of this (which force-split
@@ -3274,6 +3479,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // whether the tray's sections are wrapped - re-decide before
                 // re-measuring the tray's own cap against the result.
                 groupFilterSections(bar);
+                wireFilterSectionScroll(bar);
                 if (box) positionFilterTray(bar, box);
             });
         }));
@@ -3536,6 +3742,9 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // row count grouping decides.
                 if (window.resyncFilterTriggerWidths) window.resyncFilterTriggerWidths(bar);
                 groupFilterSections(bar);
+                // Re-measured here too: opening the tray is the first moment
+                // these rows have a real width to overflow (#186).
+                wireFilterSectionScroll(bar);
                 // #134: the floating tray (panel.css: position: fixed,
                 // viewport-anchored) has nothing left bounding its top/
                 // height once it's out of .filter-bar's own flex flow - CSS
