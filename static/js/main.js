@@ -699,18 +699,44 @@ function setupFilterBarMoreFilters(bar) {
         // buttons have a real offsetWidth to measure rather than the 0 a
         // display: none box reports - which would otherwise read as
         // "always fits" and never let the class back on once it was set.
-        if (isNoSearchTray && window.isFilterBarMobile && window.isFilterBarMobile()) {
+        // (#187) Every tray bar, not just the no-search ones. When the tray
+        // was mobile-only, a search-bearing bar hid this pair outright: the
+        // one row it had at those widths belonged to Search, and the tray's
+        // own label-plus-chevron and sticky Clear/Close covered both jobs.
+        // Now that every width renders the tray, that reasoning only holds
+        // where the row really is that tight - live feedback: "view filter
+        // button is not showing" at desktop, where the row is 1400px wide
+        // and hiding it is pure loss.
+        //
+        // Still measured, never tiered: whether the pair fits depends on the
+        // label's own count badge, the button's own text ("View filters" vs
+        // "Hide filters") and, on a search bar, how much room Search itself
+        // needs - none of which a width knows. Measured with the class off,
+        // so the buttons report a real offsetWidth rather than the 0 a
+        // display: none box gives, which would read as "always fits" and
+        // never let the class back on once set.
+        if (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile()) {
             if (allFields.length) moreFiltersBtn.hidden = false;
             bar.classList.remove('filter-bar-actions-cramped');
             var barLabel = bar.querySelector('.filter-bar-label');
             if (barLabel && !moreFiltersBtn.hidden) {
                 var barBox = window.getComputedStyle(bar);
                 var barInner = bar.clientWidth - parseFloat(barBox.paddingLeft) - parseFloat(barBox.paddingRight);
-                // + --space-md: the two must not merely touch, they need
-                // the same breathing room between them that the search-
-                // bearing bars reserve for this corner (.filter-bar-sticky-
-                // row's own padding-right, forms.css).
-                if (barLabel.offsetWidth + actionsRight.offsetWidth + 16 > barInner) {
+                // A search field has to keep a usable width of its own, or
+                // "it fits" becomes true at every width - Search flexes, so
+                // it will surrender its last pixel to make room rather than
+                // ever report a shortfall. SEARCH_MIN_WIDTH is what stops
+                // that: below it, the buttons are the thing that gives way,
+                // which is exactly the phone-width behaviour this replaces.
+                var searchField = bar.querySelector('.filter-field--search');
+                var needed = barLabel.offsetWidth + actionsRight.offsetWidth +
+                    (searchField ? SEARCH_MIN_WIDTH : 0) +
+                    // + --space-md: the two must not merely touch, they need
+                    // the same breathing room between them that the search-
+                    // bearing bars reserve for this corner (.filter-bar-
+                    // sticky-row's own padding-right, forms.css).
+                    16;
+                if (needed > barInner) {
                     bar.classList.add('filter-bar-actions-cramped');
                 }
             }
@@ -819,6 +845,12 @@ function setupFilterBarMoreFilters(bar) {
 }
 window.setupFilterBarMoreFilters = setupFilterBarMoreFilters;
 
+
+/* The width a pinned Search field has to keep before the "View filters"/
+   Clear pair beside it is the thing that gives way instead (#187, measure()
+   in setupFilterBarMoreFilters). Roughly a name and a half - enough that
+   what you typed stays readable while you type it. */
+var SEARCH_MIN_WIDTH = 220;
 
 // Horizontal scroll-snap carousel: a .*-carousel-wrap holding a scrolling
 // track plus prev/next arrow buttons that nudge scrollLeft by one card

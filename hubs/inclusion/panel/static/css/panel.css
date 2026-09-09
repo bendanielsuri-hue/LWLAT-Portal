@@ -8340,7 +8340,17 @@ html.nav-touch-mode .row-facts-arrow {
        bars keep the desktop pair, pinned to the same top-right corner by
        the same forms.css rule; main.js builds it there now rather than
        bailing out of setup (setupFilterBarMoreFilters). */
-    html.filter-bar-mobile-mode .filter-bar-tray:has([data-filter-pinned]) .filter-actions-right {
+    /* (#187) Phone width only. Every width renders the tray now, so this
+       rule - written when "tray" and "phone" meant the same thing - was
+       hiding the pair on a 1400px desktop row too (live feedback: "view
+       filter button is not showing"). The reasoning above is entirely about
+       a row too narrow to hold anything but Search, which is a fact about
+       390px, not about the tray.
+       Above phone width the measured .filter-bar-actions-cramped rule below
+       takes over, and it now runs for search-bearing bars as well
+       (measure(), main.js): the pair is shown unless the label, the buttons
+       and a usable Search width genuinely do not fit together. */
+    html.phone-chrome .filter-bar-tray:has([data-filter-pinned]) .filter-actions-right {
         display: none;
     }
     /* "These should stay visible unless it does not fit" (live feedback) -
