@@ -87,8 +87,35 @@
                     var portrait = window.matchMedia('(orientation: portrait)').matches;
                     var portraitWide = window.matchMedia('(min-width: 900px)').matches;
                     var trueMobile = window.matchMedia('(max-width: 480px)').matches;
-                    var filterBarMobile = trueMobile || (narrow && !touch) || (touch && portrait && !portraitWide);
-                    var filterBarNarrowDesktop = !trueMobile && ((narrow && !touch) || (touch && portrait && !portraitWide));
+                    // The `short` tier (see the breakpoint registry in
+                    // responsive.css and ADR 0016): a touch device under 500px
+                    // TALL is a phone in landscape, and it needs phone chrome
+                    // even though its width (667-932px) reads as tablet. The
+                    // hub sidebar's icon rail is a vertical list of every menu
+                    // entry - it simply doesn't fit in 430px of height - so
+                    // width alone can't decide this.
+                    //
+                    // Touch-gated, or a short desktop browser window would
+                    // sprout a phone tab bar (INT-R1: width and touch are
+                    // independent signals). Height rather than
+                    // orientation:landscape, because a landscape iPad is also
+                    // landscape and must keep the rail; at 744px+ tall it's
+                    // well clear of this 500px ceiling.
+                    var shortTouch = touch && window.matchMedia('(max-height: 500px)').matches;
+                    // One switch every phone-chrome rule keys off, rather than
+                    // each re-deriving this OR - same approach as
+                    // filter-bar-mobile-mode just below. Kept in sync after
+                    // load by syncPhoneChromeClass() in main.js.
+                    root.classList.toggle('phone-chrome', trueMobile || shortTouch);
+                    // The bottom tab bar rotates to a vertical strip down the
+                    // RIGHT edge here: it then costs ~56px of the abundant
+                    // axis (667-932px wide) instead of ~47px of the scarce one
+                    // (430px tall). Only when NOT also phone-narrow - at both
+                    // short AND under 480px wide there's no horizontal room to
+                    // spare either, so that case keeps the bottom bar.
+                    root.classList.toggle('phone-chrome-side', shortTouch && !trueMobile);
+                    var filterBarMobile = trueMobile || shortTouch || (narrow && !touch) || (touch && portrait && !portraitWide);
+                    var filterBarNarrowDesktop = !trueMobile && !shortTouch && ((narrow && !touch) || (touch && portrait && !portraitWide));
                     root.classList.toggle('filter-bar-mobile-mode', filterBarMobile);
                     root.classList.toggle('filter-bar-narrow-desktop', filterBarNarrowDesktop);
                 } catch (e) { }
@@ -101,8 +128,8 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=489">
-    <script src="{% static 'js/main.js' %}?v=257" defer></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=492">
+    <script src="{% static 'js/main.js' %}?v=258" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>

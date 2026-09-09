@@ -36,6 +36,31 @@
    rail      <= 1200px    Hub sidebar auto-collapses to the 64px icon rail;
                           global hub-rail hidden. JS: narrowMql (main.js).
 
+   HEIGHT AXIS - the one tier not measured in width. See ADR 0016.
+
+   short     <= 500px     TOUCH ONLY. A phone in landscape: 667-932px wide, so
+             tall          every width tier above reads it as a tablet, but only
+                          375-430px tall. The hub sidebar's icon rail is a
+                          vertical list of every menu entry and simply does not
+                          fit in that height, so this tier takes phone chrome
+                          instead - bottom tab bar (rotated to a right-hand
+                          strip), phone filter bar, breadcrumbs hidden - while
+                          keeping desktop treatment for the genuinely
+                          width-driven rules (.main-inner margins, page-header
+                          actions), which have room to spare.
+                          Touch-gated or a short DESKTOP window would sprout a
+                          phone tab bar (INT-R1). Height rather than
+                          orientation: landscape, because a landscape iPad is
+                          landscape too and must keep the rail - at 744px+ tall
+                          it clears this ceiling. 500px sits between the tallest
+                          landscape phone (430) and the shortest landscape
+                          tablet (744).
+                          Not expressible as a media query (it depends on touch
+                          as well as size), so it resolves to html.phone-chrome
+                          / html.phone-chrome-side, set synchronously in
+                          layout.html's head script and maintained by
+                          syncPhoneChromeClass() in main.js.
+
    Boundary rule: a tier's max is N and the matching min is N+1. NEVER pair
    `max-width: N` with `min-width: N`, and never express a tier's floor as
    `max-width: N-1`. Both mistakes were live in this codebase:
@@ -355,6 +380,57 @@
     }
 }
 
+/* ---------------------------------------------------------------------------
+   PHONE CHROME - rules shared by BOTH tiers that get it: the phone tier
+   (<= 480px wide) and the `short` tier (a touch device <= 500px tall, i.e. a
+   phone in landscape). See the registry above and ADR 0016.
+
+   These are here rather than in the width-only block below because they're
+   driven by something the two tiers share - no hub sidebar, a tab bar instead,
+   and vertical space at a premium - not by narrow width. The rules that ARE
+   width-driven (.main-inner's 12px margins, hiding page-header actions) stay
+   in the @media block below and correctly do NOT apply in landscape, which has
+   667-932px of width to spend.
+
+   html.phone-chrome is set in layout.html's head script before first paint and
+   maintained by syncPhoneChromeClass() in main.js - a media query can't
+   express the `short` tier, which depends on touch as well as size.
+   --------------------------------------------------------------------------- */
+
+/* Breadcrumbs just restate "Home > This Hub" info the tab bar's own Home/Menu
+   buttons already cover one tap away - pure vertical-space cost with nothing
+   they uniquely offer, and vertical space is the scarce axis in both tiers.
+   (The header buttons they used to be grouped with are width-driven and stay
+   below - in landscape there's room for them, and they cost no height because
+   the header row exists to carry the title anyway.) */
+html.phone-chrome .breadcrumbs {
+    display: none;
+}
+
+/* Quick-nav row + its divider/heading (cards.css, #114 follow-up): re-enabled
+   whenever the sidebar is gone behind the tab bar's "Menu" button rather than
+   showing as a directly-clickable icon rail - which is exactly what
+   html.phone-chrome means, in either tier. */
+html.phone-chrome .hub-quick-nav {
+    display: flex;
+}
+html.phone-chrome .hub-quick-nav-divider {
+    display: block;
+}
+html.phone-chrome .hub-quick-nav-dashboard-title {
+    display: block;
+}
+
+/* Switch School (MAT staff only, gated server-side in _settings_content.html)
+   lives inside Appearance whenever the tab bar is present - its Settings tab
+   opens Appearance directly, with no separate two-option sheet to choose
+   School vs Appearance from first, so Switch School has to be reachable from
+   inside Appearance or it becomes unreachable entirely. Same un-hide the
+   touch-tablet rail already does for its own Settings. */
+html.phone-chrome .settings-switch-school-group {
+    display: flex;
+}
+
 @media (max-width: 480px) {
     /* Phone reclaim (#116 follow-up): .main-inner's padding (layout.css)
        is otherwise unconditional, same var(--space-2xl) on all four sides
@@ -381,15 +457,6 @@
         margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm)) 0;
         padding: var(--space-sm) var(--space-sm) var(--space-sm);
     }
-    /* Breadcrumbs just restate "Home > This Hub" info the mobile bottom
-       nav's own Home/Menu buttons already cover one tap away, and the real
-       header buttons (Search/+Referral/Settings/...) are redundant with the
-       mobile tabbar's proxy-click versions of the same actions
-       (_hub_sidebar.html) - both are pure vertical-space cost at phone
-       width with nothing they uniquely offer here. */
-    .breadcrumbs {
-        display: none;
-    }
     /* Not display:none on .page-header-extras itself - Inclusion Panel's
        _base.html (page_extras block) renders its New Referral/Panel Search/
        Panel Group/... <dialog> elements as siblings of the visible button
@@ -405,30 +472,6 @@
         display: none;
     }
 
-    /* Switch School (MAT staff only, gated server-side in
-       _settings_content.html) now lives inside Appearance at this width too
-       - same un-hide the touch-tablet rail already does for its own
-       Settings, just extended down to phone. The mobile bottom nav's
-       Settings tab always opens Appearance directly now (_hub_sidebar.html)
-       - no more separate two-option sheet to choose School vs Appearance
-       from first. */
-    .settings-switch-school-group {
-        display: flex;
-    }
-
-    /* Quick-nav row + its divider/heading (cards.css, #114 follow-up):
-       re-enabled only here - this is the one width where the sidebar is
-       gone behind the mobile bottom nav's "Menu" button instead of showing
-       as a directly-clickable icon rail. */
-    .hub-quick-nav {
-        display: flex;
-    }
-    .hub-quick-nav-divider {
-        display: block;
-    }
-    .hub-quick-nav-dashboard-title {
-        display: block;
-    }
 
     /* Filter bar (shared across most Inclusion pages, see #113/#114): fields
        and Clear collapse behind the existing "Filters · count" label, which

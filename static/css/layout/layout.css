@@ -1054,6 +1054,14 @@ main { position: relative; }
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    /* Wrap rather than overflow: below 1180px this bar survives only for the
+       breakpoint tool's own host page (see html.dev-bp-host in responsive.css),
+       and its dev cluster is flex-shrink: 0, so on a genuinely narrow real
+       window the row used to push off the right edge and clip the last control
+       - i.e. the tool's own controls became unreachable at exactly the widths
+       you'd be using it at. Wrapping gives it a second row instead (same
+       native-flex-wrap approach the Actions list uses for its data strip). */
+    flex-wrap: wrap;
     gap: var(--space-md);
     min-height: 34px;
     padding: 0 var(--space-sm);
@@ -1217,17 +1225,20 @@ main { position: relative; }
    CSS-only and keeps it correct across the data-text-size settings, at the cost
    of a little trailing slack inside the box.
 
-   overflow:hidden because the text swaps instantly while the box animates: on
-   the grow, the last character is briefly clipped instead of overflowing into
-   the tooltip host's edge. */
+   Sized with real slack (10ch, not the 9ch "Landscape" nominally needs): ch is
+   the width of "0", but at 600 weight these letters average wider than that
+   estimate suggests, so 9ch landed within ~2px of the string and clipped its
+   final glyph (live feedback). No overflow:hidden either - it's what turned
+   that near-miss into a permanent clip rather than a harmless overhang, and
+   this is the last control in the footer so there's nothing to its right to
+   overhang into. */
 .dev-bp-orient-label {
     display: inline-block;
-    overflow: hidden;
     width: 8ch;
     text-align: left;
     transition: width var(--transition-fast);
 }
-.dev-bp-orient-label.is-landscape { width: 9ch; }
+.dev-bp-orient-label.is-landscape { width: 10ch; }
 .dev-bp-tier { position: relative; display: flex; }
 /* The caret is the open/closed signal now that the label is always on. It
    ships pointing down; these menus open UPWARD out of the footer, so flip it
@@ -1399,6 +1410,14 @@ main { position: relative; }
     min-height: 0;
     display: flex;
     justify-content: center;
+    /* Centres the device mockup vertically as well as horizontally - a short
+       landscape frame otherwise pinned itself to the top with all its slack
+       below, reading as "stuck under the header" rather than as an inset
+       mockup. margin:auto on the child rather than align-items:center here,
+       because this overlay scrolls (overflow:auto below): a centred flex item
+       taller than its container has its overflowing TOP made unreachable,
+       whereas auto margins collapse instead of overflowing. */
+    align-items: flex-start;
     background: var(--bg-page);
     overflow: auto;
     /* Larger vertical padding than horizontal - the preview iframe should
@@ -1414,7 +1433,10 @@ main { position: relative; }
    box-shadow along with the frame's content looks subtly off at the seam
    compared to clipping a crisp, unscaled frame inside a correctly-sized,
    already-chromed box. */
+/* margin:auto is what actually centres this in .dev-bp-overlay - see the
+   comment there for why it isn't align-items:center. */
 .dev-bp-frame-wrap {
+    margin: auto;
     flex-shrink: 0;
     overflow: hidden;
     border-radius: var(--radius-lg);

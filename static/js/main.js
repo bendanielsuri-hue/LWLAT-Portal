@@ -1306,6 +1306,26 @@ document.addEventListener('DOMContentLoaded', function () {
     // class entirely, so Referrals/Actions/Meetings keep their existing
     // View-filters behaviour unchanged at every width.
     var trueMobileMql = window.matchMedia('(max-width: 480px)');
+    // The `short` tier (breakpoint registry in responsive.css, ADR 0016) - a
+    // touch device under 500px tall is a phone in landscape and needs phone
+    // chrome despite a tablet-sized width. layout.html's head script sets
+    // these same two classes synchronously before first paint (the
+    // FOUC-avoidance pattern this file's syncTouchNavClass documents); this is
+    // what keeps them right afterwards, as the window resizes or the device
+    // rotates. isTouchNav() rather than a bare hover:none query so the dev
+    // breakpoint preview's forced-touch override counts too - otherwise
+    // previewing a landscape phone in the tool would never show the strip.
+    var shortViewportMql = window.matchMedia('(max-height: 500px)');
+    function syncPhoneChromeClass() {
+        var shortTouch = isTouchNav() && shortViewportMql.matches;
+        var root = document.documentElement;
+        root.classList.toggle('phone-chrome', trueMobileMql.matches || shortTouch);
+        root.classList.toggle('phone-chrome-side', shortTouch && !trueMobileMql.matches);
+    }
+    syncPhoneChromeClass();
+    trueMobileMql.addEventListener('change', syncPhoneChromeClass);
+    shortViewportMql.addEventListener('change', syncPhoneChromeClass);
+    touchNavListeners.push(syncPhoneChromeClass);
     /* 900px - live feedback: "have more changes occur at the same
        breakpoint" - unified with the sidenav's own auto-collapse width
        (setupSidebarCollapse's narrowMql, below) and setupPageExtrasOverflow/
@@ -1343,8 +1363,18 @@ document.addEventListener('DOMContentLoaded', function () {
        from being caught by the touch+portrait branch's otherwise-unbounded
        width. */
     var portraitWideMql = window.matchMedia('(min-width: 900px)');
+    // isShortTouch() rides along in both of these because a landscape phone
+    // (the `short` tier - see syncPhoneChromeClass above) takes phone chrome
+    // throughout: an inline filter bar is pure vertical-space cost at 430px
+    // tall, which is the scarce axis there. It must be excluded from the
+    // narrow-DESKTOP variant below for the same reason it's included here -
+    // that class means "phone-ish treatment but the side nav stayed put", and
+    // in this tier the side nav is gone.
+    function isShortTouch() {
+        return isTouchNav() && shortViewportMql.matches;
+    }
     function isFilterBarMobile() {
-        return trueMobileMql.matches || (studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches);
+        return trueMobileMql.matches || isShortTouch() || (studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches);
     }
     // The narrow-desktop sub-case specifically (filter-bar-mobile-mode minus
     // true phone width) - live feedback: "all I can see is the overlay" -
@@ -1362,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // footer variant, category-strip panel at wider widths) - not a
     // positioning branch.
     function isFilterBarNarrowDesktop() {
-        return !trueMobileMql.matches && ((studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches));
+        return !trueMobileMql.matches && !isShortTouch() && ((studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches));
     }
     function syncFilterBarMobileClass() {
         // filter-bar-mode-switching (panel.css: forces transition: none on
@@ -1427,6 +1457,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     syncFilterBarMobileClass();
     trueMobileMql.addEventListener('change', syncFilterBarMobileClass);
+    shortViewportMql.addEventListener('change', syncFilterBarMobileClass);
     studentsNarrowMql.addEventListener('change', syncFilterBarMobileClass);
     portraitMql.addEventListener('change', syncFilterBarMobileClass);
     portraitWideMql.addEventListener('change', syncFilterBarMobileClass);

@@ -321,16 +321,26 @@ Menu switcher instead - see its own comment below.
 
 <style>
     {% comment %}
-    Only ever shown at 480px and below — matches the phone tier this issue is
-    actually about (tablet keeps the icon-rail collapse, see #129 grilling).
-    Was max-width: 479px, one pixel short of the phone tier every other rule
-    uses: at exactly 480px the page took phone margins and hid its breadcrumbs
-    but kept the desktop sidebar and rendered no tab bar at all. See the
-    breakpoint registry at the top of static/css/layout/responsive.css.
+    Gated on html.phone-chrome rather than a raw `max-width: 480px` query.
+    That class means "phone chrome is active", and it's true in TWO tiers now
+    (see the breakpoint registry in static/css/layout/responsive.css and ADR
+    0013): the phone tier (<=480px wide) and the `short` tier (a touch device
+    <=500px tall - a phone in landscape, whose 667-932px width otherwise reads
+    as a tablet). A media query can't express the second one at all, since it
+    depends on touch as well as size, so the switch is computed once in JS -
+    synchronously in layout.html's head script before first paint, then kept
+    current by syncPhoneChromeClass() in main.js.
+
+    A width query alone was also what made the previous boundary bug possible:
+    it was max-width: 479px, one pixel short of the phone tier every other rule
+    uses, so at exactly 480px the page took phone margins and hid its
+    breadcrumbs but kept the desktop sidebar and rendered no tab bar at all.
+
+    Tablet keeps the icon-rail collapse and never gets this (#129 grilling) -
+    a landscape iPad is 744px+ tall, well clear of the 500px ceiling.
     {% endcomment %}
     .mobile-tabbar { display: none; }
-    @media (max-width: 480px) {
-        body:has(.mobile-tabbar) .side-nav.hub-side { display: none; }
+    html.phone-chrome body:has(.mobile-tabbar) .side-nav.hub-side { display: none; }
         {% comment %}
         #129 shrank main itself via margin-bottom, which stopped the bar
         covering content but also stopped content ever visually running
@@ -350,7 +360,17 @@ Menu switcher instead - see its own comment below.
         - so that last row can still be scrolled clear of the bar instead
         of staying permanently trapped under it.
         {% endcomment %}
-        body:has(.mobile-tabbar) .main-inner { padding-bottom: calc(47px + 18px + var(--space-lg)); }
+        html.phone-chrome body:has(.mobile-tabbar) .main-inner { padding-bottom: calc(47px + 18px + var(--space-lg)); }
+        {% comment %}
+        In the `short` tier the bar is a vertical strip down the RIGHT edge
+        instead, so the clearance it needs is horizontal - the bottom padding
+        above is cancelled rather than left stacked on top of it, or a
+        430px-tall viewport donates 80px of its scarcest axis to nothing.
+        {% endcomment %}
+        html.phone-chrome-side body:has(.mobile-tabbar) .main-inner {
+            padding-bottom: var(--space-sm);
+            padding-right: calc(56px + var(--space-sm));
+        }
         {% comment %}
         main's own native scrollbar renders at main's own edge, and main
         still occupies the full viewport height (only .main-inner shrank
@@ -363,13 +383,13 @@ Menu switcher instead - see its own comment below.
         other scroll surface on Panel Home - the referrals carousel, the
         KPI carousel, My Actions/Recent Activity's own internal scroll).
         {% endcomment %}
-        body:has(.mobile-tabbar) main {
+        html.phone-chrome body:has(.mobile-tabbar) main {
             scrollbar-width: none;
         }
-        body:has(.mobile-tabbar) main::-webkit-scrollbar {
+        html.phone-chrome body:has(.mobile-tabbar) main::-webkit-scrollbar {
             display: none;
         }
-        .mobile-tabbar {
+        html.phone-chrome .mobile-tabbar {
             display: flex;
             align-items: center;
             position: fixed;
@@ -381,6 +401,32 @@ Menu switcher instead - see its own comment below.
             box-shadow: var(--shadow-lg);
             overflow: visible;
         }
+        {% comment %}
+        `short` tier: the same bar, rotated. flex-direction: column on the same
+        markup rather than a second component - the five slots keep one source
+        of truth and one order, so rotating the device rotates the bar and
+        nothing moves relative to its neighbours.
+
+        Right edge, not left: iOS's interactive swipe-back gesture owns the
+        LEFT screen edge, so a strip there would fight the system gesture on
+        every tap and drag. Costs the portal's usual left-hand nav position,
+        which is the lesser loss - see ADR 0016.
+
+        border-left replaces border-top for the same reason the bar had one at
+        all: it's the edge now facing the content.
+        {% endcomment %}
+        html.phone-chrome-side .mobile-tabbar {
+            flex-direction: column;
+            justify-content: center;
+            left: auto;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: 56px;
+            height: 100%;
+            border-top: none;
+            border-left: 1px solid var(--border-strong);
+        }
         /* No border/shadow here on a .list-card page (Students/Referrals/
            Actions) - the card (and, expanded, the filter tray inside it)
            already ends in its own border-strong edge just above this bar;
@@ -389,11 +435,20 @@ Menu switcher instead - see its own comment below.
            thickened border rather than two separate ones (live feedback -
            border-top alone wasn't enough, the shadow reads as a second
            line too). Home has no .list-card, so it keeps both. */
-        body:has(.list-card) .mobile-tabbar {
+        html.phone-chrome body:has(.list-card) .mobile-tabbar {
             border-top: none;
             box-shadow: none;
         }
-        .mobile-tab {
+        {% comment %}
+        The .list-card exemption above is about the card's own edge sitting
+        directly against the bar's. In the side strip that shared edge is
+        vertical, so the border that would double up is border-left - the rule
+        above cancels border-top, which the strip doesn't have anyway.
+        {% endcomment %}
+        html.phone-chrome-side body:has(.list-card) .mobile-tabbar {
+            border-left: none;
+        }
+        html.phone-chrome .mobile-tab {
             flex: 1 1 0;
             min-width: 0;
             display: flex;
@@ -420,6 +475,41 @@ Menu switcher instead - see its own comment below.
            was, since the icon alone carries more visual weight in the row
            (#129 grilling: "icons are self explanatory, lose labels"). */
         .mobile-tab-icon svg { width: 22px; height: 22px; display: block; }
+        {% comment %}
+        `short` tier: the tabs stop stretching (flex: 1 1 0 would spread five
+        slots down the full 430px, leaving them floating far apart) and instead
+        sit at a fixed touch-target height, the group centred as one block by
+        the strip's own justify-content: center. 48px is the standard minimum
+        touch target, and 5 x 48 = 240px fits comfortably in 430px - which is
+        the whole reason a five-slot bar rotates where the hub sidebar's
+        full menu list can't.
+        {% endcomment %}
+        html.phone-chrome-side .mobile-tab {
+            flex: 0 0 auto;
+            {% comment %}
+            Scales with the height that's actually available (live feedback:
+            "should the buttons be more spaced out with bigger hit areas if
+            screen is bigger?") - 48px is the standard minimum touch target and
+            the floor, 64px the cap.
+
+            Deliberately NOT flex: 1 1 0 the way the portrait bar spreads
+            across its width: justifying five slots down 430px would push the
+            outermost ones to the very top and bottom of the screen, and in a
+            landscape grip the thumb pivots from the bottom corner - the top of
+            the strip needs a grip change to reach. Bigger targets only help
+            among targets you can get to. So the group grows but stays a
+            contiguous block, centred by the strip's own justify-content.
+            {% endcomment %}
+            height: clamp(48px, 13vh, 64px);
+            width: 100%;
+            padding: var(--space-micro);
+        }
+        /* Enough gap to read as separate targets rather than one continuous
+           column of icons - the portrait bar gets this separation for free
+           from its full-width flex: 1 1 0 slots. */
+        html.phone-chrome-side .mobile-tabbar {
+            gap: var(--space-xxs);
+        }
 
         /* Centre FAB - lifted clear of the bar's top edge via negative
            margin (the bar has overflow: visible above so it isn't clipped),
@@ -427,7 +517,7 @@ Menu switcher instead - see its own comment below.
            punched through rather than just a bigger square icon (#129
            grilling: "green fill circle stick out of menu bar"). Reuses the
            existing Add-button colour tokens rather than a new one-off green. */
-        .mobile-tab-fab {
+        html.phone-chrome .mobile-tab-fab {
             flex: 0 0 auto;
             width: 56px;
             height: 56px;
@@ -443,6 +533,18 @@ Menu switcher instead - see its own comment below.
             box-shadow: 0 0 0 4px var(--bg-nav), 0 0 0 5px var(--border-strong), var(--shadow-lg);
             cursor: pointer;
             transition: background-color var(--transition-base), color var(--transition-base);
+        }
+        {% comment %}
+        `short` tier: the FAB's "punched through the bar" lift is a negative
+        margin against the edge facing the content, so in the strip that's
+        margin-LEFT, not margin-top. Same 28px (half the 56px button), same
+        ring; only the axis changes - the button still straddles the strip's
+        content-facing edge exactly as it straddles the bar's top edge in
+        portrait.
+        {% endcomment %}
+        html.phone-chrome-side .mobile-tab-fab {
+            margin: var(--space-xs) 0;
+            margin-left: -28px;
         }
         .mobile-tab-fab svg { width: 26px; height: 26px; display: block; transition: transform var(--transition-base); }
         .mobile-tab-fab:active { background: var(--btn-add-hover-bg); }
@@ -588,7 +690,6 @@ Menu switcher instead - see its own comment below.
         .mobile-fab-wheel-ring.open { opacity: 1; }
         .mobile-fab-wheel-ring-track { fill: none; stroke: rgba(255, 255, 255, 0.18); stroke-linecap: round; }
         .mobile-fab-wheel-ring-thumb { fill: none; stroke: #fff; stroke-linecap: round; }
-    }
 
     {% comment %}
     Menu/Settings sheet chrome deliberately mirrors dialog.modal-dialog's own
@@ -624,6 +725,11 @@ Menu switcher instead - see its own comment below.
         max-width: 480px;
         max-height: 92vh;
         margin: auto auto 0;
+        /* 92vh of a 430px-tall landscape phone is 396px - the sheet would
+           cover the screen, and it would slide up from an edge that no longer
+           holds its trigger once the tab bar is a right-hand strip. Same
+           right-anchored panel treatment as dialog.modal-dialog and
+           .side-nav.overlay-nav get in this tier (INT-R2). */
         background: var(--bg-surface);
         box-shadow: var(--shadow-modal);
         display: flex;
@@ -646,6 +752,16 @@ Menu switcher instead - see its own comment below.
         transition: transform var(--transition-slide);
     }
     .mobile-more-sheet.is-open { transform: translateY(0); }
+    html.phone-chrome-side .mobile-more-sheet {
+        width: min(420px, 70vw);
+        max-width: min(420px, 70vw);
+        max-height: 100%;
+        height: 100%;
+        margin: 0 0 0 auto;
+        border-left: 1px solid var(--border-color);
+        transform: translateX(100%);
+    }
+    html.phone-chrome-side .mobile-more-sheet.is-open { transform: translateX(0); }
     .mobile-more-sheet::backdrop { background: rgba(15, 23, 36, 0.4); }
     {% comment %}
     Title and × now share one row, matching dialog.modal-dialog's own
@@ -750,8 +866,7 @@ Menu switcher instead - see its own comment below.
     (body:has(.mobile-tabbar) — every hub page, in practice) so it can
     never bleed into desktop/tablet's centred-card behaviour.
     {% endcomment %}
-    @media (max-width: 480px) {
-        body:has(.mobile-tabbar) dialog.modal-dialog {
+        html.phone-chrome body:has(.mobile-tabbar) dialog.modal-dialog {
             /* !important on top/bottom specifically - panel.css has its own
                dialog#panel-search-dialog[open] (+3 others) ID rule setting
                `top: 8vh; bottom: auto;` for desktop's near-top-anchored
@@ -785,10 +900,34 @@ Menu switcher instead - see its own comment below.
             border-top: 1px solid var(--border-color);
             transform: translateY(100%);
         }
-        body:has(.mobile-tabbar) dialog.modal-dialog.is-open {
+        html.phone-chrome body:has(.mobile-tabbar) dialog.modal-dialog.is-open {
             transform: translateY(0);
         }
-    }
+        {% comment %}
+        `short` tier: a bottom sheet is the wrong shape here twice over - 80vh
+        of a 430px viewport is 344px that covers nearly everything, and it
+        slides up from an edge that no longer holds its trigger now the bar is
+        a right-hand strip. So it becomes a right-anchored full-height panel,
+        sliding out of the strip it was opened from (INT-R2: anchor a transient
+        tray to its trigger, not the raw viewport edge). Width is capped rather
+        than full-bleed so the page stays partly visible behind it, which is
+        the point of having the horizontal room in the first place.
+        {% endcomment %}
+        html.phone-chrome-side body:has(.mobile-tabbar) dialog.modal-dialog {
+            top: 0 !important;
+            bottom: 0 !important;
+            inset-inline: auto 0;
+            width: min(420px, 70vw);
+            max-width: min(420px, 70vw);
+            height: 100% !important;
+            max-height: 100%;
+            border-top: none;
+            border-left: 1px solid var(--border-color);
+            transform: translateX(100%);
+        }
+        html.phone-chrome-side body:has(.mobile-tabbar) dialog.modal-dialog.is-open {
+            transform: translateX(0);
+        }
 
     {% comment %}
     Switch Hub opens #hubs-nav-overlay — the same .side-nav.overlay-nav
@@ -802,8 +941,7 @@ Menu switcher instead - see its own comment below.
     here) to --bg-surface, matching Menu/Settings/Search/+Referral — every
     pop now shares one background colour (#129 grilling).
     {% endcomment %}
-    @media (max-width: 480px) {
-        body:has(.mobile-tabbar) .side-nav.overlay-nav {
+        html.phone-chrome body:has(.mobile-tabbar) .side-nav.overlay-nav {
             position: fixed;
             inset: auto 0 0 0;
             width: 100%;
@@ -823,8 +961,25 @@ Menu switcher instead - see its own comment below.
             transform: translateY(100%);
             transition: transform var(--transition-slide), opacity var(--transition-base);
         }
-        body:has(.mobile-tabbar) .side-nav.overlay-nav.open {
+        html.phone-chrome body:has(.mobile-tabbar) .side-nav.overlay-nav.open {
             transform: translateY(0);
+        }
+        {% comment %}
+        `short` tier: right-anchored panel sliding out of the strip, for the
+        same reasons as dialog.modal-dialog above - 80vh of 430px covers the
+        screen, and the bottom edge no longer holds the trigger.
+        {% endcomment %}
+        html.phone-chrome-side body:has(.mobile-tabbar) .side-nav.overlay-nav {
+            inset: 0 0 0 auto;
+            width: min(420px, 70vw);
+            max-width: min(420px, 70vw);
+            max-height: 100%;
+            border-top: none;
+            border-left: 1px solid var(--border-color);
+            transform: translateX(100%);
+        }
+        html.phone-chrome-side body:has(.mobile-tabbar) .side-nav.overlay-nav.open {
+            transform: translateX(0);
         }
         {% comment %}
         Every .side-nav.overlay-nav (School/Search/Settings/Staff/Hubs, all
@@ -852,23 +1007,23 @@ Menu switcher instead - see its own comment below.
         title doesn't run under the ×, which now actually matters since
         left-aligned text (unlike centred) can end close to that corner.
         {% endcomment %}
-        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-header {
+        html.phone-chrome body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-header {
             padding-top: var(--space-lg);
             padding-right: var(--space-2xl);
             padding-bottom: var(--space-md);
         }
-        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-title {
+        html.phone-chrome body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-title {
             text-align: left;
             font-size: var(--font-2xl);
         }
-        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-footer {
+        html.phone-chrome body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-footer {
             position: absolute;
             top: 0;
             right: 0;
             padding: var(--space-sm);
             border: none;
         }
-        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-close-btn {
+        html.phone-chrome body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-close-btn {
             position: relative;
             width: 32px;
             height: 32px;
@@ -877,7 +1032,7 @@ Menu switcher instead - see its own comment below.
             background: none;
             cursor: pointer;
         }
-        body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-close-btn::after {
+        html.phone-chrome body:has(.mobile-tabbar) .side-nav.overlay-nav .nav-close-btn::after {
             content: "×";
             position: absolute;
             inset: 0;
@@ -900,7 +1055,7 @@ Menu switcher instead - see its own comment below.
         grilling). Raising it above the tab bar (still below the overlay
         panel itself, 9998) makes every popup dim/block the bar the same way.
         {% endcomment %}
-        body:has(.mobile-tabbar) .global-backdrop.active {
+        html.phone-chrome body:has(.mobile-tabbar) .global-backdrop.active {
             z-index: 9997;
         }
         {% comment %}
@@ -922,7 +1077,7 @@ Menu switcher instead - see its own comment below.
         Raising .global-nav itself above the backdrop restores that same
         "backdrop, then global-nav's whole subtree" ordering on mobile.
         {% endcomment %}
-        body:has(.mobile-tabbar) .global-nav {
+        html.phone-chrome body:has(.mobile-tabbar) .global-nav {
             z-index: 9999;
         }
         {% comment %}
@@ -941,10 +1096,9 @@ Menu switcher instead - see its own comment below.
         raising .global-nav alone left the tab bar still visibly on top of
         an open Settings panel. Same fix, one level deeper.
         {% endcomment %}
-        body:has(.mobile-tabbar) .overlay-slot {
+        html.phone-chrome body:has(.mobile-tabbar) .overlay-slot {
             z-index: 9999;
         }
-    }
 </style>
 <script>
 (function () {
@@ -1114,7 +1268,13 @@ Menu switcher instead - see its own comment below.
         // creates brand-new elements appended straight to <body>, outside
         // that subtree, so without this guard they showed up as plain
         // unstyled rows at the bottom of the page on desktop.
-        if (!window.matchMedia('(max-width: 480px)').matches) return;
+        {% comment %}
+        html.phone-chrome, not a raw width query: the FAB now also exists in
+        the `short` tier (landscape phone - see the head script in
+        layout.html), where the width is 667-932px and a max-width: 480px
+        check would bail out, leaving the FAB present but its wheel dead.
+        {% endcomment %}
+        if (!document.documentElement.classList.contains('phone-chrome')) return;
 
         function iconHTML(templateId) {
             var t = document.getElementById(templateId);
