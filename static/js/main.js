@@ -477,57 +477,20 @@ function setupFilterBarMoreFilters(bar) {
     divider.className = 'filter-divider';
     secondaryRow.appendChild(divider);
     // #135 follow-up: the category strip (measure(), below) scrolls
-    // horizontally as one line rather than wrapping - secondaryRow itself
-    // stays the non-scrolling panel (position/background/border, forms.css,
-    // back in normal page flow rather than floating), and this inner track
-    // is the actual overflow-x: auto box the categories scroll inside,
-    // same wrap/track split .stats-carousel-wrap already uses
-    // (home.html) so wireScrollCarousel (below) can be reused unmodified.
+    // secondaryRow itself stays the panel (position/background/border,
+    // forms.css, in normal page flow rather than floating); this inner track
+    // is the flex box the categories pack and wrap inside (panel.css).
     // display: contents by default (forms.css) at every other width, same
     // no-op convention as .filter-group.
     var secondaryTrack = document.createElement('div');
     secondaryTrack.className = 'filter-secondary-fields-track';
     secondaryRow.appendChild(secondaryTrack);
-    // Left/right nudge buttons (live feedback: "add left and right arrows
-    // like we do with carousels as well") - reuses wireScrollCarousel
-    // (below) rather than reimplementing the same nudge/hide logic; hidden
-    // by default (forms.css) everywhere except narrow tablet, and further
-    // auto-hidden there by wireScrollCarousel itself whenever the strip
-    // doesn't actually overflow.
-    var secondaryPrevBtn = document.createElement('button');
-    secondaryPrevBtn.type = 'button';
-    secondaryPrevBtn.className = 'filter-secondary-fields-arrow filter-secondary-fields-arrow--prev';
-    secondaryPrevBtn.setAttribute('aria-label', 'Scroll filter categories left');
-    secondaryPrevBtn.textContent = '‹';
-    secondaryRow.appendChild(secondaryPrevBtn);
-    var secondaryNextBtn = document.createElement('button');
-    secondaryNextBtn.type = 'button';
-    secondaryNextBtn.className = 'filter-secondary-fields-arrow filter-secondary-fields-arrow--next';
-    secondaryNextBtn.setAttribute('aria-label', 'Scroll filter categories right');
-    secondaryNextBtn.textContent = '›';
-    secondaryRow.appendChild(secondaryNextBtn);
-    var updateSecondaryArrows = wireScrollCarousel(secondaryRow, '.filter-secondary-fields-track', '.filter-group', '.filter-secondary-fields-arrow--prev', '.filter-secondary-fields-arrow--next');
     // fieldsHost, not always fieldsWrap - has to be the same element
     // fields themselves live in (above), since measure() below uses
     // secondaryRow as an insertBefore reference point among them; a
     // reference node has to actually be a child of whichever element
     // insertBefore is called on, or it throws.
     fieldsHost.appendChild(secondaryRow);
-
-    // .filter-bar-no-search (Meetings AND the SEND & Provision hub, now
-    // sharing this treatment) - live feedback: "Filters and Clear Filters
-    // should hide the filters that scroll underneath it. I think there
-    // should be a line or border where the cut off is... should not be
-    // visible if there is nothing underneath". "Filters"/Clear Filters sit
-    // above this bar's now-full-bar-width scrollable track (z-index,
-    // forms.css) rather than beside it, so scrolled fields genuinely pass
-    // underneath them - these two classes (CSS: forms.css) toggle a thin
-    // border in exactly that seam, but only once there's actually
-    // something scrolled under it to mark, not just because the corner is
-    // reserved.
-    if (isTrayBar && !hasSearchField) {
-        wireFilterCutoffEdges(bar, secondaryTrack);
-    }
 
     var actionsRight = document.createElement('div');
     actionsRight.className = 'filter-actions-right';
@@ -675,12 +638,6 @@ function setupFilterBarMoreFilters(bar) {
                 });
                 moreFiltersBtn.hidden = false;
             }
-            // Groups just got rebuilt into secondaryTrack above - re-checks
-            // whether the strip still overflows (a filter clearing down to
-            // fewer/shorter categories can un-overflow it) without re-
-            // registering the arrow buttons' click handlers a second time,
-            // which a fresh wireScrollCarousel call here would do.
-            if (updateSecondaryArrows) updateSecondaryArrows();
         }
         // No-pinned-Search bars (Meetings/the SEND & Provision hub) used to
         // be forced permanently open here, with the toggle permanently
@@ -763,33 +720,11 @@ function setupFilterBarMoreFilters(bar) {
         // scrollbar, silently sizing this fill to the full row height
         // every time ("Overlap over the scrollbar still persists").
         if (isTrayBar && !hasSearchField) {
-            // -2px safety margin - live feedback: "The borderline should
-            // not reach the scroll bar". clientHeight/offsetHeight are
-            // whole-pixel-rounded and can differ by a pixel or two from
-            // the browser's own real (sub-pixel, OS-themed) scrollbar
-            // metrics, close enough that the fill/cut-off line landed
-            // flush against - and in a real browser, sometimes fractionally
-            // into - the scrollbar itself rather than stopping cleanly
-            // above it.
-            bar.style.setProperty('--filter-bar-fields-content-height', Math.max(0, secondaryTrack.clientHeight - 2) + 'px');
-        }
-        // Re-sync the carousel arrows' own hidden state now that the vars
-        // above have settled - live feedback: "I do not see left and right
-        // arrows". wireScrollCarousel's updateSecondaryArrows already ran
-        // once, synchronously, back when secondaryRow/secondaryTrack were
-        // first built (above) - before this measure() had set --filter-
-        // bar-label-width/--filter-actions-right-width even once, so the
-        // track's own padding (panel.css, both vars) was still sized off
-        // their fallback defaults (0px/180px) rather than "Filters"/Clear
-        // Filters's real widths, made worse on a fresh full-page load (the
-        // dev breakpoint preview's iframe reload, not a resize of an
-        // already-settled page) where that first check has the least
-        // chance of reflecting final layout. updateSecondaryArrows is
-        // idempotent (just re-reads track.scrollWidth/clientWidth), so
-        // calling it again here costs nothing on a page where the first
-        // check already happened to be right.
-        if (typeof updateSecondaryArrows === 'function') {
-            updateSecondaryArrows();
+            // The track no longer scrolls horizontally (panel.css), so there
+            // is no scrollbar strip left to stop short of - this used to
+            // subtract 2px for exactly that ("The borderline should not
+            // reach the scroll bar") and now spans the track's real height.
+            bar.style.setProperty('--filter-bar-fields-content-height', Math.max(0, secondaryTrack.clientHeight) + 'px');
         }
         // Last, after every field has landed in its final row for this width:
         // resize the triggers for the tier we just measured for, then rebuild
@@ -842,31 +777,6 @@ function setupFilterBarMoreFilters(bar) {
 }
 window.setupFilterBarMoreFilters = setupFilterBarMoreFilters;
 
-// .filter-bar-cut-left/.filter-bar-cut-right (CSS: forms.css) - live
-// feedback: "Filters and Clear Filters should hide the filters that scroll
-// underneath it... there should be a line or border where the cut off is...
-// should not be visible if there is nothing underneath". Toggled from
-// `track`'s own real scroll position, not just "is this bar wide enough to
-// ever overflow" (the arrows/scrollbar already answer that) - cut-left only
-// once scrolled away from the true start (something is now hidden under
-// "Filters"), cut-right only before the true end (something is still
-// hidden under Clear Filters), so at rest - nothing scrolled, nothing
-// actually cut off - neither line shows.
-function wireFilterCutoffEdges(bar, track) {
-    function update() {
-        var scrollable = track.scrollWidth - track.clientWidth;
-        bar.classList.toggle('filter-bar-cut-left', track.scrollLeft > 1);
-        bar.classList.toggle('filter-bar-cut-right', scrollable > 1 && track.scrollLeft < scrollable - 1);
-    }
-    /* update() reads nothing but track's own scroll/client/scrollWidth, so
-       the ResizeObserver on track covers every width change a window resize
-       could cause - the window listener was a duplicate wake-up. */
-    track.addEventListener('scroll', update, { passive: true });
-    if (typeof ResizeObserver !== 'undefined') {
-        new ResizeObserver(rafThrottle(update)).observe(track);
-    }
-    update();
-}
 
 // Horizontal scroll-snap carousel: a .*-carousel-wrap holding a scrolling
 // track plus prev/next arrow buttons that nudge scrollLeft by one card
@@ -969,10 +879,12 @@ function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nex
         // - a fully-scrolled-to-one-end track has nothing left for that end's
         // own arrow to do, so it just sits there obscuring the now-fully-
         // revealed first/last card underneath instead of affording anything.
-        // No matching CSS exists for the other carousels this function is
-        // shared with (senco/stats/referral/action) - the class is harmless
-        // there, a plain no-op, but only .filter-secondary-fields-arrow
-        // (panel.css) actually fades on it for now.
+        // No CSS keys off this any more: the filter category strip that
+        // asked for it has since dropped its arrows entirely (it wraps
+        // instead of scrolling), and the carousels this function is still
+        // shared with (senco/stats/referral/action) never styled it. Kept
+        // because the state is real and correct - a future arrow that wants
+        // to fade at the ends has the hook waiting.
         if (overflowing) {
             var maxScroll = track.scrollWidth - track.clientWidth;
             prevBtn.classList.toggle('is-at-edge', track.scrollLeft <= 1);
@@ -3676,64 +3588,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         }
     });
 
-    // Students' mobile filter tray: the sticky header row/footer (above)
-    // only get their own divider border while they're actually covering
-    // scrolled-past content (live feedback: "the button border should only
-    // be visible if there is overflow" - and, for the header row
-    // specifically, "when closed I can see the sticky border... the filter
-    // bar has a border anyway" - collapsed, the row is the bar's only
-    // visible content, sitting flush against .list-card .filter-bar's own
-    // existing bottom border (layout.css), so an unconditional border here
-    // just doubled it up for no reason, nothing is ever scrolled under a
-    // collapsed row). Plain scroll listener on .filter-bar-collapsible-inner
-    // (the actual scrolling box), not the .sticky-zone-sentinel/
-    // IntersectionObserver convention (setupStickyZoneSentinels, above) -
-    // that pattern answers "has this sticky element passed one fixed
-    // point," where this needs both ends of a single scrollable box (row:
-    // has anything scrolled past the top; footer: is there still anything
-    // left below) off the same element's scrollTop/scrollHeight/
-    // clientHeight, gated on .is-expanded too since a collapsed tray's
-    // scrollTop can be a stale non-zero leftover from before it was closed.
-    (function setupFilterBarStickyDividers() {
-        document.querySelectorAll('.filter-bar-collapsible-inner').forEach(function (inner) {
-            var bar = closest(inner, '.filter-bar');
-            if (!bar) return;
-            var footer = bar.querySelector('.filter-bar-sticky-footer');
-            function update() {
-                var expanded = bar.classList.contains('is-expanded');
-                // .filter-bar-sticky-row itself no longer gets an is-covering
-                // toggle (panel.css) - .list-card .filter-bar's own permanent
-                // border-bottom already sits at that exact boundary
-                // unconditionally, so a second, JS-driven fade-in border
-                // there was just redundant (live feedback: "The filter bar
-                // has a permanent bottom border, so the border that fades in
-                // when there is overflow is redundant"). Only the footer
-                // still needs one - nothing permanent sits at its own
-                // boundary the same way.
-                if (footer) footer.classList.toggle('is-covering', expanded && inner.scrollTop + inner.clientHeight < inner.scrollHeight - 1);
-            }
-            inner.addEventListener('scroll', update);
-            // Re-check whenever the tray opens/closes - a fresh expand can
-            // start at a different scroll position (e.g. after Clear reset
-            // it), and content height (so scrollHeight itself, and whether
-            // a scrollbar even exists at all) can change between opens too.
-            // Deferred to the next frame (not called directly) - a
-            // MutationObserver callback fires as a microtask, before the
-            // browser has painted anything for the style change that
-            // triggered it; update()'s own layout reads (scrollTop/
-            // clientHeight/scrollHeight) forced a synchronous layout flush
-            // at exactly that moment, which silently killed .filter-bar-
-            // collapsible's own slide-open transition (live feedback: "it
-            // used to work but has broken from further developing the
-            // filters" - this was the regression, not the transition CSS
-            // itself) - the browser never got a chance to commit the
-            // pre-toggle frame as the transition's starting point.
-            new MutationObserver(function () {
-                requestAnimationFrame(update);
-            }).observe(bar, { attributes: true, attributeFilter: ['class'] });
-            update();
-        });
-    })();
 
     // Clicking a filter field's own label activates its control the same
     // as clicking the control itself (live feedback: "can clicking on

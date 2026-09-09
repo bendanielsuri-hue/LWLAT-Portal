@@ -690,55 +690,6 @@
            ::after (below), positioned purely by calc() off --filter-bar-
            label-width - reading that var, never contributing to it. */
     }
-    /* Cut-off line (main.js's wireFilterCutoffEdges toggles the two
-       classes below) - live feedback: "Filters and Clear Filters should
-       hide the filters that scroll underneath it... there should be a
-       line or border where the cut off is... should not be visible if
-       there is nothing underneath", then, once the fill itself moved onto
-       .filter-bar-sticky-row/.filter-actions-right directly (above): "Is
-       the cut off line a border? Can it be colour of the overall cards
-       border?" (var(--border-strong), the same token .filter-bar's own 2px
-       outer border uses, base rule this file) plus "There also should be
-       padding between Filters Label and the divider line" - both live on
-       .filter-bar-tray's own ::before/::after rather than as a border on
-       the fill elements themselves, so the gap-before-the-line and the
-       line's position can both be tuned via calc() off --filter-bar-
-       label-width/--filter-actions-right-width (main.js) without adding
-       any real padding/border to the fill elements' own boxes - either
-       would grow their offsetWidth, which those same two vars measure
-       (see the box-shadow comment on .filter-bar-sticky-row, above). Now
-       shared with Meetings (.filter-bar-flat) too - full parity with the
-       hub. */
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::before,
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::after {
-        content: "";
-        position: absolute;
-        top: var(--space-xs);
-        height: var(--filter-bar-fields-content-height, auto);
-        width: 1px;
-        background: var(--border-strong);
-        opacity: 0;
-        transition: opacity var(--transition-fast);
-        /* Above the track (z-index: auto) but positioned over the TRACK's
-           own area, not over "Filters"/Clear Filters themselves (left/
-           right, below, sit past those fills' own unpadded edges) - so it
-           never needs to out-rank their z-index: 1 the way a full-width
-           fill would have. */
-        z-index: 2;
-        pointer-events: none;
-    }
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::before {
-        left: calc(var(--filter-bar-inline-pad) + var(--filter-bar-label-width, 0px) + var(--space-sm));
-    }
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search::after {
-        right: calc(var(--filter-bar-inline-pad) + var(--filter-actions-right-width, 180px) + var(--space-sm));
-    }
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-left::before {
-        opacity: 1;
-    }
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search.filter-bar-cut-right::after {
-        opacity: 1;
-    }
     /* .filter-divider (main.js's own first child of secondaryRow, marking
        the seam between the primary/secondary rows when they used to share
        one flowing fieldsWrap) is redundant now that secondaryRow is its
@@ -806,7 +757,6 @@
    everywhere; panel.css's narrow-tablet block is the only place that shows
    them (further gated there on :not([hidden]), since wireScrollCarousel
    itself also auto-hides them whenever the strip doesn't overflow). */
-.filter-secondary-fields-arrow { display: none; }
 .more-filters-toggle { display: flex; align-items: center; gap: 6px; width: 100%; }
 .more-filters-toggle-icon { display: inline-flex; transition: transform var(--transition-fast); }
 .more-filters-toggle-icon svg { width: 14px; height: 14px; }
