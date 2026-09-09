@@ -3,6 +3,25 @@
 
 {% block hub_sidebar %}{% include 'hubs/_hub_sidebar.html' %}{% endblock %}
 
+{% comment %}
+panel.css is linked here, once, for every page in the app - not per-template.
+It used to be a copy of this line in all 15 panel templates, each carrying its
+own manual ?v=N, so one edit to panel.css needed 15 coordinated bumps. They
+drifted: six pages (Discussion, Meeting Setup, and the four *_settings pages)
+sat at v=258 while the list pages had reached v=464, roughly 206 revisions of
+panel.css behind, so a returning visitor with those cached rendered them
+against a stale stylesheet. One owner for the version is the fix; panel.js
+below was already done this way.
+
+Pages needing their own <head> content override panel_extra_head, NOT
+extra_head - overriding extra_head replaces this link and takes the page back
+off the shared stylesheet.
+{% endcomment %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=465">
+{% block panel_extra_head %}{% endblock %}
+{% endblock %}
+
 {% block page_extras %}
 <div class="key-actions">
     {% comment %}
