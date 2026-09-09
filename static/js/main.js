@@ -2938,6 +2938,15 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // none (or detached) regardless of position, and non-zero for
         // anything actually rendered, fixed positioning included.
         var visible = fab && tabbar && fab.getClientRects().length !== 0 && tabbar.getClientRects().length !== 0;
+        // The `short` tier (ADR 0016) turns the tabbar into a full-height
+        // strip down the RIGHT edge, so tabbar.top is 0 and this subtraction
+        // returns a large NEGATIVE number - which then inflates rather than
+        // reserves every clearance derived from it (positionFilterTray's
+        // maxHeight subtracts it; setupListEndCapHeight doubles it). There is
+        // no vertical protrusion to measure there at all: the FAB sits fully
+        // inside the strip and the strip isn't along the bottom edge, so
+        // nothing needs clearing above it.
+        if (document.documentElement.classList.contains('phone-chrome-side')) return 0;
         return visible ? (tabbar.getBoundingClientRect().top - fab.getBoundingClientRect().top) : 19;
     }
     // Extra clearance trimmed off however much the FAB would otherwise
@@ -2975,7 +2984,13 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // rendered - the correct general-purpose "is this really on
         // screen" check fabProtrusionAboveTabbar (above) now also uses.
         var tabbar = document.querySelector('.mobile-tabbar');
-        var tabbarVisible = tabbar && tabbar.getClientRects().length !== 0;
+        // Not in the `short` tier (ADR 0016): the tabbar is a full-height
+        // strip down the right edge there, so its .top is 0 and using it as a
+        // bottom limit caps the tray's maxHeight at nothing. It constrains
+        // width, which the left/width anchoring below already handles via the
+        // bar's own rect - it does not constrain height at all.
+        var tabbarVisible = tabbar && tabbar.getClientRects().length !== 0 &&
+            !document.documentElement.classList.contains('phone-chrome-side');
         var bottomLimit = tabbarVisible ? tabbar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
         box.style.top = barBottom + 'px';
         // (INT-R2) left/width anchored to the bar's own rect, not the base CSS rule's
@@ -3075,6 +3090,24 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             });
         }));
     }
+    /* The `short` tier pins the filter bar with position: sticky (panel.css),
+       so unlike every other mode the bar's VIEWPORT position now changes as
+       you scroll. The tray is position: fixed, anchored to that rect - and it
+       was only ever re-anchored on open and on a visualViewport resize,
+       neither of which fires on scroll. An open tray therefore detached from
+       its bar and hung wherever the bar happened to be when it opened.
+       Scoped to that tier: everywhere else the bar doesn't move relative to
+       the viewport while scrolling, so this would be a scroll handler earning
+       nothing. capture: true because <main> is the real scroll container here
+       and scroll events don't bubble from an element to window. */
+    var repositionStickyTrays = rafThrottle(function () {
+        if (!document.documentElement.classList.contains('phone-chrome-side')) return;
+        document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
+            var box = bar.querySelector('.filter-bar-collapsible');
+            if (box) positionFilterTray(bar, box);
+        });
+    });
+    window.addEventListener('scroll', repositionStickyTrays, true);
 
     // .entity-list::after's own "end of content" stripe (panel.css) - live
     // feedback: "same for the last entity of filtered content... should be

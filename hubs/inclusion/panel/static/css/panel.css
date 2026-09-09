@@ -8992,6 +8992,18 @@ html.phone-chrome-side .stats-strip {
     z-index: 9;
     background: var(--bg-surface);
 }
+/* A CLOSED tray is a position: fixed box of height 0 whose only rendered pixel
+   is its own bottom border. In every other mode that hairline sits flush under
+   the filter bar and reads as the bar's own bottom edge. Here the bar is
+   sticky and moves on scroll while the closed tray keeps the fixed top it was
+   last given, so the hairline strands itself across the middle of the screen
+   and doesn't scroll with anything (live feedback: "I am seeing a line that
+   crosses whole screen... seems to be above page content, does not scroll").
+   The open tray is kept glued to the bar by repositionStickyTrays in main.js;
+   a closed one has nothing to show, so it shows nothing. */
+html.phone-chrome-side .filter-bar:not(.is-expanded) .filter-bar-collapsible {
+    border-bottom-width: 0;
+}
 html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filtered-content) {
     border-left: none;
     border-right: none;
