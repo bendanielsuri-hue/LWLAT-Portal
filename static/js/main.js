@@ -343,7 +343,22 @@ function setupFilterBarMoreFilters(bar) {
     // that width has its own dedicated equivalents anyway (the FILTERS
     // label's tap-to-expand chevron, the sticky footer's Clear/Close pair).
     var isNoSearchTray = isTrayBar && !hasSearchField;
-    if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && !isNoSearchTray && window.isFilterBarMobile && window.isFilterBarMobile())) {
+    /* (#187) Phone width alone decides this now.
+       The dropped clause was `isTrayBar && !isNoSearchTray &&
+       isFilterBarMobile()` - "a search-bearing bar in tray mode", which
+       meant phone/portrait-tablet/narrowed-desktop and bailed because the
+       tray renders the template's own markup and needed none of what this
+       function builds. Once every width became tray mode (#187) that clause
+       matched everywhere, so at 1440px the bar was left completely unwired:
+       no .filter-actions-right in the DOM at all, whatever the CSS said
+       about showing it (measured live - the reported "view filter button is
+       not showing" was this, not the display rules I had just changed).
+       The remaining <=480px bail is unchanged and still load-bearing: the
+       buttons' own top-right pinning lives in forms.css's min-width: 481px
+       block, so below that they would stack into the bar's flow as a
+       bordered column, and that width has its own equivalents anyway (the
+       FILTERS label's tap-to-expand chevron, the sticky Clear/Close). */
+    if (window.matchMedia('(max-width: 480px)').matches) {
         var retryMqls = isTrayBar
             /* No `|| window.matchMedia(...)` fallbacks here any more - they
                were unreachable (the DOMContentLoaded handler assigns all
