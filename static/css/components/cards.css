@@ -312,7 +312,6 @@
 }
 .hub-card .hub-more-toggle:hover .hub-more-toggle-count {
     color: var(--active-text);
-    text-shadow: var(--hover-fake-bold);
 }
 
 /* Generic entity list. Default (bare .entity-row/.entity-list, no
@@ -398,21 +397,11 @@
    - .meeting-card (panel.css) — Meetings page
    - .agenda-table tbody tr (panel.css) — Panel Agenda table rows */
 .selectable { cursor: pointer; }
-/* Fake bold via text-shadow (INT-M4), not font-weight — a real weight
-   change widens the title text, which can wrap it onto an extra line or
-   nudge a sibling pill sideways the moment the pointer arrives.
-   html:not(.nav-touch-mode) on the :hover half only - touch browsers apply
-   :hover the moment a tap lands anywhere inside the row (including a
-   nested button, e.g. the row-facts-arrow prev/next scroll buttons,
-   panel.css) and then leave it "stuck" on until something else is tapped,
-   since there's no real pointer to later leave the element - live
-   feedback: "when I click left arrow, sometimes some text goes bold".
-   :focus-visible stays unconditional - a real keyboard focus indicator,
-   not a touch hover artifact. */
-html:not(.nav-touch-mode) .selectable:hover .entity-title,
-.selectable:focus-visible .entity-title {
-    text-shadow: var(--hover-fake-bold);
-}
+/* No title emphasis on hover/focus or selection anywhere in the portal
+   (live feedback: "we can lose the make title look bolder on hover or
+   select") - the accent bar carries hover/focus, the fill carries chosen,
+   and the title is left alone. The removed effect was a text-shadow pair
+   faking a heavier weight, never a real font-weight change. */
 /* outline: none, not just an absent rule - a themed outline used to sit
    here (outline: 2px solid var(--primary)) drawing a full rectangle that
    the very next rule's own history already argued against ("don't like
@@ -452,10 +441,6 @@ html:not(.nav-touch-mode) .selectable:hover .entity-title,
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border);
 }
 .entity-row.chosen { background: var(--primary-light); }
-/* Fake bold (INT-M4) even though .chosen is persistent, not hover-only —
-   a real weight change still wraps/shifts a long title for as long as the
-   row stays selected, not just a passing flicker. */
-.entity-row.chosen .entity-title { text-shadow: var(--hover-fake-bold); }
 .entity-row.chosen:hover { background: var(--primary-light); }
 /* The true-mobile halving (3px, live feedback: "left selector is too close to
    list contents" - every list page's own mobile block shrinks .entity-row's

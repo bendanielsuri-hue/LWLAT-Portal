@@ -33,7 +33,6 @@ Motion, hover/focus, and behavioral values that hold regardless of which project
 - **M1.** Prefer a smooth transition over a sudden jump whenever something's size, position, or visibility changes — a jolt reads as broken, a transition reads as intentional.
 - **M2.** Don't delay one thing's animation or update to wait for an unrelated animation to finish — let independent changes happen immediately, each on its own timing.
 - **M3.** Be careful with hover transforms on a card that holds its own clickable controls — scale moves child elements unevenly and makes them harder to hit; a uniform translateY lift (or transforming only a decorative layer, not the real controls) avoids the problem.
-- **M4.** Never bold text by changing its real font weight when that weight can toggle on and off against a lighter sibling state (hover/focus, but equally a persistent selected/active/chosen state) — a heavier weight is wider, so it can wrap a fitting single-line label onto an extra line, or nudge a sibling element (e.g. a pill) sideways, whenever that state is entered, even if the state itself is long-lived rather than transient. Fake the weight instead with a shadow effect that reads as heavier without changing the text's own metrics — see the shared token this resolves to for the current strength, arrived at by prototyping several side by side. Only text that is always rendered at one single weight — never toggled against a lighter version of itself — is exempt, since there's no transition to reflow.
 
 ## R — Responsive Classification
 

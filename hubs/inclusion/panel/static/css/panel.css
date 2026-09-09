@@ -2415,18 +2415,7 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
        see SYNC markers there for the shared-pattern list. */
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border);
 }
-/* Fake bold via text-shadow (INT-M4), not font-weight — see cards.css's
-   .selectable:hover .entity-title for why. */
-.panel-list li:hover .panel-item-title,
-.panel-list li:focus-visible .panel-item-title,
-.panel-list li:hover .panel-preview-title,
-.panel-list li:focus-visible .panel-preview-title {
-    text-shadow: var(--hover-fake-bold);
-}
 .panel-list li.chosen { background: var(--primary-light); }
-/* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
-.panel-list li.chosen .panel-item-title,
-.panel-list li.chosen .panel-preview-title { text-shadow: var(--hover-fake-bold); }
 .panel-list li.chosen:hover { background: var(--primary-light); }
 .panel-list li.empty-note:hover { box-shadow: none; }
 
@@ -3153,26 +3142,11 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     border-left-color: var(--accent-border);
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border), var(--card-shadow);
 }
-/* Fake bold via text-shadow (INT-M4), not font-weight — the title is
-   ellipsis-truncated but flex-sized to its own content, so a real weight
-   change widens it and nudges the status pills beside it sideways.
-   html:not(.nav-touch-mode) on the :hover half only - same touch-sticky-
-   hover fix as cards.css's .selectable:hover .entity-title (its own
-   comment has the full reasoning): tapping the row-facts-arrow prev/next
-   buttons nested inside this card leaves the card's own :hover stuck on
-   for touch browsers with no real pointer to later un-hover it.
-   :focus-visible stays unconditional (real keyboard focus). */
-html:not(.nav-touch-mode) .meeting-card:hover h3,
-.meeting-card:focus-visible h3 {
-    text-shadow: var(--hover-fake-bold);
-}
 /* Fill only - the accent bar (and its border-left-color companion) is a
    hover/focus marker now, on .meeting-card:hover above, not on .chosen
    (cards.css). No box-shadow restatement needed either: with no bar of its
    own, the base rule's own var(--card-shadow) just stands. */
 .meeting-card.chosen { background: var(--primary-light); }
-/* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
-.meeting-card.chosen h3 { text-shadow: var(--hover-fake-bold); }
 
 .meeting-card-body { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; gap: 6px; }
 /* #121: MAT/aggregate-view school crest sits beside a two-line text stack
@@ -3514,16 +3488,16 @@ html:not(.nav-touch-mode) .meeting-card:hover h3,
 /* Concern/Category (_referrals_rows.html/_actions_rows.html: <div
    class="entity-title row-secondary-text">) used to share .entity-title
    purely for base sizing, deliberately cancelling .selectable's hover/
-   chosen fake-bold (INT-M4, cards.css) so that affordance stayed
+   chosen fake-bold (cards.css, since removed) so that affordance stayed
    exclusive to the student name (live feedback then: "we have it on
    student name, do not need on both"). Both pages have since promoted
    Concern/Category to be the card's own title line instead (live
    feedback: "on this page Action is the card title", then "use Actions as
    the model for Students and Referrals" for this page too), demoting the
-   student name off .entity-title entirely (below) - the fake-bold
-   affordance now belongs on Concern's/Category's own entity-title, the
-   opposite of what this cancellation rule did, so it's gone rather than
-   flipped to target the name (which no longer carries .entity-title to
+   student name off .entity-title entirely (below) - the affordance would
+   now belong on Concern's/Category's own entity-title, the opposite of
+   what this cancellation rule did, so it's gone rather than flipped to
+   target the name (which no longer carries .entity-title to
    cancel it on anyway). Students' own single entity-title (the name,
    nothing else) was never in scope of this rule and is unaffected. */
 /* align-items: flex-start, not center (#121) - every .row-fact-label
@@ -4211,9 +4185,9 @@ html.nav-touch-mode .row-facts-arrow {
    (cards.css) - this and Actions/Students now share font-lg as their own
    row-title convention instead, one step up from the shared base. Concern
    reads as a second heading-weight line rather than a smaller caption
-   underneath the name, while the name still keeps its own distinct hover/
-   selection fake-bold affordance (INT-M4) concern deliberately never
-   picked up. */
+   underneath the name. (The hover/selection text-emphasis this used to be
+   weighed against no longer exists anywhere - see cards.css's .selectable
+   block.) */
 #referrals-filtered-content .row-title-row .row-secondary-text,
 #escalations-filtered-content .row-title-row .row-secondary-text {
     font-weight: 600;
@@ -10178,8 +10152,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border);
 }
 .agenda-table tbody tr.chosen { background: var(--primary-light); }
-/* Fake bold (INT-M4) — same reasoning as .entity-row.chosen (cards.css). */
-.agenda-table tbody tr.chosen td:first-child { text-shadow: var(--hover-fake-bold); }
 .agenda-table tbody tr.chosen:hover { background: var(--primary-light); }
 .agenda-table .empty-row:hover { box-shadow: none; }
 .agenda-table tr:last-child td { border-bottom: none; }
@@ -11864,12 +11836,6 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
     text-align: center;
 }
 .member-card[data-present="true"] { border-color: var(--accent-border); background: var(--primary-light); }
-/* Hover: name weight only, nothing else - no background/transform/transition,
-   matching .selectable:hover .entity-title's own hover treatment elsewhere.
-   Fake bold via text-shadow (INT-M4), not font-weight, so the name never
-   widens/reflows on hover. No :focus-visible companion — the card itself
-   isn't a tabbable unit, only its own check-in toggle button is. */
-.member-card:hover .card-name { text-shadow: var(--hover-fake-bold); }
 .member-card .photo-avatar, .member-card .no-photo-avatar { width: 168px; height: 106px; flex-shrink: 0; object-fit: cover; }
 .member-card .no-photo-avatar {
     display: flex;

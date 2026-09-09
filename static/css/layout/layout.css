@@ -903,10 +903,6 @@ main { position: relative; }
     border-radius: var(--radius-xs);
     background-color: var(--tooltip-bg);
     color: var(--tooltip-text);
-    /* Reset, not inherited (INT-M4's row-hover fake-bold would otherwise
-       bleed onto this bubble's own text via inheritance from the hovered
-       host element it's a pseudo-element of). */
-    text-shadow: none;
     box-shadow: var(--shadow-lg);
     font-size: var(--font-base);
     font-weight: 600;
@@ -1116,10 +1112,7 @@ main { position: relative; }
     text-decoration: none;
     cursor: pointer;
 }
-/* text-shadow, not font-weight, for the hover bold (INT-M4) - a real
-   weight change would widen "Report a problem"/"File issue" and could wrap
-   or nudge the neighbouring footer item. */
-.footer-text-btn:hover { color: var(--text-primary); background: var(--bg-well); text-shadow: var(--hover-fake-bold); }
+.footer-text-btn:hover { color: var(--text-primary); background: var(--bg-well); }
 .footer-text-btn svg { width: 14px; height: 14px; }
 /* [hidden] beats the unconditional display: inline-flex above on
    specificity alone (both single-selector, this stylesheet loading after
@@ -1569,27 +1562,17 @@ main { position: relative; }
     width: 100%;
 }
 
-/* Every side-nav row shares the same quiet hover nudge — translateX(3px) +
-   bold — regardless of whether it's an action or a selectable row.
-   Bold is faked via text-shadow (INT-M4), not a real font-weight change —
-   a real weight change widens the label text enough to wrap a fitting
-   single-line label onto two lines the moment the pointer arrives.
+/* Every side-nav row shares the same quiet hover nudge — translateX(3px),
+   regardless of whether it's an action or a selectable row. The nudge is
+   the whole hover treatment now: the text-emphasis half that used to sit
+   alongside it is gone portal-wide (cards.css's .selectable block has the
+   reasoning).
    The nudge itself is applied to the icon/label children, never to the row
    element being hovered — transforming the hit-tested element itself moves
    its hit-test box out from under a cursor sitting near its edge, which
    drops :hover, snaps the transform back, re-enters :hover, and loops
    (see the icon-tooltip-host note just below, which already worked around
    this same mechanism for the collapsed/icon-only case). */
-.side-nav .nav-row-btn:hover,
-.side-nav a:not(.nav-row-btn):hover,
-.side-nav .school-nav-option:hover,
-.side-nav .staff-nav-option:hover,
-.side-nav .nav-row-btn:focus-visible,
-.side-nav a:not(.nav-row-btn):focus-visible,
-.side-nav .school-nav-option:focus-visible,
-.side-nav .staff-nav-option:focus-visible {
-    text-shadow: var(--hover-fake-bold);
-}
 .side-nav .nav-row-btn:hover .menu-icon,
 .side-nav .nav-row-btn:hover .menu-label,
 .side-nav .nav-row-btn:hover .menu-label-stack,
@@ -1682,11 +1665,10 @@ main { position: relative; }
 .side-nav:not(.collapsed) .nav-menu a.active {
     background: var(--primary-light);
     color: var(--active-text);
-    text-shadow: var(--hover-fake-bold);
 }
 /* Hovering the active row keeps its resting primary-light fill untouched -
-   the shared nudge/fake-bold hover feedback above already signals the
-   hover, so the fill doesn't also need to shift. */
+   the shared nudge hover feedback above already signals the hover, so the
+   fill doesn't also need to shift. */
 
 /* var(--active-text), not var(--primary) directly, for icon+label+bar alike
    (previously just --primary, which the .menu-label rule below then had to
@@ -1700,11 +1682,6 @@ main { position: relative; }
 .side-nav .school-nav-option.selected,
 .side-nav .staff-nav-option.selected {
     color: var(--active-text);
-    /* Fake bold (INT-M4), not font-weight, even though this state is
-       persistent rather than hover-only — a real weight change still wraps
-       a long label (e.g. "Safeguarding Notes") permanently onto two lines
-       for as long as that page is current, not just a passing flicker. */
-    text-shadow: var(--hover-fake-bold);
 }
 .side-nav .school-nav-option.selected::before,
 .side-nav .staff-nav-option.selected::before {
@@ -2086,7 +2063,6 @@ a { color: inherit; }
 .nav-close-btn:focus-visible {
     background: var(--bg-rail);
     color: var(--active-text);
-    text-shadow: var(--hover-fake-bold);
 }
 
 .side-nav { position: relative; }
