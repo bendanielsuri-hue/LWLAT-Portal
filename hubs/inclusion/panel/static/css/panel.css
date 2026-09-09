@@ -8949,6 +8949,49 @@ html.phone-chrome-side.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .l
     margin-left: 0;
     margin-right: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   `short` tier (landscape phone, ADR 0016): pin the filter bar to the top of
+   the list and the stats strip to the bottom.
+
+   Why this tier specifically: the page header now scrolls away here (it was
+   costing 30% of a 430px viewport), which took the filter bar with it since
+   the bar lives inside .sticky-header-zone's flow. Filters and the result
+   counts are the two things you steer a list by, so they're exactly what
+   should survive a scroll - the title, which you already know, is what
+   shouldn't (live feedback: "filters and footer stats should be sticky on list
+   pages").
+
+   The overflow override is load-bearing, not tidying: overflow: hidden makes
+   an element a scroll container, and position: sticky resolves against the
+   NEAREST scrolling ancestor - so a sticky child of these boxes would stick to
+   a box that never scrolls and simply never move. The real scroller is <main>.
+   That hidden is there to clip the card's rounded corners (see the card
+   scrollbar pattern), and in this tier the card is already full-bleed and
+   borderless - mobile mode strips its side borders and radius - so there are
+   no corners left to clip and nothing is given up by releasing it.
+   --------------------------------------------------------------------------- */
+html.phone-chrome-side .list-page-shell,
+html.phone-chrome-side .list-card {
+    overflow: visible;
+}
+html.phone-chrome-side .list-card .filter-bar,
+html.phone-chrome-side .list-page-shell > .filter-bar {
+    position: sticky;
+    top: 0;
+    /* Above the rows it floats over, below the filter tray (10) it opens. */
+    z-index: 9;
+    background: var(--bg-surface);
+}
+/* bottom: 0, so it pins to the foot of the viewport while the list scrolls
+   underneath and releases naturally at the end of the list. Opaque background
+   for the same reason the filter bar needs one - rows pass behind it. */
+html.phone-chrome-side .stats-strip {
+    position: sticky;
+    bottom: 0;
+    z-index: 9;
+    background: var(--bg-surface);
+}
 html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filtered-content) {
     border-left: none;
     border-right: none;

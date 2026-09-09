@@ -375,7 +375,11 @@ Menu switcher instead - see its own comment below.
             430px viewport), while the LEFT padding stays at desktop's 32px
             because width isn't scarce at all. Right clears the nav strip.
             {% endcomment %}
-            padding-top: var(--space-sm);
+            /* --space-md at the top, --space-sm at the bottom: the top edge is
+               the one you read the page title against, and at 12px it sat too
+               tight to the viewport edge once the header's own bleed margin
+               was corrected. The bottom has no such job. */
+            padding-top: var(--space-md);
             padding-bottom: var(--space-sm);
             {% comment %}
             Edge to edge horizontally (live feedback: "if there is a FAB, it is
@@ -409,6 +413,15 @@ Menu switcher instead - see its own comment below.
         html.phone-chrome-side .home-header-sticky {
             margin-left: 0;
             margin-right: 0;
+            {% comment %}
+            margin-top too, not just the sides. The same -32px bleed applies on
+            all three edges, and with .main-inner's own top padding down to
+            12px it was winning outright - the zone sat at y: -20, dragging the
+            page title up off the top of the viewport (live feedback: "we do
+            need page padding or margin at top"). Nothing above it needs
+            cancelling, so it goes to 0 and the page's own top padding shows.
+            {% endcomment %}
+            margin-top: 0;
             padding-left: var(--space-sm);
             padding-right: var(--space-sm);
         }
