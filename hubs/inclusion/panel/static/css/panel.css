@@ -7514,6 +7514,22 @@ html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-toggle-icon svg {
 html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-toggle-icon {
     transform: rotate(180deg);
 }
+/* ...but not while the header's own "View filters" button is on screen -
+   live feedback: "if there is a view filters button showing, we do not
+   need the down arrow near filter heading". Both controls open the same
+   tray, and the button says so in words. Same "is the header pair really
+   there" reading the sticky-footer rule below uses, for the same reason:
+   built at all (.filter-bar-has-actions, main.js - setup returns early
+   below 481px without building it) and measured as fitting
+   (.filter-bar-actions-cramped, measure()). Where either is false the
+   chevron is the only affordance left on the label, so it stays.
+   The phone-chrome half mirrors that rule too: there the pair is hidden
+   outright for any bar with a pinned Search, whatever the measurement
+   said. */
+html:not(.phone-chrome) .filter-bar-tray.filter-bar-has-actions:not(.filter-bar-actions-cramped) .filter-bar-toggle-icon,
+html.phone-chrome .filter-bar-tray.filter-bar-has-actions:not(:has([data-filter-pinned])):not(.filter-bar-actions-cramped) .filter-bar-toggle-icon {
+    display: none;
+}
 /* #134: the tray floats over the entity list instead of resizing
    .list-card's flex layout at all - position: absolute against
    .filter-bar itself (position: relative, below) rather than the old
