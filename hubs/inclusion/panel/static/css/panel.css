@@ -7226,8 +7226,16 @@ html.nav-touch-mode .row-facts-arrow {
        Search's own flex-grow: 1 (below) is what then claims the freed width
        in both tiers - its margin-left: auto only ever docked it right because
        this padding left free space for an auto margin to absorb. */
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-sticky-row,
-    html.phone-chrome-side .filter-bar-tray .filter-bar-sticky-row {
+    /* :has([data-filter-pinned]) - this reservation is only dead space
+       while .filter-actions-right isn't rendered, which is now true of
+       search-bearing bars alone (the hide rule below is scoped the same
+       way). A no-search bar shows that pair here, so it needs the corner
+       reserved for exactly the reason the min-width: 481px block reserves
+       it in the first place - the buttons are position: absolute and take
+       no width of their own, so nothing else keeps this row's content from
+       running underneath them. */
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray:has([data-filter-pinned]) .filter-bar-sticky-row,
+    html.phone-chrome-side .filter-bar-tray:has([data-filter-pinned]) .filter-bar-sticky-row {
         padding-right: 0;
     }
     /* Narrow desktop only, collapsed only (:not(.is-expanded) - once
@@ -8120,8 +8128,54 @@ html.nav-touch-mode .row-facts-arrow {
        floating in the middle of the list" live feedback flagged) - both
        problems now moot with the wrapper simply never shown on mobile at
        all, expanded or not. */
-    html.filter-bar-mobile-mode .filter-bar-tray .filter-actions-right {
+    /* :has([data-filter-pinned]) - the reasoning above is entirely about
+       Search: both of this pair's mobile equivalents exist because the one
+       row this bar has at these widths belongs to Search. A bar with no
+       pinned Search has no such claim on the row, and hiding the pair there
+       left it as a lone "Filters" label on a full-width bar - live
+       feedback: "it does look empty, and there is space!", then "this can
+       change for no search bars as there is more space to play with". Those
+       bars keep the desktop pair, pinned to the same top-right corner by
+       the same forms.css rule; main.js builds it there now rather than
+       bailing out of setup (setupFilterBarMoreFilters). */
+    html.filter-bar-mobile-mode .filter-bar-tray:has([data-filter-pinned]) .filter-actions-right {
         display: none;
+    }
+    /* "These should stay visible unless it does not fit" (live feedback) -
+       measured per render in main.js's measure(), not inferred from a
+       breakpoint: whether the label and the buttons share the row depends
+       on the label's own count badge and the button's own label text
+       ("View filters" vs "Hide filters"), which no width alone knows. */
+    html.filter-bar-mobile-mode .filter-bar-tray.filter-bar-actions-cramped .filter-actions-right {
+        display: none;
+    }
+    /* Live feedback: "it is still disapearing at breakpoint" (the tier where
+       the breadcrumbs go, responsive.css - i.e. this one) - the pair was
+       never actually hidden, it was painted underneath. .filter-bar-sticky-
+       row above is position: sticky; z-index: 1 with an opaque --bg-well
+       fill spanning the bar's full width, and this box is position:
+       absolute at z-index: auto, so the row covers it and only the few px
+       that overhang the row's own box show. Lifting it here is what makes
+       it visible at all in this mode.
+       z-index: 2, not 1 - 1 only wins the tie against the row on DOM order
+       (this box is .filter-bar's last child), which is true today and
+       silently reversible by anything that reorders the bar's children.
+       Safe against the tray, also z-index: 2 (.filter-bar-collapsible,
+       above): the tray is position: fixed and anchored BELOW the bar's own
+       rect (positionFilterTray, main.js), so the two never overlap for the
+       ordering between them to decide anything.
+       Centred, not the base rule's top: var(--space-xs) - the FILTERS label
+       stretches its tap target to the sticky row's full height in this mode
+       (rule above, live feedback: "can the Filters label and badge be
+       height of the filter bar so clickable space is larger"), so a pair
+       pinned to the row's top edge sits visibly high against it. The bar's
+       own height IS the row's here - .filter-bar-collapsible is position:
+       fixed and out of flow - so centring against the bar centres against
+       the row. */
+    html.filter-bar-mobile-mode .filter-bar-tray .filter-actions-right {
+        z-index: 2;
+        top: 50%;
+        transform: translateY(-50%);
     }
     /* Search stays inside .filter-bar-sticky-row at every state now (live
        feedback: "search going back to a constant filter that always lives

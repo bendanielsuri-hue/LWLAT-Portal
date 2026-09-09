@@ -328,7 +328,22 @@ function setupFilterBarMoreFilters(bar) {
     // click at wide desktop just because that's what search-bearing bars
     // do. Read once here, reused inside measure() below.
     var hasSearchField = !!bar.querySelector('[data-filter-pinned]');
-    if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
+    // A tray bar with no pinned Search (Meetings, the SEND & Provision hub)
+    // no longer bails out of setup in the tray tiers - live feedback: "at
+    // the moment it hides on breakpoint. But this can change for no search
+    // bars as there is more space to play with", following "it does look
+    // empty, and there is space" about the lone "Filters" label those bars
+    // were left with. Bailing here is what left them with nothing to show:
+    // .filter-actions-right is only ever BUILT by this function, so a page
+    // loaded straight into a tray tier had no View filters/Clear Filters in
+    // the DOM at all, whatever the CSS said about hiding it.
+    // Still bails at true mobile (<=480px): the buttons' own top-right
+    // pinning lives in forms.css's min-width: 481px block, so below that
+    // they would render as a bordered column stacked in the bar's flow, and
+    // that width has its own dedicated equivalents anyway (the FILTERS
+    // label's tap-to-expand chevron, the sticky footer's Clear/Close pair).
+    var isNoSearchTray = isTrayBar && !hasSearchField;
+    if (window.matchMedia('(max-width: 480px)').matches || (isTrayBar && !isNoSearchTray && window.isFilterBarMobile && window.isFilterBarMobile())) {
         var retryMqls = isTrayBar
             /* No `|| window.matchMedia(...)` fallbacks here any more - they
                were unreachable (the DOMContentLoaded handler assigns all
@@ -649,6 +664,38 @@ function setupFilterBarMoreFilters(bar) {
                 moreFiltersBtn.hidden = false;
             }
         }
+        // The same pair, kept on the bar in the tray tiers for a no-search
+        // bar - the counterpart to not bailing out of setup for these bars
+        // at all (comment at the top of this function). The block above
+        // only reaches its moreFiltersBtn.hidden = false through the
+        // above-mobile branch, so without this the button would exist and
+        // still never show here.
+        //
+        // "These should stay visible unless it does not fit" (live
+        // feedback) is a real measurement, not a tier list: the label and
+        // the buttons are laid out on the same row, so whether they fit
+        // depends on the label's own width (a count badge that grows) and
+        // the buttons' own ("View filters" vs "Hide filters"), neither of
+        // which a breakpoint knows. Measured with the class off, so the
+        // buttons have a real offsetWidth to measure rather than the 0 a
+        // display: none box reports - which would otherwise read as
+        // "always fits" and never let the class back on once it was set.
+        if (isNoSearchTray && window.isFilterBarMobile && window.isFilterBarMobile()) {
+            if (allFields.length) moreFiltersBtn.hidden = false;
+            bar.classList.remove('filter-bar-actions-cramped');
+            var barLabel = bar.querySelector('.filter-bar-label');
+            if (barLabel && !moreFiltersBtn.hidden) {
+                var barBox = window.getComputedStyle(bar);
+                var barInner = bar.clientWidth - parseFloat(barBox.paddingLeft) - parseFloat(barBox.paddingRight);
+                // + --space-md: the two must not merely touch, they need
+                // the same breathing room between them that the search-
+                // bearing bars reserve for this corner (.filter-bar-sticky-
+                // row's own padding-right, forms.css).
+                if (barLabel.offsetWidth + actionsRight.offsetWidth + 16 > barInner) {
+                    bar.classList.add('filter-bar-actions-cramped');
+                }
+            }
+        }
         // No-pinned-Search bars (Meetings/the SEND & Provision hub) used to
         // be forced permanently open here, with the toggle permanently
         // hidden (live feedback then: "no search on filter bar... we can
@@ -908,12 +955,29 @@ function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nex
 }
 
 function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar) {
+    // Not every call site passes the bar (a page whose template already
+    // ships this button wires it straight from the DOMContentLoaded sweep
+    // with two arguments) - resolved from the button itself when it isn't.
+    bar = bar || (moreFiltersBtn.closest && moreFiltersBtn.closest('.filter-bar'));
     // No auto-open-if-already-active at any width above mobile any more
     // (live feedback: "can we make this the setup for all modes except
     // mobile") - this panel always loads closed regardless of width now,
     // purely click-driven, matching mobile's own overlay tray.
     setMoreFiltersLabel(moreFiltersBtn);
     moreFiltersBtn.addEventListener('click', function () {
+        // In a tray tier this button is a second trigger for the tray, not
+        // for secondaryRow - a no-search bar keeps View filters/Clear
+        // Filters on the bar there now (setupFilterBarMoreFilters), and the
+        // thing they have to open is the floating tray the FILTERS label
+        // already opens, not the in-flow secondary panel this handler owns
+        // at wider widths. secondaryRow is an empty hidden shell in that
+        // mode (every field stays in .filter-bar-collapsible-inner), so
+        // animating it open here would reveal a blank strip and leave
+        // aria-expanded describing a panel nobody can see. The delegated
+        // .filter-bar-label handler below picks this click up on the way
+        // through the document instead, and syncs this button's own
+        // aria-expanded/label from the tray's real state.
+        if (bar && bar.matches('.filter-bar-tray') && window.isFilterBarMobile && window.isFilterBarMobile()) return;
         var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
         // #135: animates the reveal at every width above mobile now (live
         // feedback: "the filters [should] animate down like mobile mode",
@@ -3295,7 +3359,14 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // close") is the same idea but one-directional - always collapses,
     // never toggles open, since a close button's only job is closing.
     document.addEventListener('click', function (e) {
-        var label = closest(e.target, '.filter-bar-label');
+        /* .more-filters-toggle counts as the same trigger as the label now:
+           a no-search tray bar keeps View filters on the bar in the tray
+           tiers (setupFilterBarMoreFilters), where the tray - not
+           secondaryRow - is what opens. Safe to accept unconditionally
+           because this handler already returns immediately for any bar that
+           isn't in a tray tier (barIsMobile, below), which is exactly where
+           the button's own click handler stays in charge. */
+        var label = closest(e.target, '.filter-bar-label') || closest(e.target, '.more-filters-toggle');
         var closeBtn = closest(e.target, '[data-filter-bar-close]');
         if (!label && !closeBtn) return;
         // closeBtn's own closest('.filter-bar') covers a close control
@@ -3370,6 +3441,17 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var box = bar.querySelector('.filter-bar-collapsible');
         var wasExpanded = bar.classList.contains('is-expanded');
         var willExpand = closeBtn ? false : !wasExpanded;
+        /* Keep the on-bar View filters/Hide filters button describing the
+           tray's real state (a no-search bar shows that pair in the tray
+           tiers now - setupFilterBarMoreFilters). Driven from here rather
+           than from the button's own click handler because the tray closes
+           by routes the button never sees: the Close button and the dimmed
+           backdrop both land in this same handler as closeBtn. */
+        var trayToggleBtn = bar.querySelector('.more-filters-toggle');
+        if (trayToggleBtn) {
+            trayToggleBtn.setAttribute('aria-expanded', String(willExpand));
+            setMoreFiltersLabel(trayToggleBtn);
+        }
         // The dimmed backdrop (.filter-bar-overlay, panel.css) has its own
         // opacity transition keyed off this class (live feedback: "can
         // overlay transition in and out through opacity" - tying it to
