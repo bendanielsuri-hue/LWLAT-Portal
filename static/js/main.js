@@ -4000,6 +4000,15 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // popover's content is rendered and made visible (display:none elements
     // report 0 for offsetHeight/offsetWidth), otherwise there's nothing to
     // measure.
+    /* The gap a popover keeps between itself and every viewport edge. Was
+       already the horizontal clamp's own literal 8 below; named here since
+       the vertical cap (#183) needs the same number to mean the same thing
+       on both axes. */
+    var POPOVER_VIEWPORT_MARGIN = 8;
+    /* Floor for the height cap - roughly three options plus the panel's own
+       chrome, i.e. still recognisably a scrollable list rather than a
+       letterbox. */
+    var POPOVER_MIN_HEIGHT = 120;
     function positionPopover(panel, anchorEl, opts) {
         opts = opts || {};
         panel.style.position = 'fixed';
@@ -4012,15 +4021,60 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // rather than wrapping it just because the closed control is narrow.
         if (opts.matchWidth) panel.style.width = Math.max(anchorEl.getBoundingClientRect().width, opts.contentWidth || 0) + 'px';
         var rect = anchorEl.getBoundingClientRect();
+        /* #183: cap the panel to the room that actually exists before
+           placing it. Live feedback: "dropdown selection on a long list can
+           be cut off and not reachable by scrolling! This is mobile
+           landscape!" - .ui-popover's own max-height: 260px (forms.css) is
+           a fixed number chosen with no reference to the viewport, so on a
+           375px-tall one a long list overflowed whichever way it was
+           placed: below, it ran past the bottom edge; flipped above, its
+           top went negative. Unreachable either way rather than merely
+           awkward - the panel scrolls INTERNALLY, so its own scrollbar only
+           moves content inside a box whose far edge is off-screen, and the
+           page can't be scrolled to it because the panel is position:
+           fixed.
+           Cleared first: this cap is an inline style, so a tighter one left
+           by a previous open would otherwise still be in force and be
+           measured as if it were the panel's natural height. */
+        panel.style.maxHeight = '';
+        /* visualViewport.height, not innerHeight - the visible height with
+           browser chrome/an on-screen keyboard accounted for, which is the
+           height a fixed panel actually has to fit inside. Same source
+           positionFilterTray already measures against. */
+        var viewportHeight = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
         var panelHeight = panel.offsetHeight;
-        var spaceBelow = window.innerHeight - rect.bottom;
-        var spaceAbove = rect.top;
-        var top = (spaceBelow < panelHeight + 12 && spaceAbove > spaceBelow)
+        var spaceBelow = viewportHeight - rect.bottom - POPOVER_VIEWPORT_MARGIN;
+        var spaceAbove = rect.top - POPOVER_VIEWPORT_MARGIN;
+        // Unchanged flip rule - only the space either side of it is now
+        // measured net of the margin the panel has to keep off each edge.
+        var placeAbove = spaceBelow < panelHeight + 12 && spaceAbove > spaceBelow;
+        /* The floor matters when the trigger itself sits near an edge: with
+           no minimum, the "available" space on the chosen side can be a few
+           px and the panel would collapse to an unusable sliver. Below the
+           floor it deliberately overflows a little instead, and the clamp
+           below is what keeps that overflow inside the viewport. */
+        var available = Math.max(placeAbove ? spaceAbove : spaceBelow, POPOVER_MIN_HEIGHT);
+        if (panelHeight > available) {
+            panel.style.maxHeight = available + 'px';
+            // Re-read AFTER the cap: the pre-cap height is what the top
+            // arithmetic below would otherwise place against, which is
+            // exactly how the flipped-above case ended up at a negative top.
+            panelHeight = panel.offsetHeight;
+        }
+        var top = placeAbove
             ? rect.top - panelHeight - 4
             : rect.bottom + 4;
+        /* Final guarantee, independent of everything above: neither edge
+           leaves the viewport whatever the measurements said. Math.max on
+           the upper bound keeps this from inverting into a negative top on
+           a viewport too short to hold even the floored panel. */
+        top = Math.min(
+            Math.max(POPOVER_VIEWPORT_MARGIN, top),
+            Math.max(POPOVER_VIEWPORT_MARGIN, viewportHeight - panelHeight - POPOVER_VIEWPORT_MARGIN)
+        );
         var left = opts.alignRight ? rect.right - panel.offsetWidth : rect.left;
-        var maxLeft = window.innerWidth - panel.offsetWidth - 8;
-        left = Math.min(Math.max(8, left), Math.max(8, maxLeft));
+        var maxLeft = window.innerWidth - panel.offsetWidth - POPOVER_VIEWPORT_MARGIN;
+        left = Math.min(Math.max(POPOVER_VIEWPORT_MARGIN, left), Math.max(POPOVER_VIEWPORT_MARGIN, maxLeft));
         panel.style.top = top + 'px';
         panel.style.left = left + 'px';
     }
