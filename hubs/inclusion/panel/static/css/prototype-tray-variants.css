@@ -1,0 +1,130 @@
+/* PROTOTYPE - throwaway, never merge to main.
+   Branch: prototype/tray-section-fill-variants. Question it answers (#185
+   follow-up): a filter category whose fields wrap to a ragged last line
+   leaves dead space to the right of the last field ("Overdue Actions" alone
+   on its own row at 390px). Four states on the real Referrals/Students tray,
+   switched by ?tray= (prototype-tray-variants.js):
+
+     now - untouched, for comparison
+     a   - flowed: categories stop being boxes and flow like text, with a
+           tint that survives wrapping (box-decoration-break: clone)
+     b   - tinted box: categories stay rectangular, the tint makes the
+           leftover space read as the block's own padding
+     c   - fill the line: fields grow to consume whatever their line leaves
+
+   Every variant is CSS-only - no template or DOM changes - which is itself
+   part of the finding: all three are reachable from the shape #185 landed. */
+
+/* ===================================================================
+   A - FLOWED CATEGORIES, WRAPPING TINT
+
+   The only layout mode in CSS that paints a background behind a run of
+   content that starts mid-line and ends mid-line is inline flow, so the
+   host stops being a flex container and the fields become inline-level
+   boxes that flow like words. box-decoration-break: clone then repaints
+   the group's own background/radius on every line fragment instead of
+   once across the whole run.
+
+   Consequences to look for on the page, not in the code:
+   - No equal-height fields on a row any more. Inline flow has no
+     align-items: stretch, so a wrapped two-line value leaves its
+     neighbours short - the exact thing live feedback asked for ("if a
+     filter has two lines, then all other filters on that row should be
+     same height").
+   - Vertical padding on an inline box paints but does not push the next
+     line down, so the tint bands on consecutive lines would overlap.
+     Hence no vertical padding here, and the gap between lines comes from
+     each field's own margin-bottom instead.
+   - The caption is .filter-group's first DOM child, so in normal (non
+     column-reverse) flow it lands at the HEAD of the run rather than
+     under the fields - a small inline chip opening each category.
+   =================================================================== */
+html[data-tray-variant="a"] .filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections {
+    display: block;
+    /* Kills the whitespace between inline-level boxes (the JS-built DOM has
+       real text nodes between fields). Every descendant that shows text
+       sets its own size back. */
+    font-size: 0;
+}
+html[data-tray-variant="a"] .filter-bar-tray .filter-bar-sections .filter-group {
+    display: inline;
+    background: var(--bg-nested);
+    border-radius: var(--radius-sm);
+    /* Horizontal only - see the note above on vertical padding in inline
+       flow. --space-xs each side, so the tint opens and closes a little
+       clear of the first and last field in the run. */
+    padding: 0 var(--space-xs);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+html[data-tray-variant="a"] .filter-bar-tray .filter-bar-sections .filter-group-fields {
+    display: inline;
+}
+html[data-tray-variant="a"] .filter-bar-tray .filter-bar-sections .filter-field {
+    display: inline-flex;
+    /* top, not the inline default baseline - a field is a two-storey box
+       (label over control) and baseline-aligning those puts every field on
+       a different y depending on how many lines its own label took. */
+    vertical-align: top;
+    font-size: var(--font-sm);
+    /* margin-bottom is the line gap (vertical padding cannot be), margin-
+       right the field gap. */
+    margin: 0 var(--space-xs) var(--space-sm) 0;
+}
+html[data-tray-variant="a"] .filter-bar-tray .filter-bar-sections .filter-section-label {
+    display: inline-flex;
+    vertical-align: top;
+    font-size: var(--font-xs);
+    /* Same two margins as a field, so the caption chip sits on the flow
+       exactly like one. */
+    margin: 0 var(--space-xs) var(--space-sm) 0;
+    /* The caption is opening the run now, not underlining it: one tick
+       after the text is enough punctuation, and a leading tick would sit
+       flush against the tint's own left edge. */
+    padding-top: var(--space-sm);
+}
+html[data-tray-variant="a"] .filter-bar-tray .filter-bar-sections .filter-section-label::before {
+    display: none;
+}
+
+/* ===================================================================
+   B - TINTED BOX
+
+   Nothing structural changes: a category is the same rectangular flex
+   item #185 landed. The tint reframes the leftover space rather than
+   removing it - a half-empty row inside a visible block reads as that
+   block's own padding, where the same pixels between two invisible
+   boxes read as a gap.
+
+   The caption's rule lines come off with it. They exist to draw a
+   boundary the eye can follow across a category; a filled block draws
+   that boundary already, and keeping both is two devices for one job.
+   =================================================================== */
+html[data-tray-variant="b"] .filter-bar-tray .filter-bar-sections .filter-group {
+    background: var(--bg-nested);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-sm) var(--space-sm);
+}
+html[data-tray-variant="b"] .filter-bar-tray .filter-bar-sections .filter-section-label {
+    /* Left, not centred: the block's own left edge is the line the eye
+       reads captions against now. */
+    justify-content: flex-start;
+}
+html[data-tray-variant="b"] .filter-bar-tray .filter-bar-sections .filter-section-label::before,
+html[data-tray-variant="b"] .filter-bar-tray .filter-bar-sections .filter-section-label::after {
+    display: none;
+}
+
+/* ===================================================================
+   C - FILL THE LINE
+
+   No tint, no structural change, one declaration: whatever sits on a
+   line shares out that line's leftover space. Dead space cannot exist
+   by construction, and fields on a line come out equal width as a side
+   effect. The thing to judge on the page is the lone field - "Overdue
+   Actions" alone on its row becomes a full-width box with a centred
+   label over a centred pill.
+   =================================================================== */
+html[data-tray-variant="c"] .filter-bar-tray .filter-bar-sections .filter-group-fields > .filter-field {
+    flex-grow: 1;
+}
