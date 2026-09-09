@@ -184,12 +184,23 @@
        tie and .list-card .filter-bar's own position: static won instead). */
     form.filter-bar.filter-bar-tray {
         position: relative;
-        /* Clips .filter-secondary-fields' own now-square bottom corners
-           (below, its bleed-to-flush margin-bottom) to this bar's own
-           border-radius instead of them poking past the curve - same
-           radius-lives-on-the-non-scrolling-wrapper convention as
-           .list-card/.entity-list (panel.css). */
-        overflow: hidden;
+        /* visible, not hidden (#186).
+
+           This clipped .filter-secondary-fields' own square bottom corners
+           to the bar's border-radius, back when that panel sat INSIDE the
+           bar in normal flow and its bleed margin took it flush to the
+           bar's bottom edge. The panel now floats below the bar
+           (position: absolute, its own rule further down), so the same
+           clip removes the whole thing: the panel opened, measured and
+           animated correctly and was simply not painted, at every width
+           that uses it - reported as "view filters is not opening" on
+           tablet wide and desktop alike.
+
+           Nothing else needed it. The mobile tray is position: fixed
+           (#134, panel.css), which an ancestor's overflow does not clip,
+           and the panel has its own border and radius now that it is a
+           floating box rather than a band continuing the bar's surface. */
+        overflow: visible;
     }
     .filter-bar-tray .filter-actions-right {
         position: absolute;
