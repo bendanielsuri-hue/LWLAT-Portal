@@ -188,7 +188,7 @@
    query directly - the dev breakpoint preview iframe (layout.html) is still
    a real mouse over a resized frame, so hover:none never actually matches
    there. main.js sets the class from real hover:none OR the preview's
-   forced-touch override, so previewing either Tablet preset exercises the
+   forced-touch override, so previewing any Tablet size exercises the
    same expand-in-place a genuine touch device gets. */
 @media (min-width: 481px) and (max-width: 1180px) {
     html.nav-touch-mode .side-nav.hub-side.touch-expanded {
@@ -593,9 +593,19 @@ html.filter-bar-mobile-mode .breadcrumbs {
    switcher/footer still off, but the stats-strip's own <=1180px override
    already on). The preview tool's Tablet Wide/Portrait presets were later
    changed to basic-iPad size (1024x768/768x1024, live feedback 2026-08-23)
-   - both now sit safely under this 1180px threshold, so that gap no longer
+   - both sat safely under this 1180px threshold, so that gap no longer
    matters, but the threshold itself is still tied to the sidebar's touch-
-   expand range, not to whichever preset happens to be simulated. Widening
+   expand range, not to whichever preset happens to be simulated.
+
+   One tablet size now lands ABOVE this threshold and that is deliberate: the
+   preview tool's later rework (per-tier size menus + a global orientation
+   toggle, see layout.html) added iPad Pro, whose landscape form is 1366x1024.
+   So it gets forced touch mode but full DESKTOP chrome - no footer collapse,
+   no touch-expand sidebar - which is what a real 1366px-wide iPad Pro in
+   landscape genuinely gets. Don't "fix" it by widening this query to cover
+   1366; that would drag every 1181-1366px laptop into tablet chrome too.
+
+   Widening
    this shared, portal-wide mechanism also pushes Meeting Setup's own
    card-switcher out to 1180px - same tablet-collapse behaviour it already
    had. */

@@ -101,7 +101,7 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=485">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=488">
     <script src="{% static 'js/main.js' %}?v=257" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
@@ -425,43 +425,101 @@
             {% endcomment %}
             <div class="footer-cluster footer-cluster--dev footer-cluster--dev-bp">
                 <div id="dev-bp-group" class="dev-bp-group">
-                    <button type="button" class="dev-bp-option active icon-tooltip-host" data-bp-w="0" data-bp-h="0" data-tooltip="Desktop">
+                    {% comment %}
+                    Four controls, not one button per device size: Desktop, a
+                    Tablet tier, a Mobile tier, and one global orientation
+                    toggle. The flat per-size list this replaced had a
+                    structural redundancy - its "Tablet Wide 1024x768" and
+                    "Tablet Portrait 768x1024" entries were the same iPad twice
+                    - so pulling orientation out into its own control is what
+                    collapses each device to a single menu row.
+
+                    Sizes are listed PORTRAIT below (w < h) and swapped at apply
+                    time by the rotate button; never add a landscape-shaped row.
+
+                    data-bp-id, not data-bp-w, is each size's identity: with
+                    orientation split out, 430x932 and 932x430 are the same row
+                    in two states, so width alone no longer identifies a row -
+                    and identity is what both the localStorage writes and the
+                    parent<->iframe querySelector sync further down key on.
+                    data-bp-touch is gone too: every sized tier is a touch
+                    device now that the one non-touch preset (a 600px "narrow
+                    desktop window") has been dropped, so touch is derived from
+                    "tier !== desktop" in JS rather than repeated per row.
+
+                    The 481-700px band consequently has no preset at all. That's
+                    the state where a page takes the stacked-card list format
+                    (panel.css's <=700px rules) while still getting DESKTOP page
+                    chrome - full 32px margin, visible breadcrumbs, locked icon
+                    rail - and it's now reachable only by resizing the real
+                    browser window, which is the deliberate call (see #128).
+                    {% endcomment %}
+                    <button type="button" class="dev-bp-option active icon-tooltip-host" data-bp-tier="desktop" data-tooltip="Desktop · your real window">
                         {% include 'icons/bp_desktop_svg.html' %}
-                    </button>
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="1024" data-bp-h="768" data-bp-touch="true" data-tooltip="Tablet Wide · 1024×768 (basic iPad)">
-                        {% include 'icons/bp_tablet_wide_svg.html' %}
-                    </button>
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="768" data-bp-h="1024" data-bp-touch="true" data-tooltip="Tablet Portrait · 768×1024 (basic iPad)">
-                        {% include 'icons/bp_tablet_portrait_svg.html' %}
+                        <span class="dev-bp-label">Desktop</span>
                     </button>
                     {% comment %}
-                    600x800, non-touch: the 481-700px band had no preset at
-                    all, so nothing exercised the one state where a page uses
-                    the stacked-card list format (panel.css's <=700px rules)
-                    while still getting DESKTOP page chrome - full 32px margin,
-                    visible breadcrumbs, locked icon rail. Those <=700px rules
-                    were written for exactly this "mobile layout on a plainly
-                    desktop-shaped window" case (their own comments say so) and
-                    it was the only tier you had to hand-resize to see.
-                    data-bp-touch deliberately omitted (false) for the same
-                    reason - a touch preset here would exercise the tablet rail
-                    instead, which the two iPad presets already cover.
+                    Each tier is a wrapper, not a bare button, so its menu can
+                    position against it (.dev-bp-tier is the relative ancestor).
+                    One click on a tier button both APPLIES that tier's
+                    remembered size and opens the menu - so the first click
+                    always changes the preview (never a dead click) and the menu
+                    is there purely to override when the remembered size wasn't
+                    the one you wanted.
                     {% endcomment %}
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="600" data-bp-h="800" data-tooltip="Narrow window · 600×800 (stacked rows, desktop chrome)">
-                        {% include 'icons/bp_narrow_svg.html' %}
-                    </button>
+                    <div class="dev-bp-tier" data-bp-tier="tablet">
+                        <button type="button" class="dev-bp-option dev-bp-tier-btn icon-tooltip-host" data-bp-tier="tablet" aria-expanded="false" data-tooltip="Tablet">
+                            {% include 'icons/bp_tablet_portrait_svg.html' %}
+                            <span class="dev-bp-label">Tablet</span>
+                            {% include 'icons/bp_caret_svg.html' %}
+                        </button>
+                        <div class="dev-bp-menu hidden">
+                            <button type="button" class="dev-bp-size" data-bp-id="ipad-mini" data-bp-w="744" data-bp-h="1133">iPad Mini<span>744×1133</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="ipad" data-bp-w="768" data-bp-h="1024">iPad<span>768×1024</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="ipad-pro" data-bp-w="1024" data-bp-h="1366">iPad Pro<span>1024×1366</span></button>
+                        </div>
+                    </div>
+                    <div class="dev-bp-tier" data-bp-tier="mobile">
+                        <button type="button" class="dev-bp-option dev-bp-tier-btn icon-tooltip-host" data-bp-tier="mobile" aria-expanded="false" data-tooltip="Mobile">
+                            {% include 'icons/bp_mobile_svg.html' %}
+                            <span class="dev-bp-label">Mobile</span>
+                            {% include 'icons/bp_caret_svg.html' %}
+                        </button>
+                        {% comment %}
+                        iPhone 16 Max (430) earns its own row despite sharing a
+                        CSS tier with the SE (375): 375 alone never showed how
+                        phone chrome behaves near its own <=480px boundary, which
+                        is precisely where two off-by-one bugs shipped - see the
+                        breakpoint registry in responsive.css.
+                        {% endcomment %}
+                        <div class="dev-bp-menu hidden">
+                            <button type="button" class="dev-bp-size" data-bp-id="iphone-se" data-bp-w="375" data-bp-h="667">iPhone SE<span>375×667</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="iphone" data-bp-w="390" data-bp-h="844">iPhone 16<span>390×844</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="iphone-max" data-bp-w="430" data-bp-h="932">iPhone 16 Max<span>430×932</span></button>
+                        </div>
+                    </div>
                     {% comment %}
-                    430x932 (iPhone Pro Max class) - the top edge of the phone
-                    tier. Same tier as the 375 preset below, but 375 alone never
-                    showed how phone chrome behaves near its own <=480px
-                    boundary, which is precisely where two off-by-one bugs
-                    shipped - see the breakpoint registry in responsive.css.
+                    Disabled rather than hidden while Desktop is active (there's
+                    no sized frame to rotate): hiding it would change this
+                    cluster's width on every Desktop<->device switch, nudging the
+                    neighbouring buttons sideways in a footer corner you aim at
+                    by muscle memory. It still remembers the orientation for
+                    when you next enter a tier.
                     {% endcomment %}
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="430" data-bp-h="932" data-bp-touch="true" data-tooltip="Mobile Large · 430×932 (top of the phone tier)">
-                        {% include 'icons/bp_mobile_large_svg.html' %}
-                    </button>
-                    <button type="button" class="dev-bp-option icon-tooltip-host" data-bp-w="375" data-bp-h="667" data-bp-touch="true" data-tooltip="Mobile · 375×667">
-                        {% include 'icons/bp_mobile_svg.html' %}
+                    <button type="button" class="dev-bp-option icon-tooltip-host" id="dev-bp-rotate" disabled data-tooltip="Rotate · pick a device first">
+                        {% include 'icons/bp_rotate_svg.html' %}
+                        {% comment %}
+                        Names the control, not its current value - so this label
+                        is static, where a "Portrait"/"Landscape" readout would
+                        have to change as you pressed it. That matters here
+                        because the cluster is right-aligned in the footer: a
+                        label that changed width would shove Desktop/Tablet/
+                        Mobile sideways, i.e. clicking this button would move
+                        the buttons either side of it. Which way round you
+                        currently are is carried by the active fill (landscape)
+                        plus the tooltip, both set in syncChrome().
+                        {% endcomment %}
+                        <span class="dev-bp-label">Orientation</span>
                     </button>
                 </div>
             </div>
@@ -625,7 +683,12 @@
         var overlay = document.getElementById('dev-bp-overlay');
         var wrap = document.getElementById('dev-bp-frame-wrap');
         var frame = document.getElementById('dev-bp-frame');
-        var options = document.querySelectorAll('#dev-bp-group .dev-bp-option');
+        // button[...], not bare [data-bp-tier] - the .dev-bp-tier wrappers
+        // carry the same attribute, so an unqualified selector would match
+        // each tier twice (wrapper + its button).
+        var tierBtns = document.querySelectorAll('#dev-bp-group button[data-bp-tier]');
+        var sizeBtns = document.querySelectorAll('#dev-bp-group .dev-bp-size');
+        var rotateBtn = document.getElementById('dev-bp-rotate');
         var currentWidth = 0;
         var currentHeight = 0;
         // Snapshot of the URL window.top actually rendered. Navigating
@@ -709,84 +772,239 @@
             // breakpoint it's actually showing, so its active highlight
             // stays in sync with the real one (#128). devBpTouch rides the
             // same message - a real mouse over this resized frame can never
-            // make hover:none media queries true on its own, so Tablet
-            // Portrait/Wide need this explicit signal to exercise the
-            // touch-only nav drawer (main.js's window.__setDevBpTouch,
-            // responsive.css's .nav-touch-mode). onload fires on every
-            // navigation, including when frame.src is already correct and
-            // doesn't need reassigning below.
-            frame.onload = function () {
-                frame.contentWindow.postMessage({ devBpWidth: width, devBpTouch: !!touch }, location.origin);
-            };
+            // make hover:none media queries true on its own, so the tablet
+            // sizes need this explicit signal to exercise the touch-only nav
+            // drawer (main.js's window.__setDevBpTouch, responsive.css's
+            // .nav-touch-mode). onload fires on every navigation, including
+            // when frame.src is already correct and doesn't need reassigning
+            // below.
+            //
+            // The tier/sizeId/landscape triple rides along too, rather than
+            // width alone: the iframe copy has to highlight a tier button,
+            // tick one row in that tier's menu and set its own rotate state,
+            // and width can't tell it any of those three now that one width
+            // belongs to one size in two orientations.
+            function syncFrame() {
+                frame.contentWindow.postMessage({
+                    devBpWidth: width,
+                    devBpTouch: !!touch,
+                    devBpTier: bpTier,
+                    devBpSizeId: bpSize[bpTier] || null,
+                    devBpLandscape: bpLandscape
+                }, location.origin);
+            }
+            frame.onload = syncFrame;
             if (frame.src !== location.href) {
                 frame.src = location.href;
             } else {
-                frame.contentWindow.postMessage({ devBpWidth: width, devBpTouch: !!touch }, location.origin);
+                syncFrame();
             }
         }
 
-        // Persists the top-level page's selected preset across a real
-        // refresh (same pattern as the pref-theme-mode/pref-theme/etc. reads
-        // in the <head> script) - stores the button's data-bp-w, or clears
-        // it for Desktop (bp-w="0", the default there's no point persisting).
-        var BP_STORAGE_KEY = 'dev-bp-preset';
-        function storeBreakpoint(bpW) {
+        // Four keys, not the single 'dev-bp-preset' width this replaced.
+        // Size is remembered PER TIER (bouncing Tablet<->Mobile while chasing
+        // one bug shouldn't make you re-pick iPad Pro every time you come
+        // back), while orientation is deliberately ONE global flag rather
+        // than a fifth per-tier key - so the rotate button's appearance can
+        // never disagree with what you're looking at. Same read/write pattern
+        // as the pref-theme-mode/pref-theme reads in the <head> script.
+        var BP_KEY_TIER = 'dev-bp-tier';
+        var BP_KEY_LANDSCAPE = 'dev-bp-landscape';
+        var BP_KEY_SIZE = { tablet: 'dev-bp-size-tablet', mobile: 'dev-bp-size-mobile' };
+        // First-run seeds only: the commonest real device in each tier, and
+        // mid-tier rather than at an edge, so what you see before touching
+        // anything is representative instead of a boundary case.
+        var bpSize = { tablet: 'ipad', mobile: 'iphone' };
+        var bpTier = 'desktop';
+        var bpLandscape = false;
+
+        function store(key, value) {
             try {
-                if (bpW && bpW !== '0') {
-                    localStorage.setItem(BP_STORAGE_KEY, bpW);
-                } else {
-                    localStorage.removeItem(BP_STORAGE_KEY);
-                }
+                if (value) { localStorage.setItem(key, value); }
+                else { localStorage.removeItem(key); }
             } catch (e) { }
         }
+        function read(key) {
+            try { return localStorage.getItem(key); } catch (e) { return null; }
+        }
 
-        options.forEach(function (btn) {
+        function sizeBtnFor(tier) {
+            if (tier === 'desktop') return null;
+            return document.querySelector(
+                '#dev-bp-group .dev-bp-tier[data-bp-tier="' + tier + '"] .dev-bp-size[data-bp-id="' + bpSize[tier] + '"]'
+            );
+        }
+
+        function closeMenus(exceptTier) {
+            tierBtns.forEach(function (btn) {
+                if (btn.dataset.bpTier === exceptTier) return;
+                btn.setAttribute('aria-expanded', 'false');
+                var menu = btn.parentNode.querySelector('.dev-bp-menu');
+                if (menu) menu.classList.add('hidden');
+            });
+        }
+
+        // Paints every control from (bpTier, bpSize, bpLandscape) in one
+        // place, so no click handler has to remember which of the four
+        // buttons its own change also affects.
+        function syncChrome() {
+            tierBtns.forEach(function (btn) {
+                btn.classList.toggle('active', btn.dataset.bpTier === bpTier);
+            });
+            sizeBtns.forEach(function (btn) {
+                var tier = btn.closest('.dev-bp-tier').dataset.bpTier;
+                btn.classList.toggle('active', bpSize[tier] === btn.dataset.bpId);
+            });
+            rotateBtn.disabled = (bpTier === 'desktop');
+            rotateBtn.classList.toggle('active', bpLandscape && bpTier !== 'desktop');
+            // The button's own label is the static word "Orientation", so the
+            // tooltip is what carries both the current state and the action -
+            // see the comment on that span in the markup for why the label
+            // itself can't be the readout.
+            rotateBtn.dataset.tooltip = bpTier === 'desktop'
+                ? 'Orientation · pick a device first'
+                : (bpLandscape ? 'Landscape · click for portrait' : 'Portrait · click for landscape');
+        }
+
+        // Resolves state to real pixels and hands them to applyBreakpoint.
+        // The landscape swap lives ONLY here - every data-bp-w/h in the markup
+        // is portrait, so this is the single place a width and a height can
+        // trade places.
+        function applyState() {
+            syncChrome();
+            if (bpTier === 'desktop') {
+                // Only tear a preview down if one is actually up: on a plain
+                // page load this function runs purely to paint the chrome, and
+                // an unconditional applyBreakpoint(0, 0) would kick off a
+                // needless about:blank iframe load on every single page view.
+                if (currentWidth) applyBreakpoint(0, 0, false);
+                return;
+            }
+            var btn = sizeBtnFor(bpTier);
+            if (!btn) return;
+            var w = parseInt(btn.dataset.bpW, 10);
+            var h = parseInt(btn.dataset.bpH, 10);
+            applyBreakpoint(bpLandscape ? h : w, bpLandscape ? w : h, true);
+        }
+
+        // Inside the preview iframe every control just forwards to the
+        // identical control in window.top (same-origin, so this is safe) and
+        // lets the parent's own handler do the real work - including its
+        // active-class bookkeeping and the postMessage back to here.
+        function forwardToTop(selector) {
+            var topBtn = window.top.document.querySelector(selector);
+            if (topBtn) topBtn.click();
+        }
+
+        tierBtns.forEach(function (btn) {
             btn.addEventListener('click', function () {
+                var tier = btn.dataset.bpTier;
                 if (insideFrame) {
-                    // Same-origin, so reaching into window.top is safe -
-                    // let the parent's own click handler do the real work
-                    // (including its own active-class bookkeeping).
-                    var topBtn = window.top.document.querySelector(
-                        '#dev-bp-group .dev-bp-option[data-bp-w="' + btn.dataset.bpW + '"]'
-                    );
-                    if (topBtn) topBtn.click();
+                    forwardToTop('#dev-bp-group button[data-bp-tier="' + tier + '"]');
                     return;
                 }
-                options.forEach(function (b) { b.classList.remove('active'); });
-                btn.classList.add('active');
-                applyBreakpoint(parseInt(btn.dataset.bpW, 10), btn.dataset.bpH, btn.dataset.bpTouch === 'true');
-                storeBreakpoint(btn.dataset.bpW);
+                // Apply first, open second: one click has to change the
+                // preview as well as reveal the menu, or clicking a tier you
+                // are already on would do nothing visible at all.
+                bpTier = tier;
+                store(BP_KEY_TIER, tier === 'desktop' ? null : tier);
+                applyState();
+                if (tier === 'desktop') {
+                    closeMenus(null);
+                    return;
+                }
+                var menu = btn.parentNode.querySelector('.dev-bp-menu');
+                var open = btn.getAttribute('aria-expanded') === 'true';
+                closeMenus(tier);
+                btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+                menu.classList.toggle('hidden', open);
             });
         });
 
-        // Restore the persisted preset on a real load of the top-level page
-        // (never inside the preview iframe itself, which instead syncs to
-        // whatever the parent loaded it at - see the postMessage listener
-        // below) by just clicking the matching button, reusing all the
-        // active-class/applyBreakpoint/storeBreakpoint logic above.
-        if (!insideFrame) {
-            var storedBpW = null;
-            try { storedBpW = localStorage.getItem(BP_STORAGE_KEY); } catch (e) { }
-            if (storedBpW) {
-                var storedBtn = document.querySelector('#dev-bp-group .dev-bp-option[data-bp-w="' + storedBpW + '"]');
-                if (storedBtn) storedBtn.click();
+        sizeBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (insideFrame) {
+                    forwardToTop('#dev-bp-group .dev-bp-size[data-bp-id="' + btn.dataset.bpId + '"]');
+                    return;
+                }
+                var tier = btn.closest('.dev-bp-tier').dataset.bpTier;
+                bpSize[tier] = btn.dataset.bpId;
+                bpTier = tier;
+                store(BP_KEY_SIZE[tier], btn.dataset.bpId);
+                store(BP_KEY_TIER, tier);
+                applyState();
+            });
+        });
+
+        rotateBtn.addEventListener('click', function () {
+            if (insideFrame) {
+                forwardToTop('#dev-bp-rotate');
+                return;
             }
+            bpLandscape = !bpLandscape;
+            store(BP_KEY_LANDSCAPE, bpLandscape ? '1' : null);
+            applyState();
+        });
+
+        // Close an open menu on an outside click / Escape. Scoped to the
+        // group so clicking the rotate button (a sibling, not a descendant of
+        // either tier) leaves the menu you opened alone - you can rotate and
+        // watch the result without the menu shutting under you.
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#dev-bp-group')) closeMenus(null);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeMenus(null);
+        });
+
+        // Restore on a real load of the top-level page (never inside the
+        // preview iframe, which instead syncs to whatever the parent loaded it
+        // at - see the postMessage listener below). Orientation and both
+        // per-tier sizes are restored even when the stored tier is Desktop, so
+        // re-entering a tier later lands on what you last had rather than the
+        // seed.
+        if (!insideFrame) {
+            bpLandscape = read(BP_KEY_LANDSCAPE) === '1';
+            Object.keys(BP_KEY_SIZE).forEach(function (tier) {
+                var storedId = read(BP_KEY_SIZE[tier]);
+                // Guarded against a stale id left by an earlier device list -
+                // an unrecognised one would otherwise make sizeBtnFor() return
+                // null and applyState() silently do nothing.
+                if (storedId && document.querySelector('#dev-bp-group .dev-bp-tier[data-bp-tier="' + tier + '"] .dev-bp-size[data-bp-id="' + storedId + '"]')) {
+                    bpSize[tier] = storedId;
+                }
+            });
+            var storedTier = read(BP_KEY_TIER);
+            if (storedTier === 'tablet' || storedTier === 'mobile') {
+                bpTier = storedTier;
+            }
+            // Unconditional: even on Desktop this is what paints the rotate
+            // button's disabled state and ticks the remembered menu rows.
+            applyState();
         }
 
-        // Inside the iframe, sync this copy's own active button to
-        // whichever breakpoint the parent actually loaded it at (see the
-        // postMessage in applyBreakpoint above), so it doesn't show
-        // "Desktop" highlighted while sitting inside a Mobile-sized frame -
-        // and force the touch-nav override so this copy's own sidebar
-        // renders the same way a real touch device previewing itself would.
+        // Inside the iframe, sync this copy's own controls to whatever the
+        // parent actually loaded it at (see syncFrame in applyBreakpoint
+        // above), so it doesn't show "Desktop" highlighted while sitting
+        // inside a Mobile-sized frame - and force the touch-nav override so
+        // this copy's own sidebar renders the same way a real touch device
+        // previewing itself would.
+        //
+        // Copies the parent's state into this copy's own vars and reuses
+        // syncChrome() rather than painting buttons here: one tier highlight,
+        // one ticked menu row and one rotate state is exactly what that
+        // function already does. syncChrome, not applyState - this copy must
+        // never resize anything, it IS the thing being resized.
         if (insideFrame) {
             window.addEventListener('message', function (event) {
                 if (event.origin !== location.origin || !event.data) return;
-                var width = event.data.devBpWidth;
-                if (typeof width !== 'number') return;
-                options.forEach(function (btn) {
-                    btn.classList.toggle('active', parseInt(btn.dataset.bpW, 10) === width);
-                });
+                if (typeof event.data.devBpWidth !== 'number') return;
+                if (event.data.devBpTier) bpTier = event.data.devBpTier;
+                if (event.data.devBpSizeId && bpTier !== 'desktop') {
+                    bpSize[bpTier] = event.data.devBpSizeId;
+                }
+                bpLandscape = !!event.data.devBpLandscape;
+                syncChrome();
                 if (window.__setDevBpTouch) window.__setDevBpTouch(!!event.data.devBpTouch);
             });
         }
