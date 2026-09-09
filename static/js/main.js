@@ -542,6 +542,14 @@ function setupFilterBarMoreFilters(bar) {
     }
     if (clearEl) actionsRight.appendChild(clearEl);
     bar.appendChild(actionsRight);
+    /* Marks that this bar HAS a View filters/Clear Filters pair at all -
+       read by the rule that drops the tray's duplicate Clear/Close footer
+       (panel.css). Needed because this function returns early at true
+       mobile without ever building the pair, so "the bar has no pinned
+       Search" alone was not enough to conclude the header carries those two
+       controls: at <=480px it carries neither, and the footer was being
+       hidden there with nothing left to close or clear the tray with. */
+    bar.classList.add('filter-bar-has-actions');
 
     function measure() {
         // Move every field (and section-label header, #135 follow-up -
@@ -1075,6 +1083,10 @@ function groupFilterSections(bar) {
     // again, which is why this runs in both directions rather than only
     // building - a resize can cross the boundary either way with the tray
     // already open.
+    // This enumeration is the JS half of the split #182 item 5 is about:
+    // unifying phone portrait onto the sections layout means changing it
+    // and the CSS scoping together, and the CSS side needs its shared rules
+    // lifted out of @media (min-width: 481px) first - see that ticket.
     var root = document.documentElement;
     var wantGroups = root.classList.contains('phone-chrome-side') ||
         (root.classList.contains('filter-bar-mobile-mode') && root.classList.contains('filter-bar-narrow-desktop'));

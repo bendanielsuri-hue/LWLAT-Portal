@@ -7798,6 +7798,22 @@ html.nav-touch-mode .row-facts-arrow {
         opacity: 0;
         transition: opacity var(--transition-slide-lg);
     }
+    /* No footer when the bar's own header already carries the same two
+       controls - live feedback: "we do not need clear and close footer
+       buttons in filter if its visible in header!". The footer exists
+       because the tray tiers used to hide .filter-actions-right outright,
+       leaving the open tray with no Clear and no way out but the backdrop;
+       a no-search bar keeps that pair on the bar now, where Clear Filters
+       is the same control and "Hide filters" is the same close.
+       All three conditions are what decides whether the header pair is
+       really there: it was built at all (.filter-bar-has-actions, main.js),
+       the bar has no pinned Search (the hide rule below), and it measured as
+       fitting. The first is the one true mobile needs - setup returns early
+       below 481px without building the pair, and without this the footer
+       vanished on a tray that then had no Clear and no Close at all. */
+    html.filter-bar-mobile-mode .filter-bar-tray.filter-bar-has-actions:not(:has([data-filter-pinned])):not(.filter-bar-actions-cramped) .filter-bar-sticky-footer {
+        display: none;
+    }
     /* Hides the scrollbar on touch devices only (live feedback: "on touch
        can we hide the scroll bar") - same html.nav-touch-mode convention
        .list-card .entity-list already uses for its own internal scroll
@@ -8614,6 +8630,23 @@ html.nav-touch-mode .row-facts-arrow {
         align-items: flex-end;
         justify-content: center;
         text-align: center;
+        /* flex: 0 0 auto - live feedback: "whole rows height is not the
+           same", then "it's the two line headings, the fields stay
+           shorter". Measured: the label inherits flex: 1 1 auto, so in a
+           field whose control is short it GREW to absorb the row's spare
+           height (39.9px against its own 31.2px min-height) and the control
+           kept only what was left. A field on the same row with a two-line
+           VALUE needs that height for its control instead, so its label
+           stayed at 31.2 - and the two controls came out 44px and 53px on
+           one row, bottom-aligned, tops stepping up and down.
+           Not growing, the label is exactly its own min-height everywhere -
+           two lines' worth, whether or not this particular label uses both
+           - so every control on the row starts at the same y and the spare
+           height goes to the control, which .ui-select's own flex: 1 1 auto
+           then stretches to match the tallest on the line. Measured after:
+           every label 31.19, every trigger 53, tops and bottoms identical
+           across the row. */
+        flex: 0 0 auto;
     }
     /* Active filter, desktop wide's own treatment (measured: the field itself
        stays transparent, the TRIGGER takes the tint and the primary border,
@@ -8621,15 +8654,19 @@ html.nav-touch-mode .row-facts-arrow {
        --primary label band - that band is a fill for a label chip, and there
        is no chip here to fill. --active-text/--primary-light are the shared
        active tokens (forms.css), not fresh colours. */
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field--active label,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field--active label {
+    /* :not(.filter-field--search) is carried here purely for specificity,
+       not to exclude anything - Search has no .filter-field--active label to
+       match in the first place. The plain label rule above spends a :not()
+       of its own, which counts, putting it at (0,5,2) against this rule's
+       bare (0,4,2) - so its own --text-secondary was overriding this colour
+       outright and an active label never changed. Matching the count makes
+       the two equal and lets source order decide, which is why this sits
+       below it. Same defect as the trigger rule further down: a tray-tier
+       active rule written without checking what it had to outrank. */
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field--active:not(.filter-field--search) label,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field--active:not(.filter-field--search) label {
         background: transparent;
         color: var(--active-text);
-    }
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field.filter-field--active .ui-select-trigger,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field.filter-field--active .ui-select-trigger {
-        background-color: var(--primary-light);
-        border-color: var(--primary);
     }
     /* The trigger gets its own border/radius/fill back (forms.css's base
        .ui-select-trigger, which the mobile grid strips because the field chip
@@ -8640,6 +8677,18 @@ html.nav-touch-mode .row-facts-arrow {
         border: 1px solid var(--border-strong);
         border-radius: var(--radius-sm);
         background-color: var(--bg-input);
+    }
+    /* AFTER the border/fill rule above, not before it - live feedback: "it
+       does not have active state". :not(.filter-field--search) counts its
+       own argument, so that rule and this one are both (0,7,1): identical
+       specificity, and the later one wins outright. Sitting first, this rule
+       had never once applied - an active field kept the plain --bg-input
+       fill and --border-strong edge like any other. Order is the whole fix;
+       there is nothing to add to the declarations. */
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field.filter-field--active .ui-select-trigger,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field.filter-field--active .ui-select-trigger {
+        background-color: var(--primary-light);
+        border-color: var(--primary);
     }
     /* A long selected value wraps onto a second line rather than demanding
        the width to sit on one. Fields here are content-sized flex items
