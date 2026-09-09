@@ -13,6 +13,21 @@ CURRENT_STAFF_COOKIE = 'current_staff_id'
 # Value is 'all', 'primary', 'secondary', or a School.id (as a string).
 CURRENT_SCHOOL_COOKIE = 'current_school_key'
 
+# "The switcher isn't pointing at one concrete school." Callers use this to
+# decide whether a page can show school-specific chrome (a School column, a
+# pilot-module check) or has to show the aggregate view instead.
+#
+# Deliberately NOT the same test as the `key in (None, '', 'all')` checks in
+# the queryset helpers below, which is a different question - those ask "is
+# any filtering needed at all", and to them 'primary'/'secondary' are real
+# filters, not aggregates. Two similar-looking tuples, two meanings; don't
+# merge them.
+AGGREGATE_SCHOOL_KEYS = (None, '', 'all', 'primary', 'secondary')
+
+
+def is_aggregate_school_key(key):
+    return key in AGGREGATE_SCHOOL_KEYS
+
 
 def default_staff():
     return Staff.objects.filter(first_name='Benjamin', last_name='Suri').first()

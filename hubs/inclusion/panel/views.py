@@ -15,6 +15,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from core.identity import (
     current_school_key,
     current_staff as _current_staff,
+    is_aggregate_school_key,
     staff_queryset_for_school_key,
     student_queryset_for_school_key,
 )
@@ -1431,7 +1432,7 @@ def inclusion_panel_home(request):
 def inclusion_panel_students(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
-    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
+    is_aggregate_view = is_aggregate_school_key(school_key)
 
     name_filter = request.GET.get('name') or ''
     student_filter = _student_id_filter(request)
@@ -1683,7 +1684,7 @@ def inclusion_panel_students(request):
 def inclusion_panel_referrals(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
-    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
+    is_aggregate_view = is_aggregate_school_key(school_key)
     scoped_students = student_queryset_for_school_key(school_key)
     today = timezone.localdate()
     current_staff = _current_staff(request)
@@ -2324,7 +2325,7 @@ def inclusion_panel_escalations(request):
     # actions relations Referrals already filters on.
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
-    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
+    is_aggregate_view = is_aggregate_school_key(school_key)
     scoped_students = student_queryset_for_school_key(school_key)
     today = timezone.localdate()
 
@@ -2553,7 +2554,7 @@ def inclusion_panel_escalation_quick_launch(request, escalation_id):
 def inclusion_panel_actions(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
-    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
+    is_aggregate_view = is_aggregate_school_key(school_key)
     current_staff = _current_staff(request)
     today = timezone.localdate()
     week_start = today - datetime.timedelta(days=today.weekday())
@@ -3216,7 +3217,7 @@ def inclusion_panel_meetings(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
     school_key = current_school_key(request)
-    is_aggregate_view = school_key in (None, '', 'all', 'primary', 'secondary')
+    is_aggregate_view = is_aggregate_school_key(school_key)
     current_staff = _current_staff(request)
 
     panel_group_filter = request.GET.get('panel_group') or ''

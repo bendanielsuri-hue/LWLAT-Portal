@@ -1,5 +1,15 @@
-from core.identity import current_school_key
+import logging
+
+from core.identity import current_school_key, is_aggregate_school_key
 from core.models import Module
+
+logger = logging.getLogger(__name__)
+
+# Keys already warned about this process. The staleness guard below fires once
+# per tagged item per render - a missing key on a nav entry would otherwise log
+# on every sidebar, home section and hub menu, tens of lines per page view, and
+# drown its own signal (it did exactly that on the first test run).
+_warned_missing_keys = set()
 
 # No login system exists (see CLAUDE.md), so "show me everything" is just a
 # client-side choice backed by a cookie, same pattern as core.identity's
@@ -43,9 +53,15 @@ def is_module_visible(module_key, modules, request):
     if module is None:
         # Staleness guard: a tagged module_key with no seeded Module row most
         # likely means a Django URL name was renamed without updating the seed
-        # data. Default to visible (loud failure beats silently hiding or
-        # un-hiding something) but warn since this codebase has no logger.
-        print(f'core.modules: no Module row for key "{module_key}" — defaulting to visible')
+        # data. Default to visible - loud failure beats silently hiding or
+        # un-hiding something.
+        if module_key not in _warned_missing_keys:
+            _warned_missing_keys.add(module_key)
+            logger.warning(
+                'no Module row for key "%s" - defaulting to visible '
+                '(run manage.py seed_modules, or fix the stale module_key)',
+                module_key,
+            )
         return True
 
     status = _status_with_cascade(module, modules)
@@ -53,7 +69,9 @@ def is_module_visible(module_key, modules, request):
         return True
     if status == Module.STATUS_PILOT:
         key = current_school_key(request)
-        if key in (None, '', 'all', 'primary', 'secondary'):
+        if is_aggregate_school_key(key):
+            # A pilot module is only visible when one concrete school is
+            # selected - there's no "is this piloting anywhere" aggregate.
             return False
         return module.pilot_schools.filter(pk=key).exists()
     return False
