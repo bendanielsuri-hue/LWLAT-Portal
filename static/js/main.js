@@ -594,6 +594,17 @@ function setupFilterBarMoreFilters(bar) {
         // clean up the div it just vacated. Without this they'd pile up, one
         // extra empty node per remeasure.
         Array.prototype.forEach.call(secondaryRow.querySelectorAll('.filter-group'), function (g) { g.remove(); });
+        // The tray's own inner needs the same clean-up, for the same reason:
+        // groupFilterSections builds .filter-group wrappers in there too
+        // (landscape phone / portrait tablet), and the reclaim above pulls
+        // every field straight back out of them. Missing this shipped as a
+        // breakpoint-change bug - the emptied wrappers stayed, the sections
+        // CSS applied to a flat field list, and every caption rendered inline
+        // beside its own fields instead of under them (#182). Grouping is
+        // rebuilt at the end of this function once the fields have settled.
+        if (collapsibleInner) {
+            Array.prototype.forEach.call(collapsibleInner.querySelectorAll('.filter-group'), function (g) { g.remove(); });
+        }
         reanchorCollapsibleFooter();
         secondaryRow.hidden = true;
         moreFiltersBtn.hidden = true;
@@ -780,6 +791,13 @@ function setupFilterBarMoreFilters(bar) {
         if (typeof updateSecondaryArrows === 'function') {
             updateSecondaryArrows();
         }
+        // Last, after every field has landed in its final row for this width:
+        // resize the triggers for the tier we just measured for, then rebuild
+        // (or unwind) the tray's section wrappers to match it. Both run in
+        // either direction, so crossing the boundary settles correctly even
+        // with the tray already open.
+        if (window.resyncFilterTriggerWidths) window.resyncFilterTriggerWidths(bar);
+        groupFilterSections(bar);
     }
 
     measure();
@@ -990,6 +1008,77 @@ function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar) {
         }
         moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
         setMoreFiltersLabel(moreFiltersBtn);
+    });
+}
+
+/* Wraps each section's fields into the same .filter-group /
+   .filter-group-fields pair desktop wide already builds (see
+   setupFilterBarMoreFilters above), or unwraps them again.
+
+   This is what makes a section behave as ONE unit: a group is a single
+   flex item, so it packs onto a line beside its neighbours and wraps
+   whole when it doesn't fit, instead of every caption forcing a full-
+   width break regardless of how little sits under it (live feedback:
+   "can we use all available space on a line. But if a section does not
+   fit it start on new line"). Exactly the reasoning that put these
+   wrappers in for narrow tablet in the first place.
+
+   It also settles the caption's position for free. The wrappers let
+   panel.css use flex-direction: column-reverse, desktop's own mechanism
+   for "caption under its fields" - so the template keeps authoring the
+   label first (which is the right reading order) and nothing has to move in
+   the DOM. That replaces an earlier version of this function which reordered
+   the elements by hand.
+
+   Both directions are lossless: wrapping reads a label's fields as the
+   siblings following it up to the next label, unwrapping puts label and
+   fields back in that same flat order. So toggling repeatedly can't
+   accumulate wrappers or drift the order.
+
+   Top level, not inside the DOMContentLoaded sweep: setupFilterBarMoreFilters'
+   own measure() has to re-run it after reclaiming every field, and that
+   function is top level too. */
+function groupFilterSections(bar) {
+    var inner = bar.querySelector('.filter-bar-collapsible-inner');
+    if (!inner) return;
+    // The two tiers whose tray renders sections as flex items (panel.css).
+    // Phone portrait's 3-up chip grid wants the flat field list and unwraps
+    // again, which is why this runs in both directions rather than only
+    // building - a resize can cross the boundary either way with the tray
+    // already open.
+    var root = document.documentElement;
+    var wantGroups = root.classList.contains('phone-chrome-side') ||
+        (root.classList.contains('filter-bar-mobile-mode') && root.classList.contains('filter-bar-narrow-desktop'));
+    var existing = inner.querySelectorAll(':scope > .filter-group');
+    if (!wantGroups) {
+        Array.prototype.forEach.call(existing, function (group) {
+            var label = group.querySelector(':scope > .filter-section-label');
+            var fieldsBox = group.querySelector(':scope > .filter-group-fields');
+            if (label) inner.insertBefore(label, group);
+            if (fieldsBox) {
+                while (fieldsBox.firstChild) inner.insertBefore(fieldsBox.firstChild, group);
+            }
+            group.remove();
+        });
+        return;
+    }
+    if (existing.length) return;
+    Array.prototype.forEach.call(inner.querySelectorAll(':scope > .filter-section-label'), function (label) {
+        var group = document.createElement('div');
+        group.className = 'filter-group';
+        var fieldsBox = document.createElement('div');
+        fieldsBox.className = 'filter-group-fields';
+        inner.insertBefore(group, label);
+        group.appendChild(label);
+        // Everything up to the next caption belongs to this one. Read
+        // before any of it moves, since moving changes nextElementSibling.
+        var members = [];
+        for (var el = group.nextElementSibling; el; el = el.nextElementSibling) {
+            if (el.classList.contains('filter-section-label') || el.classList.contains('filter-group')) break;
+            members.push(el);
+        }
+        members.forEach(function (el) { fieldsBox.appendChild(el); });
+        group.appendChild(fieldsBox);
     });
 }
 
@@ -3103,10 +3192,11 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         window.visualViewport.addEventListener('resize', rafThrottle(function () {
             document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
                 var box = bar.querySelector('.filter-bar-collapsible');
-                // Column width changes with the viewport, so what needed two
-                // columns at one size may not at another - re-decide before
+                // A resize can cross the phone-portrait/landscape-and-
+                // tablet boundary, which is the one thing that changes
+                // whether the tray's sections are wrapped - re-decide before
                 // re-measuring the tray's own cap against the result.
-                spanWideFilterFields(bar);
+                groupFilterSections(bar);
                 if (box) positionFilterTray(bar, box);
             });
         }));
@@ -3130,171 +3220,8 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     });
     window.addEventListener('scroll', repositionStickyTrays, true);
 
-    /* Wraps each section's fields into the same .filter-group /
-       .filter-group-fields pair desktop wide already builds (see
-       setupFilterBarMoreFilters above), or unwraps them again.
 
-       This is what makes a section behave as ONE unit: a group is a single
-       flex item, so it packs onto a line beside its neighbours and wraps
-       whole when it doesn't fit, instead of every caption forcing a full-
-       width break regardless of how little sits under it (live feedback:
-       "can we use all available space on a line. But if a section does not
-       fit it start on new line"). Exactly the reasoning that put these
-       wrappers in for narrow tablet in the first place.
 
-       It also settles the caption's position for free. The wrappers let
-       panel.css use flex-direction: column-reverse, desktop's own mechanism
-       for "caption under its fields" - so the template keeps authoring the
-       label first (which is the right reading order, and the order the fused
-       layout wants) and nothing has to move in the DOM. That replaces an
-       earlier version of this function which reordered the elements by hand.
-
-       Both directions are lossless: wrapping reads a label's fields as the
-       siblings following it up to the next label, unwrapping puts label and
-       fields back in that same flat order. So toggling repeatedly can't
-       accumulate wrappers or drift the order.
-
-       TEMPORARY only in that it serves the A/B - it goes if the fused layout
-       wins. */
-    function groupFilterSections(bar) {
-        var inner = bar.querySelector('.filter-bar-collapsible-inner');
-        if (!inner) return;
-        var wantGroups = document.documentElement.classList.contains('filter-tray-sections');
-        var existing = inner.querySelectorAll(':scope > .filter-group');
-        if (!wantGroups) {
-            Array.prototype.forEach.call(existing, function (group) {
-                var label = group.querySelector(':scope > .filter-section-label');
-                var fieldsBox = group.querySelector(':scope > .filter-group-fields');
-                if (label) inner.insertBefore(label, group);
-                if (fieldsBox) {
-                    while (fieldsBox.firstChild) inner.insertBefore(fieldsBox.firstChild, group);
-                }
-                group.remove();
-            });
-            return;
-        }
-        if (existing.length) return;
-        Array.prototype.forEach.call(inner.querySelectorAll(':scope > .filter-section-label'), function (label) {
-            var group = document.createElement('div');
-            group.className = 'filter-group';
-            var fieldsBox = document.createElement('div');
-            fieldsBox.className = 'filter-group-fields';
-            inner.insertBefore(group, label);
-            group.appendChild(label);
-            // Everything up to the next caption belongs to this one. Read
-            // before any of it moves, since moving changes nextElementSibling.
-            var members = [];
-            for (var el = group.nextElementSibling; el; el = el.nextElementSibling) {
-                if (el.classList.contains('filter-section-label') || el.classList.contains('filter-group')) break;
-                members.push(el);
-            }
-            members.forEach(function (el) { fieldsBox.appendChild(el); });
-            group.appendChild(fieldsBox);
-        });
-    }
-
-    /* TEMPORARY (filter tray layout A/B - remove with the dev-bar control in
-       layout.html and the losing layout's CSS). Both the column spans and the
-       tray's own max-height are measured against whichever layout is live, so
-       swapping layouts under an OPEN tray leaves both stale - the tray keeps
-       the height it was capped at for the other layout's row count. The dev
-       control calls this straight after toggling the class so the comparison
-       is like for like. */
-    window.__refreshOpenFilterTrays = function () {
-        document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
-            var box = bar.querySelector('.filter-bar-collapsible');
-            groupFilterSections(bar);
-            spanWideFilterFields(bar);
-            if (box) positionFilterTray(bar, box);
-        });
-    };
-
-    /* Lets a filter field claim more than one column of the fused grid when
-       its own longest option can't be read in one.
-
-       Why it's needed: the fused label-beside-control layout (panel.css)
-       leaves a 3-column tablet cell about 64px of text room, and the fields
-       sharing that grid are wildly uneven in what they hold. Measured across
-       Students/Referrals/Actions, every select's widest option is 16-24px
-       ("All", "Yes", "10A", a year number) except three - "Educational
-       Provision" (132px), "South Wigston Academy Panel" (189px) and "Mixed /
-       Multiple Ethnic Groups" (192px). A uniform grid has to be sized for
-       one of those two populations and is wrong for the other; this sizes
-       per field instead, so the outliers get the room and nothing else pays
-       for it.
-
-       The test is "does it still not fit after wrapping", not "does it fit on
-       one line". The trigger already clamps to two lines (panel.css), which
-       is enough for most of the long values on its own - spanning on a
-       one-line test instead would widen four fields on Referrals alone and
-       cost more rows than the truncation it fixed. So this asks for the
-       smallest span that gets the value down to two lines, and leaves the
-       field alone when one column already manages that.
-
-       Text is measured on a canvas in the trigger's own resolved font rather
-       than by rendering each option and reading it back - one measurement
-       pass, no layout thrash, and it works on options that are never
-       rendered as text anywhere (the trigger only ever shows the selected
-       one). The canvas is cached across calls; its font is re-read each time
-       because a theme or text-size change can alter it.
-
-       No grid-auto-flow: dense to backfill the holes a wrapped 2-span field
-       leaves. Dense lets a later item jump into an earlier gap, and the gaps
-       here sit right below the section headings (.filter-section-label spans
-       the full row) - a Demographics field backfilling a hole under SEN &
-       Support would put it in the wrong group, which is a worse bug than a
-       gap. */
-    function spanWideFilterFields(bar) {
-        var root = document.documentElement;
-        var fused = !root.classList.contains('filter-tray-sections') &&
-            (root.classList.contains('phone-chrome-side') ||
-            (root.classList.contains('filter-bar-mobile-mode') && root.classList.contains('filter-bar-narrow-desktop')));
-        var grid = bar.querySelector('.filter-bar-collapsible-inner');
-        if (!grid) return;
-        var fields = grid.querySelectorAll('.filter-field:not(.filter-field--search)');
-        // Always clear first: this runs on open and on resize, and a field
-        // that spanned two columns at one width (or in a mode that has since
-        // been left) must not keep the span once it no longer needs it.
-        fields.forEach(function (field) { field.style.gridColumn = ''; });
-        if (!fused) return;
-        var gridStyle = getComputedStyle(grid);
-        var cols = gridStyle.gridTemplateColumns.split(' ').filter(Boolean);
-        // Nothing to span into with a single column, and a non-grid value
-        // ("none") parses to one entry - both mean this mode isn't active.
-        if (cols.length < 2) return;
-        var colWidth = parseFloat(cols[0]);
-        var gap = parseFloat(gridStyle.columnGap) || 0;
-        if (!colWidth) return;
-        var ctx = spanWideFilterFields._ctx ||
-            (spanWideFilterFields._ctx = document.createElement('canvas').getContext('2d'));
-        fields.forEach(function (field) {
-            var select = field.querySelector('select');
-            var trigger = field.querySelector('.ui-select-trigger');
-            var label = field.querySelector('label');
-            if (!select || !trigger) return;
-            var ts = getComputedStyle(trigger);
-            ctx.font = ts.fontWeight + ' ' + ts.fontSize + ' ' + ts.fontFamily;
-            var widest = 0;
-            for (var i = 0; i < select.options.length; i++) {
-                widest = Math.max(widest, ctx.measureText(select.options[i].textContent.trim()).width);
-            }
-            // Everything in the cell that isn't the value's own text: the
-            // fused label, the trigger's padding (its right side is the
-            // chevron's reserved room) and both boxes' borders.
-            var chrome = (label ? label.getBoundingClientRect().width : 0) +
-                parseFloat(ts.paddingLeft) + parseFloat(ts.paddingRight) +
-                parseFloat(ts.borderLeftWidth) + parseFloat(ts.borderRightWidth) + 2;
-            for (var span = 1; span <= cols.length; span++) {
-                var room = (span * colWidth) + ((span - 1) * gap) - chrome;
-                // 2 lines' worth of that room, matching the trigger's own
-                // -webkit-line-clamp: 2. Wrapping never packs a line
-                // perfectly full (it breaks at words), so this asks for a
-                // little more than the raw doubling before calling it a fit.
-                if (room > 0 && widest <= room * 1.8) break;
-            }
-            if (span > 1) field.style.gridColumn = 'span ' + Math.min(span, cols.length);
-        });
-    }
 
     /* Scrolls the real scroller (<main>) just far enough that a sticky filter
        bar reaches its pinned position, taking the page header off screen.
@@ -3511,12 +3438,12 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // that just gained a second line, not the pre-wrap shorter
                 // one.
                 balanceFilterGroupLabels(box);
-                // After the labels are split (they set the fused label's own
-                // width, which spanWideFilterFields measures as chrome) and
-                // before positionFilterTray, whose max-height cap depends on
-                // the row count both of these can change.
+                // After the labels are split (a label that just gained a
+                // second line changes its group's height) and before
+                // positionFilterTray, whose max-height cap depends on the
+                // row count grouping decides.
+                if (window.resyncFilterTriggerWidths) window.resyncFilterTriggerWidths(bar);
                 groupFilterSections(bar);
-                spanWideFilterFields(bar);
                 // #134: the floating tray (panel.css: position: fixed,
                 // viewport-anchored) has nothing left bounding its top/
                 // height once it's out of .filter-bar's own flex flow - CSS
@@ -4109,6 +4036,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     //   capped at FILTER_FIELD_TRIGGER_MAX_WIDTH so one very long option
     //   value doesn't blow the field out past the field's own budget - it
     //   just clips with the trigger's existing ellipsis instead.
+    //   Exception, inside an open filter TRAY (landscape phone / portrait
+    //   tablet): sized to the widest option instead, like the generic case.
+    //   Fields there are content-sized flex items packed onto shared lines
+    //   (panel.css), so a width that moves when you pick a value doesn't just
+    //   resize one control - it reflows whichever section that field sits in,
+    //   and can drop the section onto a new line under your finger (measured:
+    //   Ethnicity 64px -> 176px on picking "Mixed / Multiple Ethnic Groups").
+    //   Reserving the widest option's width up front costs a little space per
+    //   field and buys a layout that never moves. The desktop rule above is
+    //   untouched: there each field sits in its own slot and nothing reflows.
     // - everywhere else: sized to the widest *option* (so picking a short
     //   option doesn't narrow the control down enough to clip a longer one
     //   next time it's opened), capped at the generic SELECT_TRIGGER_MAX_WIDTH.
@@ -4116,6 +4053,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // conflict, which is exactly why .ui-fused-field and .filter-field each
     // need their own handling rather than the generic one (see grilling
     // session 2026-07-12).
+    // True for the tiers whose tray lays its fields out as content-sized flex
+    // items - the same pair panel.css scopes that layout to. Read live rather
+    // than cached: the dev breakpoint preview and a real rotation both cross
+    // this boundary without a reload.
+    function isTrayFieldLayout(filterField) {
+        var root = document.documentElement;
+        if (!(root.classList.contains('phone-chrome-side') ||
+            (root.classList.contains('filter-bar-mobile-mode') && root.classList.contains('filter-bar-narrow-desktop')))) return false;
+        return !!filterField.closest('.filter-bar-collapsible-inner');
+    }
     function resolveTriggerMinWidth(selectEl, trigger) {
         if (selectEl.closest('.ui-fused-field')) return '';
         var font = window.getComputedStyle(trigger).font;
@@ -4123,13 +4070,32 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         if (filterField) {
             var label = filterField.querySelector(':scope > label');
             var labelWidth = label ? label.offsetWidth : 0;
-            var selectedOpt = selectEl.options[selectEl.selectedIndex];
-            var selectedWidth = selectedOpt ? textWidth(selectedOpt.textContent, font) + SELECT_TRIGGER_PADDING : 0;
-            return Math.min(Math.max(labelWidth, selectedWidth), FILTER_FIELD_TRIGGER_MAX_WIDTH) + 'px';
+            var valueWidth;
+            if (isTrayFieldLayout(filterField)) {
+                valueWidth = maxOptionTextWidth(selectEl, font) + SELECT_TRIGGER_PADDING;
+            } else {
+                var selectedOpt = selectEl.options[selectEl.selectedIndex];
+                valueWidth = selectedOpt ? textWidth(selectedOpt.textContent, font) + SELECT_TRIGGER_PADDING : 0;
+            }
+            return Math.min(Math.max(labelWidth, valueWidth), FILTER_FIELD_TRIGGER_MAX_WIDTH) + 'px';
         }
         var widest = maxOptionTextWidth(selectEl, font);
         return Math.min(widest + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH) + 'px';
     }
+
+    /* Recompute every filter trigger's inline width in `bar` against the tier
+       that is live NOW. resolveTriggerMinWidth's tray branch (above) reads
+       root classes that a rotation, a window resize or the dev breakpoint
+       preview can all change without any select being re-rendered - without
+       this, a field keeps whichever rule applied the last time it happened to
+       render. Idempotent: it only re-reads and re-writes the same property. */
+    window.resyncFilterTriggerWidths = function (bar) {
+        bar.querySelectorAll('.filter-field .ui-select').forEach(function (wrap) {
+            var selectEl = wrap.querySelector('select');
+            var trigger = wrap.querySelector('.ui-select-trigger');
+            if (selectEl && trigger) trigger.style.minWidth = resolveTriggerMinWidth(selectEl, trigger);
+        });
+    };
 
     // The open popover's own width floor - always the generic
     // SELECT_TRIGGER_MAX_WIDTH cap regardless of context, never the tighter

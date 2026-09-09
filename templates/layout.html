@@ -118,21 +118,6 @@
                     var filterBarNarrowDesktop = !trueMobile && !shortTouch && ((narrow && !touch) || (touch && portrait && !portraitWide));
                     root.classList.toggle('filter-bar-mobile-mode', filterBarMobile);
                     root.classList.toggle('filter-bar-narrow-desktop', filterBarNarrowDesktop);
-                    // TEMPORARY (filter tray layout A/B, see the dev-bar
-                    // control in the footer): picks between the fused
-                    // label-beside-control grid and the desktop-style
-                    // section-per-row layout in panel.css. Read here, before
-                    // paint, for the same FOUC reason as every other class in
-                    // this block - the two layouts differ enough that
-                    // switching one in after paint is visible. localStorage
-                    // rather than a window.top flag so the preview iframe and
-                    // the host page agree without a round trip (same origin,
-                    // so both read the same value). Delete this, the footer
-                    // control, and the .filter-tray-sections rules together
-                    // once a layout is chosen.
-                    if (localStorage.getItem('dev-filter-tray-layout') === 'sections') {
-                        root.classList.add('filter-tray-sections');
-                    }
                 } catch (e) { }
             } catch (e) { }
         })();
@@ -144,7 +129,7 @@
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}?v=507">
-    <script src="{% static 'js/main.js' %}?v=268" defer></script>
+    <script src="{% static 'js/main.js' %}?v=269" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -565,19 +550,6 @@
                         runs; after that the JS owns the text.
                         {% endcomment %}
                         <span class="dev-bp-label dev-bp-orient-label">Portrait</span>
-                    </button>
-                    {% comment %}
-                    TEMPORARY (filter tray layout A/B). Flips the open filter
-                    tray between the two candidate layouts in landscape/
-                    portrait-tablet so they can be compared on a real page
-                    rather than from a description. Reads out the layout you
-                    are IN, like the orientation button beside it. Remove this
-                    button, the head-script read of dev-filter-tray-layout,
-                    and whichever layout loses, once one is chosen.
-                    {% endcomment %}
-                    <button type="button" class="dev-bp-option icon-tooltip-host" id="dev-tray-layout" data-tooltip="Filter tray layout">
-                        {% include 'icons/timetable_grid_svg.html' %}
-                        <span class="dev-bp-label" id="dev-tray-layout-label">Fused</span>
                     </button>
                 </div>
             </div>
@@ -1016,52 +988,6 @@
             store(BP_KEY_LANDSCAPE, bpLandscape ? '1' : null);
             applyState();
         });
-
-        /* TEMPORARY (filter tray layout A/B - remove with the button, the
-           head-script read, and the losing layout's CSS).
-
-           Applies to BOTH documents by hand rather than storing and reloading:
-           the point of this control is comparing two layouts on an open tray,
-           and a reload closes the tray, so a round trip would hide the very
-           thing being compared. localStorage is still written so the choice
-           survives a real navigation - the head script reads it before paint.
-
-           Inside the preview frame this forwards to the identical control in
-           window.top, the same as every other button here, so the parent stays
-           the single owner of the state. */
-        var trayLayoutBtn = document.getElementById('dev-tray-layout');
-        var TRAY_LAYOUT_KEY = 'dev-filter-tray-layout';
-        function syncTrayLayoutChrome(sections) {
-            var label = document.getElementById('dev-tray-layout-label');
-            if (label) label.textContent = sections ? 'Sections' : 'Fused';
-            if (trayLayoutBtn) {
-                trayLayoutBtn.classList.toggle('active', sections);
-                trayLayoutBtn.dataset.tooltip = sections
-                    ? 'Filter tray: section per row · click for fused'
-                    : 'Filter tray: fused grid · click for section rows';
-            }
-        }
-        if (trayLayoutBtn) {
-            syncTrayLayoutChrome(read(TRAY_LAYOUT_KEY) === 'sections');
-            trayLayoutBtn.addEventListener('click', function () {
-                if (insideFrame) {
-                    forwardToTop('#dev-tray-layout');
-                    return;
-                }
-                var sections = !(read(TRAY_LAYOUT_KEY) === 'sections');
-                store(TRAY_LAYOUT_KEY, sections ? 'sections' : null);
-                syncTrayLayoutChrome(sections);
-                [document, frame && frame.contentDocument].forEach(function (doc) {
-                    if (!doc || !doc.documentElement) return;
-                    doc.documentElement.classList.toggle('filter-tray-sections', sections);
-                    // The tray's height cap and any column spans were measured
-                    // against the layout that just changed - main.js exposes
-                    // this so both can be recomputed without reopening.
-                    var refresh = doc.defaultView && doc.defaultView.__refreshOpenFilterTrays;
-                    if (refresh) refresh();
-                });
-            });
-        }
 
         // Close an open menu on an outside click / Escape. Scoped to the
         // group so clicking the rotate button (a sibling, not a descendant of

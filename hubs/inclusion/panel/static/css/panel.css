@@ -8368,7 +8368,11 @@ html.nav-touch-mode .row-facts-arrow {
        the trigger shrinks to the column's real width instead, falling
        back to its own already-built ellipsis truncation (forms.css) for
        whichever option text doesn't fit. */
-    html:not(.filter-tray-sections).filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger {
+    /* Phone portrait only - :not(.phone-chrome-side):not(.filter-bar-narrow-
+       desktop) excludes the two tiers whose own block further down renders
+       content-sized fields instead of this fixed 3-up grid. There the inline
+       min-width this kills IS the sizing mechanism, not an obstacle to it. */
+    html.filter-bar-mobile-mode:not(.phone-chrome-side):not(.filter-bar-narrow-desktop) .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger {
         min-width: 0 !important;
     }
     /* Sections (students.html: Group Info / SEN & Support / Inclusion
@@ -8592,180 +8596,47 @@ html.nav-touch-mode .row-facts-arrow {
         padding-top: var(--space-xs);
         padding-bottom: var(--space-xs);
     }
-    /* `short` tier (ADR 0016): same 3-up grid, same bordered boxes, but each
-       field fused LEFT (label beside its control) rather than stacked label-
-       above-value. Live feedback: "on mobile landscape, when filter bar is
-       open, it's too much chrome!" - every field was a two-storey box, so
-       four sections of them read as a wall of little cards and cost ~55px of
-       row height each on a viewport only 375px tall.
-
-       The stacked shape is right on a true phone and is left alone there:
-       its column is ~110px wide, too narrow to put a label and a dropdown
-       side by side at all (hence the label's own wrapping/row-height-
-       matching rules above, written for exactly that). Every other mode that
-       uses this tray has real width to spend and the same complaint: phone
-       landscape runs 667-932px, and portrait tablet / a narrowed desktop
-       window (both set .filter-bar-mobile-mode.filter-bar-narrow-desktop,
-       main.js - the touch+portrait and narrow-window branches share one
-       class and one rendering path) run a 640px tray at 768px. Measured
-       there before this change: 197px-wide boxes holding the word "Year"
-       over the word "All", 61-76px tall each, 628px of tray - live feedback:
-       "tablet portrait, the filters look like they could fit more. Taking up
-       lots of width! Should it do same as mobile wide?".
-
-       Fusing left halves each field's height without touching the grid, the
-       section grouping, or the field count. The divider moves with the
-       label: it's the seam between the two halves of a fused box, so it
-       follows them from horizontal to vertical. */
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search),
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) {
-        flex-direction: row;
-        align-items: stretch;
-    }
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) label,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) label {
-        /* One shared label width, so every dropdown in the tray starts on the
-           same vertical line instead of each label hugging its own text and
-           staggering the values across the grid (live feedback: "are we able
-           to have the Filter label be same width?").
-
-           min-width, not width: it aligns the seam for every label that fits
-           and still lets a longer one push out rather than clip. 90px is
-           measured, not guessed - the widest label line across the three list
-           pages that use this tray is "Academic" at 57.4px (Academic Year;
-           balanceFilterGroupLabels, main.js, has already broken every
-           multi-word label onto two lines by this point, so what matters is
-           the widest LINE, not the widest label), and 90px clears that plus
-           the label's own 24px of horizontal padding with ~9px spare.
-
-           max-width caps a hypothetical future label longer than any that
-           exists today at half the cell, so it can never squeeze the control
-           it's fused to down to a stub. It sits above min-width at every
-           column size this grid produces (50% of the 180px floor is exactly
-           90px), so it only ever engages for that runaway case. */
-        flex: 0 0 auto;
-        min-width: 90px;
-        max-width: 50%;
-        justify-content: flex-start;
-        text-align: left;
-        border-bottom: none;
-        border-right: 1px solid var(--border-color);
-    }
-    /* The control takes what the label leaves, instead of the field's whole
-       width. Its stacked-layout rule (above) is `width: 100%; flex: none` -
-       correct when the label sits on its own row above it, wrong the moment
-       the two share a row: 100% of the field is the FULL 197px, so the
-       trigger started after the 90px label and ran ~90px past the field's
-       right edge, where .filter-field's own overflow: hidden clipped it. The
-       text still read fine (it's left-aligned), which is why this showed up
-       as one specific symptom - the dropdown chevron is painted at
-       calc(100% - 10px) of the trigger (forms.css), so it was drawn out in
-       the clipped overhang and simply never appeared (live feedback: "we do
-       need the dropdown arrow to show it's a dropdown!"). flex: 1 1 auto +
-       min-width: 0 sizes it from the space actually left in the row. */
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select,
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .filter-toggle-wrap,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .filter-toggle-wrap {
-        width: auto;
-        flex: 1 1 auto;
-        min-width: 0;
-    }
-    /* (DES-S3) 44px minimum on the control itself. The stacked grid takes a
-       documented exception from that floor a few rules up - its label sits
-       ON TOP of the control and is itself a tap target that opens the
-       dropdown, so the two rows together clear 44px even though the control
-       alone is 35px. Fusing them onto one row spends that argument: the
-       whole field is 37px tall, all of it, so the control has to carry the
-       target height by itself now (it's still the full cell that responds -
-       the label half opens the dropdown too - just no longer tall enough).
-       Touch only: a narrowed desktop window shares these fused-layout rules
-       but is driven by a mouse, and has no reason to grow every row 7px. */
-    /* .filter-toggle-wrap shares the floor, not just the dropdown trigger: a
-       toggle is a tap target on the same terms, and in the section layout it
-       also has to end level with the dropdowns beside it, or a category built
-       from toggles finishes shorter than its neighbour and the two captions
-       don't line up (measured: Referrals' two toggles gave an 83px fields row
-       against Demographics' 89px - a 6px step between captions on one line). */
-    html.nav-touch-mode.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger,
-    html.nav-touch-mode.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .filter-toggle-wrap,
-    html.nav-touch-mode.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger,
-    html.nav-touch-mode.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .filter-toggle-wrap {
-        min-height: 44px;
-    }
-    /* Let a long selected value wrap onto a second line instead of
-       truncating on the first. Fusing the label alongside the control leaves
-       the trigger ~90px narrower than the stacked layout gave it, and at a
-       3-column tablet cell that is ~64px of text room - fine for the "All" /
-       "Yes" / "10A" values most of these selects hold (measured: every
-       Students select's widest option is 16-24px except one), useless for
-       the handful that hold real phrases: "Educational Provision" (132px),
-       "South Wigston Academy Panel" (189px), "Mixed / Multiple Ethnic
-       Groups" (192px). Live feedback: "could the selected go over two lines.
-       I think the down arrow takes some of the space as well, but it is
-       convention!" - and it is, so the chevron stays exactly as it is,
-       reserved right padding and all.
-
-       -webkit-line-clamp, not plain white-space: normal: wrapping alone has
-       no upper bound, so a long value would grow its whole grid row (and
-       every field sharing it, which all stretch to the row) by however many
-       lines it took. Clamping at 2 keeps a hard ceiling and still ends in an
-       ellipsis on the rare value that needs a third line - the full text is
-       always available in the popover the trigger opens. The -webkit- prefix
-       is the interoperable spelling; the unprefixed line-clamp shorthand is
-       still too new to rely on here.
-
-       display: -webkit-box replaces the base rule's inline-block, which is
-       what makes the clamp work at all. The chevron is unaffected: it's a
-       background-image on this same box (forms.css), so it keeps its
-       right 10px / vertical centre position against whatever height the box
-       ends up. min-height: 44px (the touch rule above) still sets the floor;
-       a wrapped value grows past it rather than being squeezed into it. */
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger {
-        white-space: normal;
-        /* 1.25, not the inherited body line-height - two lines have to fit
-           inside a control that reads as one row of chrome, not as a
-           paragraph. At --font-base (14px) that's 17.5px a line, so a
-           wrapped value is 35px of text plus its own 16px of padding. */
-        line-height: 1.25;
-    }
-    /* The clamp lives on the label span (added by enhanceSelect's render(),
-       main.js), not on the button: Chrome blockifies display: -webkit-box on
-       a <button> to flow-root, so clamping the trigger directly is silently
-       ignored - measured, the value wrapped to five lines and was cut off
-       mid-line by the box height with no ellipsis at all. */
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger-text,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger-text {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        overflow: hidden;
-    }
     /* ---------------------------------------------------------------------
-       TEMPORARY (filter tray layout A/B). html.filter-tray-sections is set by
-       the dev-bar control in layout.html; it swaps the fused grid above for
-       the arrangement desktop wide already uses - each field stacked (label
-       over control), each SECTION on its own row, fields sized to their own
-       content rather than to a shared column. Delete whichever layout loses,
-       along with the control and its head-script read.
+       Landscape phone (`short` tier, ADR 0016) and portrait tablet / a
+       narrowed desktop window (both set .filter-bar-mobile-mode.filter-bar-
+       narrow-desktop, main.js - the touch+portrait and narrow-window branches
+       share one class and one rendering path) render the open tray the way
+       desktop wide renders its own filter panel: no box on the field, a plain
+       label above the control, the trigger carrying the only real edge, and
+       the section caption UNDER its group with a rule line either side.
 
-       Only the deltas from the fused rules are here. Everything the two share
-       - the bordered field boxes, the section-label dividers, the tray's own
-       sticky footer and scrolling - is untouched.
+       Why not the bordered grid above: every field there is a two-storey
+       chip, so four sections of them read as a wall of little cards and cost
+       ~55px of row height each on a viewport only 375px tall (live feedback:
+       "on mobile landscape, when filter bar is open, it's too much chrome!").
+       Portrait tablet had the mirror-image complaint - 197px-wide boxes
+       holding the word "Year" over the word "All" ("tablet portrait, the
+       filters look like they could fit more. Taking up lots of width!").
+       A label-beside-control "fused" variant was built and compared against
+       this one behind a dev-bar toggle; this one won on the page (live
+       feedback: "this seems to work great") and the fused layout, its shared
+       90px label width, its 2-line value clamp and its column-spanning
+       machinery were deleted with it. See #182 for the full comparison.
+
+       True phone portrait deliberately keeps the bordered 3-up chip grid
+       above: its column is ~110px, too narrow for content-sized fields to
+       pack into lines at all. Unifying all three is #182 item 5, not this.
+
+       Only the deltas from the mobile grid above are here - the tray's own
+       sticky footer, its overlay and its scrolling are untouched.
        --------------------------------------------------------------------- */
-    /* Back to flex from grid, with each SECTION as one flex item rather than
-       each field (groupFilterSections, main.js, builds the same .filter-group
-       wrappers desktop uses). That is what lets two narrow categories share a
-       line and a wide one drop whole to the next - live feedback: "can we use
-       all available space on a line. But if a section does not fit it start on
-       new line". The grid couldn't: it placed fields, not sections, so a
+    /* Flex, with each SECTION as one flex item rather than each field
+       (groupFilterSections, main.js, builds the same .filter-group wrappers
+       desktop uses). That is what lets two narrow categories share a line and
+       a wide one drop whole to the next - live feedback: "can we use all
+       available space on a line. But if a section does not fit it start on
+       new line". A grid could not: it places fields, not sections, so a
        caption had to span every column to end its row.
        Row gap wider than column gap: the vertical step separates one category
        from the next, where the horizontal one only separates two categories
        already reading as separate blocks. */
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray .filter-bar-collapsible-inner,
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-collapsible-inner {
+    html.phone-chrome-side .filter-bar-tray .filter-bar-collapsible-inner,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-collapsible-inner {
         display: flex;
         flex-wrap: wrap;
         align-content: flex-start;
@@ -8784,21 +8655,23 @@ html.nav-touch-mode .row-facts-arrow {
         gap: var(--space-lg) var(--space-2xl);
     }
     /* .filter-group is display: contents by default (forms.css) - a no-op
-       wrapper everywhere it isn't needed. Here it has to be a real box, and a
-       column-REVERSE one: that is desktop's own mechanism for putting the
+       wrapper everywhere it is not needed. Here it has to be a real box, and
+       a column-REVERSE one: that is desktop's own mechanism for putting the
        caption under its fields (see the .filter-secondary-fields rules above,
        "the filter section should go below the dropdowns"), and it means the
        template keeps authoring the label first without any DOM reordering.
        flex: 0 1 auto - a group is as wide as its own fields need and no
        wider, so what fits on a line is decided by real content. */
-    html.filter-tray-sections .filter-bar-tray.is-expanded .filter-group {
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-group,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-group {
         display: flex;
         flex-direction: column-reverse;
         gap: var(--space-micro);
         flex: 0 1 auto;
         max-width: 100%;
     }
-    html.filter-tray-sections .filter-bar-tray.is-expanded .filter-group-fields {
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-group-fields,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-group-fields {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-end;
@@ -8809,49 +8682,21 @@ html.nav-touch-mode .row-facts-arrow {
        one yields before it can push a neighbour off the row, basis: auto so
        the starting point is the field's own natural width - which is the
        trigger's own inline min-width, sized by resolveTriggerMinWidth
-       (main.js) to the widest option in that select. That inline width is
-       exactly what the fused layout has to override with min-width: 0
-       !important (rule above, now scoped away from this mode) - here it IS
-       the mechanism. max-width caps a runaway field at the row rather than
-       letting it overflow the tray. */
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search),
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) {
+       (main.js) to the widest option in that select. max-width caps a runaway
+       field at the row rather than letting it overflow the tray.
+
+       No box around the field itself - desktop wide draws none (measured:
+       transparent background, transparent 1px border, padding 4px 0, gap 4px)
+       and lets the trigger carry the only real edge in the field. The mobile
+       grid's bordered chip exists to fuse a label band to a control; with the
+       label plain and detached there is nothing to fuse, and the chip would
+       just draw a second box around a control that already has one. */
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search),
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) {
         flex: 0 1 auto;
         flex-direction: column;
         align-items: stretch;
         max-width: 100%;
-    }
-    /* Label back on top: full width of its own field, centred, its divider
-       along the bottom edge again rather than down the side. Undoes the fused
-       rule's 90px floor and 50% cap - a stacked label has the whole field to
-       use and nothing to line up against horizontally. */
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) label,
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) label {
-        flex: 1 1 auto;
-        min-width: 0;
-        max-width: none;
-        justify-content: center;
-        text-align: center;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-    }
-    /* The control owns the full width under its label again (the fused rule
-       gives it only what the label leaves). */
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select,
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .filter-toggle-wrap,
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select,
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .filter-toggle-wrap {
-        width: 100%;
-        flex: none;
-    }
-    /* No box around the field itself - desktop wide draws none (measured:
-       transparent background, transparent 1px border, padding 4px 0, gap 4px)
-       and lets the trigger carry the only real edge in the field. The mobile
-       grid's bordered chip exists to fuse a label band to a control; with the
-       label detached and plain again there is nothing to fuse, and the chip
-       just draws a second box around a control that already has one. */
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search),
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) {
         background: transparent;
         border-color: transparent;
         border-radius: 0;
@@ -8860,11 +8705,11 @@ html.nav-touch-mode .row-facts-arrow {
         gap: var(--space-xxs);
     }
     /* Plain text label, desktop's own (13px/600, --text-secondary, centred
-       over its control) - not the filled band the fused chip needs to read as
-       one half of a two-part control. Live feedback: "not fused, filter label
-       is clear". */
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) label,
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) label {
+       over its control) - not the filled band the mobile grid's chip needs to
+       read as one half of a two-part control. Live feedback: "not fused,
+       filter label is clear". */
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) label,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) label {
         background: transparent;
         border-bottom: none;
         padding: 0;
@@ -8883,30 +8728,67 @@ html.nav-touch-mode .row-facts-arrow {
            on a known value rather than on whatever happens to be inherited. */
         line-height: 1.2;
         min-height: calc(var(--font-sm) * 2.4);
-        /* Bottom-aligned within that reserved box, so a one-line label sits
+        /* Bottom-aligned inside that reserved box, so a one-line label sits
            just above its own control instead of floating at the top of a
            two-line space (live feedback: "filter label probably bottom
-           aligned to be near filter"). justify-content, not align-items: the
-           label is a flex COLUMN (its base rule), so the block direction is
-           its main axis. */
-        justify-content: flex-end;
+           aligned to be near filter"), and centred over it the way desktop's
+           is. align-items does the bottom-align, justify-content the
+           centring: the label is a flex ROW (its base rule above is a plain
+           display: flex, so the default flex-direction applies), which makes
+           the block direction its CROSS axis. An earlier version of this rule
+           had the two the wrong way round - justify-content: flex-end on a
+           row axis right-aligns every label rather than bottom-aligning it,
+           which is exactly what shipped. */
+        align-items: flex-end;
+        justify-content: center;
+        text-align: center;
     }
-    /* An active filter tints the label text rather than filling it - the
-       fused chip's solid --primary fill (rule above) is a band treatment, and
-       there is no band here to fill. */
-    html.filter-tray-sections .filter-bar-tray.is-expanded .filter-field--active label {
+    /* Active filter, desktop wide's own treatment (measured: the field itself
+       stays transparent, the TRIGGER takes the tint and the primary border,
+       the label only swaps colour) rather than the mobile grid's solid
+       --primary label band - that band is a fill for a label chip, and there
+       is no chip here to fill. --active-text/--primary-light are the shared
+       active tokens (forms.css), not fresh colours. */
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field--active label,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field--active label {
         background: transparent;
-        color: var(--primary);
+        color: var(--active-text);
+    }
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field.filter-field--active .ui-select-trigger,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field.filter-field--active .ui-select-trigger {
+        background-color: var(--primary-light);
+        border-color: var(--primary);
     }
     /* The trigger gets its own border/radius/fill back (forms.css's base
        .ui-select-trigger, which the mobile grid strips because the field chip
        supplied all three). This is the box the eye reads as "the control" in
        desktop wide. */
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger,
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger {
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger {
         border: 1px solid var(--border-strong);
         border-radius: var(--radius-sm);
         background-color: var(--bg-input);
+    }
+    /* (DES-S3) 44px minimum on the control itself. The stacked mobile grid
+       takes a documented exception from that floor a few rules up, on the
+       grounds that its label band sits ON TOP of the control and is itself a
+       tap target, so the two rows together clear 44px. That argument does not
+       carry here: the label is plain text with no fill and no edge of its
+       own, so it does not read as part of the target, and the control has to
+       carry the height by itself.
+       .filter-toggle-wrap shares the floor, not just the dropdown trigger: a
+       toggle is a tap target on the same terms, and it also has to end level
+       with the dropdowns beside it, or a category built from toggles finishes
+       shorter than its neighbour and the two captions do not line up
+       (measured: Referrals' two toggles gave an 83px fields row against
+       Demographics' 89px - a 6px step between captions on one line).
+       Touch only: a narrowed desktop window shares these rules but is driven
+       by a mouse, and has no reason to grow every row 7px. */
+    html.nav-touch-mode.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger,
+    html.nav-touch-mode.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .filter-toggle-wrap,
+    html.nav-touch-mode.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger,
+    html.nav-touch-mode.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .filter-toggle-wrap {
+        min-height: 44px;
     }
     /* Caption UNDER its group with a rule line either side of the text -
        desktop's own treatment, restated here rather than shared because the
@@ -8926,7 +8808,8 @@ html.nav-touch-mode .row-facts-arrow {
        No margin of its own: .filter-group's --space-micro row gap above is
        the only thing between caption and fields, and the inner's own row gap
        separates it from the next category. */
-    html.filter-tray-sections .filter-bar-tray.is-expanded .filter-section-label {
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-section-label,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-section-label {
         display: flex;
         align-items: center;
         gap: var(--space-xs);
@@ -8936,90 +8819,15 @@ html.nav-touch-mode .row-facts-arrow {
         color: var(--text-secondary);
         white-space: nowrap;
     }
-    html.filter-tray-sections .filter-bar-tray.is-expanded .filter-section-label::before,
-    html.filter-tray-sections .filter-bar-tray.is-expanded .filter-section-label::after {
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-section-label::before,
+    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-section-label::after,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-section-label::before,
+    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-section-label::after {
         content: "";
         height: 1px;
         background: var(--text-faint);
         opacity: 0.4;
         flex: 1 0 12px;
-    }
-    /* One line, ellipsis - the base .ui-select-trigger behaviour (forms.css).
-       The two-line clamp exists because the fused layout halves the control's
-       width; here the control is as wide as its own longest option needs, so
-       there is nothing to wrap and a second line would only make every field
-       in the band taller. */
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger-text,
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger-text {
-        display: inline;
-        -webkit-line-clamp: none;
-    }
-    html.filter-tray-sections.phone-chrome-side .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger,
-    html.filter-tray-sections.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-field:not(.filter-field--search) .ui-select-trigger {
-        white-space: nowrap;
-    }
-
-    /* ...and the column count follows the width rather than being fixed at
-       three (live feedback: "the 3 column looks too wide in this format!
-       Swap number of columns based on available space?"). Portrait can hard-
-       code 3: it's one narrow width band, and the exact calc() basis above
-       is what keeps three to a row there. Landscape spans 667-932px, where
-       the same three columns run 215-290px wide - far more than a fused
-       label + dropdown needs.
-
-       Grid, not another flex basis: auto-fill + minmax is the one form that
-       actually asks "how many columns fit?" instead of restating a fixed
-       count. The floor is a max() of two terms, and it reads as "as many
-       columns as fit, but never more than three":
-
-         - calc(100% / 3 - 3px) is the cap. A floor of one third of the track
-           means a fourth column can never fit, however wide the tray gets.
-           It binds on the wide end: at 932px (836px of content) the plain
-           180px floor gave FOUR columns of 206px, which truncated real
-           option text - "Mixed / Multiple" came back as "Mixed / Multipl"
-           (live feedback: "I think 3 col would be better here so less gets
-           truncated"). The -3px absorbs the 4px column gap, which the
-           percentage itself doesn't know about; without it three tracks plus
-           two gaps overflow the container and auto-fill drops to two.
-         - 180px is the minimum a fused-left field is usable at (a 90px label
-           plus ~85px of control) and binds on the narrow end: below ~550px
-           of tray - a narrowed desktop window, not any phone or tablet - a
-           third of the track is under 180px, so the count drops to two on
-           its own rather than squeezing three unreadable columns in.
-
-       Measured: 3 columns at 667px (188px each), 3 at 932px (276px), 3 on a
-       768px portrait tablet (211px), 2 at a 481px window. 1fr shares the
-       remainder evenly so the row still reaches both edges.
-
-       The fields' own flex: 0 1 calc(100%/3 - ...) needs no undoing - flex
-       item properties simply don't apply to grid items, so the basis this
-       replaces goes quiet on its own. The section labels do need spanning
-       back out: their flex: 1 1 100% was how they claimed a full row, and
-       that's exactly the declaration grid ignores. */
-    html.phone-chrome-side .filter-bar-tray .filter-bar-collapsible-inner,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-collapsible-inner {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(max(180px, calc(100% / 3 - 3px)), 1fr));
-        align-content: start;
-        /* min-content, not the auto default. A grid item is align-self:
-           stretch by default, and .filter-field is also overflow: hidden (the
-           bordered-box rule above, there to clip its corners). Stretch + a
-           scroll container together make Chrome size an `auto` row from the
-           item's stretched size rather than its content - which is circular
-           here, since the row it stretches to is the one being sized - and it
-           resolves the cycle at zero: every field row collapsed to 2px, its
-           own top and bottom border with the label and dropdown clipped away
-           inside (measured: rows came out 39.39px for the section labels,
-           which aren't overflow: hidden, and 2px for every field row).
-           min-content sizes each row from real content first; the items still
-           stretch to it afterwards, so fields on a line still match heights
-           the way they did as flex items. Verified in the dev breakpoint
-           preview at 667x375: field rows 37px, whole tray 233px. */
-        grid-auto-rows: min-content;
-    }
-    html.phone-chrome-side .filter-bar-tray.is-expanded .filter-section-label,
-    html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray.is-expanded .filter-section-label {
-        grid-column: 1 / -1;
     }
     /* Toggle fields get the same label-above/3-up treatment as every
        select (live feedback: "change the toggle format so that it has
