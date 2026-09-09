@@ -6994,6 +6994,28 @@ html.nav-touch-mode .row-facts-arrow {
     opacity: 0.35;
     cursor: default;
 }
+/* Out to the very ends of the caption row, past the tick lines.
+
+   Without this they land INSIDE the ticks, flanking the caption text in the
+   middle of the row: .filter-section-label draws its ticks as ::before and
+   ::after, and those bracket the element's real children, so an arrow
+   inserted as first/last child still sits inboard of them. `order` is the
+   one thing that reorders a pseudo-element against real siblings in a flex
+   row - the ticks then grow into whatever is left between arrow and text
+   (flex: 1 0 12px, shared rules above), so the arrows sit at the row's
+   extreme ends and stay the same distance apart whatever the caption says.
+
+   In the tray, a section spans the full width of the tray's own content
+   box, which puts these within the tray's --space-sm padding of the screen
+   edge at phone width - as close to the edge as anything else in the tray
+   gets. The panel pair is absolutely positioned at the panel's edges
+   instead (below), so order does not apply to it. */
+.filter-scroll-active .filter-scroll-arrow[data-filter-scroll-arrow="prev"] {
+    order: -1;
+}
+.filter-scroll-active .filter-scroll-arrow[data-filter-scroll-arrow="next"] {
+    order: 1;
+}
 /* (DES-S3) The real 44px tap target, invisible, over the 22px circle -
    small to look at, big to hit, which is the only way to clear the floor
    here without the button out-weighing the caption it sits on.

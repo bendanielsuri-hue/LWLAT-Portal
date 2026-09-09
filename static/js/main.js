@@ -1298,9 +1298,21 @@ function updateFilterSectionScroll(track) {
     var host = filterSectionScrollHost(track);
     var max = track.scrollWidth - track.clientWidth;
     var can = max > 1;
+    var more = { left: can && track.scrollLeft > 1, right: can && track.scrollLeft < max - 1 };
     if (host) host.classList.toggle('filter-scroll-active', can);
-    track.classList.toggle('filter-scroll-more-left', can && track.scrollLeft > 1);
-    track.classList.toggle('filter-scroll-more-right', can && track.scrollLeft < max - 1);
+    track.classList.toggle('filter-scroll-more-left', more.left);
+    track.classList.toggle('filter-scroll-more-right', more.right);
+    if (!host) return;
+    /* Each arrow disables at its own end of the travel. Disabled rather than
+       hidden: a pair that disappears makes the caption row twitch its width
+       every time you reach an end. wireScrollCarousel's own updateArrows
+       handles the other axis of this - hiding BOTH when the track does not
+       overflow at all - but it has no opinion on per-end state beyond an
+       is-at-edge class nothing styles, so the disabling lives here. */
+    var prev = host.querySelector('.filter-scroll-arrow[data-filter-scroll-arrow="prev"]');
+    var next = host.querySelector('.filter-scroll-arrow[data-filter-scroll-arrow="next"]');
+    if (prev) prev.disabled = !more.left;
+    if (next) next.disabled = !more.right;
 }
 /* Arrows are built once per track and left in place; wireScrollCarousel's own
    updateArrows hides them again whenever the track stops overflowing.
