@@ -6444,43 +6444,6 @@ html.nav-touch-mode .row-facts-arrow {
         margin: 0 calc(-1 * var(--space-lg));
         padding: 0 var(--space-lg);
     }
-    /* .filter-bar-no-search (Meetings AND the SEND & Provision hub, now
-       sharing this treatment) - live feedback: "I would like the scroll
-       bar to be full width of filter bar and on bottom edge". This panel
-       grows to fill its row (forms.css: flex-grow: 1), so there IS a
-       real, definite parent width for the track to fill and bleed
-       against here - flex: 1 1 auto claims it. margin/
-       padding bleed matches this panel's own --space-sm padding (forms.css)
-       rather than the original design's --space-lg (which matched the
-       full outer .filter-bar's own padding, back when this track bled all
-       the way to THAT edge) - this panel is its own smaller rounded chip
-       now, not the full-bleed bar-width shelf that padding was measured
-       for, so the track only needs to reach *its own* edges to read as
-       "full width" of the panel it actually lives in. */
-    html:not(.filter-bar-mobile-mode) .filter-bar-tray.filter-bar-no-search .filter-secondary-fields-track {
-        flex: 1 1 auto;
-        margin: 0 calc(-1 * var(--space-sm));
-        padding: 0 var(--space-sm);
-        /* Extra left inset, on top of the plain --space-sm every other
-           side gets - live feedback: "generic scrollbar... full width".
-           The scrollable box itself now starts at the bar's true left
-           edge, under "Filters" (forms.css: .filter-secondary-fields's own
-           negative margin-left, same --filter-bar-label-width main.js
-           measures) so its native scrollbar can span the bar's full width
-           - but the FIELDS inside still need to start exactly where they
-           always visually did, clear of "Filters"'s own text, hence this
-           reclaims that same width back as padding on the content side. */
-        padding-left: calc(var(--space-sm) + var(--filter-bar-label-width, 0px) + var(--space-xs) + var(--space-lg));
-        /* Mirrors padding-left, right side: the Clear Filters corner
-           reservation used to live on secondaryRow's own padding-right
-           (forms.css) - moved here instead once that box needed to bleed
-           all the way to the bar's true right edge itself (live feedback:
-           "not edge to edge... not full width"), same reasoning as the
-           left side - the FIELDS need to stop clear of the button, but the
-           scrollABLE BOX (and so its native scrollbar) shouldn't stop
-           short of the bar's true edge just to make that happen. */
-        padding-right: calc(var(--space-sm) + var(--filter-actions-right-width, 180px) + var(--space-md) + var(--space-lg));
-    }
     /* display: flex; flex-direction: column (not flex-wrap: wrap with the
        header forced onto its own line via flex: 1 1 100%, which is what
        this used to be) - live feedback: "now it is too narrow. The line
@@ -6591,15 +6554,6 @@ html.nav-touch-mode .row-facts-arrow {
     }
     .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field .ui-select .ui-select-trigger {
         flex: 1 1 auto;
-    }
-    /* .filter-bar-no-search only - live feedback continuing the same "less
-       space" pass (forms.css's own .filter-bar-no-search .filter-field
-       rule already zeroes padding-top, but every no-search bar's fields
-       always land inside .filter-secondary-fields, whose own rule just
-       above has higher specificity and was still winning with
-       --space-xxs). */
-    .filter-bar-tray.filter-bar-no-search .filter-secondary-fields:not([hidden]) .filter-field {
-        padding-top: 0;
     }
     /* white-space: normal (not forms.css's own nowrap/ellipsis default) -
        live feedback: "make labels take up two lines like we did with stat
@@ -7420,17 +7374,6 @@ html.nav-touch-mode .row-facts-arrow {
        Font size/gap/margin tightened to match the shorter search field
        beside it (#132 compact mode). */
     html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-label {
-        /* flex-direction: row - resets .filter-bar-no-search's own desktop
-           stacked layout (forms.css: "Filters" over its count badge, live
-           feedback "there is space for the Filter badge to be on new line
-           beneath Filters"). That rule has no width/mode gating of its own
-           (it only needs to avoid Search-bearing bars, a separate axis from
-           mobile/narrow-desktop/portrait-tablet entirely), so without this
-           reset here it kept winning on this one property even inside
-           mobile mode - live feedback: "it looks off in mobile mode and
-           portrait tablet mode" - stretching this row's normal inline
-           "Filters ⌄ [1]" tap target into three stacked lines instead. */
-        flex-direction: row;
         width: auto;
         justify-content: flex-start;
         font-size: var(--font-sm);

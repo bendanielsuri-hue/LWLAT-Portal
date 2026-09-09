@@ -706,12 +706,13 @@ function setupFilterBarMoreFilters(bar) {
         // a pinned Search field. No override needed any more: the
         // groups-building block above already creates and shows
         // moreFiltersBtn for these bars exactly like every other one - this
-        // used to exist purely to undo that. .filter-bar-no-search
-        // (forms.css) - the styling that assumed permanently-open, scrolling
-        // under "Filters" - is no longer applied in the templates that used
-        // to opt into it (meetings.html, safeguarding_notes.html, hub.html);
-        // its rules are now unused but left in forms.css rather than
-        // stripped blind in the same pass as this behavioural change.
+        // used to exist purely to undo that. The .filter-bar-no-search
+        // opt-in class that carried the old permanently-open, scrolling-
+        // under-"Filters" styling went with it: the templates stopped
+        // applying it in that same pass, and its now-unreachable CSS (plus
+        // the two custom properties measured here to feed it) was stripped
+        // from forms.css/panel.css once the two bars had been checked live
+        // against the shared treatment (#184).
         // Preserve the user's own explicit open/closed state across a
         // remeasure instead of resetting it back to closed - live
         // feedback: "still reopening. Also it loads open" - the
@@ -745,44 +746,6 @@ function setupFilterBarMoreFilters(bar) {
         // rather than a guessed fixed number that would silently drift out
         // of sync.
         bar.style.setProperty('--filter-actions-right-width', actionsRight.offsetWidth + 'px');
-        // .filter-bar-no-search (Meetings AND the SEND & Provision hub,
-        // now sharing this treatment) - live feedback: "a bulky generic
-        // scrollbar but the full width" - the field panel's own negative
-        // margin-left
-        // (forms.css) pulls its scrollable box out from under "Filters" to
-        // the bar's true left edge, so its native scrollbar can span the
-        // bar's full width; this measures "Filters"'s own real rendered
-        // width live (its text/count badge can change it) so that margin -
-        // and the track's own matching padding-left, panel.css, which
-        // keeps the fields themselves starting where they always visually
-        // did - stay correct rather than a guessed fixed number drifting
-        // out of sync, same convention --filter-actions-right-width above
-        // already uses on the opposite corner.
-        if (isTrayBar && !hasSearchField && label) {
-            bar.style.setProperty('--filter-bar-label-width', label.offsetWidth + 'px');
-        }
-        // "Filters"/Clear Filters's own opaque fill (forms.css - masks a
-        // scrolled field from showing through, live feedback: "I do not
-        // want to see the dropdown if its been scrolled behind Filters and
-        // badge") used to stretch to the full flex-line height, which
-        // included the panel's own native horizontal scrollbar strip at
-        // the bottom - covering that scrollbar too ("it is covering
-        // scrollbar"). clientHeight excludes that strip, so the fill can
-        // be sized to stop exactly where the scrollbar starts, leaving it
-        // visible/usable underneath both corners. secondaryTrack, not
-        // secondaryRow - overflow-x: auto (so the actual scrollbar) lives
-        // on .filter-secondary-fields-track (panel.css), not the outer
-        // .filter-secondary-fields wrapper; measuring the wrapper instead
-        // read offsetHeight === clientHeight always regardless of any real
-        // scrollbar, silently sizing this fill to the full row height
-        // every time ("Overlap over the scrollbar still persists").
-        if (isTrayBar && !hasSearchField) {
-            // The track no longer scrolls horizontally (panel.css), so there
-            // is no scrollbar strip left to stop short of - this used to
-            // subtract 2px for exactly that ("The borderline should not
-            // reach the scroll bar") and now spans the track's real height.
-            bar.style.setProperty('--filter-bar-fields-content-height', Math.max(0, secondaryTrack.clientHeight) + 'px');
-        }
         // Last, after every field has landed in its final row for this width:
         // resize the triggers for the tier we just measured for, then rebuild
         // (or unwind) the tray's section wrappers to match it. Both run in

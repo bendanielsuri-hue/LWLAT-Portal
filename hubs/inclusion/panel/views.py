@@ -4618,8 +4618,8 @@ def inclusion_panel_safeguarding_notes(request):
     # Filter bar brought up to the same filter-bar-tray + AJAX pattern as
     # Students/Referrals/Meetings (was still the pre-migration plain
     # client-side-JS bar - #133 grilling flagged the drift). Search added on
-    # top, same as Students/Referrals - unlike Meetings/SEND hub's
-    # filter-bar-no-search, a DSL reaching for one specific student here is
+    # top, same as Students/Referrals - unlike Meetings/the SEND hub,
+    # which pin nothing, a DSL reaching for one specific student here is
     # exactly the case a search box is for.
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
