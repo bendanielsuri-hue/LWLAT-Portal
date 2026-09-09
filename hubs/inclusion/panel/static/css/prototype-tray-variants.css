@@ -4,72 +4,182 @@
    space beside the last field ("Overdue Actions" alone on its row at
    390px).
 
-   ROUND 2. Round 1 offered three ways of changing what a category IS -
-   flowed inline categories with a wrapping tint, a tinted rectangular
-   block, and fields stretched to fill their line - and all three were
-   rejected: today's model is the right one. So this round leaves the model
-   completely alone (rectangular group, caption under it with rule lines,
-   content-sized fields, equal heights on a row) and attacks only the
-   leftover space itself.
+   ROUND 3 - the user's own proposal: stop wrapping inside a category
+   altogether. Each category's fields sit on ONE line that scrolls
+   horizontally instead. No wrap means no ragged last line, and a field
+   that grows to fit a long value stops pushing its neighbours around -
+   it just makes the row a little longer to scroll.
 
-     now - untouched, for comparison
-     mid - centre every line, so the leftover is split into symmetric side
-           margins instead of pooling on the right
-     bal - force balanced line breaks (5 fields wrap 3+2, not 4+1), so
-           there is barely any leftover to place
-     both - bal + mid together
+   Rounds 1 (flowed / tinted / stretched) and 2 (centred / balanced
+   breaks) were both rejected in favour of today's model, and are dropped
+   rather than accumulated.
+
+     now  - untouched, for comparison
+     scr  - one section per full-width row, each row scrolling
+            horizontally, scrollbar hidden on touch, with an edge fade
+            whenever there is more to see
+     snap - the same plus scroll-snap, so a swipe lands with a field
+            flush to the left edge rather than mid-field
+
+   The one thing to weigh on the page: this is the same trade the desktop
+   strip made and then dropped ("a filter you cannot see is a filter you
+   do not use", panel.css) - just much smaller, since what is hidden is
+   1-2 fields inside a named category rather than a whole bar's worth.
+   Whether the fade and the half-visible next field are enough to say "there
+   is more here" is exactly what this variant is for.
 
    Switched by ?tray= (prototype-tray-variants.js). */
 
 /* ===================================================================
-   MID - CENTRE THE LINE
+   SCR - ONE SECTION PER ROW, EACH ROW SCROLLS
 
-   .filter-group-fields is already a flex row that wraps; its default
-   justify-content: flex-start is what puts every line's leftover on the
-   right in one lump. Centring divides that same leftover between the two
-   ends, which is what makes a short last line read as "this category has
-   one more filter, sitting under the others" rather than "something is
-   missing to the right of it".
+   Two rules working together:
 
-   Costs nothing structurally: fields keep their own widths, the row keeps
-   its height, and every full line looks exactly as it does now (a full
-   line has no leftover to divide).
+   1. Every category claims a full-width row of its own (flex-basis: 100%),
+      so sections stop packing side by side and the tray reads as a plain
+      vertical list of captioned rows - one category, one line, top to
+      bottom, at every tray width.
+   2. That line never wraps. A category with more fields than fit scrolls
+      horizontally inside its own row.
 
-   Worth judging against the caption directly beneath, which is itself
-   centred under the group - a centred last line and a centred caption
-   line up on the same axis, where a left-packed last line and a centred
-   caption do not.
+   Together they remove the ragged last line by removing wrapping itself,
+   and they make a field's width harmless: a long value grows its trigger
+   and the row just gets a little longer to scroll, instead of reflowing
+   every field after it onto new lines.
+
+   What it costs, and worth judging on the page: a category that FITS now
+   leaves the rest of its row empty rather than sharing it with the next
+   category - most visible at portrait tablet, where two sections used to
+   sit side by side. The trade is that every row is now the same shape and
+   nothing ever orphans a single field onto a line of its own.
+
+   min-width: 0 is implicit on the row: overflow-x other than visible makes
+   a flex item's automatic minimum size 0, which is what lets it shrink
+   below its content rather than forcing its parent wider.
    =================================================================== */
-html[data-tray-variant="mid"] .filter-bar-tray .filter-bar-sections .filter-group-fields,
-html[data-tray-variant="both"] .filter-bar-tray .filter-bar-sections .filter-group-fields {
-    justify-content: center;
+html[data-tray-variant="scr"] .filter-bar-tray .filter-bar-sections .filter-group,
+html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group {
+    flex: 1 1 100%;
+}
+html[data-tray-variant="scr"] .filter-bar-tray .filter-bar-sections .filter-group-fields,
+html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Stops a horizontal swipe that runs out of row from chaining into the
+       tray's own vertical scroll (and, on iOS, into the page's back
+       gesture) - each category's scroll is its own closed world. */
+    overscroll-behavior-x: contain;
+    /* Room for the fade to sit over without covering the last field's own
+       edge. */
+    scroll-padding-right: var(--space-sm);
+}
+/* (Project convention) Any new overflow: auto element gets the touch
+   scrollbar-hide pair by default - a real scrollbar under a row of filters
+   on a phone is chrome nobody asked for, and the fade below is the
+   affordance instead. */
+html.nav-touch-mode[data-tray-variant="scr"] .filter-bar-tray .filter-bar-sections .filter-group-fields,
+html.nav-touch-mode[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+html.nav-touch-mode[data-tray-variant="scr"] .filter-bar-tray .filter-bar-sections .filter-group-fields::-webkit-scrollbar,
+html.nav-touch-mode[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields::-webkit-scrollbar {
+    display: none;
+}
+/* Edge fade, applied only while the row genuinely has more to show and
+   pointed at whichever end still has content (prototype-tray-variants.js
+   sets these classes on scroll). A mask, not a gradient overlay: the row
+   is transparent over the tray's own fill, so an overlay would need to
+   know that fill's colour and would paint a hard edge the moment the theme
+   changed it. Masking fades the CONTENT out instead, which is colour-blind
+   by construction.
+
+   The half-visible field at the cut is doing most of the work here - the
+   fade only makes it read as deliberate rather than as clipping. */
+.proto-scroll-more-right {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+}
+.proto-scroll-more-left {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent 100%);
+}
+.proto-scroll-more-left.proto-scroll-more-right {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
 }
 
 /* ===================================================================
-   BAL - BALANCED LINE BREAKS
+   SNAP - THE SAME, PLUS SCROLL SNAP
 
-   Flex wrapping is greedy: it fits as many fields on a line as will go and
-   drops the remainder, so 5 fields at 390px come out 4 + 1 - the worst
-   possible split. Nothing in CSS asks for "even lines"; the break has to
-   be forced, which prototype-tray-variants.js does by inserting a
-   zero-height full-width item at the balanced position (the same
-   flex-basis: 100% trick .filter-divider already uses in this codebase).
+   proximity, not mandatory: mandatory would fight a deliberate small
+   nudge and always yank the row to the nearest field, which reads as the
+   page arguing with your thumb. proximity only tidies up a swipe that
+   already came to rest near a boundary.
 
-   The group stays full width throughout, which is the point: narrowing
-   the group to force the break instead would leave a strip of empty tray
-   to its right and shorten the caption's own rule lines with it - moving
-   the dead space outside the category rather than removing it.
+   Worth comparing directly against scr: snapping makes "there is another
+   field" clearer (a field is either fully there or fully not), at the cost
+   of never resting on a half-visible field - which is the very thing that
+   advertises there is more to scroll.
    =================================================================== */
-html[data-tray-variant="bal"] .proto-line-break,
-html[data-tray-variant="both"] .proto-line-break {
-    display: block;
-    flex: 0 0 100%;
-    height: 0;
-    margin: 0;
+html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields {
+    scroll-snap-type: x proximity;
 }
-/* Inert in every other state - the JS leaves the breaks in the DOM when
-   switching variants, so they have to stop being flex items rather than
-   be torn out and rebuilt. */
-.proto-line-break {
+html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields > .filter-field {
+    scroll-snap-align: start;
+}
+
+/* ===================================================================
+   ARROWS ON THE CAPTION ROW
+
+   The prev/next pair the desktop strip used to carry (.filter-secondary-
+   fields-arrow, deleted when that strip lost its scroll), brought back per
+   section and hung on the caption row rather than floating over the
+   fields: the caption is already a flex row with a tick line running out
+   to each end, so an arrow at each end lands in chrome that exists, costs
+   the fields row no width, and never covers a control.
+
+   The caption sits UNDER its fields here (.filter-group is column-reverse,
+   panel.css), so the arrows read as that section's own footer controls -
+   the row they scroll is the one directly above them.
+
+   Only rendered for a section that can actually scroll (.proto-can-scroll,
+   set by measurement in prototype-tray-variants.js), and each arrow
+   disables itself at its own end of the travel, so a section whose fields
+   all fit looks exactly as it does today.
+
+   Belt and braces with the fade, deliberately: the fade says "there is
+   more that way" to someone reading, the arrow gives a mouse/narrowed-
+   desktop user something to click, and a thumb can still just swipe. */
+.proto-arrow {
     display: none;
+}
+html[data-tray-variant="scr"] .filter-group.proto-can-scroll .proto-arrow,
+html[data-tray-variant="snap"] .filter-group.proto-can-scroll .proto-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    /* Sized to the caption's own text, not to a touch target: a swipe is
+       the real gesture on touch and these are the affordance/mouse path.
+       (If this variant wins, that is worth revisiting against DES-S3.) */
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+}
+html[data-tray-variant="scr"] .filter-group.proto-can-scroll .proto-arrow[disabled],
+html[data-tray-variant="snap"] .filter-group.proto-can-scroll .proto-arrow[disabled] {
+    /* Kept in place rather than hidden at the ends of the travel - a pair
+       that disappears and reappears makes the caption row twitch its width
+       every time you scroll it. */
+    opacity: 0.35;
+    cursor: default;
 }

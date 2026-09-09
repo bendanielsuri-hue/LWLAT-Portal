@@ -1,70 +1,86 @@
 /* PROTOTYPE - throwaway, never merge to main.
    Branch: prototype/tray-section-fill-variants. Floating switcher for the
    tray-section states in prototype-tray-variants.css, plus the measuring
-   half of the "bal" state.
+   half of the scrolling variants: which rows can scroll, which way they
+   still have travel, and the prev/next arrows on each caption row.
 
-   ?tray=now|mid|bal|both in the URL, mirrored to localStorage so the choice
+   ?tray=now|scr|snap in the URL, mirrored to localStorage so the choice
    survives the filter form's own GET submits (which rebuild the query
    string from the form's fields and would otherwise drop it). Left/right
-   arrow keys cycle too, except while typing in a field. */
+   arrow keys cycle variants, except while typing in a field. */
 (function () {
     var VARIANTS = [
         { key: 'now', name: 'today, untouched' },
-        { key: 'mid', name: 'centre the line' },
-        { key: 'bal', name: 'balanced breaks' },
-        { key: 'both', name: 'balanced + centred' }
+        { key: 'scr', name: 'row per section, scrolls' },
+        { key: 'snap', name: 'the same + scroll-snap' }
     ];
     var STORE = 'prototypeTrayVariant';
+    /* 1px, not 0: scrollWidth/clientWidth are rounded to integers off
+       fractional layout widths, so a row that fits exactly can report a
+       1px overflow and would otherwise show arrows that do nothing. */
+    var SLOP = 1;
 
-    /* Balanced breaks.
-
-       Read the natural wrap first (fields sharing an offsetTop are on a
-       line), because the balanced split depends on how many actually fit,
-       which depends on the viewport and on how wide each trigger has been
-       sized to its own value - neither of which is knowable up front.
-
-       n fields over L natural lines wants ceil(n / L) per line: 5 over 2
-       lines is 3 + 2, 7 over 3 is 3 + 3 + 1. Then a break goes before every
-       (per)th field.
-
-       Verified after inserting, not assumed: if the forced split asks for
-       more per line than genuinely fits, the browser wraps anyway and the
-       group ends up with MORE lines than it started with, which is worse
-       than the ragged edge being fixed. In that case the breaks come back
-       out and the group keeps its natural wrap. */
-    function balance(group) {
-        clearBreaks(group);
-        var fields = Array.prototype.slice.call(group.querySelectorAll(':scope > .filter-field'));
-        if (fields.length < 3) return;
-        var lines = countLines(fields);
-        if (lines < 2) return;
-        var per = Math.ceil(fields.length / lines);
-        if (per >= fields.length) return;
-        for (var i = per; i < fields.length; i += per) {
-            var br = document.createElement('span');
-            br.className = 'proto-line-break';
-            group.insertBefore(br, fields[i]);
-        }
-        if (countLines(fields) > lines) clearBreaks(group);
+    function scrollers() {
+        return document.querySelectorAll('.filter-bar-sections .filter-group-fields');
     }
 
-    function countLines(fields) {
-        var tops = {};
-        fields.forEach(function (f) { tops[Math.round(f.offsetTop)] = 1; });
-        return Object.keys(tops).length;
-    }
-
-    function clearBreaks(group) {
-        Array.prototype.forEach.call(group.querySelectorAll(':scope > .proto-line-break'), function (b) {
-            b.remove();
+    /* Arrows live in the caption, which is .filter-group's OTHER child -
+       .filter-section-label. Built once per section and left in the DOM
+       when variants change; the CSS decides whether they render. */
+    function ensureArrows(row) {
+        var group = row.closest('.filter-group');
+        var label = group && group.querySelector(':scope > .filter-section-label');
+        if (!label || label.querySelector('.proto-arrow')) return;
+        ['prev', 'next'].forEach(function (dir) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'proto-arrow';
+            btn.dataset.protoArrow = dir;
+            btn.setAttribute('aria-label', (dir === 'prev' ? 'Previous' : 'More') + ' filters in this section');
+            btn.textContent = dir === 'prev' ? '‹' : '›';
+            btn.addEventListener('click', function () {
+                /* 80% of a row, not one field: fields here are content-sized
+                   and wildly unequal (a toggle against "Concern Category"),
+                   so paging by element would move a different distance every
+                   press. A near-full row keeps one field of context. */
+                row.scrollBy({ left: (dir === 'prev' ? -1 : 1) * row.clientWidth * 0.8, behavior: 'smooth' });
+            });
+            if (dir === 'prev') label.insertBefore(btn, label.firstChild);
+            else label.appendChild(btn);
         });
     }
 
-    function rebalance() {
-        var key = document.documentElement.dataset.trayVariant;
-        document.querySelectorAll('.filter-bar-sections .filter-group-fields').forEach(function (group) {
-            if (key === 'bal' || key === 'both') balance(group);
-            else clearBreaks(group);
+    function update(row) {
+        var group = row.closest('.filter-group');
+        var max = row.scrollWidth - row.clientWidth;
+        var can = max > SLOP;
+        var left = row.scrollLeft > SLOP;
+        var right = row.scrollLeft < max - SLOP;
+        if (group) group.classList.toggle('proto-can-scroll', can);
+        row.classList.toggle('proto-scroll-more-left', can && left);
+        row.classList.toggle('proto-scroll-more-right', can && right);
+        if (!group) return;
+        var prev = group.querySelector('.proto-arrow[data-proto-arrow="prev"]');
+        var next = group.querySelector('.proto-arrow[data-proto-arrow="next"]');
+        if (prev) prev.disabled = !left;
+        if (next) next.disabled = !right;
+    }
+
+    function refresh() {
+        var on = document.documentElement.dataset.trayVariant !== 'now';
+        scrollers().forEach(function (row) {
+            if (!on) {
+                row.classList.remove('proto-scroll-more-left', 'proto-scroll-more-right');
+                var g = row.closest('.filter-group');
+                if (g) g.classList.remove('proto-can-scroll');
+                return;
+            }
+            ensureArrows(row);
+            if (!row.dataset.protoBound) {
+                row.dataset.protoBound = '1';
+                row.addEventListener('scroll', function () { update(row); }, { passive: true });
+            }
+            update(row);
         });
     }
 
@@ -89,7 +105,7 @@
             var v = VARIANTS.filter(function (x) { return x.key === key; })[0];
             label.textContent = v.key.toUpperCase() + ' - ' + v.name;
         }
-        rebalance();
+        refresh();
     }
 
     function cycle(step) {
@@ -114,7 +130,7 @@
         bar.innerHTML =
             '<button type="button" data-prototype-prev aria-label="Previous variant" ' +
             'style="all:unset;cursor:pointer;padding:2px 6px;font-size:14px">&#8592;</button>' +
-            '<span data-prototype-label style="min-width:150px;text-align:center"></span>' +
+            '<span data-prototype-label style="min-width:170px;text-align:center"></span>' +
             '<button type="button" data-prototype-next aria-label="Next variant" ' +
             'style="all:unset;cursor:pointer;padding:2px 6px;font-size:14px">&#8594;</button>';
         document.body.appendChild(bar);
@@ -126,19 +142,22 @@
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         var el = document.activeElement;
         if (el && (el.matches('input, textarea, select') || el.isContentEditable)) return;
+        /* Not while a section's own arrow has focus - there the arrow keys
+           belong to that row, not to the variant switcher. */
+        if (el && el.closest && el.closest('.proto-arrow')) return;
         cycle(e.key === 'ArrowRight' ? 1 : -1);
     });
 
     /* The tray is built and regrouped by main.js (setupFilterBarMoreFilters,
-       groupFilterSections) and its fields have no measurable width until it
-       is actually open, so a single pass at load would measure a collapsed
-       box. Re-run on anything that can change the wrap: opening the tray,
-       resizing/rotating, and picking a value (a longer value can widen its
-       own trigger). Debounced, since a resize fires continuously. */
+       groupFilterSections) and its rows have no measurable width until it is
+       actually open, so a single pass at load would measure a collapsed box.
+       Re-measure on anything that can change a row's overflow: opening the
+       tray, resizing/rotating, and picking a value (a longer value widens
+       its own trigger). Debounced, since a resize fires continuously. */
     var timer = null;
     function schedule() {
         window.clearTimeout(timer);
-        timer = window.setTimeout(rebalance, 120);
+        timer = window.setTimeout(refresh, 120);
     }
     window.addEventListener('resize', schedule);
     document.addEventListener('click', function (e) {
