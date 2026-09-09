@@ -549,6 +549,16 @@ function setupFilterBarMoreFilters(bar) {
         // interspersed with their own group). allFields carries the
         // headers along in their own original relative position instead.
         var wasExpanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
+        // insertBefore throws NotFoundError unless its reference node is
+        // genuinely a child of the element it is called on, and everything
+        // below this line - including the two lines that decide whether the
+        // "View filters" button is visible - is skipped if it does. Putting
+        // secondaryRow back first makes that unthrowable: the failure mode is
+        // a filter bar stuck in whatever half-measured state it was in, which
+        // is far harder to read back from than a panel that briefly sat in
+        // the wrong place. (One real case is fixed at source in
+        // groupFilterSections; this is the guard for the next one.)
+        if (secondaryRow.parentNode !== fieldsHost) fieldsHost.appendChild(secondaryRow);
         allFields.forEach(function (f) { fieldsHost.insertBefore(f, secondaryRow); });
         // Reclaiming a field above pulls it out of whatever .filter-group
         // wrapper (below) held it on a previous pass, leaving that wrapper
@@ -1062,11 +1072,28 @@ function groupFilterSections(bar) {
         fieldsBox.className = 'filter-group-fields';
         inner.insertBefore(group, label);
         group.appendChild(label);
-        // Everything up to the next caption belongs to this one. Read
-        // before any of it moves, since moving changes nextElementSibling.
+        /* The FIELDS up to the next caption belong to this one - the run ends
+           at anything that is not a .filter-field, not just at the next
+           caption.
+
+           It used to end only on a caption or an existing group, which meant
+           the last category swallowed whatever else happened to follow the
+           fields inside .filter-bar-collapsible-inner: the .filter-secondary-
+           fields panel and the tray's own sticky footer are both siblings
+           there. Nothing looked wrong until the next measure(), whose reclaim
+           does fieldsHost.insertBefore(field, secondaryRow) - with secondaryRow
+           now buried inside a .filter-group-fields box rather than being
+           fieldsHost's own child, that throws NotFoundError and abandons
+           measure() halfway: one line after it has hidden the "View filters"
+           button, and several before the line that shows it again. Reported
+           as: "if I resize desktop to small then big, the view filter button
+           does not reappear".
+
+           Read before any of it moves, since moving changes
+           nextElementSibling. */
         var members = [];
         for (var el = group.nextElementSibling; el; el = el.nextElementSibling) {
-            if (el.classList.contains('filter-section-label') || el.classList.contains('filter-group')) break;
+            if (!el.classList.contains('filter-field')) break;
             members.push(el);
         }
         members.forEach(function (el) { fieldsBox.appendChild(el); });
