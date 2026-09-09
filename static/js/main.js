@@ -4068,6 +4068,10 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // by up to 16px - a smaller version of the exact bug this constant
     // exists to avoid (see grilling session 2026-07-12).
     var FILTER_FIELD_TRIGGER_MAX_WIDTH = 176;
+    /* The shortest value a filter trigger is allowed to size itself to - see
+       resolveTriggerMinWidth's floor. A string, not a number, so it is
+       measured in the trigger's own live font. */
+    var FILTER_FIELD_TRIGGER_MIN_TEXT = 'Yes';
     var selectWidthGhost = null;
     function textWidth(text, font) {
         if (!selectWidthGhost) {
@@ -4217,7 +4221,21 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                     ? oneLine
                     : (selectedText * 0.55) + chrome;
             }
-            return Math.min(Math.max(labelWidth, valueWidth), FILTER_FIELD_TRIGGER_MAX_WIDTH) + 'px';
+            /* A floor, so a short value can't shrink the control below what
+               a normal short value needs - live feedback: "can we change so
+               that minimum width of dropdown is same as if Yes is selected.
+               If I change it to Y it reduces in width!". The label is
+               already a floor, but a field whose label is short too (EAL,
+               More Able) had nothing else holding it, so picking a
+               one-character value visibly narrowed the control and pushed
+               its whole row around.
+               Measured from the reference string through the same
+               textWidth/chrome path as the value itself rather than set as
+               a pixel number, so it tracks the font the trigger actually
+               renders in instead of drifting from it. */
+            var floorWidth = textWidth(FILTER_FIELD_TRIGGER_MIN_TEXT, font)
+                + (wraps ? triggerChromeWidth(trigger) : SELECT_TRIGGER_PADDING);
+            return Math.min(Math.max(labelWidth, valueWidth, floorWidth), FILTER_FIELD_TRIGGER_MAX_WIDTH) + 'px';
         }
         var widest = maxOptionTextWidth(selectEl, font);
         return Math.min(widest + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH) + 'px';
