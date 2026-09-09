@@ -1011,6 +1011,86 @@ function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar) {
     });
 }
 
+/* Animates whatever reflow a filter value change causes inside an open tray.
+
+   A tray field is sized to its own label until a wide option is picked, at
+   which point the trigger grows (resolveTriggerMinWidth, below) and its
+   neighbours have to move - sometimes a whole section drops onto a new row.
+   Live feedback: "it would be better for them just to jump to new row, but I
+   wonder about a more elegant animation?" - so the reflow itself is kept and
+   only the jump is smoothed.
+
+   FLIP, on the leaves only (.filter-field and .filter-section-label). Not the
+   .filter-group wrappers as well: a group that moves carries its own fields
+   and caption with it, so transforming both levels would compound and every
+   moved field would travel twice as far as it should.
+
+   Two motions, not one. An element that stays on its row slides sideways -
+   that reads as being pushed, which is exactly what happened to it. An
+   element that changed row would otherwise fly a long diagonal across the
+   tray, which reads as a different element arriving; those settle into place
+   instead, fading up from a few pixels above where they land. Same duration
+   for both, so a reflow that does some of each still reads as one movement.
+
+   Honours prefers-reduced-motion (INT-M): the layout still changes, it just
+   changes instantly. */
+var FILTER_REFLOW_MS = 220;
+function animateFilterTrayReflow(bar) {
+    if (!bar.classList.contains('is-expanded')) return;
+    if (!document.documentElement.classList.contains('filter-bar-mobile-mode')) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var inner = bar.querySelector('.filter-bar-collapsible-inner');
+    if (!inner) return;
+    var movers = Array.prototype.slice.call(inner.querySelectorAll('.filter-field, .filter-section-label'));
+    if (!movers.length) return;
+    // Read now, while the layout is still the old one: this runs off the
+    // select's own change event, which enhanceSelect dispatches BEFORE it
+    // re-renders the trigger at its new width.
+    var before = movers.map(function (el) { return el.getBoundingClientRect(); });
+    requestAnimationFrame(function () {
+        movers.forEach(function (el, i) {
+            var from = before[i];
+            var to = el.getBoundingClientRect();
+            var dx = from.left - to.left;
+            var dy = from.top - to.top;
+            // Sub-pixel rounding leaves a fractional delta on elements that
+            // never actually moved; animating those costs frames for nothing.
+            if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+            el.style.transition = 'none';
+            if (Math.abs(dy) >= 1) {
+                el.style.transform = 'translateY(-4px)';
+                el.style.opacity = '0';
+            } else {
+                el.style.transform = 'translateX(' + dx + 'px)';
+            }
+            // Second frame: the inverted start has been committed, so the
+            // release below plays as a real transition rather than being
+            // batched into one no-op (the same reason the tray's own open
+            // animation forces a frame before it changes anything).
+            requestAnimationFrame(function () {
+                el.style.transition = 'transform ' + FILTER_REFLOW_MS + 'ms cubic-bezier(0.2, 0, 0, 1), opacity ' + FILTER_REFLOW_MS + 'ms ease-out';
+                el.style.transform = '';
+                el.style.opacity = '';
+            });
+            // Clear the inline transition afterwards, so anything else that
+            // later sets transform/opacity on these elements doesn't inherit
+            // this one's timing. Generous margin over the duration - a
+            // dropped frame must not strip the properties mid-flight.
+            setTimeout(function () {
+                el.style.transition = '';
+                el.style.transform = '';
+                el.style.opacity = '';
+            }, FILTER_REFLOW_MS + 80);
+        });
+    });
+}
+document.addEventListener('change', function (e) {
+    var field = e.target && e.target.closest && e.target.closest('.filter-field');
+    if (!field) return;
+    var bar = field.closest('.filter-bar');
+    if (bar) animateFilterTrayReflow(bar);
+});
+
 /* Wraps each section's fields into the same .filter-group /
    .filter-group-fields pair desktop wide already builds (see
    setupFilterBarMoreFilters above), or unwraps them again.
@@ -3220,9 +3300,6 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     });
     window.addEventListener('scroll', repositionStickyTrays, true);
 
-
-
-
     /* Scrolls the real scroller (<main>) just far enough that a sticky filter
        bar reaches its pinned position, taking the page header off screen.
        Scoped to the `short` tier: it's the only one where the header scrolls
@@ -4036,16 +4113,23 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     //   capped at FILTER_FIELD_TRIGGER_MAX_WIDTH so one very long option
     //   value doesn't blow the field out past the field's own budget - it
     //   just clips with the trigger's existing ellipsis instead.
-    //   Exception, inside an open filter TRAY (landscape phone / portrait
-    //   tablet): sized to the widest option instead, like the generic case.
-    //   Fields there are content-sized flex items packed onto shared lines
-    //   (panel.css), so a width that moves when you pick a value doesn't just
-    //   resize one control - it reflows whichever section that field sits in,
-    //   and can drop the section onto a new line under your finger (measured:
-    //   Ethnicity 64px -> 176px on picking "Mixed / Multiple Ethnic Groups").
-    //   Reserving the widest option's width up front costs a little space per
-    //   field and buys a layout that never moves. The desktop rule above is
-    //   untouched: there each field sits in its own slot and nothing reflows.
+    //   Inside an open filter TRAY (landscape phone / portrait tablet) the
+    //   same rule applies, but against a two-LINE budget rather than a one-
+    //   line one: the trigger there wraps a long value onto a second line
+    //   (panel.css), so it only needs about half the width to show the same
+    //   text. Fields in the tray are content-sized flex items packed onto
+    //   shared lines, so every pixel a field grows can push a whole section
+    //   onto a new row - halving what growth is needed is what keeps most
+    //   selections from moving anything at all (measured: picking "Mixed /
+    //   Multiple Ethnic Groups" grew Ethnicity 64px -> 176px, the cap, on one
+    //   line; on two it needs ~120px, and most selections now move nothing).
+    //   Sizing to the WIDEST option instead was tried and reverted - live
+    //   feedback: "this takes too much space when mostly they are set to
+    //   all". Whatever growth is left after this is animated rather than
+    //   designed out (animateFilterTrayReflow, above).
+    //   /1.8, not /2: wrapping breaks at words, so two lines never pack
+    //   perfectly full - the same allowance the tray's own column-fit maths
+    //   used before it.
     // - everywhere else: sized to the widest *option* (so picking a short
     //   option doesn't narrow the control down enough to clip a longer one
     //   next time it's opened), capped at the generic SELECT_TRIGGER_MAX_WIDTH.
@@ -4070,13 +4154,9 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         if (filterField) {
             var label = filterField.querySelector(':scope > label');
             var labelWidth = label ? label.offsetWidth : 0;
-            var valueWidth;
-            if (isTrayFieldLayout(filterField)) {
-                valueWidth = maxOptionTextWidth(selectEl, font) + SELECT_TRIGGER_PADDING;
-            } else {
-                var selectedOpt = selectEl.options[selectEl.selectedIndex];
-                valueWidth = selectedOpt ? textWidth(selectedOpt.textContent, font) + SELECT_TRIGGER_PADDING : 0;
-            }
+            var selectedOpt = selectEl.options[selectEl.selectedIndex];
+            var valueWidth = selectedOpt ? textWidth(selectedOpt.textContent, font) + SELECT_TRIGGER_PADDING : 0;
+            if (isTrayFieldLayout(filterField)) valueWidth = valueWidth / 1.8;
             return Math.min(Math.max(labelWidth, valueWidth), FILTER_FIELD_TRIGGER_MAX_WIDTH) + 'px';
         }
         var widest = maxOptionTextWidth(selectEl, font);
