@@ -436,9 +436,14 @@ html:not(.nav-touch-mode) .selectable:hover .entity-title,
    distinct from a coloured chosen one - it's var(--accent-border) in both
    cases now, with no :not(.chosen) exclusion, so hovering an already-chosen
    row shows the bar over its fill like any other row. */
+/* var(--space-xxs) (4px), narrowed from a hardcoded 6px - live feedback:
+   "can hover and selector rectangle on lists be narrower, maybe 4px or
+   closest token?". Tokenised on the way rather than swapping one hardcoded
+   number for another; 4px is the scale's own slot next to the old value.
+   SYNC: every restatement of this bar listed below carries the same value. */
 .selectable:hover,
 .selectable:focus-visible {
-    box-shadow: inset 6px 0 0 var(--accent-border);
+    box-shadow: inset var(--space-xxs) 0 0 var(--accent-border);
 }
 .entity-row.chosen { background: var(--primary-light); }
 /* Fake bold (INT-M4) even though .chosen is persistent, not hover-only —
@@ -446,18 +451,13 @@ html:not(.nav-touch-mode) .selectable:hover .entity-title,
    row stays selected, not just a passing flicker. */
 .entity-row.chosen .entity-title { text-shadow: var(--hover-fake-bold); }
 .entity-row.chosen:hover { background: var(--primary-light); }
-/* Halved at true mobile width (live feedback: "left selector is too close
-   to list contents" - every list page's own mobile block shrinks
-   .entity-row's padding, so the bar's fixed 6px reads as noticeably wider
-   relative to the tighter content margin around it there than it does at
-   desktop/tablet padding). SYNC: restated in layout.css's own
-   .list-card .entity-row copy of this rule, below. */
-@media (max-width: 480px) {
-    .selectable:hover,
-    .selectable:focus-visible {
-        box-shadow: inset 3px 0 0 var(--accent-border);
-    }
-}
+/* The true-mobile halving (3px, live feedback: "left selector is too close to
+   list contents" - every list page's own mobile block shrinks .entity-row's
+   padding, so the old 6px read as noticeably wider against that tighter
+   content margin than at desktop padding) is gone: the base bar is 4px now,
+   so the override was carrying a 1px difference no one can see while costing
+   a second value and a SYNC pair in layout.css to keep it. Mobile's original
+   complaint is answered by the narrower base itself. */
 
 /* Home page summary stats strip */
 .stats-strip {

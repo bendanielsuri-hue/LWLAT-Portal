@@ -2992,24 +2992,23 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var sideStrip = document.documentElement.classList.contains('phone-chrome-side');
         var tabbarVisible = tabbar && tabbar.getClientRects().length !== 0 && !sideStrip;
         var bottomLimit = tabbarVisible ? tabbar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-        /* In the `short` tier the tab bar is a side strip and constrains
-           nothing vertically (above), but the counts strip is sticky to the
-           foot of the viewport there - so IT is this tier's bottom furniture,
-           playing exactly the role the tabbar plays in portrait. Without this
-           the tray sized itself to the full viewport height and its last
-           fields sat underneath the counts, unreachable however far you
-           scrolled inside it (live feedback: "I can't get to bottom of filters
-           if screen is this short"). Same intent as the tabbar gap this
-           function already documents: stop short of the furniture, don't run
-           under it. */
-        if (sideStrip) {
-            var shell = bar.closest('.list-page-shell') || document;
-            var strips = shell.querySelectorAll('.stats-strip');
-            var stats = strips.length ? strips[strips.length - 1] : null;
-            if (stats && stats.getClientRects().length !== 0) {
-                bottomLimit = Math.min(bottomLimit, stats.getBoundingClientRect().top);
-            }
-        }
+        /* The `short` tier used to clamp this to the counts strip's own top,
+           on the reasoning that a strip sticky to the foot of the viewport is
+           this tier's bottom furniture, playing the role the tabbar plays in
+           portrait. That was solving the real symptom (the tray's own footer
+           rendered underneath the counts, unreachable however far you
+           scrolled - "I can't get to bottom of filters if screen is this
+           short") from the wrong end: the counts strip is not furniture the
+           tray has to respect, it's list chrome the tray is entitled to cover
+           while it's open, the same way it already covers the rows. Stopping
+           short of it spent ~40px of the scarcest axis on this tier to show
+           three numbers nobody is reading mid-filter (live feedback: "can the
+           filter open tray go over the footer to use all available space").
+           The tray now runs to the foot of the viewport and paints over the
+           strip (panel.css raises its z-index in this tier to make that true
+           rather than merely intended), so its Clear/Close footer sits at the
+           screen's bottom edge with nothing over it - which is what made the
+           original symptom a bug rather than a layout choice. */
         box.style.top = barBottom + 'px';
         // (INT-R2) left/width anchored to the bar's own rect, not the base CSS rule's
         // left: 0; right: 0 (panel.css) - true phone width has no side nav,
@@ -3104,6 +3103,10 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         window.visualViewport.addEventListener('resize', rafThrottle(function () {
             document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
                 var box = bar.querySelector('.filter-bar-collapsible');
+                // Column width changes with the viewport, so what needed two
+                // columns at one size may not at another - re-decide before
+                // re-measuring the tray's own cap against the result.
+                spanWideFilterFields(bar);
                 if (box) positionFilterTray(bar, box);
             });
         }));
@@ -3126,6 +3129,191 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         });
     });
     window.addEventListener('scroll', repositionStickyTrays, true);
+
+    /* Wraps each section's fields into the same .filter-group /
+       .filter-group-fields pair desktop wide already builds (see
+       setupFilterBarMoreFilters above), or unwraps them again.
+
+       This is what makes a section behave as ONE unit: a group is a single
+       flex item, so it packs onto a line beside its neighbours and wraps
+       whole when it doesn't fit, instead of every caption forcing a full-
+       width break regardless of how little sits under it (live feedback:
+       "can we use all available space on a line. But if a section does not
+       fit it start on new line"). Exactly the reasoning that put these
+       wrappers in for narrow tablet in the first place.
+
+       It also settles the caption's position for free. The wrappers let
+       panel.css use flex-direction: column-reverse, desktop's own mechanism
+       for "caption under its fields" - so the template keeps authoring the
+       label first (which is the right reading order, and the order the fused
+       layout wants) and nothing has to move in the DOM. That replaces an
+       earlier version of this function which reordered the elements by hand.
+
+       Both directions are lossless: wrapping reads a label's fields as the
+       siblings following it up to the next label, unwrapping puts label and
+       fields back in that same flat order. So toggling repeatedly can't
+       accumulate wrappers or drift the order.
+
+       TEMPORARY only in that it serves the A/B - it goes if the fused layout
+       wins. */
+    function groupFilterSections(bar) {
+        var inner = bar.querySelector('.filter-bar-collapsible-inner');
+        if (!inner) return;
+        var wantGroups = document.documentElement.classList.contains('filter-tray-sections');
+        var existing = inner.querySelectorAll(':scope > .filter-group');
+        if (!wantGroups) {
+            Array.prototype.forEach.call(existing, function (group) {
+                var label = group.querySelector(':scope > .filter-section-label');
+                var fieldsBox = group.querySelector(':scope > .filter-group-fields');
+                if (label) inner.insertBefore(label, group);
+                if (fieldsBox) {
+                    while (fieldsBox.firstChild) inner.insertBefore(fieldsBox.firstChild, group);
+                }
+                group.remove();
+            });
+            return;
+        }
+        if (existing.length) return;
+        Array.prototype.forEach.call(inner.querySelectorAll(':scope > .filter-section-label'), function (label) {
+            var group = document.createElement('div');
+            group.className = 'filter-group';
+            var fieldsBox = document.createElement('div');
+            fieldsBox.className = 'filter-group-fields';
+            inner.insertBefore(group, label);
+            group.appendChild(label);
+            // Everything up to the next caption belongs to this one. Read
+            // before any of it moves, since moving changes nextElementSibling.
+            var members = [];
+            for (var el = group.nextElementSibling; el; el = el.nextElementSibling) {
+                if (el.classList.contains('filter-section-label') || el.classList.contains('filter-group')) break;
+                members.push(el);
+            }
+            members.forEach(function (el) { fieldsBox.appendChild(el); });
+            group.appendChild(fieldsBox);
+        });
+    }
+
+    /* TEMPORARY (filter tray layout A/B - remove with the dev-bar control in
+       layout.html and the losing layout's CSS). Both the column spans and the
+       tray's own max-height are measured against whichever layout is live, so
+       swapping layouts under an OPEN tray leaves both stale - the tray keeps
+       the height it was capped at for the other layout's row count. The dev
+       control calls this straight after toggling the class so the comparison
+       is like for like. */
+    window.__refreshOpenFilterTrays = function () {
+        document.querySelectorAll('.filter-bar.is-expanded').forEach(function (bar) {
+            var box = bar.querySelector('.filter-bar-collapsible');
+            groupFilterSections(bar);
+            spanWideFilterFields(bar);
+            if (box) positionFilterTray(bar, box);
+        });
+    };
+
+    /* Lets a filter field claim more than one column of the fused grid when
+       its own longest option can't be read in one.
+
+       Why it's needed: the fused label-beside-control layout (panel.css)
+       leaves a 3-column tablet cell about 64px of text room, and the fields
+       sharing that grid are wildly uneven in what they hold. Measured across
+       Students/Referrals/Actions, every select's widest option is 16-24px
+       ("All", "Yes", "10A", a year number) except three - "Educational
+       Provision" (132px), "South Wigston Academy Panel" (189px) and "Mixed /
+       Multiple Ethnic Groups" (192px). A uniform grid has to be sized for
+       one of those two populations and is wrong for the other; this sizes
+       per field instead, so the outliers get the room and nothing else pays
+       for it.
+
+       The test is "does it still not fit after wrapping", not "does it fit on
+       one line". The trigger already clamps to two lines (panel.css), which
+       is enough for most of the long values on its own - spanning on a
+       one-line test instead would widen four fields on Referrals alone and
+       cost more rows than the truncation it fixed. So this asks for the
+       smallest span that gets the value down to two lines, and leaves the
+       field alone when one column already manages that.
+
+       Text is measured on a canvas in the trigger's own resolved font rather
+       than by rendering each option and reading it back - one measurement
+       pass, no layout thrash, and it works on options that are never
+       rendered as text anywhere (the trigger only ever shows the selected
+       one). The canvas is cached across calls; its font is re-read each time
+       because a theme or text-size change can alter it.
+
+       No grid-auto-flow: dense to backfill the holes a wrapped 2-span field
+       leaves. Dense lets a later item jump into an earlier gap, and the gaps
+       here sit right below the section headings (.filter-section-label spans
+       the full row) - a Demographics field backfilling a hole under SEN &
+       Support would put it in the wrong group, which is a worse bug than a
+       gap. */
+    function spanWideFilterFields(bar) {
+        var root = document.documentElement;
+        var fused = !root.classList.contains('filter-tray-sections') &&
+            (root.classList.contains('phone-chrome-side') ||
+            (root.classList.contains('filter-bar-mobile-mode') && root.classList.contains('filter-bar-narrow-desktop')));
+        var grid = bar.querySelector('.filter-bar-collapsible-inner');
+        if (!grid) return;
+        var fields = grid.querySelectorAll('.filter-field:not(.filter-field--search)');
+        // Always clear first: this runs on open and on resize, and a field
+        // that spanned two columns at one width (or in a mode that has since
+        // been left) must not keep the span once it no longer needs it.
+        fields.forEach(function (field) { field.style.gridColumn = ''; });
+        if (!fused) return;
+        var gridStyle = getComputedStyle(grid);
+        var cols = gridStyle.gridTemplateColumns.split(' ').filter(Boolean);
+        // Nothing to span into with a single column, and a non-grid value
+        // ("none") parses to one entry - both mean this mode isn't active.
+        if (cols.length < 2) return;
+        var colWidth = parseFloat(cols[0]);
+        var gap = parseFloat(gridStyle.columnGap) || 0;
+        if (!colWidth) return;
+        var ctx = spanWideFilterFields._ctx ||
+            (spanWideFilterFields._ctx = document.createElement('canvas').getContext('2d'));
+        fields.forEach(function (field) {
+            var select = field.querySelector('select');
+            var trigger = field.querySelector('.ui-select-trigger');
+            var label = field.querySelector('label');
+            if (!select || !trigger) return;
+            var ts = getComputedStyle(trigger);
+            ctx.font = ts.fontWeight + ' ' + ts.fontSize + ' ' + ts.fontFamily;
+            var widest = 0;
+            for (var i = 0; i < select.options.length; i++) {
+                widest = Math.max(widest, ctx.measureText(select.options[i].textContent.trim()).width);
+            }
+            // Everything in the cell that isn't the value's own text: the
+            // fused label, the trigger's padding (its right side is the
+            // chevron's reserved room) and both boxes' borders.
+            var chrome = (label ? label.getBoundingClientRect().width : 0) +
+                parseFloat(ts.paddingLeft) + parseFloat(ts.paddingRight) +
+                parseFloat(ts.borderLeftWidth) + parseFloat(ts.borderRightWidth) + 2;
+            for (var span = 1; span <= cols.length; span++) {
+                var room = (span * colWidth) + ((span - 1) * gap) - chrome;
+                // 2 lines' worth of that room, matching the trigger's own
+                // -webkit-line-clamp: 2. Wrapping never packs a line
+                // perfectly full (it breaks at words), so this asks for a
+                // little more than the raw doubling before calling it a fit.
+                if (room > 0 && widest <= room * 1.8) break;
+            }
+            if (span > 1) field.style.gridColumn = 'span ' + Math.min(span, cols.length);
+        });
+    }
+
+    /* Scrolls the real scroller (<main>) just far enough that a sticky filter
+       bar reaches its pinned position, taking the page header off screen.
+       Scoped to the `short` tier: it's the only one where the header scrolls
+       and the bar sticks, so anywhere else this would scroll a page that had
+       no reason to move. Honours prefers-reduced-motion (INT-M): the jump
+       still happens, it just isn't animated. */
+    function scrollStickyBarToTop(bar) {
+        if (!document.documentElement.classList.contains('phone-chrome-side')) return;
+        var scroller = bar.closest('main');
+        if (!scroller) return;
+        var delta = bar.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+        // <= 1, not <= 0 - sub-pixel rounding leaves a fractional delta when
+        // the bar is already pinned, and a "smooth" scroll of 0.4px still
+        // costs a frame of animation for no visible movement.
+        if (delta <= 1) return;
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: reduce ? 'auto' : 'smooth' });
+    }
 
     // .entity-list::after's own "end of content" stripe (panel.css) - live
     // feedback: "same for the last entity of filtered content... should be
@@ -3323,6 +3511,12 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // that just gained a second line, not the pre-wrap shorter
                 // one.
                 balanceFilterGroupLabels(box);
+                // After the labels are split (they set the fused label's own
+                // width, which spanWideFilterFields measures as chrome) and
+                // before positionFilterTray, whose max-height cap depends on
+                // the row count both of these can change.
+                groupFilterSections(bar);
+                spanWideFilterFields(bar);
                 // #134: the floating tray (panel.css: position: fixed,
                 // viewport-anchored) has nothing left bounding its top/
                 // height once it's out of .filter-bar's own flex flow - CSS
@@ -3337,6 +3531,22 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // the cap - and stays live afterwards too, via the
                 // visualViewport listener above, if the browser's own
                 // chrome changes size while the tray's still open.
+                // Take the header out of the way before measuring. In this
+                // tier the page header scrolls away and the filter bar is
+                // sticky to the top of <main>, so the height the tray gets is
+                // whatever sits below the bar's CURRENT position - and
+                // opening the tray while the page is scrolled to the top
+                // spends the header's ~50px on a title you already know
+                // instead of on filters (live feedback: "perhaps page can
+                // also auto scroll/animate to hide header"). Scrolling <main>
+                // by exactly the bar's offset from its top pins the bar at
+                // the top and hands that height to the tray. positionFilter-
+                // Tray runs immediately on the pre-scroll rect; the smooth
+                // scroll then re-anchors and re-caps the tray frame by frame
+                // through repositionStickyTrays (the capture scroll listener
+                // above), so the tray grows into the space as the header
+                // leaves rather than jumping after it.
+                scrollStickyBarToTop(bar);
                 positionFilterTray(bar, box);
             }
         } else {
@@ -4005,7 +4215,23 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         }
 
         function render() {
-            trigger.textContent = currentLabel();
+            /* The label goes in a span rather than straight onto the button.
+               A <button> can't be a line-clamp container: Chrome blockifies
+               display: -webkit-box on one to flow-root (measured - the clamp
+               was silently ignored and a long value clipped mid-line with no
+               ellipsis), so the one layout that wants a two-line value - the
+               fused label-beside-control filter field, panel.css - needs a
+               real element inside the button to clamp instead. Everywhere
+               else this is invisible: the span is inline and inherits, and
+               trigger.textContent still reads back exactly the same string,
+               so resolveTriggerMinWidth and every other reader is unaffected.
+               Rebuilt each render rather than reused - render() already
+               rewrites the whole label on every change. */
+            trigger.textContent = '';
+            var labelSpan = document.createElement('span');
+            labelSpan.className = 'ui-select-trigger-text';
+            labelSpan.textContent = currentLabel();
+            trigger.appendChild(labelSpan);
             // Mirror the wrapped select's own classes (e.g. a value-driven
             // colour class set server-side) onto the visible trigger button,
             // since the native select itself is hidden.
