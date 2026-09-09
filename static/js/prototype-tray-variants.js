@@ -25,8 +25,21 @@
     }
 
     /* Arrows live in the caption, which is .filter-group's OTHER child -
-       .filter-section-label. Built once per section and left in the DOM
-       when variants change; the CSS decides whether they render. */
+       .filter-section-label. Built once per section and left in the DOM when
+       variants change; the CSS decides whether they render.
+
+       Everything they then DO comes from wireScrollCarousel (main.js), the
+       same helper the senco/stats/referral/action carousels use: drag-to-
+       scroll for a mouse, the vertical-wheel-to-horizontal redirect, arrow
+       auto-hide when the track does not overflow, and the edge state. Its
+       own comment asks not to reimplement that logic again, and a first pass
+       here had already done exactly that.
+
+       The one thing it could not do unchanged is the step: it nudges by one
+       card width, which is exact for a carousel of identical cards and lands
+       mid-field here, where a toggle sits beside "Concern Category". So it
+       now takes an optional scrollTo (added on this branch, backwards
+       compatible), and this passes the fade-aware one below. */
     function ensureArrows(row) {
         var group = row.closest('.filter-group');
         var label = group && group.querySelector(':scope > .filter-section-label');
@@ -38,16 +51,72 @@
             btn.dataset.protoArrow = dir;
             btn.setAttribute('aria-label', (dir === 'prev' ? 'Previous' : 'More') + ' filters in this section');
             btn.textContent = dir === 'prev' ? '‹' : '›';
-            btn.addEventListener('click', function () {
-                /* 80% of a row, not one field: fields here are content-sized
-                   and wildly unequal (a toggle against "Concern Category"),
-                   so paging by element would move a different distance every
-                   press. A near-full row keeps one field of context. */
-                row.scrollBy({ left: (dir === 'prev' ? -1 : 1) * row.clientWidth * 0.8, behavior: 'smooth' });
-            });
             if (dir === 'prev') label.insertBefore(btn, label.firstChild);
             else label.appendChild(btn);
         });
+        if (typeof window.wireScrollCarousel !== 'function') return;
+        group.dataset.protoUpdate = '1';
+        group._protoUpdateArrows = window.wireScrollCarousel(
+            group,
+            ':scope > .filter-group-fields',
+            '.filter-field',
+            '.proto-arrow[data-proto-arrow="prev"]',
+            '.proto-arrow[data-proto-arrow="next"]',
+            { scrollTo: function (track, direction) { step(track, direction > 0 ? 'next' : 'prev'); } }
+        );
+    }
+
+    /* How wide the fade is, read back off the row's own custom property so
+       CSS stays the single source of truth (--proto-fade). */
+    function fade(row) {
+        var v = parseFloat(window.getComputedStyle(row).getPropertyValue('--proto-fade'));
+        return isFinite(v) ? v : 28;
+    }
+
+    /* One press = "show me the field I can only half see".
+
+       Not a fixed 80%-of-a-row page, which was the first version: fields
+       here are content-sized and wildly unequal (a toggle against "Concern
+       Category"), so a fixed distance lands mid-field as often as not, and
+       the whole point of the press is to stop looking at half a dropdown.
+
+       The landing position is inset by the fade at whichever end the field
+       arrives at, so the field the press just revealed is fully opaque
+       rather than sitting under the gradient that advertised it. That inset
+       is also what scroll-padding-inline hands to the browser's own
+       snapping (prototype-tray-variants.css), so the snap variant settles
+       on exactly the same position instead of pulling the field back under
+       the fade.
+
+       Falls back to a plain page if nothing is cut - only reachable at the
+       very ends of the travel, where the arrow is disabled anyway. */
+    function step(row, dir) {
+        var rowRect = row.getBoundingClientRect();
+        var pad = fade(row);
+        var left = rowRect.left + pad;
+        var right = rowRect.right - pad;
+        var fields = Array.prototype.slice.call(row.querySelectorAll(':scope > .filter-field'));
+        var delta = null;
+        if (dir === 'next') {
+            for (var i = 0; i < fields.length; i++) {
+                var r = fields[i].getBoundingClientRect();
+                // First field whose right edge is past the visible band:
+                // bring its LEFT edge to the band's left.
+                if (r.right > right + 1) { delta = r.left - left; break; }
+            }
+        } else {
+            for (var j = fields.length - 1; j >= 0; j--) {
+                var pr = fields[j].getBoundingClientRect();
+                // Last field starting before the band: bring its RIGHT edge
+                // to the band's right, so it lands whole and the row moves
+                // by however much that field actually needed.
+                if (pr.left < left - 1) { delta = pr.right - right; break; }
+            }
+        }
+        if (delta === null) delta = (dir === 'next' ? 1 : -1) * row.clientWidth;
+        var max = row.scrollWidth - row.clientWidth;
+        var target = Math.max(0, Math.min(max, row.scrollLeft + delta));
+        row.scrollTo({ left: target, behavior: 'smooth' });
     }
 
     function update(row) {
@@ -76,6 +145,8 @@
                 return;
             }
             ensureArrows(row);
+            var g = row.closest('.filter-group');
+            if (g && g._protoUpdateArrows) g._protoUpdateArrows();
             if (!row.dataset.protoBound) {
                 row.dataset.protoBound = '1';
                 row.addEventListener('scroll', function () { update(row); }, { passive: true });

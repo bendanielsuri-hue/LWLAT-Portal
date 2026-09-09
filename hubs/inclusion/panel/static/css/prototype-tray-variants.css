@@ -70,9 +70,18 @@ html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-gro
        tray's own vertical scroll (and, on iOS, into the page's back
        gesture) - each category's scroll is its own closed world. */
     overscroll-behavior-x: contain;
-    /* Room for the fade to sit over without covering the last field's own
-       edge. */
-    scroll-padding-right: var(--space-sm);
+    /* One source of truth for how wide the fade is: the mask gradients
+       below read it, the arrow logic (prototype-tray-variants.js) reads it
+       back off the computed style, and scroll-padding hands it to the
+       browser's own snapping. Three things that have to agree about where
+       "clear of the fade" is, agreeing on one number. */
+    --proto-fade: 28px;
+    /* The inset the fade occupies at each end. scroll-padding is what makes
+       a snap point land a field INSIDE the fade rather than under it - with
+       scroll-snap-align: start and no padding, snapping would pull a field
+       flush to the row's left edge, i.e. straight back under the left fade
+       the arrows just moved it clear of. */
+    scroll-padding-inline: var(--proto-fade);
 }
 /* No scrollbar at any width or input mode, not just the usual
    html.nav-touch-mode pair (project convention) - a scrollbar under every
@@ -103,16 +112,16 @@ html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-gro
    The half-visible field at the cut is doing most of the work here - the
    fade only makes it read as deliberate rather than as clipping. */
 .proto-scroll-more-right {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
-    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--proto-fade)), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--proto-fade)), transparent 100%);
 }
 .proto-scroll-more-left {
-    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent 100%);
-    mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--proto-fade)), transparent 100%);
+    mask-image: linear-gradient(to left, #000 calc(100% - var(--proto-fade)), transparent 100%);
 }
 .proto-scroll-more-left.proto-scroll-more-right {
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--proto-fade), #000 calc(100% - var(--proto-fade)), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 var(--proto-fade), #000 calc(100% - var(--proto-fade)), transparent 100%);
 }
 
 /* ===================================================================
@@ -160,15 +169,23 @@ html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-gro
 .proto-arrow {
     display: none;
 }
-html[data-tray-variant="scr"] .filter-group.proto-can-scroll .proto-arrow,
-html[data-tray-variant="snap"] .filter-group.proto-can-scroll .proto-arrow {
+/* :not([hidden]) is load-bearing, not belt-and-braces: wireScrollCarousel
+   hides an arrow by setting the `hidden` PROPERTY, and [hidden]'s display:
+   none comes from the UA stylesheet - any author display here outranks it,
+   so without this an arrow the helper had hidden would keep rendering. */
+html[data-tray-variant="scr"] .filter-group.proto-can-scroll .proto-arrow:not([hidden]),
+html[data-tray-variant="snap"] .filter-group.proto-can-scroll .proto-arrow:not([hidden]) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    /* Sized to the caption's own text, not to a touch target: a swipe is
-       the real gesture on touch and these are the affordance/mouse path.
-       (If this variant wins, that is worth revisiting against DES-S3.) */
+    /* 22px is the VISIBLE size, sized to the caption's own text so eight of
+       these down a tray do not shout over four captions. The tap target is
+       a separate 44px (DES-S3) supplied by the ::after below - a control can
+       be small to look at and still be big to hit, and that split is the
+       only way to satisfy the floor here without the button out-weighing
+       the caption it sits on. */
+    position: relative;
     width: 22px;
     height: 22px;
     padding: 0;
@@ -187,4 +204,32 @@ html[data-tray-variant="snap"] .filter-group.proto-can-scroll .proto-arrow[disab
        every time you scroll it. */
     opacity: 0.35;
     cursor: default;
+}
+
+/* (DES-S3) The real 44px tap target, invisible, over the 22px circle.
+
+   Deliberately not centred on the button: the caption sits only --space-micro
+   (2px) under its own fields row, so a symmetric 44px box would reach 11px up
+   into the bottom edge of the dropdowns above and swallow taps meant for
+   them. Extended down and sideways instead, into the --space-lg gap that
+   already separates this section from the next, where there is nothing to
+   steal a tap from. 2 + 22 + 20 = 44 tall, 11 + 22 + 11 = 44 wide. */
+html[data-tray-variant="scr"] .filter-group.proto-can-scroll .proto-arrow::after,
+html[data-tray-variant="snap"] .filter-group.proto-can-scroll .proto-arrow::after {
+    content: "";
+    position: absolute;
+    inset: -2px -11px -20px;
+}
+/* Grab affordance, on the row and only while it can actually move -
+   wireScrollCarousel (main.js) toggles .is-draggable/.is-dragging as part of
+   the same drag handling it gives every other carousel in the app. */
+html[data-tray-variant="scr"] .filter-group-fields.is-draggable,
+html[data-tray-variant="snap"] .filter-group-fields.is-draggable {
+    cursor: grab;
+}
+html[data-tray-variant="scr"] .filter-group-fields.is-dragging,
+html[data-tray-variant="snap"] .filter-group-fields.is-dragging {
+    cursor: grabbing;
+    /* Stops the drag selecting label text as it passes over it. */
+    user-select: none;
 }

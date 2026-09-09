@@ -831,7 +831,17 @@ window.setupFilterBarMoreFilters = setupFilterBarMoreFilters;
 // re-registering the click handlers each time - re-calling this whole
 // function on every remeasure would stack a fresh, duplicate click listener
 // on the same prev/next buttons instead.
-function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nextSelector) {
+//
+// options.scrollTo(track, direction) replaces what one arrow press moves,
+// for a track whose items are NOT equal width. The default below nudges by
+// one card plus the gap, which is exact for a carousel of uniform cards
+// (senco/stats/referral/action all are) and lands mid-item for anything
+// else - a filter row, where a toggle sits beside "Concern Category", can
+// leave a dropdown half shown after a press that was meant to reveal it.
+// Everything else - the wheel redirect, drag-to-scroll, arrow auto-hide and
+// the edge state - is identical either way, which is the whole reason to
+// pass a stepper rather than fork the function.
+function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nextSelector, options) {
     var track = wrap.querySelector(trackSelector);
     var prevBtn = wrap.querySelector(prevSelector);
     var nextBtn = wrap.querySelector(nextSelector);
@@ -842,8 +852,15 @@ function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelector, nex
         return card ? card.offsetWidth + 12 : track.clientWidth;
     }
 
-    prevBtn.addEventListener('click', function () { track.scrollBy({ left: -step(), behavior: 'smooth' }); });
-    nextBtn.addEventListener('click', function () { track.scrollBy({ left: step(), behavior: 'smooth' }); });
+    var customScroll = options && options.scrollTo;
+    prevBtn.addEventListener('click', function () {
+        if (customScroll) { customScroll(track, -1); return; }
+        track.scrollBy({ left: -step(), behavior: 'smooth' });
+    });
+    nextBtn.addEventListener('click', function () {
+        if (customScroll) { customScroll(track, 1); return; }
+        track.scrollBy({ left: step(), behavior: 'smooth' });
+    });
 
     // A mouse wheel only ever reports deltaY, so without this a horizontal-
     // only track (nothing to scroll vertically) just ignores the user's wheel
