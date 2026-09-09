@@ -4106,7 +4106,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
        line is what the label actually needs; the whole string would
        over-measure a two-line label by roughly double. Its own horizontal
        padding is added back from the computed style rather than assumed,
-       since the tray strips it to 0 and the phone-portrait chip does not. */
+       since a panel strips it to 0 and the phone-portrait chip does not. */
     function labelTextWidth(label) {
         if (!label) return 0;
         var style = window.getComputedStyle(label);
@@ -4117,6 +4117,16 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             if (text) widest = Math.max(widest, textWidth(text, style.font));
         });
         return widest ? widest + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) : 0;
+    }
+
+    /* Everything in the trigger that is not the value's own text: its side
+       padding (the right side is the chevron's reserved room) and its own
+       borders, plus a pixel of slack for sub-pixel rounding. Measured, not
+       assumed, wherever the result is used as a hard ceiling. */
+    function triggerChromeWidth(trigger) {
+        var style = window.getComputedStyle(trigger);
+        return parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) +
+            parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth) + 1;
     }
 
     // The closed trigger's stable width, one rule for all three contexts a
@@ -4134,27 +4144,30 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     //   capped at FILTER_FIELD_TRIGGER_MAX_WIDTH so one very long option
     //   value doesn't blow the field out past the field's own budget - it
     //   just clips with the trigger's existing ellipsis instead.
-    //   Inside an open filter TRAY (landscape phone / portrait tablet) the
-    //   same rule applies, but against a two-LINE budget rather than a one-
-    //   line one: the trigger there wraps a long value onto a second line
-    //   (panel.css), so it only needs about half the width to show the same
-    //   text. Fields in the tray are content-sized flex items packed onto
+    //   In a filter PANEL (isWrappingFilterField, below) it still grows to
+    //   the selection, but only as far as one line's worth; past the cap it
+    //   asks for a two-LINE width instead of being truncated, because the
+    //   trigger there wraps (panel.css). One line first, always - halving
+    //   every value would wrap "All" as readily as a real phrase. Only a
+    //   value that cannot fit one line inside the cap gets the two-line
+    //   budget, which is roughly half the width for the same text.
+    //   Why it matters: panel fields are content-sized flex items packed onto
     //   shared lines, so every pixel a field grows can push a whole section
-    //   onto a new row - halving what growth is needed is what keeps most
-    //   selections from moving anything at all (measured: picking "Mixed /
-    //   Multiple Ethnic Groups" grew Ethnicity 64px -> 176px, the cap, on one
-    //   line; on two it needs ~120px, and most selections now move nothing).
-    //   Sizing to the WIDEST option instead was tried and reverted - live
-    //   feedback: "this takes too much space when mostly they are set to
-    //   all". Whatever growth is left after this is animated rather than
-    //   designed out (animateFilterTrayReflow, above).
+    //   onto a new row. Sizing every field to its WIDEST option instead was
+    //   tried and reverted - live feedback: "this takes too much space when
+    //   mostly they are set to all". Whatever growth is left is animated
+    //   rather than designed out (animateFilterTrayReflow, above).
     //   0.55, not a flat half: wrapping breaks at words, so two lines never
     //   pack perfectly full - the extra 10% is the same allowance the tray's
-    //   own column-fit maths used before it. Applied to the TEXT only, with
-    //   the padding added back whole afterwards: the chevron's reserved room
-    //   and the trigger's own side padding are spent once, not per line, and
-    //   halving those too under-provisioned every long value by ~20px and put
-    //   an ellipsis on the second line.
+    //   own column-fit maths used before it. It applies to the TEXT only,
+    //   with the chrome added back whole: side padding and the chevron's
+    //   reserved room are spent once, not per line.
+    //   That chrome is measured off the trigger rather than taken from
+    //   SELECT_TRIGGER_PADDING here. The constant is a fair estimate when it
+    //   only sets a floor, but applyTriggerWidth turns this number into a
+    //   hard ceiling in a panel, and being a few px under then costs real
+    //   text: every short value came back as "A" instead of "All" (live
+    //   feedback: "it is all getting truncated").
     // - everywhere else: sized to the widest *option* (so picking a short
     //   option doesn't narrow the control down enough to clip a longer one
     //   next time it's opened), capped at the generic SELECT_TRIGGER_MAX_WIDTH.
@@ -4162,11 +4175,27 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // conflict, which is exactly why .ui-fused-field and .filter-field each
     // need their own handling rather than the generic one (see grilling
     // session 2026-07-12).
-    // True for the tiers whose tray lays its fields out as content-sized flex
-    // items - the same pair panel.css scopes that layout to. Read live rather
-    // than cached: the dev breakpoint preview and a real rotation both cross
-    // this boundary without a reload.
-    function isTrayFieldLayout(filterField) {
+    /* True for a filter field that sits in a filter PANEL - somewhere a long
+       value is allowed to wrap onto a second line instead of demanding the
+       width to sit on one (panel.css).
+
+       Two of them: the tray (landscape phone / portrait tablet / narrowed
+       desktop - the same pair panel.css scopes that layout to), and the
+       "View filters" panel every width above mobile drops down. Live
+       feedback: "can desktop also have a wrap on long selected filters, are
+       they less tall?" - they are, and a panel has vertical room to spend
+       where it has no horizontal room to spare.
+
+       Not the always-visible primary row: that is one line of controls beside
+       the search box, where a field growing a second line would set the whole
+       bar's height. Not phone portrait's chip grid either - its trigger is
+       pinned to min-width: 0 (panel.css) and sized by its column, so there is
+       no inline width here for any of this to act on.
+
+       Read live rather than cached: the dev breakpoint preview and a real
+       rotation both cross this boundary without a reload. */
+    function isWrappingFilterField(filterField) {
+        if (filterField.closest('.filter-secondary-fields')) return true;
         var root = document.documentElement;
         if (!(root.classList.contains('phone-chrome-side') ||
             (root.classList.contains('filter-bar-mobile-mode') && root.classList.contains('filter-bar-narrow-desktop')))) return false;
@@ -4178,18 +4207,24 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var filterField = selectEl.closest('.filter-field');
         if (filterField) {
             var label = filterField.querySelector(':scope > label');
-            var inTray = isTrayFieldLayout(filterField);
-            // In the tray the label is measured from its own TEXT, not from
+            var wraps = isWrappingFilterField(filterField);
+            // In a panel the label is measured from its own TEXT, not from
             // its rendered box: it stretches to whatever width the field
             // currently is, so reading offsetWidth after a wide option had
             // widened the field fed that width straight back in as the floor
             // and the control could never shrink again - live feedback: "when
             // I drop back to all it does not revert back to narrow!".
-            var labelWidth = inTray ? labelTextWidth(label) : (label ? label.offsetWidth : 0);
+            var labelWidth = wraps ? labelTextWidth(label) : (label ? label.offsetWidth : 0);
             var selectedOpt = selectEl.options[selectEl.selectedIndex];
             var selectedText = selectedOpt ? textWidth(selectedOpt.textContent, font) : 0;
-            if (selectedText && inTray) selectedText = selectedText * 0.55;
             var valueWidth = selectedText ? selectedText + SELECT_TRIGGER_PADDING : 0;
+            if (selectedText && wraps) {
+                var chrome = triggerChromeWidth(trigger);
+                var oneLine = selectedText + chrome;
+                valueWidth = oneLine <= FILTER_FIELD_TRIGGER_MAX_WIDTH
+                    ? oneLine
+                    : (selectedText * 0.55) + chrome;
+            }
             return Math.min(Math.max(labelWidth, valueWidth), FILTER_FIELD_TRIGGER_MAX_WIDTH) + 'px';
         }
         var widest = maxOptionTextWidth(selectEl, font);
@@ -4197,10 +4232,10 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     }
 
     /* Sets the trigger's inline width from resolveTriggerMinWidth, as a floor
-       everywhere and - inside the tray - as a ceiling as well.
+       everywhere and - in a filter panel - as a ceiling as well.
 
        The ceiling is what makes the two-line budget above mean anything. A
-       tray field is a flex item with a basis of auto, so it sizes to its own
+       panel field is a flex item with a basis of auto, so it sizes to its own
        max-content: without an upper bound the trigger simply grows until the
        whole value fits on one line, and the white-space: normal meant to wrap
        it (panel.css) never has a reason to. That shipped - live feedback, with
@@ -4208,13 +4243,13 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
        two lines?".
 
        Same value for both bounds, so the control is exactly as wide as its own
-       budget says and the text wraps inside it. Cleared outside the tray,
-       where a trigger is free to size to its own content. */
+       budget says and the text wraps inside it. Cleared elsewhere, where a
+       trigger is free to size to its own content. */
     function applyTriggerWidth(selectEl, trigger) {
         var width = resolveTriggerMinWidth(selectEl, trigger);
         trigger.style.minWidth = width;
         var filterField = selectEl.closest('.filter-field');
-        trigger.style.maxWidth = (width && filterField && isTrayFieldLayout(filterField)) ? width : '';
+        trigger.style.maxWidth = (width && filterField && isWrappingFilterField(filterField)) ? width : '';
     }
 
     /* Recompute every filter trigger's inline width in `bar` against the tier

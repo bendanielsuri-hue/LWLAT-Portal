@@ -6886,7 +6886,45 @@ html.nav-touch-mode .row-facts-arrow {
            "active" signal without competing with the subtler fill. */
         border-color: var(--primary);
     }
-    /* Label keeps its colour swap (forms.css: color: var(--active-text)) but not
+    /* A long selected value wraps onto a second line here too, rather than
+       demanding the width to sit on one - live feedback: "can desktop also
+       have a wrap on long selected filters, are they less tall?". They are:
+       a panel field is short and has vertical room to spend, where the width
+       it would otherwise claim is the scarce thing (every pixel a field grows
+       can push a whole category onto a new row, since these are content-sized
+       flex items packed onto shared lines). Same treatment as the tray's own
+       fields further down this file, and the same two-line budget drives the
+       width from JS (resolveTriggerMinWidth / isWrappingFilterField, main.js).
+
+       Only this panel, not the always-visible primary row: that is one line of
+       controls beside the search box, where a field growing a second line
+       would set the whole bar's height.
+
+       -webkit-line-clamp, not plain white-space: normal: wrapping alone has no
+       upper bound, so a long value would grow its whole line - every field on
+       it stretches to the tallest - by however many lines it took. Clamping at
+       2 keeps a hard ceiling and still ends in an ellipsis on the rare value
+       that needs a third; the full text is always there in the popover the
+       trigger opens.
+
+       The clamp lives on the label span (added by enhanceSelect's render(),
+       main.js), not on the button: Chrome blockifies display: -webkit-box on a
+       <button> to flow-root, so clamping the trigger directly is silently
+       ignored. */
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field:not(.filter-field--search) .ui-select-trigger {
+        white-space: normal;
+        /* 1.25, not the inherited body line-height - two lines have to fit
+           inside a control that reads as one row of chrome, not as a
+           paragraph. */
+        line-height: 1.25;
+    }
+    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field:not(.filter-field--search) .ui-select-trigger-text {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+    }
+        /* Label keeps its colour swap (forms.css: color: var(--active-text)) but not
        its text-stroke fake-bold (live feedback: "lose the bolden effect on
        active filter labels, but keep the colour change") - scoped narrowly
        to just this property rather than the whole .filter-field--active
