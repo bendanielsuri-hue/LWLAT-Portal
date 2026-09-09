@@ -7213,8 +7213,24 @@ html.nav-touch-mode .row-facts-arrow {
    never pulls in the phone bottom-nav/FAB at desktop width - the JS math
    that clears the tabbar's height for the tray (positionFilterTray, below)
    already degrades to 0 gracefully whenever .mobile-tabbar is display: none,
-   exactly as it already does above 480px today. */
-@media (max-width: 900px) {
+   exactly as it already does above 480px today.
+
+   The (max-height: 500px) arm is the `short` tier (landscape phone - see the
+   breakpoint registry in responsive.css and ADR 0016). A landscape iPhone 16
+   Max is 932px wide, i.e. just OUTSIDE the 900px arm, so the filter tray's
+   sticky footer never got its mobile treatment there and the result counts sat
+   off-screen with no way to reach them (live feedback: "the footer is not
+   sticky in this format so I can't see the counts"). Its two smaller siblings
+   (SE at 667, iPhone 16 at 844) did match, so the same device class was
+   getting two different filter bars depending on model.
+
+   Safe to widen because 52 of the 59 rules in this block are already scoped to
+   html.filter-bar-mobile-mode, which is only set when the treatment is
+   actually wanted (main.js's isFilterBarMobile) - the width query was
+   redundant belt-and-braces for them. Of the remaining seven, six are
+   html.filter-bar-narrow-desktop, which deliberately EXCLUDES this tier, and
+   the last is a z-index lift on .stats-strip that is wanted here anyway. */
+@media (max-width: 900px), (max-height: 500px) {
     /* Dims and covers the entity list while filters are expanded, closing
        them on click (live feedback: "the page beneath filters [should]
        have an overlay like a modal which when clicked will close the

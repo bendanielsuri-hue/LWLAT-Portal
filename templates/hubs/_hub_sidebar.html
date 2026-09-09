@@ -377,7 +377,30 @@ Menu switcher instead - see its own comment below.
             {% endcomment %}
             padding-top: var(--space-sm);
             padding-bottom: var(--space-sm);
-            padding-right: calc(56px + var(--space-sm));
+            {% comment %}
+            56px strip + the 28px the FAB punches back out of it + a 12px gap.
+            Clearing only the strip left the FAB's protruding half sitting on
+            top of the page's right-hand column (live feedback: "the side of
+            page is colliding with FAB") - and unlike the bar in portrait,
+            which overlaps a full-width row's dead bottom margin, here it lands
+            mid-content where the action buttons live. Affordable now that the
+            64px phantom rail on the left is gone: net width is still up on
+            where this tier started.
+            {% endcomment %}
+            padding-right: calc(56px + 28px + var(--space-sm));
+        }
+        {% comment %}
+        The header scrolls away instead of sticking (live feedback: "when the
+        height of screen is this low, we cannot afford to always show the header
+        buttons - maybe the whole header should be able to scroll away").
+        Measured at 130px of a 430px viewport, this zone was holding 30% of the
+        screen permanently for a title and two button rows. Sticky chrome earns
+        its keep when it costs ~15% of a tall viewport; at this height it is the
+        single most expensive thing on screen, and everything in it is still one
+        scroll-to-top away.
+        {% endcomment %}
+        html.phone-chrome-side .sticky-header-zone {
+            position: static;
         }
         {% comment %}
         main's own native scrollbar renders at main's own edge, and main
