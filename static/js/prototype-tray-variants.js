@@ -1,19 +1,72 @@
 /* PROTOTYPE - throwaway, never merge to main.
    Branch: prototype/tray-section-fill-variants. Floating switcher for the
-   four tray-section states in prototype-tray-variants.css.
+   tray-section states in prototype-tray-variants.css, plus the measuring
+   half of the "bal" state.
 
-   ?tray=a|b|c|now in the URL, mirrored to localStorage so the choice
+   ?tray=now|mid|bal|both in the URL, mirrored to localStorage so the choice
    survives the filter form's own GET submits (which rebuild the query
    string from the form's fields and would otherwise drop it). Left/right
    arrow keys cycle too, except while typing in a field. */
 (function () {
     var VARIANTS = [
         { key: 'now', name: 'today, untouched' },
-        { key: 'a', name: 'flowed + wrapping tint' },
-        { key: 'b', name: 'tinted box' },
-        { key: 'c', name: 'fill the line' }
+        { key: 'mid', name: 'centre the line' },
+        { key: 'bal', name: 'balanced breaks' },
+        { key: 'both', name: 'balanced + centred' }
     ];
     var STORE = 'prototypeTrayVariant';
+
+    /* Balanced breaks.
+
+       Read the natural wrap first (fields sharing an offsetTop are on a
+       line), because the balanced split depends on how many actually fit,
+       which depends on the viewport and on how wide each trigger has been
+       sized to its own value - neither of which is knowable up front.
+
+       n fields over L natural lines wants ceil(n / L) per line: 5 over 2
+       lines is 3 + 2, 7 over 3 is 3 + 3 + 1. Then a break goes before every
+       (per)th field.
+
+       Verified after inserting, not assumed: if the forced split asks for
+       more per line than genuinely fits, the browser wraps anyway and the
+       group ends up with MORE lines than it started with, which is worse
+       than the ragged edge being fixed. In that case the breaks come back
+       out and the group keeps its natural wrap. */
+    function balance(group) {
+        clearBreaks(group);
+        var fields = Array.prototype.slice.call(group.querySelectorAll(':scope > .filter-field'));
+        if (fields.length < 3) return;
+        var lines = countLines(fields);
+        if (lines < 2) return;
+        var per = Math.ceil(fields.length / lines);
+        if (per >= fields.length) return;
+        for (var i = per; i < fields.length; i += per) {
+            var br = document.createElement('span');
+            br.className = 'proto-line-break';
+            group.insertBefore(br, fields[i]);
+        }
+        if (countLines(fields) > lines) clearBreaks(group);
+    }
+
+    function countLines(fields) {
+        var tops = {};
+        fields.forEach(function (f) { tops[Math.round(f.offsetTop)] = 1; });
+        return Object.keys(tops).length;
+    }
+
+    function clearBreaks(group) {
+        Array.prototype.forEach.call(group.querySelectorAll(':scope > .proto-line-break'), function (b) {
+            b.remove();
+        });
+    }
+
+    function rebalance() {
+        var key = document.documentElement.dataset.trayVariant;
+        document.querySelectorAll('.filter-bar-sections .filter-group-fields').forEach(function (group) {
+            if (key === 'bal' || key === 'both') balance(group);
+            else clearBreaks(group);
+        });
+    }
 
     function currentKey() {
         var fromUrl = new URLSearchParams(window.location.search).get('tray');
@@ -36,6 +89,7 @@
             var v = VARIANTS.filter(function (x) { return x.key === key; })[0];
             label.textContent = v.key.toUpperCase() + ' - ' + v.name;
         }
+        rebalance();
     }
 
     function cycle(step) {
@@ -60,7 +114,7 @@
         bar.innerHTML =
             '<button type="button" data-prototype-prev aria-label="Previous variant" ' +
             'style="all:unset;cursor:pointer;padding:2px 6px;font-size:14px">&#8592;</button>' +
-            '<span data-prototype-label style="min-width:170px;text-align:center"></span>' +
+            '<span data-prototype-label style="min-width:150px;text-align:center"></span>' +
             '<button type="button" data-prototype-next aria-label="Next variant" ' +
             'style="all:unset;cursor:pointer;padding:2px 6px;font-size:14px">&#8594;</button>';
         document.body.appendChild(bar);
@@ -75,7 +129,26 @@
         cycle(e.key === 'ArrowRight' ? 1 : -1);
     });
 
-    function init() { build(); apply(currentKey(), false); }
+    /* The tray is built and regrouped by main.js (setupFilterBarMoreFilters,
+       groupFilterSections) and its fields have no measurable width until it
+       is actually open, so a single pass at load would measure a collapsed
+       box. Re-run on anything that can change the wrap: opening the tray,
+       resizing/rotating, and picking a value (a longer value can widen its
+       own trigger). Debounced, since a resize fires continuously. */
+    var timer = null;
+    function schedule() {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(rebalance, 120);
+    }
+    window.addEventListener('resize', schedule);
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.filter-bar-label, .more-filters-toggle, .ui-select')) schedule();
+    });
+    document.addEventListener('change', function (e) {
+        if (e.target.closest('.filter-field')) schedule();
+    });
+
+    function init() { build(); apply(currentKey(), false); schedule(); }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
