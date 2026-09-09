@@ -368,6 +368,14 @@ Menu switcher instead - see its own comment below.
         430px-tall viewport donates 80px of its scarcest axis to nothing.
         {% endcomment %}
         html.phone-chrome-side body:has(.mobile-tabbar) .main-inner {
+            {% comment %}
+            Padding split by axis, which is the whole point of this tier: the
+            VERTICAL padding drops to the phone's 12px because height is the
+            scarce axis here (desktop's 32px top padding alone was ~7% of a
+            430px viewport), while the LEFT padding stays at desktop's 32px
+            because width isn't scarce at all. Right clears the nav strip.
+            {% endcomment %}
+            padding-top: var(--space-sm);
             padding-bottom: var(--space-sm);
             padding-right: calc(56px + var(--space-sm));
         }
@@ -689,6 +697,26 @@ Menu switcher instead - see its own comment below.
             white-space: nowrap;
         }
         .mobile-fab-wheel-chip-new { font-size: 9px; font-weight: 600; opacity: 0.8; }
+        {% comment %}
+        `short` tier: label beside the circle, not under it. Adjacent items sit
+        one STEP apart along the arc (~86px), and stacked circle-over-chip an
+        item is ~82px tall - fine in portrait, where that separation is mostly
+        HORIZONTAL so the chips never meet, but on a vertical arc the two
+        numbers are near-identical and the labels collide (live feedback: "fab
+        menu buttons overlap in mobile landscape"). Laid out in a row the item
+        is only ~54px tall, clearing the spacing outright.
+
+        row-reverse so the chip lands on the OUTER side, away from the strip
+        the arc opens out of, where there's 900px of free width for it.
+        {% endcomment %}
+        html.phone-chrome-side .mobile-fab-wheel-item {
+            flex-direction: row-reverse;
+            align-items: center;
+        }
+        html.phone-chrome-side .mobile-fab-wheel-chip {
+            margin-top: 0;
+            margin-right: 8px;
+        }
         .mobile-fab-wheel-chip-name { font-size: 11px; font-weight: 700; }
         @media (hover: hover) {
             .mobile-fab-wheel-item:hover .mobile-fab-wheel-circle { transform: scale(1.08); }
