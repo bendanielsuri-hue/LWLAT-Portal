@@ -4,7 +4,7 @@
 {% block title %}Students{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=423">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=424">
 {% endblock %}
 
 
@@ -146,21 +146,20 @@ School dropped entirely (issue #9).
     filters; Inclusion Panel's referral/action activity third, since it's
     workflow data about a student rather than an identity attribute;
     Demographics last as broad cross-cutting characteristics not specific
-    to this panel's purpose) - hidden except in the mobile 3-up grid
+    to this panel's purpose) - hidden until a host renders sections
     (panel.css). No CSS `order` needed to reshuffle anything (unlike an
     earlier version of this grouping) - this template order already is the
     visual order, so plain DOM/flex-wrap sequencing gets there on its own.
     {% endcomment %}
     <div class="filter-section-label">Group Info</div>
     {% comment %}
-    Year/House/Reg grouped into one 3-up row with each label above its
-    own value, rather than each taking a full fused-label-left row to
-    itself (live feedback: "a lot of these filters are taking up too
-    much space... Year, House and Reg on one row with label fused
-    above") - scoped in panel.css via the same :has(#year-filter) etc.
-    hooks the tablet-range override already uses, not a template wrapper,
-    so dynamic overflow measurement (main.js) still treats each as its
-    own independently-measured field on every other width.
+    Year/House/Reg are narrowed to 90px so all three fit the collapsed
+    bar's own always-visible row together (live feedback: "can Year, House
+    and Form all be on same row in mobile") - done in panel.css via
+    :has(#year-filter) etc. rather than a template wrapper, so dynamic
+    overflow measurement (main.js) still treats each as its own
+    independently-measured field, and lifted again by a matching rule for
+    the tray's field host, where every field is content-sized (#185).
     {% endcomment %}
     <div class="filter-field{% if year_filter %} filter-field--active{% endif %}">
         <label for="year-filter">Year</label>

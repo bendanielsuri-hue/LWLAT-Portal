@@ -592,8 +592,8 @@ function setupFilterBarMoreFilters(bar) {
         Array.prototype.forEach.call(secondaryRow.querySelectorAll('.filter-group'), function (g) { g.remove(); });
         // The tray's own inner needs the same clean-up, for the same reason:
         // groupFilterSections builds .filter-group wrappers in there too
-        // (landscape phone / portrait tablet), and the reclaim above pulls
-        // every field straight back out of them. Missing this shipped as a
+        // (every tier that renders fields in the tray), and the reclaim above
+        // pulls every field straight back out of them. Missing this shipped as a
         // breakpoint-change bug - the emptied wrappers stayed, the sections
         // CSS applied to a flat field list, and every caption rendered inline
         // beside its own fields instead of under them (#182). Grouping is
@@ -601,6 +601,12 @@ function setupFilterBarMoreFilters(bar) {
         if (collapsibleInner) {
             Array.prototype.forEach.call(collapsibleInner.querySelectorAll('.filter-group'), function (g) { g.remove(); });
         }
+        // Cleared alongside those wrappers, re-added below only if this pass
+        // actually rebuilds groups in the track - the reclaim above has just
+        // emptied it, and a host still claiming to render sections while
+        // holding nothing is what leaves the caption rules pointed at a flat
+        // field list (the #182 breakpoint-change bug, one level up).
+        secondaryTrack.classList.remove('filter-bar-sections');
         reanchorCollapsibleFooter();
         secondaryRow.hidden = true;
         moreFiltersBtn.hidden = true;
@@ -669,6 +675,11 @@ function setupFilterBarMoreFilters(bar) {
                     groupEl.appendChild(groupFields);
                     secondaryTrack.appendChild(groupEl);
                 });
+                // Same class, same meaning, other host (#185): panel.css's
+                // sections rules are keyed on it and no longer on a width or
+                // on .filter-secondary-fields itself, so the panel and the
+                // tray share one rule body.
+                secondaryTrack.classList.add('filter-bar-sections');
                 moreFiltersBtn.hidden = false;
             }
         }
@@ -1078,18 +1089,28 @@ document.addEventListener('change', function (e) {
 function groupFilterSections(bar) {
     var inner = bar.querySelector('.filter-bar-collapsible-inner');
     if (!inner) return;
-    // The two tiers whose tray renders sections as flex items (panel.css).
-    // Phone portrait's 3-up chip grid wants the flat field list and unwraps
-    // again, which is why this runs in both directions rather than only
-    // building - a resize can cross the boundary either way with the tray
-    // already open.
-    // This enumeration is the JS half of the split #182 item 5 is about:
-    // unifying phone portrait onto the sections layout means changing it
-    // and the CSS scoping together, and the CSS side needs its shared rules
-    // lifted out of @media (min-width: 481px) first - see that ticket.
+    // Every tier whose fields live in the tray, not two of them (#185). This
+    // used to read phone-chrome-side || (mobile-mode && narrow-desktop),
+    // which left true phone portrait - neither - unwrapping the groups again
+    // to feed a 3-up chip grid that no longer exists. Both halves moved
+    // together: panel.css's sections rules came out of @media (min-width:
+    // 481px) in the same commit, since a rule that cannot match a 390px
+    // viewport is what made phone portrait the odd one out in the first
+    // place.
+    // Still runs in both directions: at desktop width measure() reclaims
+    // every field into the "View filters" panel instead, and a resize can
+    // cross that boundary either way with the tray already open.
     var root = document.documentElement;
     var wantGroups = root.classList.contains('phone-chrome-side') ||
-        (root.classList.contains('filter-bar-mobile-mode') && root.classList.contains('filter-bar-narrow-desktop'));
+        root.classList.contains('filter-bar-mobile-mode');
+    // The class panel.css keys the whole sections rule set on - "this box
+    // renders the sections layout", the same statement measure() makes about
+    // the panel's own track. Set on the HOST rather than per group, and
+    // independently of whether any .filter-section-label actually exists:
+    // Referrals/Actions/Meetings have no captions to group, but their fields
+    // still need the field/label/trigger half of that rule set, exactly as
+    // they get it from the panel at desktop width.
+    inner.classList.toggle('filter-bar-sections', wantGroups);
     var existing = inner.querySelectorAll(':scope > .filter-group');
     if (!wantGroups) {
         Array.prototype.forEach.call(existing, function (group) {
@@ -1164,10 +1185,8 @@ function groupFilterSections(bar) {
 // No longer scoped to just the narrow-tablet category strip (live
 // feedback: "labels that have at least two words [should be] on two
 // lines... we do this in other modes") - plain `.filter-field label`
-// reaches Students' own mobile 3-up grid too (students.html), which
-// otherwise only wrapped a multi-word label once it was already too wide
-// for its ~110px column (naturally, via white-space: normal), not
-// unconditionally the way the tablet strip already did.
+// reaches every host that renders sections, which since #185 is one rule
+// set covering the panel and the tray at every width alike.
 // Original text cached on the span itself (data-label-text) rather than
 // read back from its own textContent - a <br> contributes nothing to
 // textContent, so a second call would otherwise see "HasReferrals" (no
@@ -3588,9 +3607,9 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
                 // Closing keeps .is-expanded on through the whole animation
                 // instead of stripping it up front (live feedback: "reverts
                 // back to an old format which is no longer used in any
-                // mode") - virtually every mobile-tray style (the 3-up
-                // field grid, label backgrounds, the touch scrollbar-hide
-                // pair) is scoped to `.filter-bar.is-expanded` in panel.css.
+                // mode") - several mobile-tray styles (the touch
+                // scrollbar-hide pair among them) are scoped to
+                // `.filter-bar.is-expanded` in panel.css.
                 // Removing the class before the height animation even
                 // starts would mean the whole shrink plays out with none of
                 // those rules applied - the box visibly falling back to
@@ -4175,18 +4194,19 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
        value is allowed to wrap onto a second line instead of demanding the
        width to sit on one (panel.css).
 
-       Two of them: the tray (landscape phone / portrait tablet / narrowed
-       desktop - the same pair panel.css scopes that layout to), and the
-       "View filters" panel every width above mobile drops down. Live
-       feedback: "can desktop also have a wrap on long selected filters, are
-       they less tall?" - they are, and a panel has vertical room to spend
-       where it has no horizontal room to spare.
+       Two of them: the tray (phone portrait, landscape phone, portrait tablet
+       and a narrowed desktop window - every tier that renders fields in the
+       tray at all), and the "View filters" panel every width above mobile
+       drops down. Live feedback: "can desktop also have a wrap on long
+       selected filters, are they less tall?" - they are, and a panel has
+       vertical room to spend where it has no horizontal room to spare.
 
        Not the always-visible primary row: that is one line of controls beside
        the search box, where a field growing a second line would set the whole
-       bar's height. Not phone portrait's chip grid either - its trigger is
-       pinned to min-width: 0 (panel.css) and sized by its column, so there is
-       no inline width here for any of this to act on.
+       bar's height. Phone portrait used to be excluded too, because its chip
+       grid pinned every trigger to min-width: 0 and sized it by its column,
+       leaving no inline width to act on - that grid is gone (#185) and its
+       fields are content-sized like every other tier's now.
 
        Read live rather than cached: the dev breakpoint preview and a real
        rotation both cross this boundary without a reload. */
@@ -4194,7 +4214,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         if (filterField.closest('.filter-secondary-fields')) return true;
         var root = document.documentElement;
         if (!(root.classList.contains('phone-chrome-side') ||
-            (root.classList.contains('filter-bar-mobile-mode') && root.classList.contains('filter-bar-narrow-desktop')))) return false;
+            root.classList.contains('filter-bar-mobile-mode'))) return false;
         return !!filterField.closest('.filter-bar-collapsible-inner');
     }
     function resolveTriggerMinWidth(selectEl, trigger) {
