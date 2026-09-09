@@ -74,18 +74,23 @@ html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-gro
        edge. */
     scroll-padding-right: var(--space-sm);
 }
-/* (Project convention) Any new overflow: auto element gets the touch
-   scrollbar-hide pair by default - a real scrollbar under a row of filters
-   on a phone is chrome nobody asked for, and the fade below is the
-   affordance instead. */
-html.nav-touch-mode[data-tray-variant="scr"] .filter-bar-tray .filter-bar-sections .filter-group-fields,
-html.nav-touch-mode[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields {
+/* No scrollbar at any width or input mode, not just the usual
+   html.nav-touch-mode pair (project convention) - a scrollbar under every
+   filter row is four bars of chrome stacked down the tray, and unlike a
+   long list this row already states its own overflow twice over (the edge
+   fade, and the arrows on the caption). The convention exists because a
+   hidden scrollbar normally costs the only affordance there is; here it
+   costs the third one. */
+html[data-tray-variant="scr"] .filter-bar-tray .filter-bar-sections .filter-group-fields,
+html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields {
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
-html.nav-touch-mode[data-tray-variant="scr"] .filter-bar-tray .filter-bar-sections .filter-group-fields::-webkit-scrollbar,
-html.nav-touch-mode[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields::-webkit-scrollbar {
+html[data-tray-variant="scr"] .filter-bar-tray .filter-bar-sections .filter-group-fields::-webkit-scrollbar,
+html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields::-webkit-scrollbar {
     display: none;
+    width: 0;
+    height: 0;
 }
 /* Edge fade, applied only while the row genuinely has more to show and
    pointed at whichever end still has content (prototype-tray-variants.js
