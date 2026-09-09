@@ -4,7 +4,7 @@
 {% block title %}Escalations{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=456">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=457">
 {% endblock %}
 
 
@@ -211,17 +211,22 @@ document.addEventListener('DOMContentLoaded', function () {
     button". Reset every row's own inline min-width to '' first so a rerun
     (after infinite scroll appends more rows) measures each row's true
     natural content width, not whatever a previous run already forced it
-    to; matchMedia guard mirrors syncFactsColumnWidths' own per-row-below-
-    701px/per-list-above convention (panel.js) - this column's own >=701px
-    grid-area only exists at that width, and an inline min-width in the
-    <701px band (row-btn-row goes flex: 1 1 100% there, panel.css) would
-    just force unwanted overflow instead of doing anything useful.
+    to; the .rows-stacked guard mirrors syncFactsColumnWidths' own
+    per-row-when-stacked/per-list-otherwise convention (panel.js) - this
+    column's own grid-area only exists while the list is unstacked, and an
+    inline min-width in the stacked format (row-btn-row goes flex: 1 1 100%
+    there, panel.css) would just force unwanted overflow instead of doing
+    anything useful. Which format the list is in is measured, not a width
+    band (updateListStackMode, panel.js), so this reads the class rather
+    than a media query - and re-runs on panel:stackmodechange below, since
+    a flip changes no container width for the resize path to notice.
     {% endcomment %}
     function syncEscalationButtonWidths() {
         var rows = document.querySelectorAll('#escalations-filtered-content .row-btn-row');
         if (!rows.length) return;
         rows.forEach(function (row) { row.style.minWidth = ''; });
-        if (!window.matchMedia('(min-width: 701px)').matches) return;
+        var list = document.getElementById('escalations-filtered-content');
+        if (list && list.classList.contains('rows-stacked')) return;
         var max = 0;
         rows.forEach(function (row) { max = Math.max(max, row.scrollWidth); });
         if (max > 0) rows.forEach(function (row) { row.style.minWidth = max + 'px'; });
@@ -241,6 +246,7 @@ document.addEventListener('DOMContentLoaded', function () {
     synced width until it runs.
     {% endcomment %}
     window.addEventListener('resize', window.debounceTrailing ? window.debounceTrailing(syncEscalationButtonWidths, 120) : syncEscalationButtonWidths);
+    if (escalationsList) escalationsList.addEventListener('panel:stackmodechange', syncEscalationButtonWidths);
 });
 </script>
 {% endblock %}

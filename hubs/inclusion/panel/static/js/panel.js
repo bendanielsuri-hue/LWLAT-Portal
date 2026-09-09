@@ -2883,8 +2883,9 @@ document.addEventListener('DOMContentLoaded', function () {
    (updateButtonRowOverflow): the sum of its buttons' own scrollWidths.
    So the measure pass only needs redoing when the CONTENT changes (rows
    added/removed/swapped by the MutationObserver, fonts finishing loading)
-   or when a mode flips that changes what gets measured (the 701px
-   per-row/per-list band). Bumping this counter is what says "those
+   or when a mode flips that changes what gets measured (a list entering
+   or leaving the stacked format, which swaps its per-list column scope
+   for a per-row one - updateListStackMode below). Bumping this counter is what says "those
    numbers are stale"; a resize deliberately does NOT bump it, so a
    resize now re-runs only the genuinely width-dependent decisions
    (does Description still fit beside Status, is a strip cut off, has a
@@ -2985,9 +2986,10 @@ function markAllFactsStripEdges(root) {
    whenever the content behind it hasn't changed (see
    factsMeasureGeneration above for why a resize can't change any of these
    numbers). Cached on the scope element the widths are shared across -
-   the list root in the >=701px shared-column band, the row itself in the
-   per-row band below it (syncFactsColumnWidths passes whichever applies),
-   so the two bands can't read each other's numbers. */
+   the list root while the list is unstacked (one shared column width down
+   the whole list), the row itself once it stacks (syncFactsColumnWidths
+   passes whichever applies), so the two modes can't read each other's
+   numbers. */
 function naturalFactsColumnWidths(groups, columns, cacheHost) {
     var keys = Object.keys(groups);
     var cached = cacheHost && cacheHost._factsNaturalCache;
@@ -3269,21 +3271,44 @@ function fillFactsColumns(columns, strip, cacheHost) {
            reaches on a sufficiently wide screen. */
         track.style.maxWidth = (track._factsNaturalWidth + track._factsColumnCount * FACTS_MAX_BONUS_PX) + 'px';
     });
+    /* Handed back for updateListStackMode's own "would this strip have to
+       scroll" test (below). It has to be THIS number - the columns' own
+       content widths plus the gaps and the strip's own padding/border -
+       and never the strip's rendered or scroll width: every column here is
+       flex-grow: 1 up to its own +100 cap, so a strip that fits its line
+       renders at the LINE's width, not at what it needs, and scrollWidth
+       reports the same. Feeding that back in would make the test read
+       "does this line fit inside itself", which is true at every width
+       until the moment it isn't - i.e. exactly the scroll-first behaviour
+       the measured format exists to avoid. Only the rows that hold a
+       Description column stash a per-track copy above (updateFactsLineLayout
+       needs it for a different decision); this covers every page. */
+    var stripChrome = 0;
+    if (strip) {
+        var stripStyle = getComputedStyle(strip);
+        stripChrome = (parseFloat(stripStyle.paddingLeft) || 0)
+            + (parseFloat(stripStyle.paddingRight) || 0)
+            + (parseFloat(stripStyle.borderLeftWidth) || 0)
+            + (parseFloat(stripStyle.borderRightWidth) || 0);
+    }
+    return stripNaturalSum + stripChrome;
 }
-// Decides, per list or per row depending on width band, what shared
-// "natural" width syncFactsColumnWidths' columns should grow from.
-// >=701px (the grid-band structure every page shares, own >=701px rules,
-// panel.css): decided once per LIST, not per row - live feedback:
+// Decides, per list or per row depending on whether this is a narrow
+// device, what shared "natural" width syncFactsColumnWidths' columns
+// should grow from.
+// Anywhere but phone chrome - including a stacked list on a desktop
+// window (live feedback: "I want them to line up except on narrow
+// devices"): decided once per LIST, not per row - live feedback:
 // "columns in this mode should align all the way down", i.e. Behaviour on
 // row 3 should be exactly as wide as Behaviour on row 1. Measuring across
 // every row's columns at once (fillFactsColumns is handed the WHOLE list's
 // matching columns, grouped by data-col) is what makes that alignment
 // possible; CSS alone can't express "match a sibling row's column".
-// <701px (true mobile stacked format, own rules per page, panel.css):
-// decided once per ROW instead (live feedback: "mobile should be per
-// row") - rows read as individual cards at this width, not a table's
-// worth of aligned columns, so there's no reason to force them to share
-// one width the way the wider grid band's rows do; each row's own content
+// Phone chrome (html.phone-chrome, main.js), while stacked: decided once
+// per ROW instead (live feedback: "mobile should be per row") - rows read
+// as individual cards on a phone, not a table's worth of aligned columns,
+// and one shared width across the list would waste room a phone hasn't
+// got; each row's own content
 // may or may not need to wrap independently of its neighbours.
 // Status ("row-fact-col-status") and .row-fact-col-description (Actions'
 // Description, Escalations' Reason) are both filtered out unconditionally
@@ -3305,8 +3330,23 @@ function fillFactsColumns(columns, strip, cacheHost) {
 // silently pinned Description at ~320px and defeated the CSS that was
 // supposed to own its width).
 function syncFactsColumnWidths() {
-    var perRow = !window.matchMedia('(min-width: 701px)').matches;
-    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (listRoot) {
+    document.querySelectorAll(LIST_ROOT_SELECTOR).forEach(function (listRoot) {
+        /* Per-row column widths are for NARROW DEVICES only, not for the
+           stacked format generally (live feedback: "I want them to line up
+           except on narrow devices"). The two used to be the same thing -
+           stacking only ever happened below 700px - but a list now stacks
+           whenever its columns stop fitting (updateListStackMode below),
+           which routinely happens on a wide desktop window; letting that
+           flip the scope too made a 900px-wide list's columns size row by
+           row, and they visibly failed to line up down the list.
+           html.phone-chrome (main.js) rather than a width query of this
+           file's own: it is the portal's existing "this is a phone"
+           signal, and it already covers the landscape-phone case a plain
+           max-width test reads as a tablet (ADR 0016). Stacked is still
+           required - the class only means "narrow" and an unstacked list
+           has aligned columns by construction anyway. */
+        var perRow = listRoot.classList.contains('rows-stacked')
+            && document.documentElement.classList.contains('phone-chrome');
         function scopedColumns(root) {
             var cols = Array.prototype.slice.call(root.querySelectorAll('.row-fact-col[data-col]'));
             return cols.filter(function (col) {
@@ -3316,22 +3356,27 @@ function syncFactsColumnWidths() {
         /* Third argument is the element the measured widths get cached on
            (naturalFactsColumnWidths) - the row in per-row mode, the list
            root in shared mode, matching whatever scope those widths are
-           actually shared across. Crossing the 701px band swaps which
-           element that is, and the band change invalidates the cache
-           outright anyway (see the matchMedia wiring at the bottom of
-           this file), so neither band can ever read numbers the other
-           one measured. */
+           actually shared across. Flipping a list's format swaps which
+           element that is, and each mode only ever reads the host that
+           belongs to it, so neither can pick up numbers the other one
+           measured. */
         if (perRow) {
             listRoot.querySelectorAll('.entity-row').forEach(function (row) {
                 var columns = scopedColumns(row);
                 if (!columns.length) return;
-                fillFactsColumns(columns, row.querySelector('.row-facts-cols'), row);
+                row._factsStripNatural = fillFactsColumns(columns, row.querySelector('.row-facts-cols'), row);
             });
             return;
         }
         var columns = scopedColumns(listRoot);
         if (!columns.length) return;
-        fillFactsColumns(columns, listRoot.querySelector('.row-facts-cols'), listRoot);
+        /* Stashed on the same element the widths themselves are shared
+           across, so it can't be read in the wrong scope: while the list is
+           unstacked every row's columns share one width, so one number
+           describes the whole list (and it's the list-wide one
+           updateListStackMode wants); once stacked each row measures its
+           own. */
+        listRoot._factsStripNatural = fillFactsColumns(columns, listRoot.querySelector('.row-facts-cols'), listRoot);
     });
 }
 // Owns Actions'/Escalations' whole facts-LINE layout - the one decision
@@ -3455,6 +3500,157 @@ function updateFactsLineLayout() {
                would silently defeat. */
             entry.track.style.maxWidth = entry.wrapped ? 'none' : (entry.stripNatural + entry.columnCount * FACTS_MAX_BONUS_PX) + 'px';
         });
+    });
+}
+/* Stacked-card format, decided by measurement rather than a width
+   breakpoint (live feedback: "I would rather this be dynamic. This should
+   happen when data cols no longer fit and would therefore go to scroll
+   mode. This way scroll is only needed on more narrow screens!").
+   The old shape: every list page hardcoded 700px as the width where its
+   rows gave up the desktop content+buttons-column split for the stacked
+   card (@media blocks, panel.css). That number was a guess at "the width
+   where the buttons column starves the details text", so it was both too
+   late on a dense list (the facts strip was already scrolling well above
+   700px on a wide-columned view) and too early on a sparse one (a row with
+   three short columns stacked at 700px with room still to spare).
+   The measured shape: a list stacks exactly when its facts strip would
+   otherwise have to SCROLL - i.e. when the strip's natural width no longer
+   fits the line it gets in the desktop layout. Stacking hands the strip
+   the whole row width (the buttons column drops to a full-width row
+   below), so scrolling is only ever reached once even that isn't enough -
+   which is the point: scroll is the last resort, not the first.
+   The decision is per LIST, not per row - every row in one list shares one
+   set of column widths above the stacked format (syncFactsColumnWidths'
+   own per-list band, live feedback there: "columns in this mode should
+   align all the way down"), and a list where some rows stacked and others
+   didn't would break that alignment and read as two formats at once. So
+   the widest row in the list decides for all of them.
+   Two numbers per list, both CONTENT-driven and so cached against
+   factsMeasureGeneration exactly like every other measurement in this file
+   (a resize cannot change either one):
+     need     - the strip's natural width: what it needs in order not to
+                scroll.
+     overhead - everything else on the strip's line in the UNSTACKED
+                layout: the row's own padding, the thumb group, the gaps,
+                and the buttons column. Measured as rowWidth - lineWidth
+                rather than summed from parts, so it needs no knowledge of
+                any page's own box model.
+   Then on every resize tick the decision is just:
+        stack when need > rowWidth - overhead
+   Monotonic in rowWidth, and always measured against the UNSTACKED
+   geometry, which is what keeps it from oscillating: a naive "does it
+   scroll right now" test would stack (freeing the buttons column), find
+   that it now fits, unstack, and flip back and forth forever at the
+   boundary.
+   "The strip's line" differs by page shape, hence factsStripLine below: on
+   Actions/Escalations the strip shares .row-facts with the Description
+   hero column and (on Actions) the fused Status control, and drops to its
+   own full-width line inside .row-facts before the row ever stacks
+   (facts-cols-wrapped, updateFactsLineLayout above) - so the line it is
+   measured against is .row-facts itself, the width it gets once wrapped,
+   NOT its current clientWidth beside Description. Measuring the latter
+   would read Description's own width as missing space and stack the list
+   while the strip still had a whole wrapped line waiting for it. On
+   Referrals/Students/Meetings .row-facts IS the strip, so the two boxes
+   are the same element and the distinction costs nothing. */
+var LIST_ROOT_SELECTOR = '#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #students-filtered-content, #meetings-filtered-content';
+var STACK_ROW_SELECTOR = '.entity-row, .meeting-card';
+// Subpixel guard: rowWidth - overhead and need are fractional measurements
+// of the same boxes, so an exact-fit row can land a hair either side of
+// the comparison on different ticks and flip the whole list's format for a
+// fraction of a pixel.
+var STACK_EPSILON_PX = 1;
+function factsStripLine(row) {
+    // .row-facts, not .row-facts-cols (own comment above) - on the pages
+    // where those are one and the same element this returns the strip.
+    return row.querySelector('.row-facts');
+}
+function factsStripNeed(listRoot) {
+    /* The strip's own natural width, straight from the pass that measured
+       every column (fillFactsColumns above, own comment there on why a
+       rendered/scroll width cannot answer this). Read off the list root
+       because calibration always runs unstacked, where one shared set of
+       column widths describes every row - so this is already the widest
+       row's requirement, not the first row's. */
+    return listRoot._factsStripNatural || 0;
+}
+/* Measures the two cached numbers above for any list whose content has
+   changed since they were last taken. Both describe the UNSTACKED layout,
+   so a stacked list has to be un-stacked for the duration of the
+   measurement - done for every stale list at once, and without yielding to
+   the browser in between, so it costs one layout for the whole pass and
+   can never paint in the temporary state. This is what the cache is for: a
+   resize cannot invalidate it (nothing measured here is width-dependent),
+   so the frequent path re-reads nothing and this forced re-layout only
+   happens on a genuine content change - rows appended by infinite scroll,
+   an AJAX filter reload, a late webfont swap. */
+function calibrateStackMode() {
+    var pending = [];
+    document.querySelectorAll(LIST_ROOT_SELECTOR).forEach(function (root) {
+        var cached = root._stackCache;
+        if (cached && cached.generation === factsMeasureGeneration) return;
+        pending.push({ root: root, wasStacked: root.classList.contains('rows-stacked') });
+    });
+    if (!pending.length) return;
+    pending.forEach(function (entry) { entry.root.classList.remove('rows-stacked'); });
+    // The natural column widths this measurement reads are written by these
+    // two, in the per-list scope the unstacked layout uses - without
+    // running them here the strip would be measured against whatever the
+    // stacked (per-row) pass last left on it.
+    syncFactsColumnWidths();
+    updateFactsLineLayout();
+    pending.forEach(function (entry) {
+        var overhead = 0;
+        var need = factsStripNeed(entry.root);
+        var measured = false;
+        entry.root.querySelectorAll(STACK_ROW_SELECTOR).forEach(function (row) {
+            var line = factsStripLine(row);
+            if (!line) return;
+            var lineWidth = line.getBoundingClientRect().width;
+            var rowWidth = row.getBoundingClientRect().width;
+            // A row skipped by content-visibility: auto (Students' own rule,
+            // panel.css) reports zeroes rather than real geometry - a max
+            // over the rows that DO report is enough, since every row shares
+            // the same column widths in this band anyway.
+            if (!rowWidth || !lineWidth) return;
+            measured = true;
+            overhead = Math.max(overhead, rowWidth - lineWidth);
+        });
+        if (!measured || !need) return;
+        entry.root._stackCache = { generation: factsMeasureGeneration, overhead: overhead, need: need };
+    });
+    // Put each list back the way it was found - the real decision runs
+    // immediately after this and may well change it again, but this
+    // function must never be the thing that chose.
+    pending.forEach(function (entry) {
+        if (entry.wasStacked) entry.root.classList.add('rows-stacked');
+    });
+}
+/* The width-dependent half: one rect read per list and no measurement of
+   its own beyond that, so it is safe to re-run on every resize tick. */
+function updateListStackMode() {
+    calibrateStackMode();
+    document.querySelectorAll(LIST_ROOT_SELECTOR).forEach(function (root) {
+        var cached = root._stackCache;
+        if (!cached || !cached.need) return;
+        var row = root.querySelector(STACK_ROW_SELECTOR);
+        if (!row) return;
+        // Every row in a list is the same width (they are block-level
+        // children of one container), and stacking changes what happens
+        // INSIDE a row, never the row's own width - which is what lets one
+        // read answer for the whole list, in either state.
+        var rowWidth = row.getBoundingClientRect().width;
+        if (!rowWidth) return;
+        var stacked = cached.need > (rowWidth - cached.overhead) + STACK_EPSILON_PX;
+        if (stacked === root.classList.contains('rows-stacked')) return;
+        root.classList.toggle('rows-stacked', stacked);
+        /* Per-page inline scripts measure their own shared button-column
+           widths (students.html, escalations.html) and have to re-run when
+           the format flips - a flip changes no container width, so their
+           own resize wiring cannot see it. Deliberately an event rather
+           than a direct call: this file has no business knowing which pages
+           happen to have such a script. */
+        root.dispatchEvent(new CustomEvent('panel:stackmodechange', { bubbles: true }));
     });
 }
 // Any horizontally-stacked row of 2+ buttons doesn't always fit at narrow
@@ -3646,6 +3842,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // and the fused Status control go from the strip's own natural width,
     // which is exactly what syncFactsColumnWidths measures and stashes.
     function refreshFactsStrips() {
+        /* First, always: it decides which format each list is in, and
+           every measurement below is taken inside that format (which
+           column-sharing scope applies, where the buttons sit, how wide
+           the strip's line is). Its own calibration pass runs
+           syncFactsColumnWidths/updateFactsLineLayout itself when a list's
+           content has changed - see the note there for why that costs one
+           layout rather than one per row. */
+        updateListStackMode();
         syncFactsColumnWidths();
         updateFactsLineLayout();
         updateButtonRowOverflow();
@@ -3690,14 +3894,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
     window.addEventListener('resize', refreshAfterResize);
-    /* The 701px band decides whether widths are shared per-list or
-       per-row (syncFactsColumnWidths), i.e. which element the cached
-       measurements even belong to - so crossing it has to invalidate
-       them, and can't wait for the debounce the way an ordinary resize
-       can. */
+    /* Phone chrome swaps the column-width scope from per-list to per-row
+       (syncFactsColumnWidths above), i.e. which element the cached
+       measurements belong to - so crossing it has to invalidate them, and
+       can't wait for the resize debounce. The same 480px query main.js
+       toggles the class from; the landscape-phone half of that class is
+       driven by touch state main.js owns, and a rotation fires a resize
+       anyway, which reaches the same refresh one debounce later. */
     if (window.matchMedia) {
-        window.matchMedia('(min-width: 701px)').addEventListener('change', refreshAfterContentChange);
+        window.matchMedia('(max-width: 480px)').addEventListener('change', refreshAfterContentChange);
     }
+    /* No width-band listener for the row format itself any more. The per-list/per-row column
+       scope used to flip at a hardcoded 701px, which a media query was the
+       only way to hear about ahead of the resize debounce; it now follows
+       each list's own measured format instead (updateListStackMode), which
+       is re-decided inside this same refresh from numbers a resize cannot
+       invalidate - so there is no band left to cross. */
     /* Late webfont swaps change text metrics - and so every natural width
        measured before them - without any resize or DOM mutation firing to
        say so. Cheap one-off correction that the old per-frame refresh got

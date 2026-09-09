@@ -4,7 +4,7 @@
 {% block title %}Students{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=437">
+<link rel="stylesheet" href="{% static 'css/panel.css' %}?v=439">
 {% endblock %}
 
 
@@ -530,6 +530,17 @@ document.addEventListener('DOMContentLoaded', function () {
             // drops every badge to a shorter digit count), never letting
             // the shared width shrink back down again.
             container.style.removeProperty('--students-btn-col-w');
+            // Nothing to size while the list is in its stacked format:
+            // .btn-row is a full-width row of its own there (panel.css), so
+            // measuring it would pin the grid's buttons track to the whole
+            // row width, which is what the track would then come back to
+            // the moment the list unstacked. The grid band it feeds only
+            // exists while unstacked anyway. Whether it is stacked is
+            // measured, not a width band (updateListStackMode, panel.js) -
+            // hence the class test, and the panel:stackmodechange listener
+            // below: a flip changes no container width, so the resize path
+            // can't see it.
+            if (container.classList.contains('rows-stacked')) return;
             var max = 0;
             container.querySelectorAll('.btn-row').forEach(function (el) {
                 max = Math.max(max, el.getBoundingClientRect().width);
@@ -565,6 +576,7 @@ document.addEventListener('DOMContentLoaded', function () {
         lastWidth = container.clientWidth;
         studentsContentObservers.push(refresh);
         window.addEventListener('resize', refreshOnResize);
+        container.addEventListener('panel:stackmodechange', refresh);
         if (typeof ResizeObserver !== 'undefined') {
             new ResizeObserver(refreshOnResize).observe(container);
         }
