@@ -3720,6 +3720,22 @@ html:not(.nav-touch-mode) .row-facts-cols {
    so anything hanging past the row's edge would just get cut off. */
 .row-facts-track {
     position: relative;
+    /* isolation: isolate - live feedback: "the next arrow on row is above
+       overlay". The arrows carry z-index: 2 (below) purely to sit above
+       this track's own scrolling content, but with this element at z-index:
+       auto that 2 was resolving against the whole .filtered-content
+       stacking context, where it outranked .filter-bar-overlay's own
+       z-index: 1 (further below) - so an arrow kept painting bright and
+       undimmed over the tray's backdrop. Same bug class, and same remedy,
+       as .stats-carousel-wrap's own isolation (its comment: "escape past
+       unrelated page chrome sharing the same root stacking context"): a
+       stacking context here caps the arrows at this track, which then
+       ranks as the plain auto-level element it should be.
+       Fixing it here rather than by raising the overlay above 2 - the
+       overlay would only be chasing whatever local z-index the next
+       component picks, and every one of those values is meant to be local
+       to its own component in the first place. */
+    isolation: isolate;
 }
 .row-facts-arrow {
     display: none;
