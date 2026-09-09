@@ -6890,6 +6890,22 @@ html.nav-touch-mode .row-facts-arrow {
        arrow press lands a field under the gradient that advertised it. */
     --filter-scroll-fade: 28px;
     scroll-padding-inline: var(--filter-scroll-fade);
+    /* Room inside the clip box for a focus/open ring.
+
+       .ui-select-trigger:focus/.open draws outline: 2px with outline-offset:
+       1px (forms.css), so the ring lives 3px OUTSIDE the trigger's own box -
+       and a scroll container clips anything outside its padding box, which
+       sliced the ring off the first and last field in a row and off the top
+       and bottom of every one of them (overflow-y: hidden above). The
+       popover itself is positioned, so it escapes; an outline cannot.
+
+       Padding gives the ring somewhere to be; the matching negative margin
+       hands the space straight back, so nothing moves. Sized off the ring
+       rather than a round number, so changing the outline in forms.css
+       cannot silently start clipping it again. */
+    --filter-scroll-ring: 3px;
+    padding: var(--filter-scroll-ring);
+    margin: calc(var(--filter-scroll-ring) * -1);
     /* No scrollbar at any width or input mode, not just the usual
        html.nav-touch-mode pair (project convention): one per section is
        several bars of chrome stacked down a tray, and the convention exists
