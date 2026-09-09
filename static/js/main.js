@@ -4098,6 +4098,27 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         return max;
     }
 
+    /* A filter label's own natural width - the widest LINE of its text, not
+       the width of the box it happens to be rendered in.
+
+       balanceFilterGroupLabels (above) has already broken any multi-word
+       label onto two lines with a <br> by the time this runs, so the widest
+       line is what the label actually needs; the whole string would
+       over-measure a two-line label by roughly double. Its own horizontal
+       padding is added back from the computed style rather than assumed,
+       since the tray strips it to 0 and the phone-portrait chip does not. */
+    function labelTextWidth(label) {
+        if (!label) return 0;
+        var style = window.getComputedStyle(label);
+        var span = label.querySelector('.filter-field-label-text') || label;
+        var widest = 0;
+        (span.innerHTML || '').split(/<br\s*\/?>/i).forEach(function (line) {
+            var text = line.replace(/<[^>]*>/g, '').trim();
+            if (text) widest = Math.max(widest, textWidth(text, style.font));
+        });
+        return widest ? widest + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) : 0;
+    }
+
     // The closed trigger's stable width, one rule for all three contexts a
     // select can be enhanced in:
     // - .ui-fused-field: no fixed pixel makes sense - the control is always
@@ -4127,9 +4148,13 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     //   feedback: "this takes too much space when mostly they are set to
     //   all". Whatever growth is left after this is animated rather than
     //   designed out (animateFilterTrayReflow, above).
-    //   /1.8, not /2: wrapping breaks at words, so two lines never pack
-    //   perfectly full - the same allowance the tray's own column-fit maths
-    //   used before it.
+    //   0.55, not a flat half: wrapping breaks at words, so two lines never
+    //   pack perfectly full - the extra 10% is the same allowance the tray's
+    //   own column-fit maths used before it. Applied to the TEXT only, with
+    //   the padding added back whole afterwards: the chevron's reserved room
+    //   and the trigger's own side padding are spent once, not per line, and
+    //   halving those too under-provisioned every long value by ~20px and put
+    //   an ellipsis on the second line.
     // - everywhere else: sized to the widest *option* (so picking a short
     //   option doesn't narrow the control down enough to clip a longer one
     //   next time it's opened), capped at the generic SELECT_TRIGGER_MAX_WIDTH.
@@ -4153,14 +4178,43 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         var filterField = selectEl.closest('.filter-field');
         if (filterField) {
             var label = filterField.querySelector(':scope > label');
-            var labelWidth = label ? label.offsetWidth : 0;
+            var inTray = isTrayFieldLayout(filterField);
+            // In the tray the label is measured from its own TEXT, not from
+            // its rendered box: it stretches to whatever width the field
+            // currently is, so reading offsetWidth after a wide option had
+            // widened the field fed that width straight back in as the floor
+            // and the control could never shrink again - live feedback: "when
+            // I drop back to all it does not revert back to narrow!".
+            var labelWidth = inTray ? labelTextWidth(label) : (label ? label.offsetWidth : 0);
             var selectedOpt = selectEl.options[selectEl.selectedIndex];
-            var valueWidth = selectedOpt ? textWidth(selectedOpt.textContent, font) + SELECT_TRIGGER_PADDING : 0;
-            if (isTrayFieldLayout(filterField)) valueWidth = valueWidth / 1.8;
+            var selectedText = selectedOpt ? textWidth(selectedOpt.textContent, font) : 0;
+            if (selectedText && inTray) selectedText = selectedText * 0.55;
+            var valueWidth = selectedText ? selectedText + SELECT_TRIGGER_PADDING : 0;
             return Math.min(Math.max(labelWidth, valueWidth), FILTER_FIELD_TRIGGER_MAX_WIDTH) + 'px';
         }
         var widest = maxOptionTextWidth(selectEl, font);
         return Math.min(widest + SELECT_TRIGGER_PADDING, SELECT_TRIGGER_MAX_WIDTH) + 'px';
+    }
+
+    /* Sets the trigger's inline width from resolveTriggerMinWidth, as a floor
+       everywhere and - inside the tray - as a ceiling as well.
+
+       The ceiling is what makes the two-line budget above mean anything. A
+       tray field is a flex item with a basis of auto, so it sizes to its own
+       max-content: without an upper bound the trigger simply grows until the
+       whole value fits on one line, and the white-space: normal meant to wrap
+       it (panel.css) never has a reason to. That shipped - live feedback, with
+       a screenshot of a 240px-wide Ethnicity: "I do not see it wrapping onto
+       two lines?".
+
+       Same value for both bounds, so the control is exactly as wide as its own
+       budget says and the text wraps inside it. Cleared outside the tray,
+       where a trigger is free to size to its own content. */
+    function applyTriggerWidth(selectEl, trigger) {
+        var width = resolveTriggerMinWidth(selectEl, trigger);
+        trigger.style.minWidth = width;
+        var filterField = selectEl.closest('.filter-field');
+        trigger.style.maxWidth = (width && filterField && isTrayFieldLayout(filterField)) ? width : '';
     }
 
     /* Recompute every filter trigger's inline width in `bar` against the tier
@@ -4173,7 +4227,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         bar.querySelectorAll('.filter-field .ui-select').forEach(function (wrap) {
             var selectEl = wrap.querySelector('select');
             var trigger = wrap.querySelector('.ui-select-trigger');
-            if (selectEl && trigger) trigger.style.minWidth = resolveTriggerMinWidth(selectEl, trigger);
+            if (selectEl && trigger) applyTriggerWidth(selectEl, trigger);
         });
     };
 
@@ -4291,7 +4345,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
             // which mirrors this width) down enough to clip longer options
             // next time it's opened - see resolveTriggerMinWidth above for
             // the per-context caps (.ui-fused-field/.filter-field/generic).
-            trigger.style.minWidth = resolveTriggerMinWidth(selectEl, trigger);
+            applyTriggerWidth(selectEl, trigger);
             panel.innerHTML = '';
             function appendOption(opt) {
                 var row = document.createElement('div');
