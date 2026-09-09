@@ -636,68 +636,14 @@ function setupFilterBarMoreFilters(bar) {
         // range buried every field in the hidden .filter-secondary-fields
         // group with no way left to reveal it - the reported bug (fields
         // missing, only the sticky Clear/Close footer visible).
-        if (!window.matchMedia('(max-width: 480px)').matches && !(isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile())) {
-            // #135 follow-up (2026-08-20, live feedback: "can we make this
-            // the setup for all modes except mobile") - every width above
-            // mobile now goes straight to "everything lives behind View
-            // Filters," the same model narrow tablet already settled on
-            // (categories as a horizontally-scrolling strip inside the
-            // panel, live feedback "all the filters in one line...
-            // horizontally scrolled") - desktop/wide-tablet's own older
-            // measure-the-overflow-and-split-at-the-boundary approach (an
-            // atomic per-category version of it, previously here) is gone;
-            // it was already left with primary holding nothing but Search
-            // in practice, for the same reason narrow tablet dropped it
-            // first.
-            if (groups.length) {
-                groups.forEach(function (g) {
-                    // #135 follow-up: "if a filter category can fit on the
-                    // same row as another it does" - wrapping each group in
-                    // its own box lets narrow tablet's CSS (panel.css) treat
-                    // it as one flex item that only wraps to a new line when
-                    // it doesn't fit, instead of every header forcing a full-
-                    // width break regardless of how little content (e.g.
-                    // Inclusion Panel's 2 toggles) actually sits under it.
-                    // display: contents at every other width (base rule,
-                    // forms.css) makes this wrapper a no-op there, so desktop/
-                    // wide-tablet's existing always-full-row header layout is
-                    // unaffected.
-                    var groupEl = document.createElement('div');
-                    groupEl.className = 'filter-group';
-                    if (g.header) groupEl.appendChild(g.header);
-                    // Fields live inside their own inner wrap now, not as
-                    // groupEl's own direct flex-wrap children (live feedback:
-                    // "now it is too narrow. The line should stop at the edge
-                    // of Reg dropdown etc" - the header's own flex: 1 1 100%
-                    // used to force it onto its own row inside a flex-wrap
-                    // .filter-group, but with .filter-group itself auto-
-                    // sized (flex: 0 0 auto) inside an effectively
-                    // unconstrained scrollable track, a percentage flex-basis
-                    // has no definite size to resolve against while the
-                    // browser is still figuring out how wide .filter-group
-                    // even is - it was falling back to the header's own,
-                    // often narrower, natural content width instead of
-                    // genuinely spanning the group. Nesting fields in their
-                    // own column sibling sidesteps that circularity
-                    // entirely: .filter-group is display: flex; flex-
-                    // direction: column now (panel.css), so the header just
-                    // stretches to match this fields box's own resolved
-                    // width via ordinary cross-axis stretch (a non-circular,
-                    // two-pass computation) instead of a percentage basis.
-                    var groupFields = document.createElement('div');
-                    groupFields.className = 'filter-group-fields';
-                    g.fields.forEach(function (f) { groupFields.appendChild(f); });
-                    groupEl.appendChild(groupFields);
-                    secondaryTrack.appendChild(groupEl);
-                });
-                // Same class, same meaning, other host (#185): panel.css's
-                // sections rules are keyed on it and no longer on a width or
-                // on .filter-secondary-fields itself, so the panel and the
-                // tray share one rule body.
-                secondaryTrack.classList.add('filter-bar-sections');
-                moreFiltersBtn.hidden = false;
-            }
-        }
+        /* (#187) The panel-building branch that stood here is gone with the
+           panel. It ran when a bar was NOT in tray mode, wrapped each
+           category into .filter-group boxes inside the "View filters"
+           panel's own track, and revealed the button. Every bar renders the
+           tray now (isFilterBarMobile, above), so its guard could never be
+           true again; the block below shows the button for tray bars, and
+           groupFilterSections builds the same wrappers in the tray's own
+           inner. See #187 and docs/adr/0018 for what the panel was. */
         // The same pair, kept on the bar in the tray tiers for a no-search
         // bar - the counterpart to not bailing out of setup for these bars
         // at all (comment at the top of this function). The block above
@@ -1027,22 +973,15 @@ function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar) {
         // through the document instead, and syncs this button's own
         // aria-expanded/label from the tray's real state.
         if (bar && bar.matches('.filter-bar-tray') && window.isFilterBarMobile && window.isFilterBarMobile()) return;
-        var expanded = moreFiltersBtn.getAttribute('aria-expanded') === 'true';
-        // #135: animates the reveal at every width above mobile now (live
-        // feedback: "the filters [should] animate down like mobile mode",
-        // then "can we make this the setup for all modes except mobile") -
-        // everything behind this button IS the field list at these widths
-        // (measure(), above), so instantly popping it in reads as a jump.
-        // secondaryRow itself is in normal flow (forms.css, live feedback:
-        // "the filter shelf pushes the content down as this can be kept
-        // open") - this animation just grows/shrinks it in place.
-        if (!window.matchMedia('(max-width: 480px)').matches) {
-            animateSecondaryFieldsToggle(secondaryRow, !expanded);
-        } else {
-            secondaryRow.hidden = expanded;
-        }
-        moreFiltersBtn.setAttribute('aria-expanded', String(!expanded));
-        setMoreFiltersLabel(moreFiltersBtn);
+        /* (#187) Nothing left for this handler to do beyond the class
+           toggle above: every bar is a tray bar now, so the guard on the
+           line above always returns, and the tray's own open/close handler
+           owns the rest. What stood here revealed the "View filters" panel
+           and animated its height open - see #187 and docs/adr/0018 for
+           why that panel is gone. Kept as a guarded return rather than
+           deleting the listener outright: the label sync above it is still
+           live, and a bar that ever opts out of the tray would want this
+           path back. */
     });
 }
 
@@ -1250,26 +1189,20 @@ function groupFilterSections(bar) {
    long value reflowed every field after it onto new lines. One line that
    scrolls has neither failure mode. See #186 for the alternatives tried
    against the real page and rejected. */
+/* (#187) One kind of track now: a section's own fields row, in the tray.
+   There were two - the "View filters" panel's single line of categories
+   scrolled as a strip - and this module carried an item-type parameter so
+   one mechanism could serve both. Every width uses the tray since #187, so
+   the panel, its strip and that parameter are gone. See docs/adr/0018. */
 function filterSectionTracks(bar) {
-    return bar.querySelectorAll(
-        '.filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields,' +
-        '.filter-secondary-fields .filter-bar-sections'
-    );
-}
-/* The panel strip carries the sections class itself; a tray row is the box
-   inside a section. */
-function isFilterPanelStrip(track) {
-    return track.classList.contains('filter-bar-sections');
+    return bar.querySelectorAll('.filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields');
 }
 function sectionScrollItems(track) {
-    return Array.prototype.slice.call(
-        track.querySelectorAll(isFilterPanelStrip(track) ? ':scope > .filter-group' : ':scope > .filter-field')
-    );
+    return Array.prototype.slice.call(track.querySelectorAll(':scope > .filter-field'));
 }
-/* Whatever the arrows and the "can scroll" state hang off: the section for a
-   tray row, the panel box itself for the strip. */
+/* What the arrows and the "can scroll" state hang off: the section. */
 function filterSectionScrollHost(track) {
-    return track.closest('.filter-group') || track.closest('.filter-secondary-fields');
+    return track.closest('.filter-group');
 }
 /* How wide the fade is, read back off the track's own custom property so the
    stylesheet stays the single source of truth: the mask gradients, this
@@ -1371,7 +1304,6 @@ function wireFilterSectionScroll(bar) {
     Array.prototype.forEach.call(filterSectionTracks(bar), function (track) {
         var host = filterSectionScrollHost(track);
         if (!host) return;
-        var strip = isFilterPanelStrip(track);
         if (!track.dataset.filterScrollBound) {
             track.dataset.filterScrollBound = '1';
             track.addEventListener('scroll', function () { updateFilterSectionScroll(track); }, { passive: true });
@@ -1380,7 +1312,7 @@ function wireFilterSectionScroll(bar) {
             track.addEventListener('pointerover', function (e) {
                 if (e.pointerType !== 'mouse') return;
                 if (track.scrollWidth - track.clientWidth <= 1) return;
-                var item = e.target.closest && e.target.closest(strip ? '.filter-group' : '.filter-field');
+                var item = e.target.closest && e.target.closest('.filter-field');
                 if (!item || item.parentNode !== track) return;
                 window.clearTimeout(hoverTimer);
                 if (Date.now() < hoverUntil) return;
@@ -1392,28 +1324,25 @@ function wireFilterSectionScroll(bar) {
             });
             track.addEventListener('pointerleave', function () { window.clearTimeout(hoverTimer); });
         }
-        // Tray: the caption row (.filter-group's other child), where an arrow
-        // at each end lands in chrome that already exists and costs the fields
-        // row no width. Panel: the panel box itself, arrows at its own
-        // left/right edges, since what scrolls there is the whole strip and
-        // there is no per-section caption to hang them on.
-        var mount = strip ? host : host.querySelector(':scope > .filter-section-label');
+        // The caption row (.filter-group's other child), where an arrow at
+        // each end lands in chrome that already exists, costs the fields row
+        // no width and never covers a control.
+        var mount = host.querySelector(':scope > .filter-section-label');
         if (mount && !mount.querySelector('.filter-scroll-arrow')) {
             ['prev', 'next'].forEach(function (dir) {
                 var btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'filter-scroll-arrow' + (strip ? ' filter-scroll-arrow--panel' : '');
+                btn.className = 'filter-scroll-arrow';
                 btn.dataset.filterScrollArrow = dir;
-                btn.setAttribute('aria-label', (dir === 'prev' ? 'Previous' : 'More') +
-                    (strip ? ' filter categories' : ' filters in this section'));
+                btn.setAttribute('aria-label', (dir === 'prev' ? 'Previous' : 'More') + ' filters in this section');
                 btn.textContent = dir === 'prev' ? '‹' : '›';
                 if (dir === 'prev') mount.insertBefore(btn, mount.firstChild);
                 else mount.appendChild(btn);
             });
             host._filterScrollUpdate = wireScrollCarousel(
                 host,
-                strip ? ':scope > .filter-bar-sections' : ':scope > .filter-group-fields',
-                strip ? '.filter-group' : '.filter-field',
+                ':scope > .filter-group-fields',
+                '.filter-field',
                 '.filter-scroll-arrow[data-filter-scroll-arrow="prev"]',
                 '.filter-scroll-arrow[data-filter-scroll-arrow="next"]',
                 { scrollTo: stepFilterSectionScroll }
@@ -1482,165 +1411,6 @@ function balanceFilterGroupLabels(box) {
     });
 }
 
-// Same FLIP technique (measure the real before/after height, pin it via an
-// inline style, then hand off to a genuine CSS transition) the mobile tray's
-// own .filter-bar-collapsible toggle handler already solved, below - a bare
-// CSS transition on height/grid-template-rows alone was already found not
-// to animate reliably there (see that handler's own comment), so this
-// reuses the same battle-tested approach against `box` instead of
-// rediscovering it. box.hidden has to come off *before* measuring `after`
-// (opening) - scrollHeight only reflects real content once the element is
-// actually rendered - and only go back on *after* the closing transition
-// finishes, or the box would vanish (and its content un-render) before the
-// shrink itself ever gets to play.
-function animateSecondaryFieldsToggle(box, opening) {
-    if (opening) {
-        box.hidden = false;
-        balanceFilterGroupLabels(box);
-    }
-    // Fields/labels fade with the same open/close toggle (live feedback:
-    // "add a fade to the filters and label as the tray opens and closes...
-    // the tray should not get this effect, only the contents") - opacity
-    // goes on these leaf elements directly, not `box` itself, so the box's
-    // own background/border (panel.css) stays fully opaque throughout and
-    // only its contents fade. Queried up front, before anything else here
-    // mutates the DOM - .filter-field/.filter-section-label are real
-    // rendered elements even though several ancestors between them and
-    // `box` are display: contents (setupFilterBarMoreFilters's wrappers),
-    // so querySelectorAll still finds them regardless of that flattening.
-    var contentEls = box.querySelectorAll('.filter-field, .filter-section-label');
-    var before = opening ? 0 : box.getBoundingClientRect().height;
-    var after = opening ? box.scrollHeight : 0;
-    // box-sizing: border-box (global reset, layout.css) only means padding/
-    // border get SUBTRACTED from a set height to find the content box - the
-    // content box itself floors at 0, but padding/border are never
-    // compressed below their own stylesheet size just because height is
-    // set low. Animating height alone toward 0 therefore bottoms out at
-    // padding-top + padding-bottom + border-top (this box's own
-    // `padding: var(--space-sm) var(--space-lg); border-top: 1px solid...`,
-    // forms.css) instead of a genuine 0 - the close transition really did
-    // finish on schedule, it just wasn't animating toward zero to begin
-    // with (live feedback: "I would guess there is some padding or margin
-    // causing the filter shelf to not transition to 0px. And then it is
-    // made invisible" - exactly right). Closing now pins padding/border to
-    // their real current px values (not the CSS var - a var isn't a valid
-    // transition end value on its own inline style start point the way a
-    // resolved px is) and transitions them to 0 alongside height; opening
-    // reverses it, animating in from 0 back up to their stylesheet values
-    // (read via getComputedStyle before this box's own padding/border ever
-    // get touched) so a reopen isn't left permanently flattened.
-    var cs = getComputedStyle(box);
-    var padTop = cs.paddingTop, padBottom = cs.paddingBottom, borderTop = cs.borderTopWidth;
-    // marginBottom, alongside the padding/border already pinned above -
-    // this box also carries a NEGATIVE bottom margin (forms.css: margin: 0
-    // ... calc(-1 * var(--space-xs)), cancelling .filter-bar's own bottom
-    // padding so the tray's scrollbar sits flush against the bar's real
-    // edge) that this animation never touched at all - a box with height:
-    // 0 still pulls its next sibling up by however much negative margin it
-    // still carries, so the layout stayed shifted by that full amount for
-    // the entire close transition regardless of how far height/padding/
-    // border had already animated, only snapping back the instant `box.
-    // hidden = true` (below) finally removed the margin's effect
-    // outright - live feedback: "smooth animation of the filter tray
-    // closing but it stops and then it has a snap close effect... maybe
-    // 8px" (var(--space-xs) itself, confirmed by the fixed 8px size
-    // regardless of how tall the field grid closing was). Animated
-    // alongside the rest now, real px value <-> 0 same as padding/border.
-    var marginBottom = cs.marginBottom;
-    // rowGap - box.parentElement isn't necessarily the flex container
-    // actually applying a gap around this row: Students' own tray nests
-    // this box inside .filter-bar-collapsible-inner (setupFilterBarMoreFilters,
-    // above), which is display: contents at this width (panel.css) -
-    // display:contents flattens an element out of the render/layout tree
-    // entirely, so the gap genuinely being applied is .filter-fields-wrap's
-    // (one or two levels further up), not that flattened element's own.
-    // Walking up past any display: contents ancestor finds the real one
-    // generically - every other filter-bar page has no such wrapper at
-    // all, so this is a no-op loop there, box.parentElement already being
-    // the real flex container on the first try.
-    // Animated on the PARENT itself (gapParent's own row-gap, 0 <-> its
-    // real value), not by fighting it from this child's own margin - a
-    // first attempt at this did exactly that (an animated margin-top,
-    // 0 <-> -rowGap, meant to cancel the gap the same way marginBottom
-    // already cancels .filter-bar's own padding) and it visibly failed
-    // partway through: live colour test (.filter-bar one debug colour,
-    // this box another) showed a growing gap-coloured band that still
-    // snapped away at the very end. Root cause, confirmed by sampling
-    // .filter-bar's own rect during the animation: browsers floor a flex
-    // item's own contribution to its line's size at 0 - once this box's
-    // combined margin-top + height + margin-bottom went net negative
-    // (around 60% through the close), the flex algorithm simply stopped
-    // shrinking .filter-bar any further even though margin-top kept
-    // animating toward -rowGap, so the row-gap itself (applied
-    // unconditionally between any two PRESENT flex items, regardless of
-    // their own computed size) stayed fully in effect right up until
-    // `box.hidden = true` (below) removed the row from the flex layout
-    // altogether - the same snap, just moved to a different threshold.
-    // Changing the gap value itself sidesteps that floor entirely: it's
-    // not a margin fighting the layout algorithm's own space reservation,
-    // it *is* the space reservation.
-    var gapParent = box.parentElement;
-    while (gapParent && getComputedStyle(gapParent).display === 'contents') {
-        gapParent = gapParent.parentElement;
-    }
-    var rowGap = gapParent ? getComputedStyle(gapParent).rowGap : null;
-    box.style.height = before + 'px';
-    if (!opening) {
-        box.style.paddingTop = padTop;
-        box.style.paddingBottom = padBottom;
-        box.style.borderTopWidth = borderTop;
-        box.style.marginBottom = marginBottom;
-        if (gapParent) gapParent.style.rowGap = rowGap;
-    } else {
-        box.style.paddingTop = '0px';
-        box.style.paddingBottom = '0px';
-        box.style.borderTopWidth = '0px';
-        box.style.marginBottom = '0px';
-        if (gapParent) gapParent.style.rowGap = '0px';
-    }
-    contentEls.forEach(function (el) {
-        el.style.opacity = opening ? '0' : '1';
-        el.style.transition = 'none';
-    });
-    box.style.transition = 'none';
-    if (gapParent) gapParent.style.transition = 'none';
-    void box.offsetHeight;
-    box.style.transition = 'height 360ms cubic-bezier(.2, .8, .2, 1), padding-top 360ms cubic-bezier(.2, .8, .2, 1), padding-bottom 360ms cubic-bezier(.2, .8, .2, 1), border-top-width 360ms cubic-bezier(.2, .8, .2, 1), margin-bottom 360ms cubic-bezier(.2, .8, .2, 1)';
-    if (gapParent) gapParent.style.transition = 'row-gap 360ms cubic-bezier(.2, .8, .2, 1)';
-    contentEls.forEach(function (el) {
-        el.style.transition = 'opacity 360ms cubic-bezier(.2, .8, .2, 1)';
-    });
-    requestAnimationFrame(function () {
-        box.style.height = after + 'px';
-        box.style.paddingTop = opening ? padTop : '0px';
-        box.style.paddingBottom = opening ? padBottom : '0px';
-        box.style.borderTopWidth = opening ? borderTop : '0px';
-        box.style.marginBottom = opening ? marginBottom : '0px';
-        if (gapParent) gapParent.style.rowGap = opening ? rowGap : '0px';
-        contentEls.forEach(function (el) {
-            el.style.opacity = opening ? '1' : '0';
-        });
-    });
-    box.addEventListener('transitionend', function handler(e) {
-        if (e.target !== box || e.propertyName !== 'height') return;
-        box.style.transition = '';
-        box.style.height = '';
-        box.style.paddingTop = '';
-        box.style.paddingBottom = '';
-        box.style.borderTopWidth = '';
-        box.style.marginBottom = '';
-        if (gapParent) {
-            gapParent.style.transition = '';
-            gapParent.style.rowGap = '';
-        }
-        contentEls.forEach(function (el) {
-            el.style.opacity = '';
-            el.style.transition = '';
-        });
-        if (!opening) box.hidden = true;
-        box.removeEventListener('transitionend', handler);
-    });
-}
 
 // "More filters" <-> "Hide filters" (grilling) - swaps the label span if
 // the template provides one (data-more-filters-label; dynamic mode always

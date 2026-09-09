@@ -644,13 +644,24 @@ html.phone-chrome .page-header-extras > *:not(dialog) {
    widths, should match other pages"). Rather than keep enumerating each
    new page shape that happens to lack whatever wrapper class the rule was
    last scoped to, this drops the body:has() qualifier entirely - .filter-
-   bar-mobile-mode already means "narrow enough that breadcrumbs are dead
+   narrow-desktop already means "narrow enough that breadcrumbs are dead
    weight" regardless of which hub/page owns the breadcrumb, so every page
    gets the same behaviour by construction instead of by enumeration. The
    plain <=480px version above stays too, as a CSS-only (no-JS) fallback -
    this one only takes over once main.js's synchronous first-paint
-   classification (layout.html head script) has run. */
-html.filter-bar-mobile-mode .breadcrumbs {
+   classification (layout.html head script) has run.
+
+   (#187) Keyed on html.filter-bar-narrow-desktop, not html.filter-bar-
+   mobile-mode as it was. Those two used to differ only by phone width - the
+   .phone-chrome rule above covers that half - so the pair still means
+   exactly what the single class used to. What changed is the class itself:
+   filter-bar-mobile-mode now means "the filter bar renders as a tray",
+   which since #187 is every width, so this rule was hiding breadcrumbs on
+   a 1440px desktop (live feedback: "breadcrumbs are meant to show, it was
+   only mobile filters setup I wanted copying"). The lesson is in the name -
+   a class named for one feature's rendering mode had quietly become the
+   app's general "is this narrow" test. */
+html.filter-bar-narrow-desktop .breadcrumbs {
     display: none;
 }
 

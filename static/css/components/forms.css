@@ -235,29 +235,6 @@
         flex: 1 1 auto;
         max-width: none;
     }
-    /* #135: the revealed field list animates open/closed at this width
-       (live feedback: "the filters [should] animate down like mobile
-       mode") - needs a real box to animate the height of, so
-       .filter-secondary-fields drops the plain display: contents
-       flattening it normally gets (forms.css base rule) in favour of its
-       own flex-wrap layout. Its own .filter-bar-collapsible/-inner
-       ancestors stay display: contents regardless (panel.css) - they're
-       transparent to layout, so this still lands as a genuine flex child
-       of .filter-fields-wrap despite the nesting. overflow: hidden clips
-       the field grid while its own height is pinned mid-transition
-       (animateSecondaryFieldsToggle, main.js) - flex-basis: 100% still
-       forces it onto its own line the same way .filter-divider (its own
-       first child) already did when flattened. */
-    /* :not([hidden]), not a bare .filter-secondary-fields - this selector's
-       own extra `form[...]` type selector already outranks the base
-       .filter-secondary-fields[hidden] { display: none } rule's
-       specificity (forms.css, below) on ids/classes/attributes alone, so
-       without this qualifier display: flex here was winning outright even
-       while hidden - the element was never actually display: none
-       underneath, so animateSecondaryFieldsToggle's closing transition
-       played once but then "reopened" the instant its own cleanup cleared
-       the inline height back to auto (live feedback: "the Filters shelf
-       reopens immediately when I close it"). */
     /* flex-basis: 100% (not position: absolute any more, 2026-08-20 -
        live feedback: "for this mode, not mobile, the filter shelf pushes
        the content down as this can be kept open" - reverses an earlier
@@ -276,93 +253,6 @@
        open" reads as no longer wanting an artificial scroll-bounded lid on
        it now that it isn't competing with the viewport for space) - it
        just grows to its natural content height and the page scrolls with
-       it like anything else in normal flow. */
-    .filter-bar-tray .filter-secondary-fields:not([hidden]) {
-        display: flex;
-        flex-wrap: wrap;
-        align-content: flex-start;
-        align-items: flex-end;
-        gap: var(--space-xs);
-        /* calc(100% + 2 * --space-lg), not a plain 100% - this tray's real
-           flex parent is .filter-fields-wrap (a genuine flex box, not one of
-           the display: contents wrappers above it), and flex-basis pins the
-           item's own MAIN-AXIS (width) size outright - unlike the cross-axis
-           (margin-bottom bleed below, which works fine as plain negative
-           margin), a flex item's width from a resolved basis doesn't grow to
-           account for extra margin. A plain 100% + the left/right bleed
-           margins below only ever bled the left edge (margin-left shifts
-           where the box STARTS) while the right edge stayed pinned at
-           start+100%, ignoring margin-right entirely (live feedback: "width
-           is not full width, it needs to meet right edge" - confirmed via
-           direct measurement, not guesswork: filter-fields-wrap's own
-           right edge sat 20px short of the tray's actual rendered right
-           edge). Baking the two --space-lg bleeds directly into the basis
-           itself, instead of leaving them to unreliable margin growth, gives
-           the box the true full width up front. */
-        flex-basis: calc(100% + 2 * var(--space-lg));
-        position: relative;
-        /* Live feedback: "when I close the filter tray, the filters stay
-           put and do not move with the tray"/"the filters hover" - this
-           rule's own comment above already claimed overflow: hidden clips
-           the field grid mid-transition, but the 2026-08-20 rewrite that
-           comment describes (position: absolute -> flex-basis: 100%) never
-           actually carried the property itself over - the field grid
-           doesn't shrink (nothing here or on .filter-field forces it to),
-           so animateSecondaryFieldsToggle's height animation (main.js) was
-           shrinking an unclipped box: the fields just overflowed it and
-           sat visibly on top of the entity list below for the whole
-           transition, in every mode/width that hits this rule (i.e.
-           everywhere except Students' own mobile/narrow-desktop tray,
-           panel.css, which does carry overflow: hidden on its equivalent
-           box). */
-        overflow: hidden;
-        /* Top/bottom dropped to 0 entirely (live feedback: "lose top and
-           bottom padding of filter-secondary-fields") - was --space-xxs, a
-           trim from the original --space-sm before that (history, this
-           comment). --space-lg stays horizontal-only - that's the category
-           strip's own visual inset, deliberately matched to the page margin
-           (.filter-secondary-fields-track's own comment, panel.css), not
-           part of this vertical-compactness pass. */
-        padding: 0 var(--space-lg);
-        /* Bleeds the bottom out to cancel .filter-bar's own bottom padding
-           (--space-xs, base rule) too - without this, the tray's scrollbar
-           (already flush against ITS OWN bottom edge via
-           .filter-secondary-fields-track's negative margin, panel.css) still
-           sat a further --space-xs above the bar's true bottom edge/border,
-           reading as a leftover gap (live feedback: "I am also seeing a gap
-           under the scrollbar still" - this second, outer padding layer was
-           the actual remaining cause, not the tray's own). form.filter-bar's
-           own Students-scoped override (above, this file) now carries
-           overflow: hidden so the tray's resulting square bottom corners get
-           clipped to the bar's rounded shape instead of poking past it -
-           same radius-lives-on-the-non-scrolling-wrapper convention as
-           .list-card/.entity-list (panel.css). Left/right bleed the same
-           way against .filter-bar's own --space-lg side padding (live
-           feedback: "I do not like that it is not to the edge on the left
-           and right") - this tray's own --space-lg padding (kept, below)
-           already provides the category strip's visual inset on its own,
-           deliberately matched to the page margin (.filter-secondary-fields-
-           track's own comment, panel.css); stacking .filter-bar's side
-           padding on top of that (uncancelled, before this fix) was doubling
-           it rather than genuinely reaching the bar's edge. */
-        margin: 0 calc(-1 * var(--space-lg)) calc(-1 * var(--space-xs));
-        background: var(--bg-well);
-        /* border-top removed (live feedback: "we do not need the divider
-           between filter bar and filter tray... this might be a border") -
-           both this tray and .filter-bar itself already share the exact
-           same --bg-well fill, so the line was the only thing marking the
-           seam; dropping it reads as one continuous surface, which is also
-           a hair more compact (a border still occupies visual weight even
-           though it doesn't consume layout space). */
-        /* No bottom radius - even back in normal flow, this band sits
-           inside .list-card with the entity list continuing directly below
-           it (live feedback that first established this, still true here:
-           "lose the bottom corner radius on open Filter shelf as it is
-           within a card") - a rounded corner reads as "this is an edge",
-           which would look wrong with more of the same card's content
-           right underneath. */
-        border-radius: 0;
-    }
     /* (#186) Out of flow again, floating over the list rather than pushing
        it down.
 
@@ -386,30 +276,6 @@
        Explicit background/border/shadow because an out-of-flow box has the
        entity list showing through it otherwise - the flow version could
        share .filter-bar's own fill and read as one continuous surface, and
-       that is exactly what a floating panel must not do. */
-    .filter-bar-tray .filter-secondary-fields:not([hidden]) {
-        position: absolute;
-        top: calc(100% + var(--space-xs));
-        left: 0;
-        right: 0;
-        z-index: 30;
-        /* Cancels the flow-mode sizing above: a basis claiming a full row of
-           .filter-fields-wrap, and the bleed margins baked into it. Out of
-           flow the box is placed by its own insets instead. */
-        flex-basis: auto;
-        margin: 0;
-        padding: var(--space-md) var(--space-lg);
-        background: var(--bg-surface);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        box-shadow: 0 10px 28px rgba(15, 23, 36, 0.14);
-        /* A lid, so a panel can never grow past the viewport it floats over -
-           the flow version deliberately had none ("this can be kept open"
-           reads as no artificial scroll-bounded lid), but a floating box that
-           runs off the bottom of the screen has no way back. */
-        max-height: min(60vh, 420px);
-        overflow-y: auto;
-    }
     /* No scrollbar on a touch device (portal convention - every
        overflow: auto element gets this pair) - html.nav-touch-mode is set
        live off a real hover: none match or the dev breakpoint preview's
@@ -420,22 +286,11 @@
        Targets -track now, not secondaryRow itself - the horizontal category
        carousel (its own overflow-x: auto, panel.css) is the only thing that
        still scrolls here since secondaryRow itself went back to normal flow
-       (immediately above) and dropped its own overflow-y entirely. */
-    html.nav-touch-mode .filter-bar-tray .filter-secondary-fields-track {
-        scrollbar-width: none;
-    }
-    html.nav-touch-mode .filter-bar-tray .filter-secondary-fields-track::-webkit-scrollbar {
-        display: none;
-    }
     /* .filter-divider (main.js's own first child of secondaryRow, marking
        the seam between the primary/secondary rows when they used to share
        one flowing fieldsWrap) is redundant now that secondaryRow is its
        own self-contained floating panel - its own border-top above already
        draws that seam, so this would just be a second, pointless line
-       right under it. */
-    .filter-bar-tray .filter-secondary-fields .filter-divider {
-        display: none;
-    }
     /* FOUC prevention (live feedback: "the page loads with it open and I
        see it snap close, can it load closed?"; also, separately, "I see two
        rows of filters which then becomes one row" when this was narrowed to
@@ -455,17 +310,12 @@
     .filter-bar-tray .filter-section-label {
         display: none;
     }
-    /* ...but visible again once actually inside the revealed panel - the
-       extra .filter-secondary-fields ancestor class here already outranks
-       the bare hide rule immediately above on specificity alone, so this
-       wins regardless of source order once measure()/the click handler
-       moves a field there and clears secondaryRow's own [hidden]. */
-    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-field {
-        display: flex;
-    }
-    .filter-bar-tray .filter-secondary-fields:not([hidden]) .filter-section-label {
-        display: flex;
-    }
+    /* (#187) The show-rule that stood here - fields and captions visible
+       again once inside the revealed "View filters" panel - went with the
+       panel itself. What un-hides them now is the tray's own rule
+       (panel.css, html.filter-bar-mobile-mode ... .filter-bar-collapsible
+       .filter-field), which layout.html's first-paint classification has in
+       force before this could ever matter. See docs/adr/0018. */
 }
 /* Secondary fields are direct flex items of .filter-fields-wrap
    (display:contents - no box/border of their own), so they wrap onto a

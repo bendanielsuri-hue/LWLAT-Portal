@@ -6440,23 +6440,6 @@ html.nav-touch-mode .row-facts-arrow {
     align-items: stretch;
     gap: var(--space-lg) var(--space-3xl);
 }
-.filter-bar-tray .filter-secondary-fields .filter-bar-sections {
-    /* Bleed out to the tray's own left/right padding (.filter-secondary-
-       fields, forms.css: padding 0 var(--space-lg)) so the horizontal
-       scrollbar sits flush against the tray's edges instead of inset by
-       it - same technique as .setup-col-body's edge-to-edge bleed
-       further below. No vertical bleed any more - the tray's own
-       top/bottom padding was dropped to 0 entirely (forms.css, live
-       feedback: "lose top and bottom padding of filter-secondary-
-       fields"), so there's nothing left to cancel on that axis.
-       Panel-only, together with the flex basis: the tray's own inner is not
-       a flex item of anything and carries its own width-scoped padding
-       (below), so a bleed there would only push its fields out past the
-       tray's edges. */
-    flex: 1 1 100%;
-    margin: 0 calc(-1 * var(--space-lg));
-    padding: 0 var(--space-lg);
-}
 /* display: flex; flex-direction: column (not flex-wrap: wrap with the
    header forced onto its own line via flex: 1 1 100%, which is what
    this used to be) - live feedback: "now it is too narrow. The line
@@ -6871,13 +6854,13 @@ html.nav-touch-mode .row-facts-arrow {
 /* The TRAY: sections still pack onto lines as they fit (shared rules
    above - 1 per row at 390px because nothing else fits, 2 at portrait
    tablet), and each section's own fields row is what scrolls. */
-.filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields,
-/* WIDE DESKTOP: the panel is a single line of categories and the strip
-   itself scrolls (#186 reverses de5fa4f's wrap here). */
-.filter-bar-tray .filter-secondary-fields .filter-bar-sections {
-    /* nowrap here is about the STRIP - one line of categories rather than
-       four wrapped rows. A section's own fields row gets its nowrap from the
-       shared rule above, which no host can opt out of. */
+.filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields {
+    /* (#187) This briefly had a second selector - the "View filters" panel's
+       own strip, which scrolled its line of categories the same way. Every
+       width uses the tray now, so the panel is gone and only the tray's rows
+       remain. A section's own fields row also gets nowrap from the shared
+       rule above, which no host can opt out of; this restates it because the
+       scroll and the nowrap are one decision. */
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
@@ -6914,8 +6897,7 @@ html.nav-touch-mode .row-facts-arrow {
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
-.filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields::-webkit-scrollbar,
-.filter-bar-tray .filter-secondary-fields .filter-bar-sections::-webkit-scrollbar {
+.filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
@@ -7030,21 +7012,6 @@ html.nav-touch-mode .row-facts-arrow {
     content: "";
     position: absolute;
     inset: -2px -11px -20px;
-}
-/* The panel strip has no per-section caption to hang arrows on - what
-   scrolls there is the whole line - so its pair sits at the panel's own
-   left/right edges, vertically centred. */
-.filter-scroll-active .filter-scroll-arrow--panel:not([hidden]) {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 1;
-}
-.filter-scroll-active .filter-scroll-arrow--panel[data-filter-scroll-arrow="prev"] {
-    left: calc(var(--space-xs) * -1);
-}
-.filter-scroll-active .filter-scroll-arrow--panel[data-filter-scroll-arrow="next"] {
-    right: calc(var(--space-xs) * -1);
 }
 
 /* #135 follow-up (2026-08-20, live feedback: "lose the overlay on the
@@ -7854,6 +7821,23 @@ html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible {
     border-bottom-width: 1px;
     border-bottom-style: solid;
     border-bottom-color: transparent;
+    /* (#187) The background paints nothing while closed.
+
+       That flat, never-animated 1px border above is deliberate (its own long
+       comment), but box-sizing: border-box means this box can never render
+       shorter than it - height: 0 comes out as a used height of 1px, and the
+       background then paints a 1px cream band across it. On a phone that band
+       sat inside a full-bleed cream card and was invisible; at desktop this
+       box is still position: fixed; left: 0; right: 0, so the same 1px ran
+       the full width of the viewport, straight across the page either side of
+       the card (live feedback: "when filters is closed, there is a hairline
+       border showing. It crosses the filter bar").
+
+       Transparent while closed rather than height: 0 with no border, because
+       the border's width has to stay flat for the open animation - see the
+       comment above for the two rounds of live feedback that established
+       that. Nothing else about the closed state changes: it was already a
+       1px box, it just stops painting. */
     box-shadow: none;
     padding-top: 0;
     /* Declared here (not set/removed inline by main.js, git history) -
@@ -7921,6 +7905,9 @@ html.filter-bar-mode-switching .filter-bar-tray .filter-bar-collapsible {
    on .filter-bar-collapsible-inner below: "it has inadvertently
    caused the border to not actually be on the edge of what is being
    clipped... I see line then about 4px of bg then the content"). */
+html.filter-bar-mobile-mode .filter-bar-tray:not(.is-expanded) .filter-bar-collapsible {
+    background-color: transparent;
+}
 html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-collapsible {
     border-bottom-color: var(--border-strong);
 }
@@ -8113,13 +8100,24 @@ html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-sticky-footer {
    leaving the open tray with no Clear and no way out but the backdrop;
    a no-search bar keeps that pair on the bar now, where Clear Filters
    is the same control and "Hide filters" is the same close.
-   All three conditions are what decides whether the header pair is
-   really there: it was built at all (.filter-bar-has-actions, main.js),
-   the bar has no pinned Search (the hide rule below), and it measured as
-   fitting. The first is the one true mobile needs - setup returns early
-   below 481px without building the pair, and without this the footer
-   vanished on a tray that then had no Clear and no Close at all. */
-html.filter-bar-mobile-mode .filter-bar-tray.filter-bar-has-actions:not(:has([data-filter-pinned])):not(.filter-bar-actions-cramped) .filter-bar-sticky-footer {
+   (#187) The pinned-Search exclusion is gone from the first selector -
+   live feedback: "if we have Show filters and clear in filters header, we
+   can hide the open tray buttons footer!". It was there because a
+   search-bearing bar used to hide that header pair outright, so its tray
+   genuinely needed the footer's own Clear and Close. Above phone width
+   those bars now keep the pair (#187), which makes the footer a second
+   copy of two controls already on screen - and two full-width buttons is
+   an expensive way to repeat yourself.
+
+   What is left is a direct reading of "is the header pair really there":
+   it was built at all (.filter-bar-has-actions, main.js - setup returns
+   early below 481px without building it), and it measured as fitting
+   (.filter-bar-actions-cramped, measure()). Phone keeps the second
+   selector and so keeps its footer: there the pair is hidden for any bar
+   with a pinned Search, and without the footer that tray would have no
+   Clear and no way out but the backdrop. */
+html:not(.phone-chrome) .filter-bar-tray.filter-bar-has-actions:not(.filter-bar-actions-cramped) .filter-bar-sticky-footer,
+html.phone-chrome .filter-bar-tray.filter-bar-has-actions:not(:has([data-filter-pinned])):not(.filter-bar-actions-cramped) .filter-bar-sticky-footer {
     display: none;
 }
 /* Hides the scrollbar on touch devices only (live feedback: "on touch
@@ -8210,10 +8208,24 @@ html.filter-bar-narrow-desktop .filter-bar-tray ~ .filter-tray-content .filter-b
    rules' own values (forms.css/above) rather than inventing new ones,
    so this mode's padding matches genuine desktop width exactly, not
    just "less tight than mobile". */
-html.filter-bar-narrow-desktop .filter-bar-tray {
+/* (#187) :not(.phone-chrome), not html.filter-bar-narrow-desktop as it was.
+   The --space-sm (12px) inset above is a phone value; narrow desktop already
+   opted back out of it, and since every width renders the tray now, wide
+   desktop needs the same opt-out or it inherits phone padding on a 1400px
+   bar.
+
+   It also fixes the gap between Search and the View filters pair (live
+   feedback: "where is the gap between search and view filters button").
+   .filter-actions-right is pinned at right: var(--space-lg) (20px, forms.css)
+   while the bar's own padding was 12px, so the buttons sat 8px inside the
+   sticky row's content edge and ate half of the --space-md the row reserves
+   for that gap (padding-right: calc(--filter-actions-right-width +
+   --space-md), forms.css) - measured: 8px of gap where 16 was intended.
+   Matching the two insets at 20px hands the whole 16px back. */
+html:not(.phone-chrome) .filter-bar-tray {
     padding: var(--space-xs) var(--space-lg);
 }
-html.filter-bar-narrow-desktop .filter-bar-tray .filter-bar-collapsible-inner {
+html:not(.phone-chrome) .filter-bar-tray .filter-bar-collapsible-inner {
     padding-left: var(--space-lg);
     padding-right: var(--space-lg);
 }
