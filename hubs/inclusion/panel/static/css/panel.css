@@ -8981,16 +8981,30 @@ html.phone-chrome-side .list-page-shell > .filter-bar {
     top: 0;
     /* Above the rows it floats over, below the filter tray (10) it opens. */
     z-index: 9;
-    background: var(--bg-surface);
 }
 /* bottom: 0, so it pins to the foot of the viewport while the list scrolls
-   underneath and releases naturally at the end of the list. Opaque background
-   for the same reason the filter bar needs one - rows pass behind it. */
+   underneath and releases naturally at the end of the list. */
 html.phone-chrome-side .stats-strip {
     position: sticky;
     bottom: 0;
     z-index: 9;
-    background: var(--bg-surface);
+}
+/* Both strips need an OPAQUE fill or the rows scroll visibly through them, and
+   the fill has to be --bg-well specifically. These are chrome - a controls
+   strip and a counts strip bookending the list - not content, and DES-F1 puts
+   chrome on --bg-well (forms.css's own .filter-bar rule says so outright:
+   "the bar is a controls strip (chrome), not an editable field itself").
+
+   An earlier pass here set --bg-surface purely to get opacity, which is the
+   same white as .list-card - so both strips dissolved into the rows they were
+   meant to frame (live feedback: "the footer is usually chrome and the filter
+   bar seems to have padding that is messing with the fill"). Sticky needs
+   opacity, not a colour of its own; taking the colour from the depth ladder
+   rather than picking one is what keeps them reading as chrome. */
+html.phone-chrome-side .list-card .filter-bar,
+html.phone-chrome-side .list-page-shell > .filter-bar,
+html.phone-chrome-side .stats-strip {
+    background: var(--bg-well);
 }
 /* A CLOSED tray is a position: fixed box of height 0 whose only rendered pixel
    is its own bottom border. In every other mode that hairline sits flush under
