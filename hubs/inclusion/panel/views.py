@@ -673,31 +673,6 @@ def _missing_required_answers(question_groups, post_data):
     return missing
 
 
-def _pct(numerator, denominator):
-    if not denominator:
-        return 0
-    return round(numerator * 100 / denominator)
-
-
-def _ken_breakdown(rows, label_key):
-    breakdown = []
-    for row in rows:
-        k_count = row['k_count']
-        e_count = row['e_count']
-        total = row['total']
-        n_count = total - k_count - e_count
-        breakdown.append({
-            'label': row[label_key],
-            'k_count': k_count,
-            'e_count': e_count,
-            'n_count': n_count,
-            'k_pct': _pct(k_count, total),
-            'e_pct': _pct(e_count, total),
-            'n_pct': _pct(n_count, total),
-        })
-    return breakdown
-
-
 def _response_groups(referral):
     # Built from the referral's actual saved responses (not the live active-question
     # list), so historic answers still display correctly even if a question was later

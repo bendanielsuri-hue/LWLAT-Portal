@@ -17,14 +17,14 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file 
 
 ## View pattern
 
-- `hubs.inclusion` and `core` are the exception to plain hardcoded views: they have real Django models and applied migrations (`core.models.Staff`/`Student`/`School`, `hubs.inclusion.models` — Referral, Action, PanelReferral, etc.). Other hubs reference `core.models.Staff`/`Student` where they need real data (e.g. directory, dashboards) rather than duplicating hardcoded people. `Staff`/`Student` each have a nullable `school` FK to `core.models.School`; `mat.views.build_school_nav()` reads `School` rows (merged with hardcoded "All Schools"/"All Primary"/"All Secondary" aggregate entries) to drive the sidebar school-switcher instead of a hardcoded list.
+- `hubs.inclusion` and `core` are the exception to plain hardcoded views: they have real Django models and applied migrations (`core.models.Staff`/`Student`/`School`, `hubs.inclusion.models` — Referral, Action, PanelReferral, etc.). Other hubs reference `core.models.Staff`/`Student` where they need real data (e.g. directory, dashboards) rather than duplicating hardcoded people. `Staff`/`Student` each have a nullable `school` FK to `core.models.School`; `portal.views.build_school_nav()` reads `School` rows (merged with hardcoded "All Schools"/"All Primary"/"All Secondary" aggregate entries) to drive the sidebar school-switcher instead of a hardcoded list.
 - Standard context per page: `local_menu` (list of `{name, url, icon}` for the hub's sidebar) and `hub_title`.
 - Templates: page extends `templates/layout.html`, includes `templates/hubs/_hub_sidebar.html` (driven by `local_menu`/`hub_title`) inside `{% block hub_sidebar %}`.
 - Icons are shared SVG templates under `templates/icons/`.
 
 ## Other notes
 
-- No requirements.txt/pyproject.toml/.env — settings.py has a hardcoded dev SECRET_KEY. `README.md` exists but is a one-line stub.
+- `requirements.txt` and `.env.example` exist; there is no pyproject.toml. settings.py still has a hardcoded dev SECRET_KEY fallback. `README.md` exists but is a one-line stub.
 - No auth/permissions enforced yet despite the role-shaped hub design.
 
 ## Database / seed data
@@ -57,7 +57,7 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file 
 ### Sidebar "current user" identity
 
 - No login system exists. Every hub's sidebar (`templates/hubs/_hub_sidebar.html`) shows a "current user" dropdown (avatar + name + job title), backed by a `current_staff_id` cookie (see `CURRENT_STAFF_COOKIE` in `core/identity.py`) and mirrored to `localStorage`. Switching identity reloads the page.
-- `core.identity.current_staff(request)` / `default_staff()` fall back to **Benjamin Suri** when no cookie is set — he's the default test identity for the whole app. `mat.context_processors.current_identity` surfaces this to every template (`current_staff`, `current_staff_id`, `current_staff_list`).
+- `core.identity.current_staff(request)` / `default_staff()` fall back to **Benjamin Suri** when no cookie is set — he's the default test identity for the whole app. `portal.context_processors.current_identity` surfaces this to every template (`current_staff`, `current_staff_id`, `current_staff_list`).
 - If a hub page throws `OperationalError: no such table: ...`, it means migrations haven't been run locally yet — run `migrate` (and reseed if the table is one of the demo-data ones above).
 - New models/migrations: if you add fields/models to `core` or `hubs.inclusion`, run `manage.py makemigrations` and commit the generated migration file(s) — migrations are tracked in git even though the database itself isn't.
 
@@ -77,7 +77,7 @@ Domain vocabulary and mechanism for `Module` (rollout/visibility cascade), the d
 
 - `.venv` ships with only `pip` preinstalled — run `.venv\Scripts\python.exe -m pip install django` before first `runserver`.
 - `posts` was removed from `INSTALLED_APPS` (mysite/settings.py): it had no app on disk and crashed `manage.py runserver` outright. If reintroducing it, create the app first.
-- Root URL `/` is wired directly to `mat.views.mat_home` in `mysite/urls.py` (not via `mysite/views.py`, which is otherwise unused).
+- Root URL `/` is wired directly to `portal.views.mat_home` in `mysite/urls.py` (not via `mysite/views.py`, which is otherwise unused).
 - **Django's `{# ... #}` comment tag is single-line only** — if the comment text wraps onto a second line, Django doesn't parse it as a comment at all and renders it as literal visible text on the page instead (this has actually happened and shipped, e.g. `hubs/inclusion/panel/templates/hubs/inclusion/panel/_referral_form_fields.html`). Any comment explaining more than one line's worth of "why" — which most of this codebase's comments do — must use the block form instead: `{% comment %}...{% endcomment %}`. Reach for `{# ... #}` only for a genuinely single-line, single-sentence note.
 - **`static/css/style.css` is a manually cache-busted `@import` chain** (`@import "layout/layout.css?v=35";`, one per file) — editing any file it imports does nothing in the browser until that file's own `?v=N` is bumped in `style.css`. `style.css` itself is also linked with its own `?v=330` in `templates/layout.html` (~line 104), and since editing an `@import` line changes `style.css`'s own content, that outer `?v=` needs bumping too on the same change — bump both, not just one, or the browser keeps serving a stale cached copy and a correct-looking CSS fix will appear to do nothing.
 

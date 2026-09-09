@@ -13,6 +13,7 @@ from core.identity import (
 )
 from core.models import Student
 from core.modules import filter_by_module, module_map
+from core.send_breakdown import ken_breakdown, pct
 
 from hubs.inclusion.panel.models import Action, InclusionReferral
 
@@ -41,33 +42,6 @@ def _local_menu(request):
 
 def _hub_context(request):
     return {'local_menu': _local_menu(request), 'hub_title': 'SEND & Provision'}
-
-
-def _pct(numerator, denominator):
-    if not denominator:
-        return 0
-    return round(numerator * 100 / denominator)
-
-
-def _ken_breakdown(rows, label_key):
-    breakdown = []
-    for row in rows:
-        k_count = row['k_count']
-        e_count = row['e_count']
-        total = row['total']
-        n_count = total - k_count - e_count
-        breakdown.append({
-            'label': row[label_key],
-            'total': total,
-            'k_count': k_count,
-            'e_count': e_count,
-            'n_count': n_count,
-            'k_pct': _pct(k_count, total),
-            'e_pct': _pct(e_count, total),
-            'n_pct': _pct(n_count, total),
-            'send_pct': _pct(k_count + e_count, total),
-        })
-    return breakdown
 
 
 def _referral_trend(students):
@@ -111,7 +85,7 @@ def _referral_trend(students):
             'short_label': bucket.strftime('%b'),
             'year_label': bucket.strftime('%y'),
             'count': counts_by_date.get(bucket, 0),
-            'pct': _pct(counts_by_date.get(bucket, 0), max_count) if max_count else 0,
+            'pct': pct(counts_by_date.get(bucket, 0), max_count) if max_count else 0,
         }
         for bucket in buckets
     ]
@@ -207,9 +181,9 @@ def inclusion_hub(request):
     e_count = students.filter(sen_status='E').count()
 
     code_breakdown = [
-        {'label': 'EHCP (E)', 'count': e_count, 'pct': _pct(e_count, total_students), 'code': 'e'},
-        {'label': 'SEN Support (K)', 'count': k_count, 'pct': _pct(k_count, total_students), 'code': 'k'},
-        {'label': 'None', 'count': total_students - send_count, 'pct': _pct(total_students - send_count, total_students), 'code': 'n'},
+        {'label': 'EHCP (E)', 'count': e_count, 'pct': pct(e_count, total_students), 'code': 'e'},
+        {'label': 'SEN Support (K)', 'count': k_count, 'pct': pct(k_count, total_students), 'code': 'k'},
+        {'label': 'None', 'count': total_students - send_count, 'pct': pct(total_students - send_count, total_students), 'code': 'n'},
     ]
 
     year_rows = list(
@@ -221,7 +195,7 @@ def inclusion_hub(request):
     )
     for row in year_rows:
         row['year_group'] = f"Year {row['year_group']}"
-    year_breakdown = _ken_breakdown(year_rows, 'year_group')
+    year_breakdown = ken_breakdown(year_rows, 'year_group')
 
     gender_rows = list(
         students.exclude(gender='').values('gender').annotate(
@@ -233,7 +207,7 @@ def inclusion_hub(request):
     gender_labels = dict(Student.GENDER_CHOICES)
     for row in gender_rows:
         row['gender'] = gender_labels.get(row['gender'], row['gender'])
-    gender_breakdown = _ken_breakdown(gender_rows, 'gender')
+    gender_breakdown = ken_breakdown(gender_rows, 'gender')
 
     referrals_this_year = InclusionReferral.objects.filter(
         student__in=students, created_at__year=timezone.localdate().year
@@ -258,7 +232,7 @@ def inclusion_hub(request):
     )
     need_breakdown = sorted(
         (
-            {'label': label, 'count': need_counts.get(key, 0), 'pct': _pct(need_counts.get(key, 0), send_count)}
+            {'label': label, 'count': need_counts.get(key, 0), 'pct': pct(need_counts.get(key, 0), send_count)}
             for key, label in Student.SEND_NEED_CHOICES
         ),
         key=lambda row: row['count'],
@@ -275,7 +249,7 @@ def inclusion_hub(request):
                 total=Count('id'),
             ).order_by('-total')
         )
-        school_breakdown = _ken_breakdown(school_rows, 'school__name')
+        school_breakdown = ken_breakdown(school_rows, 'school__name')
 
     sencos = (
         staff_queryset_for_school_key(school_key)
@@ -284,8 +258,8 @@ def inclusion_hub(request):
     )
     senco_multi_school = len({s.school_id for s in sencos}) > 1
 
-    send_pct = _pct(send_count, total_students)
-    ehcp_pct = _pct(e_count, total_students)
+    send_pct = pct(send_count, total_students)
+    ehcp_pct = pct(e_count, total_students)
 
     kpi_cards = [
         {'label': 'Total Students', 'value': total_students, 'accent': 'neutral', 'icon': 'icons/student_svg.html'},
