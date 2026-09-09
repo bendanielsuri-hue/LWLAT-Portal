@@ -20,8 +20,31 @@
        1px overflow and would otherwise show arrows that do nothing. */
     var SLOP = 1;
 
+    /* Two kinds of scrolling track, one mechanism.
+
+       In the TRAY each section owns a row and its own fields row scrolls.
+       At WIDE DESKTOP the panel is a single line of sections and the strip
+       itself scrolls. Both get the same fades, arrows, drag, wheel redirect
+       and hover-to-reveal - only what counts as an "item" differs, which is
+       why items() exists. */
     function scrollers() {
-        return document.querySelectorAll('.filter-bar-sections .filter-group-fields');
+        return document.querySelectorAll(
+            '.filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields,' +
+            '.filter-secondary-fields .filter-bar-sections'
+        );
+    }
+    function isPanelStrip(row) {
+        return row.classList.contains('filter-bar-sections');
+    }
+    function items(row) {
+        return Array.prototype.slice.call(
+            row.querySelectorAll(isPanelStrip(row) ? ':scope > .filter-group' : ':scope > .filter-field')
+        );
+    }
+    /* Whatever the arrows and the can-scroll state hang off: a section for a
+       tray row, the panel itself for the strip. */
+    function host(row) {
+        return row.closest('.filter-group') || row.closest('.filter-secondary-fields');
     }
 
     /* Arrows live in the caption, which is .filter-group's OTHER child -
@@ -41,25 +64,29 @@
        now takes an optional scrollTo (added on this branch, backwards
        compatible), and this passes the fade-aware one below. */
     function ensureArrows(row) {
-        var group = row.closest('.filter-group');
-        var label = group && group.querySelector(':scope > .filter-section-label');
-        if (!label || label.querySelector('.proto-arrow')) return;
+        var owner = host(row);
+        if (!owner) return;
+        var panel = isPanelStrip(row);
+        // Tray: the caption row, which is .filter-group's other child.
+        // Panel: the panel box itself, arrows absolutely placed at its edges.
+        var mount = panel ? owner : owner.querySelector(':scope > .filter-section-label');
+        if (!mount || mount.querySelector('.proto-arrow')) return;
         ['prev', 'next'].forEach(function (dir) {
             var btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'proto-arrow';
+            btn.className = 'proto-arrow' + (panel ? ' proto-arrow--panel' : '');
             btn.dataset.protoArrow = dir;
-            btn.setAttribute('aria-label', (dir === 'prev' ? 'Previous' : 'More') + ' filters in this section');
+            btn.setAttribute('aria-label', (dir === 'prev' ? 'Previous' : 'More') +
+                (panel ? ' filter categories' : ' filters in this section'));
             btn.textContent = dir === 'prev' ? '‹' : '›';
-            if (dir === 'prev') label.insertBefore(btn, label.firstChild);
-            else label.appendChild(btn);
+            if (dir === 'prev') mount.insertBefore(btn, mount.firstChild);
+            else mount.appendChild(btn);
         });
         if (typeof window.wireScrollCarousel !== 'function') return;
-        group.dataset.protoUpdate = '1';
-        group._protoUpdateArrows = window.wireScrollCarousel(
-            group,
-            ':scope > .filter-group-fields',
-            '.filter-field',
+        owner._protoUpdateArrows = window.wireScrollCarousel(
+            owner,
+            panel ? ':scope > .filter-bar-sections' : ':scope > .filter-group-fields',
+            panel ? '.filter-group' : '.filter-field',
             '.proto-arrow[data-proto-arrow="prev"]',
             '.proto-arrow[data-proto-arrow="next"]',
             { scrollTo: function (track, direction) { step(track, direction > 0 ? 'next' : 'prev'); } }
@@ -95,7 +122,7 @@
         var pad = fade(row);
         var left = rowRect.left + pad;
         var right = rowRect.right - pad;
-        var fields = Array.prototype.slice.call(row.querySelectorAll(':scope > .filter-field'));
+        var fields = items(row);
         var delta = null;
         if (dir === 'next') {
             for (var i = 0; i < fields.length; i++) {
@@ -120,7 +147,7 @@
     }
 
     function update(row) {
-        var group = row.closest('.filter-group');
+        var group = host(row);
         var max = row.scrollWidth - row.clientWidth;
         var can = max > SLOP;
         var left = row.scrollLeft > SLOP;
@@ -140,12 +167,12 @@
         scrollers().forEach(function (row) {
             if (!on) {
                 row.classList.remove('proto-scroll-more-left', 'proto-scroll-more-right');
-                var g = row.closest('.filter-group');
+                var g = host(row);
                 if (g) g.classList.remove('proto-can-scroll');
                 return;
             }
             ensureArrows(row);
-            var g = row.closest('.filter-group');
+            var g = host(row);
             if (g && g._protoUpdateArrows) g._protoUpdateArrows();
             if (!row.dataset.protoBound) {
                 row.dataset.protoBound = '1';
@@ -187,7 +214,8 @@
             if (e.pointerType !== 'mouse') return;
             if (!document.documentElement.dataset.trayScroll) return;
             if (row.scrollWidth - row.clientWidth <= SLOP) return;
-            var field = e.target.closest && e.target.closest('.filter-field');
+            var sel = isPanelStrip(row) ? '.filter-group' : '.filter-field';
+            var field = e.target.closest && e.target.closest(sel);
             if (!field || field.parentNode !== row) return;
             window.clearTimeout(timer);
             if (Date.now() < until) return;

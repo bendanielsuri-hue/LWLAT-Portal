@@ -57,10 +57,10 @@
    a flex item's automatic minimum size 0, which is what lets it shrink
    below its content rather than forcing its parent wider.
    =================================================================== */
-html[data-tray-scroll] .filter-bar-tray .filter-bar-sections .filter-group {
+html[data-tray-scroll] .filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group {
     flex: 1 1 100%;
 }
-html[data-tray-scroll] .filter-bar-tray .filter-bar-sections .filter-group-fields {
+html[data-tray-scroll] .filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields {
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
@@ -88,11 +88,11 @@ html[data-tray-scroll] .filter-bar-tray .filter-bar-sections .filter-group-field
    fade, and the arrows on the caption). The convention exists because a
    hidden scrollbar normally costs the only affordance there is; here it
    costs the third one. */
-html[data-tray-scroll] .filter-bar-tray .filter-bar-sections .filter-group-fields {
+html[data-tray-scroll] .filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields {
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
-html[data-tray-scroll] .filter-bar-tray .filter-bar-sections .filter-group-fields::-webkit-scrollbar {
+html[data-tray-scroll] .filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
@@ -133,10 +133,10 @@ html[data-tray-scroll] .filter-bar-tray .filter-bar-sections .filter-group-field
    of never resting on a half-visible field - which is the very thing that
    advertises there is more to scroll.
    =================================================================== */
-html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields {
+html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields {
     scroll-snap-type: x proximity;
 }
-html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-group-fields > .filter-field {
+html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-group-fields > .filter-field {
     scroll-snap-align: start;
 }
 
@@ -169,7 +169,7 @@ html[data-tray-variant="snap"] .filter-bar-tray .filter-bar-sections .filter-gro
    hides an arrow by setting the `hidden` PROPERTY, and [hidden]'s display:
    none comes from the UA stylesheet - any author display here outranks it,
    so without this an arrow the helper had hidden would keep rendering. */
-html[data-tray-scroll] .filter-group.proto-can-scroll .proto-arrow:not([hidden]) {
+html[data-tray-scroll] .proto-can-scroll .proto-arrow:not([hidden]) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -192,7 +192,7 @@ html[data-tray-scroll] .filter-group.proto-can-scroll .proto-arrow:not([hidden])
     line-height: 1;
     cursor: pointer;
 }
-html[data-tray-scroll] .filter-group.proto-can-scroll .proto-arrow[disabled] {
+html[data-tray-scroll] .proto-can-scroll .proto-arrow[disabled] {
     /* Kept in place rather than hidden at the ends of the travel - a pair
        that disappears and reappears makes the caption row twitch its width
        every time you scroll it. */
@@ -208,7 +208,7 @@ html[data-tray-scroll] .filter-group.proto-can-scroll .proto-arrow[disabled] {
    them. Extended down and sideways instead, into the --space-lg gap that
    already separates this section from the next, where there is nothing to
    steal a tap from. 2 + 22 + 20 = 44 tall, 11 + 22 + 11 = 44 wide. */
-html[data-tray-scroll] .filter-group.proto-can-scroll .proto-arrow::after {
+html[data-tray-scroll] .proto-can-scroll .proto-arrow::after {
     content: "";
     position: absolute;
     inset: -2px -11px -20px;
@@ -223,4 +223,80 @@ html[data-tray-scroll] .filter-group-fields.is-dragging {
     cursor: grabbing;
     /* Stops the drag selecting label text as it passes over it. */
     user-select: none;
+}
+
+/* ===================================================================
+   WIDE DESKTOP - ONE ROW, OVERLAYING
+
+   Two reversals, both of decisions this codebase made deliberately and
+   recorded, so both are worth stating plainly:
+
+   1. Back to a single scrolling line of categories. de5fa4f ("Let the
+      filter panel wrap instead of scrolling") replaced the strip with a
+      wrap, on the grounds that a drop-down panel has vertical room to
+      spend and "a filter you cannot see is a filter you do not use". What
+      has changed since is that the tray now scrolls per section anyway, so
+      the scroll is no longer an oddity confined to one width - and a
+      wrapped panel four rows deep is a lot of chrome to drop over a list.
+   2. Back to floating over the content. The 2026-08-20 change put this
+      panel into normal flow (forms.css' own comment: "for this mode, not
+      mobile, the filter shelf pushes the content down as this can be kept
+      open"). Overlaying costs exactly that: the panel now covers the top
+      rows of the list while open, so it stops being something you leave
+      open while working down the page.
+
+   The containing block is .filter-bar itself (position: sticky, which
+   counts as positioned), so top: 100% is "directly under the bar" without
+   needing to know the bar's height. */
+html[data-tray-scroll] .filter-bar-tray .filter-secondary-fields:not([hidden]) {
+    position: absolute;
+    top: calc(100% + var(--space-xs));
+    left: 0;
+    right: 0;
+    z-index: 30;
+    /* Cancels the flow-mode sizing: a flex basis that claimed a full row of
+       .filter-fields-wrap, and the left/right bleed baked into it. Out of
+       flow, the box is placed by its own inset properties instead. */
+    flex-basis: auto;
+    margin: 0;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 28px rgba(15, 23, 36, 0.14);
+}
+/* One row: the categories stop wrapping and the line scrolls, exactly as a
+   tray section's own fields row does. Same --proto-fade, same masks, same
+   arrows, same drag/wheel handling - one mechanism at both ends of the
+   width range rather than a scroll for phones and a wrap for desktops. */
+html[data-tray-scroll] .filter-bar-tray .filter-secondary-fields .filter-bar-sections {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    --proto-fade: 28px;
+    scroll-padding-inline: var(--proto-fade);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+html[data-tray-scroll] .filter-bar-tray .filter-secondary-fields .filter-bar-sections::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+/* The panel's own arrows sit at its left/right edges, vertically centred -
+   there is no per-section caption row to hang them on here, because what
+   scrolls is the whole strip rather than one category. --panel modifier, so
+   they can be positioned without disturbing the caption-row pair. */
+html[data-tray-scroll] .proto-can-scroll .proto-arrow--panel:not([hidden]) {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+html[data-tray-scroll] .proto-can-scroll .proto-arrow--panel[data-proto-arrow="prev"] {
+    left: calc(var(--space-xs) * -1);
+}
+html[data-tray-scroll] .proto-can-scroll .proto-arrow--panel[data-proto-arrow="next"] {
+    right: calc(var(--space-xs) * -1);
 }
