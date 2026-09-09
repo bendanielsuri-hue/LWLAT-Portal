@@ -859,7 +859,14 @@
                 btn.classList.toggle('active', bpSize[tier] === btn.dataset.bpId);
             });
             rotateBtn.disabled = (bpTier === 'desktop');
-            rotateBtn.classList.toggle('active', bpLandscape && bpTier !== 'desktop');
+            // Active whenever a device tier is up, in EITHER orientation - not
+            // only in landscape. The fill here means "this control is live and
+            // applying to the preview", matching the active tier button beside
+            // it; which way round you are is the label's job now that it reads
+            // out Portrait/Landscape. Tying the fill to landscape instead made
+            // portrait look like the button was switched off, when portrait is
+            // just as much an applied orientation as landscape is.
+            rotateBtn.classList.toggle('active', bpTier !== 'desktop');
             // Label states the orientation you're IN, tooltip states what the
             // click would DO. The class is what the width transition keys on -
             // the text swap alone can't drive a CSS transition, since width
