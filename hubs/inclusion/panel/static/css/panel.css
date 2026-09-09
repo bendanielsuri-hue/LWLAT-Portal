@@ -7478,8 +7478,25 @@ html.filter-bar-mobile-mode .filter-bar-tray {
    it in the first place - the buttons are position: absolute and take
    no width of their own, so nothing else keeps this row's content from
    running underneath them. */
-html.filter-bar-mobile-mode.filter-bar-narrow-desktop .filter-bar-tray:has([data-filter-pinned]) .filter-bar-sticky-row,
-html.phone-chrome-side .filter-bar-tray:has([data-filter-pinned]) .filter-bar-sticky-row {
+/* (#187) Only where the View filters pair is genuinely absent.
+
+   This used to zero the reserve for any search-bearing bar at narrow-
+   desktop or landscape-phone width, and it was right to: those widths hid
+   that pair outright, so reserving room for buttons that were not there
+   just pushed Search short of the edge for nothing.
+
+   Both of those widths show the pair now (#187), and with the reserve still
+   zeroed Search ran clean underneath the absolutely-positioned buttons -
+   measured at 834px: Search's right edge 214px PAST where the buttons
+   start, which reads as no gap at all (live feedback: "gap is too big in
+   desktop, not there in tablet" - two different bugs, one per width).
+
+   What is left is the same "is the pair really there" test the footer and
+   the View filters rules use: phone hides it for search-bearing bars, and
+   .filter-bar-actions-cramped is measure()'s own verdict that it did not
+   fit. Everywhere else the reserve stands. */
+html.phone-chrome .filter-bar-tray:has([data-filter-pinned]) .filter-bar-sticky-row,
+.filter-bar-tray.filter-bar-actions-cramped .filter-bar-sticky-row {
     padding-right: 0;
 }
 /* Narrow desktop only, collapsed only (:not(.is-expanded) - once
