@@ -103,10 +103,6 @@ Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-f
 
 Read order and glossary-usage rules for agents (which `CONTEXT.md`/ADRs to consult before exploring, how to flag an ADR conflict) — see `docs/agents/domain.md`. What these docs are and when they get created is covered under "Architecture decisions" and "Domain glossary" below.
 
-### Grilling sessions
-
-Always ask each question via the AskUserQuestion widget, not as inline plain-text prose — even for the first question opening the session.
-
 ## Architecture decisions
 
 Hard-to-reverse design decisions with non-obvious rationale are recorded in `docs/adr/` as they come up — see the existing ADRs there for the format. Not every decision needs one; see `docs/adr/` only when a future reader would plausibly ask "why did we do it this way?"
