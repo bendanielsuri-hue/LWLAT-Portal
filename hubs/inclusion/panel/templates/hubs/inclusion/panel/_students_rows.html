@@ -114,7 +114,15 @@ markup in one place means both call sites can never drift apart.
                 <div class="row-fact-col" data-col="attendance">
                     <span class="row-fact-label">Attendance</span>
                     <span class="row-fact-inline-pill">{% if s.attendance_pct is not None %}{{ s.attendance_pct }}%{% if s.is_persistently_absent %} <span class="status-pill overdue_review">PA</span>{% endif %}{% else %}—{% endif %}</span>
-                    <span>AA {{ s.attendance_authorised_pct }}% &middot; UA {{ s.attendance_unauthorised_pct }}%</span>
+                    {% comment %}
+                    Same "—" for no data as the attendance pill above, which
+                    already guarded its own None. These two now agree: every
+                    attendance figure is None (not 0) when nothing has been
+                    recorded, since 0% authorised absence for a student with no
+                    attendance data reads as a clean record rather than an
+                    absent one.
+                    {% endcomment %}
+                    <span>AA {% if s.attendance_authorised_pct is not None %}{{ s.attendance_authorised_pct }}%{% else %}—{% endif %} &middot; UA {% if s.attendance_unauthorised_pct is not None %}{{ s.attendance_unauthorised_pct }}%{% else %}—{% endif %}</span>
                 </div>
             </div>
             {% comment %}

@@ -28,7 +28,11 @@ def attendance_percentage(student):
 
 
 def attendance_sessions_possible(student):
-    return student.attendance_days.count() * 2
+    # len(.all()) rather than .count(): .count() is always its own query, so it
+    # defeats a prefetch_related and turns a list page into an N+1. Every
+    # counter in this module reads through the prefetch cache for that reason -
+    # see prefetch_history() for the relations a caller should prefetch.
+    return len(student.attendance_days.all()) * 2
 
 
 def attendance_authorised_absences(student):
@@ -42,16 +46,26 @@ def attendance_unauthorised_absences(student):
 
 
 def attendance_authorised_pct(student):
+    """Authorised absence as a percentage of possible sessions.
+
+    None (not 0) when no attendance has been recorded, matching
+    attendance_percentage - "nothing recorded" and "recorded, and it was zero"
+    are different facts, and 0% authorised absence for a student with no
+    attendance data at all reads as a clean record rather than an absent one.
+    These two used to disagree: one returned None, its neighbours ten lines
+    below returned 0, for the same condition."""
     possible = attendance_sessions_possible(student)
     if not possible:
-        return 0
+        return None
     return round(attendance_authorised_absences(student) / possible * 100, 1)
 
 
 def attendance_unauthorised_pct(student):
+    """Unauthorised absence as a percentage of possible sessions. None when
+    nothing has been recorded - see attendance_authorised_pct."""
     possible = attendance_sessions_possible(student)
     if not possible:
-        return 0
+        return None
     return round(attendance_unauthorised_absences(student) / possible * 100, 1)
 
 
@@ -222,7 +236,7 @@ def behaviour_summary(student):
     """One-line derived summary of a student's behaviour incident log, for
     display where the old freeform Student.behaviour_summary field used to
     be read directly."""
-    count = student.behaviour_incidents.count()
+    count = len(student.behaviour_incidents.all())
     if count == 0:
         return 'No incidents logged'
     return f'{count} incident{"s" if count != 1 else ""} logged'
@@ -251,7 +265,7 @@ def behaviour_severity_pct(student):
 
 
 def exclusion_count(student):
-    return student.exclusions.count()
+    return len(student.exclusions.all())
 
 
 def exclusion_most_recent(student):
@@ -278,4 +292,26 @@ def positive_behaviour_points(student):
 
 
 def positive_behaviour_entry_count(student):
-    return student.positive_behaviour_incidents.count()
+    return len(student.positive_behaviour_incidents.all())
+
+
+# The relations every helper above reads through. A list page that annotates
+# students with any of these must prefetch them, or each helper falls back to
+# its own query per student - which is what made the Students page issue three
+# extra queries per row (attendance sessions, behaviour count, positive count),
+# 150 on a 50-row page.
+#
+# Named here rather than spelled out at each call site so the list has one
+# owner: positive_behaviour_incidents was missing from the Students page's own
+# prefetch entirely, and nothing pointed that out.
+HISTORY_RELATIONS = (
+    'attendance_days',
+    'behaviour_incidents',
+    'positive_behaviour_incidents',
+    'exclusions',
+)
+
+
+def prefetch_history(students):
+    """Prefetch every relation this module reads. Returns the queryset."""
+    return students.prefetch_related(*HISTORY_RELATIONS)

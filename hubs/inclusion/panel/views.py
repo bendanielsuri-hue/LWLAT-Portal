@@ -39,6 +39,7 @@ from core.student_history import (
     positive_behaviour_periods,
     positive_behaviour_points,
     positive_behaviour_summary,
+    prefetch_history,
 )
 from core.term_dates import next_half_term, next_term, upcoming_review_terms
 from portal.templatetags.avatar_extras import initials, full_name
@@ -1084,7 +1085,11 @@ def inclusion_panel_students(request):
         # independently per student, so it can't interact with the joins
         # above at all.
         has_overdue_actions=Exists(overdue_actions_subquery),
-    ).select_related('school', 'form_tutor').prefetch_related('attendance_days', 'behaviour_incidents')
+    ).select_related('school', 'form_tutor')
+    # prefetch_history owns the relation list rather than spelling it out here -
+    # positive_behaviour_incidents was missing from this call, so every row's
+    # positive_behaviour_summary() was its own query.
+    students = prefetch_history(students)
     if student_filter:
         students = students.filter(pk=student_filter)
     elif name_filter:
