@@ -6506,7 +6506,18 @@ html.nav-touch-mode .row-facts-arrow {
    position: relative either - that existed purely to anchor this. */
 .filter-bar-tray .filter-bar-sections .filter-group-fields {
     display: flex;
-    flex-wrap: wrap;
+    /* (#186) A section NEVER runs onto a second row. If its fields do not
+       fit the space they have, the row scrolls - it never wraps.
+
+       Stated here, on the shared rule, rather than on whichever host
+       happens to render it: this is a property of what a section IS, not of
+       where it is being drawn, and the two hosts had drifted (the tray's own
+       rule below said nowrap while the panel was still inheriting wrap from
+       this line). A wrapped section is what produced both bugs #186 exists
+       to fix - dead space beside a ragged last line, and a long value
+       reflowing every field after it - so nothing should be able to
+       reintroduce one by adding a host. */
+    flex-wrap: nowrap;
     /* flex: 1 1 auto - takes whatever height the stretched category box
        has over its own content, so the caption stays hugging the fields
        instead of a gap opening between them (this box and the caption are
@@ -6864,6 +6875,9 @@ html.nav-touch-mode .row-facts-arrow {
 /* WIDE DESKTOP: the panel is a single line of categories and the strip
    itself scrolls (#186 reverses de5fa4f's wrap here). */
 .filter-bar-tray .filter-secondary-fields .filter-bar-sections {
+    /* nowrap here is about the STRIP - one line of categories rather than
+       four wrapped rows. A section's own fields row gets its nowrap from the
+       shared rule above, which no host can opt out of. */
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
