@@ -375,12 +375,25 @@ Menu switcher instead - see its own comment below.
             430px viewport), while the LEFT padding stays at desktop's 32px
             because width isn't scarce at all. Right clears the nav strip.
             {% endcomment %}
-            /* --space-md at the top, --space-sm at the bottom: the top edge is
-               the one you read the page title against, and at 12px it sat too
-               tight to the viewport edge once the header's own bleed margin
-               was corrected. The bottom has no such job. */
-            padding-top: var(--space-md);
-            padding-bottom: var(--space-sm);
+            {% comment %}
+            12px, and the header zone's own top padding is zeroed below so this
+            is the whole gap. They were stacking - 16px here plus the zone's
+            inherited desktop 20px put 36px above the title on a 430px screen
+            (live feedback: "space at top of the page above header is
+            excessive"). Matches the phone tier's own 12px page margin.
+            {% endcomment %}
+            padding-top: var(--space-sm);
+            {% comment %}
+            No bottom padding. The stats strip is sticky to the foot of the
+            viewport, so mid-scroll it sits flush against the bottom edge - but
+            at the end of the list it releases into normal flow and this padding
+            lifted it 12px, showing a band of page background beneath it. The
+            strip appeared to detach from the bottom exactly when you reached
+            the end (live feedback: "we do not need the extra space at bottom of
+            page"). Nothing follows the strip, so there is nothing for bottom
+            padding to separate it from.
+            {% endcomment %}
+            padding-bottom: 0;
             {% comment %}
             Edge to edge horizontally (live feedback: "if there is a FAB, it is
             probably worth using all available space - can we go edge to
@@ -398,7 +411,10 @@ Menu switcher instead - see its own comment below.
             sticky-header-zone rule below about keeping the two in step.
             {% endcomment %}
             padding-left: 0;
-            padding-right: 56px;
+            /* Exactly the strip's width - content still runs to where the
+               strip begins, and the strip's own 8px inner clearance is what
+               keeps the FAB off both edges. */
+            padding-right: 72px;
         }
         {% comment %}
         .sticky-header-zone/.home-header-sticky bleed by cancelling
@@ -422,6 +438,9 @@ Menu switcher instead - see its own comment below.
             cancelling, so it goes to 0 and the page's own top padding shows.
             {% endcomment %}
             margin-top: 0;
+            /* 0, not the inherited desktop 20px - .main-inner's own top padding
+               above is the page gap, and the two were stacking. */
+            padding-top: 0;
             padding-left: var(--space-sm);
             padding-right: var(--space-sm);
         }
@@ -489,7 +508,23 @@ Menu switcher instead - see its own comment below.
             top: 0;
             bottom: 0;
             right: 0;
-            width: 56px;
+            {% comment %}
+            72px, not the FAB's own 56px. At 56 the strip was exactly as wide as
+            the FAB, so the circle touched both the content edge and the screen
+            edge with no air either side and read as cut off against the
+            viewport (live feedback: "the FAB is too close to screen edge, it's
+            cut off - it needs to be like in portrait"). In portrait the FAB has
+            the whole width of the bar around it and the screen edges are
+            nowhere near it; 72px reproduces that clearance - 8px each side of a
+            centred 56px circle.
+
+            Widening the strip rather than restoring the FAB's negative margin:
+            the overhang would push the circle's LEFT half back into content
+            (which is what buried a list row's action button before) while
+            leaving its right half just as flush against the screen edge, so it
+            fixes neither problem. Costs 16px of the 932px width.
+            {% endcomment %}
+            width: 72px;
             height: 100%;
             border-top: none;
             border-left: 1px solid var(--border-strong);
@@ -507,13 +542,20 @@ Menu switcher instead - see its own comment below.
             box-shadow: none;
         }
         {% comment %}
-        The .list-card exemption above is about the card's own edge sitting
-        directly against the bar's. In the side strip that shared edge is
-        vertical, so the border that would double up is border-left - the rule
-        above cancels border-top, which the strip doesn't have anyway.
+        The .list-card exemption above does NOT carry over to this tier, so it
+        is deliberately reinstated here. In portrait it exists because the card
+        ends in its own border-strong edge directly above the bar, and stacking
+        the bar's border on top of that read as one thickened line. Here the
+        card is edge to edge with its SIDE borders stripped entirely
+        (measured: border 0 0 1px, bottom only), so nothing supplies that edge
+        - dropping the strip's own border left --bg-well content butting
+        straight into --bg-nav chrome with no seam at all. Those two tones are
+        neighbours on the same depth ladder and need the line to read apart
+        (live feedback: "should we add some separation of chrome by introducing
+        a border along the edge of the mobile nav").
         {% endcomment %}
         html.phone-chrome-side body:has(.list-card) .mobile-tabbar {
-            border-left: none;
+            border-left: 1px solid var(--border-strong);
         }
         html.phone-chrome .mobile-tab {
             flex: 1 1 0;

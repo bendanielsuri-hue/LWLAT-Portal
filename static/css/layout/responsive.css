@@ -445,6 +445,33 @@ html.phone-chrome.nav-touch-mode .nav-stack {
     width: 0;
 }
 
+/* Page-header actions are hidden wherever the tab bar is, in BOTH tiers - the
+   FAB and the tabbar's own Search/Menu/Settings buttons proxy-click these same
+   controls, so on screen at once they are the same actions twice (live
+   feedback: "I think we lose the buttons in header if we have FAB").
+
+   This started as a width-driven rule and was deliberately left width-only when
+   the `short` tier was added, on the grounds that the header row exists to
+   carry the title anyway so a button in it costs no extra height. That held
+   only while the header was pinned. Now it scrolls away here, the row is no
+   longer free - and .page-header-extras stacks its two button rows to 94px of a
+   430px viewport, nearly all of the header's 130px. Following the tab bar
+   rather than the width settles it in both tiers at once.
+
+   Not display: none on .page-header-extras itself - Inclusion Panel's
+   _base.html (page_extras block) renders its New Referral/Panel Search/Panel
+   Group/... <dialog> elements as siblings of the visible button row in there,
+   and a display: none *ancestor* kills a <dialog> even once showModal() has
+   promoted it to the top layer - the mobile Search/+Referral tabbar buttons
+   proxy-click these same dialogs open, so hiding the whole container silently
+   broke both (confirmed: search opened fine on a plain hub page, which has no
+   dialogs in this block, but not inside Panel). Hiding every non-dialog child
+   instead leaves any <dialog> free to render on its own terms regardless of
+   its hidden siblings. */
+html.phone-chrome .page-header-extras > *:not(dialog) {
+    display: none;
+}
+
 @media (max-width: 480px) {
     /* Phone reclaim (#116 follow-up): .main-inner's padding (layout.css)
        is otherwise unconditional, same var(--space-2xl) on all four sides
@@ -470,20 +497,6 @@ html.phone-chrome.nav-touch-mode .nav-stack {
     .home-header-sticky {
         margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm)) 0;
         padding: var(--space-sm) var(--space-sm) var(--space-sm);
-    }
-    /* Not display:none on .page-header-extras itself - Inclusion Panel's
-       _base.html (page_extras block) renders its New Referral/Panel Search/
-       Panel Group/... <dialog> elements as siblings of the visible button
-       row in there, and a display:none *ancestor* kills a <dialog> even
-       once showModal() has promoted it to the top layer - the mobile
-       Search/+Referral tabbar buttons proxy-click these same dialogs open,
-       so hiding the whole container silently broke both (confirmed: search
-       opened fine on a plain hub page, which has no dialogs in this block,
-       but not inside Panel). Hiding every non-dialog child instead leaves
-       any <dialog> free to render on its own terms regardless of its
-       hidden siblings. */
-    .page-header-extras > *:not(dialog) {
-        display: none;
     }
 
 
