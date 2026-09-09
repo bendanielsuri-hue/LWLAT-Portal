@@ -4,7 +4,7 @@
    half of the scrolling variants: which rows can scroll, which way they
    still have travel, and the prev/next arrows on each caption row.
 
-   ?tray=now|scr|snap|edge in the URL, mirrored to localStorage so the choice
+   ?tray=now|scr|snap in the URL, mirrored to localStorage so the choice
    survives the filter form's own GET submits (which rebuild the query
    string from the form's fields and would otherwise drop it). Left/right
    arrow keys cycle variants, except while typing in a field. */
@@ -12,8 +12,7 @@
     var VARIANTS = [
         { key: 'now', name: 'today, untouched' },
         { key: 'scr', name: 'row per section, scrolls' },
-        { key: 'snap', name: 'the same + scroll-snap' },
-        { key: 'edge', name: 'scr + hover-edge autoscroll' }
+        { key: 'snap', name: 'the same + scroll-snap' }
     ];
     var STORE = 'prototypeTrayVariant';
     /* 1px, not 0: scrollWidth/clientWidth are rounded to integers off
@@ -151,77 +150,69 @@
             if (!row.dataset.protoBound) {
                 row.dataset.protoBound = '1';
                 row.addEventListener('scroll', function () { update(row); }, { passive: true });
-                enableEdgeScroll(row);
+                enableHoverReveal(row);
             }
             update(row);
         });
     }
 
-    /* Hover-edge autoscroll (the 'edge' variant, mouse only).
+    /* Hover a partly-hidden field and it scrolls itself fully into view.
 
-       Pointer inside a band at either end of a row pans it that way, faster
-       the closer to the edge - the drag-and-drop autoscroll gesture, minus
-       the drag.
+       This replaces a proximity-based edge autoscroll (pointer near the end
+       of a row pans it, faster the closer in). That one was rejected on the
+       page and the reason is worth keeping: it moved content under a
+       stationary mouse continuously, so a dropdown near the edge slid away
+       from the pointer aiming at it, and the row squirmed whenever you
+       crossed it on the way somewhere else.
 
-       Two deliberate dampeners, because content that moves under a
-       stationary mouse with no button held is the surprising kind of clever:
+       This one is discrete instead. Hovering a field that is cut off states
+       exactly what you want - that field - and it moves by the MINIMUM
+       needed to show it whole, so the field slides toward the pointer rather
+       than out from under it, and a row with nothing cut never moves at all.
 
-       - ARM_MS: the band has to be occupied for a moment before anything
-         moves, so sweeping across a row on the way to a field never starts
-         it. Without it, aiming at a dropdown near the right edge makes that
-         dropdown slide away from the pointer chasing it.
-       - The band lives over the FIELDS only. The arrows sit in the caption
-         row, a sibling element, so hovering an arrow never also autoscrolls
-         underneath it.
+       Same landing rule as the arrows: cleared of the fade at whichever end
+       it arrives, so what surfaces is fully opaque rather than under the
+       gradient that advertised it.
 
-       Speed ramps linearly from 0 at the inner edge of the band to MAX at
-       the very edge, so the closer in the faster, and a pointer resting just
-       inside the band creeps rather than bolts. Cancels on leave, on
-       pointerdown (a drag takes over) and when the row runs out of travel. */
-    var BAND = 56;
-    var MAX_SPEED = 12;
-    var ARM_MS = 180;
-    function enableEdgeScroll(row) {
-        var dir = 0, speed = 0, raf = null, armed = false, armTimer = null;
-        function stop() {
-            dir = 0; armed = false;
-            window.clearTimeout(armTimer);
-            if (raf) { window.cancelAnimationFrame(raf); raf = null; }
-        }
-        function tick() {
-            raf = null;
-            if (!armed || !dir) return;
-            if (document.documentElement.dataset.trayVariant !== 'edge') { stop(); return; }
-            row.scrollLeft += dir * speed;
-            var max = row.scrollWidth - row.clientWidth;
-            if ((dir < 0 && row.scrollLeft <= 0) || (dir > 0 && row.scrollLeft >= max)) { stop(); return; }
-            raf = window.requestAnimationFrame(tick);
-        }
-        row.addEventListener('pointermove', function (e) {
+       HOVER_MS keeps a sweep across the row from triggering anything, and
+       COOLDOWN_MS stops the smooth scroll that follows from chaining - as
+       the row moves, other partly-hidden fields pass under the pointer and
+       would each ask for their own turn. Mouse only; touch has the swipe. */
+    var HOVER_MS = 150;
+    var COOLDOWN_MS = 320;
+    function enableHoverReveal(row) {
+        var timer = null;
+        var until = 0;
+        row.addEventListener('pointerover', function (e) {
             if (e.pointerType !== 'mouse') return;
-            if (document.documentElement.dataset.trayVariant !== 'edge') return;
+            if (!document.documentElement.dataset.trayScroll) return;
             if (row.scrollWidth - row.clientWidth <= SLOP) return;
-            var r = row.getBoundingClientRect();
-            var fromLeft = e.clientX - r.left;
-            var fromRight = r.right - e.clientX;
-            var next = 0, depth = 0;
-            if (fromLeft < BAND) { next = -1; depth = (BAND - fromLeft) / BAND; }
-            else if (fromRight < BAND) { next = 1; depth = (BAND - fromRight) / BAND; }
-            speed = Math.max(1, depth * MAX_SPEED);
-            if (!next) { stop(); return; }
-            if (next !== dir) {
-                stop();
-                dir = next;
-                armTimer = window.setTimeout(function () {
-                    armed = true;
-                    if (!raf) raf = window.requestAnimationFrame(tick);
-                }, ARM_MS);
-            } else if (armed && !raf) {
-                raf = window.requestAnimationFrame(tick);
-            }
+            var field = e.target.closest && e.target.closest('.filter-field');
+            if (!field || field.parentNode !== row) return;
+            window.clearTimeout(timer);
+            if (Date.now() < until) return;
+            timer = window.setTimeout(function () {
+                if (reveal(row, field)) until = Date.now() + COOLDOWN_MS;
+            }, HOVER_MS);
         });
-        row.addEventListener('pointerleave', stop);
-        row.addEventListener('pointerdown', stop);
+        row.addEventListener('pointerleave', function () { window.clearTimeout(timer); });
+    }
+
+    /* Scrolls `field` fully inside the visible band, by as little as
+       possible. Returns whether it actually had to move. */
+    function reveal(row, field) {
+        var rowRect = row.getBoundingClientRect();
+        var pad = fade(row);
+        var left = rowRect.left + pad;
+        var right = rowRect.right - pad;
+        var r = field.getBoundingClientRect();
+        var delta = 0;
+        if (r.right > right + 1) delta = r.right - right;
+        else if (r.left < left - 1) delta = r.left - left;
+        if (!delta) return false;
+        var max = row.scrollWidth - row.clientWidth;
+        row.scrollTo({ left: Math.max(0, Math.min(max, row.scrollLeft + delta)), behavior: 'smooth' });
+        return true;
     }
 
     function currentKey() {
