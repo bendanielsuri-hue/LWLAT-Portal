@@ -8936,6 +8936,19 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-page-shell:has
     margin-left: calc(-1 * var(--space-sm));
     margin-right: calc(-1 * var(--space-sm));
 }
+/* That negative margin exists purely to cancel the phone tier's --space-sm
+   page margin so the list bleeds to the viewport edge. The `short` tier (ADR
+   0016) runs .main-inner at 0 horizontal padding - it's already edge to edge -
+   so cancelling a margin that isn't there overshoots the left viewport edge by
+   exactly --space-sm and clips the rows. Same class of bug as
+   .sticky-header-zone's own bleed margin in _hub_sidebar.html; both have to
+   track .main-inner's padding.
+   Selector carries the same classes as the rule above so it wins on source
+   order rather than by accident of specificity. */
+html.phone-chrome-side.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-page-shell:has(.filtered-content) {
+    margin-left: 0;
+    margin-right: 0;
+}
 html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filtered-content) {
     border-left: none;
     border-right: none;

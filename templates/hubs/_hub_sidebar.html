@@ -378,16 +378,39 @@ Menu switcher instead - see its own comment below.
             padding-top: var(--space-sm);
             padding-bottom: var(--space-sm);
             {% comment %}
-            56px strip + the 28px the FAB punches back out of it + a 12px gap.
-            Clearing only the strip left the FAB's protruding half sitting on
-            top of the page's right-hand column (live feedback: "the side of
-            page is colliding with FAB") - and unlike the bar in portrait,
-            which overlaps a full-width row's dead bottom margin, here it lands
-            mid-content where the action buttons live. Affordable now that the
-            64px phantom rail on the left is gone: net width is still up on
-            where this tier started.
+            Edge to edge horizontally (live feedback: "if there is a FAB, it is
+            probably worth using all available space - can we go edge to
+            edge?"). Zero on the left, and only the strip's own 56px on the
+            right - no gap, and no clearance for the 28px the FAB punches back
+            out of the strip.
+
+            So the FAB does now overlap the content's right edge, deliberately:
+            it's a floating overlay rather than page furniture, and reserving a
+            column for it across the full height cost 128px of a 932px viewport
+            to keep one 56px circle clear at one vertical position. Consistent
+            with how list rows are meant to bleed here rather than sit inset.
+            The live cost is that a right-aligned control landing at the FAB's
+            own mid-height band can end up underneath it - see the note in the
+            sticky-header-zone rule below about keeping the two in step.
             {% endcomment %}
-            padding-right: calc(56px + 28px + var(--space-sm));
+            padding-left: 0;
+            padding-right: 56px;
+        }
+        {% comment %}
+        .sticky-header-zone/.home-header-sticky bleed by cancelling
+        .main-inner's padding with an equal negative margin (layout.css uses
+        -32px; the phone tier retunes it to -12px for the same reason). With
+        the padding above now 0/56, that inherited -32px would drag the header
+        strip 32px PAST the left viewport edge and 32px into the nav strip on
+        the right. Zeroed here so the two stay in step - the padding they exist
+        to cancel is gone.
+        {% endcomment %}
+        html.phone-chrome-side .sticky-header-zone,
+        html.phone-chrome-side .home-header-sticky {
+            margin-left: 0;
+            margin-right: 0;
+            padding-left: var(--space-sm);
+            padding-right: var(--space-sm);
         }
         {% comment %}
         The header scrolls away instead of sticking (live feedback: "when the
@@ -573,9 +596,25 @@ Menu switcher instead - see its own comment below.
         content-facing edge exactly as it straddles the bar's top edge in
         portrait.
         {% endcomment %}
+        {% comment %}
+        No punch-through in this tier - the FAB sits fully inside the 56px
+        strip (it's exactly 56px wide, so it fills it).
+
+        It used to overhang by 28px, mirroring the portrait bar's "punched
+        through the edge" look. That works in portrait because the bar spans
+        the full width and the overhang lands in a row's dead bottom margin.
+        Here the strip runs down the side and the overhang landed mid-content,
+        right where list rows keep their action buttons - measured burying a
+        "Referral Details" button outright. Reserving a column to avoid it cost
+        128px of a 932px viewport, which is the opposite of going edge to edge.
+
+        Dropping the overhang is what makes edge-to-edge safe: content now ends
+        exactly where the strip begins and nothing is ever underneath the FAB.
+        The overhang was decoration; a reachable primary action isn't. Restore
+        it with a margin-left: -28px here if the look matters more.
+        {% endcomment %}
         html.phone-chrome-side .mobile-tab-fab {
             margin: var(--space-xs) 0;
-            margin-left: -28px;
         }
         .mobile-tab-fab svg { width: 26px; height: 26px; display: block; transition: transform var(--transition-base); }
         .mobile-tab-fab:active { background: var(--btn-add-hover-bg); }
