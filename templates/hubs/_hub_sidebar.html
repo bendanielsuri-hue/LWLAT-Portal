@@ -615,9 +615,30 @@ Menu switcher instead - see its own comment below.
             pointer-events: none;
             cursor: grab;
         }
+        {% comment %}
+        `short` tier: the carousel runs vertically (see the axis helpers in the
+        script below). Everything the horizontal version pins to left/right and
+        the x axis moves to top/bottom and y - including the snap axis and the
+        overscroll containment, or the page behind would rubber-band while you
+        drag the wheel. The JS sets the cross-axis width/left inline; the main
+        axis is stretched here.
+        {% endcomment %}
+        html.phone-chrome-side .mobile-fab-wheel-strip {
+            left: auto; right: auto;
+            top: 0; bottom: 0;
+            flex-direction: column;
+            overflow-x: hidden;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+            overscroll-behavior-x: auto;
+            overscroll-behavior-y: contain;
+        }
         .mobile-fab-wheel-strip.open { opacity: 1; }
         .mobile-fab-wheel-strip.dragging { cursor: grabbing; scroll-snap-type: none; }
         .mobile-fab-wheel-hit { flex: 0 0 auto; scroll-snap-align: center; height: 100%; }
+        /* Cross-axis fill flips with the axis - the hit has to span the
+           strip's thickness, which is its width once the strip is a column. */
+        html.phone-chrome-side .mobile-fab-wheel-hit { height: auto; width: 100%; }
         {% comment %}
         Visual layer — what's actually seen, decorative only, positioned by
         JS every frame while open. z-index kept below .mobile-tabbar's 40 on
@@ -919,8 +940,20 @@ Menu switcher instead - see its own comment below.
             inset-inline: auto 0;
             width: min(420px, 70vw);
             max-width: min(420px, 70vw);
+            {% comment %}
+            !important on max-height for the same reason top/bottom carry it
+            above: panel.css's dialog#panel-search-dialog[open] (+3 others) are
+            ID rules and outrank this whole class chain, and a max-height caps
+            height however important the height is - so the panel stayed at the
+            portrait sheet's 80vh (live feedback: "the search in landscape has
+            the same % height as in portrait... can be full height as the modal
+            leaves space on the left"). border-radius likewise - the rounded
+            corners those ID rules give a desktop centred card are wrong on a
+            panel flush against three viewport edges.
+            {% endcomment %}
             height: 100% !important;
-            max-height: 100%;
+            max-height: 100% !important;
+            border-radius: 0 !important;
             border-top: none;
             border-left: 1px solid var(--border-color);
             transform: translateX(100%);
@@ -973,7 +1006,12 @@ Menu switcher instead - see its own comment below.
             inset: 0 0 0 auto;
             width: min(420px, 70vw);
             max-width: min(420px, 70vw);
-            max-height: 100%;
+            /* Full height, not the portrait sheet's 80vh - there's room beside
+               it now, so the vertical cap buys nothing and just wastes the
+               scarce axis. !important for the ID-specificity reason given on
+               dialog.modal-dialog above. */
+            height: 100% !important;
+            max-height: 100% !important;
             border-top: none;
             border-left: 1px solid var(--border-color);
             transform: translateX(100%);
@@ -1354,16 +1392,31 @@ Menu switcher instead - see its own comment below.
         strip.className = 'mobile-fab-wheel-strip';
         document.body.appendChild(strip);
 
-        var hits = ACTIONS.map(function (a, i) {
+        // Sized along the scroll axis, so the same ITEM_W/GAP rhythm the angle
+        // maths assumes holds in both orientations. Re-applied on every layout
+        // rather than once at build time, since the device can rotate.
+        function sizeHits() {
+            var side = isSide();
+            hits.forEach(function (hit, i) {
+                hit.style.width = side ? '' : ITEM_W + 'px';
+                hit.style.height = side ? ITEM_W + 'px' : '';
+                hit.style.marginRight = '';
+                hit.style.marginBottom = '';
+                // No trailing margin on the very last hit - the padding-based
+                // scroll cap assumes exactly (n-1) gaps between items.
+                if (i < ACTIONS.length - 1) {
+                    if (side) { hit.style.marginBottom = GAP + 'px'; }
+                    else { hit.style.marginRight = GAP + 'px'; }
+                }
+            });
+        }
+        var hits = ACTIONS.map(function () {
             var hit = document.createElement('div');
             hit.className = 'mobile-fab-wheel-hit';
-            hit.style.width = ITEM_W + 'px';
-            // No trailing margin on the very last hit - the padding-based
-            // scroll cap below assumes exactly (n-1) gaps between items.
-            if (i < ACTIONS.length - 1) hit.style.marginRight = GAP + 'px';
             strip.appendChild(hit);
             return hit;
         });
+        sizeHits();
 
         var visuals = ACTIONS.map(function (a) {
             var el = document.createElement('button');
@@ -1400,19 +1453,21 @@ Menu switcher instead - see its own comment below.
 
         // Mouse click-and-drag to scroll - touch gets this for free from
         // the browser, but a mouse doesn't scroll on drag by default.
+        // Drag tracks whichever axis the carousel scrolls on - pageY in the
+        // side tier, pageX in portrait.
         var dragActive = false, dragStartX = 0, dragStartScroll = 0;
         strip.addEventListener('mousedown', function (e) {
             dragActive = true;
             didDrag = false;
-            dragStartX = e.pageX;
-            dragStartScroll = strip.scrollLeft;
+            dragStartX = isSide() ? e.pageY : e.pageX;
+            dragStartScroll = stripScroll();
             strip.classList.add('dragging');
         });
         window.addEventListener('mousemove', function (e) {
             if (!dragActive) return;
-            var dx = e.pageX - dragStartX;
+            var dx = (isSide() ? e.pageY : e.pageX) - dragStartX;
             if (Math.abs(dx) > 4) didDrag = true;
-            strip.scrollLeft = dragStartScroll - dx;
+            setStripScroll(dragStartScroll - dx);
         });
         window.addEventListener('mouseup', function () {
             if (!dragActive) return;
@@ -1422,10 +1477,12 @@ Menu switcher instead - see its own comment below.
         });
         // Vertical mouse-wheel over a horizontally-scrolling element isn't
         // remapped to horizontal scroll by every browser - do it explicitly.
+        // (In the side tier the carousel is already vertical, so this is just
+        // the browser's own behaviour, routed through the same helper.)
         strip.addEventListener('wheel', function (e) {
             if (!open) return;
             e.preventDefault();
-            strip.scrollLeft += (e.deltaY !== 0 ? e.deltaY : e.deltaX);
+            setStripScroll(stripScroll() + (e.deltaY !== 0 ? e.deltaY : e.deltaX));
         }, { passive: false });
 
         var open = false;
@@ -1436,38 +1493,126 @@ Menu switcher instead - see its own comment below.
             return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
         }
 
+        {% comment %}
+        The whole wheel has two orientations, sharing one set of geometry.
+
+        Portrait: the FAB sits bottom-centre, the carousel scrolls
+        HORIZONTALLY, and the arc opens upward - the only shape with room
+        along the bottom edge of a phone.
+
+        The `short` tier (landscape, ADR 0016) puts the FAB mid-RIGHT in the
+        vertical nav strip, so all of that turns ninety degrees: the carousel
+        scrolls vertically and the arc opens leftward, into the content.
+
+        Rather than fork the maths, every axis-dependent step goes through the
+        helpers below - main() is the scroll/arc axis, cross() the other one.
+        Read live from the class, never cached: rotating the device flips this
+        while the page is open, and layoutStrip()/render() both re-run on the
+        resize that follows.
+        {% endcomment %}
+        function isSide() {
+            return document.documentElement.classList.contains('phone-chrome-side');
+        }
+        // Scroll offset along whichever axis the carousel actually runs on.
+        function stripScroll() {
+            return isSide() ? strip.scrollTop : strip.scrollLeft;
+        }
+        function setStripScroll(v) {
+            if (isSide()) { strip.scrollTop = v; } else { strip.scrollLeft = v; }
+        }
+        // The FAB centre's coordinate along the scroll axis, and the viewport's
+        // length along it - the two inputs every padding/offset sum needs.
+        function mainOf(center) { return isSide() ? center.y : center.x; }
+        function mainViewport() { return isSide() ? window.innerHeight : window.innerWidth; }
+
         function layoutStrip() {
             var center = fabCenter();
-            strip.style.height = STRIP_HEIGHT + 'px';
-            strip.style.top = (center.y - STRIP_HEIGHT / 2) + 'px';
+            var side = isSide();
+            sizeHits();
+            {% comment %}
+            STRIP_HEIGHT is the strip's CROSS-axis thickness - the band the
+            drag/scroll gesture is catchable in. It stays the same number in
+            both orientations; only which CSS property it lands on changes.
+            The strip is stretched along its main axis by the CSS
+            (left/right: 0 in portrait, top/bottom: 0 in the side tier) and
+            only ever positioned on its cross axis here.
+            {% endcomment %}
+            if (side) {
+                strip.style.height = '';
+                strip.style.top = '';
+                strip.style.width = STRIP_HEIGHT + 'px';
+                strip.style.left = (center.x - STRIP_HEIGHT / 2) + 'px';
+            } else {
+                strip.style.width = '';
+                strip.style.left = '';
+                strip.style.height = STRIP_HEIGHT + 'px';
+                strip.style.top = (center.y - STRIP_HEIGHT / 2) + 'px';
+            }
             // Front is only ever allowed to be index 1..(N-2) - never the
             // true first/last item, which only have one neighbour and drop
             // the visible count to 2.
             var n = ACTIONS.length;
             var minFrontIndex = n > 2 ? 1 : 0;
             var maxFrontIndex = n > 2 ? n - 2 : n - 1;
-            var naturalPaddingLeft = center.x - ITEM_W / 2;
-            var naturalPaddingRight = window.innerWidth - center.x - ITEM_W / 2;
-            strip.style.paddingLeft = Math.max(0, naturalPaddingLeft - minFrontIndex * STEP) + 'px';
-            var stepsClampedRight = (n - 1) - maxFrontIndex;
-            strip.style.paddingRight = Math.max(0, naturalPaddingRight - stepsClampedRight * STEP) + 'px';
+            {% comment %}
+            Padding either end of the carousel is what lets any single item be
+            scrolled to sit exactly under the FAB. Measured along the scroll
+            axis from the FAB's own position, so in the side tier that's
+            top/bottom against innerHeight rather than left/right against
+            innerWidth. Getting this wrong is what broke landscape first time
+            round: innerWidth - center.x is barely 28px once the FAB is in the
+            right-hand strip, so the trailing padding clamped to 0 and the
+            carousel could never bring an item to the FAB's angle at all.
+            {% endcomment %}
+            var mainCenter = mainOf(center);
+            var naturalPaddingStart = mainCenter - ITEM_W / 2;
+            var naturalPaddingEnd = mainViewport() - mainCenter - ITEM_W / 2;
+            var padStart = Math.max(0, naturalPaddingStart - minFrontIndex * STEP) + 'px';
+            var stepsClampedEnd = (n - 1) - maxFrontIndex;
+            var padEnd = Math.max(0, naturalPaddingEnd - stepsClampedEnd * STEP) + 'px';
+            if (side) {
+                strip.style.paddingLeft = '';
+                strip.style.paddingRight = '';
+                strip.style.paddingTop = padStart;
+                strip.style.paddingBottom = padEnd;
+            } else {
+                strip.style.paddingTop = '';
+                strip.style.paddingBottom = '';
+                strip.style.paddingLeft = padStart;
+                strip.style.paddingRight = padEnd;
+            }
 
             // Darkest right at the FAB, fading out toward the edges of the
-            // screen - draws the eye to where the action actually is.
-            scrim.style.background = 'radial-gradient(circle ' + Math.round(center.y) + 'px at ' +
+            // screen - draws the eye to where the action actually is. Sized
+            // off the larger viewport dimension so the falloff still reaches
+            // the far edge in either orientation.
+            var scrimR = Math.round(Math.max(window.innerWidth, window.innerHeight) * 0.5);
+            scrim.style.background = 'radial-gradient(circle ' + scrimR + 'px at ' +
                 center.x + 'px ' + center.y + 'px, ' +
                 'rgba(0,0,0,.88) 0%, rgba(0,0,0,.6) 60%, rgba(0,0,0,.4) 100%)';
 
             sizeRing();
-            // Shifted back by STROKE_W to match the viewBox's own -pad
-            // origin (sizeRing) - local (0,0) still lands on the FAB's own
-            // apex point.
+            {% comment %}
+            The ring's local geometry is identical in both orientations - an
+            arc whose apex is at local (RING_W/2, 0) and whose circle centre is
+            at local (RING_W/2, BIG_R). Placing that centre on the FAB is
+            therefore the same sum either way; the side tier just spins the
+            whole SVG a quarter turn ABOUT that centre, which carries the apex
+            from pointing up to pointing left. Rotating rather than re-deriving
+            the arc path keeps one set of trig, and the ring is a bare stroke
+            with no text to end up sideways.
+            {% endcomment %}
             ring.style.left = (center.x - RING_W / 2 - STROKE_W) + 'px';
             ring.style.top = (center.y - BIG_R - STROKE_W) + 'px';
+            ring.style.transformOrigin = (RING_W / 2 + STROKE_W) + 'px ' + (BIG_R + STROKE_W) + 'px';
+            ring.style.transform = side ? 'rotate(-90deg)' : '';
         }
 
         function sizeRing() {
-            RING_W = window.innerWidth * 0.7;
+            // 70% of the screen's length along the SCROLL axis - the ring
+            // tracks the carousel, so it spans the same direction the carousel
+            // runs in (height in the side tier, width in portrait).
+            RING_W = mainViewport() * 0.7;
             var halfW = RING_W / 2;
             // At the window's edge, the circle's own y-radius (measured
             // from its center) must be at least MIN_CLEAR_RADIUS - solving
@@ -1511,7 +1656,8 @@ Menu switcher instead - see its own comment below.
 
         function render() {
             var center = fabCenter();
-            var scrollLeft = strip.scrollLeft;
+            var side = isSide();
+            var scrollLeft = stripScroll();
             var stripRect = strip.getBoundingClientRect();
             var progress = animProgress();
             var swingDeg = animPhase === ANIM_OPENING ? REVEAL_SWING_DEG * (1 - progress)
@@ -1521,14 +1667,27 @@ Menu switcher instead - see its own comment below.
             // finishes - the actual cross-fade, independent of the
             // angle-based fade below.
             var animFade = animPhase === ANIM_CLOSING ? (1 - progress) : 1;
+            var stripStart = side ? stripRect.top : stripRect.left;
+            var padStart = parseFloat(side ? strip.style.paddingTop : strip.style.paddingLeft) || 0;
             visuals.forEach(function (item, i) {
-                var naturalX = stripRect.left + parseFloat(strip.style.paddingLeft) +
-                    i * STEP + ITEM_W / 2 - scrollLeft;
-                var offset = naturalX - center.x;
+                // Where this item sits along the scroll axis if the carousel
+                // were laid flat, then how far that is from the FAB - the
+                // angle is purely a function of that distance.
+                var natural = stripStart + padStart + i * STEP + ITEM_W / 2 - scrollLeft;
+                var offset = natural - mainOf(center);
                 var angleRad = offset / RADIUS + swing;
                 var angleDeg = Math.abs(angleRad * 180 / Math.PI);
-                var x = center.x + Math.sin(angleRad) * RADIUS;
-                var y = center.y - Math.cos(angleRad) * RADIUS;
+                {% comment %}
+                Same circle, quarter-turned. Portrait sweeps up from the FAB
+                (angle 0 = straight above); the side tier sweeps LEFT into the
+                content (angle 0 = straight left), with positive angles running
+                downward so an item further along the carousel still appears
+                further down the arc - matching the sign of `offset` above.
+                {% endcomment %}
+                var x = side ? center.x - Math.cos(angleRad) * RADIUS
+                             : center.x + Math.sin(angleRad) * RADIUS;
+                var y = side ? center.y + Math.sin(angleRad) * RADIUS
+                             : center.y - Math.cos(angleRad) * RADIUS;
                 var fade = 1;
                 if (angleDeg > FADE_END_DEG) fade = 0;
                 else if (angleDeg > FADE_START_DEG) fade = 1 - (angleDeg - FADE_START_DEG) / (FADE_END_DEG - FADE_START_DEG);
@@ -1549,7 +1708,8 @@ Menu switcher instead - see its own comment below.
 
             // A real scrollbar thumb - sized to the fraction of content
             // actually visible, sliding along the track.
-            var maxScroll = strip.scrollWidth - strip.clientWidth;
+            var maxScroll = side ? (strip.scrollHeight - strip.clientHeight)
+                                 : (strip.scrollWidth - strip.clientWidth);
             // Snap to the true ends within a couple of px - scrollWidth/
             // clientWidth/scrollLeft can be fractional.
             var progress = 0;
@@ -1558,7 +1718,8 @@ Menu switcher instead - see its own comment below.
                 else if (scrollLeft >= maxScroll - 2) progress = 1;
                 else progress = scrollLeft / maxScroll;
             }
-            var visibleFraction = Math.min(1, strip.clientWidth / strip.scrollWidth);
+            var visibleFraction = Math.min(1, side ? (strip.clientHeight / strip.scrollHeight)
+                                                   : (strip.clientWidth / strip.scrollWidth));
             var thumbW = Math.max(RING_H, RING_W * visibleFraction);
             var thumbLeft = progress * (RING_W - thumbW);
             thumb.setAttribute('d', arcPath(thumbLeft, thumbLeft + thumbW));
@@ -1581,7 +1742,7 @@ Menu switcher instead - see its own comment below.
             if (open) {
                 closeEverythingMobile();
                 layoutStrip();
-                strip.scrollLeft = 0;
+                setStripScroll(0);
                 runWheelAnim();
             } else {
                 runWheelAnim(function () {
