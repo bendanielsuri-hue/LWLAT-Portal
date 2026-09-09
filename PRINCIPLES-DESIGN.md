@@ -13,6 +13,7 @@ Visual design values that hold regardless of which project this is. Entries here
 - **C1.** Default to a fused field (label and control sharing one boxed border) rather than a plain label-above field, whenever there's room for it.
 - **C2.** A filter for a category/grouping (status, assigned-to, type) can be scoped down to only the values actually present in the data. A filter for a specific named entity (a particular student, a particular person) should always show everyone — hiding one because they currently have zero matches reads as "why can't I find them?", not as a helpful narrowing.
 - **C3.** Don't hide an important action inside another control where people won't think to look for it — give it its own visible button instead.
+- **C4.** The value a filter shows when it isn't filtering is the one it shows most of the time, so make it the shortest — plain "All", never "All Terms" or "All Groups". The field's label already names what it filters.
 
 ## E — Empty & Edge States
 
