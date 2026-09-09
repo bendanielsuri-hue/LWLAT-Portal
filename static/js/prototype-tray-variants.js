@@ -4,7 +4,7 @@
    half of the scrolling variants: which rows can scroll, which way they
    still have travel, and the prev/next arrows on each caption row.
 
-   ?tray=now|scr|snap in the URL, mirrored to localStorage so the choice
+   ?tray=now|scr|snap|edge in the URL, mirrored to localStorage so the choice
    survives the filter form's own GET submits (which rebuild the query
    string from the form's fields and would otherwise drop it). Left/right
    arrow keys cycle variants, except while typing in a field. */
@@ -12,7 +12,8 @@
     var VARIANTS = [
         { key: 'now', name: 'today, untouched' },
         { key: 'scr', name: 'row per section, scrolls' },
-        { key: 'snap', name: 'the same + scroll-snap' }
+        { key: 'snap', name: 'the same + scroll-snap' },
+        { key: 'edge', name: 'scr + hover-edge autoscroll' }
     ];
     var STORE = 'prototypeTrayVariant';
     /* 1px, not 0: scrollWidth/clientWidth are rounded to integers off
@@ -150,9 +151,77 @@
             if (!row.dataset.protoBound) {
                 row.dataset.protoBound = '1';
                 row.addEventListener('scroll', function () { update(row); }, { passive: true });
+                enableEdgeScroll(row);
             }
             update(row);
         });
+    }
+
+    /* Hover-edge autoscroll (the 'edge' variant, mouse only).
+
+       Pointer inside a band at either end of a row pans it that way, faster
+       the closer to the edge - the drag-and-drop autoscroll gesture, minus
+       the drag.
+
+       Two deliberate dampeners, because content that moves under a
+       stationary mouse with no button held is the surprising kind of clever:
+
+       - ARM_MS: the band has to be occupied for a moment before anything
+         moves, so sweeping across a row on the way to a field never starts
+         it. Without it, aiming at a dropdown near the right edge makes that
+         dropdown slide away from the pointer chasing it.
+       - The band lives over the FIELDS only. The arrows sit in the caption
+         row, a sibling element, so hovering an arrow never also autoscrolls
+         underneath it.
+
+       Speed ramps linearly from 0 at the inner edge of the band to MAX at
+       the very edge, so the closer in the faster, and a pointer resting just
+       inside the band creeps rather than bolts. Cancels on leave, on
+       pointerdown (a drag takes over) and when the row runs out of travel. */
+    var BAND = 56;
+    var MAX_SPEED = 12;
+    var ARM_MS = 180;
+    function enableEdgeScroll(row) {
+        var dir = 0, speed = 0, raf = null, armed = false, armTimer = null;
+        function stop() {
+            dir = 0; armed = false;
+            window.clearTimeout(armTimer);
+            if (raf) { window.cancelAnimationFrame(raf); raf = null; }
+        }
+        function tick() {
+            raf = null;
+            if (!armed || !dir) return;
+            if (document.documentElement.dataset.trayVariant !== 'edge') { stop(); return; }
+            row.scrollLeft += dir * speed;
+            var max = row.scrollWidth - row.clientWidth;
+            if ((dir < 0 && row.scrollLeft <= 0) || (dir > 0 && row.scrollLeft >= max)) { stop(); return; }
+            raf = window.requestAnimationFrame(tick);
+        }
+        row.addEventListener('pointermove', function (e) {
+            if (e.pointerType !== 'mouse') return;
+            if (document.documentElement.dataset.trayVariant !== 'edge') return;
+            if (row.scrollWidth - row.clientWidth <= SLOP) return;
+            var r = row.getBoundingClientRect();
+            var fromLeft = e.clientX - r.left;
+            var fromRight = r.right - e.clientX;
+            var next = 0, depth = 0;
+            if (fromLeft < BAND) { next = -1; depth = (BAND - fromLeft) / BAND; }
+            else if (fromRight < BAND) { next = 1; depth = (BAND - fromRight) / BAND; }
+            speed = Math.max(1, depth * MAX_SPEED);
+            if (!next) { stop(); return; }
+            if (next !== dir) {
+                stop();
+                dir = next;
+                armTimer = window.setTimeout(function () {
+                    armed = true;
+                    if (!raf) raf = window.requestAnimationFrame(tick);
+                }, ARM_MS);
+            } else if (armed && !raf) {
+                raf = window.requestAnimationFrame(tick);
+            }
+        });
+        row.addEventListener('pointerleave', stop);
+        row.addEventListener('pointerdown', stop);
     }
 
     function currentKey() {
@@ -165,6 +234,10 @@
 
     function apply(key, pushUrl) {
         document.documentElement.dataset.trayVariant = key;
+        /* One hook for "this variant scrolls its rows", so the CSS needs no
+           selector per variant (prototype-tray-variants.css). */
+        if (key === 'now') delete document.documentElement.dataset.trayScroll;
+        else document.documentElement.dataset.trayScroll = '1';
         try { window.localStorage.setItem(STORE, key); } catch (e) { /* private mode */ }
         if (pushUrl) {
             var url = new URL(window.location.href);
