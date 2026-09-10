@@ -24,6 +24,7 @@ seed_demo_referrals
 seed_panel_meetings
 seed_referral_actions
 seed_escalations
+seed_benjamin_referral_demo
 ```
 
    Order matters: the `core` ones (through `seed_term_dates`) come first because the
