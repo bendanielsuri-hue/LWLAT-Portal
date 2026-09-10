@@ -208,12 +208,19 @@ them.
 
 This is the direction that makes the split urgent, not just tidy.
 
-1. **`templates/hubs/_hub_sidebar.html`** — portal-wide, on every page of every hub — carries five
+1. **`templates/hubs/_hub_sidebar.html`** — portal-wide, included by 44 templates — carries six
    comments saying it duplicates `panel.css` values *because* `panel.css` isn't guaranteed loaded
-   (lines 862, 867, 875, 934, 967, 994), overrides `dialog#panel-search-dialog` positioning with
-   `!important` (1036, 1090, 1132), and calls **`animateModalHeightChange` from `panel.js`** (1051).
-   A portal-wide partial has a runtime dependency on a hub script and a copy-paste dependency on a
-   hub stylesheet.
+   (lines 862, 867, 875, 934, 967, 994), and styles `dialog#panel-search-dialog` — a dialog rendered
+   by panel's own `_base.html:50`, not by the sidebar — overriding it with `!important` at 1036,
+   1090 and 1132, one of those specifically to defeat the inline height `animateModalHeightChange`
+   (panel.js) sets mid-transition (1051).
+
+   Stated precisely, because the weaker version of this claim is the true one: the sidebar makes **no
+   runtime call** into `panel.js` — there is no `window.*` panel helper invoked anywhere in it. The
+   coupling is CSS-and-knowledge, not a call, and it only *bites* on the two templates that load
+   `panel.js` (`panel/_base.html`, `inclusion/hub.html`), not on all 44. What is portal-wide is the
+   duplicated *knowledge*: a partial on every page of every hub encodes panel.css's values and
+   panel.js's runtime behaviour, and has to be re-checked whenever either changes.
 2. **`templates/layout.html:66`** reasons about `.filter-bar-collapsible (panel.css)`.
 3. **`main.js:2683`** selects `.panel-card .tab-row` by name; **`main.js:2918`** wires
    `.stats-carousel-wrap`. Portal JS targets panel-named classes.
