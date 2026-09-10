@@ -1,0 +1,39 @@
+/* Entity-list furniture. Started by #208 with the empty state only; the rest
+   of the list component (.entity-list, .entity-row, .stack-list, the row title
+   rows, the end-of-list stripe) arrives with #209, which is where the split
+   ownership across four static/css files and panel.css gets reconciled.
+
+   .empty-note is here now because it is one of the seven classes
+   hubs/inclusion/hub.html needed from panel.css, and that page dropping panel
+   assets entirely is #208's acceptance test. */
+
+.empty-note {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--space-3xl) 0;
+    font-size: var(--font-xl);
+}
+
+/* Muted single-line placeholder text inside an otherwise-normal field (e.g.
+   an Action's own note line reading "No description.") - NOT a variant of
+   .empty-note above, which is sized/centred for a whole empty list/section
+   (live feedback: "No description is taking too much space!" - three call
+   sites, below, were reusing .empty-note's big centred/padded treatment for
+   a single inline sentence, leaving a large dead box where a compact line
+   of muted text belonged). Just the colour, nothing else - stays inline
+   with its own field's normal font-size/line-height. */
+.empty-note-inline { color: var(--text-muted); }
+
+/* Referral Selection / Panel Agenda's "No ... referrals" labels fade in
+   whenever they appear - on initial load, whenever a list empties out after
+   an add/remove, and whenever switching to a tab that's empty (browsers
+   restart a CSS animation when its element goes from display:none to
+   rendered, so this replays on every reveal without any JS) - rather than
+   popping straight in. */
+.entity-list--bleed .empty-note {
+    animation: empty-note-fade-in var(--transition-slow);
+}

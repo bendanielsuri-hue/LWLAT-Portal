@@ -1,66 +1,10 @@
-.filter-bar {
-    display: flex;
-    /* --space-xs - condensed per grilling session 2026-07-12 ("filters can
-       afford to be closer"), tightened once more in a follow-up pass. At
-       this gap there's no room left over for the merge bridge below to
-       paint a partial fill into (see .filter-field--active's merge rules),
-       so a merged pair now relies on squared corners alone, no fill. */
-    gap: var(--space-xs);
-    flex-wrap: wrap;
-    /* --space-xs vertical - condensed per grilling session 2026-07-12, then
-       nudged back up one step in a follow-up pass (4px read too cramped). */
-    padding: var(--space-xs) var(--space-lg);
-    /* --bg-well, not --bg-input: the bar is a controls strip (chrome),
-       not an editable field itself (see DES-F1 in PRINCIPLES-DESIGN.md, and
-       the depth-ladder/affordance comment in theme/light.css) -
-       --bg-input sits too close to --bg-surface/--bg-page
-       in several themes (e.g. Soft/pastel) to read as its own layer, especially
-       since Pastel cards carry no shadow. --bg-well already exists for exactly
-       this "you're inside interactive chrome" tier, reused rather than adding a
-       new token (see grilling session 2026-07-12). The .filter-field selects
-       inside keep --bg-input, so they still read as a lighter field
-       sitting inside the now-darker bar. */
-    background: var(--bg-well);
-    /* --border-strong, not --border-color - too pale to read as an edge
-       against its own backdrop in Soft/pastel (same fix already applied
-       portal-wide to .list-card/.hub-card/.tab-row/etc., see grilling
-       session 2026-07-12). Matters even more now that a standalone filter
-       bar (e.g. Panel Meetings) is its own card rather than fused atop a
-       taller .list-card. 2px, not 1px - border-strong is already the
-       strongest border token that exists, so at 1px the bar's edge still
-       read as too soft against its own darker --bg-well fill; widening
-       the stroke reads as more prominent without inventing a new colour
-       token (see grilling session 2026-07-13, Panel Meetings review). */
-    border: 2px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    margin-bottom: var(--space-md);
-    align-items: flex-end;
-    position: sticky;
-    top: 0;
-    z-index: var(--z-filter-bar);
-    box-shadow: var(--shadow-sm);
-    transition: box-shadow var(--transition-fast), border-color var(--transition-fast), padding var(--transition-fast), border-radius var(--transition-fast);
-}
-
-
-/* Stronger boundary once the bar is actually pinned to the top of the
-   viewport — see .sticky-zone-sentinel in layout.css for how .is-stuck
-   gets toggled. No padding override any more - the base bar is already at
-   its minimum (--space-xxs) since the 2026-07-12 condensing pass, so
-   there's nothing left to shrink further when stuck. */
-.filter-bar.is-stuck {
-    box-shadow: var(--shadow-md);
-    border-color: var(--border-strong);
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-}
-
 /* AJAX-enhanced filter bars (main.js's setupAjaxFilterBars()) dim their
    data-ajax-target while a fetch is in flight, instead of the full-page
    loading indicator a real navigation would show. */
 .is-loading {
     pointer-events: none;
 }
+
 /* > *, not opacity on .is-loading itself - Students' own filter tray
    backdrop (.filter-bar-overlay, panel.css) is a permanent child of this
    same data-ajax-target (main.js's setupAjaxFilterBars() detaches/
@@ -90,57 +34,6 @@
     transition: opacity var(--transition-fast);
 }
 
-/* margin-left: auto - pushes Clear Filters all the way to the bar's right
-   edge, since it isn't actually a filter field itself (see grilling session
-   2026-07-12). Only takes effect when .filter-bar-clear is a direct flex
-   child of .filter-bar - harmless wherever it's still nested inside its own
-   .filter-field (a column-flex context, where margin-left: auto on a
-   block-level link has nothing to push against). */
-.filter-bar-clear {
-    /* center, not flex-end - Clear Filters is a single-line button, shorter
-       than a label+control field column, so bottom-aligning it against the
-       bar's tallest content (like the fields do) left it visibly sitting
-       lower than its siblings. */
-    align-self: center;
-    margin-left: auto;
-}
-/* Disabled (dimmed, unclickable), not hidden, once there's nothing to
-   clear - wireFilterBarActiveState (panel.js) already toggles
-   filter-bar-count--empty live on every change, so this :has() rule tracks
-   it with no extra JS. */
-.filter-bar:has(.filter-bar-count--empty) .filter-bar-clear {
-    opacity: 0.4;
-    pointer-events: none;
-}
-
-/* ==================== Shared progressive-disclosure filter bar ====================
-   Portal-wide standard (promoted from panel.css, where Students/Referrals/
-   Safeguarding Notes originated it - issues #7/#9/#11): primary filter
-   fields stay inline; candidate/secondary filters - a deliberate per-page
-   curation, not a width-measured overflow - sit behind a "More filters"
-   toggle and reveal inline (pushing the rest of the page down), same
-   .btn.btn-sm height as Clear Filters so it reads as a standard button
-   rather than a dropdown or one-off control. setupFilterBarMoreFilters()
-   (main.js) wires the toggle/auto-open-if-already-active behaviour for any
-   bar built with this markup shape.
-   More filters/Clear Filters are a sibling of the fields wrap (not one
-   more item wrapping inside it), so they always sit at the bar's true
-   right edge regardless of how many field rows wrap on the left. */
-.filter-fields-wrap { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-xs); flex: 1; min-width: 0; }
-/* --space-xs, not the raw 4px this used to be - live feedback: "space
-   between buttons looks off". At 4px the pair read as crammed together
-   while still sitting --space-lg clear of the bar's own right edge, so the
-   only thing visibly separating them was Clear Filters' own button padding
-   - and that stops reading as a button edge at all once nothing is applied
-   and Clear dims to opacity 0.4 with no fill of its own (the :has(.filter-
-   bar-count--empty) rule above). 8px is a real gap either way. */
-.filter-actions-right {
-    display: flex; flex-direction: column; justify-content: center; gap: var(--space-xs);
-    align-self: stretch; flex-shrink: 0;
-    border-left: 1px solid var(--border-strong); padding-left: var(--space-md);
-}
-.filter-actions-right .filter-bar-clear { margin-left: 0; }
-.filter-actions-right .btn { width: 100%; }
 /* #135: at every width from 481px up (min-width: 481px so this never
    touches sub-480 mobile, which uses a wholly different collapsible-tray
    markup and relies on .filter-bar's own flex-wrap to stack .filter-bar-
@@ -321,13 +214,17 @@
        .filter-field), which layout.html's first-paint classification has in
        force before this could ever matter. See docs/adr/0018. */
 }
+
 /* Secondary fields are direct flex items of .filter-fields-wrap
    (display:contents - no box/border of their own), so they wrap onto a
    new line inside that same wrap's own flex-wrap. A divider marks the
    seam between the two rows while expanded. */
 .filter-secondary-fields { display: contents; }
+
 .filter-secondary-fields[hidden] { display: none; }
+
 .filter-divider { flex-basis: 100%; height: 0; border-top: 2px solid var(--border-strong); }
+
 /* #135 follow-up: the wrapper setupFilterBarMoreFilters() (main.js) now puts
    around every category (header + its fields) - display: contents by
    default flattens it out of layout entirely, so at every width except
@@ -335,6 +232,7 @@
    max-width:900px) this is a no-op and each field/header still lays out as
    a direct flex item exactly as before this wrapper existed. */
 .filter-group { display: contents; }
+
 /* #135 follow-up: the inner scrolling box setupFilterBarMoreFilters()
    (main.js) now wraps every category in, so narrow tablet's category strip
    (panel.css) can scroll independently of secondaryRow itself, which stays
@@ -344,13 +242,17 @@
    direct flex items of .filter-fields-wrap exactly as before this wrapper
    existed. */
 .filter-secondary-fields-track { display: contents; }
+
 /* Carousel nudge buttons (main.js's wireScrollCarousel) - hidden by default
    everywhere; panel.css's narrow-tablet block is the only place that shows
    them (further gated there on :not([hidden]), since wireScrollCarousel
    itself also auto-hides them whenever the strip doesn't overflow). */
 .more-filters-toggle { display: flex; align-items: center; gap: 6px; width: 100%; }
+
 .more-filters-toggle-icon { display: inline-flex; transition: transform var(--transition-fast); }
+
 .more-filters-toggle-icon svg { width: 14px; height: 14px; }
+
 /* Primary only while collapsed (filters hidden) - flipped from an earlier
    version that filled solid whenever expanded, which meant the button
    defaulted to a loud primary fill even in the tray's normal open-by-
@@ -359,299 +261,8 @@
    animates via .btn's own shared background/border-color/color transition
    (buttons.css) - no extra transition needed here. */
 .more-filters-toggle[aria-expanded="false"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+
 .more-filters-toggle[aria-expanded="true"] .more-filters-toggle-icon { transform: rotate(180deg); }
-
-.filter-bar-label {
-    align-self: center;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-xs);
-    /* (DES-S1) Same vertical padding as a control/button - on every other
-       tray page this row's height came for free from the pinned Search
-       input beside it (its own DES-S1 padding, .filter-field input above),
-       but a page with no free-text field (Meetings - "let's have
-       everything under panel for now", #grill-with-docs) has nothing else
-       in .filter-bar-sticky-row to establish that height, so the label
-       alone rendered visibly shorter/off against the bar's own Clear/View
-       filters buttons beside it (live feedback: "the filter bar height is
-       off... is this because it has no search"). Matching height directly
-       on the label keeps every tray-page filter bar the same height
-       whether or not it has a Search field. */
-    padding: var(--space-xs) 0;
-    /* Extra right margin beyond the bar's own (now tighter, --space-xs)
-       gap - "Filters" + its count badge is a heavier, differently-styled
-       cluster than a filter chip, and reads cramped sitting only 8px from
-       the first field at that weight. */
-    margin-right: var(--space-sm);
-    /* Animates alongside the badge itself (live feedback: "when I add a
-       filter the badge suddenly appears and shifts things. Can we make it
-       animate in") - narrow widths collapse this margin to 0 while the
-       badge is empty (Students' own max-width: 900px block, panel.css),
-       so without this transition too the label would still snap sideways
-       the instant the badge's own width/opacity finished animating in. */
-    transition: margin-right var(--transition-base);
-    font-size: var(--font-base);
-    font-weight: 700;
-    /* --text-secondary by default - "Filters" is chrome describing an empty
-       control, not itself a filtered/active state, so it shouldn't borrow
-       --primary (the app's "this is active/selected" signal - see every
-       .filter-field--active, .ui-segmented-option.active, etc.) unless a
-       filter is actually applied. Only goes --primary once the count badge
-       is non-empty (see the layout-pattern-selection comment in layout.css). */
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-.filter-bar-label:not(:has(.filter-bar-count--empty)) {
-    color: var(--active-text);
-}
-.filter-bar-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 5px;
-    /* line-height: 1 - without it the digit's line box inherits the page's
-       normal line-height, which isn't vertically symmetric around the
-       glyph itself, so flex centering was centering the (asymmetric) line
-       box rather than the digit. (A follow-up 1px top-padding "optical
-       nudge" was tried here and over-corrected it downward without ever
-       being checked at real zoom - reverted; measure before nudging
-       further rather than guessing again. #137 follow-up: real pixel-ink
-       measurement showed the box/padding is genuinely symmetric - the lean
-       is font hinting snapping this glyph to the pixel grid, which no
-       padding/margin value fixes. What does help: the same absolute
-       hinting error reads as less severe as a % of a bigger circle,
-       confirmed against a live per-browser measurement rig (artifact
-       linked on #137) - sized up from 18px to 22px, matching the
-       larger badge the no-search bars used to carry, which was already
-       this size and already read fine.) */
-    line-height: 1;
-    border-radius: var(--radius-pill);
-    background: var(--primary);
-    color: var(--on-primary);
-    font-size: var(--font-xs);
-    /* Pops in/out rather than snapping (live feedback: "when I add a
-       filter the badge suddenly appears and shifts things. Can we make it
-       animate in") - transform-origin: center so the scale grows from the
-       badge's own middle, not its top-left corner. min-width/width/
-       padding/margin included alongside opacity/transform so the narrow-
-       width collapse-to-zero-width variant (.filter-bar-count--empty
-       below, and Students' own max-width: 900px override, panel.css)
-       animates its own shrink too, not just the desktop variant's opacity
-       fade. */
-    transform-origin: center;
-    transition: opacity var(--transition-base), transform var(--transition-base),
-        min-width var(--transition-base), width var(--transition-base),
-        padding var(--transition-base), margin var(--transition-base);
-}
-
-/* Always occupies its layout space by default (see hub.html, which now
-   always renders this span) so the "Filters" label doesn't change width —
-   and shove every field after it sideways — as the active count goes
-   from/to zero. Narrow widths override this to collapse instead (Students'
-   own max-width: 900px block, panel.css - a reserved gap reads as
-   oversized dead space once the bar no longer shares its row with much
-   else) - opacity/scale here still plays underneath that collapse either
-   way, so both variants animate through the same transition above rather
-   than needing two separate ones. pointer-events: none, not
-   visibility: hidden - visibility can't transition smoothly (it's a
-   discrete step, not an interpolatable value), and this badge was never
-   itself a focusable/interactive target for visibility's usual "remove
-   from tab order" job to matter. */
-.filter-bar-count--empty {
-    opacity: 0;
-    transform: scale(0.4);
-    pointer-events: none;
-}
-
-/* Fields with a non-default value read as an inset chip, so it's obvious at
-   a glance which filters are actually narrowing the data; fields left on
-   "All" stay plain. Tried a full-height/full-bleed column first (see the
-   .filter-bar comment history), but that read as too big a departure from
-   every other "active" signal in the app (status pills, priority chips),
-   which are all inset chips, and didn't compose with merging adjacent
-   actives below (see grilling session 2026-07-12, "go back to option B").
-   Padding-left/-right DO grow here now (2026-08-20, #135 follow-up -
-   "there is a lot space between each filter... reduced when the filter is
-   not active" then, once vertical padding turned out to be the wrong axis,
-   "it is the padding to the left and right that I thought we could drop to
-   0px when not active. Leave height a constant") - an inactive field rests
-   at 0 horizontal padding instead of the base rule's old flat --space-sm,
-   saving real horizontal room across a whole panel of mostly-"All" fields
-   (which is also what lets two categories actually fit side by side now,
-   panel.css's own .filter-group), and only grows to --space-sm on
-   activation. Vertical padding stays the flat --space-xs it always was -
-   the original version of this comment explained why *that* axis was never
-   touched (an inactive field sized shorter than active, snapping against
-   .filter-bar's align-items: flex-end the instant a select's value
-   changed); horizontal padding sidesteps that concern entirely since it
-   doesn't move anything on the cross axis. The base rule's own
-   `transition: padding ...` (below) still eases this axis's change too, so
-   even the small remaining shift on the main (horizontal) axis glides
-   rather than lands in one frame.
-   Border is --primary mixed 22% into --bg-well rather than a flat
-   --border-strong or a full-strength --primary - enough definition to read
-   as "framed" without competing with the fill itself (see grilling session
-   2026-07-12, option E). Only border-color changes here, not the border
-   itself - the base .filter-field rule below already reserves a transparent
-   1px border on every field, active or not, so switching an inactive field
-   to active only ever swaps that colour in rather than adding a border
-   where there wasn't one - a field is auto-width (not fixed), so a border
-   that only appears on activation grows the box by ~2px and visibly nudges
-   every field after it (see grilling session 2026-07-12). Selector is
-   .filter-field.filter-field--active, not just .filter-field--active alone
-   - the base .filter-field rule below sets its border via the `border`
-   shorthand (which also resets border-color), and a single-class selector
-   here would tie with it on specificity and lose to it on source order
-   since the base rule appears later in this file. */
-.filter-field.filter-field--active {
-    padding-left: var(--space-sm);
-    padding-right: var(--space-sm);
-    background: var(--primary-light);
-    border-color: color-mix(in srgb, var(--primary) 22%, var(--bg-well));
-    border-radius: var(--radius-sm);
-}
-.filter-field--active label {
-    color: var(--active-text);
-    /* text-stroke, not font-weight: 700 - a real weight change resizes the
-       label's rendered width, which contradicts the "only recolours, doesn't
-       resize" invariant above for any field where the label (not the select/
-       input) is the widest element - e.g. My Meetings' toggle-pill field,
-       where going bold pushed every field after it to the right (see
-       grilling session 2026-07-12). text-stroke is a paint-only effect, so
-       it thickens the glyphs without changing layout at all. */
-    -webkit-text-stroke: 0.4px currentColor;
-}
-
-/* A toggle-pill field (e.g. My Meetings) never gets the active chip - the
-   pill's own colour change (grey to primary) already signals on/off, so
-   the chip background/border is a redundant second signal, and unlike a
-   select's trigger (which fills its column edge to edge) a fixed-width
-   toggle can never fill the chip's own width - it sits flush left with a
-   visibly empty purple gap to its right (see grilling session
-   2026-07-12). Selector matches .filter-field.filter-field--active above
-   on specificity so source order (this comes after) decides it. */
-.filter-field.filter-field--active:has(.toggle-pill) {
-    background: none;
-    border-color: transparent;
-    /* No fill to reserve room for (live feedback: "the toggle do not need
-       the extra padding as they do not have a bg fill") - the horizontal
-       grow-on-activate above exists to keep an active select/text chip's
-       fill clear of its own border edge; a toggle-pill field never paints
-       that fill at all (immediately above), so there's nothing for the
-       extra space to frame. */
-    padding-left: 0;
-    padding-right: 0;
-}
-.filter-field.filter-field--active:has(.toggle-pill) label {
-    color: var(--text-secondary);
-    -webkit-text-stroke: 0;
-}
-
-/* Two adjacent active filter fields read as one grouped pair rather than
-   two separate chips - but the bar's own gap (--space-xs, 8px) is never
-   resized or collapsed, so nothing to their right ever shifts regardless of
-   which fields are active (see grilling session 2026-07-12 - a flex `gap`
-   can't be zeroed for one specific pair of children any other way, since
-   it's a single value on the container, not a per-item margin). At 8px
-   there's no gap left to spare for a fill bridge between them (an earlier,
-   wider-gap version painted a partial fill into the gap - see grilling
-   session 2026-07-12, "V2" - but 8px is tight enough that grouping now
-   relies on squared corners alone, no fill). Each chip keeps its own border
-   on every side - only the two facing (inner) corners square off, so the
-   border doesn't curve away right where the pair reads as continuous (an
-   earlier attempt dropped the border on those sides instead, which read as
-   a doubled seam - squaring the radius while keeping the border was the
-   actual fix). */
-.filter-field.filter-field--active:has(+ .filter-field.filter-field--active) {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-}
-.filter-field.filter-field--active + .filter-field.filter-field--active {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
-/* Caps a filter field's width to whichever is smaller: its own natural size,
-   or this - without it, one long option (a Panel Group name, say) blows the
-   whole column out to fit it. .ui-select-trigger already truncates with an
-   ellipsis (overflow/text-overflow above); the actual reason it wasn't
-   getting the chance to is main.js's enhanceSelect(), which pins an inline
-   min-width (resolveTriggerMinWidth) sized to the field's own *label* -
-   growing only when the option actually selected needs more room, so a
-   filter bar fits as many fields on screen as possible (live feedback
-   2026-08-23) - an inline style always wins over max-width here, so that's
-   skipped for .filter-field the same way it already was for .ui-fused-field
-   (see the comment in main.js). 200px matches the existing cap on Panel
-   Home's status-filter tabs (panel.css) - generous enough for ordinary
-   values, not a measured width (see grilling session 2026-07-12). */
-/* Horizontal padding is --space-sm (12px), not --space-xs (8px) - 8px read
-   too tight against .filter-field--active's own primary-light fill edge
-   (see grilling session 2026-07-12). Label stays flush at that edge rather
-   than indenting to match the select's own internal text inset - tried both
-   live, flush-at-edge read better. */
-/* border: 1px solid transparent - reserved on every field, active or not,
-   so .filter-field--active only ever swaps the border's colour in rather
-   than adding a border that wasn't there before. A field is auto-width
-   (not fixed), so a border that appears only on activation grows the box
-   by ~2px and visibly nudges every field after it (see grilling session
-   2026-07-12). */
-/* Fused vs. plain fields -- decide in order:
-   1. Is this a filter-bar field? -> Never fuse it -- the active-filter
-      highlight needs to fill the whole label+control wrapper as a "chip"; a
-      permanent fused border on every field would blunt that contrast.
-   2. (DES-C1) Otherwise, is there horizontal room beside the control for its
-      label without cramping the value? -> Left Fused: label beside control,
-      one shared border -- the default whenever there's room.
-   3. Not enough width (a narrow multi-column row)? -> Upper Fused: label
-      above, boxed, value always centred regardless of content. (DES-S2) But
-      if this row also holds single-line controls, Upper Fused's taller shape
-      will misalign against them -- fall back to plain there instead.
-   4. Neither fits at all? -> Fall back to a plain label-above .field-group. */
-.filter-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); padding: var(--space-xs) 0; max-width: 200px; border: 1px solid transparent; transition: padding var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast); }
-/* Left, not centred: matches every other label in the app (.field-group
-   label, .ui-fused-field-label - neither overrides text-align, both plain
-   left) - .filter-field was the one place centering labels at all. Left also
-   lines the label up with the select/input's own left-aligned text below it
-   (DES-A2) instead of sitting disconnected over its midpoint (see grilling
-   session 2026-07-12). */
-/* nowrap/ellipsis, same treatment as the select/trigger below it - a label
-   should never wrap to a second line under this field's own 200px cap.
-   font-weight: 600 matches every other label in the app (.field-group
-   label, .field-section-label) - .filter-field was plain/normal weight by
-   default and only gained emphasis via .filter-field--active's text-stroke,
-   so an inactive filter label read lighter than every other label on the
-   page for no real reason (see grilling session 2026-07-12). */
-/* cursor: pointer - clicking this label activates the field's own control
-   too (main.js), same affordance a native <label for="..."> already
-   implies visually. */
-.filter-field label { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; cursor: pointer; }
-.filter-field input, .filter-field select {
-    /* (DES-S1) Single-line control height matches button height: same vertical
-       padding as .btn (--space-xs), not a more generous default. Doesn't apply
-       to <textarea> or other inherently multi-line controls. */
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-color);
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: var(--font-base);
-    font-family: inherit;
-}
-/* (DES-S1 touch) Same --space-sm vertical-padding bump as html.nav-touch-mode
-   .btn (buttons.css) - keeps this control's height matching the button's at
-   touch sizes too, not just desktop's --space-xs default. .ui-select-trigger
-   is the enhanceSelect()'d stand-in for a plain <select> (main.js nests it
-   inside the same .filter-field), so it needs the identical override to stay
-   in sync rather than reading shorter than its sibling text inputs. */
-html.nav-touch-mode .filter-field input,
-html.nav-touch-mode .filter-field select,
-html.nav-touch-mode .filter-field .ui-select-trigger {
-    padding-top: var(--space-sm);
-    padding-bottom: var(--space-sm);
-}
 
 /* Custom select chevron — the fill colour can't reference a CSS var from
    inside a data-URI so it's hardcoded to match --text-secondary in each
@@ -669,6 +280,7 @@ html.nav-touch-mode .filter-field .ui-select-trigger {
     background-size: 14px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
+
 [data-theme-mode="dark"] .field-group select, [data-theme-mode="dark"] .filter-field select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
@@ -701,6 +313,7 @@ html.nav-touch-mode .filter-field .ui-select-trigger {
 .filter-field input[type=date], .filter-field input[type=time] {
     padding-right: 10px;
 }
+
 .field-group input[type=date]::-webkit-calendar-picker-indicator,
 .field-group input[type=time]::-webkit-calendar-picker-indicator,
 .filter-field input[type=date]::-webkit-calendar-picker-indicator,
@@ -710,6 +323,7 @@ html.nav-touch-mode .filter-field .ui-select-trigger {
     border-radius: var(--radius-xs);
     padding: var(--space-xxs);
 }
+
 .field-group input[type=date]::-webkit-calendar-picker-indicator:hover,
 .field-group input[type=time]::-webkit-calendar-picker-indicator:hover,
 .filter-field input[type=date]::-webkit-calendar-picker-indicator:hover,
@@ -727,6 +341,7 @@ html.nav-touch-mode .filter-field .ui-select-trigger {
     display: block;
     width: 100%;
 }
+
 select.ui-select-native, input.ui-select-native {
     position: absolute;
     opacity: 0;
@@ -734,6 +349,7 @@ select.ui-select-native, input.ui-select-native {
     width: 1px;
     height: 1px;
 }
+
 .ui-select-trigger {
     width: 100%;
     /* Smooths a dependent select's own width changing when its parent
@@ -786,20 +402,25 @@ select.ui-select-native, input.ui-select-native {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 [data-theme-mode="dark"] .ui-select-trigger {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 }
+
 /* Chevron points up while the popover is open (main.js toggles .open
    alongside showModal()/the dialog's close event). */
 .ui-select-trigger.open {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
 }
+
 [data-theme-mode="dark"] .ui-select-trigger.open {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
 }
+
 .ui-select-trigger:hover, .ui-select-trigger.open {
     color: var(--active-text);
 }
+
 /* Resting border is now --border-strong too (see above), so this can no
    longer signal focus by switching border colour - a real outline instead,
    same convention as .selectable:focus-visible (cards.css). Also applies
@@ -817,6 +438,7 @@ select.ui-select-native, input.ui-select-native {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
 }
+
 /* Disabled ui-select: the real <select> is hidden off-screen by .ui-select-native,
    so disabled state has to be styled on this trigger button instead. */
 .ui-select-trigger:disabled {
@@ -835,11 +457,14 @@ select.ui-select-native, input.ui-select-native {
    still set per-instance by positionPopover(), anchored to the trigger's
    getBoundingClientRect(); margin/border/backdrop here neutralize the
    browser's default <dialog> chrome. */
+
 /* Floating dialog detached from its trigger by a small gap, fully rounded,
    own elevation shadow (matches the modern convention — Material 3,
    Radix/shadcn, macOS/iOS). Never flush/square-cornered. */
 dialog.ui-popover { margin: 0; }
+
 dialog.ui-popover::backdrop { background: transparent; }
+
 .ui-popover {
     position: fixed;
     z-index: var(--z-popover);
@@ -852,8 +477,11 @@ dialog.ui-popover::backdrop { background: transparent; }
     overflow-x: hidden;
     padding: 0;
 }
+
 .ui-popover .ui-option:first-child { border-top-left-radius: var(--radius-md); border-top-right-radius: var(--radius-md); }
+
 .ui-popover .ui-option:last-child { border-bottom-left-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md); }
+
 /* (INT-S1) Every custom select's own option list scrolls internally past
    260px (max-height/overflow-y above) - touch mode hides that scrollbar
    the same way .entity-list's own reference rule does (layout.css), since
@@ -861,6 +489,7 @@ dialog.ui-popover::backdrop { background: transparent; }
 html.nav-touch-mode .ui-popover {
     scrollbar-width: none;
 }
+
 html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     display: none;
 }
@@ -874,8 +503,11 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     cursor: pointer;
     border-bottom: 1px solid var(--border-faint);
 }
+
 .ui-option:last-child { border-bottom: none; }
+
 .ui-option:hover, .ui-option.highlighted { background: var(--row-hover-bg); color: var(--active-text); border-bottom-color: var(--border-color); }
+
 /* Matches the sitewide chosen/selected convention (.entity-row.chosen,
    .panel-list li.chosen, etc. are a fill only — the left accent bar is a
    hover/focus marker, see the chosen-state rule in components/cards.css). */
@@ -884,11 +516,14 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     font-weight: 600;
     color: var(--active-text);
 }
+
 /* Hover on a selected row keeps the selected fill rather than reverting to
    the plain hover fill — same rule components/cards.css documents for
    .chosen rows elsewhere. */
 .ui-option.selected:hover, .ui-option.selected.highlighted { background: var(--primary-light); }
+
 .ui-option.muted { color: var(--text-secondary); background: var(--bg-surface-alt); }
+
 .ui-option.muted:hover, .ui-option.muted.highlighted { background: var(--row-hover-bg); color: var(--active-text); }
 
 /* An <optgroup>'s label, rendered as its own non-interactive heading row in
@@ -915,7 +550,9 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
    popover panel (creation time), so this one class reaches both the closed
    value and the open option list. */
 .ui-select-trigger.ui-select--center { text-align: center; }
+
 .ui-select-panel.ui-select--center .ui-option { text-align: center; }
+
 /* Stacked/Card-style selects (e.g. Chair) center their value - see the
    .ui-fused-field--stacked trigger override above. Its popover panel gets
    this class in JS (enhanceSelect(), static/js/main.js) since a
@@ -933,17 +570,20 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     font-weight: 600;
     color: var(--text-secondary);
 }
+
 .ui-calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 2px;
 }
+
 .ui-calendar-dow {
     text-align: center;
     font-size: var(--font-2xs);
     color: var(--text-faint);
     padding: var(--space-xxs) 0;
 }
+
 .ui-calendar-day {
     text-align: center;
     padding: var(--space-xs) 0;
@@ -952,9 +592,13 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     color: var(--text-primary);
     cursor: pointer;
 }
+
 .ui-calendar-day:hover { background: var(--row-hover-bg); }
+
 .ui-calendar-day.is-today { box-shadow: inset 0 0 0 1px var(--border-strong); }
+
 .ui-calendar-day.is-selected { background: var(--primary); color: var(--on-primary); font-weight: 600; }
+
 .ui-calendar-day.is-past { color: var(--text-faint); cursor: default; }
 
 /* Date control: three mini Day/Month/Year dropdowns (reusing .ui-select via
@@ -972,8 +616,11 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     gap: var(--space-xs);
     width: 100%;
 }
+
 .ui-date-fields { display: flex; gap: var(--space-xs); flex: 1; }
+
 .ui-select--sm { flex: 1; min-width: 0; }
+
 .ui-select--sm .ui-select-trigger {
     /* Day/Month/Year and Hour/Minute values are bare numbers, not names/
        descriptions, so they stay centered (DES-A2) even though the base
@@ -987,6 +634,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     background-size: 12px;
     background-position: right 8px center;
 }
+
 .ui-date-calendar-btn, .ui-time-picker-btn, .ui-add-group-btn {
     flex-shrink: 0;
     display: inline-flex;
@@ -1003,6 +651,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
    apart from the select rather than fused onto it (contrast .ui-fused-field
    below, which fuses both a label and an add-button onto one control). */
 .ui-select-row { display: flex; align-items: center; gap: var(--space-xs); width: 100%; }
+
 .ui-select-row > .ui-select, .ui-select-row > .ui-fused-field { flex: 1; }
 
 /* Wraps one or more .ui-fused-field fields (e.g. School/Panel Group/Date/
@@ -1019,8 +668,11 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     grid-template-columns: max-content 1fr max-content;
     row-gap: var(--space-md);
 }
+
 .ui-fused-field-group form { display: contents; }
+
 .ui-fused-field-group > *:not(.ui-fused-field) { grid-column: 1 / -1; }
+
 /* Same author-vs-UA-stylesheet issue as .ui-fused-field[hidden] below: our
    own `display: grid` above beats the browser's built-in `[hidden] {
    display: none }` default outright, so without this override an entire
@@ -1051,9 +703,11 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     overflow: hidden;
     background: var(--bg-input);
 }
+
 /* Rows with a third segment (the "+" add-button) claim the group's 3rd
    column too, instead of leaving it empty for that row. */
 .ui-fused-field:has(> .ui-fused-field-add) { grid-column: 1 / 4; }
+
 /* Rows with no add-button (e.g. School/Date/Time beside Panel Group's "+")
    would otherwise stop at the group's 2nd column, ending short of Panel
    Group's own right edge (which extends into the 3rd column the button
@@ -1068,6 +722,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
 .ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) {
     grid-column: 1 / 4;
 }
+
 .ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-select,
 .ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-date,
 .ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > .ui-time,
@@ -1075,6 +730,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
 .ui-fused-field:not(.ui-fused-field--stacked):not(:has(> .ui-fused-field-add)) > textarea {
     grid-column: 2 / 4;
 }
+
 /* Our own `display: grid` above is an author-stylesheet rule, so it beats
    the browser's built-in `[hidden] { display: none }` UA-stylesheet
    default outright (author styles always win over UA ones, tied
@@ -1082,6 +738,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
    the Create Panel modal's School field to one school) silently does
    nothing. */
 .ui-fused-field[hidden] { display: none; }
+
 /* Two classes deep so this beats .field-group label's `display: block` /
    margin-bottom (that rule is a class+element selector, lower specificity
    than a class+class one) when this component sits inside a .field-group. */
@@ -1101,6 +758,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     text-overflow: ellipsis;
     min-width: 0;
 }
+
 /* Grid items default to min-width: auto (floored at their content's size,
    same trap flex items have) — without this, .ui-select-trigger's ellipsis
    truncation above never actually gets a chance to kick in. */
@@ -1109,6 +767,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
 .ui-fused-field > .ui-time,
 .ui-fused-field > input[type="text"],
 .ui-fused-field > textarea { min-width: 0; }
+
 /* .ui-select stretches to the fused row's full height (grid's align-items:
    stretch on .ui-fused-field), but .ui-select-trigger is a plain button
    nested one level inside it, not itself a grid item — it doesn't inherit
@@ -1123,6 +782,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     border-radius: 0;
     background-color: transparent;
 }
+
 /* A plain text <input> (e.g. Panel Group Name) needs its own border/
    background reset to blend into the fused box, same as .ui-select-trigger
    above does for an enhanced select — a raw <input> has no such wrapper to
@@ -1139,7 +799,9 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     font-family: inherit;
     color: var(--text-primary);
 }
+
 .ui-fused-field > input[type="text"]:focus { outline: none; }
+
 /* A <textarea> (e.g. Add Action's Description, #98) needs the same border/
    background reset as the plain text input above - a textarea has no
    wrapper of its own to carry that reset for it either. Always used inside
@@ -1156,7 +818,9 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     color: var(--text-primary);
     resize: vertical;
 }
+
 .ui-fused-field > textarea:focus { outline: none; }
+
 /* Element-qualified so this reliably beats .btn-add's own border/radius
    (a class+pseudo-class selector on :hover ties with a two-class selector
    on specificity alone; adding the `button` element type breaks the tie in
@@ -1171,23 +835,28 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     border-left: 1px solid var(--border-color);
     border-radius: 0;
 }
+
 /* .ui-fused-field also fuses a label onto Date/Time's multi-part pickers
    (Day/Month/Year, Hour/Minute), not just a single <select> — same "one
    bordered box" look as the Panel Group/School fields. Day/Month/Year and
    Hour/Minute read as one fused strip inside the box, so the gap between
    them needs to become a divider line instead of just whitespace once
    .ui-select-trigger's own border is stripped below. */
+
 /* Zeroes both the gap between segments within the fields group (Day/Month/
    Year, Hour/Minute) AND the outer gap .ui-date/.ui-time's own base `gap`
    rule (above) puts between that fields group and the trailing calendar/
    clock button — without the second part, the button's border-left divider
    floats visibly away from the fields it's meant to sit flush against. */
 .ui-fused-field > .ui-date, .ui-fused-field > .ui-time { gap: 0; }
+
 .ui-fused-field .ui-date-fields, .ui-fused-field .ui-time-fields { gap: 0; }
+
 .ui-fused-field .ui-date-fields > .ui-select--sm:not(:last-child) .ui-select-trigger,
 .ui-fused-field .ui-time-fields > .ui-select--sm:not(:last-child) .ui-select-trigger {
     border-right: 1px solid var(--border-color);
 }
+
 /* The calendar/time-picker trigger buttons always read as the fused box's
    own trailing segment — flush against the Day/Month/Year (or Hour/Minute)
    selects beside them, sharing the box's border rather than floating as a
@@ -1203,11 +872,14 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     border-left: 1px solid var(--border-color);
     border-radius: 0;
 }
+
 /* .ui-date-calendar-btn's own color:var(--text-secondary) rule (above) ties
    in specificity with .btn-secondary's colour, so make the subtle-fill
    variant's tinted icon win explicitly regardless of stylesheet order. */
 .ui-date-calendar-btn.btn-secondary, .ui-time-picker-btn.btn-secondary { color: var(--btn-secondary-text); }
+
 .ui-date-calendar-btn.btn-secondary:hover, .ui-time-picker-btn.btn-secondary:hover { color: var(--btn-secondary-hover-text); }
+
 /* Since the picker button stays in normal flow (a real flex sibling, not
    pulled out via position:absolute), .ui-date-fields/.ui-time-fields'
    flex:1 fills only the remaining row width next to it — see the
@@ -1229,6 +901,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
 }
+
 /* Only reserve a 2nd column when there's actually an add-button to put in
    it — otherwise the label's row-1 span across both columns (below) still
    inflates the empty 2nd column's auto track, stealing width from the
@@ -1236,6 +909,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
 .ui-fused-field--stacked:has(> .ui-fused-field-add) {
     grid-template-columns: 1fr auto;
 }
+
 .ui-fused-field--stacked > .ui-fused-field-label {
     grid-column: 1 / -1;
     grid-row: 1;
@@ -1243,6 +917,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     border-right: none;
     border-bottom: 1px solid var(--border-color);
 }
+
 /* Panel Group's "+" and the Date/Time picker buttons occupy a real 38px of
    width to their control's right (see .ui-fused-field-add,
    .ui-date-calendar-btn, .ui-time-picker-btn), so the select/fields' own
@@ -1264,10 +939,12 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
 .ui-fused-field--stacked:has(> .ui-fused-field-add) > .ui-fused-field-label {
     padding: 0 38px 0 0;
 }
+
 .ui-fused-field--stacked:has(> .ui-date) > .ui-fused-field-label,
 .ui-fused-field--stacked:has(> .ui-time) > .ui-fused-field-label {
     padding: 0 46px 0 0;
 }
+
 .ui-fused-field--stacked > .ui-select,
 .ui-fused-field--stacked > .ui-date,
 .ui-fused-field--stacked > .ui-time,
@@ -1275,10 +952,12 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     grid-column: 1;
     grid-row: 2;
 }
+
 .ui-fused-field--stacked > .ui-fused-field-add {
     grid-column: 2;
     grid-row: 2;
 }
+
 /* Stacked/Card-style selectors always keep a centered value under their
    centered label (e.g. the Chair field) - see the "Fused vs. plain fields"
    decision tree above .filter-field. This overrides the base trigger's new
@@ -1316,7 +995,9 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     gap: var(--space-xs);
     width: 100%;
 }
+
 .ui-time-fields { display: flex; gap: var(--space-xs); flex: 1; }
+
 .ui-time-fields .ui-select--sm.ui-hidden { display: none; }
 
 /* Time picker popover: an attached spinner ("Enter time") rather than a
@@ -1334,6 +1015,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     overflow: visible;
     padding: 0;
 }
+
 .ui-time-spinner-header {
     display: flex;
     align-items: center;
@@ -1345,6 +1027,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     text-transform: uppercase;
     color: var(--text-secondary);
 }
+
 .ui-time-spinner-close {
     display: inline-flex;
     align-items: center;
@@ -1359,7 +1042,9 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     color: var(--text-faint);
     cursor: pointer;
 }
+
 .ui-time-spinner-close:hover { color: var(--text-primary); }
+
 .ui-time-spinner-body {
     display: flex;
     align-items: center;
@@ -1367,12 +1052,14 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     gap: var(--space-sm);
     padding: var(--space-sm) var(--space-md) var(--space-md);
 }
+
 .ui-time-spinner-unit {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--space-xxs);
 }
+
 .ui-time-spinner-arrow {
     display: flex;
     align-items: center;
@@ -1385,7 +1072,9 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     color: var(--text-faint);
     cursor: pointer;
 }
+
 .ui-time-spinner-arrow:hover { color: var(--primary); }
+
 .ui-time-spinner-value {
     width: 52px;
     padding: var(--space-xs) 0;
@@ -1398,13 +1087,16 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     color: var(--text-primary);
     font-family: inherit;
 }
+
 .ui-time-spinner-value:focus {
     outline: none;
     border-color: var(--primary);
     background: var(--primary-light);
     color: var(--active-text);
 }
+
 .ui-time-spinner-value.muted { color: var(--text-secondary); }
+
 .ui-time-spinner-sep {
     align-self: center;
     padding-bottom: var(--space-lg);
@@ -1412,12 +1104,14 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     font-weight: 600;
     color: var(--text-secondary);
 }
+
 .ui-time-spinner-ampm {
     display: flex;
     flex-direction: column;
     gap: var(--space-xxs);
     margin-left: var(--space-xs);
 }
+
 .ui-time-spinner-ampm-btn {
     padding: var(--space-xxs) var(--space-sm);
     border: 1px solid var(--border-color);
@@ -1428,12 +1122,15 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     color: var(--text-secondary);
     cursor: pointer;
 }
+
 .ui-time-spinner-ampm-btn:hover { background: var(--row-hover-bg); }
+
 .ui-time-spinner-ampm-btn.selected {
     border-color: var(--primary);
     background: var(--primary-light);
     color: var(--active-text);
 }
+
 /* Shared footer for both the time spinner and the calendar grid popovers —
    a "Now"/"Clear" pair or a lone "Today" link, right below the popover's
    main content, divided by a border-top. Kept generic (not
@@ -1446,6 +1143,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     padding: var(--space-xs) var(--space-sm);
     border-top: 1px solid var(--border-color);
 }
+
 .ui-popover-footer-link {
     border: none;
     background: none;
@@ -1455,11 +1153,15 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     color: var(--active-text);
     cursor: pointer;
 }
+
 .ui-popover-footer-link:hover { text-decoration: underline; }
 
 .field-group { margin-bottom: var(--space-md); }
+
 .field-group label { display: block; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: var(--space-xs); }
+
 .field-group label:not(:first-child) { margin-top: var(--space-md); }
+
 /* Vertical padding matches .btn's (--space-xs) rather than --space-sm so a
    single-line field renders at the same height as a button sitting beside
    or below it (DES-S1). Horizontal padding stays the more generous --space-sm since
@@ -1474,13 +1176,16 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     font-size: var(--font-base);
     font-family: inherit;
 }
+
 .field-group .field-box { min-height: 44px; }
 
 /* Label and its control share one line instead of stacking - e.g. Panel
    Setup's Chair select, where the field-group's default block layout wastes
    a whole row for a short label. */
 .field-group-inline { display: flex; align-items: center; gap: var(--space-sm); }
+
 .field-group-inline label { margin-bottom: 0; flex-shrink: 0; }
+
 .field-group-inline input, .field-group-inline select, .field-group-inline .field-box { width: auto; flex: 1 1 auto; }
 
 .field-section-label { display: block; font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: var(--space-md) 0 var(--space-xs); }
@@ -1505,12 +1210,18 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     align-items: center;
     margin-bottom: var(--space-xs);
 }
+
 .panel-group-member-row > select { width: auto; flex: 1 1 140px; }
+
 .panel-group-member-row .member-staff-field { position: relative; flex: 2 1 200px; }
+
 .panel-group-member-row .member-staff-field input,
 .panel-group-member-row input[name="member_guest_name"] { width: 100%; }
+
 .panel-group-member-row input[name="member_guest_name"] { flex: 2 1 200px; }
+
 .panel-group-member-row .member-expertise-field { display: flex; gap: var(--space-xs); flex: 1 1 160px; align-items: center; }
+
 .panel-group-member-row .member-expertise-field select { width: auto; flex: 1 1 auto; }
 
 .member-staff-results {
@@ -1526,7 +1237,9 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
 }
+
 .member-staff-results[hidden] { display: none; }
+
 .staff-option {
     display: block;
     width: 100%;
@@ -1539,15 +1252,21 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     font-size: var(--font-sm);
     cursor: pointer;
 }
+
 .staff-option:last-child { border-bottom: none; }
+
 .staff-option:hover:not(:disabled) { background: var(--primary-light); }
+
 .staff-option:disabled { color: var(--text-tertiary); cursor: not-allowed; }
 
 .member-row-chair-btn { white-space: nowrap; }
+
 .member-row-chair-btn.is-chair { background: var(--primary-light); border-color: var(--primary); color: var(--active-text); font-weight: 600; }
+
 .member-row-chair-btn:disabled { opacity: .5; cursor: not-allowed; }
 
 .member-expertise-add-input { display: flex; gap: var(--space-xs); flex: 1 1 auto; align-items: center; }
+
 .member-expertise-add-input input { width: auto; flex: 1 1 auto; padding: var(--space-xs) var(--space-sm); }
 
 .form-error {
@@ -1559,6 +1278,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     font-size: var(--font-sm);
     font-weight: 600;
 }
+
 .form-error[hidden] { display: none; }
 
 /* Segmented control — for any control with 3 or fewer static options.
@@ -1580,6 +1300,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     border-radius: var(--radius-sm);
     overflow: hidden;
 }
+
 .ui-segmented-option {
     border: none;
     border-right: 1px solid var(--border-strong);
@@ -1591,12 +1312,16 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
     cursor: pointer;
     white-space: nowrap;
 }
+
 .ui-segmented-option:last-child { border-right: none; }
+
 .ui-segmented-option:hover { color: var(--text-primary); }
+
 .ui-segmented-option:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: -2px;
 }
+
 .ui-segmented-option.active {
     background: var(--primary-light);
     color: var(--active-text);
@@ -1609,6 +1334,7 @@ html.nav-touch-mode .ui-popover::-webkit-scrollbar {
 html.nav-touch-mode .member-staff-results {
     scrollbar-width: none;
 }
+
 html.nav-touch-mode .member-staff-results::-webkit-scrollbar {
     display: none;
 }

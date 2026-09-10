@@ -97,7 +97,6 @@
    main.js's syncFilterBarMobileClass. Rules that need "narrow enough that
    this is dead weight, whatever the device" key off the class, not a width.
    --------------------------------------------------------------------------- */
-
 @media (max-width: 1200px) {
     /* Below 1200px the hub sidebar auto-collapses into icon-only mode - the
        same locked-rail state a narrowed desktop window gets regardless of
@@ -418,9 +417,11 @@ html.phone-chrome .breadcrumbs {
 html.phone-chrome .hub-quick-nav {
     display: flex;
 }
+
 html.phone-chrome .hub-quick-nav-divider {
     display: block;
 }
+
 html.phone-chrome .hub-quick-nav-dashboard-title {
     display: block;
 }
@@ -477,7 +478,7 @@ html.phone-chrome .page-header-extras > *:not(dialog) {
 }
 
 @media (max-width: 480px) {
-    /* Phone reclaim (#116 follow-up): .main-inner's padding (layout.css)
+/* Phone reclaim (#116 follow-up): .main-inner's padding (layout.css)
        is otherwise unconditional, same var(--space-2xl) on all four sides
        as desktop - at 375px that alone eats 64px of horizontal width
        before any page content starts. Cut to --space-sm (12px), not zero -
@@ -489,143 +490,85 @@ html.phone-chrome .page-header-extras > *:not(dialog) {
        12px by default") - rather than one page inventing its own smaller
        one-off margin, every page's default got the same trim, so a
        standalone edge-to-edge special case was never needed. */
-    .main-inner {
+.main-inner {
         padding: var(--space-sm);
     }
-    /* .sticky-header-zone/.home-header-sticky (layout.css) cancel
+/* .sticky-header-zone/.home-header-sticky (layout.css) cancel
        .main-inner's own padding with a hardcoded -32px negative margin so
        they can bleed edge-to-edge while staying sticky against main's
        scroll - that margin must track .main-inner's padding above or it
        overshoots, pulling the sticky header past the viewport edge. */
-    .sticky-header-zone,
+.sticky-header-zone,
     .home-header-sticky {
         margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm)) 0;
         padding: var(--space-sm) var(--space-sm) var(--space-sm);
     }
-
-
-    /* Filter bar (shared across most Inclusion pages, see #113/#114): fields
-       and Clear collapse behind the existing "Filters · count" label, which
-       becomes the tap target that toggles `.is-expanded`. Unchanged above
-       this width - fields stay always-visible via the default .filter-field
-       display below. */
-    .filter-bar {
-        justify-content: center;
-    }
-    .filter-bar-label {
-        cursor: pointer;
-        width: 100%;
-        justify-content: center;
-        margin-right: 0;
-    }
-    /* :not(:has(.filter-bar-toggle-icon)) - Students (students.html) already
-       carries a real SVG arrow element for this same job (panel.css, "Real
-       element, not a ::after" - a pseudo-element chevron here duplicated it,
-       showing both at once on mobile). Every other filter bar still has only
-       this pseudo-element, so they keep it. */
-    .filter-bar-label:not(:has(.filter-bar-toggle-icon))::after {
-        content: '\25BE';
-        margin-left: var(--space-xxs);
-        font-size: var(--font-xs);
-        color: var(--text-faint);
-        transition: transform var(--transition-base);
-    }
-    .filter-bar.is-expanded .filter-bar-label:not(:has(.filter-bar-toggle-icon))::after {
-        transform: rotate(180deg);
-    }
-    .filter-bar .filter-field,
-    .filter-bar .filter-bar-clear {
-        display: none;
-    }
-    .filter-bar.is-expanded .filter-field,
-    .filter-bar.is-expanded .filter-bar-clear {
-        display: flex;
-    }
-    /* [data-filter-pinned] stays visible regardless of collapse state (e.g.
-       Students' own Name Search - #117 follow-up, live feedback: "the name
-       search could always be visible in a separate row") - opts a field out
-       of the tap-to-expand collapse the same way setupFilterBarMoreFilters
-       (main.js) already opts it out of dynamic overflow measurement. */
-    .filter-bar .filter-field[data-filter-pinned] {
-        display: flex;
-    }
-    /* 2-up once expanded, rather than every field claiming a full row. */
-    .filter-bar.is-expanded .filter-field {
-        flex: 1 1 calc(50% - var(--space-xs));
-        max-width: none;
-    }
-
-    /* SEND & Provision dashboard KPI strip: smaller, 3-up rather than the
+/* SEND & Provision dashboard KPI strip: smaller, 3-up rather than the
        flex-wrap row today's (tablet/desktop-only, unchanged) layout uses. */
-    /* Only the deltas from the <=1024px block further down - display: grid
+
+/* Only the deltas from the <=1024px block further down - display: grid
        and the 3-column template are already in force here (this range is
        wholly inside that one) and restating them just creates a second place
        to keep in sync. Tighter gap + smaller type is all phone width adds. */
-    .stats-strip--compact {
+.stats-strip--compact {
         gap: var(--space-xs);
     }
-    .stats-strip--compact .stat-card {
+.stats-strip--compact .stat-card {
         padding: var(--space-xs) var(--space-xxs);
         border-radius: var(--radius-sm);
     }
-    .stats-strip--compact .stat-card .stat-value { font-size: var(--font-xl); }
-    .stats-strip--compact .stat-card .stat-label { font-size: 10px; line-height: 1.2; }
-    .stats-strip--compact .stat-card-sublabel { display: none; }
-
-    /* SEND-code donut: the card is full-width at this size (see the
+.stats-strip--compact .stat-card .stat-value { font-size: var(--font-xl); }
+.stats-strip--compact .stat-card .stat-label { font-size: 10px; line-height: 1.2; }
+.stats-strip--compact .stat-card-sublabel { display: none; }
+/* SEND-code donut: the card is full-width at this size (see the
        min-width: 481px floor on .breakdown-grid--top above, #114 grilling),
        so there's room to go bigger and centred rather than shrinking it
        small and side-by-side with the legend - stack legend below instead. */
-    .donut-chart-wrap { flex-direction: column; justify-content: center; gap: var(--space-sm); }
-    .donut-chart { width: 160px; height: 160px; margin: 0 auto; }
-    .donut-chart-hole { inset: 20px; }
-    .donut-chart-legend { align-self: center; }
-
-    /* Referral trend bars: shorter, and drop the per-bar value (the card's
+.donut-chart-wrap { flex-direction: column; justify-content: center; gap: var(--space-sm); }
+.donut-chart { width: 160px; height: 160px; margin: 0 auto; }
+.donut-chart-hole { inset: 20px; }
+.donut-chart-legend { align-self: center; }
+/* Referral trend bars: shorter, and drop the per-bar value (the card's
        own h3 already carries the overdue count, and Total Students x 12
        months isn't a number worth reading off a bar this narrow anyway) -
        but the month/year label stays, just stacked onto two lines instead
        of one (see cards.css/#114 grilling) since "Jan 26" side by side
        doesn't fit 375px legibly and the year still needs to stay visible
        once the trend straddles a calendar-year boundary. */
-    .trend-chart { height: 56px; gap: 3px; margin-top: var(--space-xs); }
-    .trend-chart-bar-track { max-width: none; height: 100%; }
-    .trend-chart-value { display: none; }
-    .trend-chart-label-full { display: none; }
-    .trend-chart-label-stacked { display: flex; }
-    /* ~24px fits "Jan"/"26" stacked at font-xs without the 42px full-label
+.trend-chart { height: 56px; gap: 3px; margin-top: var(--space-xs); }
+.trend-chart-bar-track { max-width: none; height: 100%; }
+.trend-chart-value { display: none; }
+.trend-chart-label-full { display: none; }
+.trend-chart-label-stacked { display: flex; }
+/* ~24px fits "Jan"/"26" stacked at font-xs without the 42px full-label
        floor cards.css sets - narrow enough that all 12 fit without the
        horizontal scroll that floor would otherwise force at this width. */
-    .trend-chart-col { min-width: 24px; }
-
-    /* By gender/year group/school breakdown rows: the 3 E/K/N stat-labels
+.trend-chart-col { min-width: 24px; }
+/* By gender/year group/school breakdown rows: the 3 E/K/N stat-labels
        wrap onto their own line below the row's title/meta rather than
        squeezing onto one row with it - "12 (24%)" x3 plus gaps doesn't fit
        375px next to a label that can run to a full school name. */
-    .breakdown-row-stats { flex-wrap: wrap; row-gap: var(--space-micro); }
-
-    /* By area of need: the label's fixed 130px + value's fixed 70px only
+.breakdown-row-stats { flex-wrap: wrap; row-gap: var(--space-micro); }
+/* By area of need: the label's fixed 130px + value's fixed 70px only
        leaves ~100px for the bar itself at this width - drop both to a
        narrower fixed width instead of a proportional shrink, so the bar
        (the actual data) gets the room back rather than the fixed-width
        chrome around it. */
-    .breakdown-row-need-label { flex-basis: 84px; font-size: var(--font-xs); }
-    .breakdown-row-need-value { min-width: 52px; font-size: var(--font-xs); }
-
-    /* SENCo contacts (#114 grilling): a horizontal scroll-snap carousel
+.breakdown-row-need-label { flex-basis: 84px; font-size: var(--font-xs); }
+.breakdown-row-need-value { min-width: 52px; font-size: var(--font-xs); }
+/* SENCo contacts (#114 grilling): a horizontal scroll-snap carousel
        makes sense with room for several 180px cards side by side, but at
        375px that's barely one card's width - vertically stack instead, one
        per row, full width. Arrows go with it (nothing left to scroll). */
-    .senco-carousel-wrap { flex-direction: column; align-items: stretch; }
-    .senco-carousel-arrow { display: none; }
-    .senco-carousel {
+.senco-carousel-wrap { flex-direction: column; align-items: stretch; }
+.senco-carousel-arrow { display: none; }
+.senco-carousel {
         flex-direction: column;
         overflow-x: visible;
         scroll-snap-type: none;
     }
-    .senco-card { flex: 0 0 auto; width: 100%; }
-
-    /* Home's KPI row carousel: all of this row's own responsive treatment
+.senco-card { flex: 0 0 auto; width: 100%; }
+/* Home's KPI row carousel: all of this row's own responsive treatment
        (auto width + smaller padding/value/label/icon at this same
        breakpoint) lives in panel.css instead, not here - panel.css loads
        *after* this file (style.css's own link, then panel.css via {%
@@ -805,4 +748,3 @@ html.filter-bar-narrow-desktop .breadcrumbs {
         gap: var(--space-sm);
     }
 }
-

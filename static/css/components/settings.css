@@ -1,0 +1,61 @@
+/* Settings sections and rows - generic furniture, no domain in it.
+
+   Promoted out of panel.css (#208, ADR 0020). These ~30 lines are the entire
+   reason hubs/portaladmin's two pages linked an 11,810-line SEND stylesheet:
+   the developer console needed a disclosure section and a labelled row, and
+   this is where they happened to live. Region 14 was classified domain-owned
+   on a first read and corrected while drawing up the promotion list (#201) -
+   checking what portaladmin actually used is what caught it. */
+
+/* Settings (Group/Date/Chair) is a true non-scrolling flex sibling of
+   .setup-col-body, same "Card-internal scroll with a fixed header" technique
+   .setup-col-header/.modal-header use (DES-L5) - not
+   position: sticky inside the scrolling body, which used to make the
+   Members entity-list's own scrollbar run the full height of this
+   unusually-tall block (Group + Date + Chair + the Members sub-heading),
+   including behind it, since the scrollbar always belongs to whichever
+   element actually scrolls. Members' own "Members" h3 sits inside
+   .setup-col-body instead, where the existing .setup-col-body
+   .setup-col-header sticky rule (above) already pins a sub-heading
+   correctly against that body's own, much shorter, scroll range. */
+.settings-fixed { flex-shrink: 0; }
+
+/* Settings pages: collapsible sections + bullet-free rows */
+
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
+.settings-section {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-md);
+    background: var(--bg-surface);
+}
+
+.settings-section summary {
+    font-size: var(--font-xl);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    border-radius: var(--radius-sm);
+}
+
+.settings-section summary:hover { color: var(--active-text); }
+
+.settings-section summary::-webkit-details-marker { display: none; }
+
+.settings-section summary::before { content: '▸ '; color: var(--text-faint); }
+
+.settings-section[open] summary::before { content: '▾ '; }
+
+.settings-section .settings-body { margin-top: var(--space-md); }
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-xxs);
+    border-bottom: 1px solid var(--border-faint);
+}
+
+.settings-row:last-child { border-bottom: none; }
