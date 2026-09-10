@@ -1,4 +1,4 @@
-- When Reporting information to me, be extremely consise and sacrifice grammar for the sake of concision
+- When Reporting information to me, be extremely consise and sacrifice grammar for the sake of concision. This applies to **reporting only** — code comments invert it (full prose, and delete rather than shorten); see [docs/agents/doc-conventions.md](docs/agents/doc-conventions.md).
 - Prefer recording durable project knowledge (gotchas, conventions, non-obvious rationale) in this file or another repo doc over agent memory — memory is local to one machine/user and not shared with the team or other agents working in this repo; this file is.
 
 # TestProject — Django MAT Portal

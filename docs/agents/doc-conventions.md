@@ -36,6 +36,30 @@ Once a rule clears the worth bar, write it tight:
 - A worked example naming a specific page/modal — keep these out of principle files entirely; principles stay in plain English with no concrete class names or pixel values.
 - Anti-patterns stated as one line: what to avoid, one line on the failure it causes — either as a comment at the site the mistake would land, or folded into the principle it violates.
 
+## What a comment has to earn to stay
+
+CLAUDE.md's "extremely concise, sacrifice grammar for concision" is about **reporting to the user**, and comments are the opposite case. Reporting is read live, in context, and is disposable; a comment is read cold, months later, by someone or some agent with none of that context. So the rule inverts: don't shorten a comment to save space — either it earns full prose or it shouldn't be there.
+
+What earns it is narrower than "explains why". A comment stays if it records a decision that was **contested**: something tried and rejected, live feedback that changed the design, a constraint that bit, a value that looks arbitrary and isn't. A comment that explains what the code does — however well — is a discard, because the code already says that and the comment is now a second copy that can drift.
+
+Three consequences worth stating outright:
+
+- **A "why" that generalizes past its one site isn't a comment.** It's a principle or an ADR, and the comment becomes a citation of it. Restating the same portal-wide decision at each site it touches is the "Reference, don't duplicate" failure below, in comment form — and it's the main reason a file's commentary grows without bound.
+- **A comment must name what it explains, not what it replaced.** Archaeology ("replacing the old X", where X is long gone) explains a diff, not the code in front of you. Issue citations are welcome and stay — `(#88)` is the only route back to the full argument, and `gh issue view 88` still resolves it — but the citation rides alongside a description of the current behaviour, never instead of one.
+- **A section header is not a comment under this bar.** `/* === Carousels === */` is navigation, not explanation, and doesn't have to justify itself as a contested decision.
+
+### Is it still true?
+
+The machine-checkable half of the rule is that a comment must not name code that no longer exists — a dead function, class or data attribute is proof the comment is describing the past. `scripts/check_stale_comments.py` finds those, repo-wide or `--changed`. Run it on demand and during `/code-review`'s Standards pass. It is deliberately not a commit hook: a false positive would block an unrelated commit, and a check that does that gets bypassed and then stops working entirely.
+
+A clean run is not "the comments are fine" — whether a live comment records a contested decision or merely restates the code is a judgement call, and no script makes it.
+
+### Applying it to what's already written
+
+Touch-it-fix-it: a comment inside a hunk you're already editing meets this bar or goes. There's no separate audit pass, and no permanent grandfathering either. The one exception is a file being restructured wholesale — there, every line is already in hand and the comment pass is part of the same reading, not a second one.
+
+When judging whether a file is too long to stay one file, count **code** lines, not total. Otherwise well-explained code reads as bloat, and deleting a good comment becomes the cheapest way to get under the limit.
+
 ## Don't name volatile specifics
 
 Don't hardcode the names or counts of things that can be renamed, added, or removed independently of the rule itself — theme flavour names, exact counts ("8 hues"), specific page/feature names cited only as an example. State the underlying behaviour generically instead ("theme-controlled," "may vary by theme") and point at the live, authoritative source for current instances rather than baking a snapshot into the rule that goes stale the next time something changes.
