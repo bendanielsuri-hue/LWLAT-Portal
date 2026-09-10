@@ -74,12 +74,12 @@ class PanelPagesSmokeTest(PanelViewTestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_every_full_page_links_the_shared_stylesheet(self):
-        # One owner for the version (_base.html). A page that overrides
+        # One owner for the link (_base.html). A page that overrides
         # extra_head instead of panel_extra_head drops off it silently.
         for name in self.FULL_PAGE_ROUTES:
             with self.subTest(route=name):
                 response = self.client.get(reverse(name))
-                self.assertContains(response, 'css/panel.css?v=')
+                self.assertContains(response, 'panel/css/panel.css')
 
     def test_fragments_carry_no_stylesheet_of_their_own(self):
         # The other half of the same rule: a fragment is injected into a page
@@ -88,4 +88,4 @@ class PanelPagesSmokeTest(PanelViewTestCase):
         for name in self.FRAGMENT_ROUTES:
             with self.subTest(route=name):
                 response = self.client.get(reverse(name))
-                self.assertNotContains(response, 'css/panel.css')
+                self.assertNotContains(response, 'panel/css/panel.css')

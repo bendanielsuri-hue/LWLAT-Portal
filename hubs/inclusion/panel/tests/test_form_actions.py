@@ -18,7 +18,7 @@ from hubs.inclusion.panel import form_actions
 
 PANEL_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = PANEL_DIR / 'templates' / 'hubs' / 'inclusion' / 'panel'
-PANEL_JS = PANEL_DIR / 'static' / 'js' / 'panel.js'
+PANEL_JS = PANEL_DIR / 'static' / 'panel' / 'js' / 'panel.js'
 VIEWS_PY = PANEL_DIR / 'views.py'
 
 # <input type="hidden" name="form_action" value="start_meeting">

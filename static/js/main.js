@@ -3761,7 +3761,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // change (or a click on .filter-bar-clear inside it), fetches the same
     // URL+querystring with X-Requested-With: XMLHttpRequest — the existing
     // AJAX convention this codebase already uses for modal content (see
-    // hubs/inclusion/panel/static/js/panel.js's loadModal(), and the
+    // hubs/inclusion/panel/static/panel/js/panel.js's loadModal(), and the
     // is_ajax checks in hubs/inclusion/panel/views.py) — and the view (see
     // hubs/inclusion/views.py::inclusion_hub) returns just the target's
     // inner HTML fragment instead of the full page. The <form> itself is
@@ -3952,7 +3952,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
 
     // Auto-enhance every plain select/date/time field already in the page on
     // load (server-rendered pages). AJAX-injected modal content (e.g.
-    // hubs/inclusion/static/js/panel.js) isn't in the DOM yet at this point,
+    // hubs/inclusion/panel/static/panel/js/panel.js) isn't in the DOM yet at this point,
     // so it calls window.enhanceFormControls(dialog) itself after injecting.
     window.enhanceFormControls(document);
 });
@@ -3967,7 +3967,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
 // user picks something, which is what any existing listener on the form
 // reacts to. Top-level (not wrapped in DOMContentLoaded) so these are callable
 // as soon as this script has executed, including from content injected later
-// by AJAX-loaded modals (e.g. hubs/inclusion/static/js/panel.js).
+// by AJAX-loaded modals (e.g. hubs/inclusion/panel/static/panel/js/panel.js).
 (function () {
     function closeAllUiPopovers(except) {
         document.querySelectorAll('.ui-popover[open]').forEach(function (el) {
@@ -4027,7 +4027,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // room below and clamping horizontally to the viewport. position:fixed
     // (rather than position:absolute relative to an in-flow ancestor) is
     // deliberate: these popovers live inside a scrollable <dialog>
-    // (hubs/inclusion/static/css/panel.css's max-height/overflow-y on
+    // (hubs/inclusion/panel/static/panel/css/panel.css's max-height/overflow-y on
     // dialog.modal-dialog), and an absolutely-positioned descendant of a
     // scroll-clipping ancestor can render outside the modal's visible box
     // once flipped — fixed positioning anchors purely to the viewport and
