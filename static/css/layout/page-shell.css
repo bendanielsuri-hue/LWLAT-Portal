@@ -1,0 +1,127 @@
+/* The full-height page shell: the fill and height chain a page needs when its
+   content region scrolls rather than the document.
+
+   Promoted out of panel.css (#209) and renamed from .page-shell on the way
+   - the name lied. Nothing in these rules is about a list; they are about a
+   page whose body is a scrolling region, which is why this sits in layout/
+   rather than in the list-page tier.
+
+   Loads after responsive.css, like everything this migration promoted - see
+   components/filter-bar.css's header for why that ordering matters. */
+
+.page-shell .card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.page-shell .card-header,
+.page-shell .tab-row,
+/* setupOverflowTabs (main.js, #131) moves .tab-row inside a new
+   .overflow-scroll-wrap div at .tab-row's old position - flex-shrink: 0
+   on .tab-row itself no longer protects anything once the wrapper (now
+   the actual flex child) is what's left to shrink instead. Only bit once
+   a card's own height became a hard cap rather than auto (below):
+   #actions-card's tab row got crushed to an ~11px sliver so
+   #my-actions-list's flex: 1 could keep growing into the fixed budget -
+   #116 grilling, "my actions is now broken". */
+.page-shell .overflow-scroll-wrap {
+    flex-shrink: 0;
+}
+
+.page-shell .stack-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* Bottom-edge bleed (DES-L5) - .card's own padding otherwise traps
+       this scroll region --space-lg short of the card's bottom edge, same
+       bug/fix as .setup-col-body:last-child below. */
+    margin-bottom: calc(-1 * var(--space-lg));
+    padding-bottom: var(--space-lg);
+}
+
+/* Hide on touch (feedback_hide_scrollbar_touch_mode convention - same pair
+   as layout.css's .list-card .entity-list) - swept the rest of this file's
+   own overflow:auto scroll regions for the same gap once Meetings' own
+   .meeting-list turned up missing it (live feedback, panel meetings in
+   tablet mode: "I thought we documented this so that all pages that were
+   touch did not show these"). */
+html.nav-touch-mode .page-shell .stack-list {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode .page-shell .stack-list::-webkit-scrollbar {
+    display: none;
+}
+
+/* Belt-and-braces: every direct child of a shell card needs min-height:
+   0, not just the scrolling list. Flex items default to min-height: auto,
+   which floors them at their content's min-content size — a non-scrolling
+   child (empty-state text, a preview block) can silently refuse to shrink
+   and reintroduce the "invisible overflow scrollbar" this shell exists to
+   prevent, even though the scrolling list itself is perfectly fine. */
+.page-shell .card > * {
+    min-height: 0;
+}
+
+/* Upcoming Panel Meetings (formerly a single Next Panel Meeting preview) now
+   holds a scrollable list of however many are upcoming, same shape as every
+   other card here - no longer centered vertically, heading pinned to the
+   top like the rest (live feedback: "Heading should be at top like the
+   others"). */
+
+/* .empty-note's default padding/font-size (space-3xl + font-xl) is sized for
+   a full-height list-card empty state — inside a compressed Row 2 card that
+   min-content floor is exactly the kind of thing rule 18 above guards
+   against, so it's shrunk here specifically for the shell context. */
+.page-shell .card .empty-note {
+    padding: var(--space-sm) 0;
+    font-size: var(--font-base);
+}
+
+/* Recent Activity's feed scrolls internally exactly like .stack-list above —
+   the header stays put via .page-shell .card-header's existing
+   flex-shrink: 0, so no separate sticky-header handling is needed here. */
+.page-shell .activity-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* Bottom-edge bleed (DES-L5) - same reason/fix as .stack-list above. */
+    margin-bottom: calc(-1 * var(--space-lg));
+    padding-bottom: var(--space-lg);
+}
+
+@media (max-width: 480px) {
+/* .page-header-main/.page-heading are flex items with no flex-grow
+       in their own parent (.page-header-main in .page-header, .page-
+       heading in .page-heading-wrap) - without claiming the full row
+       width here, .page-subtitle-stats's own margin-left: auto (below)
+       has no spare space to push into and everything just bunches up
+       left instead of splitting the row. .page-header's gap: 0 removes
+       the space its layout otherwise reserves for the (empty but still-
+       present, see its own dialog comment above) .page-header-extras
+       sibling - left at the default gap, the stats' right edge lands
+       short of the real content edge. h1 shrunk from --font-5xl so the
+       title + three stat entries still fit one row at 375px. */
+body:has(.page-shell--header-stats) .page-header-main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+body:has(.page-shell--header-stats) .page-header {
+        gap: 0;
+    }
+body:has(.page-shell--header-stats) .page-heading {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: var(--space-xs);
+        width: 100%;
+    }
+body:has(.page-shell--header-stats) .page-heading h1 {
+        font-size: var(--font-2-5xl);
+        flex-shrink: 0;
+    }
+}

@@ -208,7 +208,7 @@
 
 /* +N toggle expand: a single grid row animating 0fr <-> 1fr (site-wide
    interpolate-size: allow-keywords, layout.css - same technique as Panel's
-   .panel-card-collapsible) instead of toggling display:none/flex on each
+   .card-collapsible) instead of toggling display:none/flex on each
    extra badge individually, which just snapped straight to the new layout
    with no transition to hook into. flex: 1 1 100% forces this onto its own
    line within the badges' flex-wrap row regardless of how much width the
@@ -392,7 +392,7 @@
    "SYNC:" across the repo before changing bar width, hover colour, or
    chosen colour here — every other hit needs the same edit:
    - .list-card .entity-row (layout.css) — desktop list-page rows
-   - .panel-list li / .list-page-shell .panel-list li (panel.css) — Home's
+   - .stack-list li / .page-shell .stack-list li (panel.css) — Home's
      My Referrals/My Actions/Upcoming Panel Meetings
    - .meeting-card (panel.css) — Meetings page
    - .agenda-table tbody tr (panel.css) — Panel Agenda table rows */
@@ -481,7 +481,7 @@ a.stat-card { text-decoration: none; color: inherit; transition: background var(
 /* box-shadow dropped (was var(--shadow-md)) - its vertical extent varies
    by theme (dark mode needs ~32px of clearance below the card) and kept
    getting clipped by ancestor overflow:hidden containers (KPI carousel
-   track, list-page-shell) at some width/theme combos - transform alone
+   track, page-shell) at some width/theme combos - transform alone
    needs no clearance since it doesn't paint outside the card's own box
    (well, barely - see .stats-carousel-track's own padding/margin pair,
    panel.css, sized to match this exact lift).
@@ -694,14 +694,14 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
 /* Cap runaway row counts (many year groups/schools/need categories) instead
    of letting the card stretch the whole grid row (#grilling 2026-08-27).
    Same bleed-and-clip technique Panel Home's cards use for their own
-   scrolling lists (panel.css .panel-list): the scroll region bleeds out to
+   scrolling lists (panel.css .stack-list): the scroll region bleeds out to
    the card's own left/right/bottom padding via negative margin so the
    native scrollbar sits flush at the card's true edge instead of inset by
    --space-lg, and the bottom corners are rounded to match the card's own
    radius since overflow-x: hidden here clips the scrollbar's straight
    corner off the card's rounded one otherwise. .breakdown-card's own
    padding-bottom is dropped to 0 (above) so this is the only thing
-   providing bottom space, same as .panel-card/.panel-list. */
+   providing bottom space, same as .card/.stack-list. */
 .breakdown-card-body {
     max-height: 360px;
     overflow-y: auto;
@@ -897,7 +897,7 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
    of person can we add coloured initials". Fills its container by default
    (right for a container that's already circular, like .senco-avatar-wrap
    above), with per-context overrides where the container itself isn't
-   (.panel-thumb's own portrait rectangle, panel.css). Colour is picked
+   (.thumb's own portrait rectangle, panel.css). Colour is picked
    server-side (avatar_color_class, portal/templatetags/avatar_extras.py) -
    the person's own school accent colour when they have one (School.
    accent_colour, seed_schools.py's SCHOOL_ACCENT_COLOURS matches each real
@@ -1032,4 +1032,166 @@ html.nav-touch-mode .breakdown-card-body::-webkit-scrollbar,
 html.nav-touch-mode .trend-chart::-webkit-scrollbar,
 html.nav-touch-mode .senco-carousel::-webkit-scrollbar {
     display: none;
+}
+
+/* ---------- promoted from panel.css (#209) ---------- */
+/* The card family, ex-.panel-card. Domain modifiers of it - an activity card,
+   a meeting card - stay hub-side under their own names, which is the shape
+   .status-pill already had right: the base is portal-wide, the vocabulary is
+   not. */
+
+.card {
+    flex: 1 1 360px;
+    min-width: 320px;
+    background: var(--bg-surface);
+    /* --border-strong (see grilling session 2026-07-12, applied portal-wide
+       to every card). */
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    padding: var(--space-lg);
+    box-shadow: var(--card-shadow);
+}
+
+/* Upcoming Panel Meetings/Recent Activity, collapsed by default in stack
+   mode (live grilling: "hide... at the carousel breakpoint, or make it an
+   expandable card" - landed on expandable, not hidden, since both still
+   carry information worth being one tap away from rather than gone
+   outright). Desktop (>1180px) never collapses - .card-collapsible is
+   display: contents there, invisible to the box tree, so the real
+   .stack-list/.activity-list stays a direct flex child of the card exactly
+   as before this wrapper was added. */
+.card-collapsible {
+    display: contents;
+}
+
+@media (max-width: 1180px) {
+/* Real grid child now (not display: contents) - a single-row grid whose
+       track animates between 0fr (collapsed) and 1fr (expanded) is the
+       standard height-less-auto-height collapse technique: no JS height
+       measurement needed, and it still adapts correctly if the content's
+       own height changes while open (e.g. a longer Recent Activity feed
+       after more actions complete). */
+.card-collapsible {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows var(--transition-base);
+    }
+/* The grid's own single implicit child (.stack-list/.activity-list) -
+       needs its own overflow: hidden, not the grid container's, since a 0fr
+       track still reports its child's full intrinsic height for overflow
+       purposes otherwise (the technique relies on clipping *inside* the
+       track, not the track height itself, which the browser can't animate
+       between 0 and an unknown "auto" directly). min-height: 0 lets it
+       actually shrink to the 0fr track instead of flooring at content size
+       (same class of bug as every other min-height: auto flex/grid trap in
+       this file). */
+.card-collapsible > * {
+        overflow: hidden;
+        min-height: 0;
+    }
+}
+
+/* Narrow-window card switcher: the generic .card-switcher/.card-tab/
+   .switch-card-group styling and breakpoint live in static/css/style.css
+   (reusable sitewide) — .panel-columns/.card just opt in via the
+   switch-card-group/switch-card classes in home.html. */
+.card-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-sm);
+}
+
+.card-header h2 { margin-bottom: 0; }
+
+.card-count {
+    font-size: var(--font-base);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.card h2 {
+    text-align: center;
+    font-size: var(--font-xl);
+}
+
+.thumb {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    display: flex;
+    /* Centred, not flex-end - flex-end was right for the old standing-
+       person silhouette icon (feet-on-ground read), but the circular
+       avatar-initials badge that replaced it (below) reads as bottom-
+       cropped/off-centre pinned to the frame's own bottom edge instead
+       (live feedback: "can the circles be vertically centred on the photo
+       card"). A future real photo (.thumb-photo) fills 100%/100% of
+       this box regardless of align-items, so this only ever affects the
+       fallback badge. */
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
+
+.thumb-photo { width: 100%; height: 100%; object-fit: cover; }
+
+/* .avatar-initials defaults to filling its container (cards.css) - right
+   for the circular "Circle Break" override below, but this base .panel-
+   thumb is a portrait rectangle, not a circle, so a 100%-fill initials
+   badge would stretch into an oval instead of a circle. Fixed circle size
+   instead, bottom-aligned like the icon it replaced (align-items: flex-end
+   above). */
+.thumb .avatar-initials {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    font-size: var(--font-sm);
+}
+
+.chevron {
+    flex: 0 0 auto;
+    color: var(--text-faint);
+}
+
+/* Panel Home's tab rows are overflow-managed by JS (setupOverflowTabs,
+   main.js, #131) - scrolls with an edge fade once it overflows, rather
+   than the "More" dropdown this comment used to describe (that approach
+   was replaced; see .overflow-scroll-wrap in static/css/components/
+   navigation.css for the current mechanism). Needs a single non-wrapping
+   line to measure against either way. overflow-x: auto (not the old
+   overflow: hidden) so the row is still natively scrollable even in the
+   brief window before JS wraps it - and doesn't fight the JS-added
+   .overflow-scroll-row.overflow-scroll-row's own overflow-x: auto later,
+   which this file's later load order would otherwise always beat
+   regardless of specificity. */
+.card .tab-row { flex-wrap: nowrap; overflow-x: auto; }
+
+/* setupOverflowTabs (#131) moves .tab-row inside a new .overflow-scroll-wrap
+   div, inserted at .tab-row's old position - the bleed below must move
+   with it (to .card's actual direct child) or it doubles up: wrap
+   already sits inside .card's padded content box un-bled, so a
+   *second* bleed margin on .tab-row (now nested one level deeper, inside
+   wrap) pushes the row's own box past wrap's edge and out past the card's
+   visible border entirely, instead of merely reaching it. `> .tab-row`
+   still covers the <2-tabs case (setupOverflowTabs skips wrapping then,
+   so .tab-row stays a direct child) - and the nested rule resets any
+   bleed a more general .tab-row rule elsewhere might otherwise leak in.
+   .card's own padding is --space-lg (20px) - same two-sided bleed
+   as .setup-col above (Panel Home's own narrower phone padding overrides
+   this again below, to match). */
+.card > .tab-row,
+.card > .overflow-scroll-wrap {
+    margin-left: calc(-1 * var(--space-lg));
+    margin-right: calc(-1 * var(--space-lg));
+}
+
+.card .overflow-scroll-wrap .tab-row {
+    margin-left: 0;
+    margin-right: 0;
 }

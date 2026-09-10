@@ -2046,14 +2046,14 @@ function initMemberPicker(rootEl) {
             var metaBits = [];
             if (item.school_name) metaBits.push('<span class="result-school">' + escapeHtml(item.school_name) + '</span>');
             if (item.subtitle) metaBits.push('<span class="result-role">' + escapeHtml(item.subtitle) + '</span>');
-            var meta = metaBits.length ? '<span class="member-result-meta">' + metaBits.join('') + '</span>' : '';
+            var meta = metaBits.length ? '<span class="picker-result-meta">' + metaBits.join('') + '</span>' : '';
             var pill = item.already_member ? '<span class="status-pill type-already">' + escapeHtml(alreadyMemberLabel) + '</span>' : '';
             var icon = item.photo_url ? '<img src="' + escapeHtml(item.photo_url) + '" alt="">' : AVATAR_PLACEHOLDER_SVG;
-            return '<button type="button" class="member-result-option" data-source="' + item.source + '" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '"' +
+            return '<button type="button" class="picker-result-option" data-source="' + item.source + '" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '"' +
                 (item.already_member ? ' data-already-member="1"' : '') + '>' +
-                '<span class="member-result-icon">' + icon + '</span>' +
-                '<span class="member-result-label-stack">' +
-                '<span class="member-result-name-row"><span class="result-name">' + escapeHtml(item.name) + '</span>' + pill + '</span>' +
+                '<span class="picker-result-icon">' + icon + '</span>' +
+                '<span class="picker-result-label-stack">' +
+                '<span class="picker-result-name-row"><span class="result-name">' + escapeHtml(item.name) + '</span>' + pill + '</span>' +
                 meta +
                 '</span>' +
                 '</button>';
@@ -2173,7 +2173,7 @@ function initMemberPicker(rootEl) {
     if (changeBtn) changeBtn.addEventListener('click', function () { showPicker(false); });
 
     rootEl.addEventListener('click', function (e) {
-        var optBtn = e.target.closest('.member-result-option');
+        var optBtn = e.target.closest('.picker-result-option');
         if (optBtn) {
             if (optBtn.dataset.alreadyMember === '1') return;
             if (optBtn.dataset.source === 'staff') {
@@ -2200,14 +2200,14 @@ function initMemberPicker(rootEl) {
         addExternalContact: function (contact) {
             var btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'member-result-option';
+            btn.className = 'picker-result-option';
             btn.dataset.source = 'external';
             btn.dataset.id = contact.id;
             btn.dataset.name = contact.name;
             var stack = document.createElement('span');
-            stack.className = 'member-result-label-stack';
+            stack.className = 'picker-result-label-stack';
             var nameRow = document.createElement('span');
-            nameRow.className = 'member-result-name-row';
+            nameRow.className = 'picker-result-name-row';
             var nameSpan = document.createElement('span');
             nameSpan.className = 'result-name';
             nameSpan.textContent = contact.name;
@@ -2215,7 +2215,7 @@ function initMemberPicker(rootEl) {
             stack.appendChild(nameRow);
             if (contact.job_title) {
                 var meta = document.createElement('span');
-                meta.className = 'member-result-meta';
+                meta.className = 'picker-result-meta';
                 var roleSpan = document.createElement('span');
                 roleSpan.className = 'result-role';
                 roleSpan.textContent = contact.job_title;
@@ -2288,10 +2288,10 @@ function initActionAssignFields(rootEl) {
                 var metaBits = [];
                 if (item.school_name) metaBits.push('<span class="result-school">' + escapeHtml(item.school_name) + '</span>');
                 if (item.subtitle) metaBits.push('<span class="result-role">' + escapeHtml(item.subtitle) + '</span>');
-                var meta = metaBits.length ? '<span class="member-result-meta">' + metaBits.join('') + '</span>' : '';
-                return '<button type="button" class="member-result-option" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '">' +
-                    '<span class="member-result-label-stack">' +
-                    '<span class="member-result-name-row"><span class="result-name">' + escapeHtml(item.name) + '</span></span>' +
+                var meta = metaBits.length ? '<span class="picker-result-meta">' + metaBits.join('') + '</span>' : '';
+                return '<button type="button" class="picker-result-option" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '">' +
+                    '<span class="picker-result-label-stack">' +
+                    '<span class="picker-result-name-row"><span class="result-name">' + escapeHtml(item.name) + '</span></span>' +
                     meta +
                     '</span>' +
                     '</button>';
@@ -2364,7 +2364,7 @@ function initActionAssignFields(rootEl) {
     });
     searchInput.addEventListener('input', applySearch);
     resultList.addEventListener('click', function (e) {
-        var optBtn = e.target.closest('.member-result-option');
+        var optBtn = e.target.closest('.picker-result-option');
         if (optBtn) select(optBtn.dataset.id, optBtn.dataset.name);
     });
 

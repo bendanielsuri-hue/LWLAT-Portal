@@ -1,0 +1,76 @@
+/* A person, rendered as a card: avatar or its placeholder, name, role, an
+   affiliation strip and a row of pills.
+
+   Split out of the picker (#209). The picker is a mechanism - search a source,
+   choose a record - and works the same whatever the records are. This is the
+   half that genuinely knows it is showing a person, which is why the two are
+   separate files rather than one named after the only caller that currently
+   uses both.
+
+   Renamed off Panel Group's word for it: a "member" is someone in a Panel
+   Group, and nothing here needs that to be true. */
+
+/* Attendance-dialog member cards (B1b) - photo, an affiliation strip
+   (school logo+name / "MAT-wide" / "External"), name, Chair/expertise
+   pills, and the check-in toggle. card-row's default align-items: stretch
+   makes every card match the tallest sibling's height; .card-toggle-slot's
+   margin-top: auto then pins the toggle to that same bottom edge regardless
+   of how many pills a given card has above it, so it never jumps position
+   card to card. */
+.person-card-row { display: flex; gap: var(--space-md); overflow-x: auto; padding: var(--space-sm) var(--space-xxs) var(--space-md); }
+
+.person-card {
+    flex: 0 0 168px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-well);
+    overflow: hidden;
+    text-align: center;
+}
+
+.person-card[data-present="true"] { border-color: var(--accent-border); background: var(--primary-light); }
+
+.person-card .photo-avatar, .person-card .no-photo-avatar { width: 168px; height: 106px; flex-shrink: 0; object-fit: cover; }
+
+.person-card .no-photo-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-well);
+    border-bottom: 1px dashed var(--border-strong);
+    color: var(--text-faint);
+}
+
+.person-card .no-photo-avatar svg { width: 40%; height: 40%; }
+
+.person-card .affiliation-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xxs);
+    padding: var(--space-xxs) var(--space-sm);
+    font-size: var(--font-2xs);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    background: var(--bg-surface-alt);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.person-card[data-present="true"] .affiliation-strip { background: color-mix(in srgb, var(--primary-light) 55%, var(--bg-surface-alt)); }
+
+.person-card .mini-badge { width: 14px; height: 14px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }
+
+.person-card .mini-badge svg { width: 100%; height: 100%; }
+
+.person-card .card-info { padding: var(--space-sm); display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); flex: 1; min-height: 0; }
+
+.person-card .card-name { font-weight: 700; font-size: var(--font-lg); line-height: 1.25; }
+
+.person-card .card-role { font-size: var(--font-sm); color: var(--text-secondary); }
+
+.person-card .card-pill-row { display: flex; gap: var(--space-xxs); flex-wrap: wrap; justify-content: center; }
+
+.person-card .card-toggle-slot { margin-top: auto; padding-top: var(--space-xs); }

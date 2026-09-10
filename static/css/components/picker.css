@@ -1,3 +1,16 @@
+/* Pick a record from a searchable source: the search field with its source
+   switcher, and the result list under it.
+
+   Nothing here is person-shaped - the rows carry an icon, a label stack and a
+   meta line, and what fills them is the caller's business. Promoted out of
+   panel.css by #209 and split from person-card.css, which is the part that
+   does know it is showing a person.
+
+   Known duplication, deliberately not resolved here: components/search.css
+   describes the same shape under .search-result-* - row, title, subtitle,
+   meta. Two vocabularies for one pattern. Merging live components is a rewrite
+   rather than a relocate, so it is recorded rather than done. */
+
 /* Pick a person: result rows, cards, and the picker's own controls.
 
    Named for what it does rather than for Panel's word for it - a "member" is
@@ -8,73 +21,7 @@
    usage). Loads after responsive.css, like every file promoted by this
    migration - see components/filter-bar.css's header for why that ordering is
    load-bearing rather than incidental. */
-
-.member-list-divider { font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: var(--space-sm) 0 var(--space-xs); }
-
-/* Attendance-dialog member cards (B1b) - photo, an affiliation strip
-   (school logo+name / "MAT-wide" / "External"), name, Chair/expertise
-   pills, and the check-in toggle. card-row's default align-items: stretch
-   makes every card match the tallest sibling's height; .card-toggle-slot's
-   margin-top: auto then pins the toggle to that same bottom edge regardless
-   of how many pills a given card has above it, so it never jumps position
-   card to card. */
-.member-card-row { display: flex; gap: var(--space-md); overflow-x: auto; padding: var(--space-sm) var(--space-xxs) var(--space-md); }
-
-.member-card {
-    flex: 0 0 168px;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    background: var(--bg-well);
-    overflow: hidden;
-    text-align: center;
-}
-
-.member-card[data-present="true"] { border-color: var(--accent-border); background: var(--primary-light); }
-
-.member-card .photo-avatar, .member-card .no-photo-avatar { width: 168px; height: 106px; flex-shrink: 0; object-fit: cover; }
-
-.member-card .no-photo-avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-well);
-    border-bottom: 1px dashed var(--border-strong);
-    color: var(--text-faint);
-}
-
-.member-card .no-photo-avatar svg { width: 40%; height: 40%; }
-
-.member-card .affiliation-strip {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-xxs);
-    padding: var(--space-xxs) var(--space-sm);
-    font-size: var(--font-2xs);
-    font-weight: 600;
-    color: var(--text-tertiary);
-    background: var(--bg-surface-alt);
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
-}
-
-.member-card[data-present="true"] .affiliation-strip { background: color-mix(in srgb, var(--primary-light) 55%, var(--bg-surface-alt)); }
-
-.member-card .mini-badge { width: 14px; height: 14px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }
-
-.member-card .mini-badge svg { width: 100%; height: 100%; }
-
-.member-card .card-info { padding: var(--space-sm); display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); flex: 1; min-height: 0; }
-
-.member-card .card-name { font-weight: 700; font-size: var(--font-lg); line-height: 1.25; }
-
-.member-card .card-role { font-size: var(--font-sm); color: var(--text-secondary); }
-
-.member-card .card-pill-row { display: flex; gap: var(--space-xxs); flex-wrap: wrap; justify-content: center; }
-
-.member-card .card-toggle-slot { margin-top: auto; padding-top: var(--space-xs); }
+.picker-list-divider { font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: var(--space-sm) 0 var(--space-xs); }
 
 /* Source segmented control (still 3 always-visible buttons, see the
    segmented-control comment in components/forms.css) stacks above Search as one fused
@@ -84,7 +31,7 @@
    (equal width) rather than sized to its own text - labels are short and
    even ("School Staff" / "MAT Staff" / "External") so equal-width no longer
    leaves obvious dead space trailing the row the way "<School> Staff" once did. */
-.member-picker-controls {
+.picker-controls {
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border-color);
@@ -94,7 +41,7 @@
     transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
-.member-picker-controls .ui-segmented {
+.picker-controls .ui-segmented {
     display: flex;
     width: 100%;
     border: none;
@@ -102,7 +49,7 @@
     border-bottom: 1px solid var(--border-color);
 }
 
-.member-picker-controls .ui-segmented-option {
+.picker-controls .ui-segmented-option {
     flex: 1;
     text-align: center;
     position: relative;
@@ -119,27 +66,27 @@
    radius this fused look is specifically removing - stripped here, same
    "beats the shared component's own border via a more specific selector"
    pattern as every other .app-search-field override in this file. */
-.member-picker-controls .app-search-field .app-search-input {
+.picker-controls .app-search-field .app-search-input {
     border: none;
     border-radius: 0;
     box-shadow: none;
 }
 
-.member-picker-controls .app-search-field .app-search-input:focus-visible { box-shadow: none; }
+.picker-controls .app-search-field .app-search-input:focus-visible { box-shadow: none; }
 
 /* has-text/focus states move from the (now borderless) input onto the whole
    fused shell instead, so the accent still reads as "this component is
    active," just around the outside edge rather than a seam in the middle. */
-.member-picker-controls:has(.app-search-input:focus-visible) {
+.picker-controls:has(.app-search-input:focus-visible) {
     border-color: var(--primary);
     box-shadow: inset 0 0 0 1px var(--primary);
 }
 
-.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) {
+.picker-controls:has(.app-search-input:not(:placeholder-shown)) {
     border-color: var(--primary);
 }
 
-.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .app-search-icon {
+.picker-controls:has(.app-search-input:not(:placeholder-shown)) .app-search-icon {
     color: var(--primary);
 }
 
@@ -148,13 +95,13 @@
    wrapper's outer one above - without this they'd stay neutral grey while
    the outer edge goes primary, reading as two different components again
    instead of one uniformly-highlighted shell. */
-.member-picker-controls:has(.app-search-input:focus-visible) .ui-segmented,
-.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .ui-segmented {
+.picker-controls:has(.app-search-input:focus-visible) .ui-segmented,
+.picker-controls:has(.app-search-input:not(:placeholder-shown)) .ui-segmented {
     border-color: var(--primary);
 }
 
-.member-picker-controls:has(.app-search-input:focus-visible) .ui-segmented-option,
-.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .ui-segmented-option {
+.picker-controls:has(.app-search-input:focus-visible) .ui-segmented-option,
+.picker-controls:has(.app-search-input:not(:placeholder-shown)) .ui-segmented-option {
     border-color: var(--primary);
 }
 
@@ -168,7 +115,7 @@
 
 /* No outer card - see the matching comment on .referral-student-results
    above (INT-P4). */
-.member-result-list {
+.picker-result-list {
     max-height: min(65vh, 480px);
     overflow-y: auto;
     margin-bottom: var(--space-sm);
@@ -176,7 +123,7 @@
     padding-right: var(--space-xl);
 }
 
-.member-result-option {
+.picker-result-option {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
@@ -190,15 +137,15 @@
     cursor: pointer;
 }
 
-.member-result-option:hover { background: var(--row-hover-bg); }
+.picker-result-option:hover { background: var(--row-hover-bg); }
 
-.member-result-option.selected { background: var(--primary-light); color: var(--active-text); }
+.picker-result-option.selected { background: var(--primary-light); color: var(--active-text); }
 
-.member-result-option[data-already-member="1"] { opacity: 0.55; cursor: not-allowed; }
+.picker-result-option[data-already-member="1"] { opacity: 0.55; cursor: not-allowed; }
 
-.member-result-option[data-already-member="1"]:hover { background: transparent; }
+.picker-result-option[data-already-member="1"]:hover { background: transparent; }
 
-.member-result-icon {
+.picker-result-icon {
     flex-shrink: 0;
     width: 28px;
     height: 28px;
@@ -210,22 +157,22 @@
     background: var(--bg-surface-alt);
 }
 
-.member-result-icon img { width: 100%; height: 100%; object-fit: cover; }
+.picker-result-icon img { width: 100%; height: 100%; object-fit: cover; }
 
-.member-result-icon svg { width: 20px; height: 20px; }
+.picker-result-icon svg { width: 20px; height: 20px; }
 
-.member-result-label-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; gap: var(--space-xxs); }
+.picker-result-label-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; gap: var(--space-xxs); }
 
-.member-result-label-stack .result-name { font-size: var(--font-md); color: var(--text-primary); }
+.picker-result-label-stack .result-name { font-size: var(--font-md); color: var(--text-primary); }
 
 /* Name + "Already in Group" pill share one line - same "title row wraps its
    own trailing badge" treatment as #panel-group-dialog .entity-title above,
    rather than the pill dropping to its own line below the name. */
-.member-result-name-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+.picker-result-name-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
 
 /* School (MAT staff only) before job title, dot-separated on one line - same
    "·"-joined meta line other entity rows use (see panel_group_settings.html's
    .entity-meta), just at this list's own smaller/fainter size. */
-.member-result-meta { display: flex; align-items: center; font-size: var(--font-xs); color: var(--text-faint); }
+.picker-result-meta { display: flex; align-items: center; font-size: var(--font-xs); color: var(--text-faint); }
 
-.member-result-meta > span:not(:first-child)::before { content: '·'; margin: 0 var(--space-xxs); }
+.picker-result-meta > span:not(:first-child)::before { content: '·'; margin: 0 var(--space-xxs); }

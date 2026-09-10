@@ -2550,7 +2550,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // here.
     (function setupListPageShellHeight() {
         var header = document.querySelector('.sticky-header-zone') || document.querySelector('.page-header');
-        var shells = document.querySelectorAll('.list-page-shell');
+        var shells = document.querySelectorAll('.page-shell');
         if (!header || !shells.length) return;
 
         // The card should use all the space main actually has to give,
@@ -2562,7 +2562,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // overflows main outright. At phone width the collapsed carousel
         // itself measures 0, so this sums to just the small toggle - the
         // card still gets everything else.
-        // Every list-page-shell gets its height pinned in JS, trailing
+        // Every page-shell gets its height pinned in JS, trailing
         // content or not - a shell with nothing trailing it does NOT
         // already get the same result for free from its own flex: 1
         // (layout.css): that only bounds a flex item to its container's
@@ -2664,7 +2664,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         }
     })();
 
-    document.querySelectorAll('.panel-card .tab-row, .card-switcher, [data-overflow-tabs]').forEach(setupOverflowTabs);
+    document.querySelectorAll('.card .tab-row, .card-switcher, [data-overflow-tabs]').forEach(setupOverflowTabs);
     // balanceFilterGroupLabels alongside setupFilterBarMoreFilters, not just
     // inside the Students mobile tray/tablet-strip open handlers that used
     // to be its only callers (live feedback: "Can we do this on all

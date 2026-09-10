@@ -11,8 +11,8 @@ the DOM like {% if count %} used to, so home.html's JS has something to
 animate in when a count goes from 0 back up.
 {% endcomment %}
 {% load avatar_extras %}
-<div class="panel-card" id="actions-card">
-    <div class="panel-card-header">
+<div class="card" id="actions-card">
+    <div class="card-header">
         <h2>My Actions</h2>
     </div>
     {% if show_action_tabs %}
@@ -50,21 +50,21 @@ animate in when a count goes from 0 back up.
     <div class="action-carousel-wrap" data-action-carousel role="region" aria-roledescription="carousel" aria-label="My Actions">
     <button type="button" class="action-carousel-arrow action-carousel-arrow--prev" aria-label="Previous action">&lsaquo;</button>
     <div class="action-carousel-fade-l"></div>
-    <ul class="panel-list" id="my-actions-list" data-selectable="single">
+    <ul class="stack-list" id="my-actions-list" data-selectable="single">
         {% for action in my_actions %}
         <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}">
-            <div class="panel-item-body panel-item-body--two-col">
-                <div class="panel-item-col panel-item-col--student">
-                    <div class="panel-item-thumb-row">
-                        <div class="panel-thumb">
+            <div class="stack-item-body stack-item-body--two-col">
+                <div class="stack-item-col stack-item-col--student">
+                    <div class="stack-item-thumb-row">
+                        <div class="thumb">
                             {% if action.referral.student.photo %}
-                            <img src="{{ action.referral.student.photo.url }}" alt="" class="panel-thumb-photo">
+                            <img src="{{ action.referral.student.photo.url }}" alt="" class="thumb-photo">
                             {% else %}
                             <span class="avatar-initials {{ action.referral.student|avatar_color_class }}">{{ action.referral.student.first_name|first }}{{ action.referral.student.last_name|first }}</span>
                             {% endif %}
                         </div>
-                        <div class="panel-item-thumb-details">
-                            <div class="panel-item-title">{{ action.referral.student }}</div>
+                        <div class="stack-item-thumb-details">
+                            <div class="stack-item-title">{{ action.referral.student }}</div>
                             <div class="entity-meta">Year {{ action.referral.student.year_group }}{% if action.referral.student.house %} &middot; {{ action.referral.student.house }}{% endif %}{% if action.referral.student.reg_form %} &middot; {{ action.referral.student.reg_form }}{% endif %}</div>
                         </div>
                     </div>
@@ -90,7 +90,7 @@ animate in when a count goes from 0 back up.
                     every card has its own independent status rather than
                     one shared tab row.
                     {% endcomment %}
-                    <div class="panel-item-actions" data-action-status-filter>
+                    <div class="stack-item-actions" data-action-status-filter>
                         <div class="action-status-dropdown">
                             {% comment %}
                             Same fused label+value box as the portal's other
@@ -120,19 +120,19 @@ animate in when a count goes from 0 back up.
                         </form>
                     </div>
                 </div>
-                <div class="panel-item-col panel-item-col--centered">
+                <div class="stack-item-col stack-item-col--centered">
                     {% comment %} Same prominent row-title treatment as the Referral Details modal's own Actions section heading (_action_row.html). Overdue now shares this line with the category (reusing .referral-category-row, home.html's own My Referrals category+pill row) rather than sitting on the Due Date line below - live feedback: "the Overdue Pill should move to the Action Category row". {% endcomment %}
                     <div class="referral-category-row">
                         <span class="referral-row-title">{{ action.category|default:"No category" }}</span>
-                        {% if action.is_overdue %}<div class="panel-item-pills"><span class="status-pill danger">Overdue</span></div>{% endif %}
+                        {% if action.is_overdue %}<div class="stack-item-pills"><span class="status-pill danger">Overdue</span></div>{% endif %}
                     </div>
-                    <div class="panel-item-note">{{ action.note|default:"No description." }}</div>
-                    <div class="panel-item-meta-group">
-                        <div class="panel-item-meta">
-                            <span class="panel-item-meta-due">Due: {{ action.due_date|default:"—" }}</span>
+                    <div class="stack-item-note">{{ action.note|default:"No description." }}</div>
+                    <div class="stack-item-meta-group">
+                        <div class="stack-item-meta">
+                            <span class="stack-item-meta-due">Due: {{ action.due_date|default:"—" }}</span>
                         </div>
                         {% if action.status == 'complete' %}
-                        <div class="panel-item-meta">Completed: {{ action.completed_at|date:"d/m/Y"|default:"—" }}</div>
+                        <div class="stack-item-meta">Completed: {{ action.completed_at|date:"d/m/Y"|default:"—" }}</div>
                         {% endif %}
                     </div>
                 </div>

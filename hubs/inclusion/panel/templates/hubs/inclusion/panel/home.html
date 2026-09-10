@@ -18,12 +18,12 @@
 <p class="empty-note">Select who you are from the sidebar to see your referrals and actions.</p>
 {% endif %}
 
-<div class="list-page-shell">
+<div class="page-shell">
 {% comment %}
 .panel-home-cards is display:contents at every width (panel.css) - its only
 job is to give all 4 cards below one shared ancestor. At desktop width it
 renders as nothing: .panel-row-primary/.panel-row-secondary become
-.list-page-shell's real flex children directly, two-row 65:35 layout. Below
+.page-shell's real flex children directly, two-row 65:35 layout. Below
 1180px the two rows *also* become display:contents (panel.css), flattening
 all 4 cards into one plain list that stacks top to bottom, full natural
 height, no tabs/single-active-card switching - the page itself scrolls
@@ -32,8 +32,8 @@ Each card's own <h2> is its own "where am I" cue.
 {% endcomment %}
 <div class="panel-home-cards">
 <div class="panel-columns panel-row-primary">
-    <div class="panel-card" id="referrals-card" data-recount-container>
-        <div class="panel-card-header">
+    <div class="card" id="referrals-card" data-recount-container>
+        <div class="card-header">
             <h2>My Referrals</h2>
         </div>
         {% if show_referral_tabs %}
@@ -62,17 +62,17 @@ Each card's own <h2> is its own "where am I" cue.
         <div class="referral-carousel-wrap" data-referral-carousel role="region" aria-roledescription="carousel" aria-label="My Referrals">
         <button type="button" class="referral-carousel-arrow referral-carousel-arrow--prev" aria-label="Previous referral">&lsaquo;</button>
         <div class="referral-carousel-fade-l"></div>
-        <ul class="panel-list" id="my-referrals-list" data-selectable="single">
+        <ul class="stack-list" id="my-referrals-list" data-selectable="single">
             {% for referral in my_referrals %}
             <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-discussed="{{ referral.discussed_pr|yesno:'discussed,awaiting' }}">
-                <div class="panel-thumb">
+                <div class="thumb">
                     {% if referral.student.photo %}
-                    <img src="{{ referral.student.photo.url }}" alt="" class="panel-thumb-photo">
+                    <img src="{{ referral.student.photo.url }}" alt="" class="thumb-photo">
                     {% else %}
                     <span class="avatar-initials {{ referral.student|avatar_color_class }}">{{ referral.student.first_name|first }}{{ referral.student.last_name|first }}</span>
                     {% endif %}
                 </div>
-                <div class="panel-item-body">
+                <div class="stack-item-body">
                     {% comment %}
                     Discussed pill shows the actual review stage (Initial
                     Discussion / 1st Review / 2nd Review / ... - referral.
@@ -86,8 +86,8 @@ Each card's own <h2> is its own "where am I" cue.
                     case only.
 
                     Rendered twice - once after Referral Category
-                    (.panel-item-pills--header, non-carousel default) and
-                    once after the Created date (.panel-item-pills--stacked)
+                    (.stack-item-pills--header, non-carousel default) and
+                    once after the Created date (.stack-item-pills--stacked)
                     - same "two elements, CSS picks one per breakpoint"
                     pattern as the carousel-filter dropdown replacing the tab
                     row above. Class names kept as-is even though "--header"
@@ -97,7 +97,7 @@ Each card's own <h2> is its own "where am I" cue.
                     mechanism, just relocated.
                     {% endcomment %}
                     {% comment %}
-                    entity-meta lives inside .panel-item-header now (a flex
+                    entity-meta lives inside .stack-item-header now (a flex
                     child alongside the name, not a separate block below it)
                     so the two share one row when there's room and entity-
                     meta wraps to its own line only once there isn't (live
@@ -105,8 +105,8 @@ Each card's own <h2> is its own "where am I" cue.
                     is space, separate row if not") - flex-wrap doing that
                     for free, no extra breakpoint needed.
                     {% endcomment %}
-                    <div class="panel-item-header">
-                        <div class="panel-item-title">{{ referral.student }}</div>
+                    <div class="stack-item-header">
+                        <div class="stack-item-title">{{ referral.student }}</div>
                         <div class="entity-meta">Year {{ referral.student.year_group }}{% if referral.student.house %} &middot; {{ referral.student.house }}{% endif %}{% if referral.student.reg_form %} &middot; {{ referral.student.reg_form }}{% endif %}</div>
                     </div>
                     {% comment %}
@@ -121,18 +121,18 @@ Each card's own <h2> is its own "where am I" cue.
                     mid-name instead).
                     {% endcomment %}
                     <div class="referral-category-row">
-                        {% if referral.primary_concern_category %}<div class="referral-row-title">{{ referral.primary_concern_category }}</div>{% endif %}<div class="panel-item-pills panel-item-pills--header">
+                        {% if referral.primary_concern_category %}<div class="referral-row-title">{{ referral.primary_concern_category }}</div>{% endif %}<div class="stack-item-pills stack-item-pills--header">
                             {% if referral.discussed_pr %}<span class="status-pill discussed">{{ referral.review_label }}</span>{% elif not show_referral_tabs %}<span class="status-pill">Awaiting Discussion</span>{% endif %}
                         </div>
                     </div>
-                    <div class="panel-item-pills panel-item-pills--stacked">
+                    <div class="stack-item-pills stack-item-pills--stacked">
                         {% if referral.discussed_pr %}<span class="status-pill discussed">{{ referral.review_label }}</span>{% elif not show_referral_tabs %}<span class="status-pill">Awaiting Discussion</span>{% endif %}
                     </div>
                     {% comment %}
                     Created/Actions given/Discussed all share one left-
                     aligned line, every width (live feedback: "Actions given
                     and time discussed should be on same line as Created")
-                    via .panel-item-update going display: contents, promoting
+                    via .stack-item-update going display: contents, promoting
                     its two <span>s to be direct flex children of
                     .referral-meta-row alongside Created, rather than nesting
                     a second flex box inside the first. discussed_duration_
@@ -141,9 +141,9 @@ Each card's own <h2> is its own "where am I" cue.
                     str(timedelta) ("0:15:00") a plain {{ }} would render.
                     {% endcomment %}
                     <div class="referral-meta-row">
-                        <div class="panel-item-meta">Created: {{ referral.created_at|date:"d/m/Y" }}</div>
+                        <div class="stack-item-meta">Created: {{ referral.created_at|date:"d/m/Y" }}</div>
                         {% if referral.discussed_pr %}
-                        <div class="panel-item-update">
+                        <div class="stack-item-update">
                             <span>Actions given: {{ referral.actions_count }}</span>
                             {% if referral.discussed_duration_display %}<span>Discussed: {{ referral.discussed_duration_display }}</span>{% endif %}
                         </div>
@@ -167,7 +167,7 @@ Each card's own <h2> is its own "where am I" cue.
                 discussed row.
                 {% endcomment %}
                 {% if not referral.discussed_pr %}
-                <div class="panel-item-actions">
+                <div class="stack-item-actions">
                     <button type="button" class="btn btn-edit btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> <span class="btn-label">Edit</span></button>
                     <form method="post" action="{% url 'inclusion_panel_referral_delete' referral.id %}" data-row-remove-form data-confirm-message="Delete this referral? This cannot be undone.">
                         {% csrf_token %}
@@ -176,7 +176,7 @@ Each card's own <h2> is its own "where am I" cue.
                     </form>
                 </div>
                 {% else %}
-                <div class="panel-item-actions">
+                <div class="stack-item-actions">
                     <button type="button" class="btn btn-primary btn-sm" data-view-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}">Referral Details</button>
                 </div>
                 {% endif %}
@@ -203,8 +203,8 @@ Each card's own <h2> is its own "where am I" cue.
 </div>
 
 <div class="panel-columns panel-row-secondary">
-    <div class="panel-card panel-card-meeting" id="meeting-card">
-        <div class="panel-card-header">
+    <div class="card card-meeting" id="meeting-card">
+        <div class="card-header">
             <h2>Upcoming Panel Meetings</h2>
             {% comment %}
             Stack-mode-only (≤1180px, panel.css) collapse toggle - desktop
@@ -219,8 +219,8 @@ Each card's own <h2> is its own "where am I" cue.
                 <span class="sr-only">Show upcoming panel meetings</span>
             </button>
         </div>
-        <div class="panel-card-collapsible" id="meeting-card-collapsible">
-        <ul class="panel-list" id="upcoming-meetings-list" data-selectable="single">
+        <div class="card-collapsible" id="meeting-card-collapsible">
+        <ul class="stack-list" id="upcoming-meetings-list" data-selectable="single">
             {% for preview in upcoming_panel_previews %}
             {% comment %}
             selectable/tabindex/role/aria-pressed + the list's own
@@ -263,8 +263,8 @@ Each card's own <h2> is its own "where am I" cue.
         </ul>
         </div>
     </div>
-    <div class="panel-card panel-card-activity" id="activity-card">
-        <div class="panel-card-header">
+    <div class="card card-activity" id="activity-card">
+        <div class="card-header">
             <h2>Recent Activity</h2>
             {% comment %} See Upcoming Panel Meetings' identical toggle above for the full reasoning. {% endcomment %}
             <button type="button" class="card-collapse-toggle" data-card-collapse-toggle aria-expanded="false" aria-controls="activity-card-collapsible">
@@ -272,7 +272,7 @@ Each card's own <h2> is its own "where am I" cue.
                 <span class="sr-only">Show recent activity</span>
             </button>
         </div>
-        <div class="panel-card-collapsible" id="activity-card-collapsible">
+        <div class="card-collapsible" id="activity-card-collapsible">
         <ul class="activity-list">
             {% for event in recent_activity %}
             <li>
@@ -573,7 +573,7 @@ function wireActionStatusFilters() {
 // Dynamic fallback for the segmented status control's own overflow, above
 // 1180px (carousel mode already handles its own dropdown swap via CSS
 // alone - see the ≤1180px block, panel.css). A plain viewport breakpoint
-// can't drive this: .panel-item-col--student's available width doesn't
+// can't drive this: .stack-item-col--student's available width doesn't
 // track viewport width alone (live feedback: a fixed 1181-1400px band
 // "does not work for all widths" - missed narrower cases the band didn't
 // cover). Measures each row's real fit instead and toggles
@@ -584,7 +584,7 @@ function wireActionStatusFilters() {
 function wireActionStatusOverflow() {
     document.querySelectorAll('[data-action-status-filter]').forEach(function (wrap) {
         var form = wrap.querySelector('form');
-        // .panel-item-body--two-col, not .panel-item-col--student - the
+        // .stack-item-body--two-col, not .stack-item-col--student - the
         // student column is display: contents in the 1181-1400px stacked
         // band (panel.css), so it generates no box of its own there and
         // .clientWidth would always read 0, permanently forcing the
@@ -597,7 +597,7 @@ function wireActionStatusOverflow() {
         // fits by definition regardless of exactly what's measured against;
         // in the stacked band the student column no longer constrains
         // width at all, so the row's own width is the real number.
-        var column = wrap.closest('.panel-item-body--two-col');
+        var column = wrap.closest('.stack-item-body--two-col');
         if (!form || !column) return;
         function check() {
             // Carousel mode drives its own dropdown swap entirely via CSS
@@ -691,7 +691,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // Upcoming Panel Meetings/Recent Activity's stack-mode-only collapse toggle
-// (panel.css: .panel-card-collapsible's 0fr/1fr grid-row transition does the
+// (panel.css: .card-collapsible's 0fr/1fr grid-row transition does the
 // actual animating, this just flips the two states). No-op above 1180px -
 // the button itself is display: none there (panel.css), so it's never
 // reachable to click in the first place; this only needs to handle the one
@@ -699,7 +699,7 @@ document.addEventListener('DOMContentLoaded', function () {
 function wireCardCollapseToggles() {
     document.querySelectorAll('[data-card-collapse-toggle]').forEach(function (button) {
         button.addEventListener('click', function () {
-            var card = button.closest('.panel-card');
+            var card = button.closest('.card');
             var expanded = button.getAttribute('aria-expanded') === 'true';
             button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
             if (card) card.classList.toggle('is-expanded', !expanded);
