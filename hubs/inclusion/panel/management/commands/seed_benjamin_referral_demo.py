@@ -6,7 +6,7 @@ from django.utils import timezone
 from core.models import Staff, Student
 from hubs.inclusion.panel.management.seed_helpers import backfill_referral_responses
 from hubs.inclusion.panel.models import InclusionReferral, Panel, PanelGroup, PanelReferral
-from hubs.inclusion.panel.views import _sync_referral_status
+from hubs.inclusion.panel.lifecycle import sync_referral_status
 
 # Enough per tab for the phone carousel (#116) to actually have something to
 # swipe/drag through in each of My Referrals' Awaiting Discussion / Discussed
@@ -77,7 +77,7 @@ class Command(BaseCommand):
                 discussion_started_at=timezone.now() - datetime.timedelta(days=3),
                 duration=datetime.timedelta(minutes=15),
             )
-            # Soft-remove it immediately - _sync_referral_status only counts
+            # Soft-remove it immediately - sync_referral_status only counts
             # *active* (removed_at is null) rows, so this is what keeps the
             # referral itself 'open' (the only status My Referrals' own
             # queryset shows) while its card still reads as "Discussed",
@@ -86,7 +86,7 @@ class Command(BaseCommand):
             # panel, with no new discussion attached since.
             pr.removed_at = timezone.now()
             pr.save(update_fields=['removed_at'])
-            _sync_referral_status(referral)
+            sync_referral_status(referral)
             discussed.append(referral)
             created_discussed += 1
 

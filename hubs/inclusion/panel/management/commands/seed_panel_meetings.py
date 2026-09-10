@@ -10,7 +10,7 @@ from hubs.inclusion.panel.management.seed_helpers import backfill_raised_by, bac
 from hubs.inclusion.panel.models import (
     InclusionReferral, Panel, PanelGroup, PanelGroupMember, PanelMember, PanelReferral,
 )
-from hubs.inclusion.panel.views import _sync_referral_status
+from hubs.inclusion.panel.lifecycle import sync_referral_status
 
 # (days offset from today, target referral count). Negative offset = past.
 PAST_SPECS_BABINGTON = [(-60, 4), (-30, 3)]
@@ -528,8 +528,8 @@ class Command(BaseCommand):
                 PanelReferral.objects.create(panel=panel, referral=referral)
             # Reflects the PanelReferral just created (review_scheduled if
             # still pending, awaiting_review/closed if discussed) instead of
-            # a hardcoded guess - see _sync_referral_status in views.py.
-            _sync_referral_status(referral)
+            # a hardcoded guess - see sync_referral_status in lifecycle.py.
+            sync_referral_status(referral)
 
     def _delete_panel_and_its_referrals(self, panel):
         # Panel.delete() cascades away the PanelReferral link (panel FK,
