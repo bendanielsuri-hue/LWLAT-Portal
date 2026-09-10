@@ -135,7 +135,7 @@
         {% endblock %}
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=516">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=519">
     <script src="{% static 'js/main.js' %}?v=286" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
@@ -460,32 +460,42 @@
             <div class="footer-cluster footer-cluster--dev footer-cluster--dev-bp">
                 <div id="dev-bp-group" class="dev-bp-group">
                     {% comment %}
-                    Four controls, not one button per device size: Desktop, a
-                    Tablet tier, a Mobile tier, and one global orientation
-                    toggle. The flat per-size list this replaced had a
-                    structural redundancy - its "Tablet Wide 1024x768" and
+                    Five controls, not one button per device size: Desktop, then
+                    a Laptop / Tablet / Mobile tier each owning a menu, plus one
+                    orientation toggle. The flat per-size list this replaced had
+                    a structural redundancy - its "Tablet Wide 1024x768" and
                     "Tablet Portrait 768x1024" entries were the same iPad twice
                     - so pulling orientation out into its own control is what
                     collapses each device to a single menu row.
 
-                    Sizes are listed PORTRAIT below (w < h) and swapped at apply
-                    time by the rotate button; never add a landscape-shaped row.
+                    Sizes are listed PORTRAIT (w < h) and swapped at apply time
+                    by the rotate button. The laptop tier is the one exception,
+                    and it is an exception rather than a precedent: a laptop has
+                    no portrait form, so its rows are stored landscape and it
+                    opts out of the swap entirely. Anything you can hold in two
+                    orientations still goes in portrait.
+
+                    What a tier is - whether it rotates, whether it's a touch
+                    device - is declared once in TIER_TRAITS in the script
+                    below. Adding a tier is an entry there plus a menu here.
+                    Touch in particular was previously inferred as "tier !==
+                    desktop", which held only while every sized tier happened to
+                    be touch; laptop is the first one where that is wrong.
 
                     data-bp-id, not data-bp-w, is each size's identity: with
                     orientation split out, 430x932 and 932x430 are the same row
                     in two states, so width alone no longer identifies a row -
                     and identity is what both the localStorage writes and the
-                    parent<->iframe querySelector sync further down key on.
-                    data-bp-touch is gone too: every sized tier is a touch
-                    device now that the one non-touch preset (a 600px "narrow
-                    desktop window") has been dropped, so touch is derived from
-                    "tier !== desktop" in JS rather than repeated per row.
+                    parent<->iframe querySelector sync further down key on. It
+                    also lets two vendors' rows share a width (Fire HD 10 and
+                    Galaxy Tab are both 800x1280) without colliding.
 
-                    The 481-700px band consequently has no preset at all. That's
-                    the state where a page takes the stacked-card list format
-                    (panel.css's <=700px rules) while still getting DESKTOP page
-                    chrome - full 32px margin, visible breadcrumbs, locked icon
-                    rail - and it's now reachable only by resizing the real
+                    The 481-700px band still has no preset at all, and can't
+                    get one: any device narrow enough to sit in it is also short
+                    enough to trip the short-viewport tier, so it arrives with
+                    phone chrome. The band's real state - stacked list format
+                    plus DESKTOP page chrome (full 32px margin, breadcrumbs,
+                    locked icon rail) - is reachable only by resizing the actual
                     browser window, which is the deliberate call (see #128).
                     {% endcomment %}
                     <button type="button" class="dev-bp-option active icon-tooltip-host" data-bp-tier="desktop" data-tooltip="Desktop · your real window">
@@ -501,16 +511,160 @@
                     is there purely to override when the remembered size wasn't
                     the one you wanted.
                     {% endcomment %}
+                    {% comment %}
+                    The laptop tier breaks two rules the tablet/mobile menus
+                    hold to, both deliberately, both declared in TIER_TRAITS in
+                    the script below rather than as scattered tier checks:
+
+                      Rows are LANDSCAPE here (w > h), the one exception to
+                      "never add a landscape-shaped row" above. A laptop has no
+                      portrait form, so there is nothing for rotate to mean -
+                      the button disables itself on this tier, exactly as it
+                      does on Desktop.
+
+                      Touch is FALSE. Every other sized tier is a touch device,
+                      which is why touch used to be derived from "tier !==
+                      desktop"; a laptop is the first sized tier where that
+                      inference is wrong, and getting it wrong would hand the
+                      preview the touch nav drawer no laptop user ever sees.
+
+                    Dimensions here are SCREEN resolutions, not viewport
+                    heights - unlike the phone rows, where the quoted number
+                    already is the viewport. Real browser chrome eats roughly
+                    100px of height, so treat the vertical as about 100px
+                    optimistic; it's the width that decides every tier in the
+                    registry, and that is exact.
+
+                    HP rows are named because that's the fleet this portal is
+                    actually built against, but nothing about them is
+                    HP-specific: a 1366x768 renders identically whether it's an
+                    HP, a Dell or a Lenovo, so a Dell Latitude or a ThinkPad of
+                    the same panel and scaling is already covered by the row
+                    that matches its numbers.
+
+                    Neither 1536 row is a panel anyone sells. Both are Windows'
+                    125% display scaling, which is the default on most 14"
+                    business laptops:
+
+                      ProBook 440    1920x1080 at 125% -> 1536x864. The single
+                                     most common real-world laptop viewport
+                                     there is, hence the tier's default.
+                      EliteBook 840  1920x1200 at 125% -> 1536x960. Same width,
+                                     96px more height - the 16:10 panel the
+                                     business 14" line moved to.
+
+                    Those two share a width and differ only in height, which for
+                    any tier in the registry means they are the same. They're
+                    both here anyway because vertical space is what a 16:10
+                    panel actually buys you, and "does this page need scrolling
+                    on the standard-issue laptop" is a real question with two
+                    different answers on those two machines.
+
+                    Check the scaling percentage as well as the model before
+                    trusting a number here - it moves the viewport further than
+                    the model does. Same machine at 100% is 1920 wide, at 150%
+                    it's 1280.
+
+                    There is a CEILING here, and HEIGHT sets it, not width. The
+                    overlay is the window minus browser chrome, minus this
+                    footer, minus its own vertical padding - roughly 870px of
+                    usable height on a maximised browser on a 1080p screen,
+                    against ~1880px of usable width. Width is never the binding
+                    constraint for a laptop preset; height always is.
+
+                    That 870 is why .dev-bp-overlay's vertical padding is 8px
+                    and not the 32px it started at - see its comment in
+                    layout.css. The two numbers are coupled: raise that padding
+                    and rows start scaling again, worst first.
+
+                    A row taller than ~870 can only ever be shown shrunk, and
+                    once it's shrunk it reads as a zoomed-out page rather than a
+                    device mockup. 1920x1080 was dropped for exactly that (it
+                    landed near 0.76 even after the padding cut), and the same
+                    arithmetic is why nothing bigger belongs here: past ~1200
+                    every width is the same tier anyway (the registry's rail
+                    tier tops out at 1200), so a larger row costs fidelity and
+                    buys no new chrome.
+
+                    On a 1080p screen, Chromebook 14 (768) and ProBook 440 (864)
+                    both render unscaled - the second only just, which is the
+                    whole reason the padding came down. The taller rows still
+                    shrink a little: MacBook Air 13" (~0.96), EliteBook 840
+                    (~0.91), MacBook Pro 14" (~0.89 - the marginal one; drop it
+                    first if this tier ever needs trimming again). Re-check
+                    these ratios if the footer height or the overlay padding
+                    changes.
+
+                    None of this affects CORRECTNESS - the iframe keeps its true
+                    pixel size and @media evaluates against that however far the
+                    wrapper scales it. This is purely about how honest the
+                    preview looks.
+                    {% endcomment %}
+                    <div class="dev-bp-tier" data-bp-tier="laptop">
+                        <button type="button" class="dev-bp-option dev-bp-tier-btn icon-tooltip-host" data-bp-tier="laptop" aria-expanded="false" data-tooltip="Laptop">
+                            {% include 'icons/bp_laptop_svg.html' %}
+                            <span class="dev-bp-label">Laptop</span>
+                            {% include 'icons/bp_caret_svg.html' %}
+                        </button>
+                        <div class="dev-bp-menu hidden">
+                            <div class="dev-bp-menu-group">Apple</div>
+                            <button type="button" class="dev-bp-size" data-bp-id="mba-13" data-bp-w="1440" data-bp-h="900">MacBook Air 13"<span>1440×900</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="mbp-14" data-bp-w="1512" data-bp-h="982">MacBook Pro 14"<span>1512×982</span></button>
+                            <div class="dev-bp-menu-group">HP</div>
+                            <button type="button" class="dev-bp-size" data-bp-id="hp-1366" data-bp-w="1366" data-bp-h="768">Chromebook 14 / 250<span>1366×768</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="hp-1536" data-bp-w="1536" data-bp-h="864">ProBook 440<span>1536×864</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="hp-1536-wuxga" data-bp-w="1536" data-bp-h="960">EliteBook 840<span>1536×960</span></button>
+                        </div>
+                    </div>
                     <div class="dev-bp-tier" data-bp-tier="tablet">
                         <button type="button" class="dev-bp-option dev-bp-tier-btn icon-tooltip-host" data-bp-tier="tablet" aria-expanded="false" data-tooltip="Tablet">
                             {% include 'icons/bp_tablet_portrait_svg.html' %}
                             <span class="dev-bp-label">Tablet</span>
                             {% include 'icons/bp_caret_svg.html' %}
                         </button>
+                        {% comment %}
+                        This list is a DEVICE INVENTORY, not a set of breakpoint
+                        probes. The entry test is "do people actually hold this
+                        thing", so two rows landing on the same width is expected
+                        and fine - Fire HD 10 and Galaxy Tab are both 800x1280
+                        and both stay, because "does it work on a Fire tablet" is
+                        a question someone will ask in those words.
+
+                        Grouped by vendor, then ascending by width within each
+                        group. Vendor groups are alphabetical - Apple happening to
+                        sort first is not a statement about which platform leads.
+
+                        Consequence worth knowing when a boundary bug sends you
+                        here: width alone picks the CSS tier, and neither the
+                        grouping nor the list membership tracks tier edges any
+                        more. Read ACROSS the groups in width order (744, 768,
+                        800, 800, 820, 834, 912, 924, 1024) when what you're
+                        hunting is which threshold a layout crosses, and reach for
+                        the breakpoint registry in responsive.css - that, not this
+                        menu, is the canonical tier list.
+
+                        Rotate makes every row two widths, so the landscape figure
+                        is the one that matters for the wider tiers: iPad Air is
+                        1180 landscape, which is exactly the touch tier's max.
+
+                        Group headings are inert <div>s, not .dev-bp-size nodes,
+                        so every querySelectorAll('.dev-bp-size') in the JS below
+                        keeps matching exactly the selectable rows.
+                        {% endcomment %}
                         <div class="dev-bp-menu hidden">
+                            <div class="dev-bp-menu-group">Amazon</div>
+                            <button type="button" class="dev-bp-size" data-bp-id="fire-hd" data-bp-w="800" data-bp-h="1280">Fire HD 10<span>800×1280</span></button>
+                            <div class="dev-bp-menu-group">Apple</div>
                             <button type="button" class="dev-bp-size" data-bp-id="ipad-mini" data-bp-w="744" data-bp-h="1133">iPad Mini<span>744×1133</span></button>
-                            <button type="button" class="dev-bp-size" data-bp-id="ipad" data-bp-w="768" data-bp-h="1024">iPad<span>768×1024</span></button>
-                            <button type="button" class="dev-bp-size" data-bp-id="ipad-pro" data-bp-w="1024" data-bp-h="1366">iPad Pro<span>1024×1366</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="ipad" data-bp-w="768" data-bp-h="1024">iPad (9th gen)<span>768×1024</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="ipad-air" data-bp-w="820" data-bp-h="1180">iPad / iPad Air<span>820×1180</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="ipad-pro-11" data-bp-w="834" data-bp-h="1194">iPad Pro 11"<span>834×1194</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="ipad-pro" data-bp-w="1024" data-bp-h="1366">iPad Pro 12.9"<span>1024×1366</span></button>
+                            <div class="dev-bp-menu-group">Microsoft</div>
+                            <button type="button" class="dev-bp-size" data-bp-id="surface-pro" data-bp-w="912" data-bp-h="1368">Surface Pro<span>912×1368</span></button>
+                            <div class="dev-bp-menu-group">Samsung</div>
+                            <button type="button" class="dev-bp-size" data-bp-id="galaxy-tab" data-bp-w="800" data-bp-h="1280">Galaxy Tab A9 / S9<span>800×1280</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="galaxy-tab-ultra" data-bp-w="924" data-bp-h="1480">Galaxy Tab S9 Ultra<span>924×1480</span></button>
                         </div>
                     </div>
                     <div class="dev-bp-tier" data-bp-tier="mobile">
@@ -520,25 +674,69 @@
                             {% include 'icons/bp_caret_svg.html' %}
                         </button>
                         {% comment %}
-                        iPhone 16 Max (430) earns its own row despite sharing a
-                        CSS tier with the SE (375): 375 alone never showed how
-                        phone chrome behaves near its own <=480px boundary, which
-                        is precisely where two off-by-one bugs shipped - see the
-                        breakpoint registry in responsive.css.
+                        Device inventory, same as the tablet menu above: the entry
+                        test is real-world usage, not breakpoint coverage, so
+                        rows that preview identically are allowed to coexist.
+
+                        Model names are grouped where a generation genuinely
+                        shares a viewport - "iPhone 12-14" is one row because
+                        those three are 390x844 to the pixel, and splitting them
+                        would be three identical previews wearing different
+                        names. Where a rename would hide a real difference they
+                        stay apart: 15/16 moved to 393x852, so it gets its own
+                        row rather than being folded into the 390 one.
+
+                        Every row here is inside ONE CSS tier (phone, <=480px),
+                        so nothing separates them but width, and both off-by-one
+                        bugs in the breakpoint registry shipped at that tier's
+                        edge rather than in its middle. When you're chasing one,
+                        read across the groups in width order - 344, 360, 375,
+                        390, 393, 412, 430, 440, 448 - and treat the registry in
+                        responsive.css as canonical, not this list.
+
+                        Z Fold is the cover screen only. Unfolded (~884x1104) it
+                        is a tablet and belongs in that menu if anyone wants it
+                        there. ADR 0016 is why there's no fold toggle beside
+                        rotate: size is the only signal this portal reads, no
+                        rule anywhere asks whether a device folds, so a foldable
+                        is handled by previewing each of its two widths like any
+                        other pair of devices.
                         {% endcomment %}
                         <div class="dev-bp-menu hidden">
+                            <div class="dev-bp-menu-group">Apple</div>
                             <button type="button" class="dev-bp-size" data-bp-id="iphone-se" data-bp-w="375" data-bp-h="667">iPhone SE<span>375×667</span></button>
-                            <button type="button" class="dev-bp-size" data-bp-id="iphone" data-bp-w="390" data-bp-h="844">iPhone 16<span>390×844</span></button>
-                            <button type="button" class="dev-bp-size" data-bp-id="iphone-max" data-bp-w="430" data-bp-h="932">iPhone 16 Max<span>430×932</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="iphone-14" data-bp-w="390" data-bp-h="844">iPhone 12–14<span>390×844</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="iphone" data-bp-w="393" data-bp-h="852">iPhone 15 / 16<span>393×852</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="iphone-max" data-bp-w="430" data-bp-h="932">iPhone 15 / 16 Plus<span>430×932</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="iphone-pro-max" data-bp-w="440" data-bp-h="956">iPhone 16 Pro Max<span>440×956</span></button>
+                            <div class="dev-bp-menu-group">Google</div>
+                            <button type="button" class="dev-bp-size" data-bp-id="pixel" data-bp-w="412" data-bp-h="915">Pixel 8 / 9<span>412×915</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="pixel-pro" data-bp-w="448" data-bp-h="992">Pixel 8 / 9 Pro<span>448×992</span></button>
+                            <div class="dev-bp-menu-group">Samsung</div>
+                            <button type="button" class="dev-bp-size" data-bp-id="galaxy-fold" data-bp-w="344" data-bp-h="882">Galaxy Z Fold<span>344×882</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="galaxy-s" data-bp-w="360" data-bp-h="800">Galaxy S24 / A5x<span>360×800</span></button>
+                            <button type="button" class="dev-bp-size" data-bp-id="galaxy-s-ultra" data-bp-w="412" data-bp-h="915">Galaxy S24 Ultra<span>412×915</span></button>
                         </div>
                     </div>
                     {% comment %}
-                    Disabled rather than hidden while Desktop is active (there's
-                    no sized frame to rotate): hiding it would change this
-                    cluster's width on every Desktop<->device switch, nudging the
-                    neighbouring buttons sideways in a footer corner you aim at
-                    by muscle memory. It still remembers the orientation for
-                    when you next enter a tier.
+                    Hidden on any tier with nothing to rotate - Desktop (no
+                    frame) and Laptop (no portrait form). It was previously
+                    shown-but-disabled, which put a permanently dead control in
+                    the footer; this is a dev toolbar whose reader already knows
+                    why it went, so the greyed-out placeholder was paying rent
+                    it didn't earn.
+
+                    Hidden via .is-hidden -> visibility, NOT display or the
+                    [hidden] attribute, and that distinction is the whole point:
+                    the space stays reserved. This cluster is right-aligned in
+                    the footer, so actually removing the button pulls all four
+                    tier buttons sideways on every Desktop<->device switch, in a
+                    corner you aim at by muscle memory. Reserving the box keeps
+                    them still. (Reclaiming the gap means swapping one line in
+                    layout.css to display:none and accepting that shift.)
+
+                    It still remembers the orientation for when you next enter a
+                    tier that does rotate.
                     {% endcomment %}
                     <button type="button" class="dev-bp-option icon-tooltip-host" id="dev-bp-rotate" disabled data-tooltip="Rotate · pick a device first">
                         {% include 'icons/bp_rotate_svg.html' %}
@@ -847,11 +1045,25 @@
         // as the pref-theme-mode/pref-theme reads in the <head> script.
         var BP_KEY_TIER = 'dev-bp-tier';
         var BP_KEY_LANDSCAPE = 'dev-bp-landscape';
-        var BP_KEY_SIZE = { tablet: 'dev-bp-size-tablet', mobile: 'dev-bp-size-mobile' };
+        var BP_KEY_SIZE = { laptop: 'dev-bp-size-laptop', tablet: 'dev-bp-size-tablet', mobile: 'dev-bp-size-mobile' };
+        // What a tier IS, in one table, so adding the next one is an entry here
+        // rather than a hunt for every `tier === ...` in this script. Absent
+        // from the table (Desktop) means "no preview frame at all".
+        //
+        // rotates:false tiers store their markup dimensions the way the device
+        // is actually held, and applyState skips the portrait->landscape swap
+        // for them - see the laptop tier's own comment in the markup above.
+        // touch was previously inferred as "tier !== desktop", which held only
+        // while every sized tier happened to be a touch device.
+        var TIER_TRAITS = {
+            laptop: { touch: false, rotates: false },
+            tablet: { touch: true, rotates: true },
+            mobile: { touch: true, rotates: true }
+        };
         // First-run seeds only: the commonest real device in each tier, and
         // mid-tier rather than at an edge, so what you see before touching
         // anything is representative instead of a boundary case.
-        var bpSize = { tablet: 'ipad', mobile: 'iphone' };
+        var bpSize = { laptop: 'hp-1536', tablet: 'ipad', mobile: 'iphone' };
         var bpTier = 'desktop';
         var bpLandscape = false;
 
@@ -866,7 +1078,7 @@
         }
 
         function sizeBtnFor(tier) {
-            if (tier === 'desktop') return null;
+            if (!TIER_TRAITS[tier]) return null;
             return document.querySelector(
                 '#dev-bp-group .dev-bp-tier[data-bp-tier="' + tier + '"] .dev-bp-size[data-bp-id="' + bpSize[tier] + '"]'
             );
@@ -892,7 +1104,14 @@
                 var tier = btn.closest('.dev-bp-tier').dataset.bpTier;
                 btn.classList.toggle('active', bpSize[tier] === btn.dataset.bpId);
             });
-            rotateBtn.disabled = (bpTier === 'desktop');
+            var traits = TIER_TRAITS[bpTier];
+            var canRotate = !!(traits && traits.rotates);
+            // disabled AND hidden: visibility:hidden already takes it out of
+            // the tab order, but the attribute is what keeps a forwarded click
+            // from the preview iframe copy (forwardToTop) from firing a rotate
+            // on a tier that doesn't have one.
+            rotateBtn.disabled = !canRotate;
+            rotateBtn.classList.toggle('is-hidden', !canRotate);
             // Active whenever a device tier is up, in EITHER orientation - not
             // only in landscape. The fill here means "this control is live and
             // applying to the preview", matching the active tier button beside
@@ -900,7 +1119,7 @@
             // out Portrait/Landscape. Tying the fill to landscape instead made
             // portrait look like the button was switched off, when portrait is
             // just as much an applied orientation as landscape is.
-            rotateBtn.classList.toggle('active', bpTier !== 'desktop');
+            rotateBtn.classList.toggle('active', canRotate);
             // Label states the orientation you're IN, tooltip states what the
             // click would DO. The class is what the width transition keys on -
             // the text swap alone can't drive a CSS transition, since width
@@ -908,12 +1127,20 @@
             // Both stay accurate on Desktop, where the button is disabled but
             // still shows the remembered orientation it will apply once you
             // enter a tier.
+            // A non-rotating SIZED tier (laptop) still reads out an
+            // orientation, and it reads Landscape - that is genuinely what the
+            // preview is showing, and blanking it or leaving the remembered
+            // Portrait there would both misdescribe what's on screen. Only
+            // Desktop, which has no frame, falls back to the remembered flag.
+            var shownLandscape = traits ? (canRotate ? bpLandscape : true) : bpLandscape;
             var orientLabel = rotateBtn.querySelector('.dev-bp-orient-label');
-            orientLabel.textContent = bpLandscape ? 'Landscape' : 'Portrait';
-            orientLabel.classList.toggle('is-landscape', bpLandscape);
-            rotateBtn.dataset.tooltip = bpTier === 'desktop'
+            orientLabel.textContent = shownLandscape ? 'Landscape' : 'Portrait';
+            orientLabel.classList.toggle('is-landscape', shownLandscape);
+            rotateBtn.dataset.tooltip = !traits
                 ? 'Orientation · pick a device first'
-                : (bpLandscape ? 'Landscape · click for portrait' : 'Portrait · click for landscape');
+                : (!canRotate
+                    ? 'Landscape · a laptop has no portrait form'
+                    : (bpLandscape ? 'Landscape · click for portrait' : 'Portrait · click for landscape'));
         }
 
         // Resolves state to real pixels and hands them to applyBreakpoint.
@@ -922,7 +1149,7 @@
         // trade places.
         function applyState() {
             syncChrome();
-            if (bpTier === 'desktop') {
+            if (!TIER_TRAITS[bpTier]) {
                 // Only tear a preview down if one is actually up: on a plain
                 // page load this function runs purely to paint the chrome, and
                 // an unconditional applyBreakpoint(0, 0) would kick off a
@@ -934,7 +1161,9 @@
             if (!btn) return;
             var w = parseInt(btn.dataset.bpW, 10);
             var h = parseInt(btn.dataset.bpH, 10);
-            applyBreakpoint(bpLandscape ? h : w, bpLandscape ? w : h, true);
+            var traits = TIER_TRAITS[bpTier];
+            var swap = traits.rotates && bpLandscape;
+            applyBreakpoint(swap ? h : w, swap ? w : h, traits.touch);
         }
 
         // Inside the preview iframe every control just forwards to the
@@ -1025,7 +1254,11 @@
                 }
             });
             var storedTier = read(BP_KEY_TIER);
-            if (storedTier === 'tablet' || storedTier === 'mobile') {
+            // Validated against TIER_TRAITS rather than a second hardcoded tier
+            // list, so a tier added there can never be one this forgets to
+            // restore - and a stale tier from an older build still falls back
+            // to Desktop instead of leaving bpTier pointing at nothing.
+            if (storedTier && TIER_TRAITS[storedTier]) {
                 bpTier = storedTier;
             }
             // Unconditional: even on Desktop this is what paints the rotate

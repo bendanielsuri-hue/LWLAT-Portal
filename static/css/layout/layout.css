@@ -1185,6 +1185,13 @@ main { position: relative; }
     cursor: default;
 }
 .dev-bp-option:disabled:hover { color: var(--text-secondary); }
+/* visibility, not display/[hidden] - the rotate button hides on tiers with
+   nothing to rotate, and this cluster is right-aligned, so removing its box
+   would slide all four tier buttons sideways every time you switch to Desktop
+   or Laptop. Reserving the space keeps them put; see the rotate button's own
+   comment in layout.html. Swap to display:none if you'd rather reclaim the gap
+   than keep the buttons still. */
+.dev-bp-option.is-hidden { visibility: hidden; }
 
 /* Every control here carries a permanent text label (live feedback) -
    the three tiers named outright rather than left to a tooltip, so you never
@@ -1263,6 +1270,23 @@ main { position: relative; }
     padding: var(--space-xxs);
 }
 .dev-bp-menu.hidden { display: none; }
+/* Vendor heading. Label-cased and dimmed to sit clearly below the device rows
+   in the hierarchy - it's a divider you read once on the way to a row, never a
+   target, so it takes no hover/active treatment and no separator line (the
+   spacing above does that job without adding a rule to every group).
+   :first-child kills the leading gap so the first group sits flush with the
+   menu padding rather than looking like a stray inset. */
+.dev-bp-menu-group {
+    padding: var(--space-xs) var(--space-xs) var(--space-xxs);
+    margin-top: var(--space-xxs);
+    font-size: var(--font-2xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    white-space: nowrap;
+}
+.dev-bp-menu-group:first-child { margin-top: 0; padding-top: var(--space-xxs); }
 .dev-bp-size {
     display: flex;
     align-items: center;
@@ -1418,10 +1442,24 @@ main { position: relative; }
     align-items: flex-start;
     background: var(--bg-page);
     overflow: auto;
-    /* Larger vertical padding than horizontal - the preview iframe should
-       read as an inset device mockup with clear air above/below it, not
-       flush against the header/footer edges (#128). */
-    padding: var(--space-2xl) var(--space-lg);
+    /* Vertical padding is deliberately SMALL, and was 32px (--space-2xl) until
+       the laptop tier arrived. The air above/below a mockup (#128) is real, but
+       .dev-bp-frame-wrap's margin:auto is what actually provides it: whenever
+       the frame fits with slack, auto margins centre it and the gap appears for
+       free. Padding only ever bites when the frame is close to filling the
+       overlay - i.e. it costs height at exactly the moment height is scarce,
+       and buys nothing at every other size.
+
+       That 64px of vertical padding was the difference between computeScale()
+       returning 1 and returning ~0.95 for a 864px-tall laptop preset, which is
+       the commonest real laptop viewport there is. Phones and small tablets
+       look identical to before; they had slack either way.
+
+       Not zero: .dev-bp-frame-wrap carries a box-shadow, and it needs a few px
+       to render into rather than clip against the overlay edge. Horizontal
+       padding stays --space-lg - width is never the binding constraint here
+       (see the laptop tier's comment in layout.html for the arithmetic). */
+    padding: var(--space-xs) var(--space-lg);
 }
 /* Sized to the device's true width*scale/height*scale (script below) -
    scale is 1 (no shrink) whenever the preset already fits the available
