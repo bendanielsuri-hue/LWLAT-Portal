@@ -857,20 +857,23 @@ Menu switcher instead - see its own comment below.
 
     {% comment %}
     Menu/Settings sheet chrome deliberately mirrors dialog.modal-dialog's own
-    header convention (title + × top-right, panel.css) rather than a one-off
+    header convention (title + × top-right, components/modal.css) rather than a one-off
     "Close" button at the bottom — Search and +Referral both open that real
     component, so without this Menu/Settings read as a visibly different
     kind of overlay sitting right next to them (#129 grilling: "more mobile
-    consistency"). Values duplicated rather than reusing the .modal-header/
-    .modal-close classes directly, since panel.css isn't guaranteed loaded
-    on every hub this shared sidebar partial renders on.
+    consistency"). Values duplicated rather than reusing the .modal-header/.modal-close
+    classes directly, because panel.css was not guaranteed loaded on every
+    hub this shared partial renders on. **That reason expired with #209**:
+    both classes now live in components/modal.css, which style.css imports
+    on every page. The duplication is removable, and removing it is the
+    remaining half of the #198 map's second acceptance test.
     {% endcomment %}
     {% comment %}
     An unconditional `display: flex` (needed to lay out the sheet's own
     contents once open) is author CSS, which always beats the browser's own
     `dialog:not([open]) { display: none }` UA rule regardless of
     specificity — the same trap dialog.modal-dialog's own comment in
-    panel.css documents. Without this, a *closed* .mobile-more-sheet still
+    components/modal.css documents. Without this, a *closed* .mobile-more-sheet still
     sits in normal document flow (width:100%, up to 480px) inside
     .nav-stack, forcing .global-nav/.nav-stack to stay that wide and
     squeezing all real page content into whatever's left — the page not
@@ -929,7 +932,7 @@ Menu switcher instead - see its own comment below.
     .mobile-more-sheet::backdrop { background: rgba(15, 23, 36, 0.4); }
     {% comment %}
     Title and × share one row, matching dialog.modal-dialog's own
-    .modal-header (panel.css) exactly - same flex/space-between shape, same
+    .modal-header (components/modal.css) exactly - same flex/space-between shape, same
     padding scale, same h2 size. Giving the × its own row above the title
     costs a full extra row of vertical height, and buys nothing here: what
     that shape solves is *absolute* positioning colliding with content
@@ -961,7 +964,8 @@ Menu switcher instead - see its own comment below.
         line-height: 1;
         cursor: pointer;
         color: var(--text-faint);
-        /* Same negative-margin hit-target trick as .modal-close (panel.css) -
+        /* Same negative-margin hit-target trick as .modal-close
+           (components/modal.css) -
            keeps the × visually anchored at the row's far edge while growing
            its actual clickable box past just the glyph. */
         padding: var(--space-sm);
@@ -988,9 +992,11 @@ Menu switcher instead - see its own comment below.
     Back to {{ hub_title }}'s parent hub / Change Hub - primary/secondary,
     same weighting convention as any other btn-primary/btn-secondary pair in
     the app (#129 grilling: "Back to Hub primary, Switch Hub secondary").
-    Values duplicated rather than reusing panel.css's own .btn-primary/
-    .btn-secondary, for the same cross-hub-availability reason as the
-    modal-header duplication above.
+    Values duplicated rather than reusing .btn-primary/.btn-secondary, for
+    the same cross-hub-availability reason as the modal-header duplication
+    above - which was mistaken even when written: those classes have always
+    lived in components/buttons.css, not panel.css, and style.css has always
+    imported it. Removable, with the modal-header pair above.
     {% endcomment %}
     .mobile-more-sheet-btn {
         flex: 1 1 0;
@@ -1022,7 +1028,7 @@ Menu switcher instead - see its own comment below.
 
     {% comment %}
     Search and +Referral both open the real dialog.modal-dialog component
-    (panel.css) — a centred floating card. Reskinning it to bottom-sheet
+    (components/modal.css) — a centred floating card. Reskinning it to bottom-sheet
     chrome here (rather than leaving it centred while Menu/Settings above
     are bottom sheets) is what makes all three read as one consistent
     shape. Scoped to phone width AND to pages rendering this bottom nav
@@ -1052,7 +1058,7 @@ Menu switcher instead - see its own comment below.
                growing/shrinking outward reads as normal. !important beats
                that inline style so the sheet stays one constant height
                regardless of result count, same as Menu/Settings already do -
-               .modal-body's own overflow-y:auto (panel.css) handles the rest. */
+               .modal-body's own overflow-y:auto (components/modal.css) handles the rest. */
             height: 80vh !important;
             max-height: 80vh;
             /* Squared, not rounded - matches every other phone-width sheet
@@ -1126,7 +1132,7 @@ Menu switcher instead - see its own comment below.
                identity header above it with no visible gap, so a rounded
                top reads as a floating edge that isn't actually there
                (same "no radius on a flush edge" call as the Filter shelf,
-               panel.css). */
+               components/filter-bar.css). */
             border-radius: 0;
             border-right: none;
             border-top: 1px solid var(--border-color);
