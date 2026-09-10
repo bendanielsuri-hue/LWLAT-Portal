@@ -1,5 +1,6 @@
 from core.identity import current_school_key
 from core.models import CategorySettings, MatSettings, School
+from core.school_scope import SchoolScope
 
 HARDCODED_DEFAULTS = {
     'student_term': 'Student',
@@ -20,13 +21,11 @@ def resolve_portal_settings(request):
     # off the viewer's own identity/home school: a MAT staff member who selects
     # "Babington Academy" sees Babington's settings, same as a Babington staff
     # member would.
-    key = current_school_key(request)
+    scope = SchoolScope(current_school_key(request))
     school = None
-    category = None
-    if key in ('primary', 'secondary'):
-        category = key.capitalize()
-    elif key not in (None, '', 'all'):
-        school = School.objects.filter(pk=key).first()
+    category = scope.category
+    if scope.school_id is not None:
+        school = School.objects.filter(pk=scope.school_id).first()
         category = school.category if school else None
 
     category_row = CategorySettings.objects.filter(category=category).first() if category else None

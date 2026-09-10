@@ -25,6 +25,7 @@ name, and a deployment with a scheduler moves to the management command
 
 import datetime
 
+from django.conf import settings
 from django.utils import timezone
 
 from . import lifecycle
@@ -229,11 +230,38 @@ def reconcile_stale_discussion_timers(now):
 def reconcile_panels(now=None):
     """Bring every time-based panel transition up to date.
 
-    The single entry point. Views call this on read (see the module docstring
-    for why that's still true); manage.py reconcile_panels calls it on a
-    schedule; a test calls it with a fixed `now`.
+    The single entry point. manage.py reconcile_panels calls it on a schedule;
+    a test calls it with a fixed `now`. Views do not call it directly - they
+    call reconcile_on_read() below, which is the same sweep behind a switch.
     """
     now = now or timezone.now()
     reconcile_delayed_panels(now)
     reconcile_stale_running_panels(now)
     reconcile_stale_discussion_timers(now)
+
+
+def reconcile_on_read(now=None):
+    """The sweep as a *view* performs it: on a read, and only if enabled.
+
+    Same work as reconcile_panels, reached by the one path that had no way to
+    opt out. The six view call sites passed no arguments, so the module built
+    to take an injected clock was, from a view, driven by the real one and
+    impossible to hold still - which made any panel status unobservable
+    through the view that changed it. A POST could set a status correctly and
+    the sweep would overwrite it before the response was built, inside the
+    same request, and the test asserting on it would blame the dispatch.
+
+    Two adapters, chosen by PANEL_RECONCILE_ON_READ: the real sweep in
+    production (a dev machine has no scheduler, so reads are the only thing
+    keeping meetings going stale - see ADR 0019), and nothing at all under
+    test, where time passing is not what is being exercised. A test that does
+    want a transition calls reconcile_panels(now=...) directly with a fixed
+    clock, which is what tests/test_reconcile.py has always done.
+
+    This is the line ADR 0019 earmarked for deletion, now with a name and one
+    place to turn off: a deployment that gains a scheduler drops the setting
+    and the six calls together.
+    """
+    if not getattr(settings, 'PANEL_RECONCILE_ON_READ', True):
+        return
+    reconcile_panels(now=now)

@@ -17,6 +17,7 @@ Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file 
 
 ## View pattern
 
+- School scoping (the sidebar switcher's `all`/`primary`/`secondary`/`School.id` key) goes through `core.school_scope.SchoolScope` — `scope.narrow(qs, via=..., mat_wide=...)`, plus `selects_every_school` and `is_aggregate`, which look like the same question and are not. The four-branch cascade used to be written out five times across two apps. `core.identity`'s `staff_queryset_for_school_key`/`student_queryset_for_school_key`/`is_aggregate_school_key` still exist and are still the names to call; they are thin wrappers now.
 - `hubs.inclusion` and `core` are the exception to plain hardcoded views: they have real Django models and applied migrations (`core.models.Staff`/`Student`/`School`, `hubs.inclusion.models` — Referral, Action, PanelReferral, etc.). Other hubs reference `core.models.Staff`/`Student` where they need real data (e.g. directory, dashboards) rather than duplicating hardcoded people. `Staff`/`Student` each have a nullable `school` FK to `core.models.School`; `portal.views.build_school_nav()` reads `School` rows (merged with hardcoded "All Schools"/"All Primary"/"All Secondary" aggregate entries) to drive the sidebar school-switcher instead of a hardcoded list.
 - Standard context per page: `local_menu` (list of `{name, url, icon}` for the hub's sidebar) and `hub_title`.
 - Templates: page extends `templates/layout.html`, includes `templates/hubs/_hub_sidebar.html` (driven by `local_menu`/`hub_title`) inside `{% block hub_sidebar %}`.

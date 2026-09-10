@@ -48,12 +48,15 @@ Both were underscore-private functions inside `views.py` until they were lifted 
 **`reconcile.py` — the transitions nobody clicks.** A meeting going `delayed`, a stale meeting auto-ending, a quiet discussion timer stopping. One entry point, `reconcile_panels(now=None)`; `now` is a parameter throughout, which is what makes `STALE_PANEL_TIMEOUT` (60 min), `STALE_PANEL_WARNING_LEAD` (5 min) and `STALE_DISCUSSION_TIMEOUT` (30 min) testable at all.
 
 - Still called from panel views on read, so GET requests still write rows — deliberate and temporary, because there is no scheduler in this project. `manage.py reconcile_panels` is the scheduled path; ADR 0019 has the full reasoning and the migration.
+- Views call **`reconcile_on_read()`**, not `reconcile_panels()` directly. Same sweep, behind the `PANEL_RECONCILE_ON_READ` setting (`mysite/settings.py`), which the panel tests turn off. Without that seam a view could rewrite a panel's status inside the request a test was asserting on, and the failure read as a broken dispatch — `make_panel()` defaults to today with no time, so every test panel is already overdue. Subclass **`tests/support.py::PanelViewTestCase`** for anything driving a view through the test client; call `reconcile_panels(now=...)` directly to test a transition on purpose.
 - `reconcile.py` imports `lifecycle.py`, never the reverse. An auto-ended meeting resyncs referral statuses by exactly the same path a manual End Panel Meeting does.
 - The stale-panel timeout measures from `panel_last_activity_at(panel)`, not from `started_at` — notes, attendance changes, any `PanelReferral` touch (`updated_at` is `auto_now`) and the "Still here" ping all count (#114).
 
 ## Filter bar (Referral/Actions dashboards)
 
 Implements the portal-wide two-layer filter bar pattern (`DES-L`) — mechanics are commented inline at each function, referenced here rather than restated:
+
+- **Server side: each dashboard declares its filters once**, as a `FilterSet` of `Filter`s at module level next to its view (`STUDENT_FILTERS`, `REFERRAL_FILTERS`, `ESCALATION_FILTERS`, `ACTION_FILTERS`, `SAFEGUARDING_FILTERS`, and `_meeting_filters()` which is built per request because Chair/My Meetings need the viewer). `core.dashboard_filters` derives the rest: `bound.narrow(qs)`, `bound.active_count` for the badge, `bound.context` for the `<name>_filter` keys the templates read. Adding a filter is one entry — it used to be four, none of which failed loudly when forgotten. See that module's docstring for the four silent failures.
 
 - AJAX enhancement wiring: `setupAjaxFilterBars()` in `static/js/main.js`.
 - Active-filter count badge + highlight: `window.wireFilterBarActiveState()` in `panel.js` — call once per filter bar, invoke the returned `refresh()` on every relevant `change`.

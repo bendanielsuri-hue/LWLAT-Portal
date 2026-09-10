@@ -8,7 +8,8 @@ the entire difference - every test below just passes a later instant.
 
 import datetime
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.utils import timezone
 
 from hubs.inclusion.panel import reconcile
@@ -238,3 +239,42 @@ class ReconcilePanelsEntryPointTest(TestCase):
         running.refresh_from_db()
         self.assertEqual(overdue.status, 'delayed')
         self.assertIn(running.status, ('void', 'complete'))
+
+
+class ReconcileOnReadTest(TestCase):
+    """The switch the views go through, on both settings.
+
+    Two adapters is what makes it a seam rather than a flag: production
+    sweeps on a read because nothing else ever will, and a test doesn't,
+    because a sweep landing mid-request is indistinguishable from the view
+    getting it wrong.
+    """
+
+    def setUp(self):
+        self.world = build_panel_world(referral_count=1)
+        # Scheduled today at midnight (make_panel's default), so it is
+        # already overdue by the time any test runs - the exact shape that
+        # made a panel's status unobservable through its own view.
+        self.panel = self.world.panel
+        self.panel.status = 'ready'
+        self.panel.save()
+
+    @override_settings(PANEL_RECONCILE_ON_READ=True)
+    def test_enabled_a_read_still_sweeps(self):
+        self.client.get(reverse('inclusion_panel_meetings'))
+        self.panel.refresh_from_db()
+        self.assertEqual(self.panel.status, 'delayed')
+
+    @override_settings(PANEL_RECONCILE_ON_READ=False)
+    def test_disabled_a_read_leaves_the_row_alone(self):
+        self.client.get(reverse('inclusion_panel_meetings'))
+        self.panel.refresh_from_db()
+        self.assertEqual(self.panel.status, 'ready')
+
+    @override_settings(PANEL_RECONCILE_ON_READ=False)
+    def test_the_switch_never_gates_the_direct_entry_point(self):
+        # Turning off the *view* sweep must not disarm the management
+        # command or the tests that drive transitions on purpose.
+        reconcile.reconcile_panels(now=timezone.now())
+        self.panel.refresh_from_db()
+        self.assertEqual(self.panel.status, 'delayed')

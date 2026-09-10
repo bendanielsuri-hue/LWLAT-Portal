@@ -1,6 +1,7 @@
 from django.db.models import Q
 
 from core.models import Staff, Student
+from core.school_scope import SchoolScope
 
 # No login system exists yet (see CLAUDE.md), so "current identity" is just a
 # client-side choice backed by a cookie, with Benjamin Suri as the fallback
@@ -17,16 +18,14 @@ CURRENT_SCHOOL_COOKIE = 'current_school_key'
 # decide whether a page can show school-specific chrome (a School column, a
 # pilot-module check) or has to show the aggregate view instead.
 #
-# Deliberately NOT the same test as the `key in (None, '', 'all')` checks in
-# the queryset helpers below, which is a different question - those ask "is
-# any filtering needed at all", and to them 'primary'/'secondary' are real
-# filters, not aggregates. Two similar-looking tuples, two meanings; don't
-# merge them.
-AGGREGATE_SCHOOL_KEYS = (None, '', 'all', 'primary', 'secondary')
+# Both this question and the "is any filtering needed at all" one it is
+# constantly mistaken for now live in core.school_scope, as two separately
+# named properties - see that module's docstring for why they must not be
+# merged. Kept callable here because every caller already looks for it here.
 
 
 def is_aggregate_school_key(key):
-    return key in AGGREGATE_SCHOOL_KEYS
+    return SchoolScope(key).is_aggregate
 
 
 def default_staff():
@@ -41,13 +40,12 @@ def _staff_matches_school_key(staff, key):
     # Staff with no school, and MAT staff regardless of their school FK, are
     # MAT-wide and are considered compatible with every school/category
     # selection.
-    if staff.school_id is None or staff.is_mat_staff or key in (None, '', 'all'):
+    scope = SchoolScope(key)
+    if staff.school_id is None or staff.is_mat_staff or scope.selects_every_school:
         return True
-    if key == 'primary':
-        return staff.school.category == 'Primary'
-    if key == 'secondary':
-        return staff.school.category == 'Secondary'
-    return str(staff.school_id) == str(key)
+    if scope.category:
+        return staff.school.category == scope.category
+    return str(staff.school_id) == str(scope.school_id)
 
 
 def staff_queryset_for_school_key(key):
@@ -58,13 +56,11 @@ def staff_queryset_for_school_key(key):
     qs = Staff.objects.filter(is_active=True).select_related('school').order_by(
         'school__name', 'last_name', 'first_name'
     )
-    if key in (None, '', 'all'):
-        return qs
-    if key == 'primary':
-        return qs.filter(Q(school__isnull=True) | Q(is_mat_staff=True) | Q(school__category='Primary'))
-    if key == 'secondary':
-        return qs.filter(Q(school__isnull=True) | Q(is_mat_staff=True) | Q(school__category='Secondary'))
-    return qs.filter(Q(school__isnull=True) | Q(is_mat_staff=True) | Q(school_id=key))
+    # MAT-wide for staff is two things, not one: no school at all, or the
+    # is_mat_staff flag regardless of which school the FK happens to name.
+    return SchoolScope(key).narrow(
+        qs, mat_wide=Q(school__isnull=True) | Q(is_mat_staff=True)
+    )
 
 
 def student_queryset_for_school_key(key):
@@ -72,25 +68,17 @@ def student_queryset_for_school_key(key):
     # no MAT-wide equivalent of is_mat_staff — only school__isnull matches
     # every key.
     qs = Student.objects.filter(is_active=True).select_related('school')
-    if key in (None, '', 'all'):
-        return qs
-    if key == 'primary':
-        return qs.filter(Q(school__isnull=True) | Q(school__category='Primary'))
-    if key == 'secondary':
-        return qs.filter(Q(school__isnull=True) | Q(school__category='Secondary'))
-    return qs.filter(Q(school__isnull=True) | Q(school_id=key))
+    return SchoolScope(key).narrow(qs, mat_wide=Q(school__isnull=True))
 
 
 def default_staff_for_school_key(key):
-    if key in (None, '', 'all'):
+    scope = SchoolScope(key)
+    if scope.selects_every_school:
         return default_staff()
-    if key == 'primary':
-        scoped = Staff.objects.filter(is_active=True, school__category='Primary')
-    elif key == 'secondary':
-        scoped = Staff.objects.filter(is_active=True, school__category='Secondary')
-    else:
-        scoped = Staff.objects.filter(is_active=True, school_id=key)
-    return scoped.first() or default_staff()
+    # No mat_wide escape, deliberately: this picks somebody to *be* while a
+    # school is selected, and a MAT-wide staff member isn't that person
+    # unless nothing else fits - which the fallback below already covers.
+    return scope.narrow(Staff.objects.filter(is_active=True)).first() or default_staff()
 
 
 def current_staff(request):

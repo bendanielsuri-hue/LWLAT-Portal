@@ -13,13 +13,13 @@ overrides `extra_head` instead of `panel_extra_head` would silently drop off
 the stylesheet again - which looks fine in a diff and wrong in a browser.
 """
 
-from django.test import TestCase
 from django.urls import reverse
 
 from .factories import build_panel_world
+from .support import PanelViewTestCase
 
 
-class PanelPagesSmokeTest(TestCase):
+class PanelPagesSmokeTest(PanelViewTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.world = build_panel_world(referral_count=2)

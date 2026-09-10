@@ -144,6 +144,15 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Whether a panel view sweeps time-based transitions while serving a read
+# (hubs.inclusion.panel.reconcile.reconcile_on_read). True here because this
+# project has no scheduler of any kind, so page loads are the only thing that
+# ever makes a meeting go stale; the panel tests turn it off so a status they
+# just set isn't overwritten mid-request. ADR 0019 has the full reasoning and
+# names this as the line to delete once something calls the management
+# command on a clock.
+PANEL_RECONCILE_ON_READ = True
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/

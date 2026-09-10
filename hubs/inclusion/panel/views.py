@@ -22,6 +22,8 @@ from core.identity import (
 from core.models import (
     AcademicYear, MatSettings, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student, Term,
 )
+from core.dashboard_filters import Filter, FilterSet, equals, flag, tristate
+from core.school_scope import SchoolScope
 from core.modules import filter_by_module, module_map
 from core.student_history import (
     attendance_authorised_pct,
@@ -45,11 +47,11 @@ from core.term_dates import next_half_term, next_term, upcoming_review_terms
 from portal.templatetags.avatar_extras import initials, full_name
 
 # Imported as modules, not as names, so a call site reads
-# `lifecycle.mark_discussed(...)` / `reconcile.reconcile_panels()` and says
+# `lifecycle.mark_discussed(...)` / `reconcile.reconcile_on_read()` and says
 # which of the two it is - these used to be underscore-private functions in
 # this file, and the whole point of moving them out is that a reader can see
 # where a transition lives.
-from . import lifecycle, presenters, reconcile
+from . import form_actions, lifecycle, presenters, reconcile
 from .models import (
     Action,
     ActionCategory,
@@ -201,21 +203,14 @@ def _is_referral_unassigned(referral):
 
 
 def _panels_for_school_key(panels_qs, key):
-    # Mirrors staff_queryset_for_school_key/student_queryset_for_school_key:
-    # an ungrouped panel, or a group with no school set, is MAT-wide and
-    # matches every selection.
-    if key in (None, '', 'all'):
-        return panels_qs
-    if key == 'primary':
-        return panels_qs.filter(
-            Q(panel_group__isnull=True) | Q(panel_group__school__isnull=True) | Q(panel_group__school__category='Primary')
-        )
-    if key == 'secondary':
-        return panels_qs.filter(
-            Q(panel_group__isnull=True) | Q(panel_group__school__isnull=True) | Q(panel_group__school__category='Secondary')
-        )
-    return panels_qs.filter(
-        Q(panel_group__isnull=True) | Q(panel_group__school__isnull=True) | Q(panel_group__school_id=key)
+    # A panel reaches School only through its group, and is MAT-wide if it has
+    # no group or the group has no school. Those two facts are the whole
+    # difference from the Staff/Student scoping in core.identity - the four
+    # branches themselves are SchoolScope's, not restated here.
+    return SchoolScope(key).narrow(
+        panels_qs,
+        via='panel_group__school',
+        mat_wide=Q(panel_group__isnull=True) | Q(panel_group__school__isnull=True),
     )
 
 
@@ -448,7 +443,7 @@ def _apply_attendance_action(request, panel, action):
     # (inclusion_panel_meeting_agenda) and the AJAX one opened from the
     # Panel Meetings list (inclusion_panel_meeting_attendance) share one
     # implementation rather than re-deriving these rules twice (ENG-S1).
-    if action == 'start_meeting':
+    if action == form_actions.START_MEETING:
         starter = _current_staff(request)
         # Only one MAT Panel Meeting may run at a time - see CONTEXT.md.
         # School Panels have no equivalent limit, so this only ever blocks
@@ -474,19 +469,19 @@ def _apply_attendance_action(request, panel, action):
             panel.time = timezone.localtime(now).time()
             panel.status = 'running'
             panel.save()
-    elif action == 'reschedule_to_now':
+    elif action == form_actions.RESCHEDULE_TO_NOW:
         if panel.status not in ('running', 'complete'):
             now = timezone.now()
             panel.date = timezone.localdate(now)
             panel.time = timezone.localtime(now).time()
             panel.save(update_fields=['date', 'time'])
-    elif action == 'check_in':
+    elif action == form_actions.CHECK_IN:
         gm = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group_id=panel.panel_group_id)
         PanelMember.objects.update_or_create(
             panel=panel, panel_group_member=gm,
             defaults={'checked_in_at': timezone.now(), 'left_at': None},
         )
-    elif action == 'mark_left':
+    elif action == form_actions.MARK_LEFT:
         gm = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group_id=panel.panel_group_id)
         PanelMember.objects.filter(panel=panel, panel_group_member=gm).update(left_at=timezone.now())
 
@@ -894,7 +889,7 @@ def _my_actions_context(current_staff):
 
 
 def inclusion_panel_home(request):
-    reconcile.reconcile_panels()
+    reconcile.reconcile_on_read()
     current_staff = _current_staff(request)
 
     my_referrals = list(
@@ -1018,27 +1013,68 @@ def inclusion_panel_home(request):
     })
 
 
+# A checkbox is on only for the literal '1'. Used as both the "is it
+# narrowing" test and the value handed to the template, so the badge count
+# and the rendered control can't disagree about what ticked means.
+def TICKED(value):
+    return value == '1'
+
+
+# The Students dashboard's filters, declared once. Each entry is the whole
+# fact: the query-string name, and how it narrows. The reading, the badge
+# count and the context keys the template reads back are all derived from
+# this list - see core.dashboard_filters for why that matters.
+STUDENT_FILTERS = FilterSet(
+    # An exact pick from the search picker. Supersedes the free-text name
+    # match below, which used to be an if/elif whose ordering carried the
+    # rule silently.
+    Filter(
+        'student',
+        apply=lambda qs, v, vals: qs.filter(pk=int(v)),
+        active=lambda v: v.isdigit(),
+        # Narrows but doesn't count: the sum this replaced listed every other
+        # filter and not this one, so a pinned student left the badge reading
+        # zero while a typed name read one. Preserved exactly rather than
+        # quietly corrected - it is a real inconsistency, but a visible one,
+        # and not this refactor's to change.
+        counts=lambda v: False,
+        context_value=lambda v: int(v) if v.isdigit() else '',
+    ),
+    Filter(
+        'name',
+        apply=lambda qs, v, vals: qs.filter(
+            _token_name_filter(v.split(), 'first_name', 'last_name', 'admission_number')
+        ),
+        superseded_by=('student',),
+    ),
+    Filter('year', equals('year_group')),
+    Filter('house', equals('house')),
+    Filter('reg', equals('reg_form')),
+    # Both narrow against annotations added further down the view, which is
+    # why narrowing stays a separate call from binding.
+    Filter('has_referrals',
+           apply=lambda qs, v, vals: qs.filter(referrals_count__gt=0),
+           active=TICKED, context_value=TICKED),
+    Filter('overdue_actions', flag('has_overdue_actions'),
+           active=TICKED, context_value=TICKED),
+    # Candidate filters behind "More filters" (issue #9).
+    Filter('sen_status', equals('sen_status')),
+    Filter('gender', equals('gender')),
+    Filter('ethnicity', equals('ethnicity')),
+    Filter('is_pp', tristate('is_pp')),
+    Filter('is_eal', tristate('is_eal')),
+    Filter('is_lac', tristate('is_lac')),
+    Filter('is_young_carer', tristate('is_young_carer')),
+    Filter('is_more_able', tristate('is_more_able')),
+)
+
+
 def inclusion_panel_students(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
     is_aggregate_view = is_aggregate_school_key(school_key)
 
-    name_filter = request.GET.get('name') or ''
-    student_filter = _student_id_filter(request)
-    year_filter = request.GET.get('year') or ''
-    house_filter = request.GET.get('house') or ''
-    reg_filter = request.GET.get('reg') or ''
-    has_referrals_filter = request.GET.get('has_referrals') == '1'
-    overdue_actions_filter = request.GET.get('overdue_actions') == '1'
-    # Candidate filters behind "More filters" (issue #9).
-    sen_status_filter = request.GET.get('sen_status') or ''
-    gender_filter = request.GET.get('gender') or ''
-    ethnicity_filter = request.GET.get('ethnicity') or ''
-    is_pp_filter = request.GET.get('is_pp') or ''
-    is_eal_filter = request.GET.get('is_eal') or ''
-    is_lac_filter = request.GET.get('is_lac') or ''
-    is_young_carer_filter = request.GET.get('is_young_carer') or ''
-    is_more_able_filter = request.GET.get('is_more_able') or ''
+    filters = STUDENT_FILTERS.bind(request)
 
     today = timezone.localdate()
     base_students = student_queryset_for_school_key(school_key)
@@ -1082,47 +1118,7 @@ def inclusion_panel_students(request):
     # positive_behaviour_incidents was missing from this call, so every row's
     # positive_behaviour_summary() was its own query.
     students = prefetch_history(students)
-    if student_filter:
-        students = students.filter(pk=student_filter)
-    elif name_filter:
-        students = students.filter(_token_name_filter(name_filter.split(), 'first_name', 'last_name', 'admission_number'))
-    if year_filter:
-        students = students.filter(year_group=year_filter)
-    if house_filter:
-        students = students.filter(house=house_filter)
-    if reg_filter:
-        students = students.filter(reg_form=reg_filter)
-    if has_referrals_filter:
-        students = students.filter(referrals_count__gt=0)
-    if overdue_actions_filter:
-        students = students.filter(has_overdue_actions=True)
-    if sen_status_filter:
-        students = students.filter(sen_status=sen_status_filter)
-    if gender_filter:
-        students = students.filter(gender=gender_filter)
-    if ethnicity_filter:
-        students = students.filter(ethnicity=ethnicity_filter)
-    if is_pp_filter == '1':
-        students = students.filter(is_pp=True)
-    elif is_pp_filter == '0':
-        students = students.filter(is_pp=False)
-    if is_eal_filter == '1':
-        students = students.filter(is_eal=True)
-    elif is_eal_filter == '0':
-        students = students.filter(is_eal=False)
-    if is_lac_filter == '1':
-        students = students.filter(is_lac=True)
-    elif is_lac_filter == '0':
-        students = students.filter(is_lac=False)
-    if is_young_carer_filter == '1':
-        students = students.filter(is_young_carer=True)
-    elif is_young_carer_filter == '0':
-        students = students.filter(is_young_carer=False)
-    if is_more_able_filter == '1':
-        students = students.filter(is_more_able=True)
-    elif is_more_able_filter == '0':
-        students = students.filter(is_more_able=False)
-    students = students.order_by('last_name', 'first_name')
+    students = filters.narrow(students).order_by('last_name', 'first_name')
 
     # Totals for the header/footer stats strip ("240 Students · 59
     # Referrals · 82 Actions") - computed against the full filtered
@@ -1220,14 +1216,6 @@ def inclusion_panel_students(request):
                 (today.month, today.day) < (student.date_of_birth.month, student.date_of_birth.day)
             )
 
-    active_filter_count = sum(
-        1 for v in (
-            name_filter, year_filter, house_filter, reg_filter, has_referrals_filter, overdue_actions_filter,
-            sen_status_filter, gender_filter, ethnicity_filter,
-            is_pp_filter, is_eal_filter, is_lac_filter, is_young_carer_filter, is_more_able_filter,
-        ) if v
-    )
-
     context = {
         **_panel_base_context(request),
         'students': students,
@@ -1237,25 +1225,11 @@ def inclusion_panel_students(request):
         'forms_by_year_json': json.dumps(forms_by_year),
         'has_houses': has_houses,
         'houses': houses,
-        'name_filter': name_filter,
-        'student_filter': student_filter or '',
-        'year_filter': year_filter,
-        'house_filter': house_filter,
-        'reg_filter': reg_filter,
-        'has_referrals_filter': has_referrals_filter,
-        'overdue_actions_filter': overdue_actions_filter,
-        'sen_status_filter': sen_status_filter,
+        **filters.context,
         'sen_status_choices': Student.SEN_STATUS_CHOICES,
-        'gender_filter': gender_filter,
         'gender_choices': Student.GENDER_FILTER_CHOICES,
-        'ethnicity_filter': ethnicity_filter,
         'ethnicity_choices': Student.ETHNICITY_CHOICES,
-        'is_pp_filter': is_pp_filter,
-        'is_eal_filter': is_eal_filter,
-        'is_lac_filter': is_lac_filter,
-        'is_young_carer_filter': is_young_carer_filter,
-        'is_more_able_filter': is_more_able_filter,
-        'active_filter_count': active_filter_count,
+        'active_filter_count': filters.active_count,
         'students_count': total_students_count,
         'referrals_count': total_referrals_count,
         'actions_count': total_actions_count,
@@ -1274,6 +1248,57 @@ def inclusion_panel_students(request):
     return render(request, template, context)
 
 
+# The Referrals dashboard's filters. `academic_year` and `term` declare
+# themselves here for the badge and the context, but narrow by hand below -
+# both are normalised against choices built from the database first, and term
+# filtering goes through _term_choices_and_ranges' date-range Q.
+REFERRAL_FILTERS = FilterSet(
+    Filter(
+        'student',
+        apply=lambda qs, v, vals: qs.filter(student_id=int(v)),
+        active=lambda v: v.isdigit(),
+        counts=lambda v: False,   # as Students: narrows without counting
+        context_value=lambda v: int(v) if v.isdigit() else '',
+    ),
+    Filter(
+        'name',
+        apply=lambda qs, v, vals: qs.filter(_token_name_filter(
+            v.split(), 'student__first_name', 'student__last_name', 'student__admission_number',
+        )),
+        superseded_by=('student',),
+    ),
+    # Status (lifecycle: active/closed) and Panel Stage (where in the panel
+    # process) are two different questions sharing one underlying `status`
+    # field - see issue #11.
+    Filter('status', apply=lambda qs, v, vals: (
+        qs.exclude(status='closed') if v == 'active'
+        else qs.filter(status='closed') if v == 'closed'
+        else qs
+    )),
+    Filter('stage', equals('status')),
+    Filter('raised_by', apply=lambda qs, v, vals: (
+        qs.filter(raised_by__isnull=True) if v == 'unassigned'
+        else qs.filter(raised_by_id=v)
+    )),
+    Filter('concern', apply=lambda qs, v, vals: qs.filter(
+        responses__question__label='Main Concern Category', responses__answer=v,
+    )),
+    Filter('priority', equals('priority')),
+    Filter('panel_group', equals('panel_referrals__panel__panel_group_id')),
+    Filter('overdue_actions', apply=lambda qs, v, vals: qs.filter(
+        actions__status='incomplete', actions__due_date__lt=timezone.localdate(),
+    ), active=TICKED, context_value=TICKED),
+    Filter('academic_year'),
+    Filter('term'),
+    # Group Info (live feedback: "too many groups with one or two items") -
+    # the referred student's own cohort fields, same params and choices as
+    # the Students dashboard's own Group Info group.
+    Filter('year', equals('student__year_group')),
+    Filter('house', equals('student__house')),
+    Filter('reg', equals('student__reg_form')),
+)
+
+
 def inclusion_panel_referrals(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
@@ -1282,28 +1307,9 @@ def inclusion_panel_referrals(request):
     today = timezone.localdate()
     current_staff = _current_staff(request)
 
-    name_filter = request.GET.get('name') or ''
-    student_filter = _student_id_filter(request)
-    status_filter = request.GET.get('status') or ''
-    # Status (lifecycle: active/closed) and Panel Stage (where in the panel
-    # process - unassigned/assigned/discussing/review tiers) are two
-    # different questions even though they share the one underlying
-    # `status` field - see issue #11.
-    stage_filter = request.GET.get('stage') or ''
-    raised_by_filter = request.GET.get('raised_by') or ''
-    concern_filter = request.GET.get('concern') or ''
-    priority_filter = request.GET.get('priority') or ''
-    panel_group_filter = request.GET.get('panel_group') or ''
-    overdue_actions_filter = request.GET.get('overdue_actions') == '1'
-    # Group Info (live feedback: "too many groups with one or two items" -
-    # broadens the category strip with the referred student's own cohort
-    # fields, same params/choices as inclusion_panel_students' own Group
-    # Info group above).
-    year_filter = request.GET.get('year') or ''
-    house_filter = request.GET.get('house') or ''
-    reg_filter = request.GET.get('reg') or ''
-    academic_year_filter = request.GET.get('academic_year') or ''
-    term_filter = request.GET.get('term') or ''
+    filters = REFERRAL_FILTERS.bind(request)
+    academic_year_filter = filters['academic_year']
+    term_filter = filters['term']
 
     academic_years_present = {
         ay.id: ay for ay in AcademicYear.objects.filter(
@@ -1322,7 +1328,7 @@ def inclusion_panel_referrals(request):
     # default filter.
     current_academic_year = AcademicYear.for_date(today).id
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
-        academic_year_filter = ''
+        academic_year_filter = filters.set_value('academic_year', '')
 
     # Term filter (#121 follow-up applied to Referrals too - live feedback:
     # "add Term to Actions and referrals like meeting page") - see
@@ -1335,6 +1341,7 @@ def inclusion_panel_referrals(request):
         school_ids_for_terms, academic_years_present.keys(), term_filter, academic_year_filter,
         'referral__created_at', 'student__school_id',
     )
+    filters.set_value('term', term_filter)
 
     # Option lists computed from the school-scoped set, before the filters
     # below are applied - same convention as inclusion_panel_students' own
@@ -1356,43 +1363,14 @@ def inclusion_panel_referrals(request):
     ).prefetch_related(
         'responses__question', 'panel_referrals__panel__panel_group', 'escalations', 'actions',
     )
+    # Academic year and term first, by hand: both were normalised against
+    # database-built choices above, and term is a date-range Q rather than a
+    # field match.
     if academic_year_filter:
         referrals_qs = referrals_qs.filter(referral__academic_year_id=academic_year_filter)
     if term_q is not None:
         referrals_qs = referrals_qs.filter(term_q)
-    if student_filter:
-        referrals_qs = referrals_qs.filter(student_id=student_filter)
-    elif name_filter:
-        referrals_qs = referrals_qs.filter(
-            _token_name_filter(name_filter.split(), 'student__first_name', 'student__last_name', 'student__admission_number')
-        )
-    if status_filter == 'active':
-        referrals_qs = referrals_qs.exclude(status='closed')
-    elif status_filter == 'closed':
-        referrals_qs = referrals_qs.filter(status='closed')
-    if stage_filter:
-        referrals_qs = referrals_qs.filter(status=stage_filter)
-    if raised_by_filter == 'unassigned':
-        referrals_qs = referrals_qs.filter(raised_by__isnull=True)
-    elif raised_by_filter:
-        referrals_qs = referrals_qs.filter(raised_by_id=raised_by_filter)
-    if concern_filter:
-        referrals_qs = referrals_qs.filter(
-            responses__question__label='Main Concern Category', responses__answer=concern_filter
-        )
-    if priority_filter:
-        referrals_qs = referrals_qs.filter(priority=priority_filter)
-    if panel_group_filter:
-        referrals_qs = referrals_qs.filter(panel_referrals__panel__panel_group_id=panel_group_filter)
-    if overdue_actions_filter:
-        referrals_qs = referrals_qs.filter(actions__status='incomplete', actions__due_date__lt=today)
-    if year_filter:
-        referrals_qs = referrals_qs.filter(student__year_group=year_filter)
-    if house_filter:
-        referrals_qs = referrals_qs.filter(student__house=house_filter)
-    if reg_filter:
-        referrals_qs = referrals_qs.filter(student__reg_form=reg_filter)
-    referrals_qs = referrals_qs.distinct()
+    referrals_qs = filters.narrow(referrals_qs).distinct()
 
     # Totals for the stats-strip ("59 Referrals · 240 Students · 82
     # Actions") - computed against the full filtered queryset before
@@ -1453,14 +1431,6 @@ def inclusion_panel_referrals(request):
         referral.review_pill_label, referral.review_pill_class = _referral_review_pill(referral)
         referral.escalation_pill_label, referral.escalation_pill_class = _referral_escalation_pill(referral)
 
-    active_filter_count = sum(
-        1 for v in (
-            name_filter, status_filter, stage_filter, raised_by_filter, concern_filter,
-            priority_filter, panel_group_filter, overdue_actions_filter, academic_year_filter,
-            term_filter, year_filter, house_filter, reg_filter,
-        ) if v
-    )
-
     concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
     stage_choices = [
         ('open', 'Unassigned'),
@@ -1476,33 +1446,20 @@ def inclusion_panel_referrals(request):
         'referrals': referrals,
         'status_choices': InclusionReferral.STATUS_CHOICES,
         'staff_list': staff_queryset_for_school_key(school_key),
-        'name_filter': name_filter,
-        'student_filter': student_filter or '',
-        'status_filter': status_filter,
-        'stage_filter': stage_filter,
+        **filters.context,
         'stage_choices': stage_choices,
-        'raised_by_filter': raised_by_filter,
-        'academic_year_filter': academic_year_filter,
         'academic_year_choices': academic_year_choices,
-        'term_filter': term_filter,
         'term_choices': term_choices,
         'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
-        'concern_filter': concern_filter,
         'concern_choices': concern_question.choice_list() if concern_question else [],
-        'priority_filter': priority_filter,
         'priority_choices': InclusionReferral.PRIORITY_CHOICES,
-        'panel_group_filter': panel_group_filter,
         'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school').order_by('name'),
-        'overdue_actions_filter': overdue_actions_filter,
         'years': years,
-        'year_filter': year_filter,
         'forms': forms,
         'forms_by_year_json': json.dumps(forms_by_year),
         'has_houses': has_houses,
         'houses': houses,
-        'house_filter': house_filter,
-        'reg_filter': reg_filter,
-        'active_filter_count': active_filter_count,
+        'active_filter_count': filters.active_count,
         'students_count': total_students_count,
         'referrals_count': total_referrals_count,
         'actions_count': total_actions_count,
@@ -1896,6 +1853,43 @@ def inclusion_panel_referral_escalate(request, referral_id):
     })
 
 
+# The Escalations dashboard's filters. Modelled on Referrals (live feedback:
+# "lets do escalations page, this can be modelled after the Referrals page"),
+# with every field path walked one hop further through Escalation.referral.
+# No House/Reg: both are school-internal pastoral groupings with no meaning
+# MAT-wide, unlike Year Group.
+ESCALATION_FILTERS = FilterSet(
+    Filter(
+        'student',
+        apply=lambda qs, v, vals: qs.filter(referral__student_id=int(v)),
+        active=lambda v: v.isdigit(),
+        counts=lambda v: False,
+        context_value=lambda v: int(v) if v.isdigit() else '',
+    ),
+    Filter(
+        'name',
+        apply=lambda qs, v, vals: qs.filter(_token_name_filter(
+            v.split(), 'referral__student__first_name', 'referral__student__last_name',
+            'referral__student__admission_number',
+        )),
+        superseded_by=('student',),
+    ),
+    Filter('status', equals('status')),
+    Filter('escalated_by', apply=lambda qs, v, vals: (
+        qs.filter(escalated_by__isnull=True) if v == 'unassigned'
+        else qs.filter(escalated_by_id=v)
+    )),
+    Filter('concern', apply=lambda qs, v, vals: qs.filter(
+        referral__responses__question__label='Main Concern Category',
+        referral__responses__answer=v,
+    )),
+    Filter('priority', equals('referral__priority')),
+    Filter('academic_year'),
+    Filter('term'),
+    Filter('year', equals('referral__student__year_group')),
+)
+
+
 def inclusion_panel_escalations(request):
     # Modelled directly on inclusion_panel_referrals (live feedback: "lets
     # do escalations page, this can be modelled after the Referrals page")
@@ -1909,15 +1903,9 @@ def inclusion_panel_escalations(request):
     scoped_students = student_queryset_for_school_key(school_key)
     today = timezone.localdate()
 
-    name_filter = request.GET.get('name') or ''
-    student_filter = _student_id_filter(request)
-    status_filter = request.GET.get('status') or ''
-    escalated_by_filter = request.GET.get('escalated_by') or ''
-    concern_filter = request.GET.get('concern') or ''
-    priority_filter = request.GET.get('priority') or ''
-    year_filter = request.GET.get('year') or ''
-    academic_year_filter = request.GET.get('academic_year') or ''
-    term_filter = request.GET.get('term') or ''
+    filters = ESCALATION_FILTERS.bind(request)
+    academic_year_filter = filters['academic_year']
+    term_filter = filters['term']
 
     academic_years_present = {
         ay.id: ay for ay in AcademicYear.objects.filter(
@@ -1933,7 +1921,7 @@ def inclusion_panel_escalations(request):
     # call as Referrals'/Meetings' own identical comment.
     current_academic_year = AcademicYear.for_date(today).id
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
-        academic_year_filter = ''
+        academic_year_filter = filters.set_value('academic_year', '')
 
     school_ids_for_terms = list(scoped_students.order_by().values_list('school_id', flat=True).distinct())
     # escalated_at (Escalation's own field), not the referral's created_at -
@@ -1944,6 +1932,7 @@ def inclusion_panel_escalations(request):
         school_ids_for_terms, academic_years_present.keys(), term_filter, academic_year_filter,
         'escalated_at', 'referral__student__school_id',
     )
+    filters.set_value('term', term_filter)
 
     # Year only - not House/Reg (live feedback: "MAT level are not going to
     # care about house and reg" - both are school-internal pastoral
@@ -1962,30 +1951,7 @@ def inclusion_panel_escalations(request):
         escalations_qs = escalations_qs.filter(referral__referral__academic_year_id=academic_year_filter)
     if term_q is not None:
         escalations_qs = escalations_qs.filter(term_q)
-    if student_filter:
-        escalations_qs = escalations_qs.filter(referral__student_id=student_filter)
-    elif name_filter:
-        escalations_qs = escalations_qs.filter(
-            _token_name_filter(
-                name_filter.split(),
-                'referral__student__first_name', 'referral__student__last_name', 'referral__student__admission_number',
-            )
-        )
-    if status_filter:
-        escalations_qs = escalations_qs.filter(status=status_filter)
-    if escalated_by_filter == 'unassigned':
-        escalations_qs = escalations_qs.filter(escalated_by__isnull=True)
-    elif escalated_by_filter:
-        escalations_qs = escalations_qs.filter(escalated_by_id=escalated_by_filter)
-    if concern_filter:
-        escalations_qs = escalations_qs.filter(
-            referral__responses__question__label='Main Concern Category', referral__responses__answer=concern_filter
-        )
-    if priority_filter:
-        escalations_qs = escalations_qs.filter(referral__priority=priority_filter)
-    if year_filter:
-        escalations_qs = escalations_qs.filter(referral__student__year_group=year_filter)
-    escalations_qs = escalations_qs.distinct()
+    escalations_qs = filters.narrow(escalations_qs).distinct()
 
     # Totals for the stats-strip - computed against the full filtered
     # queryset before pagination slices it down, same convention as
@@ -2014,13 +1980,6 @@ def inclusion_panel_escalations(request):
         escalation.next_panel_group = next_panel.panel_group if next_panel else None
         escalation.next_panel_date = next_panel.date if next_panel else None
 
-    active_filter_count = sum(
-        1 for v in (
-            name_filter, status_filter, escalated_by_filter, concern_filter, priority_filter,
-            academic_year_filter, term_filter, year_filter,
-        ) if v
-    )
-
     concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
     running_mat_panel = _mat_panel_running()
 
@@ -2029,22 +1988,14 @@ def inclusion_panel_escalations(request):
         'escalations': escalations,
         'status_choices': Escalation.STATUS_CHOICES,
         'staff_list': staff_queryset_for_school_key(school_key),
-        'name_filter': name_filter,
-        'student_filter': student_filter or '',
-        'status_filter': status_filter,
-        'escalated_by_filter': escalated_by_filter,
-        'academic_year_filter': academic_year_filter,
+        **filters.context,
         'academic_year_choices': academic_year_choices,
-        'term_filter': term_filter,
         'term_choices': term_choices,
         'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
-        'concern_filter': concern_filter,
         'concern_choices': concern_question.choice_list() if concern_question else [],
-        'priority_filter': priority_filter,
         'priority_choices': InclusionReferral.PRIORITY_CHOICES,
         'years': years,
-        'year_filter': year_filter,
-        'active_filter_count': active_filter_count,
+        'active_filter_count': filters.active_count,
         'students_count': total_students_count,
         'escalations_count': total_escalations_count,
         'resolved_count': total_resolved_count,
@@ -2130,6 +2081,75 @@ def inclusion_panel_escalation_quick_launch(request, escalation_id):
     return redirect(reverse('inclusion_panel_discussion', kwargs={'panel_referral_id': pr.id}) + '?discussion_started=1')
 
 
+# The Actions dashboard's filters. `due` is the one that isn't a field
+# match: it consolidates the old separate Overdue Only / Due This Week
+# toggles into one dropdown of relative date tiers (issue #13), each
+# resolved against today at request time.
+def _due_window(qs, value, values):
+    today = timezone.localdate()
+    week_start = today - datetime.timedelta(days=today.weekday())
+    week_end = week_start + datetime.timedelta(days=6)
+    if value == 'overdue':
+        return qs.filter(status='incomplete', due_date__lt=today)
+    if value == 'today':
+        return qs.filter(due_date=today)
+    if value == 'this_week':
+        return qs.filter(due_date__gte=week_start, due_date__lte=week_end)
+    if value == 'next_week':
+        return qs.filter(
+            due_date__gte=week_start + datetime.timedelta(days=7),
+            due_date__lte=week_end + datetime.timedelta(days=7),
+        )
+    if value == 'no_due_date':
+        return qs.filter(due_date__isnull=True)
+    return qs
+
+
+ACTION_FILTERS = FilterSet(
+    Filter(
+        'student',
+        apply=lambda qs, v, vals: qs.filter(referral__student_id=int(v)),
+        active=lambda v: v.isdigit(),
+        counts=lambda v: False,
+        context_value=lambda v: int(v) if v.isdigit() else '',
+    ),
+    Filter(
+        'name',
+        apply=lambda qs, v, vals: qs.filter(_token_name_filter(
+            v.split(), 'referral__student__first_name', 'referral__student__last_name',
+            'referral__student__admission_number',
+        )),
+        superseded_by=('student',),
+    ),
+    Filter('category', equals('category_id')),
+    Filter('assigned', apply=lambda qs, v, vals: (
+        qs.filter(assigned_to_staff__isnull=True) if v == 'unassigned'
+        else qs.filter(assigned_to_staff_id=v)
+    )),
+    # Who raised the referral this action belongs to - not the action's own
+    # Assigned To (who is doing the task).
+    Filter('referred_by', apply=lambda qs, v, vals: (
+        qs.filter(referral__raised_by__isnull=True) if v == 'unassigned'
+        else qs.filter(referral__raised_by_id=v)
+    )),
+    # Same derived (not stored) lookup as the Referrals dashboard's own
+    # concern filter - see InclusionReferral.primary_concern_category.
+    Filter('concern', apply=lambda qs, v, vals: qs.filter(
+        referral__responses__question__label='Main Concern Category',
+        referral__responses__answer=v,
+    )),
+    Filter('status', equals('status')),
+    Filter('due', apply=_due_window),
+    Filter('academic_year'),
+    Filter('term'),
+    # Group Info: the referred student's own cohort fields, same params and
+    # choices as the Students dashboard's own Group Info group.
+    Filter('year', equals('referral__student__year_group')),
+    Filter('house', equals('referral__student__house')),
+    Filter('reg', equals('referral__student__reg_form')),
+)
+
+
 def inclusion_panel_actions(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
@@ -2141,32 +2161,9 @@ def inclusion_panel_actions(request):
     next_week_start = week_start + datetime.timedelta(days=7)
     next_week_end = week_end + datetime.timedelta(days=7)
 
-    name_filter = request.GET.get('name') or ''
-    student_filter = _student_id_filter(request)
-    category_filter = request.GET.get('category') or ''
-    assigned_filter = request.GET.get('assigned') or ''
-    # Who raised the referral this action belongs to - not the action's own
-    # Assigned To (who's doing the task). Replaces the old Name dropdown in
-    # the Referrals group (live feedback: "lose name from Referrals, could
-    # have Referred by added instead" - Name itself moved to the sticky-row
-    # Search field below instead of staying a bounded dropdown).
-    referred_by_filter = request.GET.get('referred_by') or ''
-    # Same derived (not stored) lookup as inclusion_panel_referrals' own
-    # concern_filter - matches the linked referral's answer to the question
-    # literally labeled 'Main Concern Category', see InclusionReferral.primary_concern_category.
-    concern_filter = request.GET.get('concern') or ''
-    status_filter = request.GET.get('status') or ''
-    # Due Date consolidates the old separate Overdue Only/Due This Week
-    # toggles into one dropdown with a few more tiers (issue #13).
-    due_filter = request.GET.get('due') or ''
-    academic_year_filter = request.GET.get('academic_year') or ''
-    term_filter = request.GET.get('term') or ''
-    # Group Info (live feedback, same as Referrals - #grill-with-docs
-    # session): the referred student's own cohort fields, same params/
-    # choices as inclusion_panel_students' own Group Info group.
-    year_filter = request.GET.get('year') or ''
-    house_filter = request.GET.get('house') or ''
-    reg_filter = request.GET.get('reg') or ''
+    filters = ACTION_FILTERS.bind(request)
+    academic_year_filter = filters['academic_year']
+    term_filter = filters['term']
 
     scoped_students = student_queryset_for_school_key(school_key)
     # Option lists computed from the school-scoped set, before the filters
@@ -2204,7 +2201,7 @@ def inclusion_panel_actions(request):
     # no longer drives a default filter.
     current_academic_year = AcademicYear.for_date(today).id
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
-        academic_year_filter = ''
+        academic_year_filter = filters.set_value('academic_year', '')
     if academic_year_filter:
         actions_qs = actions_qs.filter(academic_year_id=academic_year_filter)
 
@@ -2220,47 +2217,7 @@ def inclusion_panel_actions(request):
     if term_q is not None:
         actions_qs = actions_qs.filter(term_q)
 
-    if student_filter:
-        actions_qs = actions_qs.filter(referral__student_id=student_filter)
-    elif name_filter:
-        actions_qs = actions_qs.filter(
-            _token_name_filter(
-                name_filter.split(),
-                'referral__student__first_name', 'referral__student__last_name', 'referral__student__admission_number',
-            )
-        )
-    if category_filter:
-        actions_qs = actions_qs.filter(category_id=category_filter)
-    if assigned_filter == 'unassigned':
-        actions_qs = actions_qs.filter(assigned_to_staff__isnull=True)
-    elif assigned_filter:
-        actions_qs = actions_qs.filter(assigned_to_staff_id=assigned_filter)
-    if referred_by_filter == 'unassigned':
-        actions_qs = actions_qs.filter(referral__raised_by__isnull=True)
-    elif referred_by_filter:
-        actions_qs = actions_qs.filter(referral__raised_by_id=referred_by_filter)
-    if concern_filter:
-        actions_qs = actions_qs.filter(
-            referral__responses__question__label='Main Concern Category', referral__responses__answer=concern_filter
-        )
-    if status_filter:
-        actions_qs = actions_qs.filter(status=status_filter)
-    if due_filter == 'overdue':
-        actions_qs = actions_qs.filter(status='incomplete', due_date__lt=today)
-    elif due_filter == 'today':
-        actions_qs = actions_qs.filter(due_date=today)
-    elif due_filter == 'this_week':
-        actions_qs = actions_qs.filter(due_date__gte=week_start, due_date__lte=week_end)
-    elif due_filter == 'next_week':
-        actions_qs = actions_qs.filter(due_date__gte=next_week_start, due_date__lte=next_week_end)
-    elif due_filter == 'no_due_date':
-        actions_qs = actions_qs.filter(due_date__isnull=True)
-    if year_filter:
-        actions_qs = actions_qs.filter(referral__student__year_group=year_filter)
-    if house_filter:
-        actions_qs = actions_qs.filter(referral__student__house=house_filter)
-    if reg_filter:
-        actions_qs = actions_qs.filter(referral__student__reg_form=reg_filter)
+    actions_qs = filters.narrow(actions_qs)
     # distinct() - concern_filter above joins across referral__responses, a
     # reverse multi-valued relation, which can otherwise fan out one Action
     # into duplicate rows the same way referrals_qs' own multi-valued joins
@@ -2341,12 +2298,6 @@ def inclusion_panel_actions(request):
         action.referral.review_pill_label, action.referral.review_pill_class = _referral_review_pill(action.referral)
         action.referral.escalation_pill_label, action.referral.escalation_pill_class = _referral_escalation_pill(action.referral)
 
-    active_filter_count = sum(
-        1 for v in (
-            name_filter, category_filter, assigned_filter, referred_by_filter, concern_filter, status_filter,
-            due_filter, academic_year_filter, term_filter, year_filter, house_filter, reg_filter,
-        ) if v
-    )
 
     concern_question = ReferralQuestion.objects.filter(label='Main Concern Category', is_active=True).first()
 
@@ -2360,29 +2311,17 @@ def inclusion_panel_actions(request):
         'today': today,
         'week_start': week_start,
         'week_end': week_end,
-        'name_filter': name_filter,
-        'student_filter': student_filter or '',
-        'category_filter': category_filter,
-        'assigned_filter': assigned_filter,
-        'referred_by_filter': referred_by_filter,
-        'concern_filter': concern_filter,
+        **filters.context,
         'concern_choices': concern_question.choice_list() if concern_question else [],
-        'status_filter': status_filter,
-        'due_filter': due_filter,
-        'academic_year_filter': academic_year_filter,
         'academic_year_choices': academic_year_choices,
-        'term_filter': term_filter,
         'term_choices': term_choices,
         'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
         'years': years,
-        'year_filter': year_filter,
         'forms': forms,
         'forms_by_year_json': json.dumps(forms_by_year),
         'has_houses': has_houses,
         'houses': houses,
-        'house_filter': house_filter,
-        'reg_filter': reg_filter,
-        'active_filter_count': active_filter_count,
+        'active_filter_count': filters.active_count,
         'actions_count': total_actions_count,
         'students_count': total_students_count,
         'referrals_count': total_referrals_count,
@@ -2501,10 +2440,10 @@ def inclusion_panel_referral_question_settings(request):
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         action = request.POST.get('form_action')
-        if action == 'add_category':
+        if action == form_actions.ADD_CATEGORY:
             next_order = (ReferralCategory.objects.aggregate(Max('order'))['order__max'] or 0) + 1
             ReferralCategory.objects.create(name=request.POST.get('name', ''), order=next_order)
-        elif action == 'add_question':
+        elif action == form_actions.ADD_QUESTION:
             category_id = request.POST.get('category') or None
             next_order = (
                 ReferralQuestion.objects.filter(category_id=category_id).aggregate(Max('order'))['order__max'] or 0
@@ -2516,9 +2455,9 @@ def inclusion_panel_referral_question_settings(request):
                 label=request.POST.get('label', ''),
                 order=next_order,
             )
-        elif action == 'deactivate_category':
+        elif action == form_actions.DEACTIVATE_CATEGORY:
             ReferralCategory.objects.filter(pk=request.POST.get('category_id')).update(is_active=False)
-        elif action == 'deactivate_question':
+        elif action == form_actions.DEACTIVATE_QUESTION:
             ReferralQuestion.objects.filter(pk=request.POST.get('question_id')).update(is_active=False)
             if is_ajax:
                 return JsonResponse({'success': True})
@@ -2536,7 +2475,7 @@ def inclusion_panel_referral_question_settings(request):
 def inclusion_panel_action_category_settings(request):
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action == 'add_category':
+        if action == form_actions.ADD_CATEGORY:
             next_order = (ActionCategory.objects.aggregate(Max('order'))['order__max'] or 0) + 1
             ActionCategory.objects.create(
                 name=request.POST.get('name', ''),
@@ -2544,12 +2483,12 @@ def inclusion_panel_action_category_settings(request):
                 auto_assign_job_title=request.POST.get('auto_assign_job_title', ''),
                 is_sensitive=bool(request.POST.get('is_sensitive')),
             )
-        elif action == 'add_preset_category':
+        elif action == form_actions.ADD_PRESET_CATEGORY:
             name = request.POST.get('name', '')
             if name in ACTION_CATEGORY_PRESETS and not ActionCategory.objects.filter(name__iexact=name).exists():
                 next_order = (ActionCategory.objects.aggregate(Max('order'))['order__max'] or 0) + 1
                 ActionCategory.objects.create(name=name, order=next_order)
-        elif action == 'deactivate_category':
+        elif action == form_actions.DEACTIVATE_CATEGORY:
             ActionCategory.objects.filter(pk=request.POST.get('category_id')).update(is_active=False)
         return redirect('inclusion_panel_action_category_settings')
 
@@ -2565,7 +2504,7 @@ def inclusion_panel_action_category_settings(request):
 def inclusion_panel_group_settings(request):
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action == 'deactivate_group':
+        if action == form_actions.DEACTIVATE_GROUP:
             PanelGroup.objects.filter(pk=request.POST.get('group_id')).update(is_active=False)
         return redirect('inclusion_panel_group_settings')
 
@@ -2628,7 +2567,7 @@ def inclusion_panel_group_edit(request, group_id=None):
             return redirect('inclusion_panel_group_settings')
 
         action = request.POST.get('form_action')
-        if action == 'update_group_name':
+        if action == form_actions.UPDATE_GROUP_NAME:
             name = request.POST.get('name', '').strip()
             duplicate = not name or PanelGroup.objects.filter(
                 is_active=True, name__iexact=name, school_id=group.school_id,
@@ -2639,14 +2578,14 @@ def inclusion_panel_group_edit(request, group_id=None):
                 return redirect(_safe_next(request, 'inclusion_panel_group_settings'))
             group.name = name
             group.save(update_fields=['name'])
-        elif action == 'update_group_chair':
+        elif action == form_actions.UPDATE_GROUP_CHAIR:
             group.default_chair_id = request.POST.get('default_chair') or None
             group.save(update_fields=['default_chair'])
-        elif action == 'update_member_expertise':
+        elif action == form_actions.UPDATE_MEMBER_EXPERTISE:
             member = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group=group)
             member.expertise_id = request.POST.get('expertise') or None
             member.save(update_fields=['expertise'])
-        elif action == 'add_group_member':
+        elif action == form_actions.ADD_GROUP_MEMBER:
             staff_id = request.POST.get('staff') or None
             external_contact_id = request.POST.get('external_contact') or None
             expertise_id = request.POST.get('expertise') or None
@@ -2663,7 +2602,7 @@ def inclusion_panel_group_edit(request, group_id=None):
                     panel_group=group, external_contact_id=external_contact_id,
                     defaults={'expertise_id': expertise_id, 'is_active': True, 'deactivated_at': None},
                 )
-        elif action == 'toggle_group_member_active':
+        elif action == form_actions.TOGGLE_GROUP_MEMBER_ACTIVE:
             member = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group=group)
             member.is_active = not member.is_active
             member.deactivated_at = timezone.now() if not member.is_active else None
@@ -2722,13 +2661,13 @@ def inclusion_panel_expertise_settings(request):
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         action = request.POST.get('form_action')
-        if action == 'add_expertise':
+        if action == form_actions.ADD_EXPERTISE:
             name = request.POST.get('name', '').strip()
             next_order = (Expertise.objects.aggregate(Max('order'))['order__max'] or 0) + 1
             expertise = Expertise.objects.create(name=name, order=next_order)
             if is_ajax:
                 return JsonResponse({'success': True, 'expertise': {'id': expertise.id, 'name': expertise.name}})
-        elif action == 'deactivate_expertise':
+        elif action == form_actions.DEACTIVATE_EXPERTISE:
             Expertise.objects.filter(pk=request.POST.get('expertise_id')).update(is_active=False)
             if is_ajax:
                 return JsonResponse({'success': True})
@@ -2774,26 +2713,60 @@ def _effective_chair_q(staff_id):
     )
 
 
+# The Panel Meetings dashboard's filters.
+#
+# `term` declares itself here for the badge and the context but narrows in
+# Python further down, not here: which Term row is "this panel's term"
+# depends on a per-panel school resolution, so there is no one date range
+# every panel can be filtered against at the DB level (#121).
+#
+# `my_meetings` needs the viewer, which a FilterSet doesn't carry, so its
+# `apply` is built per request by _meeting_filters() below.
+def _meeting_filters(current_staff, my_group_ids):
+    """Meetings' filters, closed over who is asking.
+
+    Chair and My Meetings both resolve against the current identity, so the
+    set is built per request rather than at import. Everything else is a
+    plain field match and reads the same as the other dashboards.
+    """
+    return FilterSet(
+        Filter('panel_group', equals('panel_group_id')),
+        Filter('chair', apply=lambda qs, v, vals: qs.filter(_effective_chair_q(v))),
+        Filter('academic_year', equals('academic_year_id')),
+        Filter('term'),
+        Filter('status', equals('status')),
+        Filter(
+            'my_meetings',
+            apply=lambda qs, v, vals: qs.filter(
+                _effective_chair_q(current_staff.id) | Q(panel_group_id__in=my_group_ids)
+            ),
+            # Only meaningful with an identity to be - the old expression
+            # folded that `and current_staff is not None` into the value
+            # itself, which is why the context key was a bool.
+            active=lambda v: v == '1' and current_staff is not None,
+            context_value=lambda v: v == '1' and current_staff is not None,
+        ),
+    )
+
+
 def inclusion_panel_meetings(request):
-    reconcile.reconcile_panels()
+    reconcile.reconcile_on_read()
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     today = timezone.localdate()
     school_key = current_school_key(request)
     is_aggregate_view = is_aggregate_school_key(school_key)
     current_staff = _current_staff(request)
 
-    panel_group_filter = request.GET.get('panel_group') or ''
-    chair_filter = request.GET.get('chair') or ''
-    academic_year_filter = request.GET.get('academic_year') or ''
-    term_filter = request.GET.get('term') or ''
-    status_filter = request.GET.get('status') or ''
-    my_meetings_filter = request.GET.get('my_meetings') == '1' and current_staff is not None
-    # Computed once, reused both by the My Meetings filter below and by each
+    # Computed once, reused both by the My Meetings filter and by each
     # card's can_manage flag - same "must be an active member of *this*
     # panel's own group" gate the live Agenda page's Start Meeting uses.
     my_group_ids = set(
         PanelGroupMember.objects.filter(staff=current_staff, is_active=True).values_list('panel_group_id', flat=True)
     ) if current_staff else set()
+
+    filters = _meeting_filters(current_staff, my_group_ids).bind(request)
+    academic_year_filter = filters['academic_year']
+    term_filter = filters['term']
 
     # Option lists computed from the school-scoped set, before the filters
     # below are applied, same convention as inclusion_hub's year_group_choices -
@@ -2919,9 +2892,9 @@ def inclusion_panel_meetings(request):
     # though it no longer drives a default filter.
     current_academic_year = AcademicYear.for_date(today).id
     if academic_year_filter and not any(str(year) == academic_year_filter for year, _ in academic_year_choices):
-        academic_year_filter = ''
+        academic_year_filter = filters.set_value('academic_year', '')
     if term_filter and not any(term_filter == value for value, _ in term_choices):
-        term_filter = ''
+        term_filter = filters.set_value('term', '')
 
     panels = _panels_for_school_key(
         Panel.objects.exclude(status='void').select_related(
@@ -2931,16 +2904,7 @@ def inclusion_panel_meetings(request):
         ).order_by('date'),
         school_key,
     )
-    if panel_group_filter:
-        panels = panels.filter(panel_group_id=panel_group_filter)
-    if chair_filter:
-        panels = panels.filter(_effective_chair_q(chair_filter))
-    if academic_year_filter:
-        panels = panels.filter(academic_year_id=academic_year_filter)
-    if status_filter:
-        panels = panels.filter(status=status_filter)
-    if my_meetings_filter:
-        panels = panels.filter(_effective_chair_q(current_staff.id) | Q(panel_group_id__in=my_group_ids))
+    panels = filters.narrow(panels)
 
     # Batched once for every referral appearing on any panel in this list
     # (rather than one query per panel/card) - same "has this referral been
@@ -3077,29 +3041,21 @@ def inclusion_panel_meetings(request):
     if not is_aggregate_view:
         panel_groups = panel_groups.filter(Q(school_id=school_key) | Q(school__isnull=True))
 
-    active_filter_count = sum(
-        1 for v in (panel_group_filter, chair_filter, academic_year_filter, term_filter, status_filter, my_meetings_filter)
-        if v
-    )
+    active_filter_count = filters.active_count
 
     context = {
         **_panel_base_context(request),
         'meetings': meetings,
         'today': today,
         'is_aggregate_view': is_aggregate_view,
+        **filters.context,
         'panel_groups': panel_groups,
-        'panel_group_filter': panel_group_filter,
         'chair_choices': chair_choices,
-        'chair_filter': chair_filter,
         'academic_year_choices': academic_year_choices,
-        'academic_year_filter': academic_year_filter,
         'current_academic_year': current_academic_year,
         'term_choices': term_choices,
-        'term_filter': term_filter,
         'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
         'status_choices': Panel.STATUS_CHOICES,
-        'status_filter': status_filter,
-        'my_meetings_filter': my_meetings_filter,
         'active_filter_count': active_filter_count,
         # New Panel Meeting is hidden entirely (not disabled) for staff in
         # zero active Panel Groups - same omission convention as
@@ -3184,13 +3140,11 @@ def inclusion_panel_meeting_new(request, panel_id=None):
         my_school_ids = {g.school_id for g in panel_groups if g.school_id}
         has_mat_wide_group = any(g.school_id is None for g in panel_groups)
 
-        school_key = current_school_key(request)
-        if school_key in (None, '', 'all'):
-            sidebar_schools = School.objects.filter(is_active=True, pk__in=my_school_ids)
-        elif school_key in ('primary', 'secondary'):
-            sidebar_schools = School.objects.filter(is_active=True, pk__in=my_school_ids, category=school_key.capitalize())
-        else:
-            sidebar_schools = School.objects.filter(is_active=True, pk__in=my_school_ids, pk=school_key)
+        # via=None: this queryset is of School itself, so the selection
+        # applies to its own columns rather than through a relation.
+        sidebar_schools = SchoolScope(current_school_key(request)).narrow(
+            School.objects.filter(is_active=True, pk__in=my_school_ids), via=None,
+        )
 
         # A MAT-wide group (no school of its own) isn't "from a different
         # school" the way another school's group is, so it's never excluded
@@ -3267,7 +3221,7 @@ def inclusion_panel_meeting_activity_poll(request, panel_id):
         return JsonResponse({'closed': True, 'seconds_remaining': 0})
 
     now = timezone.now()
-    if request.method == 'POST' and request.POST.get('form_action') == 'ping':
+    if request.method == 'POST' and request.POST.get('form_action') == form_actions.PING:
         panel.last_confirmed_at = now
         panel.save(update_fields=['last_confirmed_at'])
 
@@ -3293,7 +3247,7 @@ def inclusion_panel_meeting_delete(request, panel_id):
 
 
 def inclusion_panel_meeting_setup(request, panel_id):
-    reconcile.reconcile_panels()
+    reconcile.reconcile_on_read()
     panel = get_object_or_404(Panel, pk=panel_id)
 
     # 'closed' means fully handled - no outstanding action, no follow-up due
@@ -3341,7 +3295,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
 
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action == 'update_chair':
+        if action == form_actions.UPDATE_CHAIR:
             # Deliberately its own narrow action rather than routing
             # through Panel.update_details() - that method unconditionally
             # overwrites time/panel_group_id too (fine when a shared Save
@@ -3356,7 +3310,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
             panel.save(update_fields=['chair_id', 'chair_follows_default'])
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
-        elif action in ('add_referral', 'add_followup_to_agenda'):
+        elif action in (form_actions.ADD_REFERRAL, form_actions.ADD_FOLLOWUP_TO_AGENDA):
             referral_id = request.POST.get('referral_id')
             pr = None
             if referral_id:
@@ -3375,7 +3329,7 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 # with a reorder_agenda call to place the new row where the
                 # user actually dropped it, rather than always at the bottom.
                 return JsonResponse({'success': True, 'panel_referral_id': pr.id if pr else None})
-        elif action == 'remove_referral_from_agenda':
+        elif action == form_actions.REMOVE_REFERRAL_FROM_AGENDA:
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             # Already-discussed or deferred referrals are a historical
             # record of this meeting, not agenda composition - removing one
@@ -3387,15 +3341,15 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 lifecycle.remove_from_agenda(pr, request.POST.get('removed_by') or None)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
-        elif action == 'update_priority':
+        elif action == form_actions.UPDATE_PRIORITY:
             lifecycle.set_referral_priority(request.POST.get('referral_id'), request.POST.get('priority', ''))
-        elif action == 'reorder_agenda':
+        elif action == form_actions.REORDER_AGENDA:
             lifecycle.reorder_panel_referrals(panel, request.POST.getlist('panel_referral_id'))
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
-        elif action == 'move_agenda_referral':
+        elif action == form_actions.MOVE_AGENDA_REFERRAL:
             _move_agenda_referral(agenda, request.POST.get('panel_referral_id'), request.POST.get('direction'))
-        elif action == 'toggle_ready':
+        elif action == form_actions.TOGGLE_READY:
             if panel.status == 'draft':
                 panel.status = 'ready'
             elif panel.status == 'ready':
@@ -3531,13 +3485,16 @@ def inclusion_panel_meeting_setup(request, panel_id):
 
 
 def inclusion_panel_meeting_agenda(request, panel_id):
-    reconcile.reconcile_panels()
+    reconcile.reconcile_on_read()
     panel = get_object_or_404(Panel, pk=panel_id)
     today = timezone.localdate()
 
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action in ('start_meeting', 'reschedule_to_now', 'check_in', 'mark_left'):
+        if action in (
+            form_actions.START_MEETING, form_actions.RESCHEDULE_TO_NOW,
+            form_actions.CHECK_IN, form_actions.MARK_LEFT,
+        ):
             # Shared with the AJAX Attendance dialog opened from the Panel
             # Meetings list (inclusion_panel_meeting_attendance) - see
             # _apply_attendance_action. Checked against panel.status, not
@@ -3549,7 +3506,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             # 'running' with nothing on it to discuss - see agenda_is_empty
             # below for the UI-side mirror.
             _apply_attendance_action(request, panel, action)
-        elif action == 'unassign_referral':
+        elif action == form_actions.UNASSIGN_REFERRAL:
             # Removing from the agenda, like reorder above, only makes sense
             # pre-meeting-end - the corner Remove button is already hidden
             # once agenda_readonly (meeting_agenda.html), this is the same
@@ -3560,10 +3517,10 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                 lifecycle.remove_from_agenda(pr, request.POST.get('removed_by') or None)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': removed})
-        elif action == 'update_priority':
+        elif action == form_actions.UPDATE_PRIORITY:
             if not lifecycle.panel_is_ended(panel):
                 lifecycle.set_referral_priority(request.POST.get('referral_id'), request.POST.get('priority', ''))
-        elif action == 'update_review_date':
+        elif action == form_actions.UPDATE_REVIEW_DATE:
             # Not gated on follow_up_status already being 'incomplete' -
             # setting/rescheduling a date always (re)activates the follow-up
             # (#111). This is also how a Complete row's Schedule Review
@@ -3581,13 +3538,13 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                     pr.follow_up_status = 'incomplete'
                 pr.save(update_fields=['follow_up_date', 'follow_up_status'])
                 lifecycle.sync_referral_status(pr.referral)
-        elif action == 'cancel_followup':
+        elif action == form_actions.CANCEL_FOLLOWUP:
             pr = get_object_or_404(PanelReferral, pk=request.POST.get('panel_referral_id'), panel=panel)
             pr.follow_up_date = None
             pr.follow_up_status = ''
             pr.save(update_fields=['follow_up_date', 'follow_up_status'])
             lifecycle.sync_referral_status(pr.referral)
-        elif action == 'reorder_agenda':
+        elif action == form_actions.REORDER_AGENDA:
             # Reordering only makes sense while the meeting's still live - the
             # UI already hides drag/up-down once agenda_readonly (see
             # meeting_agenda.html), this is the same gate server-side so a
@@ -3597,13 +3554,13 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                 lifecycle.reorder_panel_referrals(panel, request.POST.getlist('panel_referral_id'))
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': not lifecycle.panel_is_ended(panel)})
-        elif action == 'move_agenda_referral':
+        elif action == form_actions.MOVE_AGENDA_REFERRAL:
             if not lifecycle.panel_is_ended(panel):
                 pending_siblings = panel.panel_referrals.filter(
                     removed_at__isnull=True, discussion_status='pending'
                 ).order_by('agenda_order', 'id')
                 _move_agenda_referral(pending_siblings, request.POST.get('panel_referral_id'), request.POST.get('direction'))
-        elif action == 'end_panel_meeting':
+        elif action == form_actions.END_PANEL_MEETING:
             # Freeze whatever chair this panel was following into a plain
             # snapshot before completing it - a completed panel's chair is a
             # historical record and must not keep moving if the group's
@@ -3632,7 +3589,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
             panel.ended_at = timezone.now()
             panel.save()
             return redirect('inclusion_panel_meetings')
-        elif action == 'start_discussion':
+        elif action == form_actions.START_DISCUSSION:
             # The only place a discussion timer is allowed to start/resume -
             # opening the Discussion page itself (a GET, e.g. from Referral
             # Details' "View Discussion Page" link, a refresh, or browser
@@ -3811,7 +3768,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
 
 
 def inclusion_panel_discussion(request, panel_referral_id):
-    reconcile.reconcile_panels()
+    reconcile.reconcile_on_read()
     panel_referral = get_object_or_404(
         PanelReferral.objects.select_related('referral__student', 'referral__raised_by', 'panel'),
         pk=panel_referral_id,
@@ -3823,14 +3780,14 @@ def inclusion_panel_discussion(request, panel_referral_id):
 
     if request.method == 'POST':
         action = request.POST.get('form_action')
-        if action == 'mark_discussed':
+        if action == form_actions.MARK_DISCUSSED:
             lifecycle.mark_discussed(
                 panel_referral,
                 requires_followup=request.POST.get('requires_followup') == 'yes',
                 follow_up_date=request.POST.get('follow_up_date') or None,
             )
             return redirect('inclusion_panel_meeting_agenda', panel_id=panel_referral.panel_id)
-        elif action == 'add_panel_note':
+        elif action == form_actions.ADD_PANEL_NOTE:
             body = request.POST.get('body', '').strip()
             if body:
                 PanelReferralNote.objects.create(
@@ -3838,7 +3795,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
                     author_id=request.POST.get('author') or None,
                     body=body,
                 )
-        elif action == 'add_safeguarding_note':
+        elif action == form_actions.ADD_SAFEGUARDING_NOTE:
             # Writing is gated to is_dsl (visibility-only, like every other
             # role gate in this app - see core.models.Staff.is_dsl); reading
             # stays at the coarser is_panel_staff level everywhere else this
@@ -4074,9 +4031,9 @@ def _safeguarding_note_rows(
     # notes. 'history' is that student's retired notes, most-recently-retired
     # first, replacing the old per-panel 'other_briefings' split.
     #
-    # reconcile.reconcile_panels() is called here rather than assumed fresh from
+    # reconcile.reconcile_on_read() is called here rather than assumed fresh from
     # another page's load, same as inclusion_panel_meetings.
-    reconcile.reconcile_panels()
+    reconcile.reconcile_on_read()
     school_key = current_school_key(request)
     qs = _upcoming_panel_referrals_qs(school_key)
     if name_filter:
@@ -4151,6 +4108,32 @@ def _safeguarding_note_extra_context(request):
     }
 
 
+# The Safeguarding Notes screen's filters.
+#
+# Partial adoption, deliberately: the reading, the badge count and the
+# context keys come from here, but the narrowing stays inside
+# _safeguarding_note_rows, which builds rows per (student, upcoming panel)
+# pair rather than filtering one queryset. Three of the four restatements
+# go; the fourth is a different shape of problem and is left alone.
+#
+# Three context keys don't follow the `<param>_filter` convention the other
+# dashboards use - panel_group/sen_status/is_pp render as group_filter/
+# sen_filter/pp_filter - so they say so explicitly rather than being
+# renamed, which would mean touching the templates.
+SAFEGUARDING_FILTERS = FilterSet(
+    Filter('name'),
+    Filter('panel_group', context_key='group_filter'),
+    Filter('year'),
+    Filter('house'),
+    Filter('reg'),
+    Filter('sen_status', context_key='sen_filter'),
+    Filter('gender'),
+    Filter('ethnicity'),
+    Filter('is_pp', context_key='pp_filter'),
+    Filter('not_ready', active=TICKED, context_value=TICKED),
+)
+
+
 def inclusion_panel_safeguarding_notes(request):
     # DSL-only screen (LWLAT-Portal#71/#74): students on upcoming panels,
     # left column, MAT-wide/school-switcher scoped; selected student's
@@ -4169,16 +4152,17 @@ def inclusion_panel_safeguarding_notes(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
 
-    name_filter = request.GET.get('name') or ''
-    group_filter = request.GET.get('panel_group') or ''
-    year_filter = request.GET.get('year') or ''
-    house_filter = request.GET.get('house') or ''
-    reg_filter = request.GET.get('reg') or ''
-    sen_filter = request.GET.get('sen_status') or ''
-    gender_filter = request.GET.get('gender') or ''
-    ethnicity_filter = request.GET.get('ethnicity') or ''
-    pp_filter = request.GET.get('is_pp') or ''
-    not_ready_filter = request.GET.get('not_ready') == '1'
+    filters = SAFEGUARDING_FILTERS.bind(request)
+    name_filter = filters['name']
+    group_filter = filters['panel_group']
+    year_filter = filters['year']
+    house_filter = filters['house']
+    reg_filter = filters['reg']
+    sen_filter = filters['sen_status']
+    gender_filter = filters['gender']
+    ethnicity_filter = filters['ethnicity']
+    pp_filter = filters['is_pp']
+    not_ready_filter = filters['not_ready'] == '1'
 
     rows = _safeguarding_note_rows(
         request,
@@ -4245,12 +4229,6 @@ def inclusion_panel_safeguarding_notes(request):
     preserved_params.pop('panel_referral', None)
     filter_qs = preserved_params.urlencode()
 
-    active_filter_count = sum(
-        1 for v in (
-            name_filter, group_filter, year_filter, house_filter, reg_filter,
-            sen_filter, gender_filter, ethnicity_filter, pp_filter, not_ready_filter,
-        ) if v
-    )
 
     context = {
         **_panel_base_context(request),
@@ -4269,17 +4247,8 @@ def inclusion_panel_safeguarding_notes(request):
         'ethnicity_choices': ethnicity_choices,
         'selected_row': selected_row,
         'filter_qs': filter_qs,
-        'name_filter': name_filter,
-        'group_filter': group_filter,
-        'year_filter': year_filter,
-        'house_filter': house_filter,
-        'reg_filter': reg_filter,
-        'sen_filter': sen_filter,
-        'gender_filter': gender_filter,
-        'ethnicity_filter': ethnicity_filter,
-        'pp_filter': pp_filter,
-        'not_ready_filter': not_ready_filter,
-        'active_filter_count': active_filter_count,
+        **filters.context,
+        'active_filter_count': filters.active_count,
     }
     # Selecting a student (below, safeguarding_notes.html's own script) now
     # fetches instead of following the row's href as a real navigation - the
@@ -4327,26 +4296,26 @@ def inclusion_panel_safeguarding_notes_mutate(request, panel_referral_id):
     if request.method == 'POST' and current_staff and current_staff.is_dsl:
         student = panel_referral.referral.student
         form_action = request.POST.get('form_action')
-        if form_action == 'add':
+        if form_action == form_actions.ADD:
             text = request.POST.get('text', '').strip()
             if text:
                 SafeguardingNote.objects.create(student=student, author=current_staff, text=text)
-        elif form_action == 'edit':
+        elif form_action == form_actions.EDIT:
             note = _active_student_note(student, request.POST.get('note_id'))
             text = request.POST.get('text', '').strip()
             if note and text:
                 note.supersede(current_staff, text)
-        elif form_action == 'delete':
+        elif form_action == form_actions.DELETE:
             note = _active_student_note(student, request.POST.get('note_id'))
             reason = request.POST.get('retirement_reason')
             valid_reasons = dict(SafeguardingNote.manual_retirement_choices())
             if note and reason in valid_reasons:
                 note.retire(current_staff, reason, request.POST.get('retirement_note', '').strip())
-        elif form_action == 'reactivate':
+        elif form_action == form_actions.REACTIVATE:
             note = _reactivatable_student_note(student, request.POST.get('note_id'))
             if note:
                 note.reactivate(current_staff)
-        elif form_action == 'toggle_ready':
+        elif form_action == form_actions.TOGGLE_READY:
             panel_referral.briefing_ready = not panel_referral.briefing_ready
             panel_referral.save(update_fields=['briefing_ready'])
 
