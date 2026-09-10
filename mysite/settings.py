@@ -46,8 +46,15 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    # 'core' sits above 'django.contrib.staticfiles' deliberately, and moving it
+    # back down silently disables core/management/commands/runserver.py. When two
+    # apps define the same management command Django resolves it to whichever is
+    # listed FIRST, and that override exists to stop the dev server serving stale
+    # static files (see the command's own docstring for the measurements).
+    # Nothing else depends on the order: staticfiles ships no templates and no
+    # static directory of its own, so neither resolution order changes.
     'core',
+    'django.contrib.staticfiles',
     'portal',
     'hubs.services',
     'hubs.registers',
