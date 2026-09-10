@@ -49,7 +49,7 @@ from portal.templatetags.avatar_extras import initials, full_name
 # which of the two it is - these used to be underscore-private functions in
 # this file, and the whole point of moving them out is that a reader can see
 # where a transition lives.
-from . import lifecycle, reconcile
+from . import lifecycle, presenters, reconcile
 from .models import (
     Action,
     ActionCategory,
@@ -607,13 +607,6 @@ def _recent_activity(scoped_students, school_key, limit=8):
     return events
 
 
-def _primary_concern_category(referral):
-    for response in referral.responses.all():
-        if response.question.label == 'Main Concern Category' and response.answer:
-            return response.answer
-    return None
-
-
 def _grouped_questions():
     # Flat (category=None) questions are appended last as a headerless group, so
     # callers/templates can keep iterating one flat list of groups.
@@ -637,7 +630,7 @@ def _split_question_groups(question_groups):
     # pulled out of _grouped_questions()'s plain group list to render
     # separately (always-visible triage field, then top of the "Referral"
     # section) - matched by exact label, same convention already used by
-    # _primary_concern_category() above. Only ever affects display; POST
+    # InclusionReferral.primary_concern_category above. Only ever affects display; POST
     # validation/saving still iterates the original, unsplit question_groups.
     main_concern_question = None
     concern_details_question = None
@@ -916,7 +909,6 @@ def inclusion_panel_home(request):
         referral.actions_count = len(referral.actions.all())
         referral.is_unassigned = _is_referral_unassigned(referral)
         referral.can_delete = referral.is_unassigned
-        referral.concern_category = _primary_concern_category(referral)
         # Discussed count -> review label (Initial Discussion / 1st Review /
         # 2nd Review / ...), same _review_label convention as the Referrals
         # dashboard (inclusion_panel_referrals) - carries real information
@@ -925,10 +917,10 @@ def inclusion_panel_home(request):
         discussed_count = sum(1 for pr in referral.panel_referrals.all() if pr.discussion_status == 'discussed')
         referral.review_label = _review_label(discussed_count) if discussed_count else None
         # Short form ("15m"/"2h 15m"), not the raw DurationField's verbose
-        # str(timedelta) ("0:15:00") - same _format_duration helper the
+        # str(timedelta) ("0:15:00") - same presenters.short_duration helper the
         # meeting card summary elsewhere already uses for this.
         referral.discussed_duration_display = (
-            _format_duration(referral.discussed_pr.duration) if referral.discussed_pr else None
+            presenters.short_duration(referral.discussed_pr.duration) if referral.discussed_pr else None
         )
     referrals_discussed_count = sum(1 for r in my_referrals if r.discussed_pr)
     referrals_awaiting_count = len(my_referrals) - referrals_discussed_count
@@ -1438,7 +1430,6 @@ def inclusion_panel_referrals(request):
         referral.can_delete = (
             referral.is_unassigned and current_staff is not None and referral.raised_by_id == current_staff.id
         )
-        referral.concern_category = _primary_concern_category(referral)
         upcoming_prs = sorted(
             (pr for pr in referral.panel_referrals.all() if pr.removed_at is None and pr.panel.date >= today),
             key=lambda pr: pr.panel.date,
@@ -1611,13 +1602,7 @@ def _referral_detail_context(referral, current_staff):
     discussion_count = len(discussed_prs)
     discussions = []
     for idx, pr in enumerate(discussed_prs):
-        if pr.duration:
-            total_seconds = int(pr.duration.total_seconds())
-            h, rem = divmod(total_seconds, 3600)
-            m, s = divmod(rem, 60)
-            pr.duration_display = f'{h}:{m:02d}:{s:02d}'
-        else:
-            pr.duration_display = None
+        pr.duration_display = presenters.clock_duration(pr.duration)
         discussions.append({
             'pr': pr,
             # discussed_prs is newest-first, so this one's ascending
@@ -1689,13 +1674,7 @@ def _discussion_summary_context(pr):
     # section, built by _referral_detail_context above). Shared between
     # Panel Agenda's Discussed rows and Previous Referrals' expanded
     # disclosure (#50).
-    if pr.duration:
-        total_seconds = int(pr.duration.total_seconds())
-        h, rem = divmod(total_seconds, 3600)
-        m, s = divmod(rem, 60)
-        duration_display = f'{h}:{m:02d}:{s:02d}'
-    else:
-        duration_display = None
+    duration_display = presenters.clock_duration(pr.duration)
 
     notes = list(pr.notes.select_related('author'))
     # Distinct in first-appearance order - who actually wrote this
@@ -2023,7 +2002,6 @@ def inclusion_panel_escalations(request):
     escalations = list(page_obj.object_list)
     for escalation in escalations:
         referral = escalation.referral
-        escalation.concern_category = _primary_concern_category(referral)
         referral_actions = referral.actions.all()
         escalation.actions_count = len(referral_actions)
         escalation.completed_actions_count = sum(1 for a in referral_actions if a.status == 'complete')
@@ -2175,7 +2153,7 @@ def inclusion_panel_actions(request):
     referred_by_filter = request.GET.get('referred_by') or ''
     # Same derived (not stored) lookup as inclusion_panel_referrals' own
     # concern_filter - matches the linked referral's answer to the question
-    # literally labeled 'Main Concern Category', see _primary_concern_category.
+    # literally labeled 'Main Concern Category', see InclusionReferral.primary_concern_category.
     concern_filter = request.GET.get('concern') or ''
     status_filter = request.GET.get('status') or ''
     # Due Date consolidates the old separate Overdue Only/Due This Week
@@ -2311,7 +2289,7 @@ def inclusion_panel_actions(request):
     # Overdue callout pill. concern_category (#119 follow-up, "Student >
     # Referral > Action" 3-section row) is the same per-row lookup
     # inclusion_panel_referrals' own loop already does for the Referrals
-    # list (_primary_concern_category, above) - same convention, backed by
+    # list (InclusionReferral.primary_concern_category) - same convention, backed by
     # actions_qs' own 'referral__responses__question' prefetch above so
     # this loop doesn't re-query per row.
     for action in actions:
@@ -2355,7 +2333,6 @@ def inclusion_panel_actions(request):
         elif action.status in ('complete', 'not_needed'):
             action.title_pill_label = action.get_status_display()
             action.title_pill_class = action.status
-        action.referral.concern_category = _primary_concern_category(action.referral)
         # Referral's own review pill (New Referral/Nth Review/Closed) next
         # to its status pill in the facts strip's Referral/Status column
         # (live feedback: "add the other Referral status pill after
@@ -2789,20 +2766,6 @@ def inclusion_panel_external_contact_quick_add(request):
     })
 
 
-def _format_duration(td):
-    # "2h 15m" / "45m" / "3h" - short form for the meeting card, not the
-    # verbose default str(timedelta) ("2:15:00") the raw value would render as.
-    if not td:
-        return None
-    total_minutes = int(td.total_seconds() // 60)
-    hours, minutes = divmod(total_minutes, 60)
-    if hours and minutes:
-        return f'{hours}h {minutes}m'
-    if hours:
-        return f'{hours}h'
-    return f'{minutes}m'
-
-
 def _effective_chair_q(staff_id):
     # Mirrors Panel.effective_chair_id as a queryset filter: chair_id when
     # not following the group default, panel_group.default_chair_id when it is.
@@ -3020,9 +2983,9 @@ def inclusion_panel_meetings(request):
                 if not (discussed_panels_by_referral.get(pr.referral_id, set()) - {panel.id})
             )
             review_count = len(discussed) - new_count
-            duration_display = _format_duration(sum(
-                (pr.duration for pr in discussed if pr.duration), datetime.timedelta(),
-            ))
+            duration_display = presenters.short_duration(
+                presenters.sum_durations(pr.duration for pr in discussed)
+            )
             # #121 follow-up: Closed/Future Review counts - live feedback:
             # "can we have a data col for referrals closed/referrals for
             # future review" - follow_up_status == 'incomplete' is a
@@ -3444,11 +3407,6 @@ def inclusion_panel_meeting_setup(request, panel_id):
                 })
         return redirect('inclusion_panel_meeting_setup', panel_id=panel.id)
 
-    for referral in unassigned_referrals:
-        referral.primary_concern_category = _primary_concern_category(referral)
-    for fpr in followups_due:
-        fpr.primary_concern_category = _primary_concern_category(fpr.referral)
-
     current_staff = _current_staff(request)
 
     # Referral Selection's "All" tab merges New Referrals and Reviews Due
@@ -3457,7 +3415,6 @@ def inclusion_panel_meeting_setup(request, panel_id):
     new_entries = [
         {
             'referral': referral, 'origin': 'new',
-            'primary_concern_category': referral.primary_concern_category,
             'follow_up_date': None, 'last_discussed': None, 'last_discussed_group': None,
             'actions_total': None, 'actions_complete': None,
         }
@@ -3475,7 +3432,6 @@ def inclusion_panel_meeting_setup(request, panel_id):
         ).count()
         followup_entries.append({
             'referral': fpr.referral, 'origin': 'followup',
-            'primary_concern_category': fpr.primary_concern_category,
             'follow_up_date': fpr.follow_up_date, 'last_discussed': fpr.panel.date,
             'follow_up_overdue': bool(fpr.follow_up_date and fpr.follow_up_date < today),
             'review_label': _review_label(discussed_count),
@@ -3522,7 +3478,6 @@ def inclusion_panel_meeting_setup(request, panel_id):
         last_discussed_by_referral.setdefault(prev.referral_id, prev)
         discussed_counts_by_referral[prev.referral_id] += 1
     for pr in agenda:
-        pr.primary_concern_category = _primary_concern_category(pr.referral)
         prev_pr = last_discussed_by_referral.get(pr.referral_id)
         pr.last_discussed_panel = prev_pr.panel if prev_pr else None
         pr.follow_up_date = prev_pr.follow_up_date if prev_pr else None
@@ -3753,7 +3708,6 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         last_discussed_by_referral.setdefault(prev.referral_id, prev)
         discussed_counts_by_referral[prev.referral_id] += 1
     for pr in pending:
-        pr.primary_concern_category = _primary_concern_category(pr.referral)
         prev_pr = last_discussed_by_referral.get(pr.referral_id)
         pr.last_discussed_panel = prev_pr.panel if prev_pr else None
         pr.follow_up_date = prev_pr.follow_up_date if prev_pr else None
@@ -3771,13 +3725,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         pr.next_term_date = next_term(pr.referral.student.school, today)
         if pr.follow_up_status == 'incomplete':
             pr.is_last_open_review = lifecycle.is_last_open_review(pr)
-        if pr.duration:
-            total_seconds = int(pr.duration.total_seconds())
-            h, rem = divmod(total_seconds, 3600)
-            m, s = divmod(rem, 60)
-            pr.duration_display = f'{h}:{m:02d}:{s:02d}'
-        else:
-            pr.duration_display = '—'
+        pr.duration_display = presenters.clock_duration(pr.duration)
     total = len(pending) + len(discussed)
     progress_pct = round(len(discussed) / total * 100) if total else 0
 

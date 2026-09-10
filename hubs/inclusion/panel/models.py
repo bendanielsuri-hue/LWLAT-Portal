@@ -87,6 +87,26 @@ class InclusionReferral(models.Model):
     def __str__(self):
         return f'Referral #{self.pk} - {self.student}'
 
+    @property
+    def primary_concern_category(self):
+        """The answer to the question literally labelled 'Main Concern Category'.
+
+        A property rather than something a view hangs on the instance. It used
+        to be a helper in views.py assigned at nine call sites under two
+        different names - `concern_category` on referral/action/escalation rows,
+        `primary_concern_category` on PanelReferral rows - split by which
+        template family consumed it. Reusing a row partial across the two
+        families rendered a blank cell rather than erroring, because a missing
+        attribute is empty string in a Django template.
+
+        Reads through `responses.all()`, so a list view must prefetch
+        `responses__question` (they all already do) or this is an N+1.
+        """
+        for response in self.responses.all():
+            if response.question.label == 'Main Concern Category' and response.answer:
+                return response.answer
+        return None
+
     @classmethod
     def create_for(cls, student, raised_by, date_referred=None, status='open'):
         # Single owner of the "CoreReferral.raised_by must match
