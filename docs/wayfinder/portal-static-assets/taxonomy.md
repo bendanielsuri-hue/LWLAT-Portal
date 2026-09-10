@@ -57,8 +57,9 @@ static/css/
   list-page/         the filterable-entity-list pattern's own machinery
   pages/             one portal page's own layout
 static/js/
-  main.js            portal chrome — unsplit, its own ticket (#201 §4)
+  main.js            portal chrome — being split, #213
   components/        one behaviour per module
+  layout/            app frame: breakpoints, sidebar, rail, shell — mirrors css/layout/
   list-page/
   pages/
 
@@ -71,6 +72,13 @@ hubs/<hub>/static/<hub>/js/
   components/        domain behaviours
   pages/             one page's entry module
 ```
+
+**`layout/` exists on both sides for the same reason it exists in CSS**, and the test that separates
+it from `components/` is: *a component is instantiated per element and can appear many times on a
+page; a layout module is singleton chrome bound to `layout.html`'s own DOM and writes state on
+`documentElement`*. There is one sidebar, one hub rail, one app search. #213 added it — the JS side
+had no counterpart to `css/layout/` while `main.js` was unsplit, because `main.js` *was* the app
+frame's JS.
 
 **The hub mirrors the portal, minus `tokens/` and `theme/`.** That omission is the point, and it is
 statable as an invariant: *a hub never defines a design token or a theme.* Everything else uses the

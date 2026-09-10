@@ -1,3 +1,18 @@
+import {
+    phoneMql,
+    narrowMql,
+    touchMql,
+    railMql,
+    shortMql,
+    portraitMql,
+    portraitWideMql,
+    hoverCapableMql,
+    isTouchNav,
+    isShortTouch,
+    onTouchNavChange,
+    initBreakpointClasses,
+} from './layout/breakpoints.js';
+
 function closest(el, selector) {
     while (el) {
         if (el.matches && el.matches(selector)) return el;
@@ -358,18 +373,23 @@ function setupFilterBarMoreFilters(bar) {
        block, so below that they would stack into the bar's flow as a
        bordered column, and that width has its own equivalents anyway (the
        FILTERS label's tap-to-expand chevron, the sticky Clear/Close). */
-    if (window.matchMedia('(max-width: 480px)').matches) {
+    if (phoneMql.matches) {
         var retryMqls = isTrayBar
             /* No `|| window.matchMedia(...)` fallbacks here any more - they
-               were unreachable (the DOMContentLoaded handler assigns all
-               three globals well before this function's only call site) and
-               one of them silently disagreed with the real value it stood in
-               for (768px vs studentsNarrowMql's 900px). A stale fallback that
-               can never fire is worse than none: it reads as a second, wrong
-               source of truth for a tier that has exactly one. If these are
-               ever genuinely undefined the TypeError is the correct outcome -
-               it means the init order broke, which is the actual bug. */
-            ? [window.matchMedia('(max-width: 480px)'), window.studentsNarrowMql, window.studentsPortraitMql, window.studentsPortraitWideMql]
+               were unreachable and one of them silently disagreed with the
+               real value it stood in for (768px vs the narrow tier's 900px).
+               A stale fallback that can never fire is worse than none: it
+               reads as a second, wrong source of truth for a tier that has
+               exactly one.
+
+               These were window.studentsNarrowMql/studentsPortraitMql/
+               studentsPortraitWideMql, assigned inside the DOMContentLoaded
+               handler because this function sits outside that closure and
+               could not see the locals. They are imports now, so the init
+               ordering that made the fallbacks tempting is not a question any
+               more - a module binding cannot be undefined at a call site that
+               runs after the module body. */
+            ? [phoneMql, narrowMql, portraitMql, portraitWideMql]
             : [window.matchMedia('(min-width: 481px)')];
         function retrySetupAboveMobile() {
             retryMqls.forEach(function (mql) { mql.removeEventListener('change', retrySetupAboveMobile); });
@@ -1438,125 +1458,26 @@ document.addEventListener('DOMContentLoaded', function () {
         attributeFilter: ['disabled', 'class', 'aria-disabled', 'data-disabled-reason']
     });
 
-    // Dev breakpoint preview (layout.html): the preview iframe is just a
-    // resized window still driven by the real desktop mouse, so it can never
-    // make hover:none media queries true on its own - previewing "Tablet
-    // Portrait"/"Tablet Wide" would otherwise always exercise the
-    // hover-capable narrow-window path below (locked rail), never the
-    // touch-only drawer. layout.html's postMessage handler calls
-    // window.__setDevBpTouch(true/false) when switching breakpoints, which
-    // this class + the isTouchNav() checks below stand in for a real
-    // hover:none/pointer:coarse device.
-    var realHoverNoneMql = window.matchMedia('(hover: none)');
-    var touchNavListeners = [];
-    // Also checks window.top.__devBpTouch (dev breakpoint preview, same-origin
-    // synchronous read - see layout.html's own head script) alongside
-    // force-touch-nav - without this, this function's very first call here
-    // (DOMContentLoaded, below) ran before the preview's postMessage handshake
-    // had a chance to arrive (that only fires on frame.onload, later than
-    // DOMContentLoaded) and force-touch-nav wasn't set yet, so it disagreed
-    // with the correct state layout.html's synchronous scripts had already
-    // rendered - flipping the sidebar open again for the brief window until
-    // the postMessage handler finally set force-touch-nav and this got called
-    // a second time to correct it. That "closed, then open, then closed"
-    // cascade is what this line closes.
-    function isTouchNav() {
-        if (realHoverNoneMql.matches || document.documentElement.classList.contains('force-touch-nav')) return true;
-        try { if (window.self !== window.top && window.top.__devBpTouch) return true; } catch (e) { }
-        return false;
-    }
-    function syncTouchNavClass() {
-        document.documentElement.classList.toggle('nav-touch-mode', isTouchNav());
-        touchNavListeners.forEach(function (fn) { fn(); });
-    }
-    syncTouchNavClass();
-    realHoverNoneMql.addEventListener('change', syncTouchNavClass);
-    window.__setDevBpTouch = function (touch) {
-        document.documentElement.classList.toggle('force-touch-nav', !!touch);
-        syncTouchNavClass();
-    };
+    /* Tiers, touch-nav detection and the phone-chrome classes all live in
+       layout/breakpoints.js now. Called here rather than from that module's
+       body so the first classification still happens at exactly this point in
+       the page lifecycle: every subscriber registered by a later module is in
+       place by now, and this notifies all of them. */
+    initBreakpointClasses();
+    /* The filter bar's "mobile" treatment covers a narrowed desktop browser
+       window too, not just a true phone (live feedback: "I basically want
+       everything to be the same as mobile except we keep the side nav and do
+       not have the bottom mobile nav" - after two narrower bespoke
+       narrow-desktop attempts both still read as unfinished).
+       html.filter-bar-mobile-mode is the single switch every affected CSS rule
+       keys off, rather than each rule re-deriving this same OR condition from
+       raw media features.
 
-    // Students filter bar: "mobile" treatment now also covers a narrowed
-    // desktop browser window, not just a true phone (live feedback: "I
-    // basically want everything to be the same as mobile except we keep
-    // the side nav and do not have the bottom mobile nav" - after two
-    // narrower bespoke-narrow-desktop attempts both still read as
-    // unfinished). html.filter-bar-mobile-mode (panel.css, the Students-
-    // scoped selectors it gates) is the single switch every affected CSS
-    // rule keys off, rather than each rule re-deriving this same OR
-    // condition from raw media features. Scoped to Students deliberately -
-    // the shared filter-bar system every other page's own `.filter-bar`
-    // also uses (setupFilterBarMoreFilters, below) is untouched by this
-    // class entirely, so Referrals/Actions/Meetings keep their existing
-    // View-filters behaviour unchanged at every width.
-    var trueMobileMql = window.matchMedia('(max-width: 480px)');
-    // The `short` tier (breakpoint registry in responsive.css, ADR 0016) - a
-    // touch device under 500px tall is a phone in landscape and needs phone
-    // chrome despite a tablet-sized width. layout.html's head script sets
-    // these same two classes synchronously before first paint (the
-    // FOUC-avoidance pattern this file's syncTouchNavClass documents); this is
-    // what keeps them right afterwards, as the window resizes or the device
-    // rotates. isTouchNav() rather than a bare hover:none query so the dev
-    // breakpoint preview's forced-touch override counts too - otherwise
-    // previewing a landscape phone in the tool would never show the strip.
-    var shortViewportMql = window.matchMedia('(max-height: 500px)');
-    function syncPhoneChromeClass() {
-        var shortTouch = isTouchNav() && shortViewportMql.matches;
-        var root = document.documentElement;
-        root.classList.toggle('phone-chrome', trueMobileMql.matches || shortTouch);
-        root.classList.toggle('phone-chrome-side', shortTouch && !trueMobileMql.matches);
-    }
-    syncPhoneChromeClass();
-    trueMobileMql.addEventListener('change', syncPhoneChromeClass);
-    shortViewportMql.addEventListener('change', syncPhoneChromeClass);
-    touchNavListeners.push(syncPhoneChromeClass);
-    /* 900px - live feedback: "have more changes occur at the same
-       breakpoint" - unified with the sidenav's own auto-collapse width
-       (setupSidebarCollapse's narrowMql, below) and setupPageExtrasOverflow/
-       the KPI carousel's auto-width cutoff (both already 900px), so a
-       narrowed desktop window hits every one of these transitions together
-       instead of drifting through several different in-between states.
-       Kept as this single source of truth (isFilterBarMobile/
-       isFilterBarNarrowDesktop below and the retry fallback near the top of
-       this file all read from this one query rather than each hardcoding
-       their own number). Width-gated branch is non-touch only (below) - a
-       real portrait tablet is covered separately, by orientation. */
-    var studentsNarrowMql = window.matchMedia('(max-width: 900px)');
-    /* Real portrait tablets used to be deliberately excluded from all of
-       this (live feedback, earlier in this same thread: "I did not want the
-       filter change on narrow mobile to affect portrait tablet. It is only
-       on very narrow desktop that had issues") - reversed on further live
-       feedback once the tablet's own category-strip tray turned out to mean
-       "a lot of scrolling" in practice ("I think I want this to apply to
-       portrait tablet as it is narrow"). Width alone can't reliably catch
-       "a portrait tablet" the way it can "a narrowed desktop window" - a
-       portrait iPad (768-834px) or iPad Pro 12.9" (1024px) would need a much
-       wider threshold than a genuinely narrow desktop should ever trigger at
-       - so this checks orientation instead, only for touch devices (a
-       narrowed *desktop* window is never orientation: portrait in the OS
-       sense, so this can't misfire there). */
-    var portraitMql = window.matchMedia('(orientation: portrait)');
-    /* 900px - live feedback: "some bigger tablets in portrait may benefit
-       from seeing the filters" - a portrait iPad Pro 12.9" (1024px) has
-       exactly the room to show the inline bar like desktop does, so the
-       touch+portrait branch above needs its own explicit cap here even
-       though it now happens to share studentsNarrowMql's own 900px value -
-       the two are read independently (touch+portrait vs narrowed desktop)
-       and only coincide numerically after the #121-era unification, above;
-       this cap still exists to keep a standard portrait iPad (768-834px)
-       from being caught by the touch+portrait branch's otherwise-unbounded
-       width. */
-    var portraitWideMql = window.matchMedia('(min-width: 900px)');
-    // isShortTouch() rides along in both of these because a landscape phone
-    // (the `short` tier - see syncPhoneChromeClass above) takes phone chrome
-    // throughout: an inline filter bar is pure vertical-space cost at 430px
-    // tall, which is the scarce axis there. It must be excluded from the
-    // narrow-DESKTOP variant below for the same reason it's included here -
-    // that class means "phone-ish treatment but the side nav stayed put", and
-    // in this tier the side nav is gone.
-    function isShortTouch() {
-        return isTouchNav() && shortViewportMql.matches;
-    }
+       narrowMql / portraitMql / portraitWideMql / isShortTouch are imports now
+       - layout/breakpoints.js carries the reasoning for each, which is where a
+       reader asking "why 900px, and why orientation rather than width?" should
+       find it. What stays here is which COMBINATION of them means mobile
+       treatment, which is the filter bar's own question and nobody else's. */
     /* (#187) Every width uses the tray now - live feedback: "I think we make
        all the filter modes work like mobile. It's a great compromise!"
 
@@ -1573,8 +1494,8 @@ document.addEventListener('DOMContentLoaded', function () {
        and if the panel ever comes back this is the one line to restore.
 
        The old expression, for that day:
-         trueMobileMql.matches || isShortTouch() ||
-         (studentsNarrowMql.matches && !isTouchNav()) ||
+         phoneMql.matches || isShortTouch() ||
+         (narrowMql.matches && !isTouchNav()) ||
          (isTouchNav() && portraitMql.matches && !portraitWideMql.matches) */
     function isFilterBarMobile() {
         return true;
@@ -1595,7 +1516,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // footer variant, category-strip panel at wider widths) - not a
     // positioning branch.
     function isFilterBarNarrowDesktop() {
-        return !trueMobileMql.matches && !isShortTouch() && ((studentsNarrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches));
+        return !phoneMql.matches && !isShortTouch() && ((narrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches));
     }
     function syncFilterBarMobileClass() {
         // filter-bar-mode-switching (panel.css: forces transition: none on
@@ -1631,7 +1552,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // (setupFilterBarMoreFilters's measure(), exposed as
         // bar._filterBarMeasure) on every call here, not just a genuine
         // bar.clientWidth change - this function also fires from a touch-
-        // nav-only transition (touchNavListeners, below), which flips
+        // nav-only transition (onTouchNavChange, breakpoints.js), which flips
         // filter-bar-mobile-mode without necessarily resizing anything.
         // Skipping this left fields that measure() had already buried
         // behind the hidden "More filters" group (built while still non-
@@ -1659,20 +1580,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     syncFilterBarMobileClass();
-    trueMobileMql.addEventListener('change', syncFilterBarMobileClass);
-    shortViewportMql.addEventListener('change', syncFilterBarMobileClass);
-    studentsNarrowMql.addEventListener('change', syncFilterBarMobileClass);
+    phoneMql.addEventListener('change', syncFilterBarMobileClass);
+    shortMql.addEventListener('change', syncFilterBarMobileClass);
+    narrowMql.addEventListener('change', syncFilterBarMobileClass);
     portraitMql.addEventListener('change', syncFilterBarMobileClass);
     portraitWideMql.addEventListener('change', syncFilterBarMobileClass);
-    touchNavListeners.push(syncFilterBarMobileClass);
-    // Exposed globally - setupFilterBarMoreFilters/the Students tray click
-    // handler (below) are both defined outside this DOMContentLoaded
-    // closure, so they can't see these locals directly.
+    onTouchNavChange(syncFilterBarMobileClass);
+    /* Exposed globally - setupFilterBarMoreFilters and the tray click handler
+       are both defined outside this DOMContentLoaded closure, so they cannot
+       see these locals directly.
+
+       The three media queries that used to be exported alongside them
+       (window.studentsNarrowMql/studentsPortraitMql/studentsPortraitWideMql)
+       are gone: their only reader was setupFilterBarMoreFilters, in this same
+       file, which imports them from layout/breakpoints.js now. These two
+       predicates cannot follow yet - they are read by inline <script> blocks
+       in templates, which move to modules in #212. */
     window.isFilterBarMobile = isFilterBarMobile;
     window.isFilterBarNarrowDesktop = isFilterBarNarrowDesktop;
-    window.studentsNarrowMql = studentsNarrowMql;
-    window.studentsPortraitMql = portraitMql;
-    window.studentsPortraitWideMql = portraitWideMql;
 
     // Icon-only rail behaviour for the hub sidebar. Desktop has no manual
     // control here at all - below the narrow-window breakpoint a
@@ -1702,8 +1627,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // sync since only one is ever visible at a time.
         var toggleIconEls = toggle.querySelectorAll('.icon-tooltip-host');
         var toggleLabelEl = document.getElementById('sidebar-collapse-toggle-label');
-        // 1200px, not the shared 900px band other things in this file still
-        // use (studentsNarrowMql etc.) - live feedback: "can the desktop
+        // 1200px (railMql), not the shared 900px narrow tier other things in
+        // this file use - live feedback: "can the desktop
         // compact side menu happen as a wider breakpoint", then "the
         // change to an arrow needs to be at that breakpoint aswell... as
         // does the extra icons being added" - this mql (via locked(),
@@ -1722,9 +1647,10 @@ document.addEventListener('DOMContentLoaded', function () {
         // narrow-desktop systems, then reversed that: "I think the side
         // nav should go back to 1200" - kept deliberately wider than those
         // again, same original reasoning.)
-        var narrowMql = window.matchMedia('(max-width: 1200px)');
-        var hoverCapableMql = window.matchMedia('(hover: hover) and (pointer: fine)');
-        var touchRailMql = window.matchMedia('(min-width: 481px) and (max-width: 1180px)');
+        /* railMql/hoverCapableMql/touchMql are imports (layout/breakpoints.js).
+           They were declared here, and the 1200px one was called narrowMql -
+           the name the 900px narrow tier now has. Two declaration sites for one
+           tier list is how that collision arose; there is one site now. */
 
         // #142: desktop's own manual collapse/expand, persisted per-viewer -
         // only meaningful above 1200px (below that the rail is already
@@ -1739,7 +1665,7 @@ document.addEventListener('DOMContentLoaded', function () {
             try { localStorage.setItem(MANUAL_COLLAPSE_KEY, value ? '1' : '0'); } catch (e) { /* ignore */ }
         }
         function wideDesktop() {
-            return hoverCapableMql.matches && !narrowMql.matches && !isTouchNav();
+            return hoverCapableMql.matches && !railMql.matches && !isTouchNav();
         }
 
         function locked() {
@@ -1747,10 +1673,10 @@ document.addEventListener('DOMContentLoaded', function () {
             // real mouse report hover:none/pointer:coarse, so it forces
             // isTouchNav() true via a class instead when previewing a touch
             // breakpoint - see isTouchNav() below.
-            return narrowMql.matches && hoverCapableMql.matches && !isTouchNav();
+            return railMql.matches && hoverCapableMql.matches && !isTouchNav();
         }
         function touchRailActive() {
-            return touchRailMql.matches && isTouchNav();
+            return touchMql.matches && isTouchNav();
         }
 
         function updateToggleLabel() {
@@ -1823,10 +1749,10 @@ document.addEventListener('DOMContentLoaded', function () {
         // matters for the dev breakpoint preview iframe, which loads once
         // at a fixed size, but also for a real browser window being
         // resized/dev-tools-docked mid-session.
-        narrowMql.addEventListener('change', syncCollapsed);
+        railMql.addEventListener('change', syncCollapsed);
         hoverCapableMql.addEventListener('change', syncCollapsed);
-        touchRailMql.addEventListener('change', syncCollapsed);
-        touchNavListeners.push(syncCollapsed);
+        touchMql.addEventListener('change', syncCollapsed);
+        onTouchNavChange(syncCollapsed);
 
         // Expanded-mode tooltip for this button (collapsed mode already has
         // its own working ::after tooltip - see layout.css). A plain ::after

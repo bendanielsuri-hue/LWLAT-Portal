@@ -295,7 +295,7 @@ page that stops knowing there are six.
 
 | Module | From | Code |
 | --- | --- | --- |
-| `breakpoints.js` | 1450–1676 — **extract first** (§3); exports the MQLs and `isTouchNav`/`isFilterBarMobile`/`isFilterBarNarrowDesktop` as bindings, renamed per §4.1 | 71 |
+| `breakpoints.js` | 1450–1676 — ✅ **done**, and it was extracted first for the reason §3 gives | 71 |
 | `sidebar.js` | 1677–1912 | 115 |
 | `hub-rail.js` | 1913–1960 | 25 |
 | `overlay-nav.js` | 1961–2041 | ~68 |
@@ -399,13 +399,41 @@ order (`layout/breakpoints.js` first) where #200 could not.
 
 ---
 
-## 9. What this leaves open
+## 9. Execution log
+
+### Slice 1 — `layout/breakpoints.js` ✅
+
+Everything §3 predicted about the ordering held, and one thing it did not predict:
+
+- **`narrowMql` was already taken.** §4.1 said to rename `studentsNarrowMql` to its registry tier
+  name, "narrow". The sidebar block already had a `narrowMql` — the **1200px rail tier**. Renaming
+  one onto the other's name without moving the other is §6a lesson 1 exactly. Both moved into
+  `breakpoints.js` in the same commit and each is now named for the tier it implements
+  (`narrowMql` = 900, `railMql` = 1200). **The general form: two declaration sites for one tier list
+  is what let two tiers claim one name.** There is one site now, which is what makes the next
+  rename checkable rather than lucky.
+- **The `window` surface shrank by three.** `studentsNarrowMql`/`studentsPortraitMql`/
+  `studentsPortraitWideMql` had one reader — `setupFilterBarMoreFilters`, in `main.js` itself,
+  which could not see the `DOMContentLoaded` locals. It imports them now, so all three globals are
+  gone and §4.1's leak is closed. `isFilterBarMobile`/`isFilterBarNarrowDesktop` cannot follow
+  until #212 moves their inline-`<script>` callers.
+- **`main.js` became `type="module"`, and nothing outside it had to change.** Every external
+  consumer already went through an explicit `window.*` property — checked against all 28 top-level
+  names, and every bare-looking hit was prose in a comment. `panel.js` is a *non-deferred* classic
+  script, so it already executed before `main.js` did under `defer`; module semantics keep that
+  order identical.
+- **Verification, since a browser was not driven:** both files pass `node --check` as modules; the
+  module graph links and executes under a DOM stub with the `window.*` surface intact; the dev
+  server serves `layout/breakpoints.js` as `text/javascript`; and panel home/students render 200.
+
+Remaining, in order — each unblocked by the one above it:
 
 | Item | Owner |
 | --- | --- |
-| Executing the split | new issue — #213 is filed as prerequisite planning |
-| Adding `static/js/layout/` to taxonomy §1 and ADR 0020's tier table | the execution issue, at the point the folder is created |
+| The rest of `layout/` — sidebar, hub-rail, overlay-nav, settings-panel, app-search, content-shell, breadcrumbs, sticky-zone, mobile-tabbar | the execution issue |
+| `components/filter-bar/` (§5.2), the largest single piece | the execution issue |
+| The remaining `components/` modules (§5.1) | the execution issue |
 | `.senco-*` already promoted into `static/css/` under a domain name (§4.2) | new issue — a live breach of rule 1 on shipped files |
-| `studentsNarrowMql` naming the canonical breakpoint tier in `responsive.css` (§4.1) | same |
+| ~~`studentsNarrowMql` naming the canonical breakpoint tier in `responsive.css`~~ | ✅ closed by slice 1 — the registry now names `phoneMql`/`narrowMql`/`touchMql`/`railMql` and points at `js/layout/breakpoints.js` |
 | Drag-to-scroll ×6 plus the sidebar's seventh variant (§6) | #214 |
 | `components/filter-bar.js` file/folder collision (§5.2) | the execution issue |

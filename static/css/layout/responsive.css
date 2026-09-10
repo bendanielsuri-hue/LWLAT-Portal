@@ -17,7 +17,7 @@
                           mobile bottom tab bar (_hub_sidebar.html), the
                           filter-bar tap-to-expand collapse, compact KPI
                           grid, dashboard card/chart phone treatments.
-                          JS: trueMobileMql (main.js).
+                          JS: phoneMql (js/layout/breakpoints.js).
    stacked   RETIRED      Was <= 700px: the width where a list row gave up
                           its desktop row+action-column split for the
                           stacked-card format (Referrals, Actions, Meetings,
@@ -32,16 +32,16 @@
                           this, and don't reuse the number by analogy.
    narrow    <= 900px     Narrowed-desktop filter-bar mode, page-header
                           actions overflow menu, form field stacking, card
-                          layouts. JS: studentsNarrowMql (main.js).
+                          layouts. JS: narrowMql (js/layout/breakpoints.js).
    tablet    <= 1024px    Dashboard KPI strip 3-up grid, breakdown-grid
                           rhythm, the 2-column breakdown-grid--top band
                           (which is floored at 481px - see its own comment).
    touch     <= 1180px    Touch/tablet rail expand-in-place, card-switcher
                           tab collapse, app-footer hidden. Matches the
                           latest iPad's 1180px logical viewport.
-                          JS: touchRailMql (main.js).
+                          JS: touchMql (js/layout/breakpoints.js).
    rail      <= 1200px    Hub sidebar auto-collapses to the 64px icon rail;
-                          global hub-rail hidden. JS: narrowMql (main.js).
+                          global hub-rail hidden. JS: railMql (js/layout/breakpoints.js).
 
    HEIGHT AXIS - the one tier not measured in width. See ADR 0016.
 
@@ -84,8 +84,8 @@
    Both are now normalised to <= 480 / >= 481. Same applies to the 700/701 and
    1180/1181 pairs, which were already correct.
 
-   Known deliberate exception: main.js's portraitWideMql is `min-width: 900px`
-   against studentsNarrowMql's `max-width: 900px`. Both match at exactly 900px,
+   Known deliberate exception: breakpoints.js's portraitWideMql is
+   `min-width: 900px` against narrowMql's `max-width: 900px`. Both match at exactly 900px,
    but they are read as separate branches of one OR (isFilterBarMobile) rather
    than as competing declarations, and 900px is meant to be inclusively "wide
    enough to show filters inline" - so the overlap is harmless here. Left as
@@ -106,8 +106,8 @@
        band this used to reuse, since moving that shared value would also
        have shifted Students' own narrow-desktop filter-bar mode, form
        field stacking, and card layouts, site-wide - not what was asked
-       for). Everything else still keyed to 900px (main.js's
-       studentsNarrowMql/narrowMql, forms.css, cards.css) stays exactly as
+       for). Everything else still keyed to 900px (breakpoints.js's
+       narrowMql, forms.css, cards.css) stays exactly as
        it was - a real, accepted side effect of that choice is the 900-
        1200px band now has the sidebar expanded while those other systems
        still believe it's collapsed (main.js's setupPageExtrasOverflow
