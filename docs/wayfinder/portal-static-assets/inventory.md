@@ -42,9 +42,15 @@ from 25% to 74%, and the two largest regions are the two most comment-heavy.
 | 11 | 9461–9760 | Agenda table, `.ui-select-trigger/panel`, QA fields (`.qa-*`), `.panel-toolbar`, discussion timers | 300 | 185 | 33% | **M** |
 | 12 | 9761–9965 | Safeguarding briefing/notes cards, DSL shell, note rows | 205 | 125 | 36% | **D** |
 | 13 | 9966–10145 | Detail stat cards, rings, attendance bars/legends, `.note-thread` | 180 | 83 | 48% | **G** |
-| 14 | 10146–11020 | Meeting setup + agenda rows, order rail, drag/drop zones, referral detail/history | 875 | 350 | 56% | **D** |
+| 14 | 10146–11020 | Meeting setup + agenda rows, order rail, drag/drop zones, referral detail/history, `.settings-*` | 875 | 350 | 56% | **M** ⁽¹⁾ |
 | 15 | 11021–11713 | Modals (`.modal-dialog*` and per-dialog ids), member picker, member cards, `#panel-search-dialog` | 693 | 393 | 40% | **M** |
 | 16 | 11714–11810 | Home cards tail + touch scrollbar-hide audit | 97 | 63 | 34% | **M** |
+
+⁽¹⁾ Region 14 was originally classified **D**. Corrected while working #201: `.settings-section`,
+`.settings-body`, `.settings-row` and `.settings-fixed` sit inside it and are generic settings
+furniture with no SEND vocabulary — they are what `portaladmin`'s two pages actually need from
+`panel.css`. Caught by checking what those pages use rather than by reading the region, which is why
+it survived the first pass.
 
 Only 15 of these boundaries were discoverable from the file's own headers — the file has banners at
 3056, 3241, 3445, 6656, 7110, 8287, 8703, 8988 and 11766 only. Regions 2, 3, 5, 7, 10–15 were derived
