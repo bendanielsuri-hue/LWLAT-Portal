@@ -125,7 +125,20 @@ Existing files in **bold**. Everything else is new. Sources are #200 region numb
 | `components/settings.css` | `.settings-section`, `.settings-body`, `.settings-row`, `.settings-fixed` — ~30 lines, and the whole reason portaladmin can drop `panel.css` | 14 |
 | `components/tabs.css` | `.tab-row`, overflow/collapse, `.tab-collapsed`, `count-pulse` keyframes + `.count-pulse-*` | 5, 10 |
 | `list-page/facts-strip.css` | `.row-facts-cols`, `-track`, `-arrow`, `.row-fact-col`, `.row-fact-col-clamp` | 7 |
-| `list-page/list-page.css` | `.filtered-content`, stack-mode rules | 2, 8 |
+| ~~`list-page/list-page.css`~~ | ~~`.filtered-content`, stack-mode rules~~ — **corrected by #208, see below** | 2, 8 |
+
+⚠️ **`list-page/list-page.css` does not exist, and the `list-page/` CSS folder arrives with
+`facts-strip.css` at #210 rather than here.** #208 promoted region 8's `.filtered-content` rules and
+found they were not one thing: seven select `.entity-list`/`.filtered-list` — the end-of-list stripe,
+the empty state, the infinite-scroll sentinel — and are the **lists component's** own chrome, written
+through the content region only as a scope; two size the shell and are keyed on the filter bar's own
+state classes, so they belong to **filter-bar.css**; and one (`.dsl-briefings-shell`) is Safeguarding
+vocabulary that stays hub-owned. The stack-mode CSS is in region 2, not region 8, so it was never in
+that file's reach either.
+
+The lesson generalises to the rest of this table: **a file named after its tier is a file nobody has
+classified yet.** Name a file for what is in it, the way the JS column already does
+(`facts-strip.js`, `stack-mode.js`), and the misfits show up while the name is being chosen.
 | `pages/` | **empty at first.** Created when a portal-wide page first needs its own layout; today's page-tier residue is all hub-side | — |
 
 Nineteen component files where there were six. Each is nameable in one noun, which is the test that
