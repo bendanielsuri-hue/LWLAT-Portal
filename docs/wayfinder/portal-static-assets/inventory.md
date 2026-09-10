@@ -139,32 +139,41 @@ change, not a rewrite.
 
 ## 3. Inline `<script>` blocks
 
-Every non-`src` script block of 5+ lines reachable from a panel page. Total **5,218 lines**, i.e.
-comparable in size to `panel.js` itself.
+Every non-`src` script block of 5+ lines reachable from a panel page. Total **4,162 lines**.
 
-| File | Script lines | `{{ }}`/`{% %}` refs | Blocks | Contents | Nature |
-| --- | --- | --- | --- | --- | --- |
-| `panel/home.html` | 1,255 | **0** | 1 | `wireCarouselFilterDropdown`, `wireActionStatusFilters`, `wireActionStatusOverflow`, `setupTabs`, `wireCardCollapseToggles`, `wireReferralCarouselInteractions` + `rebuildReferralCarousel`, `wireActionCarouselInteractions` + `rebuildActionCarousel`, `initActionTabs`, `wireActionForms`, `refreshMyActionsCard` | **M** |
-| `_hub_sidebar.html` (portal-wide) | 1,719 | 139 | 1 | Sidebar, switchers, mobile sheet — reaches *into* panel assets, see §4 | G |
-| `layout.html` (portal-wide) | 699 | 1 | 6 | Boot-time theme/class setup | G |
-| `panel/meeting_agenda.html` | 263 | 2 | 7 | Panel timer, attendance dialog, inactivity poll + warning countdown, review-date dialog, `panel-group:updated` patch | D |
-| `panel/students.html` | 240 | 3 | 1 | Filter bar wiring, `refreshRegOptions`, `setupToggle`, MutationObservers, `wireStudentsInfiniteScroll`, `wireStudentButtonColumnWidth` | M |
-| `panel/safeguarding_notes.html` | 205 | 1 | 1 | Filter wiring, `refreshRegOptions`, `setupToggle`, detail-pane swap | M |
-| `panel/meeting_setup.html` | 182 | 1 | 3 | Chair pills, members-list patching, `initReferralTabs` (localStorage-backed) | D |
-| `panel/discussion.html` | 180 | 3 | 3 | Discussion timer, safeguarding dialog, end-discussion dialog + follow-up date, leave-confirm guard | D |
-| `panel/actions.html` | 149 | 6 | 1 | Filter wiring, `wireActionButtonLayout`, `refreshRegOptions`, `refreshTermOptions` | M |
-| `panel/referrals.html` | 95 | 2 | 1 | Filter wiring, `refreshRegOptions`, `setupToggle`, `refreshTermOptions` | M |
-| `panel/escalations.html` | 80 | 5 | 1 | Filter wiring, `refreshTermOptions`, `syncEscalationButtonWidths` | M |
-| `panel/meetings.html` | 58 | 3 | 1 | Filter wiring, `refreshTermOptions` | M |
-| `panel/panel_group_settings.html` | 36 | 0 | 1 | `panel-group:created`/`:updated` row patching | D |
-| `panel/escalate_form.html` | 13 | 0 | 1 | Small form toggle | D |
+⚠️ **Corrected by #203.** The figures first published here were produced by a regex that located
+`<script` tags without stripping Django comments first. `_hub_sidebar.html:230` contains the prose
+`see the <script> below` *inside* a `{% comment %}` block, which the regex read as an opening tag —
+so the sidebar's row swept up 1,056 lines of the template's **markup** and counted its
+`{% include %}`/`{% for %}`/`{{ item.name }}` as script references. The ref column also counted
+`{% comment %}` markers as references. Both are fixed below; see
+[inline-js-rule.md](inline-js-rule.md) §0.
+
+| File | Script lines | Code lines | refs | Blocks | Contents | Nature |
+| --- | --- | --- | --- | --- | --- | --- |
+| `panel/home.html` | 1,255 | 742 | **0** | 1 | `wireCarouselFilterDropdown`, `wireActionStatusFilters`, `wireActionStatusOverflow`, `setupTabs`, `wireCardCollapseToggles`, `wireReferralCarouselInteractions` + `rebuildReferralCarousel`, `wireActionCarouselInteractions` + `rebuildActionCarousel`, `initActionTabs`, `wireActionForms`, `refreshMyActionsCard` | **M** |
+| `layout.html` (portal-wide) | 699 | 384 | 1 | 6 | Boot-time theme/class setup (block 1, pre-paint) + hub rail, nav, footer status, report-issue, print/iframe | G |
+| `_hub_sidebar.html` (portal-wide) | **663** | 388 | **0** | 1 | Sidebar, switchers, mobile sheet — knowledge-couples to panel *assets* (§4.2), but takes no template context | G |
+| `panel/meeting_agenda.html` | 263 | 201 | 2 | 7 | Panel timer, attendance dialog, inactivity poll + warning countdown, review-date dialog, `panel-group:updated` patch | D |
+| `panel/students.html` | 240 | 114 | 1 | 1 | Filter bar wiring, `refreshRegOptions`, `setupToggle`, MutationObservers, `wireStudentsInfiniteScroll`, `wireStudentButtonColumnWidth` | M |
+| `panel/safeguarding_notes.html` | 205 | 135 | 1 | 1 | Filter wiring, `refreshRegOptions`, `setupToggle`, detail-pane swap | M |
+| `panel/meeting_setup.html` | 182 | 105 | 1 | 3 | Chair pills, members-list patching, `initReferralTabs` (localStorage-backed) | D |
+| `panel/discussion.html` | 180 | 146 | 3 | 3 | Discussion timer, safeguarding dialog, end-discussion dialog + follow-up date, leave-confirm guard | D |
+| `panel/actions.html` | 149 | 82 | 2 | 1 | Filter wiring, `wireActionButtonLayout`, `refreshRegOptions`, `refreshTermOptions` | M |
+| `panel/referrals.html` | 95 | 59 | 2 | 1 | Filter wiring, `refreshRegOptions`, `setupToggle`, `refreshTermOptions` | M |
+| `panel/escalations.html` | 80 | 45 | 1 | 1 | Filter wiring, `refreshTermOptions`, `syncEscalationButtonWidths` | M |
+| `panel/meetings.html` | 58 | 38 | 1 | 1 | Filter wiring, `refreshTermOptions` | M |
+| `hubs/inclusion/hub.html` | 44 | 26 | 1 | 1 | Filter wiring | M |
+| `panel/panel_group_settings.html` | 36 | 35 | 0 | 1 | `panel-group:created`/`:updated` row patching | D |
+| `panel/escalate_form.html` | 13 | 12 | 0 | 1 | Small form toggle | D |
 
 `home.html`'s 1,255 lines with **zero template refs** is confirmed — it is movable as-is, and it is
-the largest single body of JS in the panel outside `initAgendaDragDrop`. The `{{ }}` counts on the
-list pages are all the same two shapes: a `|escapejs` JSON blob (`forms_by_year_json`,
-`terms_by_academic_year_json`, `reg_by_year_json`) and a `|date:"c"` timestamp — both of which are
-data hand-offs, not logic, so they can become `data-` attributes without touching the code around
-them.
+the largest single body of JS in the panel outside `initAgendaDragDrop`. `_hub_sidebar.html` is the
+same shape and was mis-recorded: 663 lines, no context, movable verbatim.
+
+**Sixteen template references exist in inline script portal-wide**, in four shapes: nine
+`|escapejs` JSON blobs, four `|date:"c"`/`|default:""` scalars, one `{% if %}` wrapping ~35 lines of
+JS (`discussion.html:662`), one `{% url %}` (`layout.html:875`). #203 enumerates every site.
 
 ---
 
