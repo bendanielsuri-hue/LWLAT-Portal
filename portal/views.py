@@ -19,16 +19,37 @@ from hubs.services.views import SERVICES_MENU
 from hubs.staff.views import STAFF_MENU
 from hubs.student.views import STUDENT_MENU
 
-# Single source of truth for each leaf page's icon is its own hub's
-# <HUB>_MENU (used by _hub_sidebar.html's local_menu) - merged here rather
-# than duplicated so _raw_sections' items below (which share the same
-# module_key convention) can look icons up instead of guessing/reusing the
-# parent hub's icon for every leaf item.
-_LEAF_ICONS_BY_MODULE_KEY = {
-    entry['module_key']: entry['icon']
+# Each leaf page is declared once, by its own hub, in that hub's <HUB>_MENU
+# (the same list that drives _hub_sidebar.html's local_menu). This indexes them
+# by module_key so Home's sections can look a leaf up instead of restating it.
+#
+# _raw_sections below used to carry a second full copy of the inventory - every
+# leaf's name and url written out again - joined to the hub menus only by the
+# module_key string convention, with nothing checking the two agreed. They
+# happened to agree; nothing made them.
+_LEAF_BY_MODULE_KEY = {
+    entry['module_key']: entry
     for menu in (STAFF_MENU, STUDENT_MENU, INCLUSION_MENU, REGISTERS_MENU, SERVICES_MENU, RESOURCES_MENU)
     for entry in menu
 }
+
+
+def _leaf(module_key):
+    """Expand a curated module_key into a Home section item.
+
+    `name` comes from the owning hub's menu. `url` comes from reverse(), since
+    Module.key matches a Django URL name by convention (core.models.Module) -
+    verified to hold for every key used here. Neither is restated locally, so
+    renaming a page in its hub menu can no longer leave Home showing the old
+    name, and moving a URL can no longer leave Home linking the old path.
+    """
+    entry = _LEAF_BY_MODULE_KEY.get(module_key)
+    return {
+        'name': entry['name'] if entry else module_key.replace('_', ' ').title(),
+        'url': reverse(module_key),
+        'module_key': module_key,
+    }
+
 
 # Category picked in the footer's "report a problem" form (#128) maps
 # straight onto an existing repo label - see docs/adr/0012.
@@ -103,25 +124,34 @@ def build_school_nav(selected_key='all'):
     return schools
 
 
+def _leaf_icon(module_key, fallback):
+    # A leaf's icon is owned by its hub menu, same as its name; the parent
+    # hub's own icon is the fallback for anything not found there.
+    entry = _LEAF_BY_MODULE_KEY.get(module_key)
+    return entry['icon'] if entry else fallback
+
+
 def _raw_sections():
-    # Order matches HUB_NAV_ITEMS (the sidebar rail) above - one nav order
-    # for the whole app rather than two lists that can drift apart.
+    # Order matches HUB_NAV_ITEMS (the sidebar rail) above - one nav order for
+    # the whole app rather than two lists that can drift apart.
+    #
+    # `items` is a curated list of module_keys, NOT simply every leaf in the
+    # hub's menu: Home lists the tools in a hub, so the hub's own dashboard and
+    # reports pages are deliberately left out (Staff omits staff_dashboard and
+    # staff_reports, Student omits student_dashboard), and Operations orders
+    # its items differently from its menu. That curation is the only thing this
+    # list still owns - name, url and icon all come from the hub's menu via
+    # _leaf().
     return [
         {
             'title': 'Staff',
             'module_key': 'staff_hub',
             'url': reverse('staff_hub'),
             'description': 'Personal self-service tools for staff — timetables, leave, pay and training.',
-            'items': [
-                {'name': 'My Timetable', 'url': reverse('staff_my_timetable'), 'module_key': 'staff_my_timetable'},
-                {'name': 'Staff Directory', 'url': reverse('staff_directory'), 'module_key': 'staff_directory'},
-                {'name': 'Absence Request', 'url': reverse('staff_absence_request'), 'module_key': 'staff_absence_request'},
-                {'name': 'Payslips', 'url': reverse('staff_payslips'), 'module_key': 'staff_payslips'},
-                {'name': 'CPD & Training', 'url': reverse('staff_cpd_training'), 'module_key': 'staff_cpd_training'},
-                {'name': 'Staff Calendar', 'url': reverse('staff_calendar'), 'module_key': 'staff_calendar'},
-                {'name': 'Assessment Calendar', 'url': reverse('staff_assessment_calendar'), 'module_key': 'staff_assessment_calendar'},
-                {'name': 'School Map', 'url': reverse('staff_school_map'), 'module_key': 'staff_school_map'},
-            ],
+            'items': [_leaf(k) for k in (
+                'staff_my_timetable', 'staff_directory', 'staff_absence_request', 'staff_payslips',
+                'staff_cpd_training', 'staff_calendar', 'staff_assessment_calendar', 'staff_school_map',
+            )],
             'icon_template': 'icons/staff_svg.html',
         },
         {
@@ -129,24 +159,20 @@ def _raw_sections():
             'module_key': 'student_hub',
             'url': reverse('student_hub'),
             'description': 'Core student record — profile, progress and equipment standards.',
-            'items': [
-                {'name': 'Student Profile', 'url': reverse('student_profile'), 'module_key': 'student_profile'},
-                {'name': 'Progress Tracker', 'url': reverse('student_progress_tracker'), 'module_key': 'student_progress_tracker'},
-                {'name': 'Standards & Equipment', 'url': reverse('student_standards_equipment'), 'module_key': 'student_standards_equipment'},
-                {'name': 'Pastoral Tracker', 'url': reverse('student_pastoral_tracker'), 'module_key': 'student_pastoral_tracker'},
-            ],
+            'items': [_leaf(k) for k in (
+                'student_profile', 'student_progress_tracker', 'student_standards_equipment',
+                'student_pastoral_tracker',
+            )],
             'icon_template': 'icons/student_svg.html',
         },
         {
             'title': 'SEND & Provision',
             'module_key': 'inclusion_hub',
             'url': reverse('inclusion_hub'),
-            'description': 'Provision, strategies and inclusion support for students with additional needs.',
-            'items': [
-                {'name': 'Provision & Strategies', 'url': reverse('inclusion_provision_strategies'), 'module_key': 'inclusion_provision_strategies'},
-                {'name': 'Inclusion Panel', 'url': reverse('inclusion_panel'), 'module_key': 'inclusion_panel'},
-                {'name': 'SEND Diagnosis Tracker', 'url': reverse('inclusion_diagnosis_tracker'), 'module_key': 'inclusion_diagnosis_tracker'},
-            ],
+            'description': 'SEND register, provision mapping and the Inclusion Panel referral process.',
+            'items': [_leaf(k) for k in (
+                'inclusion_provision_strategies', 'inclusion_panel', 'inclusion_diagnosis_tracker',
+            )],
             'icon_template': 'icons/send_svg.html',
         },
         {
@@ -154,12 +180,9 @@ def _raw_sections():
             'module_key': 'registers',
             'url': reverse('registers'),
             'description': 'Behaviour and pastoral registers — clubs, isolation, reset room, interventions and pastoral tracking.',
-            'items': [
-                {'name': 'Clubs', 'url': reverse('register_clubs'), 'module_key': 'register_clubs'},
-                {'name': 'Isolation Room', 'url': reverse('register_isolation_room'), 'module_key': 'register_isolation_room'},
-                {'name': 'Reset Room', 'url': reverse('register_reset_room'), 'module_key': 'register_reset_room'},
-                {'name': 'Interventions', 'url': reverse('register_interventions'), 'module_key': 'register_interventions'},
-            ],
+            'items': [_leaf(k) for k in (
+                'register_clubs', 'register_isolation_room', 'register_reset_room', 'register_interventions',
+            )],
             'icon_template': 'icons/registers_svg.html',
         },
         {
@@ -175,15 +198,10 @@ def _raw_sections():
             'module_key': 'services',
             'url': reverse('services'),
             'description': 'Running the school day-to-day — cover, rotas, events, rooms, resources and facilities.',
-            'items': [
-                {'name': 'Cover Manager', 'url': reverse('service_cover_manager'), 'module_key': 'service_cover_manager'},
-                {'name': 'Duty & Rota Manager', 'url': reverse('service_duty_rota'), 'module_key': 'service_duty_rota'},
-                {'name': 'Assembly Manager', 'url': reverse('service_assembly_manager'), 'module_key': 'service_assembly_manager'},
-                {'name': 'Admissions', 'url': reverse('service_admissions'), 'module_key': 'service_admissions'},
-                {'name': 'Events Planner', 'url': reverse('service_events_planner'), 'module_key': 'service_events_planner'},
-                {'name': 'Operations Overview', 'url': reverse('service_operations_dashboard'), 'module_key': 'service_operations_dashboard'},
-                {'name': 'Exams', 'url': reverse('service_exams_dashboard'), 'module_key': 'service_exams_dashboard'},
-            ],
+            'items': [_leaf(k) for k in (
+                'service_cover_manager', 'service_duty_rota', 'service_assembly_manager', 'service_admissions',
+                'service_events_planner', 'service_operations_dashboard', 'service_exams_dashboard',
+            )],
             'icon_template': 'icons/services_svg.html',
         },
         {
@@ -191,10 +209,7 @@ def _raw_sections():
             'module_key': 'resources_hub',
             'url': reverse('resources_hub'),
             'description': 'Asset tracking and room bookings for the school estate.',
-            'items': [
-                {'name': 'Asset Register', 'url': reverse('resource_asset_register'), 'module_key': 'resource_asset_register'},
-                {'name': 'Room Bookings', 'url': reverse('resource_room_bookings'), 'module_key': 'resource_room_bookings'},
-            ],
+            'items': [_leaf(k) for k in ('resource_asset_register', 'resource_room_bookings')],
             'icon_template': 'icons/resources_svg.html',
         },
     ]
@@ -214,7 +229,7 @@ def build_sections(request):
         label = term_overrides.get(section['module_key']) or module_label(section['module_key'], modules, section['title'])
         items = filter_by_module(section['items'], modules, request)
         items = [
-            {**item, 'icon': _LEAF_ICONS_BY_MODULE_KEY.get(item.get('module_key'), section['icon_template'])}
+            {**item, 'icon': _leaf_icon(item.get('module_key'), section['icon_template'])}
             for item in items
         ]
         sections.append({
@@ -263,7 +278,7 @@ def _most_used_registries(sections):
             }
         for item in section['items']:
             if item.get('module_key'):
-                icon = _LEAF_ICONS_BY_MODULE_KEY.get(item['module_key'], section['icon_template'])
+                icon = _leaf_icon(item['module_key'], section['icon_template'])
                 leaf_registry[item['module_key']] = {
                     'url': item['url'], 'icon': icon, 'label': item['name'],
                 }
