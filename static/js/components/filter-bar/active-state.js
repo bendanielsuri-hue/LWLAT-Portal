@@ -9,6 +9,11 @@
    and this becomes a real export at that point; promoting the file and
    changing how it is called in the same step would mean six templates changing
    for two reasons at once.
+
+   It moved from components/filter-bar.js into this folder when the rest of the
+   filter bar was promoted (#213): a file and a folder cannot share a name. Only
+   the one <script src> in panel/_base.html changed - the six callers still
+   reach it through window, which is the whole point of the two-step.
 */
 
 // Client-side filter bars (Students/Referrals/Actions) don't submit/reload —
