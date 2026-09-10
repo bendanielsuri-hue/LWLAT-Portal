@@ -1,0 +1,135 @@
+/* Tab rows, their overflow/collapse behaviour, and the count pulse.
+
+   Whether a tab row collapses is a measurement question, not a domain one.
+   Promoted out of panel.css (#209, ADR 0020: portal-wide by nature, not by
+   usage). Loads after responsive.css, like every file promoted by this
+   migration - see components/filter-bar.css's header for why that ordering is
+   load-bearing rather than incidental. */
+
+/* The tab-row itself is only rendered server-side when more than one status
+   is actually present (see show_referral_tabs/show_action_tabs) — fade it in
+   on load rather than having it pop straight to full opacity. */
+.tab-row {
+    animation: tab-row-fade-in var(--transition-base) ease;
+}
+
+/* Panel Group's Active/Inactive tab buttons fade in individually the moment
+   one goes from zero members to its first - see tabMemberState in panel.js.
+   Reuses the row's own fade-in keyframe rather than defining a near-
+   identical one. */
+.tab-row button.tab-fade-in {
+    animation: tab-row-fade-in var(--transition-base) ease;
+}
+
+/* Referral Selection tabs + picker */
+
+/* --border-strong, not --border-color - same too-pale-in-Soft-theme problem
+   already fixed on .list-card/.ui-select-trigger/.toggle-pill/.filter-bar
+   this session (see grilling session 2026-07-12).
+
+   CONVENTION - read before adding .tab-row to a new container: this base
+   rule carries NO horizontal margin/bleed at all, on purpose. A hardcoded
+   "bleed by 16px" default used to live here, tuned for one specific
+   ancestor's padding - every other context either had to override it back
+   out (.list-card) or silently inherited a mismatched bleed (.panel-card
+   was 4px off against its own --space-lg padding; bare pages with no
+   padded ancestor at all, e.g. _settings_tabs.html, got a bleed with
+   nothing to bleed into, pulling the row past the page's own left margin)
+   - see grilling session 2026-07-12, "tabs not going edge to edge." A
+   single shared assumption can't be right for every container, so there
+   isn't one: .tab-row defaults to a plain, unbled block (flush with
+   whatever it's placed in), and any container that actually needs it
+   bled to reach a padded ancestor's true edge sets its own two-sided
+   margin below, sized to that ancestor's own real padding - never
+   margin-left alone, which only ever fixes one side and leaves the
+   border-bottom short on the other. */
+.tab-row { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border-strong); }
+
+.tab-row button, .tab-row a {
+    position: relative;
+    background: transparent;
+    border: none;
+    padding: var(--space-xs) var(--space-md);
+    font-size: var(--font-base);
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    display: inline-block;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Bottom rectangle indicator, same pattern as .side-nav .nav-menu a::before:
+   grey on hover, purple (and staying purple) when selected. */
+.tab-row button::after, .tab-row a::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--text-faint);
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: opacity var(--transition-base), transform var(--transition-pop), background-color var(--transition-base);
+}
+
+.tab-row button:hover::after, .tab-row a:hover::after,
+.tab-row button:focus-visible::after, .tab-row a:focus-visible::after {
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+.tab-row button:hover, .tab-row a:hover { color: var(--text-primary); }
+
+.tab-row button.active, .tab-row a.active { color: var(--active-text); }
+
+.tab-row button.active::after, .tab-row a.active::after {
+    opacity: 1;
+    transform: scaleX(1);
+    background: var(--primary);
+}
+
+/* Status-filter tab entering/leaving the tab row (INT-M1: transition
+   rather than a sudden jump) - a tab whose count is 0 still isn't rendered as a disabled state,
+   it's just collapsed to zero width instead of omitted from the DOM outright,
+   so JS can transition it in/out live instead of it appearing/disappearing
+   with a snap. 200px is a generous cap for these labels (longest is "Not
+   Required (99)"), not a real measured width - it only needs to clear the
+   button's natural width once expanded. */
+.tab-row button { max-width: 200px; }
+
+.tab-row button.tab-collapsed {
+    opacity: 0;
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.tab-row button.tab-visibility-animating {
+    transition: opacity 260ms ease, max-width 260ms ease, padding-left 260ms ease, padding-right 260ms ease;
+}
+
+/* Count-delta pulse (INT-M2) -
+   fires on any live count when an action changes it, not on a page load -
+   a tab's own (N), or a card/section heading's count (.panel-card-count and
+   similar). Scale + colour, no background box (read too "boxy" at this text
+   size) and no weight change. Deliberately NOT gated behind
+   prefers-reduced-motion: this is a passive indicator, not a hover effect on
+   something clickable. Not scoped to .tab-row - applies wherever
+   window.pulseCount() is called (see panel.js). */
+.count-pulse-up, .count-pulse-down { display: inline-block; transform-origin: center; }
+
+.count-pulse-up {
+    animation: countPulseUp 750ms cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.count-pulse-down {
+    animation: countPulseDown 750ms ease;
+}

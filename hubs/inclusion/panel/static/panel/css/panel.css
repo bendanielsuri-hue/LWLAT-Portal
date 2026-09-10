@@ -1,19 +1,3 @@
-/* Visually hides content while keeping it in the accessibility tree - the
-   standard "sr-only" recipe (clip to a 1px box rather than display:none/
-   visibility:hidden, which would also hide it from screen readers). Used
-   by the carousels' own aria-live position announcer (home.html). */
-.sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
 /* Inclusion Panel: My Referrals / My Actions columns */
 .panel-columns {
     display: flex;
@@ -420,15 +404,15 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
 }
 
 @media (max-width: 1180px) {
-    .panel-row-primary,
+.panel-row-primary,
     .panel-row-secondary {
         display: contents;
     }
-    .panel-home-cards {
+.panel-home-cards {
         display: flex;
         flex-direction: column;
     }
-    /* Overrides the bounded-height dashboard shell every other
+/* Overrides the bounded-height dashboard shell every other
        .list-page-shell page (Students/Referrals/Actions, Meeting Setup)
        still wants - setupListPageShellHeight (main.js) sets an inline
        height on every .list-page-shell unconditionally, and .panel-card's
@@ -437,11 +421,11 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        Home's shell specifically, the same way :has(.panel-columns) already
        scopes the row gap above - !important beats the inline style JS
        sets, same reasoning as home.html's earlier stack prototype. */
-    .list-page-shell:has(.panel-home-cards) {
+.list-page-shell:has(.panel-home-cards) {
         height: auto !important;
         overflow: visible;
     }
-    .panel-home-cards .panel-card {
+.panel-home-cards .panel-card {
         height: auto;
         overflow: visible;
         margin-bottom: var(--space-xl);
@@ -462,7 +446,7 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
            which is genuinely all a vertical stack needs. */
         flex: none;
     }
-    /* Not `.panel-card:last-child` - .panel-row-primary/-secondary (above)
+/* Not `.panel-card:last-child` - .panel-row-primary/-secondary (above)
        are display:contents, which flattens how the 4 cards *render* into
        one visual column but doesn't change their real DOM parent. Each
        row div still has its own last real child (My Actions ends
@@ -471,18 +455,10 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        killing the gap before Next Panel Meeting, the card that actually
        comes right after it on screen. Only the last of the two ends the
        page. */
-    #activity-card {
+#activity-card {
         margin-bottom: 0;
     }
-    /* #activity-card's own margin-bottom is zeroed above (it's the true
-       last card in the stack) - but the KPI carousel below (.stats-
-       carousel-wrap, a sibling of .panel-home-cards, not one of its
-       cards) still needs its own clearance from the stack, or it sits
-       flush against Recent Activity with no gap at all. */
-    .stats-carousel-wrap {
-        margin-top: var(--space-md);
-    }
-    .panel-home-cards .panel-list,
+.panel-home-cards .panel-list,
     .panel-home-cards .activity-list {
         flex: none;
         overflow-y: visible;
@@ -719,25 +695,6 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
     display: none;
 }
 
-/* Carousel-mode-only replacement for the tab row (My Referrals/My Actions):
-   a compact trigger + popover list instead of a full row of buttons, wired
-   in home.html (wireCarouselFilterDropdown) by delegating every option
-   click to the real (hidden below) tab button's own click handler - see
-   that function's own comment for why. Hidden above this breakpoint (the
-   plain .tab-row there has room to spare) and shown in its place below it.
-
-   Sits directly under the card heading, above the carousel - reads as one
-   linked phrase ("My Referrals" / "Awaiting Discussion") rather than a
-   control bolted onto the carousel itself. Kept deliberately subtle (no
-   border/box of its own, small muted text) so it reads as a subtitle, not
-   a second heading competing with the h2 above it. */
-.carousel-filter {
-    display: none;
-    position: relative;
-    text-align: center;
-    margin-bottom: 4px;
-}
-
 /* Same missing-default bug as .carousel-filter would have without the
    display: none above - .action-status-dropdown (the per-row carousel-mode
    replacement for the real status segmented control, _my_actions_card.html)
@@ -834,166 +791,17 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
     border-color: currentColor;
 }
 
-.carousel-filter-trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px;
-    border: none;
-    background: none;
-    color: var(--text-secondary);
-    font-size: var(--font-xs);
-    font-weight: 600;
-    cursor: pointer;
-}
-
-/* Plain CSS-border chevron rather than an SVG include - flips via
-   transform on .open the same way .ui-select-trigger's own chevron does.
-   A real element (home.html), not ::after - a pseudo-element always
-   renders after every real child regardless of source order, which pinned
-   the badge (appended into the trigger by syncLabel, home.html) before the
-   chevron no matter what; needed as a real sibling so the badge can be
-   moved after it instead (live feedback: "the badge count... after the
-   dropdown arrow"). */
-.carousel-filter-chevron {
-    flex: 0 0 auto;
-    width: 6px;
-    height: 6px;
-    border-right: 2px solid var(--text-faint);
-    border-bottom: 2px solid var(--text-faint);
-    transform: rotate(45deg);
-    margin-top: -3px;
-    transition: transform var(--transition-fast);
-}
-
-.carousel-filter-trigger.open .carousel-filter-chevron {
-    transform: rotate(-135deg);
-    margin-top: 2px;
-}
-
-.carousel-filter-menu {
-    list-style: none;
-    margin: var(--space-xs) 0 0;
-    /* No vertical padding - was leaving a bare strip of the menu's own
-       background above the first option and below the last one (live
-       feedback: "margin at top and bottom of expanded dropdown"). Options
-       now sit flush against the box edges; overflow: hidden below clips
-       their square corners back to the menu's own rounded shape. */
-    padding: 0;
-    overflow: hidden;
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    min-width: 180px;
-    /* Above the carousel's own stacked-card z-index range (updateState,
-       home.html, capped at 10) and its fade/arrow chrome (15/20 below) -
-       otherwise the popover rendered underneath the carousel cards
-       (live feedback: "dropdown does not go over carousel"). */
-    z-index: 30;
-    background: var(--bg-surface);
-    /* --border-strong, not --border-color - the plain thin border read as
-       more subtle than the active carousel card sitting right behind it
-       (live feedback: "the border is more subtle than active card
-       beneath"), same escalation .panel-card's own border already made
-       portal-wide (see its own comment). */
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg, var(--shadow-md));
-}
-
-.carousel-filter-menu li {
-    padding: var(--space-xs) var(--space-sm);
-    font-size: var(--font-sm);
-    cursor: pointer;
-}
-
-.carousel-filter-menu li:hover {
-    background: var(--row-hover-bg);
-}
-
-/* Selected option reads as primary-filled, not just a lightly-tinted hover
-   state (live feedback: "the selected is usually a primary fill") - matches
-   .ui-segmented-option.active and every other "currently chosen" control
-   portal-wide. */
-.carousel-filter-menu li.active {
-    background: var(--primary);
-    color: var(--on-primary);
-}
-
-/* Explicit .active:hover, not just relying on source order at equal
-   specificity against the plain :hover rule above - hovering the already-
-   active option was falling back to :hover's own --row-hover-bg fill while
-   keeping .active's white text, reading as barely-legible pale text on a
-   near-white background (live feedback: "hovering the active dropdown
-   choice, the text becomes unreadable"). Higher specificity (one extra
-   pseudo-class) removes any ambiguity about which one wins. */
-.carousel-filter-menu li.active:hover {
-    background: var(--primary);
-    color: var(--on-primary);
-}
-
-/* The trailing "(N)" split off the tab button's own text (renderWithBadge,
-   home.html) into a small rounded badge instead - reads as a count, not a
-   literal parenthetical, both on the trigger and each menu option. */
-.carousel-filter-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
-    margin-left: 4px;
-    border-radius: 999px;
-    background: var(--badge-bg);
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1;
-}
-
-/* The trigger always shows whichever tab is currently active - same
-   "primary fill" treatment .carousel-filter-menu li.active gives its own
-   badge below, not the muted default, since the trigger's count is never
-   really in a non-active state (live feedback: "hard to see number"). */
-.carousel-filter-trigger .carousel-filter-badge {
-    background: var(--primary);
-    color: var(--on-primary);
-}
-
-/* Inverted (white fill, primary text), not the plain primary/white badge
-   every other state uses - .carousel-filter-menu li.active (above) already
-   fills the whole row primary, so the same-color badge would otherwise
-   disappear into its own row. */
-.carousel-filter-menu li.active .carousel-filter-badge {
-    background: #fff;
-    color: var(--active-text);
-}
-
 @media (max-width: 1180px) {
-    /* Descendant, not direct-child - main.js's overflow-tab handling
+/* Descendant, not direct-child - main.js's overflow-tab handling
        (setupOverflowTabs) can wrap the tab row in its own
        .overflow-scroll-wrap, one level deeper than #referrals-card/
        #actions-card's own direct children (same reason the bleed-margin
        rule above targets both .tab-row and .overflow-scroll-wrap). */
-    #referrals-card .tab-row,
+#referrals-card .tab-row,
     #actions-card .tab-row {
         display: none;
     }
-    .carousel-filter {
-        display: block;
-        /* Flush against the title above (0, not the old --space-sm) - reads
-           as one linked phrase ("My Referrals" / "Awaiting Discussion"),
-           same intent as this block's own opening comment. The gap this
-           control needs belongs *after* it, not before (live feedback: "a
-           gap should be after dropdown") - #my-referrals-list/
-           #my-actions-list's own padding-top (below) already reserves that
-           space for the carousel's scale/shadow clearance, so it does
-           double duty as the dropdown's trailing gap too, nothing extra
-           added here. */
-        margin-top: 0;
-    }
-    /* .panel-card-header's own margin-bottom (base rule, below) is for
+/* .panel-card-header's own margin-bottom (base rule, below) is for
        spacing the title from the tab-row it normally sits above - moot
        once the carousel-mode dropdown (above) is what follows it instead,
        flush against it (immediately above). Scoped by id to the two cards
@@ -1010,11 +818,11 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        above carousel"). :has(.carousel-filter) leaves the phone block's
        own --space-xs margin-bottom (below) in charge whenever there's
        nothing to be flush against. */
-    #referrals-card:has(.carousel-filter) .panel-card-header,
+#referrals-card:has(.carousel-filter) .panel-card-header,
     #actions-card:has(.carousel-filter) .panel-card-header {
         margin-bottom: 0;
     }
-    /* Fades the carousel itself behind the open dropdown (:has(), reacting
+/* Fades the carousel itself behind the open dropdown (:has(), reacting
        to the same .open class wireCarouselFilterDropdown already toggles
        on the trigger - no extra JS needed) - the popover alone didn't read
        as prominent against the carousel's own busy card stack right behind
@@ -1038,7 +846,7 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        does - fading the wrap then faded that trigger's own open dropdown
        and card right along with everything else instead of leaving it
        readable (live feedback: "this affects the open dropdown as well"). */
-    #referrals-card:has(.carousel-filter .carousel-filter-trigger.open) .referral-carousel-wrap,
+#referrals-card:has(.carousel-filter .carousel-filter-trigger.open) .referral-carousel-wrap,
     #referrals-card:has(.carousel-filter .carousel-filter-trigger.open) .referral-carousel-dots,
     #referrals-card:has(.carousel-filter .carousel-filter-trigger.open) .referral-carousel-count,
     #actions-card:has(.carousel-filter .carousel-filter-trigger.open) .action-carousel-wrap,
@@ -1047,17 +855,16 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
         opacity: 0.35;
         transition: opacity var(--transition-base);
     }
-    /* Tightened from the base 42x56 - "too spaced out for a mobile" (live
+/* Tightened from the base 42x56 - "too spaced out for a mobile" (live
        feedback): the carousel cards are already narrow, a smaller thumb
        trims a genuine chunk of each card's own height too, not just width. */
-    #my-referrals-list .panel-thumb,
+#my-referrals-list .panel-thumb,
     #my-actions-list .panel-thumb {
         flex-basis: 34px;
         width: 34px;
         height: 44px;
     }
-
-    /* Loses the "card inside a card" look while the carousel's own cards
+/* Loses the "card inside a card" look while the carousel's own cards
        (#my-referrals-list > li, each already bordered) are doing that job
        themselves - #referrals-card's own chrome (surface fill, border,
        shadow) would otherwise double it up, framing the framed cards.
@@ -1071,13 +878,13 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        on top of it read as unexplained extra gap before the next card
        (live feedback: "look like extra margin") - #actions-card (below,
        its own identical carousel) already zeroes this the same way. */
-    #referrals-card {
+#referrals-card {
         background: transparent;
         border: none;
         box-shadow: none;
         padding-bottom: 0;
     }
-    /* More breathing room between the tab row's own border-bottom and the
+/* More breathing room between the tab row's own border-bottom and the
        first carousel card than the plain border-adjacent default. Also
        bleeds past *two* layers of padding out to the real viewport edge -
        #referrals-card's own (--space-lg) and .main-inner's (layout.css,
@@ -1085,12 +892,12 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        below) - not just the card's. The carousel is edge-faded either way
        (never a hard cutoff), so none of that reserved page padding was
        actually being felt as breathing room here, just wasted width. */
-    .referral-carousel-wrap {
+.referral-carousel-wrap {
         margin-top: 0;
         margin-left: calc(-1 * var(--space-lg) - var(--space-2xl));
         margin-right: calc(-1 * var(--space-lg) - var(--space-2xl));
     }
-    /* #referrals-card #my-referrals-list (double-id), not a plain
+/* #referrals-card #my-referrals-list (double-id), not a plain
        #my-referrals-list - the always-on DES-L5 rule above
        (#referrals-card .panel-list) is id+class, which outranks a bare id
        selector regardless of source order (same rule this file already
@@ -1098,7 +905,7 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        margin-bottom specifically, zeroing the clearance this block reserves
        below (live feedback: "card bottoms are being cut off as well" -
        the padding-bottom bump alone never actually took effect). */
-    #referrals-card #my-referrals-list {
+#referrals-card #my-referrals-list {
         display: flex;
         flex-direction: row;
         flex-wrap: nowrap;
@@ -1166,19 +973,19 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
            (home.html), which use this same padding as the room to scroll
            any card, including the first/last, all the way to centre. */
     }
-    #my-referrals-list::-webkit-scrollbar {
+#my-referrals-list::-webkit-scrollbar {
         display: none;
     }
-    /* Grab cursor for the mouse/trackpad drag wired in home.html - touch
+/* Grab cursor for the mouse/trackpad drag wired in home.html - touch
        already shows nothing extra for its native panning, same reasoning
        as .stats-carousel-viewport's own cursor rules. */
-    html:not(.nav-touch-mode) #my-referrals-list {
+html:not(.nav-touch-mode) #my-referrals-list {
         cursor: grab;
     }
-    #my-referrals-list.is-grabbing {
+#my-referrals-list.is-grabbing {
         cursor: grabbing;
     }
-    #my-referrals-list > li {
+#my-referrals-list > li {
         /* Anchors .panel-thumb's own absolute positioning below - "Circle
            Break" (grilling session 2026-08-25, prototyped alongside 3
            other treatments before this one was picked). */
@@ -1233,20 +1040,20 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
         align-items: center;
         text-align: center;
     }
-    #my-referrals-list > li:first-child {
+#my-referrals-list > li:first-child {
         margin-left: 0;
     }
-    #my-referrals-list > li .panel-item-body {
+#my-referrals-list > li .panel-item-body {
         width: 100%;
     }
-    /* "Circle Break": the student's photo (once Student.photo exists -
+/* "Circle Break": the student's photo (once Student.photo exists -
        wayfinder ticket 002, docs/wayfinder/student-audit-history/) or the
        placeholder icon breaks out above the card's own top edge, matching
        the SENCo contacts treatment (components/cards.css .senco-avatar-
        wrap) rather than the base rule's rounded-rect "ID card" thumb -
        that shape only made sense in the wide list-row layout it's sized
        for, not stacked above a narrow carousel card's centred content. */
-    #my-referrals-list > li .panel-thumb {
+#my-referrals-list > li .panel-thumb {
         position: absolute;
         top: calc(-1 * (var(--space-xl) + var(--space-xxs)));
         left: 50%;
@@ -1258,20 +1065,20 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
         box-shadow: 0 0 0 1px var(--border-color);
         align-items: center;
     }
-    /* Back to filling the now-circular .panel-thumb, overriding its own
+/* Back to filling the now-circular .panel-thumb, overriding its own
        base rule's fixed 32px/bottom-aligned sizing (panel.css, sized for
        the portrait-rectangle base shape this isn't any more). */
-    #my-referrals-list > li .panel-thumb .avatar-initials {
+#my-referrals-list > li .panel-thumb .avatar-initials {
         width: 100%;
         height: 100%;
         margin-bottom: 0;
         font-size: var(--font-md);
     }
-    #my-referrals-list > li.empty-note {
+#my-referrals-list > li.empty-note {
         flex: 0 0 100%;
         border: none;
     }
-    /* #my-referrals-list's own padding-top: 52px (above) exists purely to
+/* #my-referrals-list's own padding-top: 52px (above) exists purely to
        clear "Circle Break" - the avatar circle a real card's .panel-thumb
        pokes above its own top edge (live feedback: "you can only see the
        bottom half of the circle"). An empty list has no card, so no thumb,
@@ -1279,10 +1086,10 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        :has() beats the plain-id rule above regardless of source order
        (id + pseudo-class outranks a bare id), so this wins without needing
        !important. */
-    #my-referrals-list:has(> li.empty-note) {
+#my-referrals-list:has(> li.empty-note) {
         padding-top: 0;
     }
-    /* Own row at the bottom of the (now column-direction, thumb-above-name)
+/* Own row at the bottom of the (now column-direction, thumb-above-name)
        card, centered like the rest of its content. Not flex: 0 0 100% -
        that was sized for the old row-direction card, where 100% meant
        "100% of the row's width"; in this column-direction card the same
@@ -1290,64 +1097,63 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        fill most of the card's own height (confirmed empirically - Edit/
        Delete were rendering ~150px tall, spilling out past the card's
        bottom edge). */
-    #my-referrals-list .panel-item-actions {
+#my-referrals-list .panel-item-actions {
         justify-content: center;
         margin-top: var(--space-xs);
     }
-    /* Status pills used to run inline after the date inside one shared
+/* Status pills used to run inline after the date inside one shared
        .panel-item-meta div, each wrapping independently once the (already
        narrow) card ran out of room - "Discussed"/"Compliance" landing on
        separate lines of their own instead of reading as a pair. Split into
        its own row (home.html: .panel-item-pills, a sibling of
        .panel-item-meta now, not a child) so both pills wrap as one group
        instead. */
-    #my-referrals-list .panel-item-meta {
+#my-referrals-list .panel-item-meta {
         display: block;
     }
-    /* Column, not the base rule's row+flex-wrap (above, home.html: "same
+/* Column, not the base rule's row+flex-wrap (above, home.html: "same
        row if space, own row if not") - carousel cards are narrow enough
        that name+details would only ever share a line for the shortest
        names anyway, reading as inconsistent card-to-card; forced to always
        stack here instead (live feedback: "student details should be on
        own line in my referrals cards" - carousel mode specifically). */
-    #my-referrals-list .panel-item-header {
+#my-referrals-list .panel-item-header {
         flex-direction: column;
         align-items: center;
         justify-content: center;
     }
-    /* .referral-category-row is a flex row too now (its own change, above)
+/* .referral-category-row is a flex row too now (its own change, above)
        - without this its single visible child (the pill is display: none
        here) would sit flush left instead of picking up the centered look
        every other row in this carousel card has via <li>'s own text-align:
        center, same reasoning as .panel-item-header's identical override
        just above. */
-    #my-referrals-list .referral-category-row {
+#my-referrals-list .referral-category-row {
         justify-content: center;
     }
-    /* Groups the student info (name + entity-meta, already tight via
+/* Groups the student info (name + entity-meta, already tight via
        entity-meta's own small base margin-top) apart from the referral
        details below it (Category/status pill/Created date, which otherwise
        sit flush against entity-meta with no gap at all) - a small gap after
        entity-meta rather than margin-top on Category so the gap still lands
        correctly even when there's no concern_category and the stacked pill
        or Created date is the first line of that group instead. */
-    #my-referrals-list .entity-meta {
+#my-referrals-list .entity-meta {
         margin-bottom: var(--space-sm);
     }
-    /* Carousel mode swaps which of the two pill copies (home.html) shows -
+/* Carousel mode swaps which of the two pill copies (home.html) shows -
        the header one (next to the name, desk/tablet-wide default) hides,
        and the stacked one after the Created date takes over, own centered
        row. */
-    #my-referrals-list .panel-item-pills--header {
+#my-referrals-list .panel-item-pills--header {
         display: none;
     }
-    #my-referrals-list .panel-item-pills--stacked {
+#my-referrals-list .panel-item-pills--stacked {
         display: flex;
         justify-content: center;
         margin-top: var(--space-xs);
     }
-
-    /* Carousel chrome (home.html: .referral-carousel-wrap around the ul,
+/* Carousel chrome (home.html: .referral-carousel-wrap around the ul,
        .referral-carousel-dots as its own row below) - dots for touch
        devices, arrows for mouse/trackpad (nav-touch-mode class, main.js),
        one navigation affordance per device type rather than both stacked
@@ -1358,7 +1164,7 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
        itself (position:relative, needed for the fade/arrows below) is
        defined unconditionally near .list-page-shell .panel-list - it's also
        load-bearing for the desktop flex-height chain, not phone-specific. */
-    .referral-carousel-fade-l,
+.referral-carousel-fade-l,
     .referral-carousel-fade-r {
         position: absolute;
         top: 0;
@@ -1375,22 +1181,21 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
         opacity: 0;
         transition: opacity var(--transition-base);
     }
-    /* --bg-page, not --bg-surface - #referrals-card is transparent in
+/* --bg-page, not --bg-surface - #referrals-card is transparent in
        carousel mode (above), so the fade sits directly on the page canvas
        between cards, same reasoning as the KPI carousel's own fade
        (.stats-carousel-fade-l/-r) which never had a card behind it either. */
-    .referral-carousel-fade-l { left: 0; background: linear-gradient(to right, var(--bg-page), transparent); }
-    .referral-carousel-fade-r { right: 0; background: linear-gradient(to left, var(--bg-page), transparent); }
-
-    /* Same visual treatment as .stats-carousel-arrow, smaller (36px, not
+.referral-carousel-fade-l { left: 0; background: linear-gradient(to right, var(--bg-page), transparent); }
+.referral-carousel-fade-r { right: 0; background: linear-gradient(to left, var(--bg-page), transparent); }
+/* Same visual treatment as .stats-carousel-arrow, smaller (36px, not
        48px) - this row sits inside a card next to its own tab-row, not the
        full page canvas the KPI row owns alone, so the KPI row's touch-sized
        target would crowd it. Desktop/mouse-only (html:not(.nav-touch-mode));
        further hidden/disabled by JS once nothing actually overflows. */
-    html:not(.nav-touch-mode) .referral-carousel-arrow {
+html:not(.nav-touch-mode) .referral-carousel-arrow {
         display: flex;
     }
-    .referral-carousel-arrow {
+.referral-carousel-arrow {
         display: none;
         position: absolute;
         top: 50%;
@@ -1415,26 +1220,25 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
            feedback: "arrows disabled if directly above a card"). */
         z-index: 20;
     }
-    .referral-carousel-arrow:hover:not(:disabled) { background: var(--border-color); }
-    .referral-carousel-arrow:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
-    /* 6px, not a negative offset - the wrap now bleeds all the way to the
+.referral-carousel-arrow:hover:not(:disabled) { background: var(--border-color); }
+.referral-carousel-arrow:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+/* 6px, not a negative offset - the wrap now bleeds all the way to the
        real viewport edge (its own rule above), so there's no page-padding
        gutter left to float a negative-offset arrow into any more; a
        negative value here pushed it fully off-screen. Small positive inset
        instead, staying just inside the wrap/viewport. */
-    .referral-carousel-arrow--prev { left: 6px; }
-    .referral-carousel-arrow--next { right: 6px; }
-
-    /* Dots: touch-only (html.nav-touch-mode), tappable (home.html) - one
+.referral-carousel-arrow--prev { left: 6px; }
+.referral-carousel-arrow--next { right: 6px; }
+/* Dots: touch-only (html.nav-touch-mode), tappable (home.html) - one
        per currently *visible* (tab-filtered) referral, rebuilt on tab
        switch/delete rather than reflecting the full unfiltered set. Past
        COUNT_LABEL_THRESHOLD (home.html) this row becomes a single "3 / 12"
        text label instead - a dot per card stops being a usable indicator
        (or a realistic tap target) once there are more than a handful. */
-    html.nav-touch-mode .referral-carousel-dots {
+html.nav-touch-mode .referral-carousel-dots {
         display: flex;
     }
-    .referral-carousel-dots {
+.referral-carousel-dots {
         display: none;
         justify-content: center;
         align-items: center;
@@ -1447,12 +1251,12 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
            already keeps this card's stacking self-contained. */
         margin-top: -14px;
     }
-    /* 24px button box (WCAG 2.5.5-ish touch target), not the 8px visual dot
+/* 24px button box (WCAG 2.5.5-ish touch target), not the 8px visual dot
        itself - the dot is a ::after so the tap target can be much bigger
        than what's actually drawn without changing how the row looks. Boxes
        sit edge-to-edge (no gap) since 24px of centre-to-centre spacing is
        already plenty visual separation between 8px dots. */
-    .referral-carousel-dot {
+.referral-carousel-dot {
         width: 24px;
         height: 24px;
         padding: 0;
@@ -1463,7 +1267,7 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
         align-items: center;
         justify-content: center;
     }
-    .referral-carousel-dot::after {
+.referral-carousel-dot::after {
         content: '';
         width: 8px;
         height: 8px;
@@ -1471,27 +1275,27 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
         background: var(--border-strong);
         transition: background var(--transition-fast), transform var(--transition-fast);
     }
-    .referral-carousel-dot.active::after {
+.referral-carousel-dot.active::after {
         background: var(--primary);
         transform: scale(1.25);
     }
-    .referral-carousel-count {
+.referral-carousel-count {
         display: none;
         margin-top: var(--space-xs);
         text-align: center;
         font-size: var(--font-sm);
         color: var(--text-secondary);
     }
-    /* Non-touch (arrows) always shows it once there's more than one card -
+/* Non-touch (arrows) always shows it once there's more than one card -
        arrows alone give no sense of how many cards there are or where you
        are among them, unlike touch mode's dots. Touch mode only shows it
        once the dot row itself gets suppressed for having too many cards
        (.many-cards, set alongside .has-cards in updateState, home.html) -
        otherwise it'd just duplicate what the dots already show. */
-    html:not(.nav-touch-mode) .referral-carousel-count.has-cards {
+html:not(.nav-touch-mode) .referral-carousel-count.has-cards {
         display: block;
     }
-    html.nav-touch-mode .referral-carousel-count.many-cards {
+html.nav-touch-mode .referral-carousel-count.many-cards {
         display: block;
     }
 }
@@ -1992,377 +1796,6 @@ html.nav-touch-mode .list-page-shell .panel-list::-webkit-scrollbar {
     }
 }
 
-/* #116/#132 Home's KPI row carousel - originally its own mechanism (native
-   scroll-snap, JS-computed per-breakpoint card width, flat cards - see git
-   history), rebuilt to match My Referrals' own "stack" carousel instead
-   (live feedback: "update the data card to act like My Referrals
-   Carousel") - same overlapping-cards-with-one-scaled-up-active-card
-   effect, dots (touch)/arrows (mouse) + drag-to-settle, wired generically
-   in main.js off the .stats-carousel-* class names below (unlike My
-   Referrals/My Actions, not gated behind a max-width media query - this
-   row is meant to carousel at every width, not just a narrow-card
-   breakpoint). isolation: isolate for the same reason #referrals-card/
-   #actions-card have it (panel.css, above) - contains this row's own
-   z-index layering (stacked cards/fade/arrows below) so it can't tie or
-   escape past unrelated page chrome sharing the same root stacking
-   context (confirmed bug class: "active carousel card goes over page
-   heading"). */
-.stats-carousel-wrap {
-    position: relative;
-    isolation: isolate;
-}
-
-.stats-carousel-track {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    /* PROTOTYPE: --space-xs was sized for overlapping cards, where JS's
-       negative margin-left did the real spacing work and this gap barely
-       showed. Cards no longer overlap (see .stats-carousel-slot below), so
-       reuse is-flat mode's own --space-md - same "clearly separate tiles"
-       reasoning applies now at every width, not just the flat breakpoint. */
-    gap: var(--space-md);
-    /* PROTOTYPE (live feedback: "we do not have an active state for cards,
-       it just scrolls"): no more active-card scale-up to budget room for -
-       this small pair now only protects the plain a.stat-card:hover lift
-       (translateY(-6px), cards.css - box-shadow dropped from the hover
-       state entirely, it kept getting clipped by overflow-y: hidden here
-       at some width/theme combos; scale() dropped too, see cards.css's own
-       comment - it clipped the first card's left edge against the track's
-       scroll boundary) from getting clipped by overflow-y: hidden, same
-       reasoning as #my-referrals-list's own identical padding/margin pair
-       (above) - negative margin cancels the visual gap the padding would
-       otherwise leave before/after the row. Bottom no longer needs extra
-       room now the shadow's gone - the lift only moves cards up, so top
-       and bottom match. */
-    padding-top: 8px;
-    padding-bottom: 8px;
-    margin-top: -8px;
-    margin-bottom: -8px;
-    /* PROTOTYPE: no more centring - card 0 just needs to clear
-       .stats-carousel-fade-l (40px wide, below) so it isn't sitting flush
-       against the physical screen edge on mobile with the fade eating
-       straight into it. */
-    padding-left: 40px;
-    padding-right: 40px;
-}
-
-.stats-carousel-track::-webkit-scrollbar {
-    display: none;
-}
-
-html:not(.nav-touch-mode) .stats-carousel-track {
-    cursor: grab;
-}
-
-.stats-carousel-track.is-grabbing {
-    cursor: grabbing;
-}
-
-/* Grid mode (main.js updateState) - applied once every card's own natural
-   width fits the row without needing to scroll. Drops the carousel's edge
-   inset/hover-headroom margin and lets the cards wrap into a plain centred
-   static row instead - main.js also hides the arrows/fade entirely in this
-   mode, this only undoes the layout-level carousel accommodations. */
-.stats-carousel-wrap.is-flat .stats-carousel-track {
-    /* Top gap matches --space-xl, the same gap .list-page-shell's own two
-       rows use between each other (:has(.panel-columns) above) - the KPI
-       row reads as another section in the same rhythm as the rest of the
-       page, not a smaller, separately-tuned gap (live grilling: "should the
-       gap not be the same as the gap between sections?"). Plain padding,
-       not the padding+negative-margin trick tried earlier to protect
-       main's own height budget - setupListPageShellHeight (main.js)
-       ResizeObserves every .list-page-shell's trailing siblings (this row
-       included) and recomputes the shell's own explicit height to fit
-       whatever they actually measure, every time; the shell shrinking to
-       make room is the intended mechanism for exactly this, not something
-       to work around with margin tricks. Bottom dropped to 0 (was
-       --space-xs) - this row is the last thing on the page before the
-       app footer, and reclaiming that space mattered more than the small
-       amount of headroom it gave the hover lift's shadow. */
-    padding: var(--space-xl) 0 0;
-    margin: 0;
-    cursor: default;
-    flex-wrap: wrap;
-    justify-content: center;
-    /* Base rule's gap (--space-xs, 8px) is sized for the carousel's own
-       overlapping cards, where JS's negative margin-left already does the
-       real spacing work and this gap barely shows. Grid mode's cards don't
-       overlap at all, so that same 8px read as cramped between clearly
-       separate tiles (live feedback: "the gap between data cards is too
-       small") - --space-md gives each one real breathing room. */
-    gap: var(--space-md);
-}
-
-html:not(.nav-touch-mode) .stats-carousel-wrap.is-flat .stats-carousel-track {
-    cursor: default;
-}
-
-/* Arrows are otherwise unconditionally display: flex (html:not(.nav-touch-
-   mode) .stats-carousel-arrow, below) - author rules always beat the
-   [hidden] attribute's own UA-stylesheet display: none regardless of
-   specificity, so main.js's prev.hidden/next.hidden alone can't hide them
-   here; this rule (3 classes) outranks that one (1 class + 1 :not()) on
-   specificity, so it wins instead. Same reasoning for fade, redundant with
-   main.js's own opacity: 0 but belt-and-braces. */
-.stats-carousel-wrap.is-flat .stats-carousel-arrow,
-.stats-carousel-wrap.is-flat .stats-carousel-fade-l,
-.stats-carousel-wrap.is-flat .stats-carousel-fade-r {
-    display: none;
-}
-
-/* Cards grow to fill the row evenly instead of clamping at 170px - a static
-   grid with a big unused gap after the last card (min/max-width's own
-   carousel-mode reasoning no longer applies once nothing scrolls) read as
-   unfinished rather than deliberate (live feedback: "can cards be auto
-   widthed to fill available space"). */
-.stats-carousel-wrap.is-flat .stats-carousel-slot {
-    flex: 1 1 140px;
-}
-
-.stats-carousel-wrap.is-flat .stats-carousel-slot .stat-card {
-    max-width: none;
-    width: 100%;
-}
-
-.stats-carousel-slot {
-    flex: 0 0 auto;
-    display: flex;
-}
-
-.stats-carousel-slot .stat-card {
-    min-width: 160px;
-    max-width: 190px;
-    /* Stretched to the tallest card in the row (align-items: stretch
-       above) - a longer label (e.g. "Safeguarding Briefings Needed")
-       wrapping onto 2 lines reads better than a much wider card for one
-       stat alone (live feedback: tried full auto-sizing to content width,
-       "longer cards text looked better wrapped onto 2 lines" instead). */
-    height: 100%;
-    /* Sized up from the original compact/carousel treatment now that the
-       card reads as one row (icon, number, label) instead of a centred
-       column with a lot of unused vertical space (live feedback:
-       "everything can be bigger now"). */
-    padding: var(--space-sm) var(--space-md);
-    /* Row layout (icon+number figure, then label) instead of cards.css's
-       base centred column - the centred layout left a lot of unused
-       vertical space in a card this short (live feedback: "these data
-       cards have a lot of blank space... icon then number on the left...
-       followed by label"). Overrides the base rule's display:flex/
-       flex-direction:column/align-items:center/text-align:center wholesale
-       rather than layering on top of them. */
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    /* Centres the icon+value+label group as a whole in the card, not just
-       flush against the left edge with the text centred in whatever's
-       left over (live feedback: "have all three things then horizontally
-       middle" - .stat-card-text below no longer grows to fill the
-       remaining width, so `justify-content: center` here has an actual
-       gap on both sides to centre the trio within, keeping the same
-       icon-to-number distance, `gap`, unchanged). */
-    justify-content: center;
-    text-align: left;
-    gap: var(--space-sm);
-    user-select: none; /* no accidental text selection while click-dragging the row */
-    -webkit-user-drag: none; /* belt-and-braces alongside main.js's pointerdown preventDefault - stops Safari's own native link-drag starting before JS gets a chance to */
-}
-
-/* Overrides cards.css's base .stat-card-icon (position: absolute, top-
-   right corner) - that positioning only made sense against the old
-   centred column layout; here the icon is a plain flex child of the card
-   row, standalone (not sharing a figure with the number any more - the
-   number moved into .stat-card-text below so it can centre with the label
-   instead, live feedback: "value and label horizontally centred between
-   icon and right edge"). Sized to dominate the card (live feedback: "much
-   bigger, 70% of vertical space") - the card itself has no fixed height
-   (auto, driven by its own tallest content, .stats-carousel-track's
-   align-items: stretch just matches every card in the row to whichever
-   one that is), so there's no literal percentage to apply here; large
-   enough that the icon becomes the card's own dominant/tallest element
-   instead of the 2-line label, which is what actually produces that
-   ~70%-of-the-card look. */
-.stats-carousel-slot .stat-card-icon {
-    position: static;
-    flex-shrink: 0;
-    /* Trimmed back from 44px - reclaims width for the gap between the
-       value and label (live feedback: "requires more space between
-       number and label, reduce icon size"). */
-    width: 32px;
-    height: 32px;
-}
-
-/* The icon svg templates (templates/icons/*.html) carry their own
-   hardcoded width/height attributes (20px) - sizing the wrapping div alone
-   (above) left the actual glyph stuck at that original intrinsic size
-   inside a now much bigger box, reading as *smaller* / oddly padded
-   instead of bigger (live feedback: "it looks smaller now"). Forces the
-   svg itself to fill whatever box .stat-card-icon is sized to. */
-.stats-carousel-slot .stat-card-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-/* Value+label (home.html's .stat-card-text), value left of label, side by
-   side as one unit. No longer `flex: 1` - that grew the block to fill
-   whatever width the icon didn't use, which pinned the icon to the card's
-   left edge with only the text centred in the remainder; sized to its own
-   content instead so the *card's* own `justify-content: center` (above)
-   centres the icon+text trio together as a group, not the text alone. */
-.stats-carousel-slot .stat-card-text {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-sm);
-    min-width: 0;
-}
-
-.stats-carousel-slot .stat-card .stat-value {
-    font-size: var(--font-5xl);
-    flex-shrink: 0;
-}
-
-.stats-carousel-slot .stat-card .stat-label {
-    font-size: var(--font-base);
-    text-align: left;
-}
-
-/* PROTOTYPE (live feedback: "we do not have an active state for cards, it
-   just scrolls"): every card is now a plain, equal, always-fully-visible
-   tile - no more is-active scale/shadow, no per-card opacity dim, and no
-   carousel-specific hover override. a.stat-card:hover's own default lift
-   (components/cards.css) just applies uniformly here now, same as
-   anywhere else a stat-card appears - the override that used to flatten
-   it existed only to protect an overlapping active neighbour's edge
-   alignment, and there's no overlap or active neighbour left to protect. */
-
-/* .selectable:focus-visible's own persistent purple outline
-   (components/cards.css) is meant for a real chosen/selected state - it
-   doesn't fit a card whose only purpose is "tap it to navigate away
-   immediately". Touch taps commonly count as :focus-visible too (no
-   hover state to fall back on), so tapping a card to open it left that
-   outline sitting on the card underneath, still there after scrolling
-   past it - a stuck-looking "active" state on a plain navigation link,
-   not a real selection (live feedback: "I do not think these benefit
-   from an active status"). */
-.stats-carousel-slot .stat-card:focus-visible {
-    outline: none;
-}
-
-/* Positioned against .stats-carousel-wrap (position: relative, above), not
-   the scrolling .stats-carousel-track - an absolutely-positioned child of
-   the scrolling element itself would scroll away with the content instead
-   of staying put as a fixed edge mask. */
-.stats-carousel-fade-l,
-.stats-carousel-fade-r {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 40px;
-    pointer-events: none;
-    /* Above the row's own cards - see .referral-carousel-fade-l/-r's own
-       identical reasoning (above) for why. */
-    z-index: 15;
-    opacity: 0;
-    transition: opacity var(--transition-base);
-}
-
-/* --bg-page, not --bg-surface(-alt) - the row sits directly on the page
-   canvas here (list-page-shell has no card background of its own behind
-   it), so the fade needs to match that, not a card-level surface tone.
-   left/right (missing originally) is what actually pins each to its own
-   edge - without it, both fell back to the same default (auto/auto)
-   position and rendered stacked on top of each other at the row's left
-   edge, reading as a harsh, misplaced cutoff with nothing masking the
-   right edge at all (live feedback: "fade seem to have a harsh cutoff and
-   only on left side"). */
-.stats-carousel-fade-l { left: 0; background: linear-gradient(to right, var(--bg-page), transparent); }
-
-.stats-carousel-fade-r { right: 0; background: linear-gradient(to left, var(--bg-page), transparent); }
-
-/* Same visual treatment as .senco-carousel-arrow (cards.css) - not shared
-   via that class directly since it'd read oddly on a non-SENCo component,
-   duplicated here rather than renaming an already-shipped feature's class
-   for a one-word difference. Bigger than My Referrals' own 36px
-   (.referral-carousel-arrow, above) - this row sits directly on the page
-   canvas with room to spare either side, not squeezed next to a tab row
-   inside a card. Shown on every device (PROTOTYPE, live feedback: fade
-   alone can silently fail to signal overflow - a card edge can land clear
-   of the 40px fade zone with nothing visibly cut off, and there's no
-   backup cue on touch once that happens). Full button on desktop; touch
-   gets a much smaller, chrome-free version instead of this same button
-   shrunk verbatim (below) - live feedback: "small... more an indicator
-   than an interactive button", since the fade is usually enough there and
-   this only needs to catch the cases where it isn't. */
-.stats-carousel-arrow {
-    display: flex;
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    border: 1px solid var(--border-strong);
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-md);
-    font-size: var(--font-2xl);
-    line-height: 1;
-    cursor: pointer;
-    align-items: center;
-    justify-content: center;
-    transition: background var(--transition-fast), opacity var(--transition-fast), color var(--transition-fast);
-    /* Above the fade layer and the stacked slots' own z-index range - see
-       .referral-carousel-arrow's own identical reasoning (above). */
-    z-index: 20;
-}
-
-.stats-carousel-arrow:hover:not(:disabled) { background: var(--border-color); }
-
-.stats-carousel-arrow:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
-
-.stats-carousel-arrow--prev { left: -8px; }
-
-.stats-carousel-arrow--next { right: -8px; }
-
-/* Touch: 32px pill, no shadow, soft primary-tinted fill instead of the
-   baseline's solid bg-surface + shadow-md - small enough to read as a
-   hint, not a "press me" button, but still enough presence to actually
-   find (tried a bare chrome-free chevron first - too easy to miss
-   entirely, live feedback: "B was better"; sized up from an initial 26px
-   and given a border, live feedback: "a little bigger... can they also
-   get a border"). --accent-border, not --border-strong (the desktop
-   button's own border) - keeps it tied to the same primary tint as the
-   fill, rather than the neutral border a plain chrome button would use.
-   Tint ties it to the same accent already used elsewhere on the row (e.g.
-   the active-referral card's border), so it doesn't read as a random
-   extra control. */
-html.nav-touch-mode .stats-carousel-arrow {
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--accent-border);
-    background: color-mix(in srgb, var(--primary) 12%, var(--bg-surface));
-    box-shadow: none;
-    color: var(--primary);
-    /* font-md read small once the circle grew to 32px (live feedback:
-       "chevrons look smaller compared to buttons") - closer to the
-       desktop button's own font-2xl now, scaled down a touch rather than
-       matched exactly since this circle is still 2/3 its size. */
-    font-size: var(--font-xl);
-}
-
-html.nav-touch-mode .stats-carousel-arrow:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--primary) 22%, var(--bg-surface));
-}
-
-html.nav-touch-mode .stats-carousel-arrow--prev { left: 4px; }
-
-html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
-
 /* Upcoming Panel Meetings (formerly a single Next Panel Meeting preview) now
    holds a scrollable list of however many are upcoming, same shape as every
    other card here - no longer centered vertically, heading pinned to the
@@ -2438,24 +1871,9 @@ html.nav-touch-mode .stats-carousel-arrow--next { right: 4px; }
     border-bottom: 1px solid var(--border-faint);
 }
 
-/* The tab-row itself is only rendered server-side when more than one status
-   is actually present (see show_referral_tabs/show_action_tabs) — fade it in
-   on load rather than having it pop straight to full opacity. */
-.tab-row {
-    animation: tab-row-fade-in var(--transition-base) ease;
-}
-
 @keyframes tab-row-fade-in {
     from { opacity: 0; }
     to { opacity: 1; }
-}
-
-/* Panel Group's Active/Inactive tab buttons fade in individually the moment
-   one goes from zero members to its first - see tabMemberState in panel.js.
-   Reuses the row's own fade-in keyframe rather than defining a near-
-   identical one. */
-.tab-row button.tab-fade-in {
-    animation: tab-row-fade-in var(--transition-base) ease;
 }
 
 .panel-list li:last-child {
@@ -7113,30 +6531,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
 
 .panel-details-row > div { flex: 1; min-width: 0; }
 
-/* Referral Selection tabs + picker */
-
-/* --border-strong, not --border-color - same too-pale-in-Soft-theme problem
-   already fixed on .list-card/.ui-select-trigger/.toggle-pill/.filter-bar
-   this session (see grilling session 2026-07-12).
-
-   CONVENTION - read before adding .tab-row to a new container: this base
-   rule carries NO horizontal margin/bleed at all, on purpose. A hardcoded
-   "bleed by 16px" default used to live here, tuned for one specific
-   ancestor's padding - every other context either had to override it back
-   out (.list-card) or silently inherited a mismatched bleed (.panel-card
-   was 4px off against its own --space-lg padding; bare pages with no
-   padded ancestor at all, e.g. _settings_tabs.html, got a bleed with
-   nothing to bleed into, pulling the row past the page's own left margin)
-   - see grilling session 2026-07-12, "tabs not going edge to edge." A
-   single shared assumption can't be right for every container, so there
-   isn't one: .tab-row defaults to a plain, unbled block (flush with
-   whatever it's placed in), and any container that actually needs it
-   bled to reach a padded ancestor's true edge sets its own two-sided
-   margin below, sized to that ancestor's own real padding - never
-   margin-left alone, which only ever fixes one side and leaves the
-   border-bottom short on the other. */
-.tab-row { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border-strong); }
-
 /* .setup-col/.discussion-col's own padding is --space-lg (20px) - bleed by
    exactly that on both sides to reach their true edge. */
 .setup-col .tab-row, .discussion-col .tab-row { margin-left: calc(-1 * var(--space-lg)); margin-right: calc(-1 * var(--space-lg)); }
@@ -7178,99 +6572,10 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
     margin-right: 0;
 }
 
-.tab-row button, .tab-row a {
-    position: relative;
-    background: transparent;
-    border: none;
-    padding: var(--space-xs) var(--space-md);
-    font-size: var(--font-base);
-    font-weight: 600;
-    font-family: inherit;
-    color: var(--text-secondary);
-    text-decoration: none;
-    cursor: pointer;
-    display: inline-block;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-/* Bottom rectangle indicator, same pattern as .side-nav .nav-menu a::before:
-   grey on hover, purple (and staying purple) when selected. */
-.tab-row button::after, .tab-row a::after {
-    content: '';
-    position: absolute;
-    left: 4px;
-    right: 4px;
-    bottom: -1px;
-    height: 2px;
-    border-radius: 2px;
-    background: var(--text-faint);
-    opacity: 0;
-    transform: scaleX(0);
-    transform-origin: center;
-    transition: opacity var(--transition-base), transform var(--transition-pop), background-color var(--transition-base);
-}
-
-.tab-row button:hover::after, .tab-row a:hover::after,
-.tab-row button:focus-visible::after, .tab-row a:focus-visible::after {
-    opacity: 1;
-    transform: scaleX(1);
-}
-
-.tab-row button:hover, .tab-row a:hover { color: var(--text-primary); }
-
-.tab-row button.active, .tab-row a.active { color: var(--active-text); }
-
-.tab-row button.active::after, .tab-row a.active::after {
-    opacity: 1;
-    transform: scaleX(1);
-    background: var(--primary);
-}
-
-/* Status-filter tab entering/leaving the tab row (INT-M1: transition
-   rather than a sudden jump) - a tab whose count is 0 still isn't rendered as a disabled state,
-   it's just collapsed to zero width instead of omitted from the DOM outright,
-   so JS can transition it in/out live instead of it appearing/disappearing
-   with a snap. 200px is a generous cap for these labels (longest is "Not
-   Required (99)"), not a real measured width - it only needs to clear the
-   button's natural width once expanded. */
-.tab-row button { max-width: 200px; }
-
-.tab-row button.tab-collapsed {
-    opacity: 0;
-    max-width: 0;
-    padding-left: 0;
-    padding-right: 0;
-    overflow: hidden;
-    pointer-events: none;
-}
-
-.tab-row button.tab-visibility-animating {
-    transition: opacity 260ms ease, max-width 260ms ease, padding-left 260ms ease, padding-right 260ms ease;
-}
-
-/* Count-delta pulse (INT-M2) -
-   fires on any live count when an action changes it, not on a page load -
-   a tab's own (N), or a card/section heading's count (.panel-card-count and
-   similar). Scale + colour, no background box (read too "boxy" at this text
-   size) and no weight change. Deliberately NOT gated behind
-   prefers-reduced-motion: this is a passive indicator, not a hover effect on
-   something clickable. Not scoped to .tab-row - applies wherever
-   window.pulseCount() is called (see panel.js). */
-.count-pulse-up, .count-pulse-down { display: inline-block; transform-origin: center; }
-
-.count-pulse-up {
-    animation: countPulseUp 750ms cubic-bezier(.34, 1.56, .64, 1);
-}
-
 @keyframes countPulseUp {
     0% { transform: scale(1); color: inherit; }
     40% { transform: scale(1.32); color: var(--color-positive); }
     100% { transform: scale(1); color: inherit; }
-}
-
-.count-pulse-down {
-    animation: countPulseDown 750ms ease;
 }
 
 @keyframes countPulseDown {
@@ -7871,73 +7176,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
     box-shadow: inset 3px 0 0 var(--accent-border);
 }
 
-/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card).
-   Dashboard-style stat card (#95): left-aligned header with a coloured
-   accent icon, a chart/breakdown replacing the old plain summary line, no
-   expand/collapse - this is the whole card, not a disclosure trigger for a
-   hidden raw record list. */
-.detail-stat-card { border: 1px solid var(--border-strong); border-left: 4px solid var(--stat-accent, var(--border-strong)); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); text-align: left; }
-
-.detail-stat-card .field-readonly { margin-top: var(--space-xs); }
-
-/* Accent lives on the outer card by default (full card height, including a
-   collapsed "View details" row below the main content) - a card with an
-   *open* expandable section (Attendance) switches the accent onto
-   .detail-stat-card-main instead (header+chart only), via :has(), so it
-   stops before the expanded content rather than running the full height.
-   Negative left margin/padding on .detail-stat-card-main compensates so
-   that version of the accent still reads flush with the card's own edge. */
-.detail-stat-card:has(.detail-stat-card-view-more[open]) { border-left-color: var(--border-strong); }
-
-/* Bleeds both left and up so the accent starts exactly at the card's true
-   top-left corner (not inset by the card's own padding). Left bleed is
-   -(space-md + 4px) - the card's own border-left is 4px wide (not 1px like
-   its other sides), so the offset has to match that, not the general
-   border width. */
-.detail-stat-card:has(.detail-stat-card-view-more[open]) .detail-stat-card-main { border-left: 4px solid var(--stat-accent, var(--border-strong)); border-top-left-radius: var(--radius-md); margin-left: calc(-1 * (var(--space-md) + 4px)); margin-top: calc(-1px - var(--space-sm)); padding-left: var(--space-md); padding-top: calc(1px + var(--space-sm)); }
-
-/* Zero gap between .detail-stat-card-main and the open <details> - the
-   default margin-top (--space-xs) would otherwise leave a small unaccented
-   break between the two accent segments (main's own border-left and the
-   .accent-connector inside details). */
-.detail-stat-card:has(.detail-stat-card-view-more[open]) .detail-stat-card-view-more[open] { margin-top: 0; }
-
-.detail-stat-card-header { display: flex; justify-content: flex-start; align-items: center; gap: var(--space-sm); font-weight: 600; }
-
-.detail-stat-card-icon { display: inline-flex; width: 20px; height: 20px; color: var(--stat-accent); flex-shrink: 0; }
-
-.detail-stat-card-icon svg { width: 100%; height: 100%; }
-
-.detail-stat-card-icon--lg { width: 28px; height: 28px; }
-
-.detail-stat-card--positive { --stat-accent: var(--color-positive); }
-
-.detail-stat-card--warning { --stat-accent: var(--color-warning); }
-
-.detail-stat-card--negative { --stat-accent: var(--color-negative); }
-
-.detail-stat-card--neutral { --stat-accent: var(--color-neutral); }
-
-/* Mini bar chart shared by Attendance/Behaviour/Positive Behaviour cards -
-   one row per series, label (optional) + track + value (optional). */
-.detail-stat-card-chart { margin-top: var(--space-sm); }
-
-.detail-stat-card-bar-row { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-xxs); }
-
-.detail-stat-card-bar-row:last-child { margin-bottom: 0; }
-
-.detail-stat-card-bar-label { flex: 0 0 90px; font-size: var(--font-sm); color: var(--text-secondary); }
-
-.detail-stat-card-bar-track { flex: 1 1 auto; background: var(--border-color); border-radius: var(--radius-sm); height: 8px; overflow: hidden; }
-
-.detail-stat-card-bar-fill { display: block; height: 100%; background: var(--stat-accent); }
-
-.detail-stat-card-bar-fill--muted { background: color-mix(in srgb, var(--stat-accent) 55%, var(--text-secondary)); }
-
-.detail-stat-card-bar-value { flex: 0 0 24px; text-align: right; font-size: var(--font-sm); color: var(--text-secondary); }
-
-.detail-stat-card-footnote { font-size: var(--font-sm); color: var(--text-secondary); margin-top: var(--space-xxs); }
-
 /* Attendance card (#95): conic-gradient donut ring (Present/Authorised/
    Unauthorised as one coloured circle) + legend, decided over a stacked-bar
    and vertical-bar-chart alternative via live prototype. */
@@ -7956,56 +7194,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
 
 .attendance-ring-legend { display: flex; flex-direction: column; gap: var(--space-xxs); font-size: var(--font-sm); }
 
-.attendance-legend-row { display: flex; align-items: center; gap: var(--space-xs); }
-
-.attendance-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-
-/* Behaviour/Positive Behaviour cards (#95): same donut-ring + legend visual
-   language as Attendance above, generalized under non-"attendance-" prefixed
-   names so both cards can share one set of rules. */
-.detail-stat-ring-layout { display: flex; align-items: center; gap: var(--space-md); margin-top: var(--space-xs); }
-
-.detail-stat-ring { width: 88px; height: 88px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
-
-.detail-stat-ring::before { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: var(--bg-surface-alt); }
-
-.detail-stat-ring-value { position: relative; z-index: 1; font-size: var(--font-lg); font-weight: 700; color: var(--text-primary); }
-
-.detail-stat-ring-legend { display: flex; flex-direction: column; gap: var(--space-xxs); font-size: var(--font-sm); }
-
-.detail-stat-legend-row { display: flex; align-items: center; gap: var(--space-xs); }
-
-.detail-stat-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-
-/* Exclusions card (#95): no proportional breakdown to ring (usually 0 or a
-   handful of rows), so a large stat number stands in for the ring instead -
-   same "one visual focal point beside the legend/footnote" shape. */
-.detail-stat-card-bignum-layout { display: flex; align-items: center; gap: var(--space-md); margin-top: var(--space-sm); }
-
-.detail-stat-card-bignum { font-size: var(--font-4xl); font-weight: 700; color: var(--stat-accent); line-height: 1; }
-
-/* "View details" disclosure - a small pill button (not the card's main
-   affordance, so kept subdued: quiet border/bg, no accent colour). Uses
-   display:table + margin-left:auto (not text-align:right on the parent) so
-   only the button itself sits at the right edge - the expanded body below
-   stays left-aligned regardless. Label swaps to "Hide details" once open
-   via the two-span toggle below. */
-
-/* A plain horizontal rule separates the expanded section from the card's
-   main content above it once open - no separate boxed/recessed background
-   (tried and looked like an ugly nested card), just a clean divider line,
-   consistent with how .panel-notes-history separates its own history from
-   the content above it. */
-.detail-stat-card-view-more { margin-top: var(--space-xs); position: relative; }
-
-.detail-stat-card-view-more summary { display: table; margin-left: auto; font-size: var(--font-sm); color: var(--text-secondary); cursor: pointer; list-style: none; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 2px var(--space-sm); background: var(--bg-surface); }
-
-.detail-stat-card-view-more summary::-webkit-details-marker { display: none; }
-
-.detail-stat-card-view-more summary:hover { color: var(--active-text); border-color: var(--primary); }
-
-.detail-stat-card-view-more[open] summary { margin-bottom: var(--space-sm); }
-
 /* Accent continues through the button row as a plain positioned strip (not
    a border on <summary> itself, which would visually clash with the
    button's own all-round border). 37px = measured rendered height of
@@ -8016,31 +7204,7 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
    changes. */
 .accent-connector { position: absolute; top: 0; left: calc(-1 * (var(--space-md) + 4px)); width: 4px; height: 37px; background: var(--stat-accent, var(--border-strong)); }
 
-/* Divider sits on .detail-stat-card-view-more-body (everything after
-   <summary>), not on the <details> element itself - a border-top there
-   would render above the summary/button, not after it. Plain line only -
-   no background/border-radius (that read as an ugly nested card). Bled
-   full card width via the same negative margin trick used for the accent. */
-.detail-stat-card-view-more-body { border-top: 1px solid var(--border-color); padding-top: var(--space-sm); margin-left: calc(-1 * (var(--space-md) + 4px)); margin-right: calc(-1px - var(--space-md)); padding-left: calc(4px + var(--space-md)); padding-right: calc(1px + var(--space-md)); }
-
 .view-more-label-open { display: none; }
-
-.detail-stat-card-view-more[open] .view-more-label-closed { display: none; }
-
-.detail-stat-card-view-more[open] .view-more-label-open { display: inline; }
-
-/* Period picker (Attendance/Behaviour/Positive Behaviour "View details")
-   reuses the app's existing .ui-segmented component (forms.css) rather than
-   inventing its own tab styling - fused into one bordered group, no gaps
-   between options. Scoped to .detail-stat-card-view-more-body (this
-   picker's own container), not the bare .ui-segmented class - the
-   unscoped version of this rule leaked margin-bottom onto EVERY other
-   .ui-segmented in the portal, including Actions' own status changer
-   (live feedback: "margin below fused status changer... double margin" -
-   traced live to this exact rule after display: flex/contents and every
-   other angle on the Actions side came up empty, since the real cause was
-   never in that markup at all). */
-.detail-stat-card-view-more-body .ui-segmented { margin-bottom: var(--space-sm); }
 
 .ui-segmented .ui-segmented-option { text-decoration: none; }
 
@@ -8078,35 +7242,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
    ({% ifchanged %} in the template) chat-style, while every entry - grouped
    or not - still gets its own divider and timestamp. */
 .note-thread { max-height: 240px; overflow-y: auto; }
-
-.note-thread-item { padding: var(--space-xs) 0; border-bottom: 1px solid var(--border-faint); }
-
-.note-thread-item:last-child { border-bottom: none; }
-
-.note-thread-header { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-xxs); }
-
-.note-thread-avatar {
-    flex-shrink: 0;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--bg-well);
-    color: var(--text-secondary);
-    font-size: var(--font-2xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.note-thread-author { font-size: var(--font-sm); font-weight: 600; color: var(--text-primary); }
-
-.note-thread-body { padding-left: calc(24px + var(--space-xs)); }
-
-.note-thread-time { font-size: var(--font-2xs); color: var(--text-faint); }
-
-.note-thread-text { font-size: var(--font-base); color: var(--text-secondary); }
 
 /* Panel Agenda: members register + pending/discussed, all equal-width columns
    by default. .setup-col--narrow (its own flex: 0 1 240px rule, further
@@ -8710,32 +7845,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
     flex-shrink: 0;
 }
 
-/* Visual affordance that a row is draggable, plus (on the Panel Agenda /
-   Students Pending "sink" lists only) an explicit order number and
-   click-based up/down fallback for reordering without a mouse. Bigger and
-   flush to the row's edge (entity-rows already have padding-left:0 via
-   .setup-col .entity-row below) so it reads as an obvious grab target. */
-.drag-handle { display: inline-flex; align-items: center; flex-shrink: 0; color: var(--border-strong); cursor: grab; align-self: center; }
-
-.entity-row:hover .drag-handle { color: var(--text-faint); }
-
-/* A repeating two-column dot pattern (CSS background, not a discrete icon)
-   that stretches to fill the row's full height, however tall its content
-   makes it - a continuous grab target rather than one small icon floating
-   in the middle. Each gradient uses "at Xpx" to pin its dot to a fixed column
-   within the tile - radial-gradient centers in its box by default, so without
-   that the two layers just draw on top of each other as a single column. */
-.drag-handle-pattern {
-    align-self: stretch;
-    width: 20px;
-    min-height: 24px;
-    background-image:
-        radial-gradient(circle at 6px 4px, currentColor 1.6px, transparent 1.7px),
-        radial-gradient(circle at 14px 4px, currentColor 1.6px, transparent 1.7px);
-    background-size: 20px 8px;
-    background-repeat: repeat-y;
-}
-
 .status-pill.type-chair { background: var(--primary-light); color: var(--active-text); font-weight: 700; }
 
 .status-pill.type-mat { background: var(--primary-light); color: var(--active-text); }
@@ -8755,8 +7864,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
    be assigned/discussing AND escalated at once (see CONTEXT.md). Danger
    tone, same as .status-pill.overdue_review, to read as urgent at a glance. */
 .status-pill.type-escalated { background: var(--color-negative-bg); color: var(--color-negative); font-weight: 700; }
-
-.member-list-divider { font-size: var(--font-sm); font-weight: 600; color: var(--text-secondary); margin: var(--space-sm) 0 var(--space-xs); }
 
 .entity-meta.member-expertise-meta { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
 
@@ -9096,44 +8203,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
    to the <a> instance beside it. */
 button.referral-history-more { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; text-align: left; }
 
-/* New Referral modal (and every other dialog.modal-dialog in the app - one
-   shared shell). The dialog itself no longer scrolls: .modal-header sits
-   outside the scrolling area entirely (flex-shrink: 0, no longer just
-   position: sticky within it) and .modal-body is the one scrolling child
-   (flex: 1 1 auto; min-height: 0; overflow-y: auto below) - same
-   "Card-internal scroll with a fixed header" technique as .setup-col/
-   .setup-col-body (DES-L5). Fixes two things at once: the
-   scrollbar no longer runs behind the header (it starts exactly where
-   .modal-body starts), and it no longer sits flush against the dialog's own
-   rounded corners (it's now inset by .modal-body's own padding, a plain
-   rectangular box well clear of them). */
-dialog.modal-dialog {
-    position: fixed;
-    inset: 0;
-    margin: auto;
-    width: min(560px, 92vw);
-    max-height: 86vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-xl);
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-modal);
-    --modal-duration: 450ms;
-    --modal-ease: ease;
-    opacity: 0;
-    transform: translateY(8px) scale(0.97);
-    transition: opacity var(--modal-duration) var(--modal-ease), transform var(--modal-duration) var(--modal-ease), height var(--modal-duration) var(--modal-ease);
-}
-
-dialog.modal-dialog.is-open {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-}
-
 /* The unconditional `display: flex` above is author CSS, which always beats
    the browser's own `dialog:not([open]) { display: none }` UA-stylesheet
    rule regardless of selector specificity - so without this, a *closed*
@@ -9154,93 +8223,9 @@ dialog.modal-dialog:not([open]) {
     display: none;
 }
 
-dialog.modal-dialog::backdrop {
-    background: rgba(15, 23, 36, 0.55);
-    opacity: 0;
-    transition: opacity var(--modal-duration) var(--modal-ease);
-}
-
-dialog.modal-dialog.is-open::backdrop {
-    opacity: 1;
-}
-
-/* Same dark-on-dark problem as the global side-nav backdrop — solid black
-   reads clearly against the dark theme's near-identical page background. */
-[data-theme-mode="dark"] dialog.modal-dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
-
-/* Fade toggle - generic "this one thing appears/disappears in place"
-   companion to window.setFadeHidden (panel.js), for elements too small to
-   change the dialog's own height (a footer button swap, not a whole
-   section). Only takes effect
-   once JS has added the class (a call to setFadeHidden); a plain
-   server-rendered `hidden` attribute with neither class still just snaps
-   via the [hidden] UA rule, same as any other element on first paint. */
-.fade-toggle { transition: opacity var(--transition-base); opacity: 0; }
-
-.fade-toggle.is-visible { opacity: 1; }
-
-dialog.modal-dialog .modal-header {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg-surface);
-    padding: var(--space-lg) var(--space-xl) var(--space-md);
-}
-
-dialog.modal-dialog .modal-header h2 { font-size: var(--font-2xl); margin: 0; }
-
-dialog.modal-dialog .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--space-xl) var(--space-lg); }
-
-dialog.modal-dialog .modal-close {
-    border: none;
-    background: none;
-    font-size: var(--font-4xl);
-    line-height: 1;
-    cursor: pointer;
-    color: var(--text-faint);
-    /* Negative margin matching the padding keeps the × visually anchored in
-       the same spot in the header (flex-aligned to the far edge) while
-       growing its actual clickable box well past just the glyph itself -
-       the bare font-size before this made for a genuinely tiny hit target. */
-    padding: var(--space-sm);
-    margin: calc(-1 * var(--space-sm));
-    border-radius: var(--radius-sm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-dialog.modal-dialog .modal-close:hover { color: var(--text-primary); }
-
-dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--space-md); }
-
 #requires-followup-row { justify-content: flex-start; margin-top: 0; }
 
-/* Leave-confirm dialog (#101) - a consequential "are you sure" prompt (leaving
-   mid-discussion), not a routine Cancel/Save form action, so it breaks from
-   the standard right-aligned .btn-row: centred in the modal body with each
-   button given a floor width instead of shrinking to its own label text. */
-.leave-confirm-actions { justify-content: center; }
-
-.leave-confirm-actions .btn { min-width: 96px; }
-
-/* Group Member Attendance dialog (#60's attendance-stage follow-up) - wider
-   than the standard 560px modal.modal-dialog shell so a row of member cards
-   has room to breathe, and its own header carries a subtitle (the Panel
-   Group's name) beneath the title/close row, unlike every other modal's
-   flat single-row header. #meeting-start-dialog (Panel Meetings list) is
-   the same dialog content fetched via AJAX instead of embedded server-side
-   - see _meeting_attendance_dialog.html. */
-.modal-dialog--wide { width: min(820px, 92vw); }
-
 #attendance-dialog .modal-header, #meeting-start-dialog .modal-header { flex-direction: column; align-items: stretch; gap: var(--space-xxs); }
-
-.modal-header-row { display: flex; align-items: center; justify-content: space-between; }
-
-.modal-subtitle { font-size: var(--font-sm); color: var(--text-secondary); margin: 0; }
-
-.modal-divider { border: none; border-top: 1px solid var(--border-color); margin: var(--space-md) 0; }
 
 .attendance-dialog-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); margin-top: var(--space-md); }
 
@@ -9264,71 +8249,6 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
         flex: 1 1 0;
     }
 }
-
-/* Attendance-dialog member cards (B1b) - photo, an affiliation strip
-   (school logo+name / "MAT-wide" / "External"), name, Chair/expertise
-   pills, and the check-in toggle. card-row's default align-items: stretch
-   makes every card match the tallest sibling's height; .card-toggle-slot's
-   margin-top: auto then pins the toggle to that same bottom edge regardless
-   of how many pills a given card has above it, so it never jumps position
-   card to card. */
-.member-card-row { display: flex; gap: var(--space-md); overflow-x: auto; padding: var(--space-sm) var(--space-xxs) var(--space-md); }
-
-.member-card {
-    flex: 0 0 168px;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    background: var(--bg-well);
-    overflow: hidden;
-    text-align: center;
-}
-
-.member-card[data-present="true"] { border-color: var(--accent-border); background: var(--primary-light); }
-
-.member-card .photo-avatar, .member-card .no-photo-avatar { width: 168px; height: 106px; flex-shrink: 0; object-fit: cover; }
-
-.member-card .no-photo-avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-well);
-    border-bottom: 1px dashed var(--border-strong);
-    color: var(--text-faint);
-}
-
-.member-card .no-photo-avatar svg { width: 40%; height: 40%; }
-
-.member-card .affiliation-strip {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-xxs);
-    padding: var(--space-xxs) var(--space-sm);
-    font-size: var(--font-2xs);
-    font-weight: 600;
-    color: var(--text-tertiary);
-    background: var(--bg-surface-alt);
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
-}
-
-.member-card[data-present="true"] .affiliation-strip { background: color-mix(in srgb, var(--primary-light) 55%, var(--bg-surface-alt)); }
-
-.member-card .mini-badge { width: 14px; height: 14px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }
-
-.member-card .mini-badge svg { width: 100%; height: 100%; }
-
-.member-card .card-info { padding: var(--space-sm); display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); flex: 1; min-height: 0; }
-
-.member-card .card-name { font-weight: 700; font-size: var(--font-lg); line-height: 1.25; }
-
-.member-card .card-role { font-size: var(--font-sm); color: var(--text-secondary); }
-
-.member-card .card-pill-row { display: flex; gap: var(--space-xxs); flex-wrap: wrap; justify-content: center; }
-
-.member-card .card-toggle-slot { margin-top: auto; padding-top: var(--space-xs); }
 
 /* Panel Group modal — single column, shared 560px shell like every other
    modal. Name/Chair form a plain non-scrolling header (flex-shrink: 0);
@@ -9597,200 +8517,13 @@ dialog#panel-search-dialog .modal-body {
     padding-right: var(--space-xl);
 }
 
-.search-hint {
-    animation: tab-row-fade-in var(--transition-slow);
-}
-
-.search-result-group + .search-result-group { margin-top: var(--space-md); }
-
-.search-result-group-label {
-    font-size: var(--font-sm);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-secondary);
-    margin: 0 0 var(--space-xs);
-}
-
-.search-result-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-sm) var(--space-md);
-    padding: var(--space-sm) var(--space-xs);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-}
-
-.search-result-row:hover { background: var(--row-hover-bg); }
-
-.search-result-text { display: flex; flex-direction: column; min-width: 0; }
-
-.search-result-title { font-weight: 700; }
-
-.search-result-subtitle { color: var(--text-secondary); font-size: var(--font-sm); }
-
 .panel-group-member-row { display: flex; gap: var(--space-xs); margin-bottom: var(--space-xs); }
 
 .panel-group-member-row select { flex: 1; min-width: 0; }
 
-/* Source segmented control (still 3 always-visible buttons, see the
-   segmented-control comment in components/forms.css) stacks above Search as one fused
-   component, not two independently-bordered ones beside each other - no
-   border-radius seam between them, single shared outer border/corner
-   radius, one divider line between the two rows. Each option is flex: 1
-   (equal width) rather than sized to its own text - labels are short and
-   even ("School Staff" / "MAT Staff" / "External") so equal-width no longer
-   leaves obvious dead space trailing the row the way "<School> Staff" once did. */
-.member-picker-controls {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    margin-bottom: var(--space-sm);
-    transition: border-color var(--transition-base), box-shadow var(--transition-base);
-}
-
-.member-picker-controls .ui-segmented {
-    display: flex;
-    width: 100%;
-    border: none;
-    border-radius: 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.member-picker-controls .ui-segmented-option {
-    flex: 1;
-    text-align: center;
-    position: relative;
-}
-
-/* Active option reads via the shared .ui-segmented-option.active fill alone
-   (--primary-light background, weight 600 - forms.css) - no longer stacks an
-   extra bold-700 + 3px underline bar on top of that fill. The fill already
-   reads clearly against the row it's fused onto; the underline was one
-   emphasis signal too many, out-weighing the search field sitting right below it. */
-
-/* The search input's own border/radius (navigation.css) would otherwise
-   double up against this wrapper's outer border and reintroduce the corner
-   radius this fused look is specifically removing - stripped here, same
-   "beats the shared component's own border via a more specific selector"
-   pattern as every other .app-search-field override in this file. */
-.member-picker-controls .app-search-field .app-search-input {
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-}
-
-.member-picker-controls .app-search-field .app-search-input:focus-visible { box-shadow: none; }
-
-/* has-text/focus states move from the (now borderless) input onto the whole
-   fused shell instead, so the accent still reads as "this component is
-   active," just around the outside edge rather than a seam in the middle. */
-.member-picker-controls:has(.app-search-input:focus-visible) {
-    border-color: var(--primary);
-    box-shadow: inset 0 0 0 1px var(--primary);
-}
-
-.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) {
-    border-color: var(--primary);
-}
-
-.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .app-search-icon {
-    color: var(--primary);
-}
-
-/* The segmented row's own border-bottom (the internal divider) and its
-   options' border-right dividers are separate declared borders from the
-   wrapper's outer one above - without this they'd stay neutral grey while
-   the outer edge goes primary, reading as two different components again
-   instead of one uniformly-highlighted shell. */
-.member-picker-controls:has(.app-search-input:focus-visible) .ui-segmented,
-.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .ui-segmented {
-    border-color: var(--primary);
-}
-
-.member-picker-controls:has(.app-search-input:focus-visible) .ui-segmented-option,
-.member-picker-controls:has(.app-search-input:not(:placeholder-shown)) .ui-segmented-option {
-    border-color: var(--primary);
-}
-
 #panel-member-dialog { max-height: 92vh; }
 
-/* Bleeds out through its scrolling ancestor's (.panel-group-modal-scroll)
-   own right padding, same technique/reason as that element's own bleed
-   through .modal-body - without this, a long result list's scrollbar (this
-   box has its own overflow-y:auto, capped at 480px) renders flush against
-   this box's own border, which itself sits --space-xl short of the dialog's
-   true edge - not the dialog edge itself. padding-right restores that gap
-   for the rows themselves, so only the scrollbar's position moves. */
-
-/* No outer card - see the matching comment on .referral-student-results
-   above (INT-P4). */
-.member-result-list {
-    max-height: min(65vh, 480px);
-    overflow-y: auto;
-    margin-bottom: var(--space-sm);
-    margin-right: calc(-1 * var(--space-xl));
-    padding-right: var(--space-xl);
-}
-
-.member-result-option {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    width: 100%;
-    text-align: left;
-    padding: var(--space-sm) var(--space-md);
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-primary);
-    cursor: pointer;
-}
-
-.member-result-option:hover { background: var(--row-hover-bg); }
-
-.member-result-option.selected { background: var(--primary-light); color: var(--active-text); }
-
-.member-result-option[data-already-member="1"] { opacity: 0.55; cursor: not-allowed; }
-
-.member-result-option[data-already-member="1"]:hover { background: transparent; }
-
 .status-pill.type-already { background: var(--badge-bg); color: var(--text-faint); }
-
-.member-result-icon {
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    overflow: hidden;
-    background: var(--bg-surface-alt);
-}
-
-.member-result-icon img { width: 100%; height: 100%; object-fit: cover; }
-
-.member-result-icon svg { width: 20px; height: 20px; }
-
-.member-result-label-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; gap: var(--space-xxs); }
-
-.member-result-label-stack .result-name { font-size: var(--font-md); color: var(--text-primary); }
-
-/* Name + "Already in Group" pill share one line - same "title row wraps its
-   own trailing badge" treatment as #panel-group-dialog .entity-title above,
-   rather than the pill dropping to its own line below the name. */
-.member-result-name-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
-
-/* School (MAT staff only) before job title, dot-separated on one line - same
-   "·"-joined meta line other entity rows use (see panel_group_settings.html's
-   .entity-meta), just at this list's own smaller/fainter size. */
-.member-result-meta { display: flex; align-items: center; font-size: var(--font-xs); color: var(--text-faint); }
-
-.member-result-meta > span:not(:first-child)::before { content: '·'; margin: 0 var(--space-xxs); }
 
 .member-staff-selected[hidden] { display: none; }
 
@@ -10010,5 +8743,4 @@ html.nav-touch-mode .referral-student-results::-webkit-scrollbar {
 /* Returned from the #208 promotion: .dsl-briefings-shell is Safeguarding
    vocabulary, so this rule is domain-owned however generic the region it
    scopes through looks. */
-
 .dsl-briefings-shell .list-card--detail .filtered-content { padding: var(--space-lg); }

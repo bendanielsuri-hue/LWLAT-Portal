@@ -1,0 +1,136 @@
+/* The modal dialog shell: backdrop, header row, divider, close button, and
+   the fade-toggle used for same-size content swaps inside an open dialog.
+
+   This is the promotion that lets templates/hubs/_hub_sidebar.html stop
+   duplicating panel.css's values in six places - the sidebar is included by 44
+   templates and could not rely on a hub stylesheet being loaded. That is
+   acceptance test 2 of the #198 map.
+   Promoted out of panel.css (#209, ADR 0020: portal-wide by nature, not by
+   usage). Loads after responsive.css, like every file promoted by this
+   migration - see components/filter-bar.css's header for why that ordering is
+   load-bearing rather than incidental.
+
+   Per-dialog positioning stays with whichever page owns the dialog: this file
+   owns the shell, not its occupants. */
+
+/* New Referral modal (and every other dialog.modal-dialog in the app - one
+   shared shell). The dialog itself no longer scrolls: .modal-header sits
+   outside the scrolling area entirely (flex-shrink: 0, no longer just
+   position: sticky within it) and .modal-body is the one scrolling child
+   (flex: 1 1 auto; min-height: 0; overflow-y: auto below) - same
+   "Card-internal scroll with a fixed header" technique as .setup-col/
+   .setup-col-body (DES-L5). Fixes two things at once: the
+   scrollbar no longer runs behind the header (it starts exactly where
+   .modal-body starts), and it no longer sits flush against the dialog's own
+   rounded corners (it's now inset by .modal-body's own padding, a plain
+   rectangular box well clear of them). */
+dialog.modal-dialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(560px, 92vw);
+    max-height: 86vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-modal);
+    --modal-duration: 450ms;
+    --modal-ease: ease;
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+    transition: opacity var(--modal-duration) var(--modal-ease), transform var(--modal-duration) var(--modal-ease), height var(--modal-duration) var(--modal-ease);
+}
+
+dialog.modal-dialog.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+dialog.modal-dialog::backdrop {
+    background: rgba(15, 23, 36, 0.55);
+    opacity: 0;
+    transition: opacity var(--modal-duration) var(--modal-ease);
+}
+
+dialog.modal-dialog.is-open::backdrop {
+    opacity: 1;
+}
+
+/* Same dark-on-dark problem as the global side-nav backdrop — solid black
+   reads clearly against the dark theme's near-identical page background. */
+[data-theme-mode="dark"] dialog.modal-dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
+
+/* Fade toggle - generic "this one thing appears/disappears in place"
+   companion to window.setFadeHidden (panel.js), for elements too small to
+   change the dialog's own height (a footer button swap, not a whole
+   section). Only takes effect
+   once JS has added the class (a call to setFadeHidden); a plain
+   server-rendered `hidden` attribute with neither class still just snaps
+   via the [hidden] UA rule, same as any other element on first paint. */
+.fade-toggle { transition: opacity var(--transition-base); opacity: 0; }
+
+.fade-toggle.is-visible { opacity: 1; }
+
+dialog.modal-dialog .modal-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-surface);
+    padding: var(--space-lg) var(--space-xl) var(--space-md);
+}
+
+dialog.modal-dialog .modal-header h2 { font-size: var(--font-2xl); margin: 0; }
+
+dialog.modal-dialog .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--space-xl) var(--space-lg); }
+
+dialog.modal-dialog .modal-close {
+    border: none;
+    background: none;
+    font-size: var(--font-4xl);
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-faint);
+    /* Negative margin matching the padding keeps the × visually anchored in
+       the same spot in the header (flex-aligned to the far edge) while
+       growing its actual clickable box well past just the glyph itself -
+       the bare font-size before this made for a genuinely tiny hit target. */
+    padding: var(--space-sm);
+    margin: calc(-1 * var(--space-sm));
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+dialog.modal-dialog .modal-close:hover { color: var(--text-primary); }
+
+dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--space-md); }
+
+/* Leave-confirm dialog (#101) - a consequential "are you sure" prompt (leaving
+   mid-discussion), not a routine Cancel/Save form action, so it breaks from
+   the standard right-aligned .btn-row: centred in the modal body with each
+   button given a floor width instead of shrinking to its own label text. */
+.leave-confirm-actions { justify-content: center; }
+
+.leave-confirm-actions .btn { min-width: 96px; }
+
+/* Group Member Attendance dialog (#60's attendance-stage follow-up) - wider
+   than the standard 560px modal.modal-dialog shell so a row of member cards
+   has room to breathe, and its own header carries a subtitle (the Panel
+   Group's name) beneath the title/close row, unlike every other modal's
+   flat single-row header. #meeting-start-dialog (Panel Meetings list) is
+   the same dialog content fetched via AJAX instead of embedded server-side
+   - see _meeting_attendance_dialog.html. */
+.modal-dialog--wide { width: min(820px, 92vw); }
+
+.modal-header-row { display: flex; align-items: center; justify-content: space-between; }
+
+.modal-subtitle { font-size: var(--font-sm); color: var(--text-secondary); margin: 0; }
+
+.modal-divider { border: none; border-top: 1px solid var(--border-color); margin: var(--space-md) 0; }
