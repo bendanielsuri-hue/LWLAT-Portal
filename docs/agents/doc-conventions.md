@@ -72,6 +72,15 @@ Before writing a value or rule anywhere, check whether it already lives in a sou
 
 When several named patterns really are one underlying rule with situational variation, don't enumerate them as parallel named cases — a new case then has nothing to pattern-match against. Instead, write it as a **numbered decision process**: the base case, then each branch as "does X apply? → do Y," each with a short reasoning clause. This only applies when the named patterns genuinely share one root — don't force unrelated components into a shared decision tree just to produce a numbered list.
 
+## Comments here discuss code, so tools that scan the code must strip them first
+
+This repo's comments are dense and load-bearing by policy, and what they discuss is the code around them — class names, function signatures, module structure. That makes comment text indistinguishable from code to anything matching patterns over raw file text, and it has produced a confidently wrong answer twice:
+
+- A `<script>` written as prose inside a `{% comment %}` block (`templates/hubs/_hub_sidebar.html:230`) was read as a real opening tag, so the "script" ran on to the next real `</script>` 1,700 lines later. It swept up the template's markup and counted its `{% include %}`s as script references — the source of the "1,720 script lines, 139 template refs" figure that #203 had to correct to 663 and zero.
+- Django's own manifest-hashing `export … from` pattern matched the words "export function …" in a header comment and ran forward into the real `import` statement below it, rewriting an import into an export (ADR 0021).
+
+Neither raised an error. So: **strip comments before matching, and prefer a scanner to a regex** where the two comment forms and string literals can contain each other. `scripts/check_stale_comments.py` owns the scanner (`comment_spans`); the other checkers import it rather than growing a second definition of what a comment is.
+
 ## Maintenance
 
 - When a rule is written by generalizing from one hub's implementation, split it at the time of writing: the portal-wide shape goes to the relevant `PRINCIPLES-*.md` file, the hub's own class names/files stay as a colocated comment or in that hub's `CLAUDE.md`, cross-linked both ways via the citation codes.

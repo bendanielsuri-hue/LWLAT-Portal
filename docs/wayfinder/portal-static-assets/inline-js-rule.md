@@ -57,6 +57,8 @@ Corrected figures for #200 §3 (Django comments stripped, real `<script>` tags w
 
 Not 5,218 lines and not 139 references. **Sixteen**, portal-wide.
 
+**Amended once `scripts/check_inline_js.py` existed (#205):** the table above was hand-listed from the templates #200 had inventoried, and it misses `hubs/portaladmin/{home,themes}.html` — two blocks, 97 lines, zero references. The checker's own count is the authority: **31 blocks, 4,135 lines to move**, plus the 124-line exempt boot block. Which is the argument for the checker in one line — the enumeration in §1 was right, and the corpus it was enumerated over was not.
+
 ---
 
 ## 1. The whole coupled surface, enumerated
