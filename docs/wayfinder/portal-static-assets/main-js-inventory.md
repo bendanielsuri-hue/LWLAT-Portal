@@ -299,10 +299,10 @@ page that stops knowing there are six.
 | `sidebar.js` | 1677–1912 | 115 |
 | `hub-rail.js` | 1913–1960 | 25 |
 | `overlay-nav.js` | 1961–2041 | ~68 |
-| `settings-panel.js` | 2119–2318 | 155 |
-| `identity-switcher.js` (`setupCookieSwitcher` — school + current user) | 2319–2401 | 56 |
-| `app-search.js` | 2402–2550 | 97 |
-| `content-shell.js` — same name as `static/css/layout/content-shell.css` | 2551–2666 | 38 |
+| `settings-panel.js` | 2119–2318 | 155 | ✅ done (slice 2), and it took `setupViewFullSystemToggle` with it |
+| `identity-switcher.js` (`setupCookieSwitcher` — school + current user) | 2319–2401 | 56 | ✅ done (slice 2) |
+| `app-search.js` | 2402–2550 | 97 | ✅ done (slice 2) |
+| `content-shell.js` — same name as `static/css/layout/content-shell.css` | 2551–2666 | 38 | ✅ done (slice 2) |
 | `breadcrumbs.js` | 2806–2885 | 69 |
 | `sticky-zone.js` | 3048–3074 | 12 |
 | `mobile-tabbar.js` (FAB clearance) | 3121–3165 | 10 |
@@ -426,11 +426,37 @@ Everything §3 predicted about the ordering held, and one thing it did not predi
   module graph links and executes under a DOM stub with the `window.*` surface intact; the dev
   server serves `layout/breakpoints.js` as `text/javascript`; and panel home/students render 200.
 
+### Slice 2 — four `layout/` modules, plus the two helpers they needed ✅
+
+`settings-panel.js`, `identity-switcher.js`, `app-search.js`, `content-shell.js`, and the
+`components/dom.js` + `components/raf-throttle.js` they depend on. **`main.js`: 2,605 → 2,228 code
+lines.**
+
+- **A dependency probe, not eyeballing.** For each candidate range: which identifiers does it use
+  that are declared outside it? That is exactly the import list, and it is what decides whether a
+  cut is mechanical or a rewrite. All four blocks came back clean once the probe was right —
+  `app-search` needs `closest`, `content-shell` needs `rafThrottle`, the other two need nothing.
+- **The probe was wrong twice before it was right, and both bugs read as good news.** First it
+  used `` `\b${n}\b` `` in a *template literal*, where `\b` is a backspace character rather than a
+  word boundary, so the filter matched nothing and every block reported "no dependencies". Then its
+  "declared outside" set included function-locals from unrelated blocks, so it reported noise.
+  **A dependency checker that cannot fail loudly will report "no dependencies" for a block that has
+  them**, which is the one answer that makes a bad cut look safe. It is validated now against a
+  known-true case (`app-search` must show `closest`) — keep that check when reusing it.
+- **One cut improved on §5.3's guess.** `setupViewFullSystemToggle` was grouped with the cookie
+  switchers by line adjacency; it belongs with the settings panel, which is what its own comment
+  says (it contrasts itself with the theme-mode toggle). Adjacency is not membership.
+- **Verified in a browser this time**, behaviourally rather than by presence: app search filters,
+  renders its hub icons and closes on an outside click (the `closest` import path); identity search
+  filters 17 → 1 → 17; the theme toggle flips `data-theme-mode`, persists to `localStorage` and
+  restores; the content shell's pinned height recalculates on resize (the `rafThrottle` import
+  path). Zero console errors or warnings on home, hub, panel home, students and portal-admin.
+
 Remaining, in order — each unblocked by the one above it:
 
 | Item | Owner |
 | --- | --- |
-| The rest of `layout/` — sidebar, hub-rail, overlay-nav, settings-panel, app-search, content-shell, breadcrumbs, sticky-zone, mobile-tabbar | the execution issue |
+| The rest of `layout/` — sidebar, hub-rail, overlay-nav, breadcrumbs, sticky-zone, mobile-tabbar | the execution issue |
 | `components/filter-bar/` (§5.2), the largest single piece | the execution issue |
 | The remaining `components/` modules (§5.1) | the execution issue |
 | `.senco-*` already promoted into `static/css/` under a domain name (§4.2) | new issue — a live breach of rule 1 on shipped files |
