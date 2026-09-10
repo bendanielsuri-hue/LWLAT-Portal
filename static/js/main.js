@@ -2550,7 +2550,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
     // here.
     (function setupListPageShellHeight() {
         var header = document.querySelector('.sticky-header-zone') || document.querySelector('.page-header');
-        var shells = document.querySelectorAll('.page-shell');
+        var shells = document.querySelectorAll('.content-shell');
         if (!header || !shells.length) return;
 
         // The card should use all the space main actually has to give,
@@ -2562,7 +2562,7 @@ vibrant: 'Bold, high-visibility colours designed for dashboards and data.',
         // overflows main outright. At phone width the collapsed carousel
         // itself measures 0, so this sums to just the small toggle - the
         // card still gets everything else.
-        // Every page-shell gets its height pinned in JS, trailing
+        // Every content-shell gets its height pinned in JS, trailing
         // content or not - a shell with nothing trailing it does NOT
         // already get the same result for free from its own flex: 1
         // (layout.css): that only bounds a flex item to its container's

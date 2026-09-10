@@ -392,7 +392,7 @@
    "SYNC:" across the repo before changing bar width, hover colour, or
    chosen colour here — every other hit needs the same edit:
    - .list-card .entity-row (layout.css) — desktop list-page rows
-   - .stack-list li / .page-shell .stack-list li (panel.css) — Home's
+   - .stack-list li / .content-shell .stack-list li (panel.css) — Home's
      My Referrals/My Actions/Upcoming Panel Meetings
    - .meeting-card (panel.css) — Meetings page
    - .agenda-table tbody tr (panel.css) — Panel Agenda table rows */
@@ -481,7 +481,7 @@ a.stat-card { text-decoration: none; color: inherit; transition: background var(
 /* box-shadow dropped (was var(--shadow-md)) - its vertical extent varies
    by theme (dark mode needs ~32px of clearance below the card) and kept
    getting clipped by ancestor overflow:hidden containers (KPI carousel
-   track, page-shell) at some width/theme combos - transform alone
+   track, content-shell) at some width/theme combos - transform alone
    needs no clearance since it doesn't paint outside the card's own box
    (well, barely - see .stats-carousel-track's own padding/margin pair,
    panel.css, sized to match this exact lift).
@@ -1194,4 +1194,56 @@ html.nav-touch-mode .senco-carousel::-webkit-scrollbar {
 .card .overflow-scroll-wrap .tab-row {
     margin-left: 0;
     margin-right: 0;
+}
+
+/* ---------- reconciled from panel.css (#209 slice C) ---------- */
+/* These define the component rather than tuning it for one hub, so they
+   belong with the rest of it. Rules that only override a portal component
+   for panel's own pages stayed behind: widening those from panel pages to
+   every page is a behaviour change, not a relocation. */
+
+.card-collapse-toggle {
+    display: none;
+}
+
+@media (max-width: 1180px) {
+/* Tap target for the header itself to double as the toggle would be
+       nice, but Recent Activity/Upcoming Panel Meetings' own header has no
+       spare width for a full-row hit target without crowding the h2 - a
+       small dedicated button, same "kept deliberately subtle" treatment as
+       the carousel-filter dropdown trigger elsewhere on this page. */
+.card-collapse-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-full, 999px);
+        background: var(--bg-surface-alt);
+        color: var(--text-secondary);
+        cursor: pointer;
+        flex: 0 0 auto;
+    }
+.card-collapse-toggle:hover {
+        background: var(--border-color);
+    }
+.card-collapse-chevron {
+        width: 6px;
+        height: 6px;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        margin-top: -2px;
+        transition: transform var(--transition-fast);
+    }
+/* Points down at rest (collapsed - "there's more below, tap to reveal")
+       and flips to point up once expanded ("tap to hide it again") - same
+       rotate(45deg)/rotate(-135deg) pair as .carousel-filter-chevron's own
+       open state elsewhere on this page. */
+.card-collapse-toggle[aria-expanded="true"] .card-collapse-chevron {
+        transform: rotate(-135deg);
+        margin-top: 2px;
+    }
 }

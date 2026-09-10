@@ -584,12 +584,12 @@ html.filter-bar-mobile-mode .filter-bar-tray .filter-field--search input[type="t
    right") - same cancel-.main-inner's-padding trick #116 already uses for
    .sticky-header-zone/.home-header-sticky, just applied to the list card
    instead of the sticky header. The negative margin has to land on
-   .page-shell, not .list-card itself - .page-shell's own
+   .content-shell, not .list-card itself - .content-shell's own
    overflow: hidden (layout.css, bounds the internal-scroll list) clips
    anything a *child* bleeds past its box via negative margin, which is
    exactly why margin on .list-card alone had no visible effect (live
    feedback: still inset after that first attempt). A negative margin on
-   .page-shell itself isn't subject to its own overflow - that
+   .content-shell itself isn't subject to its own overflow - that
    property only clips children overflowing the box, not the box's own
    position relative to its parent (.main-inner). :has(#students-filtered-
    content), not a bare rule - Referrals/Actions share both classes
@@ -1839,7 +1839,7 @@ html.filter-bar-mobile-mode .filter-bar-tray {
 }
 
 /* position: fixed, not absolute against .filter-bar (an earlier version
-   of this rule, git history) - .list-card/.page-shell (layout.css)
+   of this rule, git history) - .list-card/.content-shell (layout.css)
    both carry their own overflow: hidden for unrelated reasons (rounded
    corners; capping the shell to its own JS-computed height,
    setupListPageShellHeight, main.js), and an absolutely positioned
@@ -2673,13 +2673,13 @@ html.nav-touch-mode .filter-bar-tray .filter-bar-collapsible-inner.filter-bar-se
    track .main-inner's padding.
    Selector carries the same classes as the rule above so it wins on source
    order rather than by accident of specificity. */
-html.phone-chrome-side.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .page-shell:has(.filtered-content) {
+html.phone-chrome-side.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .content-shell:has(.filtered-content) {
     margin-left: 0;
     margin-right: 0;
 }
 
 html.phone-chrome-side .list-card .filter-bar,
-html.phone-chrome-side .page-shell > .filter-bar {
+html.phone-chrome-side .content-shell > .filter-bar {
     position: sticky;
     top: 0;
     /* Above the rows it floats over, below the filter tray (10) it opens. */
@@ -2700,7 +2700,7 @@ html.phone-chrome-side .page-shell > .filter-bar {
    from - a hairline against the screen edge, not the doubled-up seam the
    card's bottom border was. */
 html.phone-chrome-side .list-card .filter-bar,
-html.phone-chrome-side .page-shell > .filter-bar {
+html.phone-chrome-side .content-shell > .filter-bar {
     border-top: 1px solid var(--border-strong);
 }
 
@@ -2804,7 +2804,7 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
    speak of in the first place (L6, PRINCIPLES-DESIGN.md), so full-bleed is
    still correct there, just not for a narrower desktop/tablet window that
    otherwise looks like a normal (bordered, margined) page. */
-html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .page-shell:has(.filtered-content) {
+html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .content-shell:has(.filtered-content) {
     margin-left: calc(-1 * var(--space-sm));
     margin-right: calc(-1 * var(--space-sm));
 }

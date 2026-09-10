@@ -273,7 +273,7 @@
     /* Bleeds out to the .card's own 20px padding so each row's
        background/box-shadow can span the full card width, edge-to-edge —
        same effect as .entity-list/.entity-row in style.css. The bleed and
-       the internal scroll (.page-shell .stack-list's overflow-y: auto,
+       the internal scroll (.content-shell .stack-list's overflow-y: auto,
        which also computes overflow-x to auto) must live on the *same*
        element, otherwise the scroll container clips the bleed straight back
        off again — hence this is on the ul itself, not on each li. */
@@ -433,3 +433,150 @@
     align-items: center;
     gap: var(--space-xs);
 }
+
+/* ---------- reconciled from panel.css (#209 slice C) ---------- */
+/* These define the component rather than tuning it for one hub, so they
+   belong with the rest of it. Rules that only override a portal component
+   for panel's own pages stayed behind: widening those from panel pages to
+   every page is a behaviour change, not a relocation. */
+
+@media (max-width: 480px) {
+.activity-list {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        /* DES-L5's trailing bleed is already zeroed for every Panel Home
+           list, any width (see .panel-home-cards .stack-list/.activity-list
+           near the top of this file) - nothing to cancel here specifically. */
+        /* Bleeds edge-to-edge past the card's own padding (.activity-list's
+           own bleed, sized to .card's usual padding) - the native
+           scrollbar this overflow now creates renders at *this* element's
+           own right edge, which the bleed puts almost at the card's outer
+           border, reading as "hanging off the edge" rather than sitting
+           inside it. Hidden rather than inset, matching every other scroll
+           surface this phone pass already added - native touch scroll
+           doesn't need a visible track. */
+        scrollbar-width: none;
+    }
+.activity-list::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+.activity-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    margin: 0 -20px;
+    padding: 0;
+}
+
+.activity-list li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-lg);
+    border-bottom: 1px solid var(--border-faint);
+}
+
+.activity-list li:last-child {
+    border-bottom: none;
+}
+
+/* Subtle accent tint per event kind (created/completed/assigned), same
+   --color-* tokens as .stat-card--accent-* so the palette reads as one system. */
+.activity-icon {
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.activity-icon svg { width: 15px; height: 15px; }
+
+.activity-icon--primary   { color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); }
+
+.activity-icon--positive  { color: var(--color-positive); background: color-mix(in srgb, var(--color-positive) 14%, transparent); }
+
+.activity-icon--exceeding { color: var(--color-exceeding); background: color-mix(in srgb, var(--color-exceeding) 14%, transparent); }
+
+.activity-time {
+    flex: 0 0 70px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* .entity-thumb showing a school crest instead of the student's own photo
+   (Referrals/Students row markup, is_aggregate_view branch) - live
+   feedback: "let's have it so that MAT would see school logo, but school
+   staff would see student image... MAT do not know or need to know what
+   students look like" - MAT-wide/all-schools staff get the school crest in
+   the avatar slot instead of the student photo (which school matters more
+   to them than a face they don't know); school-scoped staff still see the
+   student's own photo/initials as before, unchanged. No object-fit
+   override needed - live feedback: "I do not think school logos need to
+   be within a circle. They are PNG so doesn't need to be contained" - the
+   base .entity-thumb img rule's object-fit: cover (cards.css) applies
+   here same as a student photo, no .entity-thumb--logo modifier needed.
+
+   ==================== Shared list-row detail (Students/Referrals/Actions) ====================
+   Title row: optional school logo (aggregate views only) + name + an
+   interpunct (middle dot) separator + a secondary same-weight text (row's
+   own "concern"/"category" style field) + pills. Facts row: grouped
+   two-line columns, dynamically sized per-column to the widest value
+   actually present (ch units, capped server-side - see each view's
+   _col_width() helper), divided by .mc-vdivider. Button column stretched
+   to the row's full content height, divided from the row body. See
+   issues #8/#10/#12. */
+.row-title-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+
+/* Referrals' two status pills (#118 mobile follow-up) - display: contents
+   at every width by default, so the wrapper is invisible to layout and
+   each pill behaves exactly like a direct row-title-row child, same as
+   before this wrapper existed. Only the #118 mobile block below turns it
+   into a real flex box, keeping the pills from ever splitting apart from
+   each other. */
+.row-title-pills { display: contents; }
+
+.row-title-sep { color: var(--text-faint); }
+
+/* Referrals' own Year/House/Reg line (#118 second follow-up) - hidden here
+   by default, but #referrals-filtered-content unconditionally re-enables
+   it below at every width, on its own line under the name (settled through
+   several rounds - see the "Referrals row title block" comment further
+   below for the full history). Scoped to .row-title-row specifically (not
+   the bare .row-facts-primary-plain class) since Students' own usage of
+   that same class lives outside .row-title-row entirely (nested in
+   .row-facts instead) and must stay untouched by this rule. */
+.row-title-row .row-facts-primary-plain { display: none; }
+
+/* Concern+pills wrapper (_referrals_rows.html) - display: contents by
+   default so its children (row-secondary-text, row-title-pills) keep acting
+   as direct .row-title-row flex items, same convention as .row-title-pills'
+   own base rule above. #referrals-filtered-content overrides this below to
+   put concern+pills on their own line under Year/House/Reg, every width. */
+.row-title-secondary { display: contents; }
+
+/* Raised by/date (#118 fourth follow-up) removed entirely (live feedback:
+   "only need it as a data col" - it duplicated the RAISED fact col's own
+   date + "By <initials>" pair once that stopped hiding at mobile width).
+   .row-title-raised-by no longer exists in _referrals_rows.html. */
+.row-secondary-text { font-weight: 600; }
+
+.entity-list[data-selectable] > .entity-row { align-items: stretch; }
+
+/* No divider line left of the buttons column - dropped everywhere (live
+   feedback: "lose the horizontal and vertical dividers on lists"), the
+   same simplification the data-col dividers and the row-facts rule above
+   already went through. padding-left survives on its own: it was always
+   the thing actually separating the buttons from the row's text, the line
+   only ever restated it. The global .chosen accent rule that used to
+   colour this divider (and the per-page !important fight behind it) went
+   with it - a chosen row is already marked by its own fill/accent bar
+   (cards.css). */
+.entity-row > .row-btn-row { padding-left: var(--space-lg); }
+
+.entity-body > .btn-row { margin-top: var(--space-xs); }

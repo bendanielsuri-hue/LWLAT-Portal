@@ -6,20 +6,20 @@
     flex-wrap: wrap;
 }
 
-/* Inside the .page-shell (Panel Home): the columns/cards fill the space
+/* Inside the .content-shell (Panel Home): the columns/cards fill the space
    above the stats footer and each card's own list scrolls internally, same
    pattern as .list-card/.entity-list on the Students/Referrals/Actions pages.
-   Scoped to :has(.panel-columns) rather than changing .page-shell
+   Scoped to :has(.panel-columns) rather than changing .content-shell
    globally — Students/Referrals/Actions use a single .list-card (with its own
    margin-bottom) inside the same shell class, and would double up on spacing
    if this gap applied there too. Row-to-row vertical spacing matches the
    horizontal --space-xl gap .panel-columns already uses between its two
    cards, so the rhythm reads the same in both directions. */
-.page-shell:has(.panel-columns) {
+.content-shell:has(.panel-columns) {
     gap: var(--space-xl);
 }
 
-.page-shell .panel-columns {
+.content-shell .panel-columns {
     flex: 1;
     min-height: 0;
     align-items: stretch;
@@ -65,7 +65,7 @@
 
 /* Same flex-height-chain fix as .referral-carousel-wrap just above, for My
    Actions' own wrap - this one was missed when that fix went in, so
-   #my-actions-list's flex: 1/overflow-y: auto (.page-shell .stack-list)
+   #my-actions-list's flex: 1/overflow-y: auto (.content-shell .stack-list)
    had nothing sized to fill above 1180px and the card just grew to the
    list's full natural content height instead of capping/scrolling it (live
    feedback: "My Actions still has no scroll bar"). */
@@ -109,13 +109,13 @@
    above, at any width - a scrolled-to-the-end list should stop exactly at
    its last row, not leave empty room after it. Scoped by id (not just
    .panel-home-cards, which matches regardless of its own display:contents)
-   rather than touching the shared .page-shell rule above - Meeting
+   rather than touching the shared .content-shell rule above - Meeting
    Setup (meeting_setup.html) uses the same .card/.stack-list classes
    and still wants DES-L5's bleed. id selectors, not .panel-home-cards
-   .stack-list/.activity-list (equal specificity to .page-shell
+   .stack-list/.activity-list (equal specificity to .content-shell
    .stack-list/.activity-list further down) - .stack-list's own copy
    happened to win on source order alone (defined after its base rule),
-   but .activity-list's base rule (.page-shell .activity-list) is
+   but .activity-list's base rule (.content-shell .activity-list) is
    defined *after* this block, so at equal specificity it won instead,
    silently keeping the old bleed active there and, once the list's own
    max-height was replaced with a card-level cap (below), spilling the
@@ -176,7 +176,7 @@
    as .filtered-content .entity-list::after (see that rule's own comment,
    further down this file, for the full "why a real flex box, not a
    background" history). #referrals-card/#actions-card are the same shape
-   above 1180px: a height-bounded card (.page-shell .card) whose
+   above 1180px: a height-bounded card (.content-shell .card) whose
    .stack-list is already display:flex column/flex:1/overflow-y:auto, so a
    short list leaves bare card background below it instead of the stripe.
    Reuses the same --list-endcap-height/--list-endcap-clearance custom
@@ -307,9 +307,9 @@
    (down from an even 50:50, was 65:35). Only meaningful above 1180px - below
    that both rows flatten to display:contents (see .panel-home-cards below),
    so there's no box left for this flex-basis to apply to. */
-.page-shell .panel-columns.panel-row-primary { flex: 60 1 0; }
+.content-shell .panel-columns.panel-row-primary { flex: 60 1 0; }
 
-.page-shell .panel-columns.panel-row-secondary { flex: 40 1 0; }
+.content-shell .panel-columns.panel-row-secondary { flex: 40 1 0; }
 
 /* Within Row 2: Next Panel Meeting stays narrow, Recent Activity gets more
    width, overriding the generic .card flex-basis. */
@@ -344,15 +344,15 @@
         flex-direction: column;
     }
 /* Overrides the bounded-height dashboard shell every other
-       .page-shell page (Students/Referrals/Actions, Meeting Setup)
+       .content-shell page (Students/Referrals/Actions, Meeting Setup)
        still wants - setupListPageShellHeight (main.js) sets an inline
-       height on every .page-shell unconditionally, and .card's
+       height on every .content-shell unconditionally, and .card's
        own height:100%/overflow:hidden (unconditional, above) assumes that
        bounded model too. :has(.panel-home-cards) scopes this to Panel
        Home's shell specifically, the same way :has(.panel-columns) already
        scopes the row gap above - !important beats the inline style JS
        sets, same reasoning as home.html's earlier stack prototype. */
-.page-shell:has(.panel-home-cards) {
+.content-shell:has(.panel-home-cards) {
         height: auto !important;
         overflow: visible;
     }
@@ -396,53 +396,10 @@
     }
 }
 
-.card-collapse-toggle {
-    display: none;
-}
-
 @media (max-width: 1180px) {
 #meeting-card.is-expanded .card-collapsible,
     #activity-card.is-expanded .card-collapsible {
         grid-template-rows: 1fr;
-    }
-/* Tap target for the header itself to double as the toggle would be
-       nice, but Recent Activity/Upcoming Panel Meetings' own header has no
-       spare width for a full-row hit target without crowding the h2 - a
-       small dedicated button, same "kept deliberately subtle" treatment as
-       the carousel-filter dropdown trigger elsewhere on this page. */
-.card-collapse-toggle {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
-        padding: 0;
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-full, 999px);
-        background: var(--bg-surface-alt);
-        color: var(--text-secondary);
-        cursor: pointer;
-        flex: 0 0 auto;
-    }
-.card-collapse-toggle:hover {
-        background: var(--border-color);
-    }
-.card-collapse-chevron {
-        width: 6px;
-        height: 6px;
-        border-right: 2px solid currentColor;
-        border-bottom: 2px solid currentColor;
-        transform: rotate(45deg);
-        margin-top: -2px;
-        transition: transform var(--transition-fast);
-    }
-/* Points down at rest (collapsed - "there's more below, tap to reveal")
-       and flips to point up once expanded ("tap to hide it again") - same
-       rotate(45deg)/rotate(-135deg) pair as .carousel-filter-chevron's own
-       open state elsewhere on this page. */
-.card-collapse-toggle[aria-expanded="true"] .card-collapse-chevron {
-        transform: rotate(-135deg);
-        margin-top: 2px;
     }
 /* .card-header's own base rule (justify-content: center) keeps
        every other card's h2 centred - these two now have a second flex
@@ -1057,7 +1014,7 @@ html:not(.nav-touch-mode) #my-referrals-list {
        navigate. JS (home.html) toggles fade opacity / arrow disabled state
        / active dot to match actual scroll position. .referral-carousel-wrap
        itself (position:relative, needed for the fade/arrows below) is
-       defined unconditionally near .page-shell .stack-list - it's also
+       defined unconditionally near .content-shell .stack-list - it's also
        load-bearing for the desktop flex-height chain, not phone-specific. */
 .referral-carousel-fade-l,
     .referral-carousel-fade-r {
@@ -1578,26 +1535,25 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
 }
 
 @media (max-width: 480px) {
-    /* Matches .referral-carousel-wrap's own bleed below, just with both
+/* Matches .referral-carousel-wrap's own bleed below, just with both
        layers of padding at their own reduced phone values - see that
        rule's own comment for the full reasoning. */
-    .action-carousel-wrap {
+.action-carousel-wrap {
         margin-left: calc(-1 * var(--space-sm) - var(--space-md));
         margin-right: calc(-1 * var(--space-sm) - var(--space-md));
     }
-
-    /* Matches .action-carousel-wrap's own bleed above, just for My
+/* Matches .action-carousel-wrap's own bleed above, just for My
        Referrals - #referrals-card's own padding drops to --space-sm here
        (.panel-home-cards .card, below), and .main-inner's
        (layout.css) drops to --space-md at <=480px (responsive.css) -
        without this override the wrap would overshoot past the real
        viewport edge by exactly the difference between the desktop and
        phone padding values on each side. */
-    .referral-carousel-wrap {
+.referral-carousel-wrap {
         margin-left: calc(-1 * var(--space-sm) - var(--space-md));
         margin-right: calc(-1 * var(--space-sm) - var(--space-md));
     }
-    /* #my-referrals-list/#my-actions-list's own padding-top (36-38 blocks
+/* #my-referrals-list/#my-actions-list's own padding-top (36-38 blocks
        above, ≤1180px) is the *one* real gap between the filter/header and
        the carousel at this width - no separate margin stacked on top of
        it any more (live feedback: "lose the 2px if this is a necessary
@@ -1610,11 +1566,11 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
        edge), which needs real room regardless of how tight the gap above
        it would otherwise read, so this no longer drops below the ≤1180px
        value at all - same 52px, not a phone-specific tighter number. */
-    #referrals-card #my-referrals-list,
+#referrals-card #my-referrals-list,
     #actions-card #my-actions-list {
         padding-top: 52px;
     }
-    /* Narrower card range than the ≤1180px tablet default (150-220px/
+/* Narrower card range than the ≤1180px tablet default (150-220px/
        220-320px, above) - at phone width a card sized closer to the full
        column read as just another stacked card like Next Panel Meeting
        below it, not obviously part of a horizontally-scrollable carousel
@@ -1631,16 +1587,15 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
        range above) - min-width still wins over a smaller max-width value
        below it (standard CSS sizing precedence), so a very narrow phone
        still gets a usable card, just a wider fraction of its own screen. */
-    #my-referrals-list > li {
+#my-referrals-list > li {
         min-width: 130px;
         max-width: 44vw;
     }
-    #my-actions-list > li {
+#my-actions-list > li {
         min-width: 170px;
         max-width: 56vw;
     }
-
-    /* Recent Activity: open-ended by nature (a feed with no natural end),
+/* Recent Activity: open-ended by nature (a feed with no natural end),
        so it gets a bounded height with its own internal vertical scroll
        instead of dictating how far the whole page scrolls - a carousel
        wouldn't suit a feed like this anyway (no natural "cards" to swipe
@@ -1661,39 +1616,14 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
        worth chasing further). Capping the card directly and letting the
        list fill it via flex: 1 sidesteps the computation entirely - the
        same bounded-flex-column-with-a-scrollable-flex:1-child pattern
-       .page-shell .card already uses above 1180px, just with
+       .content-shell .card already uses above 1180px, just with
        the cap in vh instead of the shell's own JS-measured height. */
-    #activity-card {
+#activity-card {
         /* Tightened from 45vh - still shows ~3 rows plus a peeking partial
            one (enough to signal "more below, scroll for it") without
            costing as much of the fold as a near-half-screen card did. */
         max-height: 34vh;
     }
-    .activity-list {
-        flex: 1;
-        min-height: 0;
-        overflow-y: auto;
-        /* DES-L5's trailing bleed is already zeroed for every Panel Home
-           list, any width (see .panel-home-cards .stack-list/.activity-list
-           near the top of this file) - nothing to cancel here specifically. */
-        /* Bleeds edge-to-edge past the card's own padding (.activity-list's
-           own bleed, sized to .card's usual padding) - the native
-           scrollbar this overflow now creates renders at *this* element's
-           own right edge, which the bleed puts almost at the card's outer
-           border, reading as "hanging off the edge" rather than sitting
-           inside it. Hidden rather than inset, matching every other scroll
-           surface this phone pass already added - native touch scroll
-           doesn't need a visible track. */
-        scrollbar-width: none;
-    }
-    .activity-list::-webkit-scrollbar {
-        display: none;
-    }
-}
-
-@keyframes tab-row-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
 }
 
 /* Same gapped-card treatment as .list-card .entity-row (layout.css) and
@@ -1715,7 +1645,7 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
    var(--card-shadow) match .list-card .entity-row's own token choices for
    the same "nested row vs. its own card container" reasoning. */
 @media (min-width: 1181px) {
-    .page-shell .stack-list {
+    .content-shell .stack-list {
         background: var(--bg-well);
         gap: var(--space-xxs);
     }
@@ -1727,14 +1657,14 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
        stacking order - the stripe was rendering, just permanently hidden
        under this row's own fill. .empty-note stays a plain, background-
        less placeholder here so that stripe actually shows through. */
-    .page-shell .stack-list li:not(.empty-note) {
+    .content-shell .stack-list li:not(.empty-note) {
         background: var(--bg-surface);
         border: 1px solid var(--border-color);
         box-shadow: var(--card-shadow);
     }
     /* background restated (not just relying on the base .stack-list
        li.chosen rule, cards.css-equivalent) - that base rule and this
-       file's own .page-shell .stack-list li (above) are the same
+       file's own .content-shell .stack-list li (above) are the same
        specificity (2 classes + type each), so without this the later of
        the two in source order silently won regardless of .chosen -
        confirmed live: chosen rows on Home showed a plain bg-surface card
@@ -1750,7 +1680,7 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
        when inactive"). box-shadow kept here anyway (rather than left to the
        base li rule) so this block stands alone as the chosen row's full
        resting state. */
-    .page-shell .stack-list li.chosen {
+    .content-shell .stack-list li.chosen {
         background: var(--primary-light);
         box-shadow: var(--card-shadow);
     }
@@ -1767,8 +1697,8 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
        without this the empty state picked up a full hover bar + accent
        border of its own (live feedback: "when there are no referrals I seem
        to have a hover rectangle on No open Referrals"). */
-    .page-shell .stack-list li:not(.empty-note):hover,
-    .page-shell .stack-list li:not(.empty-note):focus-visible {
+    .content-shell .stack-list li:not(.empty-note):hover,
+    .content-shell .stack-list li:not(.empty-note):focus-visible {
         border-left-color: var(--accent-border);
         box-shadow: inset var(--space-xxs) 0 0 var(--accent-border), var(--card-shadow);
     }
@@ -1823,52 +1753,6 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
 .panel-preview .btn-row {
     justify-content: flex-start;
     margin-top: var(--space-md);
-}
-
-.activity-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    margin: 0 -20px;
-    padding: 0;
-}
-
-.activity-list li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    padding: var(--space-sm) var(--space-lg);
-    border-bottom: 1px solid var(--border-faint);
-}
-
-.activity-list li:last-child {
-    border-bottom: none;
-}
-
-/* Subtle accent tint per event kind (created/completed/assigned), same
-   --color-* tokens as .stat-card--accent-* so the palette reads as one system. */
-.activity-icon {
-    flex: 0 0 26px;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.activity-icon svg { width: 15px; height: 15px; }
-
-.activity-icon--primary   { color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); }
-
-.activity-icon--positive  { color: var(--color-positive); background: color-mix(in srgb, var(--color-positive) 14%, transparent); }
-
-.activity-icon--exceeding { color: var(--color-exceeding); background: color-mix(in srgb, var(--color-exceeding) 14%, transparent); }
-
-.activity-time {
-    flex: 0 0 70px;
-    color: var(--text-secondary);
-    font-weight: 600;
 }
 
 /* #116 phone-width overrides: below the tablet floor, the row is single-
@@ -2622,63 +2506,6 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
     margin-top: var(--space-xxs);
 }
 
-/* .entity-thumb showing a school crest instead of the student's own photo
-   (Referrals/Students row markup, is_aggregate_view branch) - live
-   feedback: "let's have it so that MAT would see school logo, but school
-   staff would see student image... MAT do not know or need to know what
-   students look like" - MAT-wide/all-schools staff get the school crest in
-   the avatar slot instead of the student photo (which school matters more
-   to them than a face they don't know); school-scoped staff still see the
-   student's own photo/initials as before, unchanged. No object-fit
-   override needed - live feedback: "I do not think school logos need to
-   be within a circle. They are PNG so doesn't need to be contained" - the
-   base .entity-thumb img rule's object-fit: cover (cards.css) applies
-   here same as a student photo, no .entity-thumb--logo modifier needed.
-
-   ==================== Shared list-row detail (Students/Referrals/Actions) ====================
-   Title row: optional school logo (aggregate views only) + name + an
-   interpunct (middle dot) separator + a secondary same-weight text (row's
-   own "concern"/"category" style field) + pills. Facts row: grouped
-   two-line columns, dynamically sized per-column to the widest value
-   actually present (ch units, capped server-side - see each view's
-   _col_width() helper), divided by .mc-vdivider. Button column stretched
-   to the row's full content height, divided from the row body. See
-   issues #8/#10/#12. */
-.row-title-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
-
-/* Referrals' two status pills (#118 mobile follow-up) - display: contents
-   at every width by default, so the wrapper is invisible to layout and
-   each pill behaves exactly like a direct row-title-row child, same as
-   before this wrapper existed. Only the #118 mobile block below turns it
-   into a real flex box, keeping the pills from ever splitting apart from
-   each other. */
-.row-title-pills { display: contents; }
-
-.row-title-sep { color: var(--text-faint); }
-
-/* Referrals' own Year/House/Reg line (#118 second follow-up) - hidden here
-   by default, but #referrals-filtered-content unconditionally re-enables
-   it below at every width, on its own line under the name (settled through
-   several rounds - see the "Referrals row title block" comment further
-   below for the full history). Scoped to .row-title-row specifically (not
-   the bare .row-facts-primary-plain class) since Students' own usage of
-   that same class lives outside .row-title-row entirely (nested in
-   .row-facts instead) and must stay untouched by this rule. */
-.row-title-row .row-facts-primary-plain { display: none; }
-
-/* Concern+pills wrapper (_referrals_rows.html) - display: contents by
-   default so its children (row-secondary-text, row-title-pills) keep acting
-   as direct .row-title-row flex items, same convention as .row-title-pills'
-   own base rule above. #referrals-filtered-content overrides this below to
-   put concern+pills on their own line under Year/House/Reg, every width. */
-.row-title-secondary { display: contents; }
-
-/* Raised by/date (#118 fourth follow-up) removed entirely (live feedback:
-   "only need it as a data col" - it duplicated the RAISED fact col's own
-   date + "By <initials>" pair once that stopped hiding at mobile width).
-   .row-title-raised-by no longer exists in _referrals_rows.html. */
-.row-secondary-text { font-weight: 600; }
-
 /* Concern/Category (_referrals_rows.html/_actions_rows.html: <div
    class="entity-title row-secondary-text">) used to share .entity-title
    purely for base sizing, deliberately cancelling .selectable's hover/
@@ -3219,40 +3046,6 @@ html.nav-touch-mode .row-facts-arrow {
 #actions-filtered-content .row-fact-col[data-col="referral"] .status-pill {
     padding-top: calc(0.35em - 1.09px);
     padding-bottom: calc(0.35em - 1.09px);
-}
-
-.entity-list[data-selectable] > .entity-row { align-items: stretch; }
-
-/* No divider line left of the buttons column - dropped everywhere (live
-   feedback: "lose the horizontal and vertical dividers on lists"), the
-   same simplification the data-col dividers and the row-facts rule above
-   already went through. padding-left survives on its own: it was always
-   the thing actually separating the buttons from the row's text, the line
-   only ever restated it. The global .chosen accent rule that used to
-   colour this divider (and the per-page !important fight behind it) went
-   with it - a chosen row is already marked by its own fill/accent bar
-   (cards.css). */
-.entity-row > .row-btn-row { padding-left: var(--space-lg); }
-
-/* A <form>-wrapped button (e.g. Escalations' Launch Meeting - a POST, not a
-   plain link like Referral Details/Actions) is a plain block box, not a
-   .btn itself - row-btn-row/btn-row's own align-items: stretch (their base
-   rules) stretches the FORM to the column's full width, but its .btn child
-   still only takes its own content width inside that now-wide box unless
-   told otherwise (live feedback: "why is Referral Details so wide" - it
-   wasn't wide, Launch Meeting's button was narrow, next to a form that
-   only looked the same width as everything else). Same fix as Meetings'
-   identical Delete-form case, .meeting-card-actions form/.btn above -
-   generic here (not page-ID-scoped) since any row-btn-row/btn-row column
-   can end up mixing a form-wrapped button with plain ones. */
-.row-btn-row form,
-.btn-row form {
-    display: flex;
-}
-
-.row-btn-row form .btn,
-.btn-row form .btn {
-    flex: 1 1 auto;
 }
 
 /* HISTORY - list rows used to carry three internal dividers: a vertical
@@ -4872,30 +4665,6 @@ html.nav-touch-mode .row-facts-arrow {
     margin: 0;
 }
 
-/* Referrals/Actions counts moved off the facts line entirely (#117
-   follow-up, live feedback) onto their own button as a small badge
-   instead, in every mode - no more separate desktop/mobile treatment. */
-.btn-count-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    margin-left: var(--space-xxs);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--primary) 20%, transparent);
-    /* var(--active-text), not var(--primary) directly - a yellow accent's
-       --primary is itself a light/saturated gold, so text set straight to
-       it reads too close in lightness to this badge's own pale tinted bg
-       (light-on-light). --active-text already exists for exactly this -
-       var(--primary-dark) in light mode (darkened, so it reads regardless
-       of hue), var(--text-primary) in dark mode (light.css/dark.css). */
-    color: var(--active-text);
-    font-size: var(--font-xs);
-    font-weight: 700;
-}
-
 /* Tablet/desktop button placement is now the grid band (below,
    #students-filtered-content .entity-row ≥701px) - live feedback: "do
    both" pages, porting Actions' own grid technique here. This used to be
@@ -5646,7 +5415,7 @@ html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible .filter-bar
    borderless - mobile mode strips its side borders and radius - so there are
    no corners left to clip and nothing is given up by releasing it.
    --------------------------------------------------------------------------- */
-html.phone-chrome-side .page-shell,
+html.phone-chrome-side .content-shell,
 html.phone-chrome-side .list-card {
     overflow: visible;
 }
@@ -5672,7 +5441,7 @@ html.phone-chrome-side .stats-strip {
    opacity, not a colour of its own; taking the colour from the depth ladder
    rather than picking one is what keeps them reading as chrome. */
 html.phone-chrome-side .list-card .filter-bar,
-html.phone-chrome-side .page-shell > .filter-bar,
+html.phone-chrome-side .content-shell > .filter-bar,
 html.phone-chrome-side .stats-strip {
     background: var(--bg-well);
 }
@@ -5919,7 +5688,7 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
    internally past viewport height instead of growing the whole page. Same
    "Card-internal scroll with a fixed header" split as .setup-col-body
    (DES-L5): the column itself is the flex column with a fixed
-   max-height (there's no .page-shell stretching it to an exact height
+   max-height (there's no .content-shell stretching it to an exact height
    here, so max-height + overflow: hidden stands in for height + overflow:
    hidden), its own <h2> is a non-scrolling flex-shrink: 0 sibling, and
    .discussion-col-body is the flex: 1 1 auto; min-height: 0; overflow-y: auto
@@ -5951,20 +5720,20 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
     padding-bottom: var(--space-lg);
 }
 
-/* Panel Agenda Setup wraps its toolbar + card row in the standard .page-shell
+/* Panel Agenda Setup wraps its toolbar + card row in the standard .content-shell
    (see layout.css) instead of a fixed-height guess: the toolbar is a
    flex-shrink: 0 header and .setup-columns is the flex: 1; min-height: 0
    body that absorbs the rest of the shell's height, exactly like
-   .page-shell .card-header + .stack-list elsewhere. This keeps it
+   .content-shell .card-header + .stack-list elsewhere. This keeps it
    exact even as the toolbar's own height changes with panel status.
    align-items: stretch (instead of the flex-start above, which
    .discussion-columns keeps) makes every card fill that height so its own
    overflow, not the page's, does the scrolling. */
-.page-shell .panel-toolbar {
+.content-shell .panel-toolbar {
     flex-shrink: 0;
 }
 
-.page-shell .setup-columns {
+.content-shell .setup-columns {
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -5976,12 +5745,12 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
     display: flex;
     flex-direction: column;
     /* height: 100% + min-height: 0, not align-items: stretch alone - same
-       belt-and-braces pairing as .page-shell .card below. Flex
+       belt-and-braces pairing as .content-shell .card below. Flex
        items default to min-height: auto, which floors them at their
        content's min-content size and silently defeats stretch whenever that
        content is taller than the stretched height. Shared with .agenda-layout
-       (a grid, not flex) - Panel Agenda wraps in .page-shell too now,
-       see .page-shell .agenda-layout further below. */
+       (a grid, not flex) - Panel Agenda wraps in .content-shell too now,
+       see .content-shell .agenda-layout further below. */
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -6596,7 +6365,7 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
    what would otherwise be one-off inline styles for structural patterns
    (two-column split, card-internal-scroll) the layout-pattern-selection
    rule (DES-L1) expects as reusable classes, not inline declarations. */
-.page-shell.dsl-briefings-shell { flex-direction: row; gap: var(--space-md); }
+.content-shell.dsl-briefings-shell { flex-direction: row; gap: var(--space-md); }
 
 .dsl-briefings-shell .list-card--narrow { flex: 0 0 380px; }
 
@@ -6710,12 +6479,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
 }
 
 .safeguarding-ready-banner.is-ready { background: var(--color-positive-bg); color: var(--color-positive); }
-
-.toggle-pill--lg { width: 56px; height: 30px; }
-
-.toggle-pill--lg .toggle-knob { width: 24px; height: 24px; }
-
-.toggle-pill--lg.on .toggle-knob { transform: translateX(26px); }
 
 /* Safeguarding Notes screen (#84) - single merged card: vertical student
    list left, note detail right. .dsl-briefing-detail-col is the one
@@ -6844,14 +6607,14 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
    button that reopens the same dialog. */
 .members-register-placeholder { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 600; margin: 0 0 var(--space-sm); }
 
-/* Panel Agenda wraps toolbar + agenda-layout in the standard .page-shell
-   (see meeting_setup.html's identical .page-shell .setup-columns rule
+/* Panel Agenda wraps toolbar + agenda-layout in the standard .content-shell
+   (see meeting_setup.html's identical .content-shell .setup-columns rule
    above, and DES-L5) -
    the live stats bar (elapsed timer, progress, counts) stays pinned while
    each column's own list scrolls, rather than the whole page scrolling with
    it. align-items: stretch overrides .agenda-layout's own align-items: start
    above so every column fills the grid row's height. */
-.page-shell .agenda-layout {
+.content-shell .agenda-layout {
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -6859,8 +6622,6 @@ html.nav-touch-mode .meeting-list::-webkit-scrollbar {
 }
 
 .members-register-add-btn { margin-bottom: var(--space-sm); }
-
-.entity-body > .btn-row { margin-top: var(--space-xs); }
 
 .member-attendance-form { margin-top: var(--space-xs); display: flex; align-items: center; gap: var(--space-xs); }
 
@@ -8244,7 +8005,7 @@ dialog#panel-search-dialog .modal-body {
            .card > .tab-row/.overflow-scroll-wrap) so the label sits
            back at the card's normal text inset instead of flush against
            its bled left edge, under the card's own rounded corner + hidden
-           overflow (.page-shell .card) - otherwise clips the
+           overflow (.content-shell .card) - otherwise clips the
            first letters of "My Referrals". */
         padding: var(--space-xs) var(--space-md) var(--space-xs) var(--space-lg);
         margin-right: var(--space-xs);

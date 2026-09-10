@@ -284,3 +284,54 @@ html.nav-touch-mode .btn-row-fused > .btn:last-child {
 /* Low-emphasis bordered action (e.g. the global header "+ Referral" helper) */
 .btn-helper { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-secondary); }
 .btn-helper:hover { border-color: var(--border-strong); color: var(--text-primary); }
+
+/* ---------- reconciled from panel.css (#209 slice C) ---------- */
+/* These define the component rather than tuning it for one hub, so they
+   belong with the rest of it. Rules that only override a portal component
+   for panel's own pages stayed behind: widening those from panel pages to
+   every page is a behaviour change, not a relocation. */
+
+/* A <form>-wrapped button (e.g. Escalations' Launch Meeting - a POST, not a
+   plain link like Referral Details/Actions) is a plain block box, not a
+   .btn itself - row-btn-row/btn-row's own align-items: stretch (their base
+   rules) stretches the FORM to the column's full width, but its .btn child
+   still only takes its own content width inside that now-wide box unless
+   told otherwise (live feedback: "why is Referral Details so wide" - it
+   wasn't wide, Launch Meeting's button was narrow, next to a form that
+   only looked the same width as everything else). Same fix as Meetings'
+   identical Delete-form case, .meeting-card-actions form/.btn above -
+   generic here (not page-ID-scoped) since any row-btn-row/btn-row column
+   can end up mixing a form-wrapped button with plain ones. */
+.row-btn-row form,
+.btn-row form {
+    display: flex;
+}
+
+.row-btn-row form .btn,
+.btn-row form .btn {
+    flex: 1 1 auto;
+}
+
+/* Referrals/Actions counts moved off the facts line entirely (#117
+   follow-up, live feedback) onto their own button as a small badge
+   instead, in every mode - no more separate desktop/mobile treatment. */
+.btn-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: var(--space-xxs);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 20%, transparent);
+    /* var(--active-text), not var(--primary) directly - a yellow accent's
+       --primary is itself a light/saturated gold, so text set straight to
+       it reads too close in lightness to this badge's own pale tinted bg
+       (light-on-light). --active-text already exists for exactly this -
+       var(--primary-dark) in light mode (darkened, so it reads regardless
+       of hue), var(--text-primary) in dark mode (light.css/dark.css). */
+    color: var(--active-text);
+    font-size: var(--font-xs);
+    font-weight: 700;
+}
