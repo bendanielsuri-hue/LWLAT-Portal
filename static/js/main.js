@@ -1,4 +1,10 @@
 import { closest } from './components/dom.js';
+import { initSelectable } from './components/selectable.js';
+import { initCardSwitchers } from './components/card-switcher.js';
+import { initBreadcrumbs } from './layout/breadcrumbs.js';
+import { initStickyZoneSentinels } from './layout/sticky-zone.js';
+import { fabProtrusionAboveTabbar, fabOverlapClearance } from './layout/mobile-tabbar.js';
+import { initMatHome } from './pages/mat-home.js';
 import { initSidebarCollapse } from './layout/sidebar.js';
 import { initHubRailSeam } from './layout/hub-rail.js';
 import { initOverlayNav } from './layout/overlay-nav.js';
@@ -23,46 +29,16 @@ import {
 } from './layout/breakpoints.js';
 
 
+/* Still on window, deliberately, until #212 moves the inline <script> blocks
+   that call them to modules: panel.js reads rafThrottle, and panel's home.html
+   calls initSelectable on a fragment it has just swapped in. Both are modules
+   now (components/raf-throttle.js, components/selectable.js) - this is the
+   compatibility shim, not their definition. */
 window.rafThrottle = rafThrottle;
+window.initSelectable = initSelectable;
 
 // Selectable cards/rows: clicking (or Enter/Space on) a card toggles a "chosen"
 // state, without triggering when the click lands on an inner link/button.
-// Pulled out of the DOMContentLoaded sweep and exposed on window so a page
-// that swaps in a fresh `[data-selectable]` list via AJAX (e.g. a refreshed
-// card fragment) can re-wire just that root instead of duplicating this.
-function initSelectable(root) {
-    (root || document).querySelectorAll('[data-selectable]').forEach(function (container) {
-        var single = container.dataset.selectable === 'single';
-
-        function toggle(item) {
-            var isChosen = item.classList.contains('chosen');
-            if (single && !isChosen) {
-                container.querySelectorAll('.selectable.chosen').forEach(function (other) {
-                    other.classList.remove('chosen');
-                    other.setAttribute('aria-pressed', 'false');
-                });
-            }
-            item.classList.toggle('chosen', !isChosen);
-            item.setAttribute('aria-pressed', String(!isChosen));
-        }
-
-        container.addEventListener('click', function (e) {
-            if (closest(e.target, 'a, button')) return;
-            var item = closest(e.target, '.selectable');
-            if (!item || !container.contains(item)) return;
-            toggle(item);
-        });
-        container.addEventListener('keydown', function (e) {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            if (closest(e.target, 'a, button')) return;
-            var item = closest(e.target, '.selectable');
-            if (!item || !container.contains(item)) return;
-            e.preventDefault();
-            toggle(item);
-        });
-    });
-}
-window.initSelectable = initSelectable;
 
 // (INT-U3) Why a disabled button is disabled. A disabled control swallows
 // its own pointer events - a real [disabled] button gets no hover/mouse
@@ -1593,39 +1569,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     initOverlayNav();
 
-    // Make the top section of each hub card clickable, without double-navigating when an inner link/button is clicked
-    document.querySelectorAll('.hub-card-top').forEach(function (top) {
-        var url = top.dataset.url;
-        if (!url) return;
-        top.addEventListener('click', function (e) {
-            if (closest(e.target, 'a, button')) return;
-            window.location.href = url;
-        });
-        top.addEventListener('keydown', function (e) {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            if (closest(e.target, 'a, button')) return;
-            e.preventDefault();
-            window.location.href = url;
-        });
-    });
-
-    initSelectable();
-
-    // "+N more" toggles the hidden apps within a card instead of navigating to the hub
-    document.querySelectorAll('.hub-more-toggle').forEach(function (btn) {
-        var countEl = btn.querySelector('.hub-more-toggle-count');
-        // Sits below .hub-card-items (not inside it - live feedback, see
-        // cards.css) so the container it toggles is a previous sibling, not
-        // an ancestor.
-        var container = btn.previousElementSibling;
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            if (!container) return;
-            var expanded = container.classList.toggle('expanded');
-            var moreCount = btn.dataset.moreCount || '0';
-            countEl.textContent = expanded ? 'Show less' : ('+' + moreCount + ' more');
-        });
-    });
+    initMatHome();
 
     /* Layout chrome. Each of these was an IIFE inline in this handler; they are
        modules under js/layout/ now and this is the whole of what is left. Order
@@ -1725,139 +1669,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     })();
 
-    // Generic card switcher: pairs a .card-switcher (row of .card-tab buttons,
-    // each with data-card-target="<id>") with a group of full-size "cards"
-    // elsewhere on the page sharing class .switch-card. Below the breakpoint
-    // that hides a page's normal side-by-side card layout (see the
-    // .switch-card-group media query in style.css), clicking a tab shows the
-    // matching card and hides the others. Reusable sitewide — any page can
-    // adopt this by following the same markup convention, not just Inclusion
-    // Panel Home.
-    document.querySelectorAll('.card-switcher').forEach(function (switcher) {
-        var buttons = switcher.querySelectorAll('.card-tab');
-        buttons.forEach(function (button, newIdx) {
-            button.addEventListener('click', function () {
-                // Read before the class swap below — which way the card
-                // should slide (see .switch-card-enter-left/right, style.css)
-                // depends on where the newly-picked tab sits relative to
-                // whichever one was active before this click.
-                var oldIdx = Array.prototype.findIndex.call(buttons, function (b) {
-                    return b.classList.contains('active');
-                });
+    initCardSwitchers();
 
-                buttons.forEach(function (b) { b.classList.remove('active'); });
-                button.classList.add('active');
-                // Scoped to this button's own .switch-card-group (found via its
-                // target card), not every .switch-card on the page - a page can
-                // have more than one switcher/group pair (#116, Panel Home's Row
-                // 1 and Row 2), and a global query here would toggle every other
-                // group's active-card off too on each click.
-                var targetCard = document.getElementById(button.dataset.cardTarget);
-                var group = targetCard ? targetCard.closest('.switch-card-group') : null;
-                var scope = group || document;
-                if (group && oldIdx >= 0 && oldIdx !== newIdx) {
-                    group.setAttribute('data-switch-dir', newIdx > oldIdx ? 'right' : 'left');
-                }
-                scope.querySelectorAll('.switch-card').forEach(function (card) {
-                    card.classList.toggle('active-card', card.id === button.dataset.cardTarget);
-                });
-                // The now-visible card's own tab row (if any) may have been
-                // measured while display:none and reported zero width —
-                // force a re-measure now that it's actually visible.
-                window.dispatchEvent(new Event('resize'));
-            });
-        });
-    });
-
-    // Breadcrumbs: trail is always rooted at "LWLAT Data Portal" + the hub name
-    // (see layout.html), which makes deep pages verbose. Default behaviour:
-    // pages more than 3 crumbs deep always start collapsed to "… › <recent
-    // crumbs>" — hiding the root + hub behind the toggle even if the full
-    // trail would fit — and trim further from the front if even that
-    // overflows. Shallow pages (root + hub + current page) just show the
-    // full trail, no toggle. One "…"/"‹" button (never a separate close
-    // control) flips between the default tail view and the full, wrapped
-    // trail. Crumb/sep nodes are cloned once up front so any view can be
-    // rebuilt from scratch without losing markup (icons, hrefs, etc).
-    document.querySelectorAll('nav.breadcrumbs').forEach(function (nav) {
-        var nodes = Array.prototype.slice.call(nav.childNodes).filter(function (n) {
-            return !(n.nodeType === 3 && !n.textContent.trim());
-        }).map(function (n) { return n.cloneNode(true); });
-
-        function isSep(node) {
-            return node.nodeType === 1 && node.classList.contains('sep');
-        }
-
-        var crumbs = nodes.filter(function (n) { return !isSep(n); });
-        var seps = nodes.filter(isSep);
-
-        function makeToggle(expanded, onClick) {
-            var btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'crumb-toggle';
-            btn.setAttribute('aria-label', expanded ? 'Show fewer breadcrumbs' : 'Show earlier breadcrumbs');
-            btn.textContent = expanded ? '−' : '…';
-            btn.addEventListener('click', onClick);
-            return btn;
-        }
-
-        function renderInline() {
-            nav.innerHTML = '';
-            nav.classList.remove('breadcrumbs-expanded');
-            crumbs.forEach(function (c, i) {
-                if (i > 0) nav.appendChild(seps[i - 1].cloneNode(true));
-                nav.appendChild(c.cloneNode(true));
-            });
-        }
-
-        function renderExpanded() {
-            nav.innerHTML = '';
-            nav.classList.add('breadcrumbs-expanded');
-            nav.appendChild(makeToggle(true, renderDefault));
-            crumbs.forEach(function (c, i) {
-                if (i > 0) nav.appendChild(seps[i - 1].cloneNode(true));
-                nav.appendChild(c.cloneNode(true));
-            });
-        }
-
-        function renderTail(startIndex) {
-            nav.innerHTML = '';
-            nav.classList.remove('breadcrumbs-expanded');
-            nav.appendChild(makeToggle(false, renderExpanded));
-            nav.appendChild(seps[0].cloneNode(true));
-            for (var i = startIndex; i < crumbs.length; i++) {
-                if (i > startIndex) nav.appendChild(seps[i - 1].cloneNode(true));
-                nav.appendChild(crumbs[i].cloneNode(true));
-            }
-        }
-
-        function fitsOneLine() {
-            return nav.scrollWidth <= nav.clientWidth;
-        }
-
-        function renderDefault() {
-            if (crumbs.length <= 3) {
-                renderInline();
-                return;
-            }
-            var startIndex = 2;
-            renderTail(startIndex);
-            requestAnimationFrame(function () {
-                while (!fitsOneLine() && startIndex < crumbs.length - 1) {
-                    startIndex++;
-                    renderTail(startIndex);
-                }
-            });
-        }
-
-        renderDefault();
-
-        var resizeTimer = null;
-        window.addEventListener('resize', function () {
-            if (resizeTimer) clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(renderDefault, 150);
-        });
-    });
+    initBreadcrumbs();
 
     document.querySelectorAll('.senco-carousel-wrap').forEach(function (wrap) {
         wireScrollCarousel(wrap, '.senco-carousel', '.senco-card', '.senco-carousel-arrow--prev', '.senco-carousel-arrow--next');
@@ -2015,23 +1829,7 @@ document.addEventListener('DOMContentLoaded', function () {
         updateState();
     });
 
-    // Toggle .is-stuck on whatever sits right after a .sticky-zone-sentinel
-    // once that (zero-height) marker scrolls out of the viewport — CSS has no
-    // way to detect "currently pinned" for a position:sticky element on its
-    // own, so pages that want a stronger stuck-state style (e.g. the SEND &
-    // Provision dashboard's filter bar) add the marker as the sticky
-    // element's immediately preceding sibling.
-    (function setupStickyZoneSentinels() {
-        var sentinels = document.querySelectorAll('.sticky-zone-sentinel');
-        if (!sentinels.length || !window.IntersectionObserver) return;
-        var observer = new IntersectionObserver(function (entries) {
-            entries.forEach(function (entry) {
-                var stuckEl = entry.target.nextElementSibling;
-                if (stuckEl) stuckEl.classList.toggle('is-stuck', !entry.isIntersecting);
-            });
-        }, { threshold: 0 });
-        sentinels.forEach(function (sentinel) { observer.observe(sentinel); });
-    })();
+    initStickyZoneSentinels();
 
     // Filter bars (e.g. the SEND & Provision dashboard) submit a plain GET
     // form on every change, since their stats are computed server-side —
@@ -2085,60 +1883,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // above the tabbar's own top edge by design) can still visually poke
     // over the tray's edge without covering interactive content the same
     // way ("I like the FAB overlaying it but not the whole bar").
-    // How far .mobile-tab-fab's own top edge actually pokes above
-    // .mobile-tabbar's top edge, measured live rather than assumed off its
-    // CSS (margin-top: -28px, _hub_sidebar.html) - the tabbar's own
-    // padding eats into that margin, so the real on-screen protrusion is
-    // smaller than the margin alone suggests. Shared by positionFilterTray
-    // and setupListEndCapHeight (below) so both "how much should the FAB
-    // overlap X" calculations stay in step with each other and with any
-    // future FAB/tabbar sizing change, instead of two separately-tuned
-    // numbers that happen to agree today.
-    function fabProtrusionAboveTabbar() {
-        var fab = document.querySelector('.mobile-tab-fab');
-        var tabbar = document.querySelector('.mobile-tabbar');
-        // getClientRects().length, not offsetParent - same display: none-
-        // stays-in-the-DOM gap as positionFilterTray's own tabbar check,
-        // below: both elements are always present, only hidden by width via
-        // CSS, so an existence-only check would read two display: none
-        // boxes as "both visible at (0,0)" and return 0 instead of falling
-        // back. offsetParent (an earlier version of this check) breaks for
-        // a genuinely-visible .mobile-tabbar specifically because it's
-        // position: fixed - offsetParent is defined to be null for any
-        // fixed-position element regardless of visibility (confirmed live:
-        // tabbarRect had real, on-screen coordinates while offsetParent
-        // still read null), so that check silently treated the tabbar as
-        // always hidden, ballooning the tray's own available height and
-        // the list's own end-cap height calculations past the tabbar
-        // entirely - live feedback: "the tray is meant to have a gap to
-        // the bottom nav so that nothing is clipped... also meant to have
-        // a bottom of list diagonal stripes" (the same broken tabbarVisible
-        // read feeding both). getClientRects().length is 0 for display:
-        // none (or detached) regardless of position, and non-zero for
-        // anything actually rendered, fixed positioning included.
-        var visible = fab && tabbar && fab.getClientRects().length !== 0 && tabbar.getClientRects().length !== 0;
-        // The `short` tier (ADR 0016) turns the tabbar into a full-height
-        // strip down the RIGHT edge, so tabbar.top is 0 and this subtraction
-        // returns a large NEGATIVE number - which then inflates rather than
-        // reserves every clearance derived from it (positionFilterTray's
-        // maxHeight subtracts it; setupListEndCapHeight doubles it). There is
-        // no vertical protrusion to measure there at all: the FAB sits fully
-        // inside the strip and the strip isn't along the bottom edge, so
-        // nothing needs clearing above it.
-        if (document.documentElement.classList.contains('phone-chrome-side')) return 0;
-        return visible ? (tabbar.getBoundingClientRect().top - fab.getBoundingClientRect().top) : 19;
-    }
-    // Extra clearance trimmed off however much the FAB would otherwise
-    // overlap - live feedback: "adjust the math so there is slightly less
-    // overlap. This is for both!", then "a bit more... fab should be about
-    // halfway into padding of last entity" (0.2 left the FAB nearly flush
-    // against the last entity row's own buttons). Expressed as a fraction of
-    // the FAB's own protrusion (not a flat px number) so it scales the same
-    // way the protrusion-based math it's trimming does, rather than
-    // drifting out of proportion if the FAB's size/offset ever changes.
-    function fabOverlapClearance() {
-        return fabProtrusionAboveTabbar() * 0.35;
-    }
     function positionFilterTray(bar, box) {
         var barRect = bar.getBoundingClientRect();
         var barBottom = barRect.bottom;
@@ -2161,7 +1905,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // the tabbar). getClientRects().length is 0 for display: none (or
         // detached) regardless of position, non-zero for anything actually
         // rendered - the correct general-purpose "is this really on
-        // screen" check fabProtrusionAboveTabbar (above) now also uses.
+        // screen" check fabProtrusionAboveTabbar (layout/mobile-tabbar.js) uses.
         var tabbar = document.querySelector('.mobile-tabbar');
         // Not in the `short` tier (ADR 0016): the tabbar is a full-height
         // strip down the right edge there, so its .top is 0 and using it as a

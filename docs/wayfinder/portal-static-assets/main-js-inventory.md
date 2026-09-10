@@ -242,15 +242,15 @@ below is under it except where noted.
 
 | Module | Exports | From | Code |
 | --- | --- | --- | --- |
-| `dom.js` | `closest` | 1–20 | ~10 |
-| `raf-throttle.js` | `rafThrottle` | 21–38 — **pairs with `debounce.js`**, already named in taxonomy §3 | ~9 |
-| `selectable.js` | `initSelectable` | 39–88 | 31 |
+| `dom.js` | `closest` | 1–20 | ~10 | ✅ done (slice 2) |
+| `raf-throttle.js` | `rafThrottle` | 21–38 — **pairs with `debounce.js`**, already named in taxonomy §3 | ~9 | ✅ done (slice 2) |
+| `selectable.js` | `initSelectable` | 39–88 | 31 | ✅ done (slice 3b) |
 | `disabled-tooltip.js` | `wireDisabledTooltips`, `syncDisabledTooltip` | 89–133 | 24 |
 | `tabs.js` | `setupOverflowTabs`, `buildOverflowFade` — **merges into the `tabs.js` taxonomy §3 already assigns from `panel.js` region 11** | 134–223, 2667–2676 | ~49 |
 | `drag-scroll.js` | `setupOverflowDragScroll` | 224–275 — see §6 | 30 |
 | `carousel.js` | `wireScrollCarousel` | 824–935, 2902–3047 — see §6 | ~157 |
-| `card-switcher.js` | card-switcher wiring | 2760–2805 | 22 |
-| `backdrop.js` | `addBackdrop`, `removeBackdrop` | 2042–2082 | ~25 |
+| `card-switcher.js` | card-switcher wiring | 2760–2805 | 22 | ✅ done (slice 3b) |
+| `backdrop.js` | `addBackdrop`, `removeBackdrop` | 2042–2082 | ~25 | ✅ done (slice 3a) |
 | `popover.js` | `positionPopover`, `closeAllUiPopovers`, `forwardClickThrough` | 3971–4120 | 57 |
 | `select.js` | `enhanceSelect`, `resyncFilterTriggerWidths` | 4121–4553 | 217 |
 | `date-input.js` | `enhanceDateInput` | 4554–4806 | 226 |
@@ -296,23 +296,23 @@ page that stops knowing there are six.
 | Module | From | Code |
 | --- | --- | --- |
 | `breakpoints.js` | 1450–1676 — ✅ **done**, and it was extracted first for the reason §3 gives | 71 |
-| `sidebar.js` | 1677–1912 | 115 |
-| `hub-rail.js` | 1913–1960 | 25 |
-| `overlay-nav.js` | 1961–2041 | ~68 |
+| `sidebar.js` | 1677–1912 | 115 | ✅ done (slice 3a) |
+| `hub-rail.js` | 1913–1960 | 25 | ✅ done (slice 3a) |
+| `overlay-nav.js` | 1961–2041 | ~68 | ✅ done (slice 3a) |
 | `settings-panel.js` | 2119–2318 | 155 | ✅ done (slice 2), and it took `setupViewFullSystemToggle` with it |
 | `identity-switcher.js` (`setupCookieSwitcher` — school + current user) | 2319–2401 | 56 | ✅ done (slice 2) |
 | `app-search.js` | 2402–2550 | 97 | ✅ done (slice 2) |
 | `content-shell.js` — same name as `static/css/layout/content-shell.css` | 2551–2666 | 38 | ✅ done (slice 2) |
-| `breadcrumbs.js` | 2806–2885 | 69 |
-| `sticky-zone.js` | 3048–3074 | 12 |
-| `mobile-tabbar.js` (FAB clearance) | 3121–3165 | 10 |
+| `breadcrumbs.js` | 2806–2885 | 69 | ✅ done (slice 3b) |
+| `sticky-zone.js` | 3048–3074 | 12 | ✅ done (slice 3b) |
+| `mobile-tabbar.js` (FAB clearance) | 3121–3165 | 10 | ✅ done (slice 3b) |
 | `boot.js` — the handler that calls the rest | 1421–1449 | 9 |
 
 ### 5.4 `static/js/pages/`
 
 | Module | From | Code |
 | --- | --- | --- |
-| `mat-home.js` — hub cards, `.hub-more-toggle` | 2083–2118 | 26 |
+| `mat-home.js` — hub cards, `.hub-more-toggle` | 2083–2118 | 26 | ✅ done (slice 3b) |
 
 ### 5.5 What leaves `static/`
 
@@ -452,11 +452,44 @@ lines.**
   restores; the content shell's pinned height recalculates on resize (the `rafThrottle` import
   path). Zero console errors or warnings on home, hub, panel home, students and portal-admin.
 
+### Slice 3 — the rest of `layout/`, in two halves ✅
+
+**3a, the sidebar cluster:** `sidebar.js`, `hub-rail.js`, `overlay-nav.js` and the
+`components/backdrop.js` they share. These could not be separated — `overlay-nav` calls
+`positionHubRailSeam` so the seam follows the active item, and both the sidebar's touch
+expand-in-place and every overlay share one backdrop element.
+
+**3b, the independents:** `breadcrumbs.js`, `sticky-zone.js`, `mobile-tabbar.js`,
+`components/card-switcher.js`, `components/selectable.js`, `pages/mat-home.js` — the first use of
+`pages/`. **`main.js`: 2,228 → 1,849 code lines.**
+
+- **The probe needed two more fixes, and both failed the same way as the first.** Its
+  declared-outside set held only module-scope names, so it could not see one block inside the
+  `DOMContentLoaded` handler depending on another — widening it to handler scope is what revealed
+  `overlay-nav`'s use of `addBackdrop` at all. Then its free-use test counted a name appearing
+  inside a string or a kebab class, so `icon-tooltip-host` read as a use of `host` and `aria-label`
+  as a use of `label`. **Three bugs, all resolving toward "no dependencies."** That is the direction
+  a dependency checker must never fail in, and it is now pinned in both directions: `overlay-nav`
+  must report `addBackdrop`, and `sidebar` must not report its own locals.
+- **Two boundaries were wrong, and the probe caught neither.** `hub-rail` had swallowed
+  `overlay-nav`'s leading comment; the sidebar block had a trailing `js-preload` lift that is boot
+  ordering rather than sidebar behaviour. Both were found by *reading the extracted file*. A
+  dependency probe answers "what does this need", never "is this the right thing".
+- **One deletion that had to be undone.** `window.initSelectable` went out with the block it sat
+  under. Panel's `home.html` calls it after an AJAX fragment swap, so it is back beside
+  `window.rafThrottle` under one comment saying why both survive until #212.
+- **Verified in a browser, including the failure modes the comments describe:** the backdrop
+  survives an overlay-to-overlay switch (the stale-timer bug its own comment records), the
+  suppressed rail-active item is restored once every overlay closes, desktop collapse persists and
+  relabels, touch expand-in-place adds and clears the backdrop, `.is-stuck` toggles on scroll and
+  clears on the way back, single-select `.chosen` is mutually exclusive, the card switcher moves and
+  restores, and at 430px the tray still sizes itself from the two FAB measurements. Zero JS console
+  errors across six pages.
+
 Remaining, in order — each unblocked by the one above it:
 
 | Item | Owner |
 | --- | --- |
-| The rest of `layout/` — sidebar, hub-rail, overlay-nav, breadcrumbs, sticky-zone, mobile-tabbar | the execution issue |
 | `components/filter-bar/` (§5.2), the largest single piece | the execution issue |
 | The remaining `components/` modules (§5.1) | the execution issue |
 | `.senco-*` already promoted into `static/css/` under a domain name (§4.2) | new issue — a live breach of rule 1 on shipped files |
