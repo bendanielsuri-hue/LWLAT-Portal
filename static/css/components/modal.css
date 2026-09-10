@@ -76,7 +76,13 @@ dialog.modal-dialog.is-open::backdrop {
 
 .fade-toggle.is-visible { opacity: 1; }
 
-dialog.modal-dialog .modal-header {
+/* De-scoped from `dialog.modal-dialog .modal-header` by #209. The header row
+   and its × are the modal *shell*, and templates/hubs/_hub_sidebar.html's
+   bottom sheet wants exactly them - it had been copying their values instead,
+   because panel.css was not guaranteed loaded on every hub. A component that
+   only works inside one specific ancestor is not portable, which is the whole
+   claim ADR 0020 makes about these files. */
+.modal-header {
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -85,11 +91,11 @@ dialog.modal-dialog .modal-header {
     padding: var(--space-lg) var(--space-xl) var(--space-md);
 }
 
-dialog.modal-dialog .modal-header h2 { font-size: var(--font-2xl); margin: 0; }
+.modal-header h2 { font-size: var(--font-2xl); margin: 0; }
 
 dialog.modal-dialog .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--space-xl) var(--space-lg); }
 
-dialog.modal-dialog .modal-close {
+.modal-close {
     border: none;
     background: none;
     font-size: var(--font-4xl);
@@ -108,7 +114,7 @@ dialog.modal-dialog .modal-close {
     justify-content: center;
 }
 
-dialog.modal-dialog .modal-close:hover { color: var(--text-primary); }
+.modal-close:hover { color: var(--text-primary); }
 
 dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--space-md); }
 
