@@ -289,6 +289,17 @@ not a rewrite.
 
 ---
 
+## 6a. Lessons from executing #207–#209
+
+Written during execution, for whoever picks up #210 and #211.
+
+1. **Check the name you are renaming *to*, not just the one you are renaming from.** #209 verified that `.card`, `.thumb`, `.chevron`, `.stack-list` and `.stack-item` were free, then renamed `.list-page-shell` → `.page-shell` without checking — and `layout.html` already had `<div class="page-shell" id="page-shell">` for the app's outer shell. `main.js` walked every `.page-shell` and called `closest('main')` on one that has no `<main>` inside it, throwing on every panel page. It is now `.content-shell`.
+2. **Moving a rule out of `panel.css` widens its scope.** That file is linked by panel templates only, so a rule inside it applies to panel pages alone. Promote a rule that *defines* a component; leave one that only tunes a component for this hub, or every page inherits the tuning. The `.ui-select`, `.field-*` and `.app-search-*` overrides stayed for exactly this reason.
+3. **Cut structurally, never by the inventory's line numbers.** Several region boundaries land inside `@media` blocks, so a line-range extraction emits broken CSS. Walk top-level nodes with a brace- and comment-aware splitter and split each media query into promoted and hub halves.
+4. **Prove conservation after every slice**: flatten every stylesheet to leaf rules *with their `@media` context attached* and diff the multiset against the previous commit. List files from both the working tree **and** the git ref — a file deleted during the slice is otherwise read as having had no rules, and everything that moved out of it looks newly invented.
+5. **A grouped selector moves only if every comma-separated part agrees.** `.field-group select, .filter-field select` serves a form control and a filter field; promoting it drags `.field-group` out of its component and splitting it duplicates declarations, which is a rewrite rather than a relocate.
+6. **After the `panel-` families were renamed, a surviving `panel-` token means domain vocabulary** — a sound test the earlier slices had to approximate with a list of prefixes.
+
 ## 7. What this leaves open
 
 | Item | Owner |
