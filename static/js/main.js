@@ -431,8 +431,9 @@ function setupFilterBarMoreFilters(bar) {
     // never touched) stayed put - visually bunching every header at the
     // top and every field below them regardless of which section they
     // belonged to. Never a candidate for the overflow measurement/
-    // secondary-group logic further down (`fields`, below, stays
-    // .filter-field-only) - a header is never itself too wide to fit, and
+    // secondary-group logic further down (`fields`, below, holds
+    // .filter-field elements and nothing else) - a header is never itself
+    // too wide to fit, and
     // hiding it behind "More filters" would strand its own group's fields
     // without the label explaining them.
     var allFields = Array.prototype.slice.call(bar.querySelectorAll('.filter-field, .filter-section-label')).filter(function (f) {
@@ -702,23 +703,6 @@ function setupFilterBarMoreFilters(bar) {
                 }
             }
         }
-        // No-pinned-Search bars (Meetings/the SEND & Provision hub) used to
-        // be forced permanently open here, with the toggle permanently
-        // hidden (live feedback then: "no search on filter bar... we can
-        // lose the show/hide filters") - reversed (live feedback: "can no
-        // search filters have a show/hide filters button as well", "should
-        // default closed") now that every bar is expected to default closed
-        // behind the same click-to-open toggle regardless of whether it has
-        // a pinned Search field. No override needed any more: the
-        // groups-building block above already creates and shows
-        // moreFiltersBtn for these bars exactly like every other one - this
-        // used to exist purely to undo that. The .filter-bar-no-search
-        // opt-in class that carried the old permanently-open, scrolling-
-        // under-"Filters" styling went with it: the templates stopped
-        // applying it in that same pass, and its now-unreachable CSS (plus
-        // the two custom properties measured here to feed it) was stripped
-        // from forms.css/panel.css once the two bars had been checked live
-        // against the shared treatment (#184).
         // Preserve the user's own explicit open/closed state across a
         // remeasure instead of resetting it back to closed - live
         // feedback: "still reopening. Also it loads open" - the

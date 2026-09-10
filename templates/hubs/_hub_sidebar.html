@@ -242,12 +242,10 @@ Menu switcher instead - see its own comment below.
     <template id="mobile-fab-icon-referral">{% include 'icons/document_svg.html' %}</template>
     {% endif %}
     {% comment %}
-    In-app content search (data-panel-search-trigger, e.g. students/
-    referrals/actions) takes priority over the global hub-switcher search
-    (#search-nav-overlay) - a plain combined-selector querySelector picked
-    whichever happened to sit first in the page's DOM (the sidebar's global
-    search button, earlier in the page than the panel's own), which was the
-    wrong one. See wireSearchProxy() below.
+    The one tabbar button that isn't a plain data-mobile-proxy-click: which
+    search it opens depends on what the page has, and that choice can't be
+    written as a combined selector. The [data-mobile-search-trigger] handler
+    in the script below picks the target and explains why.
     {% endcomment %}
     <button type="button" class="mobile-tab" data-mobile-search-trigger aria-label="Search">
         <span class="mobile-tab-icon">{% include 'icons/search_svg.html' %}</span>
@@ -930,15 +928,14 @@ Menu switcher instead - see its own comment below.
     html.phone-chrome-side .mobile-more-sheet.is-open { transform: translateX(0); }
     .mobile-more-sheet::backdrop { background: rgba(15, 23, 36, 0.4); }
     {% comment %}
-    Title and × now share one row, matching dialog.modal-dialog's own
+    Title and × share one row, matching dialog.modal-dialog's own
     .modal-header (panel.css) exactly - same flex/space-between shape, same
-    padding scale, same h2 size. Previously the × sat in its own row above
-    the title (.mobile-more-sheet-close-row, now removed), costing a full
-    extra row of vertical height purely to keep it out of normal flow -
-    that was solving a different problem (avoiding *absolute* positioning
-    colliding with content below, the overlay-nav Switch-Hub/School bug -
-    see .side-nav.overlay-nav .nav-header above), not something this
-    still-in-normal-flow space-between row reintroduces.
+    padding scale, same h2 size. Giving the × its own row above the title
+    costs a full extra row of vertical height, and buys nothing here: what
+    that shape solves is *absolute* positioning colliding with content
+    below (the overlay-nav Switch-Hub/School bug - see
+    .side-nav.overlay-nav .nav-header above), which this row stays in
+    normal flow to avoid in the first place.
     {% endcomment %}
     .mobile-more-sheet-header {
         flex-shrink: 0;
