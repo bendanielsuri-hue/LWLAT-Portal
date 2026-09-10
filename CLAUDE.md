@@ -97,7 +97,7 @@ Why in ADRs [0020](docs/adr/0020-static-assets-shared-by-nature-not-usage.md) (n
 - **Template context reaches JS as data, never as code**: `json_script` for structured data, a `data-` attribute on the wired element for scalars, `{% url %}`, and anything a module should branch on. No inline script containing code — `<script type="application/json">` is data and is fine. One exception: `layout.html`'s pre-paint theme block, which must stay inline and blocking and must carry no template context.
 - Three advisory checkers, none of them commit hooks — `check_file_size.py` (code lines vs the ~600 trigger), `check_inline_js.py`, `check_stale_comments.py`. Crossing the size trigger is a question ("one module or two?"), and a legitimate "one" is answered in the file's header comment.
 
-**Migration is in progress and page-by-page, not big-bang.** `panel.css` (11,810), `panel.js` (5,345) and `main.js` (5,268) are not yet split, so generic code still lives in hub files and both shapes coexist. The plan is [docs/wayfinder/portal-static-assets/](docs/wayfinder/portal-static-assets/) — read `taxonomy.md` for the target file list before adding a static file.
+**Migration is in progress and page-by-page, not big-bang.** `panel.css`, `panel.js` and `main.js` are the three big files and none is split yet, so generic code still lives in hub files and both shapes coexist. Run `check_file_size.py` for their current sizes rather than trusting a number quoted in prose. The plan is [docs/wayfinder/portal-static-assets/](docs/wayfinder/portal-static-assets/) — read `taxonomy.md` for the target file list before adding a static file, and the per-file inventories (`inventory.md` for the panel pair, `main-js-inventory.md`) for what is actually in them.
 
 ## Design Language
 

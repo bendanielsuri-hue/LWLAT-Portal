@@ -299,6 +299,7 @@ Written during execution, for whoever picks up #210 and #211.
 4. **Prove conservation after every slice**: flatten every stylesheet to leaf rules *with their `@media` context attached* and diff the multiset against the previous commit. List files from both the working tree **and** the git ref — a file deleted during the slice is otherwise read as having had no rules, and everything that moved out of it looks newly invented.
 5. **A grouped selector moves only if every comma-separated part agrees.** `.field-group select, .filter-field select` serves a form control and a filter field; promoting it drags `.field-group` out of its component and splitting it duplicates declarations, which is a rewrite rather than a relocate.
 6. **After the `panel-` families were renamed, a surviving `panel-` token means domain vocabulary** — a sound test the earlier slices had to approximate with a list of prefixes.
+7. **Lesson 6's test is too narrow, and it already let something through.** `.senco-carousel-wrap`, `.senco-carousel-arrow` and `.senco-card` were promoted into `static/css/components/cards.css`, `layout/responsive.css` and `theme/themes.css` during #208/#209 without renaming, and `main.js:2886` still wires them by name — a live breach of §1's rule 1 on shipped files, found by #213's inventory. `senco-` was not on the prefix list because SENCo is a job title, which reads as a component name. **The test is ADR 0020's vocabulary list plus every role, acronym and job title in the trust's domain — not a list of prefixes observed so far.** Its only consumer is `hubs/inclusion/templates/hubs/inclusion/hub.html`; the CSS itself is a card carousel with nothing SEND-specific in it, so the fix is a neutral rename, not a demotion.
 
 ## 7. What this leaves open
 
@@ -306,6 +307,7 @@ Written during execution, for whoever picks up #210 and #211.
 | --- | --- |
 | The rule for inline template scripts, incl. `_hub_sidebar.html`'s 1,719 lines / 139 refs | #203 — destinations named above, the rule is theirs |
 | ADR + CLAUDE.md wording; `scripts/check_file_size.py` | #205 |
-| `main.js`'s own inventory and internal split | new issue, prerequisite to any taxonomy call on it |
+| `main.js`'s own inventory | **done** — [main-js-inventory.md](main-js-inventory.md) (#213). It adds a fifth folder, `static/js/layout/`, mirroring `static/css/layout/`: §1's `static/js/` block is missing it, and that is where the app frame's JS goes |
+| `main.js`'s internal split | new issue — the inventory names the extraction order (`layout/breakpoints.js` first, because every other block closes over its media queries) |
 | Carousel *implementation* consolidation (three hand-rolled copies) | new issue — #201 constraint 2 holds it out |
 | Intra-panel duplication (`refreshRegOptions` ×6 et al.) | new issue against the finished convention — but §4's `initListPage` is where most of it lands |
