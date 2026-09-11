@@ -16,9 +16,12 @@
    observer main.js's own DOMContentLoaded sweep wires up, so there is
    nothing per-page to remember to call.
 
-   Promoted out of main.js (no more code than imports needs) - only caller
-   left is main.js's own MutationObserver setup, so this stays a plain
-   export rather than a window.* global. */
+   Promoted out of main.js - initDisabledTooltips (bottom of this file) is
+   the whole mechanism now: the initial sweep, and the observer that keeps
+   it in step with a button that gets disabled/enabled by JS or arrives in
+   an AJAX-swapped fragment, so no page has to remember to re-run it. */
+
+import { rafThrottle } from './raf-throttle.js';
 
 function syncDisabledTooltip(el) {
     var reason = el.getAttribute('data-disabled-reason');
@@ -50,4 +53,17 @@ function syncDisabledTooltip(el) {
 // .meeting-card-actions (panel.css) for the reference pair.
 export function wireDisabledTooltips(root) {
     (root || document).querySelectorAll('[data-disabled-reason]').forEach(syncDisabledTooltip);
+}
+
+// Idempotent, so this doesn't retrigger itself via the DOM edits it makes.
+// Called once from main.js's own boot sequence.
+export function initDisabledTooltips() {
+    wireDisabledTooltips();
+    var syncDisabledTooltips = rafThrottle(function () { wireDisabledTooltips(); });
+    new MutationObserver(syncDisabledTooltips).observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['disabled', 'class', 'aria-disabled', 'data-disabled-reason']
+    });
 }

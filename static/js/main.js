@@ -18,7 +18,6 @@ import { initMatHome } from './pages/mat-home.js';
 import { initSidebarCollapse } from './layout/sidebar.js';
 import { initHubRailSeam } from './layout/hub-rail.js';
 import { initOverlayNav } from './layout/overlay-nav.js';
-import { rafThrottle } from './components/raf-throttle.js';
 import { initSettingsPanel, initViewFullSystemToggle } from './layout/settings-panel.js';
 import { initSchoolSwitcher, initIdentitySwitcher, initIdentitySearch } from './layout/identity-switcher.js';
 import { initAppSearch } from './layout/app-search.js';
@@ -27,7 +26,7 @@ import { initAppStatus } from './layout/app-status.js';
 import { initReportProblem } from './layout/report-problem.js';
 import { initMobileSheet } from './layout/mobile-sheet.js';
 import { initBreakpointClasses } from './layout/breakpoints.js';
-import { wireDisabledTooltips } from './components/disabled-tooltip.js';
+import { initDisabledTooltips } from './components/disabled-tooltip.js';
 import { setupOverflowTabs } from './components/overflow-tabs.js';
 import { initFilterBarMobileMode } from './components/filter-bar/mobile-mode.js';
 
@@ -37,25 +36,9 @@ document.addEventListener('DOMContentLoaded', initApp);
 // es-modules-findings.md §3) - a listener registered above is still in time.
 function initApp() {
 
-    // Disabled-reason tooltips (INT-U3, full reasoning in
-    // components/disabled-tooltip.js) - re-run on every DOM change so a
-    // button that's disabled/enabled by JS or arrives in an AJAX-swapped
-    // fragment keeps its tooltip. Idempotent, so this doesn't retrigger
-    // itself via the DOM edits it makes.
-    wireDisabledTooltips();
-    var syncDisabledTooltips = rafThrottle(function () { wireDisabledTooltips(); });
-    new MutationObserver(syncDisabledTooltips).observe(document.body, {
-        subtree: true,
-        childList: true,
-        attributes: true,
-        attributeFilter: ['disabled', 'class', 'aria-disabled', 'data-disabled-reason']
-    });
+    initDisabledTooltips();
 
-    /* Tiers, touch-nav detection and the phone-chrome classes live in
-       layout/breakpoints.js. Called here rather than from that module's
-       body so the first classification happens at exactly this point in
-       the page lifecycle: every subscriber registered by a later module is
-       in place by now, and this notifies all of them. */
+    // Full reasoning in layout/breakpoints.js.
     initBreakpointClasses();
     initFilterBarMobileMode();
 
@@ -105,10 +88,6 @@ function initApp() {
     initStickyZoneSentinels();
 
 
-    // Auto-enhance every plain select/date/time field already in the page on
-    // load (server-rendered pages). AJAX-injected modal content (e.g.
-    // hubs/inclusion/panel/static/panel/js/dialogs/*.js) isn't in the DOM yet
-    // at this point, so it imports enhanceFormControls and calls it directly
-    // on the fresh dialog content after injecting.
+    // Full reasoning in components/form-controls.js.
     enhanceFormControls(document);
 }
