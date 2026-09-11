@@ -1,0 +1,485 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+#students-filtered-content.rows-stacked .row-facts-arrow--prev {
+    left: calc(-1 * (42px + var(--space-sm)) + 2px);
+}
+
+#students-filtered-content .row-fact-assignee--initials {
+    display: none;
+}
+
+#students-filtered-content .row-title-row {
+    row-gap: var(--space-xxs);
+}
+
+/* Students' own equivalent wrapper (_students_rows.html, added this
+   session: "use Actions as the model for Students and Referrals") - same
+   grouping-box-only role as row-action-details/row-referral-details above,
+   just wrapping row-facts-cols alone since Students has no title-line
+   content to hold alongside it. */
+.row-student-details { display: contents; }
+
+/* Escalations only: unlike Referrals/Actions/Students, this page's
+   buttons column doesn't always hold the same buttons - Launch Meeting
+   only shows for open, unresolved-by-the-MAT-group escalations, so a
+   resolved row's column would otherwise be exactly as wide as its one
+   remaining Referral Details button, narrower than an open row's two-
+   button column (live feedback: "I want all rows button section to be
+   same size"). Each .entity-row is its OWN grid (this "buttons" column
+   is sized per row, not shared list-wide the way a real HTML table's
+   columns would be), so nothing makes rows agree on a width on its own.
+   No fixed px guess here (tried first, live feedback: "still look wide,
+   should be the width of the largest button" - a guessed value read as
+   padding, not sizing) - syncEscalationButtonWidths (escalations.html)
+   measures every row's own natural content width and sets min-width
+   inline to the largest one, same "measure naturally, then share the
+   max across the list" approach fillFactsColumns (panel.js) already
+   uses for facts columns. */
+
+/* .entity-row.chosen > .row-btn-row's own !important (cards.css/
+   panel.css) now covers this globally - no per-page re-assertion
+   needed here any more. */
+
+/* Wide desktop used to swap the buttons column to a horizontal row here
+   (live feedback originally: "in wide desktop it should be horizontal
+   stack like actions", reused Actions' own 1200px threshold; several
+   follow-ups moved the exact breakpoint) - reverted (live feedback: "the
+   buttons in wide desktop should be vertically stacked") once Actions
+   itself turned out to have already dropped its own wide-desktop
+   horizontal stack at some point, leaving Referrals/Students as the only
+   two pages still doing it off a now-stale "like actions" assumption.
+   #referrals-filtered-content .row-btn-row's own >=701px grid-band rule
+   (flex-direction: column; align-items: stretch, above) already stacks at
+   every desktop width once nothing overrides it back to row - Referrals now
+   genuinely matches Actions instead of a stale description of it.
+   wireReferralButtonLayout (referrals.html), which only ever existed to
+   feed this band's own per-slot width variables, was removed along with
+   it. */
+
+/* No extra padding above the facts line, in every mode (#117 follow-up,
+   live feedback: "lose the horizontal divider above details" - the divider
+   half of this is now the base rule's own behaviour portal-wide).
+   margin-left/width bleed added later (live feedback: "the data cols align
+   left to the logo... wastes space" - the Students column rework left
+   row-facts genuinely indented under the avatar after all, unlike the
+   assumption this comment used to state; same avatar-offset trick as
+   Referrals' own #referrals-filtered-content .row-facts bleed, above, but
+   42px + --space-sm here, not --space-md - Students' own .entity-row
+   column-gap (base rule, above) is --space-sm/12px, a narrower gap than
+   Referrals' --space-md/16px one, so reusing Referrals' own --space-md
+   figure overshot the true avatar edge by 4px (live feedback: "data cols
+   start too close to edge... should match referrals"). Cancelled back out
+   inside the >=701px grid band (#students-filtered-content .row-facts,
+   below) the same way Referrals' own grid band cancels its copy, since the
+   grid's "details" area already spans flush left there without help. */
+#students-filtered-content .row-facts {
+    margin-top: var(--space-xxs);
+    padding-top: 0;
+    margin-left: calc(-1 * (42px + var(--space-sm)));
+    width: calc(100% + 42px + var(--space-sm));
+}
+
+#students-filtered-content .entity-thumb-group {
+    display: flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+}
+
+@media (max-width: 700px) {#students-filtered-content .entity-row.has-dual-thumb .entity-thumb-student {
+        display: none;
+    }
+}
+
+#students-filtered-content .row-facts-cols > .row-fact-col {
+    flex: 1 0 auto;
+}
+
+#students-filtered-content .row-facts-cols .row-fact-col-clamp {
+    max-width: none;
+}
+
+/* Tablet/desktop button placement is now the grid band (below,
+   #students-filtered-content .entity-row ≥701px) - live feedback: "do
+   both" pages, porting Actions' own grid technique here. This used to be
+   a JS-measured per-row width-pinning system (alignButtonSlots(),
+   students.html) plus native flex-wrap fallback; grid's own "buttons"
+   column auto-sizes to content and can't be blown out by badge-digit
+   variance the way a flex row could, so that pinning has nothing left to
+   do here (same fate Referrals' own wireReferralButtonLayout had). */
+
+/* Gender/DOB column etc. (live feedback: "add in addition details if
+   there is room. Gender, DOB... styled like Referrals page") - visibility
+   is no longer a plain hidden-by-default rule here; see
+   wireStudentFactsOverflow's own attribute-driven guard (below) for how
+   many of these actually show at any given moment. */
+
+/* Year/House/Reg under the name, every width - moved out of the data
+   section entirely (live feedback: "lose these from the data section and
+   them as new line under student name like it is in mobile mode"). Own
+   line, not sharing the name's line the way Referrals settled on for its
+   own equivalent (live feedback: "Students as additional student flags,
+   so group info is best on next line" - Students already puts SEN/PP/
+   EAL/etc pills on the name's own line, Referrals has nothing competing
+   for that space). flex: 1 1 100% alone is enough to force this onto its
+   own line - _students_rows.html's markup order (name, then this span,
+   then the pills) means the pills can never land on line 1 either, since
+   a full-width flex item always wraps to a fresh line regardless of what
+   follows it. */
+#students-filtered-content .row-title-row .row-facts-primary-plain {
+    display: inline;
+    flex: 1 1 100%;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+
+/* #153: Actions' entity-title bump ported here once confirmed live - see
+   the comment on #actions-filtered-content .entity-title (panel.css) for
+   the original reasoning. Students' own entity-title is the name itself
+   (bare .entity-title, no .row-secondary-text), so it's scoped straight
+   onto the class rather than through a title/secondary-text combo the way
+   Actions/Referrals both are. */
+#students-filtered-content .entity-title {
+    font-size: var(--font-lg);
+}
+
+/* .row-facts now only ever holds the DOB/YOA-onward data columns (Year/
+   House/Reg moved out, above). Used to hide outright below 1280px - live
+   feedback: "do both" pages (the grid band, below, removed the same
+   squeeze problem for Referrals that justified hiding its own fact strip
+   below 1180px, so Students' equivalent 1280px hide came out too) - now
+   stays visible down to 701px, with the overflow guard just below doing
+   the same graceful one-column-at-a-time job Referrals'/Actions' own
+   strips already rely on. */
+
+/* Facts-strip overflow handling - permanent horizontal scroll now (#154,
+   .row-facts-cols base rule above), not a container-query wrap. */
+#students-filtered-content .row-fact-col {
+    transition: margin-left 0.2s ease, padding-left 0.2s ease, border-left-width 0.2s ease;
+}
+
+/* Label line of each column (T1 - same small-caption convention as the
+   filter-bar section labels/Actions'/Referrals' own facts labels). */
+#students-filtered-content .row-fact-label {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+}
+
+/* gap: var(--space-md), not 0 - see Referrals' own identical rule/comment
+   for why (the divider that used to supply this spacing is gone entirely
+   now, live feedback: "lets simplify by losing the vertical dividers in
+   data cols everywhere") - confirmed live via Playwright, a real bug:
+   PASTORAL and BEHAVIOUR ran together with literally zero px between them
+   once both the border and its margin were removed without this being
+   restored. */
+#students-filtered-content .row-facts-cols {
+    gap: var(--space-lg);
+}
+
+/* Divider dropped everywhere (live feedback: "lets simplify by losing the
+   vertical dividers in data cols everywhere") - edited directly here
+   rather than left as a border-adding rule with a later override removing
+   it again - that two-layer pattern already caused a real bug once
+   (this exact rule's old override losing a cascade-order fight to the
+   border-adding copy below it, confirmed live via Playwright: margin-left
+   still rendering, still invisible to syncFactsColumnWidths' border-box-
+   only width math, still overflowing the strip). One rule with the final
+   answer can't drift out of sync with itself the way two layered ones can. */
+#students-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
+}
+
+/* Column 1 (DOB/YOA) needs no reveal rule of its own - nothing hides it
+   (wireStudentFactsOverflow, students.html, only ever measures/hides from
+   column *2* onward, same assumption as Referrals' equivalent guard: the
+   first column always fits once .row-facts itself is visible at all).
+   The vertical-before-buttons/horizontal-above-facts dividers this used to
+   restore at 1280px+ are now unconditional inside the grid band (below,
+   ≥701px) instead - a single .entity-row::before line, the same technique
+   Actions/Referrals use, rather than two separately-toggled borders. */
+
+/* Grid band, every desktop width ≥701px (live feedback: "do both" pages -
+   ports Actions'/Referrals' own grid technique here too: full-width
+   student header, a divider, then the data columns on the left with a
+   full-height buttons column on the right). No extra wrapper div needed
+   here, unlike Actions/Referrals (_actions_rows.html's row-action-details,
+   _referrals_rows.html's row-referral-details) - Students' row-facts-cols
+   already sits as .row-title-row's own direct sibling with nothing else
+   in between, so it can be the "details" grid area directly. Students
+   also never bled row-facts out from under the avatar's indent the way
+   Referrals/Actions had to (this page's own facts column was never
+   indented under the avatar in the first place - see the "No divider
+   above the facts line" comment, above), so there's no bleed-cancel
+   needed here either - one thing fewer than Referrals' own port. */
+#students-filtered-content:not(.rows-stacked) .entity-row {
+    display: grid;
+    /* Third column var(--students-btn-col-w, auto), not a bare auto -
+       each .entity-row is its own separate grid instance, so a plain
+       auto track sizes independently per row (DES-L9; live feedback:
+       "I do want actions block to match in all cards... users should
+       expect consistency and not have different overflow caused by
+       different width" - a row with a longer Referrals badge got a
+       visibly wider buttons column than its neighbours).
+       wireStudentButtonColumnWidth
+       (students.html) measures every row's natural width and sets this
+       custom property on the shared container, so it cascades down to
+       every row's grid-template-columns identically - one fixed shared
+       width instead of each row's own auto content width. Falls back
+       to plain auto before that JS has run its first pass. */
+    grid-template-columns: auto 1fr var(--students-btn-col-w, auto);
+    grid-template-areas:
+        "thumb   header  buttons"
+        "details details buttons";
+    column-gap: var(--space-md);
+    row-gap: 0;
+    align-items: start;
+    padding-bottom: 0;
+    /* padding-top: 0 too (ported from Actions' own fix this session,
+       live feedback there: "lose the margin above [buttons] and
+       vertically center", then "use Actions as the model" for this
+       page) - .entity-thumb/.row-title-row (below) manufacture their
+       own matching inset locally instead, so .btn-row's stretched box
+       (it spans both rows) is genuinely symmetric top-and-bottom. */
+    padding-top: 0;
+}
+
+#students-filtered-content:not(.rows-stacked) .entity-body { display: contents; }
+
+/* align-self: center + matching padding-top/bottom (ported from
+   Actions' own fix - live feedback there: "more space under the header
+   area than above... use Playwright" caught the header row's grid
+   track ending up taller than either item's own content whenever the
+   buttons column needs more height than header+details naturally
+   provide - top-anchored items with only a top-side inset just piled
+   all of that slack below the header instead of splitting it evenly). */
+#students-filtered-content:not(.rows-stacked) .entity-thumb-group { grid-area: thumb; align-self: center; padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
+
+#students-filtered-content:not(.rows-stacked) .row-title-row {
+    grid-area: header;
+    align-self: center;
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
+}
+
+/* grid-area: details moved onto the new .row-student-details wrapper
+   (below), not .row-facts itself any more - ported from Actions'/
+   Referrals' own centering fix (live feedback: "data cols [should]
+   take up available vertical space and [be] vertically aligned") needs
+   a flex-column + justify-content: center box to stretch+centre WITHIN,
+   and .row-facts itself can't be that box - it's already a flex ROW
+   arranging the fact columns side by side (base rule, above); making it
+   flex-direction: column here would break that. The wrapper exists for
+   exactly this reason (_students_rows.html's own comment). */
+#students-filtered-content:not(.rows-stacked) .row-student-details {
+    grid-area: details;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-self: stretch;
+    min-width: 0;
+    padding-top: var(--space-xs);
+    padding-bottom: var(--space-xs);
+}
+
+#students-filtered-content:not(.rows-stacked) .row-facts {
+    min-width: 0;
+    margin-left: 0;
+    width: 100%;
+}
+
+#students-filtered-content:not(.rows-stacked) .btn-row {
+    grid-area: buttons;
+    padding-left: var(--space-lg);
+    align-self: stretch;
+    /* Vertically stacked, not side by side (live feedback: "like
+       Actions, switch to vertical stack" - matches the same call made
+       for Actions' own buttons column, panel.css, _actions_rows.html).
+       Only 2 top-level items now, not 3 - New Referral fuses onto
+       Referrals as an icon-only "+" (.btn-row-fused, buttons.css, live
+       feedback: "is it worth trying to make the + be fused to
+       Referrals button... in all modes") - so this is Actions plus one
+       fused pill, not three separate full-width rows stacking up
+       (which used to force the whole card taller - live feedback: "the
+       buttons are forcing the list entity to be taller"). align-items:
+       stretch sizes both to the same width for free (2 items in a
+       column flex, no grid/flex-grow tuning needed); justify-content:
+       center (matches .row-btn-row-stacked's own base rule, Actions'
+       equivalent column) keeps the pair centred against the row's own
+       content instead of pinned to the top. Overridden back to
+       horizontal at 1401px, below. */
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: var(--space-xs);
+    /* Small symmetric top/bottom inset (ported from Actions' own fix -
+       live feedback there: "enforce a top and bottom margin, can this
+       be a small amount" - a genuinely 0/0 stretched box centred with
+       no padding at all reads as flush against both edges, not "equal
+       gaps"). */
+    padding-top: var(--space-xs);
+    padding-bottom: var(--space-xs);
+}
+
+/* #135 follow-up (2026-08-20, live feedback: "lose the overlay on the
+   filtered content for all modes but mobile") - narrow tablet briefly
+   reused mobile's own dimmed click-to-close backdrop here (widened to this
+   width range when the revealed field list first became a floating panel
+   instead of pushing content down), but that's been dropped again -
+   .filter-bar-overlay now only ever displays at true mobile width (max-
+   width: 480px, below). bar.classList's own .is-expanded toggle
+   (wireMoreFiltersToggle, main.js) still fires at this width regardless -
+   it's also what the click-to-close handler and the "View"/"Hide filters"
+   label swap key off - this only removes the CSS rule that turned it into
+   a visible dimmed layer here. */
+
+/* Mobile filter fields: single column, fused-label-left rows (#133
+   grilling, live feedback: "in mobile the filters use a fused label to
+   the left, 1 column") - overrides the shared 2-up grid
+   (.filter-bar.is-expanded .filter-field, responsive.css) for Students'
+   own bar only, replacing it with the same label-chip-on-the-left/
+   control-fills-the-rest recipe Search used to use exclusively (moved to
+   the general mobile field style now that Search itself dropped it - see
+   students.html/this file's own Search field comments above). Selects,
+   toggles and plain fields all get the same row treatment for visual
+   consistency (live feedback: "uneven mix looks inconsistent" between
+   selects and toggle-pills in the old 2-up grid). */
+
+/* Left/right narrowed to var(--space-sm), matching the page's own
+   margin at this width (.main-inner's padding, responsive.css) - the
+   base --space-lg (cards.css) reads as desktop-sized dead space once
+   the row is this narrow (live feedback: "reduce the left and right
+   padding in the entity rows to match page margin in mobile mode").
+   Top/bottom to match, not the base --space-md (cards.css) - live
+   feedback: "Can the top and bottom padding match the left and right
+   padding on mobile" once the sides above were already narrowed.
+   Widened from 480px to 700px (live feedback: "do both" pages - matches
+   Actions'/Referrals' own true-mobile threshold now that the grid band
+   (below, ≥701px) replaces the old tablet band here too; entity list/
+   row layout stays its own concern, separate from the filter bar
+   above, which keeps its own 480px threshold unchanged). */
+
+/* row-gap matches the row's own top/bottom padding (both --space-md/
+   16px, live feedback: "I want consistent space between each
+   section. So Top border > Header > Data Cols > Buttons > Bottom
+   border" - a first pass landed both at --space-sm/12px, still a step
+   up from the old --space-xs/8px row-gap, but "still looks too dense,
+   I really thought we had more blank space between sections before"
+   bumped both once more). Horizontal padding/column-gap stay
+   --space-sm/12px, deliberately matching the page's own margin at this
+   width (live feedback, above: "reduce the left and right padding in
+   the entity rows to match page margin") - only vertical needed the
+   extra room, hence the split from the old plain `padding: var(
+   --space-sm)` shorthand. row-student-details/row-facts-cols (display:
+   contents at this width, own rule above) land as direct flex children
+   of entity-row once wrapped here, same as row-title-row and btn-row,
+   so this one row-gap is what spaces every line - header, data cols,
+   and buttons alike - as long as nothing ELSE adds an extra margin on
+   top of it (row-facts' own stray margin-top, overridden just below,
+   was doing exactly that). */
+#students-filtered-content.rows-stacked .entity-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: var(--space-md);
+    column-gap: var(--space-sm);
+    padding: var(--space-md) var(--space-sm);
+}
+
+/* Overrides row-facts' own unconditional margin-top: var(--space-xxs)
+   (its base rule, above) - that 4px was tuned for the >=701px desktop
+   band, where it sits directly under a real divider line. Explicit
+   --space-md here, not a plain cancel to 0 - confirmed live via
+   Playwright that entity-row's own row-gap (above) doesn't actually
+   bridge this particular pair the way it does row-facts->btn-row
+   (row-title-row's own flex: 0 1 auto, unlike a full flex-basis: 100%,
+   left it ambiguous which flex "line" row-facts starts counting from);
+   row-facts' own margin is the one lever that reliably controls this
+   gap, so it carries the same consistent value directly instead of
+   relying on row-gap for it (live feedback: "I want consistent
+   space between each section... Top border > Header > Data Cols >
+   Buttons > Bottom border"). */
+#students-filtered-content.rows-stacked .row-facts {
+    margin-top: var(--space-md);
+}
+
+/* No margin of its own - .entity-row's own row-gap (above) already
+   spaces every wrapped line, header/facts/buttons alike, consistently.
+   order: 6/flex: 1 1 100% also moved here from the shared <=900px
+   block - true mobile always stacks buttons full-width regardless of
+   fit, unlike tablet's new dynamic measurement (above). */
+#students-filtered-content.rows-stacked .btn-row {
+    order: 6;
+    flex: 1 1 100%;
+}
+
+/* Buttons stay on one row even with badges added (live feedback: "find
+   a way for buttons to fit on one row... badges... causes New
+   Referral to overflow"). .btn-row's own base flex-wrap: wrap
+   (buttons.css) is what let the least-fitting button (New Referral,
+   the longest label) drop to its own line the moment Referrals/
+   Actions' badges widened their neighbours - nowrap forces genuine
+   shrinking instead. min-width: 0 is required for that shrink to
+   actually happen (flex items default to min-width: auto, i.e. their
+   own content's width as a floor, which nowrap alone can't overcome).
+   Icon dropped and text/padding tightened to claim back enough room
+   for that shrink to still read comfortably rather than truncating. */
+#students-filtered-content.rows-stacked .btn-row {
+    flex-wrap: nowrap;
+}
+
+/* .disabled-btn-tooltip-wrap companion - same reason as Referrals' copy
+   above; Students' own "Actions" button is disabled (and so wrapped)
+   whenever the student has none. */
+#students-filtered-content.rows-stacked .btn-row > *,
+#students-filtered-content.rows-stacked .btn-row > .disabled-btn-tooltip-wrap > .btn {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* .btn, not > * - Referrals/New Referral now live one level down inside
+   .btn-row-fused (buttons.css), not as direct .btn-row children, so the
+   squeeze needs to reach them by class rather than DOM depth. */
+#students-filtered-content.rows-stacked .btn-row .btn {
+    justify-content: center;
+    padding-left: var(--space-xs);
+    padding-right: var(--space-xs);
+    font-size: var(--font-sm);
+    white-space: nowrap;
+    position: relative;
+}
+
+/* No more "drop New Referral's icon at this width" rule - Referrals/
+   Actions never had icons to begin with, and New Referral is icon-only
+   in every mode now (live feedback, fused-pill round: "reduce New
+   Referral to just icon... in all modes"), so it has no text to fall
+   back on and must always keep its icon or the button renders empty. */
+
+/* School logo (aggregate/all-schools view only) - Students never had
+   one until it went through the same treatments as Referrals (see
+   #118 comment thread, panel.css above): badge beside the photo, then
+   replacing it outright once live feedback settled on "MAT would see
+   school logo, but school staff would see student image". See
+   .entity-thumb--logo (shared list-row detail section, above) - lives
+   in _students_rows.html's .entity-thumb markup now, nothing left to
+   say about it at this width specifically. */
+#students-filtered-content .entity-row {
+    /* Re-enabled (live feedback: "maybe its the number of students? When I
+       add a filter to reduce, it is much faster!" - confirms the cost
+       scales with row count, exactly what content-visibility: auto exists
+       to fix: it skips layout/paint for off-screen rows entirely, so the
+       side-nav's width transition only has to relayout the rows actually
+       on screen, not all 240. Briefly disabled for the JS/CSS bisection
+       above and put back once the "scales with row count" evidence came
+       in - nothing left forces a layout read on off-screen rows any more
+       (the old JS measurement that used to defeat this is gone), so this
+       should get its full intended benefit now. contain-intrinsic-size is
+       a rough single-line-row estimate so the list's scrollbar/height
+       doesn't jump as rows enter/exit the skip state. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 68px;
+}

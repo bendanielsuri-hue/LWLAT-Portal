@@ -1,0 +1,410 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+/* My Referrals: concern category and the status pill share one line
+   instead of the pill sitting next to the name (live feedback: "the
+   Referral Status pill go after the Referral Category instead" - moved in
+   home.html, .stack-item-pills--header now comes right after
+   .referral-row-title in the DOM, both wrapped in .referral-category-row).
+   A real flex row, not plain inline text + ::after (an earlier pass) - two
+   adjacent *inline* elements sharing one line-box wrap at any space,
+   including the one inside a two-word category name like "Home Life" (live
+   feedback: "if category and pill has not got enough space, can the pill
+   overflow onto its own line" - reproduced as "Home"/"Life · [pill]"
+   splitting mid-name instead). As separate flex items, wrapping only ever
+   moves the *pill* onto its own line - the category text only ever wraps
+   within itself, if it's long enough to need it regardless of the pill. */
+.referral-category-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-xxs) var(--space-sm);
+}
+
+.referral-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    /* Left-aligned regardless of width - carousel mode's #my-referrals-list
+       > li is text-align: center (panel.css, its own breakpoint), which
+       this would otherwise inherit. */
+    justify-content: flex-start;
+    text-align: left;
+    gap: 2px var(--space-sm);
+    /* Tightened from --space-xs (8px) - read as a large gap once actually
+       rendered next to this card's other now-tight rows (live feedback:
+       "the meta data line has a large gap above it") - same "closer
+       together" preference as entity-meta's own margin-top override
+       above. */
+    margin-top: var(--space-micro);
+}
+
+.referral-section-title--sm { font-size: var(--font-md); margin-bottom: var(--space-xs); }
+
+/* Note row hover (#84) - same immediate, no-transition feedback as
+   .selectable:hover elsewhere (cards.css), scoped to this card only since
+   .referral-history-entry is a shared class used well beyond Safeguarding
+   Notes. Negative horizontal margin lets the hover fill bleed to the
+   card's own edges instead of stopping at the text's own width. */
+.safeguarding-briefing-notes .referral-history-entry {
+    padding: var(--space-xs) var(--space-sm);
+    margin: 0 calc(var(--space-sm) * -1);
+    border-radius: var(--radius-sm);
+}
+
+/* Undoes .referral-history-entry:first-child's padding-top: 0 (panel.css,
+   for a different list's "no gap under the section title above" need) -
+   here it left the first note's Edit/Remove buttons off-centre against
+   their own row background (0px padding above, var(--space-xs) below). */
+.safeguarding-briefing-notes .referral-history-entry:first-child { padding-top: var(--space-xs); }
+
+.safeguarding-briefing-notes .referral-history-entry:hover { background: var(--row-hover-bg); border-top-color: var(--border-color); }
+
+/* Accent continues through the button row as a plain positioned strip (not
+   a border on <summary> itself, which would visually clash with the
+   button's own all-round border). 37px = measured rendered height of
+   summary (24px, fixed by font-sm/padding/border, never user content) +
+   its own margin-bottom (--space-sm, 12px) - not a blind guess, but also
+   not expressible as a clean calc() since line-height metrics aren't
+   exposed as a token; re-measure if summary's own font-size/padding ever
+   changes. */
+.accent-connector { position: absolute; top: 0; left: calc(-1 * (var(--space-md) + 4px)); width: 4px; height: 37px; background: var(--stat-accent, var(--border-strong)); }
+
+.view-more-label-open { display: none; }
+
+.selection-row-content { display: flex; flex-direction: column; gap: var(--space-xs); min-width: 0; flex: 1; }
+
+/* Shared by Referral Selection and Panel Agenda: Referral Details spans both
+   grid rows (row 1/span 2) - the pill and student block stay stacked in the
+   left column (pill row 1, student row 2), while Referral Details reads as
+   one continuous block covering that same full height. Centred (not top-
+   aligned) within that span via align-self, since the left column is
+   usually taller than Referral Details' own 2-3 lines of text - centring
+   avoids a lopsided block of whitespace hanging below the last line, and
+   reads fine whether the row is a shorter new-referral entry or a taller
+   follow-up one with the actions-complete line. */
+.referral-row-grid { display: grid; grid-template-columns: minmax(160px, 220px) 1fr; grid-template-rows: auto 1fr; column-gap: var(--space-md); row-gap: var(--space-xs); }
+
+.referral-row-grid > .referral-pills { grid-column: 1; grid-row: 1; }
+
+.referral-row-grid > .student-column { grid-column: 1; grid-row: 2; }
+
+.referral-row-grid > .referral-details { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+
+/* Status pill above the thumb, thumb+name/year beside each other below it -
+   see .referral-row-grid above for how Referral Details lines up with both. */
+.student-column { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+.student-thumb-row { display: flex; align-items: flex-start; gap: var(--space-md); }
+
+.referral-pills { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+
+/* Referral Details actions (Set/Change Priority, View Details, plus Referral
+   Selection's own Add to Agenda) sit on their own line below the
+   student/referral details - last child of .agenda-content's flex column on
+   Panel Agenda, and of .selection-row-content's flex column on Referral
+   Selection. View Actions lives inline next to the "X of Y actions
+   complete" line instead (see .actions-complete-row) rather than on this
+   line, since it's an action on that specific stat, not the row generally.
+   View Details/Priority use .btn-secondary so they read as real (if
+   lower-emphasis) actions rather than plain text links; Add to Agenda keeps
+   the standard solid .btn-add treatment as the row's primary action and
+   sits last so it reads as this line's "do it" button. */
+.referral-details-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    border-top: 1px solid var(--border-color);
+    /* Matches the row's own vertical padding (.entity-row's --space-md) so
+       the gap from the divider down to the buttons reads as consistent with
+       the breathing room the row already gives its outer edges, rather than
+       an arbitrary one-off value. */
+    padding-top: var(--space-md);
+}
+
+.referral-details-actions .row-action-form { margin-left: auto; }
+
+/* Panel Agenda's rows carry an extra column Referral Selection's don't -
+   the drag-handle is followed by .agenda-order-rail (the number + Promote/
+   Demote stack) before its content starts, while Referral Selection's
+   content starts right after its own handle. Left as-is, both cards end up
+   the same overall width but Panel Agenda's actual content column reads
+   narrower, out of step with Referral Selection's. Both cards share equal
+   flex-grow (1) here, so trimming Referral Selection's flex-basis by a
+   fixed amount shrinks its final width by exactly that amount regardless of
+   viewport - 56px measured as the gap between the two cards' content
+   columns' offset from their row's left edge (the order-rail's own ~32px
+   plus the extra grid-gap .agenda-row inherits over .selection-row's
+   smaller one). Only applies above the 1024px breakpoint where both cards
+   render side by side at all (see layout/responsive.css) - below it both
+   go full-width regardless. */
+#referral-selection-card { flex: 1 1 calc(280px - 56px); }
+
+.safeguarding-briefing-notes .referral-history-entry.agenda-flash-added { background-color: color-mix(in srgb, var(--color-positive) 12%, transparent); }
+
+.safeguarding-briefing-notes .referral-history-entry.agenda-flash-removed { background-color: color-mix(in srgb, var(--color-negative) 12%, transparent); }
+
+/* Referral Selection's drop zones (new-referrals/followups) don't naturally
+   fill their tab panel's full height - a short list leaves empty space below
+   the last row that the drag-over highlight above covers visually but which
+   (without this) isn't part of the .entity-list element itself. Panel
+   Agenda needs the same treatment so dropping below its last row (adding/
+   moving a referral to the end of the agenda) registers too. Stretch both
+   to at least fill their container so the whole visible area is live, not
+   just the rows themselves - belt-and-braces alongside wireCardRemoveDrop,
+   which catches drops on Referral Selection's card outside this area too.
+   Flex-based (flex: 1; min-height: 0), not percentage min-height: a
+   percentage height only resolves against a parent whose OWN height was
+   explicitly specified, not one that merely has min-height itself (which is
+   all .setup-col-body has) - a percentage chain here would (and silently
+   did) stop propagating at the first such parent. This also happens to be
+   what .empty-note (panel.css, its own flex: 1 centers within whichever
+   parent actually hands it real height) needs to center in the leftover
+   space instead of sitting pinned at the top of a mostly-empty card. */
+#referral-selection-card .setup-col-body {
+    display: flex;
+    flex-direction: column;
+}
+
+#referral-selection-card .setup-col-body > .tab-row { flex-shrink: 0; }
+
+/* Referral modal's Student row sits in its own .ui-fused-field-group
+   (shown only before a student is picked/for the referral's own read-only
+   row), separate from the question fields' group below it - two different
+   grids don't share column sizing automatically, so without this, "Student"
+   (short) and "Main Concern" (longer) would each auto-size their own
+   group's label column independently and end up visibly different widths. */
+.referral-student-picker .ui-fused-field-label,
+[data-referral-question-fields] .ui-fused-field-label {
+    min-width: 110px;
+}
+
+.action-row-heading .referral-row-title { margin: 0; }
+
+/* Referral Details modal (view-only mode of _referral_form_modal.html):
+   Referral / Panel History / Actions render as flat, always-open sections -
+   a heading plus spacing, no border/card of their own. At low referral
+   volume these three sections are exactly what staff came to check, so they
+   shouldn't default to hidden the way an edit form's own field groups do.
+   The only bordered card in the modal is .referral-decision-strip at the
+   top - stacking a second bordered card per section below it would read as
+   nested cards inside the modal's own card. Instead, a horizontal rule
+   between consecutive flat sections marks the section boundary itself
+   (skipping the first section, which already sits directly below the
+   decision strip's own border) - this is a coarser, higher-level divider
+   than the ones each section's own last row/item already carries
+   (.referral-view-fields, .action-row-list, .referral-history-list), which
+   mark boundaries between individual rows within a section, not between
+   sections. */
+.referral-flat-section { margin-top: var(--space-xl); }
+
+.referral-flat-section + .referral-flat-section { margin-top: 0; border-top: 1px solid var(--border-color); padding-top: var(--space-xl); }
+
+.referral-section-title { font-size: var(--font-xl); font-weight: 700; color: var(--text-primary); margin: 0 0 var(--space-sm); text-align: left; }
+
+/* Notes is the one flat section that stays a native <details> (matches the
+   wireframe's closed-by-default "Student Notes" row) - same chevron
+   treatment as .settings-section summary, just scoped to this flat
+   container instead of a bordered card. */
+.referral-flat-section > summary.referral-section-title { cursor: pointer; list-style: none; }
+
+.referral-flat-section > summary.referral-section-title::-webkit-details-marker { display: none; }
+
+.referral-flat-section > summary.referral-section-title::before { content: '▸ '; color: var(--text-faint); }
+
+.referral-flat-section[open] > summary.referral-section-title::before { content: '▾ '; }
+
+.referral-flat-section-body { margin-top: var(--space-sm); }
+
+/* Decision strip: the "should this return to panel" summary, always visible
+   above the (now un-collapsed) Referral/Panel History/Actions sections.
+   Label and value sit side by side with the value left-aligned directly
+   after a fixed-width label column - not spread to the row's opposite
+   edges with the value right-aligned. A left label paired with a
+   right-aligned value reads as disconnected (the eye has to jump the full
+   row width to find which value belongs to which label); keeping both
+   left-aligned, close together, is the same reasoning behind .field-group's
+   label-above-value stacking elsewhere in the app - a value should sit
+   right next to (or under) the label it answers, never opposite it. See
+   the "Key-fact row" pattern (DES-A1). */
+.referral-decision-strip { background: var(--bg-nested); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-md); margin-bottom: var(--space-md); }
+
+.referral-decision-strip .summary-line { display: grid; grid-template-columns: minmax(160px, 200px) 1fr; column-gap: var(--space-md); align-items: baseline; font-size: var(--font-sm); padding: var(--space-xs) 0; }
+
+.referral-decision-strip .summary-line + .summary-line { border-top: 1px solid var(--border-faint); }
+
+.referral-decision-strip .summary-value { text-align: left; }
+
+.referral-decision-cta {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
+    margin-top: var(--space-sm); padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--bg-surface);
+}
+
+.referral-decision-cta-text { font-size: var(--font-sm); font-weight: 600; color: var(--text-primary); }
+
+.referral-decision-cta-text small { display: block; font-weight: 500; font-size: var(--font-xs); color: var(--text-secondary); margin-top: 2px; }
+
+/* Neutral (not-yet-discussed/assigned) deliberately has no colour modifier -
+   the base rule's pure --bg-surface against the strip's --bg-nested already
+   gives it a clearly distinct card, no override needed. An earlier
+   --neutral modifier here (--bg-surface-alt) actually undid that contrast,
+   reading as a card with the same background as its own parent. */
+.referral-decision-cta--bad { border-color: var(--color-negative); background: var(--color-negative-bg); }
+
+.referral-decision-cta--warn { border-color: var(--color-warning); background: var(--color-warning-bg); }
+
+.referral-decision-cta--good { border-color: var(--color-positive); background: var(--color-positive-bg); }
+
+/* Referral Details modal (view-only): compact label/value rows for the
+   Referral section's fields (Referred By/Referral Date/Concern/Concern
+   Details/the rest of the questionnaire) - every question shown at once
+   (no "see more" toggle - low volume, staff came here to read exactly
+   this). Built the same way as .referral-decision-strip's own rows: value
+   left-aligned directly after a fixed-width label column, not
+   .field-group's label-above-value stacking - that's the real form-field
+   look (disabled <textarea>s in edit mode sit under exactly this label
+   style), which is what this view is deliberately trying not to look like.
+   Each .summary-line is its own grid (not shared rows of one grid), so the
+   label column is capped at a fixed max (not sized to the label's own
+   max-content) - otherwise a single long question label blows out that
+   row's column width independently of every other row, pushing its answer
+   further right than the rows around it and breaking the left-aligned
+   column of values the whole list is meant to read as. Long labels wrap
+   onto a second line within the cap instead. Shares the exact same
+   minmax(160px, 200px) column width as .referral-decision-strip's own rows
+   and .action-row-grid's left column, so all three sections' left-hand
+   columns line up down the page instead of each picking its own width. Row
+   padding is tighter than the decision strip's (--space-xs vs --space-sm) -
+   this is the higher-volume, denser section of the two, and the one meant
+   to read as condensed. */
+.referral-view-fields { display: flex; flex-direction: column; }
+
+.referral-view-fields .summary-line { display: grid; grid-template-columns: minmax(160px, 200px) 1fr; column-gap: var(--space-md); align-items: baseline; font-size: var(--font-sm); padding: var(--space-xs) 0; border-bottom: 1px solid var(--border-faint); }
+
+.referral-view-fields .summary-line:last-child { border-bottom: none; padding-bottom: 0; }
+
+.referral-view-fields .summary-line:first-child { padding-top: 0; }
+
+.referral-view-fields .summary-value { text-align: left; white-space: normal; }
+
+.referral-view-fields + .field-group { margin-top: var(--space-sm); margin-bottom: 0; }
+
+/* Referral edit modal only: Student is *which* referral this is, so it reads
+   as this form's own title - no "Student" label needed, the context (a
+   referral being edited) already says what the name below the modal's own
+   h2 (--font-2xl) is. --font-md/weight 700 is this app's existing "row/item
+   title" role (see typography.css), which fits. Referred By is secondary
+   metadata underneath it, so it keeps its label but drops to the label's own
+   small/secondary format instead - unlike .referral-view-fields' condensed
+   label|value column list above (that's a denser, many-facts-at-once read;
+   this is just one line), there's no shared column to keep aligned here. A
+   real divider (not just margin) separates these fixed facts from the
+   editable fields below, same as .referral-view-fields' own row dividers. */
+.referral-edit-summary { display: flex; flex-direction: column; gap: var(--space-xs); margin-bottom: var(--space-lg); padding-bottom: var(--space-md); border-bottom: 1px solid var(--border-color); }
+
+.referral-edit-summary-student { font-size: var(--font-md); font-weight: 700; color: var(--text-primary); }
+
+.referral-edit-summary .summary-line { display: flex; align-items: baseline; gap: var(--space-sm); font-size: var(--font-sm); }
+
+.referral-edit-summary .summary-value { font-size: var(--font-sm); font-weight: 400; color: var(--text-secondary); }
+
+/* Shared row-title style for both flat sections below (Panel Meetings'
+   per-discussion heading and Actions' Category heading) - same size/weight
+   in both, reusing .entity-title's original bold/font-md treatment (same
+   weight as a Referral Selection row's student name) so the two sections'
+   rows read as one consistent pattern. */
+.referral-row-title { font-size: var(--font-md); font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
+
+/* Panel Meetings: one .referral-flat-section holding every past discussion,
+   each a .referral-history-entry separated by its own horizontal divider
+   (not a bordered card), no status pill (the title already says which
+   review this is) and no note preview, that's what the "View Discussion
+   Page" link is for. Facts are label+value on one line each (like the
+   Actions section's own Assigned/Due/Raised lines) rather than a two-column
+   label|value grid - condenses each fact to a single .entity-meta row
+   instead of a full grid row per fact. Short, fixed-length facts (Date,
+   Duration, Actions Added) sit in the left column; longer, more variable
+   text (Chair, Attendance) plus the "View Discussion Page" link sit in the
+   right - the same short-facts-left/longer-content-right split as
+   .action-row-grid's Assigned/Due/Raised vs description, reusing that same
+   minmax(160px, 200px) column width so this section's left edge still lines
+   up with every other section's. */
+.referral-history-list { display: flex; flex-direction: column; }
+
+.referral-history-entry { padding: var(--space-xs) 0; }
+
+.referral-history-entry:first-child { padding-top: 0; }
+
+.referral-history-entry + .referral-history-entry { border-top: 1px solid var(--border-faint); }
+
+.referral-history-grid { display: grid; grid-template-columns: minmax(160px, 200px) 1fr; column-gap: var(--space-md); }
+
+.referral-history-details { display: flex; flex-direction: column; gap: var(--space-xxs); }
+
+.referral-history-side { display: flex; flex-direction: column; gap: var(--space-xxs); }
+
+/* Deliberately understated - "View Discussion Page" is a secondary escape
+   hatch off a section already showing everything worth knowing at a glance,
+   not a call to action competing with it. */
+.referral-history-more { display: inline-block; font-size: var(--font-xs); font-weight: 500; color: var(--text-secondary); margin-top: 6px; }
+
+.referral-history-more:hover { color: var(--active-text); text-decoration: underline; }
+
+.referral-history-more:hover { text-decoration: underline; }
+
+/* View Discussion Summary reuses this link styling on a <button> (opens a modal
+   rather than navigating) - strip native button chrome so it reads identically
+   to the <a> instance beside it. */
+button.referral-history-more { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; text-align: left; }
+
+/* Border/hover/focus/has-text states come from the shared .app-search-field
+   component in navigation.css (INT-P4), which wins
+   over .field-group input's generic styling on specificity. */
+
+/* Bleeds out through .modal-body's own right padding, same technique (and
+   same reason) as .panel-search-results above - otherwise the scrollbar
+   sits inset by --space-xl instead of flush against the dialog's right
+   edge. padding-right restores the row content's own right-hand gutter. */
+
+/* No outer card - matches the Sidebar Search overlay's look (navigation.css
+   ".side-nav .app-search-results"), not the floating hero-search card: rows
+   sit directly in the modal's own flow, hugging their actual content via
+   max-height (not a fixed height reserving dead space), each row reading as
+   its own rounded "card" only once hovered/active rather than a permanently
+   boxed list (INT-P4). */
+.referral-student-picker .referral-student-results {
+    max-height: min(60vh, 400px);
+    overflow-y: auto;
+    margin-top: var(--space-xs);
+    margin-right: calc(-1 * var(--space-xl));
+    padding-right: var(--space-xl);
+}
+
+.referral-student-option {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-xs);
+    width: 100%;
+    text-align: left;
+    padding: var(--space-sm) var(--space-md);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    cursor: pointer;
+}
+
+.referral-student-option:hover { background: var(--row-hover-bg); }
+
+.referral-student-option-meta { color: var(--text-faint); font-size: var(--font-sm); flex-shrink: 0; }
+
+html.nav-touch-mode .referral-student-results {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode .referral-student-results::-webkit-scrollbar {
+    display: none;
+}

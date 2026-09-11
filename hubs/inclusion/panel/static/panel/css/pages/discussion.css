@@ -1,0 +1,105 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+.discussion-columns {
+    display: flex;
+    gap: var(--space-xl);
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.discussion-col,
+.discussion-toolbar-card {
+    flex: 1 1 280px;
+    min-width: 260px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    padding: var(--space-lg);
+    box-shadow: var(--card-shadow);
+}
+
+/* Panel Discussion's cards (Student Details, Referral Details, etc.) scroll
+   internally past viewport height instead of growing the whole page. Same
+   "Card-internal scroll with a fixed header" split as .setup-col-body
+   (DES-L5): the column itself is the flex column with a fixed
+   max-height (there's no .content-shell stretching it to an exact height
+   here, so max-height + overflow: hidden stands in for height + overflow:
+   hidden), its own <h2> is a non-scrolling flex-shrink: 0 sibling, and
+   .discussion-col-body is the flex: 1 1 auto; min-height: 0; overflow-y: auto
+   scrolling region - so the heading never scrolls away with the rest of
+   the card's content. */
+.discussion-col {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 260px);
+    overflow: hidden;
+}
+
+.discussion-col > h2 {
+    flex-shrink: 0;
+}
+
+.discussion-col-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0 calc(-1 * var(--space-lg));
+    padding: 0 var(--space-lg);
+}
+
+/* Same bottom-edge bleed as .setup-col-body:last-child above (DES-L5) - and
+   for the same reason, only needed for cards where this is the last child. */
+.discussion-col-body:last-child {
+    margin-bottom: calc(-1 * var(--space-lg));
+    padding-bottom: var(--space-lg);
+}
+
+.discussion-col h2,
+.discussion-toolbar-card h2 { font-size: var(--font-xl); margin-bottom: var(--space-md); }
+
+/* Panel Discussion cards (Student Details, Referral Details, Actions, DSL
+   Notes) read as profile-style summaries rather than left-aligned forms.
+   The toolbar cards above them (Meeting Notes/Discussion Controls) read the
+   same way for visual consistency across the whole page. */
+.discussion-col,
+.discussion-toolbar-card { text-align: center; }
+
+/* Panel Discussion's toolbar row (see #56): Meeting Notes takes the
+   available width, Discussion Controls is a narrow card beside it - same
+   flex-row/narrow-card pattern as .discussion-columns/.setup-col--narrow
+   below, just not part of that row itself since it sits above it.
+   align-items: flex-start (not stretch) - Discussion Controls keeps its own
+   fixed height regardless of Meeting Notes' own height changing as its
+   "Notes for this Discussion" <details> is expanded/collapsed. */
+.discussion-toolbar-row {
+    display: flex;
+    gap: var(--space-xl);
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-bottom: var(--space-lg);
+}
+
+.discussion-toolbar-card--controls {
+    flex: 0 1 240px;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.discussion-controls-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.discussion-col .tab-row { margin-left: calc(-1 * var(--space-lg)); margin-right: calc(-1 * var(--space-lg)); }
+
+html.nav-touch-mode .discussion-col-body {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode .discussion-col-body::-webkit-scrollbar {
+    display: none;
+}

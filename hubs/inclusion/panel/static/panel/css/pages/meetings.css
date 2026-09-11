@@ -1,0 +1,302 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+/* Panel Meetings list — gap (not each card's own margin-bottom) spaces the
+   cards, so there's no extra trailing space after the last one. Cards are
+   de-nested from any wrapping .list-card (issue #6) - independent
+   top-level cards stacked directly in the page shell, not children of one
+   big card - so the gap here is the portal-wide --space-md card-to-card
+   spacing, not the tighter --space-sm previously used for nested rows. */
+.meeting-list { display: flex; flex-direction: column; }
+
+/* One shared width for every card's button column down the whole list -
+   live feedback: "Button collumn width should match all the way down!".
+   flex: 0 0 auto (above) sizes each column to its OWN buttons, so a card
+   offering Start Meeting/Edit Agenda/Delete came out wider than one
+   offering just View Meeting, which read as a ragged right-hand edge
+   down the list even now that the column's own divider line is gone.
+   --meetings-btn-col-w is measured and set on #meetings-filtered-content
+   by syncMeetingsButtonColumnWidth (panel.js) - the widest column in the
+   list - and is deliberately absent (falling back to auto, i.e. the
+   per-card behaviour above) both before that JS has run and at the
+   narrow widths where this column stops being a vertical side column,
+   where a forced min-width would only cause overflow. Same
+   custom-property convention as Students' own --students-btn-col-w. */
+#meetings-filtered-content .meeting-card-actions { min-width: var(--meetings-btn-col-w, auto); }
+
+/* ===========================================================================
+   .rows-stacked - the stacked-card format, and when a list is in it
+   ---------------------------------------------------------------------------
+   Every list page has two row formats: the desktop one (content beside a
+   buttons column, with the data-column strip on its own line inside the
+   row) and the stacked card (row wraps, buttons drop to a full-width row
+   below and fill it edge to edge). Which one a list is in used to be a
+   hardcoded 700px media query per page. It is now MEASURED, per list, and
+   expressed as this one class on the list root - :not(.rows-stacked)
+   carries the desktop rules, .rows-stacked the card ones.
+   The rule it's measured against (live feedback: "I would rather this be
+   dynamic. This should happen when data cols no longer fit and would
+   therefore go to scroll mode. This way scroll is only needed on more
+   narrow screens!"): a list stacks the moment its data-column strip would
+   otherwise have to scroll, because stacking hands that strip the width
+   the buttons column was using. So a dense list stacks early (well above
+   700px) and a sparse one stays in the desktop format far below it, and
+   the strip only ever scrolls once even the full row width isn't enough.
+   updateListStackMode (panel.js) owns the decision and the numbers behind
+   it; nothing in this file should reintroduce a width breakpoint for this.
+   No media-query fallback: without JS a list simply keeps the desktop
+   format at every width (the class is only ever added by that function),
+   which is the same bargain every other measured layout on these pages
+   already makes (facts-line-managed, --students-btn-col-w).
+   =========================================================================== */
+
+/* #121: Meeting card, stacked - "table -> stacked card" per #113's shared
+   vocabulary, same treatment as Referrals'/Actions' own #118/#119 blocks:
+   card wraps onto its own lines instead of the desktop row+action-column
+   split, buttons drop to a full-width row below and fill it edge-to-edge
+   instead of staying right-aligned in dead space. Entered on the same
+   measured condition as every other list (see the .rows-stacked note
+   above); it used to be a hardcoded 700px, itself inherited from
+   Referrals/Actions for the same "the action column leaves too little room
+   for the title/breakdown text" reason the measurement now checks
+   directly. */
+
+/* padding tightened to --space-sm/12px, matching the page's own 12px
+   margin at this width (#116 phone reclaim) - same convention as
+   Referrals'/Students' own mobile .entity-row rule. flex-wrap: wrap is
+   what actually lets .meeting-card-actions (flex: 0 0 auto) drop to its
+   own line below instead of just shrinking in place. */
+#meetings-filtered-content.rows-stacked .meeting-card {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: var(--space-md) var(--space-sm);
+}
+
+/* .meeting-card itself supplies the top/bottom inset again at this
+   width (base rule, above) - the local-inset split (meeting-card-
+   header's own padding-top, meeting-card-actions' own padding-top/
+   bottom) only exists to compensate for align-items: stretch matching
+   actions' height to a taller body (desktop). Once actions drops to
+   its own full-width row below instead of stretching (own rule,
+   below), that reason is gone - without resetting these back to 0,
+   header and the outer card would both contribute a top inset, and
+   actions' own padding would pad its now-unstretched row a second
+   time on top of the card's own bottom padding. */
+#meetings-filtered-content.rows-stacked .meeting-card-header {
+    padding-top: 0;
+}
+
+/* Group name + status pills routinely don't fit one line once the
+   action column disappears from beside them - let the row wrap and the
+   name break instead of ellipsis-truncating into unreadable fragments. */
+#meetings-filtered-content.rows-stacked .meeting-card-title-row {
+    flex-wrap: wrap;
+}
+
+#meetings-filtered-content.rows-stacked .meeting-card-title-row h3 {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* Border/padding assumed the actions column sat beside the card body
+   (desktop/tablet) - once it wraps onto its own line, a left border
+   reads as a stray mark with nothing left to divide (same fix as
+   Referrals' own .row-btn-row mobile rule). flex: 1 1 100% forces the
+   column onto its own line - without it .meeting-card-body's own
+   flex-shrink lets everything keep fitting one line right up until the
+   card is uselessly narrow, so wrap never actually triggers.
+   flex-direction/align-items override the base rule's desktop vertical
+   stack back to a horizontal row - same "stacked column at desktop,
+   row at true mobile" swap as Actions' own row-btn-row-stacked mobile
+   override (panel.css, #actions-filtered-content .row-btn-row.row-btn-
+   row-stacked). */
+#meetings-filtered-content.rows-stacked .meeting-card-actions {
+    padding: 0;
+    flex: 1 1 100%;
+    flex-direction: row;
+    /* wrap - last-resort fallback once icons-only (JS, own comment
+       above) still doesn't fit; a genuinely tiny width with 3 icon
+       buttons wraps the odd one onto its own second line instead of
+       squeezing/clipping (live feedback screenshot: Delete cut off). */
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Equal-width buttons fill the row edge-to-edge instead of leaving a
+   dead gap on the right - same convention as Referrals'/Actions' own
+   .row-btn-row > * mobile rule. min-width so a wrapped line's lone
+   button doesn't stretch edge-to-edge on its own (reads oddly once
+   there's only one item left on a line) - content width + a floor
+   instead, same idea as the row-fact-col min-width considered earlier
+   this session (reverted there, kept here: these are real tap targets,
+   not data columns, so a consistent minimum tap-target width matters
+   more than letting them shrink arbitrarily). */
+
+/* .disabled-btn-tooltip-wrap's own display: contents (buttons.css)
+   removes it from the box tree, so its .btn child becomes the real
+   flex item here directly - `>` combinators still match against the
+   DOM tree regardless (own base rule above never reaches it), so it
+   needs its own explicit copy of this same sizing to size/grow the
+   same as every other button in the row instead of falling back to
+   the flex default (0 1 auto, content-sized only). */
+#meetings-filtered-content.rows-stacked .meeting-card-actions > *,
+#meetings-filtered-content.rows-stacked .meeting-card-actions > .disabled-btn-tooltip-wrap > .btn {
+    flex: 1 1 0;
+    min-width: 84px;
+}
+
+/* Same "card itself supplies the inset again at this width" reset as
+   meeting-card-header's own padding-top, above. */
+#meetings-filtered-content.rows-stacked .row-facts-track {
+    padding-bottom: 0;
+}
+
+/* Extra padding above the data-cols strip dropped in this compact
+   layout - live feedback: "is there more space above button row than
+   on referrals page" (yes: Referrals' own #referrals-filtered-content
+   .row-facts, above, zeroes this at every width, Meetings never had
+   the same override). margin-top kept (not zeroed like Referrals') for
+   breathing room between the date-line/pills above and the data-cols
+   strip below. The divider that used to sit here went with every other
+   in-row divider (HISTORY comment, .row-btn-row). */
+#meetings-filtered-content.rows-stacked .row-facts {
+    padding-top: 0;
+}
+
+/* #121: Meetings' own copy of Referrals'/Actions'/Students' shared data-cols
+   ID-scoped overrides (#113) - label caption styling + column gap. No
+   divider between columns (live feedback on those three pages already
+   settled that - "lets simplify by losing the vertical dividers in data
+   cols everywhere", #referrals-filtered-content .row-facts-cols >
+   .row-fact-col:not(:first-child), above - each column already reads as
+   its own section once syncFactsColumnWidths, panel.js, gives it real
+   width). No avatar-bleed margin-left/width override needed either (unlike
+   #referrals-filtered-content .row-facts, above) - meeting cards have no
+   student thumb for the strip to bleed out from under, so .row-facts sits
+   flush in .meeting-card-body already. */
+#meetings-filtered-content .row-fact-label {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+}
+
+#meetings-filtered-content .row-facts-cols {
+    gap: var(--space-lg);
+}
+
+/* Local bottom inset - part of the same "entity-row margins don't match"
+   fix as .meeting-card's own padding-top/bottom: 0 (above) - this is the
+   LAST child in .meeting-card-body, so it supplies the card's own bottom
+   edge locally instead of the (now-removed) outer padding-bottom doing it.
+   --space-xs, not --space-md - matches #referrals-filtered-content
+   .row-referral-details' own padding-bottom exactly (own comment there:
+   "Small symmetric top/bottom inset"), not a bigger, invented value - live
+   feedback: "more space under the data cols, compared to referral page"
+   confirmed this was --space-md (16px) where Referral's own convention is
+   --space-xs (8px). */
+#meetings-filtered-content .row-facts-track {
+    padding-bottom: var(--space-xs);
+}
+
+/* .row-fact-col's own align-items default (normal, computes to stretch for
+   a flex item - spec) stretches every child to the COLUMN's own width -
+   harmless for Referrals'/Students'/Actions' plain-text lines (text just
+   left-aligns inside a wider box, no visible difference), but syncFacts
+   ColumnWidths (panel.js) deliberately sizes this column to the widest
+   value down the WHOLE list, so a .bd-pill sitting in a narrower row than
+   its neighbour stretched into an oversized, mostly-empty badge instead of
+   staying sized to its own text. align-self: flex-start opts every pill
+   back out of that stretch, sized to its own content regardless of what
+   the column itself has grown to. */
+#meetings-filtered-content .row-fact-col .bd-pill {
+    align-self: flex-start;
+}
+
+/* .row-fact-col's shared gap (1px, base rule) reads as noticeably tighter
+   under a .bd-pill than under plain text - live feedback: "data cols that
+   have pills look closer to heading than if its text". Not a real 1px vs
+   1px difference: a pill's own coloured box starts right at its border, so
+   the tiny gap disappears visually the instant the background begins,
+   while plain text's own line-height leaves real whitespace above the
+   glyph even at the same 1px gap. Only the label-to-first-pill gap needs
+   the extra room - pill-to-pill (Priority's own multiple lines) stays
+   tight on purpose, they're one cluster. */
+#meetings-filtered-content .row-fact-col .row-fact-label + .bd-pill {
+    margin-top: var(--space-xxs);
+}
+
+@media (max-width: 480px) {body:has(.filtered-content .meeting-list) .main-inner {
+        padding-bottom: 0 !important;
+    }
+}
+
+/* Shared progressive-disclosure filter bar (.filter-fields-wrap/
+   .filter-actions-right/.filter-secondary-fields/.more-filters-toggle) has
+   moved to components/forms.css - it's a portal-wide standard now (SEND &
+   Provision dashboard grilling), not panel-specific. */
+
+/* ==================== Panel Meetings ====================
+   New Panel Meeting used to live at the end of the filter bar, but felt
+   wrong sitting inside a card that's now purely about filtering, so it
+   moved to key_actions_extra (see meetings.html/_base.html) instead, in the
+   page header alongside Search/Referral like every other panel page's main
+   action (see grilling session 2026-07-12).
+
+   Meeting rows were originally de-nested (issue #6) into independent
+   floating .meeting-card cards; restyled back into one shared bordered
+   list surface (issue #16) so they read as rows like Students/Referrals/
+   Actions' .entity-row, wrapped in the same .list-card as those pages
+   (filter bar + list read as one card, no gap between them) - .list-card's
+   own rules already give the filter bar its flush-top/bordered-bottom
+   treatment for free. #meetings-filtered-content (renamed .meetings-scroll
+   in the markup) is the part that's re-fetched on every filter change (see
+   data-ajax-target on the form) - same .list-card .filtered-content role on
+   every other list page, NOT the scrolling body itself any more (was, until
+   the stats-strip footer landed inside it - see below).
+
+   The scroll now lives one level deeper, on .meeting-list (the rows) - same
+   split as .list-card .entity-list elsewhere (layout.css): .meeting-list
+   scrolls internally, .stats-strip sits after it as a plain non-scrolling
+   flex sibling, so the footer stays visible/pinned in place instead of
+   scrolling away with the rows underneath it (#137: "Panel Meeting footer
+   needs to be sticky" - it isn't position: sticky, it just never used to be
+   part of the scrolling content to begin with, matching how the footer
+   already behaved on every other list page before this one grew a footer
+   of its own). */
+.meetings-scroll {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.meeting-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Well behind the gapped .meeting-card rows above - same pairing as
+       layout.css's .list-card .entity-list (.meeting-list's own
+       display: flex; flex-direction: column base is set above). No
+       padding - rows are flush to every edge, same as .list-card
+       .entity-list. */
+    background: var(--bg-well);
+    gap: var(--space-xxs);
+}
+
+/* Hide on touch, same pair every other overflow:auto list already gets
+   (layout.css's html.nav-touch-mode .list-card .entity-list) - live
+   feedback: "Panel meeting in tablet mode is showing a scroll bar! I
+   thought we documented this so that all pages that were touch did not
+   show these" - .meeting-list was a genuine miss, not scoped along with
+   .entity-list when this convention was written since Meetings uses its
+   own row shape/class instead of sharing .entity-list. */
+html.nav-touch-mode .meeting-list {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode .meeting-list::-webkit-scrollbar {
+    display: none;
+}

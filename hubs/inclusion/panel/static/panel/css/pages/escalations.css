@@ -1,0 +1,351 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+#escalations-filtered-content.rows-stacked .row-facts-arrow--prev {
+    left: calc(-1 * (42px + var(--space-md)) + 2px);
+}
+
+#escalations-filtered-content .row-fact-assignee--initials {
+    display: none;
+}
+
+#escalations-filtered-content .row-fact-col-description {
+    flex: 1 0 320px;
+    min-width: 0;
+    /* 420px = the 320px natural baseline + the same 100px bonus cap every
+       other column gets (FACTS_MAX_BONUS_PX, panel.js) - a plain CSS cap
+       here rather than an inline width from JS, since flex-grow is what
+       hands this column its share now and max-width is the browser's own
+       way of freezing an item mid-grow (it redistributes the remainder to
+       whatever is still growable on the line, no JS arithmetic needed).
+       Lifted once the strip wraps away and Description has the line to
+       itself (.facts-cols-wrapped, below).
+       History (#157 follow-up): first a one-off hardcoded
+       400px here on its own (live feedback: "Description and Status are
+       way too far apart on medium width... Status would be better left
+       aligned with space to its right" / "I do think we need a max white
+       space"), generalised into the same per-column mechanism once the
+       exact same unbounded-growth problem turned up on OTHER columns too
+       (live feedback, a Referrals screenshot: "its the extra white space
+       that I want capped! Could we make this 100px maximum?"). */
+    max-width: 420px;
+}
+
+#escalations-filtered-content .row-fact-col-description span:last-child {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 320px;
+}
+
+#escalations-filtered-content .row-title-row {
+    row-gap: var(--space-xxs);
+}
+
+#escalations-filtered-content .row-title-row .row-facts-primary-plain {
+    display: inline;
+    flex: 0 1 auto;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+
+#escalations-filtered-content .row-title-row .row-title-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-xs);
+    row-gap: var(--space-xxs);
+    flex: 1 1 100%;
+}
+
+#escalations-filtered-content .row-title-row .row-secondary-text {
+    font-weight: 600;
+    font-size: var(--font-lg);
+    color: var(--text-primary);
+}
+
+#escalations-filtered-content .row-title-pills {
+    display: flex;
+    gap: var(--space-xs);
+    flex-wrap: nowrap;
+}
+
+#escalations-filtered-content.rows-stacked .entity-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: var(--space-md);
+    padding: var(--space-md) var(--space-sm);
+}
+
+#escalations-filtered-content.rows-stacked .entity-row > .row-btn-row {
+    padding-left: 0;
+    flex: 1 1 100%;
+}
+
+#escalations-filtered-content.rows-stacked .row-btn-row > *,
+#escalations-filtered-content.rows-stacked .row-btn-row > .disabled-btn-tooltip-wrap > .btn {
+    flex: 1;
+}
+
+#escalations-filtered-content.rows-stacked .row-title-row {
+    row-gap: var(--space-xxs);
+}
+
+#escalations-filtered-content .row-facts {
+    padding-top: 0;
+    margin-left: calc(-1 * (42px + var(--space-md)));
+    width: calc(100% + 42px + var(--space-md));
+}
+
+#escalations-filtered-content .row-fact-col {
+    transition: margin-left 0.2s ease, padding-left 0.2s ease, border-left-width 0.2s ease;
+}
+
+#escalations-filtered-content .row-fact-label {
+    font-size: var(--font-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+}
+
+#escalations-filtered-content .row-facts-cols {
+    gap: var(--space-lg);
+}
+
+#escalations-filtered-content .row-facts-cols > .row-fact-col:not(:first-child) {
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
+}
+
+#escalations-filtered-content:not(.rows-stacked) .entity-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+        "thumb   header  buttons"
+        "details details buttons";
+    column-gap: var(--space-md);
+    row-gap: 0;
+    align-items: start;
+    padding-bottom: 0;
+    /* padding-top: 0 too (ported from Actions' own fix this session,
+       live feedback there: "the buttons are only missing some margin
+       bottom... lose the margin above and vertically center", then
+       "use Actions as the model" for this page) - used to be
+       var(--space-sm) here, but that inset sat outside the "buttons"
+       grid area's own stretched box (it spans both rows, below) the
+       same way an un-compensated padding-bottom used to; row-title-row
+       and .entity-thumb (below) now manufacture their own matching
+       inset locally instead, the same trick .row-referral-details' own
+       padding-bottom already uses, so .row-btn-row's centering isn't
+       thrown off by an asymmetric outer box. */
+    padding-top: 0;
+}
+
+#escalations-filtered-content:not(.rows-stacked) .entity-body { display: contents; }
+
+#escalations-filtered-content:not(.rows-stacked) .entity-thumb-group { grid-area: thumb; align-self: center; padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
+
+#escalations-filtered-content:not(.rows-stacked) .row-title-row {
+    grid-area: header;
+    align-self: center;
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
+}
+
+#escalations-filtered-content:not(.rows-stacked) .row-referral-details {
+    grid-area: details;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-self: stretch;
+    min-width: 0;
+    padding-top: var(--space-xs);
+    padding-bottom: var(--space-xs);
+}
+
+#escalations-filtered-content:not(.rows-stacked) .row-facts {
+    margin-left: 0;
+    width: 100%;
+}
+
+#escalations-filtered-content:not(.rows-stacked) .row-btn-row {
+    grid-area: buttons;
+    padding-left: var(--space-lg);
+    align-self: stretch;
+    /* Vertically stacked, not side by side (live feedback: "like
+       Actions, switch to vertical stack" - matches the same call made
+       for Actions' own buttons column, panel.css, _actions_rows.html).
+       align-items: stretch makes both buttons fill the same width -
+       whichever is naturally wider (Referral Details), so they line up
+       flush on both edges instead of each sizing to its own text.
+       Overridden back to horizontal above 1401px, below - matches
+       Actions' own wide-desktop treatment (its segmented control's
+       button PAIR stays side by side there too, only the narrower
+       bands stack everything). justify-content: center matches
+       .row-btn-row-stacked's own base rule (Actions' equivalent
+       column, above) - live feedback: buttons were pinned to the
+       top of the full-height column instead of sitting centred
+       against the row's own content. */
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    /* Small symmetric top/bottom inset (ported from Actions' own fix -
+       live feedback there: "enforce a top and bottom margin, can this
+       be a small amount" - once the box is genuinely 0/0 top-and-bottom
+       against the card edges, centred content with no padding at all
+       read as flush against both edges rather than "equal gaps". Not
+       on entity-row - that would reopen the exact asymmetry the
+       padding-top: 0 change above just fixed). */
+    padding-top: var(--space-xs);
+    padding-bottom: var(--space-xs);
+}
+
+#escalations-filtered-content .entity-thumb-group {
+    display: flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+}
+
+/* School badge matches the student thumb's own 42px (live feedback: "can
+   School logo be same size as student image if both showing" - tried
+   smaller at 28px first so two circles wouldn't overwhelm the row, but
+   equal sizing reads as two peer identities side by side instead of one
+   primary + one secondary badge). No override needed here - .entity-thumb
+   (cards.css) already sets 42px/42px unconditionally, entity-thumb-school
+   just inherits it now like entity-thumb-student always did.
+   True mobile (≤700px) has no room for both - back to logo-only there
+   (.entity-thumb-student hidden), the exact single-thumb footprint/size
+   #118 originally gave every MAT-view row, so the mobile bleed maths
+   (row-facts, above) need no adjustment there either. Ported to
+   Referrals/Students this session (live feedback: "I am not seeing School
+   logo and student placeholder like I do on Actions Page" - both pages
+   used to just swap the single .entity-thumb between logo-only and
+   student-only depending on is_aggregate_view, never showing both). */
+@media (max-width: 700px) {#escalations-filtered-content .entity-row.has-dual-thumb .entity-thumb-student {
+        display: none;
+    }
+}
+
+#escalations-filtered-content .row-facts {
+    gap: var(--space-md);
+}
+
+#escalations-filtered-content .row-facts-cols {
+    flex: 0 1 auto;
+    min-width: 200px;
+}
+
+#escalations-filtered-content .row-facts-track {
+    border-left: 1px solid var(--border-strong);
+    padding-left: var(--space-md);
+}
+
+/* Own container name/threshold, not a shared one with Actions (live
+   feedback: "if reason and datacols do not fit, datacols should move to
+   own line like on actions page" - Actions' 600px (below) is tuned for ITS
+   own strip, Due/Created/Referral, three columns; Escalations' Reason sits
+   beside a wider four-column strip (Escalated/Next Panel/Resolved/Actions)
+   whose content (dates, staff names, two-line Complete/Incomplete counts)
+   needs real room before it comfortably fits alongside a 320px Reason
+   column without scrolling - reusing Actions' narrower 600px left the strip
+   permanently scrolling at ordinary desktop widths, long before the row
+   was actually narrow enough to justify Reason dropping full-width. 900px
+   is a first estimate, not measured against this page's own real content
+   the way Actions' 600px was (#154) - revisit if it still scrolls sooner
+   than it should, or promotes before it needs to. */
+#escalations-filtered-content .row-facts-shell {
+    container-type: inline-size;
+    container-name: escalation-facts;
+}
+
+#escalations-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description {
+    /* flex: 1 1 0, not the base rule's 1 0 320px - Description is the only
+       growable item left on this line, so a 0 basis simply resolves to
+       "whatever is left beside Status", and the shrink it gains matters at
+       true-mobile widths where the line itself is narrower than the 320px
+       baseline (an unshrinkable 320px column would overflow the card).
+       Cap lifted with it: there is no sibling column's bonus left to keep
+       in proportion, so stopping at 420px would just leave dead space.
+       min-width restored above 701px only (own rule, below) - true mobile
+       still needs the unrestricted shrink this rule describes. */
+    flex: 1 1 0;
+    max-width: none;
+}
+
+/* Real min-width, not left at the base rule's min-width: 0 (Description's
+   own general rule, above) - live feedback: "Description needs a min
+   width so that Status goes to own row earlier". Below this floor,
+   .row-facts' own flex-wrap: wrap (base rule, above) pushes Status onto a
+   line of its own NATIVELY the moment Description(min 320px) + Status no
+   longer both fit - no JS decision needed for this specific handoff (the
+   status-own-row class this replaced only ever toggled flex-basis: 100%
+   on Status, which forcing a bare CSS min-width on Description achieves
+   as a side effect, for free, and continuously - it responds to every
+   frame of a resize in either direction, not just after the debounced
+   tick updateFactsLineLayout runs on, live feedback: "if I then widen the
+   window, status should go back to being on same row as Description").
+   It also happened to be what caused Status' own control to stretch full
+   width when its own-row was forced via flex-basis: 100% (a .row-fact-col
+   is display: flex; flex-direction: column with no align-items override,
+   so its default stretch applies along what is, in a column-direction
+   flex container, the HORIZONTAL cross axis - every child including the
+   segmented control's own box stretched to Status' new full-row width).
+   Status keeps its own untouched flex: 0 0 auto (base rule, above) here -
+   wrapped alone onto its own line by the browser rather than deliberately
+   forced there, it renders at its own natural content width same as
+   always, left-aligned, no stretch.
+   Scoped to >=701px only - true mobile's own card width can itself dip
+   below 320px, where an unshrinkable Description would overflow the card
+   outright rather than handing Status a line of its own (the very
+   scenario the unscoped base rule, above, was written to avoid). */
+@media (min-width: 701px) {#escalations-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description {
+        min-width: 320px;
+    }
+}
+
+#escalations-filtered-content .entity-row.facts-cols-wrapped .row-fact-col-description span:last-child {
+    max-width: none;
+}
+
+@container escalation-facts (max-width: 900px) {
+    #escalations-filtered-content:not(.facts-line-managed) .row-facts-track {
+        flex-basis: 100%;
+        flex-grow: 0;
+    }
+    #escalations-filtered-content:not(.facts-line-managed) .row-fact-col-description {
+        flex: 1 1 0;
+        max-width: none;
+    }
+    #escalations-filtered-content:not(.facts-line-managed) .row-fact-col-description span:last-child {
+        max-width: none;
+    }
+}
+
+#escalations-filtered-content .row-facts-cols > .row-fact-col {
+    flex: 1 0 auto;
+}
+
+#escalations-filtered-content .row-facts-cols .row-fact-col-clamp {
+    max-width: none;
+}
+
+#escalations-filtered-content .row-facts-track {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+#escalations-filtered-content .row-facts-track {
+    border-left: none;
+    padding-left: 0;
+}
+
+#escalations-filtered-content.rows-stacked .row-facts {
+    margin-top: var(--space-md);
+    padding-top: 0;
+}

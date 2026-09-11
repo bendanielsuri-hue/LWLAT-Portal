@@ -1,0 +1,167 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+.status-pill.danger,
+.status-pill.overdue_review { background: var(--color-negative-bg); color: var(--color-negative); }
+
+.status-pill.open { background: var(--color-warning-bg); color: var(--color-warning); }
+
+.status-pill.draft { background: var(--badge-bg); color: var(--text-secondary); }
+
+.status-pill.ready { background: var(--color-positive-bg); color: var(--color-positive); }
+
+.status-pill.running,
+.status-pill.in_panel,
+.status-pill.next-panel,
+.status-pill.review_scheduled { background: var(--primary-light); color: var(--active-text); }
+
+/* .chosen rows across every list page (.entity-row.chosen, .meeting-card.
+   chosen, .stack-list li.chosen, etc.) already fill their own whole
+   background with that same var(--primary-light) wash the base rule above
+   uses, so this pill became genuinely invisible - same flat colour on
+   flat colour - the moment its own row got selected (live feedback,
+   screenshot: "Issue pith [pill] primary fills when list item is
+   selected. Can't see the pill background" - Next Panel, Panel Meetings).
+   Scoped to .chosen specifically (own follow-up: "can we have it only
+   change if row is selected") rather than bumping the base rule
+   unconditionally - color-mix at 30%, not the plain 15% mix, doubles the
+   concentration to guarantee real contrast against the row's own lighter
+   wash behind it, in any theme, while staying in the same colour family
+   (still reads as "this row's own accent", not a random new hue). One
+   shared .chosen selector, not each page's own chosen-row class spelled
+   out separately - every page already reuses this same marker class. */
+.chosen .status-pill.running,
+.chosen .status-pill.in_panel,
+.chosen .status-pill.next-panel,
+.chosen .status-pill.review_scheduled { background: color-mix(in srgb, var(--primary) 30%, var(--bg-surface)); }
+
+.status-pill.delayed,
+.status-pill.awaiting_review { background: var(--color-warning-bg); color: var(--color-warning); }
+
+.status-pill.closed { background: var(--color-positive-bg); color: var(--color-positive); }
+
+.status-pill.discussed { background: var(--color-positive-bg); color: var(--color-positive); }
+
+/* Per-panel referral "stage" pills (Panel Agenda) — distinct from the
+   Referral.status pill above, which aggregates across every panel a
+   referral has ever been attached to. .complete reuses the existing
+   .status-pill.complete rule further down (same success treatment). */
+.status-pill.assigned { background: var(--primary-light); color: var(--active-text); }
+
+.status-pill.discussing { background: var(--color-warning-bg); color: var(--color-warning); animation: discussing-pulse 2s ease-in-out infinite; }
+
+.status-pill.requires_follow_up { background: var(--color-warning-bg); color: var(--color-warning); }
+
+.status-pill.complete { background: var(--color-positive-bg); color: var(--color-positive); }
+
+.status-pill.incomplete { background: var(--color-warning-bg); color: var(--color-warning); }
+
+.status-pill.not_needed { background: var(--badge-bg); color: var(--text-secondary); }
+
+.status-pill.concern { background: var(--badge-bg); color: var(--text-secondary); }
+
+/* The "View Actions" modal's status control (data-action-status-select) is a
+   real <select>, but main.js's global enhanceSelect() (every <select> on the
+   page gets this - see initSelects in main.js) replaces it in the DOM with a
+   visible .ui-select-trigger button that mirrors the original select's
+   classes, hiding the actual <select> off-screen. So it's *that* button,
+   `.ui-select-trigger.status-pill`, that needs the chevron - styling the
+   underlying <select> itself (as an earlier version of this rule did) has no
+   visible effect at all. .status-pill.complete/.incomplete/.not_needed above
+   set `background` as a shorthand, which resets background-image to none, so
+   this has to re-set the chevron image explicitly afterwards. */
+.ui-select-trigger.status-pill {
+    border: none;
+    border-radius: var(--radius-pill);
+    width: auto;
+    padding: var(--space-xxs) 26px var(--space-xxs) 10px;
+    font-size: var(--font-xs);
+    font-weight: 600;
+    cursor: pointer;
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+[data-theme-mode="dark"] .ui-select-trigger.status-pill {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+.ui-select-trigger.status-pill.open {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
+}
+
+[data-theme-mode="dark"] .ui-select-trigger.status-pill.open {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23aab4c5' d='M4 10l4-4 4 4'/%3E%3C/svg%3E");
+}
+
+/* .status-pill mirrors onto the POPOVER too (enhanceSelect, main.js:
+   panel.className copies every class off the source <select>, same as
+   trigger.className does above), not just the trigger - missed until now
+   because .ui-select-trigger.status-pill (above) was the only half of this
+   ever actually fixed. .status-pill's own base box (padding: 0.35em
+   0.833em, border-radius: --radius-pill, display: inline-block, pills.css)
+   then wins the same-class cascade fight over .ui-popover's own panel
+   shape (position: fixed, max-height: 260px, own border-radius - forms.css,
+   loaded earlier) for every property both set, squeezing the whole
+   3-option list into a tiny pill-shaped box - confirmed live (Actions
+   page's mobile status select, #119 follow-up, screenshot: "weird dropdown
+   selector in top left corner") - the option list's own real size (or lack
+   of one, clipped into the pill) is almost certainly what then fed
+   positionPopover's anchoring math garbage coordinates too, landing the
+   whole thing at the viewport's top-left instead of under the trigger.
+   Resets the panel back to .ui-popover's own intended shape; the colour-
+   only modifiers above (.status-pill.complete etc.) are separate compound
+   selectors, unaffected by this. Scoped to [open] so this reset only
+   applies while the panel is actually shown - see the guard rule right
+   below for why an *unscoped* version here wouldn't have been enough
+   anyway. */
+.ui-select-panel.status-pill[open] {
+    display: block;
+    padding: 0;
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    color: inherit;
+    text-align: left;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+}
+
+/* pills.css's bare `.status-pill { display: inline-block }` is a single-
+   class author rule - and *any* author-origin declaration beats the
+   browser's own `dialog:not([open]) { display: none }` UA-stylesheet hint
+   regardless of specificity (same trap `.btn[hidden]`/`.ui-fused-
+   field[hidden]` already guard against, buttons.css/forms.css - origin
+   order, not specificity, decides UA vs. author). So every *closed*
+   status-pill panel on the page - one per row - was rendering visible at
+   its unpositioned default (0,0), piling up behind whichever one was
+   actually open: the "distorted blob in the viewport's top-left corner"
+   symptom (#119 follow-up, confirmed live via Playwright at true mobile
+   width - the open panel itself was already correctly shaped/positioned
+   by the rule above, this closed-panel pile-up was the real remaining
+   bug). Re-asserts the closed behaviour explicitly rather than relying on
+   the UA default this class already defeats once. */
+.ui-select-panel.status-pill:not([open]) { display: none; }
+
+.status-pill.type-chair { background: var(--primary-light); color: var(--active-text); font-weight: 700; }
+
+.status-pill.type-mat { background: var(--primary-light); color: var(--active-text); }
+
+.status-pill.type-school { background: var(--badge-bg); color: var(--text-secondary); }
+
+.status-pill.type-external { background: var(--color-warning-bg); color: var(--color-warning); }
+
+.status-pill.type-expertise { background: var(--badge-bg); color: var(--text-secondary); }
+
+.status-pill.type-new { background: var(--color-positive-bg); color: var(--color-positive); }
+
+.status-pill.type-followup { background: var(--color-caution-bg); color: var(--color-caution); }
+
+/* Escalated (_referral_escalation_pill, views.py) - independent of both the
+   status pill and type-new/type-followup review pill, since a referral can
+   be assigned/discussing AND escalated at once (see CONTEXT.md). Danger
+   tone, same as .status-pill.overdue_review, to read as urgent at a glance. */
+.status-pill.type-escalated { background: var(--color-negative-bg); color: var(--color-negative); font-weight: 700; }
+
+.status-pill.type-already { background: var(--badge-bg); color: var(--text-faint); }

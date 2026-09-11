@@ -1,0 +1,170 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+/* Same missing-default bug as .carousel-filter would have without the
+   display: none above - .action-status-dropdown (the per-row carousel-mode
+   replacement for the real status segmented control, _my_actions_card.html)
+   had no base rule of its own at all, only the ≤1180px block's `display:
+   block` (below). Above 1180px it fell back to a plain <div>'s default block
+   display, rendering directly on top of the real segmented control it's
+   meant to replace (live feedback: "My Action does not need carousel
+   trigger in desktop mode" - the "Status ..." dropdown trigger text was
+   visibly overlapping the Incomplete/Complete/Not Required/Overdue buttons
+   underneath it). */
+.action-status-dropdown {
+    display: none;
+}
+
+/* My Actions: the Incomplete/Complete/Not Required segmented control
+   (three full-size buttons) doesn't fit .stack-item-col--student's fixed
+   38% column at every desktop width - unlike My Referrals' own fix
+   directly above (a fixed 1181-1200px breakpoint band), a plain viewport
+   breakpoint can't work here because the column's *available* width
+   doesn't track viewport width alone (live feedback: "this does not work
+   for all widths, can it change dynamically if not enough space" - a fixed
+   band was tried first and missed widths where the card itself is
+   narrower for other reasons, e.g. sidebar/column layout). wireActionStatusOverflow
+   (home.html) measures each row's real fit via ResizeObserver and toggles
+   this class instead. Swaps to the same fused-trigger dropdown already
+   built and wired for carousel mode (.action-status-dropdown,
+   wireActionStatusFilters - home.html) rather than a wrap/shrink attempt -
+   three segmented buttons read wrong split across two lines the way plain
+   individual buttons (My Referrals' own fix) don't. Opens downward (the
+   dropdown's own base rule), not the carousel breakpoint's dropup override
+   - this row isn't pinned to the card's bottom edge here. Higher-specificity
+   #my-actions-list ... rules (≤1180px, above) win over this regardless of
+   whether the class is (stale-)present, so carousel mode's own dropup
+   dropdown is never affected by it. */
+[data-action-status-filter].action-status-narrow form {
+    display: none;
+}
+
+[data-action-status-filter].action-status-narrow .action-status-dropdown {
+    display: block;
+}
+
+/* Narrow-desktop breadcrumb hiding (html.filter-bar-mobile-mode) used to
+   live here, page-by-page opt-in via body:has(.filtered-content)/
+   .panel-columns - moved to the portal-wide static/css/layout/
+   responsive.css (plain html.filter-bar-mobile-mode .breadcrumbs, no
+   body:has() qualifier) once live feedback found yet another page shape
+   the opt-in list had missed. Every hub gets it automatically now; nothing
+   Panel-specific left to override here. */
+
+/* Action status segmented control (Actions list row) - each state gets its own
+   semantic active color instead of the generic .ui-segmented-option.active
+   primary tint, so Complete/Incomplete/Not Required read at a glance. */
+.ui-segmented--action-status .ui-segmented-option[value="complete"].active { background: var(--color-positive-bg); color: var(--color-positive); }
+
+.ui-segmented--action-status .ui-segmented-option[value="incomplete"].active { background: var(--color-negative-bg); color: var(--color-negative); }
+
+.ui-segmented--action-status .ui-segmented-option[value="not_needed"].active { background: color-mix(in srgb, var(--color-neutral) 20%, var(--bg-choice)); color: var(--color-neutral); }
+
+/* Round-trip feedback for the AJAX status-change submit (wireActionForms,
+   home.html) - dims the one control that was actually tapped rather than
+   the whole card, since that's the only part waiting on anything. Cleared
+   automatically on success (the whole card, this form included, gets
+   replaced); only the failure path needs to remove it manually. */
+[data-action-status-form].is-submitting {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* View Actions as a discreet (.btn-subtle) trigger sat directly beside the
+   completion count it applies to, rather than grouped with the row's other
+   actions below - it's a detail of that one stat line, not a general row
+   action. Baseline-aligned (not center) so the button's text sits on the
+   same line as the count rather than looking vertically offset. .btn-subtle
+   still carries .btn's own vertical padding (meant for a full-size tap
+   target elsewhere) - zeroed out here so the row's height matches every
+   other plain-text .entity-meta line instead of growing to fit the button. */
+.actions-complete-row { display: flex; align-items: baseline; gap: var(--space-xs); }
+
+.actions-complete-row .btn-subtle { padding-top: 0; padding-bottom: 0; }
+
+/* Every field is directly inline-editable, no Edit button (see #51's
+   follow-up: fully inline editing won over Edit-as-modal after prototyping
+   both) - Category, Description, Due Date, Status, each its own line (a
+   denser spreadsheet-row layout was tried and read as too cramped).
+   .field-editable is the shared "this control saves itself" chrome; each
+   select's own selected-option text is the only label it needs (aria-label
+   covers screen readers - see the template). Assigned To is the one
+   exception (#98): static text + a fused Edit button opening the Add Action
+   modal's Assign step, not an inline control - see .ui-fused-field-value
+   below. */
+.action-item { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-sm); margin-bottom: var(--space-sm); background: var(--bg-surface-alt); }
+
+.action-item > * { margin-bottom: var(--space-sm); }
+
+.action-item > *:last-child { margin-bottom: 0; }
+
+.action-item-desc.field-editable { display: block; width: 100%; resize: vertical; }
+
+.set-action-card { border: 2px solid var(--accent-border); border-radius: var(--radius-lg); padding: var(--space-md); background: var(--bg-surface); box-shadow: var(--shadow-emphasis); }
+
+.set-action-card h3 { font-size: var(--font-md); margin-bottom: var(--space-sm); }
+
+/* Category heading shares .referral-row-title with the Panel Meetings
+   section's own per-entry heading below, so the two flat sections' row
+   titles read as the same visual weight/size instead of Actions' heading
+   looking like a bigger, different kind of thing. .action-row is also
+   reused bare (combined with .entity-row) on the main Actions list page
+   (actions.html) for its own flat divided-list styling - the divider
+   treatment below is scoped to .action-row--divided (only used by the
+   shared _action_row.html partial, the Referral Details modal's Actions
+   section) so it doesn't double up with that page's own .entity-row
+   border. */
+.action-row { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-xs); }
+
+/* Flat divided-list treatment (no card border/background per row) matching
+   every other section in the Referral Details modal - Panel Meetings uses
+   the same "divider between rows, none around the section" pattern via
+   .referral-history-entry. .action-row-list is the shared flex-column
+   wrapper; the divider itself lives on the row so a lone action has none. */
+.action-row-list { display: flex; flex-direction: column; }
+
+.action-row--divided { padding: var(--space-xs) 0; }
+
+.action-row--divided:first-child { padding-top: 0; }
+
+.action-row--divided + .action-row--divided { border-top: 1px solid var(--border-faint); }
+
+/* Overdue sits beside the Category/row title, not next to the Due date
+   below - a status that flags the whole row is more legible read next to
+   the row's own heading than buried among its Assigned/Due/Raised facts. */
+.action-row-heading { display: flex; align-items: center; gap: var(--space-xs); }
+
+/* .action-row is a flex column with its own gap, which already spaces
+   the heading away from .action-row-grid below it - no separate margin
+   needed here. The heading sits full-width above the grid (not inside its
+   left column), so Assigned/Due/Raised and the description both start at
+   the same top edge - the description lines up with Assigned, not with the
+   heading above it. The status toggle select moves out of the top corner
+   and down to the bottom-right of the card, under the description, via
+   .action-row-status's margin-top: auto - the dropdown is what someone
+   reaches for once they've already read what the action is and who it's
+   assigned to, not the first thing to grab their eye. Left column shares
+   the same minmax(160px, 200px) width as .referral-view-fields/
+   .referral-decision-strip's label column above it in the same modal, so
+   all three sections' left edges line up down the page. */
+.action-row-grid { display: grid; grid-template-columns: minmax(160px, 200px) 1fr; column-gap: var(--space-md); }
+
+.action-row-details { display: flex; flex-direction: column; gap: var(--space-xxs); }
+
+.action-row-side { display: flex; flex-direction: column; }
+
+.action-row-status { margin-top: auto; padding-top: var(--space-xs); display: flex; justify-content: flex-end; gap: var(--space-xs); }
+
+/* The status <select> gets replaced by main.js's enhanceSelect() with a
+   .ui-select wrapper that defaults to width:100% (right, for full-width
+   filter-style dropdowns elsewhere) - here that 100% resolves against the
+   flex container's own size (not the select's content), stretching the
+   wrapper across the whole row and leaving the compact .status-pill trigger
+   sitting at its left edge instead of flush right. Shrinking the wrapper
+   back to its content restores flex-end alignment. */
+.action-row-status .ui-select { width: auto; }
+
+/* Line-clamped instead of scrollable/expandable - a verbose description
+   stays readable without stretching the row or needing its own
+   show-more control; the full text is one click away on the Action edit
+   page for the rare case someone needs it in full. */
+.action-row-description { font-size: var(--font-sm); color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

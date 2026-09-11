@@ -1,0 +1,212 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+/* The "Next Panel" heading is a full-width banner above the column row,
+   not inside the name column — so it never affects that row's height and
+   the divider lines/vertical centring across columns stay identical whether
+   or not a card happens to be the next one. It gets its own divider (border-
+   bottom) separating it from the row, and — when the logo column is present
+   — is nudged right by the logo's width + gap so its left edge lines up with
+   the panel name below rather than the card's own edge. The name column is
+   fixed-width so every card's columns start at the same x position
+   regardless of panel name length. The two detail columns grow to fill
+   whatever space is left between the name column and the actions, with all
+   their contents left-aligned (no right-aligned label sub-column). The
+   action column is pinned to the card's far right with margin-left: auto
+   and never changes size, and doesn't get a divider of its own — the gap
+   before it is enough. */
+
+/* ==================== Meeting card ====================
+   Single title/status line (status pill sits inline after the title;
+   the title truncates with an ellipsis under pressure rather than
+   wrapping, so a long school name never pushes the pill onto its own
+   line - min-width:0 + flex-shrink:0 on the pill is what makes that
+   work). Date+Chair share one line below. A New/Review + Priority (or,
+   for a completed panel, Discussed Referrals + Meeting Duration)
+   breakdown sits under a divider. Actions are a right-hand column,
+   vertically centred against the whole card. */
+
+/* Gapped per-row card, matching layout.css's .list-card .entity-row
+   redesign (git history has the zebra fill this replaced) - .meeting-card
+   is its own separate component (not .entity-row/.entity-list, so that
+   rule never reached it directly), same treatment applied by hand here.
+   .meeting-list (below) is the equivalent of .list-card .entity-list. No
+   border-radius - flush to .meeting-list's own left/right edge (no side
+   margin there either), same reasoning as .list-card .entity-row.
+   --border-color, not --border-strong - same "nested row shouldn't
+   outweigh the outer .list-card boundary" reasoning as .list-card
+   .entity-row (layout.css). */
+
+/* padding-top/bottom: 0 here (left/right stay) - #121 follow-up, live
+   feedback: "please use Referrals page as a template" / "it's the entity
+   row margins, they don't match" - matches #referrals-filtered-content
+   .entity-row's own >=701px grid-band fix exactly (own comment there: "the
+   buttons are only missing some margin bottom... lose the margin above and
+   vertically center" - outer top/bottom padding sat OUTSIDE the buttons
+   column's own stretched box, so once the body's data cols grew taller
+   than the button stack, that redundant outer inset stacked on top of the
+   already-centred slack and read as excess space above/below the buttons,
+   "pushing the row taller" than it needed to be). meeting-card-header's own
+   padding-top and row-facts-track's own padding-bottom (below) now supply
+   that same --space-md inset locally instead - matching padding-top/bottom
+   added to meeting-card-actions (below) so both stretched columns still
+   line up edge-to-edge. */
+.meeting-card {
+    padding: 0 var(--space-lg);
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-md);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    /* --card-shadow - same token/reasoning as .list-card .entity-row
+       (layout.css). */
+    box-shadow: var(--card-shadow);
+}
+
+/* Row standard (see .selectable in cards.css): inset outline, not a
+   background fill - stays visible against the card's own border regardless.
+   Left-edge accent bar (see cards.css's .selectable:hover comment for the
+   full reasoning), not a full outline. Hover/focus only - .chosen is a
+   fill, with no bar of its own to collide with, so this applies to a
+   chosen card too. */
+.meeting-card:hover,
+.meeting-card:focus-visible {
+    /* SYNC: cards.css's .selectable:hover is the source of truth for bar
+       width/hover colour/chosen colour (see its own SYNC comment).
+       Combined with var(--card-shadow) (base rule, above) in one box-shadow
+       list - box-shadow isn't additive across separate declarations, so
+       restating it here is what keeps the card's own drop shadow from
+       disappearing on hover. border-left-color (SYNC: .list-card
+       .entity-row:hover, layout.css) blends the card's own left border into
+       the bar instead of leaving it as a separate sliver in front. */
+    border-left-color: var(--accent-border);
+    box-shadow: inset var(--space-xxs) 0 0 var(--accent-border), var(--card-shadow);
+}
+
+/* Fill only - the accent bar (and its border-left-color companion) is a
+   hover/focus marker now, on .meeting-card:hover above, not on .chosen
+   (cards.css). No box-shadow restatement needed either: with no bar of its
+   own, the base rule's own var(--card-shadow) just stands. */
+.meeting-card.chosen { background: var(--primary-light); }
+
+.meeting-card-body { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; gap: 6px; }
+
+/* #121: MAT/aggregate-view school crest sits beside a two-line text stack
+   (meeting-card-header-text: title-row + date-line together) - matches
+   Referrals' own header exactly, where row-title-row holds BOTH its
+   Concern+pills line and its Name/Year/House/Form line indented beside the
+   avatar, with only the facts strip below living outside that column (own
+   comment, row-facts-track). align-items: center vertically centres the
+   42px .entity-thumb.is-logo (cards.css) against the whole two-line text
+   stack, same as #referrals-filtered-content .entity-thumb-group's
+   align-self: center against its own two-line header. */
+.meeting-card-header { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; padding-top: var(--space-sm); }
+
+.meeting-card-thumb { flex: 0 0 auto; }
+
+.meeting-card-header-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 auto; }
+
+.meeting-card-title-row { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: nowrap; min-width: 0; }
+
+.meeting-card-title-row h3 { margin: 0; font-size: var(--font-md); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* One flex child, not loose siblings of h3 - so the whole pill group moves
+   to the next line together once .meeting-card-title-row wraps (<=700px,
+   own rule below), rather than whichever pill runs out of room wrapping
+   alone while the rest stay on the name's own line. flex-wrap: wrap here
+   too, purely as a safety net for a card with enough pills that even the
+   group alone doesn't fit one line at very narrow widths. */
+.meeting-card-pills { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; }
+
+.meeting-card-title-row .status-pill { flex-shrink: 0; }
+
+.meeting-date-line { font-size: var(--font-sm); margin-top: 1px; color: var(--text-secondary); }
+
+.meeting-info-label { font-weight: 600; margin-right: var(--space-xxs); }
+
+.meeting-info-label::after { content: ":"; }
+
+/* #121: New/Review/Priority/Duration breakdown ported onto the shared
+   Referrals/Actions/Students data-cols vocabulary (#113) instead of its own
+   bespoke pill-cluster-plus-divider layout - .row-facts/.row-facts-cols/
+   .row-fact-col/.row-fact-label (below, shared rules) plus a
+   #meetings-filtered-content-scoped copy of the same per-page overrides
+   those three pages already carry (own rules, further below). Gets the
+   whole mechanism for free: per-column label-on-top, one shared column
+   width down the whole list (syncFactsColumnWidths, panel.js), permanent
+   horizontal scroll with prev/next arrows once a card's columns don't fit
+   (same delegated document-level wiring, no page-specific JS needed -
+   panel.js's own selectors just needed #meetings-filtered-content added to
+   their list, see there). .bd-pill's own colour coding (below) stays -
+   unlike Referrals/Students' plain-text columns, New/Review/Priority read
+   at a glance specifically because they're colour-coded, so each column's
+   data line is still a .bd-pill, just laid out via row-fact-col instead of
+   the old flat pill-cluster. See _meetings_rows.html. */
+
+/* Breakdown pills - New/Review reuse the same green/caution tokens as
+   Panel Agenda Setup's type-new/type-followup pills (same real-world
+   meaning, same colour everywhere); Priority reuses the shared
+   --priority-*-bg/-text tokens the priority-select dropdown uses elsewhere. */
+
+/* padding/line-height standardised to the same convention as .status-pill
+   (components/pills.css) - live feedback: "We can standardise the pill in
+   student area as well", after the same fixed-px-padding-regardless-of-
+   font-size mismatch showed up here too (SEN/PP/EAL pills visibly taller
+   than the name they sit beside on Students' mobile row). em padding
+   scales with font-size automatically; line-height: 1 makes height depend
+   only on the pill's own font-size + padding, not whatever line-height its
+   context happens to have. */
+.bd-pill { display: inline-flex; align-items: center; font-size: var(--font-xs); font-weight: 600; line-height: 1; border-radius: var(--radius-pill); flex-shrink: 0; padding: 0.35em 8px; }
+
+.bd-pill.bd-new { background: var(--color-positive-bg); color: var(--color-positive); }
+
+.bd-pill.bd-review { background: var(--color-caution-bg); color: var(--color-caution); }
+
+.bd-pill.bd-high { background: var(--priority-high-bg); color: var(--priority-high-text); }
+
+.bd-pill.bd-medium { background: var(--priority-medium-bg); color: var(--priority-medium-text); }
+
+.bd-pill.bd-low { background: var(--priority-low-bg); color: var(--priority-low-text); }
+
+.bd-pill.bd-untriaged { background: var(--badge-bg); color: var(--text-faint); }
+
+/* Student identity flags (SEN/PP/EAL/LAC/YC/MA, _students_rows.html) -
+   text-secondary, not bd-untriaged's own text-faint (live feedback: "the
+   Student flag pills next to student name on Students is a little hard to
+   read" - bd-untriaged's low contrast is deliberate there, signalling
+   "nothing assigned yet" for an actually-empty priority count elsewhere,
+   _meetings_rows.html; reused here purely because it was the nearest
+   existing muted pill, but these flags are real, meaningful data about the
+   student, not an unset/empty state, so they need to actually read at a
+   glance). Same badge-bg background as bd-untriaged - only the text
+   contrast needed fixing, not the whole pill's colour family. */
+.bd-pill.bd-flag { background: var(--badge-bg); color: var(--text-secondary); }
+
+/* Stands in for the whole New/Review (+ Priority) cluster when a card has
+   no referrals at all - same warning tone as .status-pill.open/.delayed
+   rather than a neutral one, since an empty agenda this close to the
+   meeting is worth noticing (see grilling session 2026-07-13, Panel
+   Meetings review). */
+.bd-pill.bd-empty { background: var(--color-warning-bg); color: var(--color-warning); }
+
+/* Row action buttons (Start/Continue Meeting, Edit Agenda) - #121: vertical
+   stack at desktop/tablet width now, same .row-btn-row-stacked convention
+   Actions uses (own rule, panel.css) - "buttons column spans both rows
+   full height, vertically centred" (per-ticket brief) reads more naturally
+   as a centred column of full-width buttons than a right-aligned wrapped
+   row. align-items: stretch is load-bearing, not cosmetic - without it
+   each button in a column keeps its own natural content width instead of
+   matching the column's widest button (same reasoning as Actions' own
+   row-btn-row-stacked comment). justify-content: center vertically centres
+   a short button stack against the card's own (potentially taller)
+   height, same as before. */
+.meeting-card-actions { flex: 0 0 auto; display: flex; flex-direction: column; flex-wrap: nowrap; justify-content: center; align-items: stretch; padding: var(--space-xs) 0 var(--space-xs) var(--space-lg); gap: var(--space-xs); }
+
+.meeting-card-actions .btn { white-space: nowrap; }
+
+/* Delete's <form> (_meetings_rows.html, data-row-remove-form) is a plain
+   block box, not a .btn itself - align-items: stretch (above) stretches
+   the form to the column's own width, but its .btn child still only takes
+   its own content width inside that now-wide box unless told otherwise. */
+.meeting-card-actions form { display: flex; }
+
+.meeting-card-actions form .btn { flex: 1 1 auto; }

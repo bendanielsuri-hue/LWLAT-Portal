@@ -1,0 +1,125 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+#requires-followup-row { justify-content: flex-start; margin-top: 0; }
+
+#attendance-dialog .modal-header,
+#meeting-start-dialog .modal-header { flex-direction: column; align-items: stretch; gap: var(--space-xxs); }
+
+.attendance-dialog-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); margin-top: var(--space-md); }
+
+.attendance-dialog-footer .btn-row { margin-top: 0; }
+
+.attendance-summary { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 600; }
+
+.attendance-summary strong { color: var(--text-primary); }
+
+/* #121: at 375px the modal shell (.modal-dialog--wide, above) is down to
+   ~345px (92vw) - the summary text and Cancel/Start Meeting no longer fit
+   one row. Stack summary above the buttons and let the buttons fill the
+   row edge-to-edge, same convention as Referrals'/Actions' own mobile
+   .row-btn-row/.btn-row rules. */
+@media (max-width: 700px) {
+    .attendance-dialog-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .attendance-dialog-footer .btn-row > * {
+        flex: 1 1 0;
+    }
+}
+
+/* Add Expertise Tag - a single-field quick-add, narrower than the shared
+   560px modal shell (dialog.modal-dialog) since one label+input+btn-row
+   doesn't need that much width. */
+#expertise-quick-add-dialog { width: min(360px, 92vw); }
+
+#expertise-quick-add-dialog .field-group { margin-bottom: var(--space-md); }
+
+/* Add External Contact - same compact single-purpose shell as Add
+   Expertise Tag above, just with two fields instead of one. */
+#external-contact-quick-add-dialog { width: min(360px, 92vw); }
+
+#external-contact-quick-add-dialog .field-group { margin-bottom: var(--space-md); }
+
+/* Growable modals — dialogs whose content is likely to change height
+   *repeatedly* while open (adding/removing rows, a live search-filtered
+   list) rather than switching once between a couple of fixed modes —
+   anchored near the top of the viewport instead of the shared
+   .modal-dialog's vertical centering, so the top edge stays put as the
+   dialog grows/shrinks and only the bottom edge moves. Centering would
+   shift the top edge upward on every grow, which reads far jumpier than a
+   stable top with a moving bottom - a cost worth paying when height keeps
+   changing, but not for a dialog that only ever resizes once or twice per
+   open (the growable-vs-mode-switch distinction above is the full reasoning
+   for why Panel Meeting/Settings is
+   the one dialog that looks similar but stays centered instead).
+   - Panel Search: result count changes on every keystroke.
+   - Panel Group Edit: tabs, add/remove members, search-filtered picker.
+   - New Referral: its student search re-filters live as you type, even
+     though the picker-vs-form step itself is a one-off switch.
+   - Add Action: Assign Staff Mode's own live search-filtered results, on
+     top of the details/Assign step switch (#98).
+   Small static dialogs (Add Expertise Tag, confirm dialogs) and one-off
+   mode-switch dialogs (Panel Meeting/Settings' inline "Create Panel Group"
+   swap) stay centered — this is a deliberate, scoped override per dialog,
+   not a change to the shared dialog.modal-dialog base rule.
+   ID selectors here would otherwise outrank the UA stylesheet's
+   dialog:not([open]) { display: none }, so each must stay scoped to [open]
+   — without it the dialog sits permanently laid out and pointer-interactive
+   (just invisible via .modal-dialog's opacity: 0) over the middle of the
+   page even when closed, silently swallowing clicks/hover for whatever's
+   underneath. */
+dialog#panel-search-dialog[open],
+dialog#panel-group-dialog[open],
+dialog#new-referral-dialog[open],
+dialog#action-form-dialog[open] {
+    top: 8vh;
+    bottom: auto;
+    margin: 0 auto;
+}
+
+/* Panel search modal — grows/shrinks with the live result count (capped,
+   with the results list scrolling internally beyond that) instead of
+   staying pinned to a fixed height regardless of content. */
+dialog#panel-search-dialog[open] {
+    max-height: 76vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+dialog#panel-search-dialog .modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Layout glue only — border/background/hover/focus/has-text states come
+   from the shared .app-search-field/.app-search-input component in
+   navigation.css (INT-P4). */
+.panel-search-field { width: 100%; flex: 0 0 auto; }
+
+/* Bleeds out through .modal-body's own right padding (same technique as
+   .setup-col-body, DES-L5) so the results list's scrollbar sits flush against the dialog's
+   right edge instead of inset by --space-xl. padding-right restores that gap
+   for the row content itself; left stays untouched so it keeps lining up
+   with .panel-search-field above it. */
+.panel-search-results {
+    margin-top: var(--space-md);
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin-right: calc(-1 * var(--space-xl));
+    padding-right: var(--space-xl);
+}
+
+#panel-member-dialog { max-height: 92vh; }
+
+html.nav-touch-mode .panel-search-results {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode .panel-search-results::-webkit-scrollbar {
+    display: none;
+}
