@@ -45,15 +45,14 @@ document.addEventListener('DOMContentLoaded', initApp);
 // es-modules-findings.md §3) - a listener registered above is still in time.
 function initApp() {
 
-    // (INT-U3) Disabled-reason tooltips, wired once for the whole document
-    // (see syncDisabledTooltip above). The observer - not a call per page -
-    // is the point: a reason has to keep up with a button that gets
+    // (INT-U3) Disabled-reason tooltips (components/disabled-tooltip.js),
+    // wired once for the whole document. The observer - not a call per
+    // page - is the point: a reason has to keep up with a button that gets
     // disabled/enabled by JS (a modal's Save while its form is invalid) or
     // arrives in an AJAX-swapped fragment, and every page that forgot to
-    // re-run it would silently lose the tooltip again. attributeFilter keeps
-    // it to the four attributes that can change the answer, and the pass
-    // itself is idempotent, so the DOM edits it makes settle immediately
-    // rather than re-triggering the observer indefinitely.
+    // re-run it would silently lose the tooltip again. The pass itself is
+    // idempotent, so its own DOM edits settle immediately rather than
+    // re-triggering the observer indefinitely.
     wireDisabledTooltips();
     var syncDisabledTooltips = rafThrottle(function () { wireDisabledTooltips(); });
     new MutationObserver(syncDisabledTooltips).observe(document.body, {
@@ -63,11 +62,11 @@ function initApp() {
         attributeFilter: ['disabled', 'class', 'aria-disabled', 'data-disabled-reason']
     });
 
-    /* Tiers, touch-nav detection and the phone-chrome classes all live in
-       layout/breakpoints.js now. Called here rather than from that module's
-       body so the first classification still happens at exactly this point in
-       the page lifecycle: every subscriber registered by a later module is in
-       place by now, and this notifies all of them. */
+    /* Tiers, touch-nav detection and the phone-chrome classes live in
+       layout/breakpoints.js. Called here rather than from that module's
+       body so the first classification happens at exactly this point in
+       the page lifecycle: every subscriber registered by a later module is
+       in place by now, and this notifies all of them. */
     initBreakpointClasses();
     /* The filter bar's "mobile" treatment covers a narrowed desktop browser
        window too, not just a true phone (live feedback: "I basically want
@@ -96,8 +95,8 @@ function initApp() {
         // `top` too, since position: fixed's own static-position fallback
         // recomputes every frame as the box's height/flow changes mid-
         // transition. Only guards an actual VALUE change (below), not
-        // every call - this fires on every touch-nav toggle too (this
-        // function's own comment elsewhere), most of which don't actually
+        // every call - this also fires on every touch-nav toggle
+        // (onTouchNavChange, breakpoints.js), most of which don't actually
         // flip either class.
         var wasMobile = document.documentElement.classList.contains('filter-bar-mobile-mode');
         var wasNarrow = document.documentElement.classList.contains('filter-bar-narrow-desktop');
@@ -119,10 +118,7 @@ function initApp() {
         // control that could reveal it again - live feedback: "lost the
         // close and clear button" (they render, just via the wrong,
         // desktop-only .filter-actions-right placement, because the field
-        // grid itself never made it back into the tray). Only one tray bar
-        // is ever on screen per page, but querySelectorAll here (not a
-        // single querySelector) costs nothing and needs no per-page change
-        // if that ever stops being true.
+        // grid itself never made it back into the tray).
         document.querySelectorAll('.filter-bar-tray').forEach(function (trayBar) {
             if (trayBar._filterBarMeasure) trayBar._filterBarMeasure();
         });
