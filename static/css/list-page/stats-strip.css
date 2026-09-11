@@ -1,0 +1,177 @@
+/* Promoted out of panel.css by #211 - generic, no domain vocabulary. */
+
+/* Widened from max-width: 480px to max-width: 900px (live feedback: "I
+   basically want everything to be the same as mobile except we keep the
+   side nav and do not have the bottom mobile nav" - refined once more, live
+   feedback: "everything changes... I only want the filter treatment to be
+   same as mobile" - so unlike the block above, ONLY the filter bar/tray
+   itself (this block) gets the widened treatment; the entity list stays
+   untouched at every width). Every selector below is also gated on the new
+   html.filter-bar-mobile-mode class (toggled live, main.js) rather than
+   width alone - true phones stay covered unconditionally (that class is
+   always true at <=480px, matching this block's old behaviour exactly), but
+   a real portrait tablet in this same 481-900px band is html.nav-touch-mode
+   (real hover:none) and so never gets the class, keeping its own tablet
+   layout untouched (live feedback, earlier in this same thread: "I did not
+   want the filter change on narrow mobile to affect portrait tablet. It is
+   only on very narrow desktop that had issues"). Only a hover-capable
+   pointer this narrow - a shrunk desktop browser window - gets the class
+   and so this whole block. .mobile-tabbar/.mobile-tab-fab (_hub_sidebar.html)
+   stay governed by their own separate, untouched <=479px check, so this
+   never pulls in the phone bottom-nav/FAB at desktop width - the JS math
+   that clears the tabbar's height for the tray (positionFilterTray, below)
+   already degrades to 0 gracefully whenever .mobile-tabbar is display: none,
+   exactly as it already does above 480px today.
+
+   The (max-height: 500px) arm is the `short` tier (landscape phone - see the
+   breakpoint registry in responsive.css and ADR 0016). A landscape iPhone 16
+   Max is 932px wide, i.e. just OUTSIDE the 900px arm, so the filter tray's
+   sticky footer never got its mobile treatment there and the result counts sat
+   off-screen with no way to reach them (live feedback: "the footer is not
+   sticky in this format so I can't see the counts"). Its two smaller siblings
+   (SE at 667, iPhone 16 at 844) did match, so the same device class was
+   getting two different filter bars depending on model.
+
+   Safe to widen because 52 of the 59 rules in this block are already scoped to
+   html.filter-bar-mobile-mode, which is only set when the treatment is
+   actually wanted (main.js's isFilterBarMobile) - the width query was
+   redundant belt-and-braces for them. Of the remaining seven, six are
+   html.filter-bar-narrow-desktop, which deliberately EXCLUDES this tier, and
+   the last is a z-index lift on .stats-strip that is wanted here anyway. */
+@media (max-width: 900px), (max-height: 500px) {
+    /* Stats footer (Students/Referrals/Actions/Panel Meetings/Safeguarding
+       Notes/Escalations counts, .stats-strip, bottom of the list) stays
+       undimmed and clickable through the overlay above it (live feedback:
+       "overlay should not overlay the stats footer") - position: relative +
+       a z-index above the overlay's own 1 (not a change to the overlay's
+       own bounds/inset) is enough to lift it visually and for pointer
+       events, the same z-index-beats-DOM-order mechanism the overlay's own
+       z-index: 1 already relies on above, one level further up the stack.
+       Scoped to .filtered-content generically (was #students-filtered-
+       content only) - every list page sharing this footer treatment now
+       shares this fix too, not just the one it was first written against. */
+    .filtered-content .stats-strip {
+        position: relative;
+        z-index: 2;
+    }
+}
+
+/* bottom: 0, so it pins to the foot of the viewport while the list scrolls
+   underneath and releases naturally at the end of the list. */
+html.phone-chrome-side .stats-strip {
+    position: sticky;
+    bottom: 0;
+    z-index: 9;
+}
+
+html.phone-chrome-side .stats-strip {
+    background: var(--bg-well);
+}
+
+/* Square bottom corners. The 12px radius is right when the strip is the foot of
+   an inset, rounded card; in this tier the card runs edge to edge with its side
+   borders and radius already stripped, so a rounded bottom left two notches of
+   page background biting into a strip that otherwise reaches both edges - and
+   it now sits flush against the viewport bottom, where there is no card corner
+   left for it to echo (live feedback: "we do not need... the bottom radius on
+   footer section"). Same "no radius on a flush edge" call the tray and the
+   mobile sheets already make. */
+html.phone-chrome-side .stats-strip {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* Data cards simplify to plain details at every width except true mobile
+   (live feedback: "just details not cards" (phone), then "can this not
+   look like data cards inside a footer, it is taking up too much space"
+   (tablet), then "apply this style of footer to all modes but mobile" -
+   widened phone-only -> <=900px -> >=481px, i.e. every width the footer
+   itself still shows at all: true mobile replaces this footer entirely
+   with .page-subtitle-stats in the header instead, see the <=480px rule
+   further below) - the boxed-card treatment (background/border/padding,
+   still 3-up via the unconditional grid rule above) reads as three
+   redundant little boxes; a single plain-text line carries the same 3
+   numbers without the chrome. Still 3 items, still one row - just flex
+   instead of grid, nothing to fit-to-column here any more. */
+@media (min-width: 481px) {
+    /* Same chrome as .filter-bar (live feedback: "can the footer also have
+       same chrome as the filter bar") - --bg-well, not the card's own
+       --bg-surface white (layout.css's .list-card .stats-strip base rule),
+       so the footer reads as the same "you're inside interactive chrome"
+       strip bookending the list, top and bottom, as the filter bar already
+       does above it. The individual .stat-cards below already lost their
+       own background in this same plain-details pass, so this is the only
+       fill left behind them. Scoped to .filtered-content generically (was
+       #students-filtered-content only, written against Students as this
+       ticket's reference page) - every list page sharing this footer
+       (Referrals/Actions/Panel Meetings/Safeguarding Notes/Escalations) now
+       gets the identical chrome instead of staying on the plain boxed-card
+       default. */
+    .filtered-content .stats-strip {
+        display: flex;
+        justify-content: center;
+        gap: 0;
+        background: var(--bg-well);
+        /* Less top/bottom than the base .list-card .stats-strip rule's
+           var(--space-md) (layout.css) - live feedback: "reduce the padding
+           above and below stats" once this was single-line plain text
+           rather than a taller boxed-card grid, --space-md read like dead
+           space it no longer needed. Horizontal stays --space-md. */
+        padding: var(--space-xs) var(--space-md);
+    }
+    /* Back to one line (live feedback: "better but too tall. Maybe go back
+       to one line but have the label vertically centered. Last time it was
+       bottom aligned" - the stacked value-above-label version above was
+       tried and reverted for height; align-items: center instead of the
+       original row layout's baseline is the actual fix for the "bottom
+       aligned" complaint, baseline had put the label's own baseline level
+       with the value's, which reads as bottom-heavy once the two are such
+       different font sizes). */
+    .filtered-content .stats-strip .stat-card {
+        flex: 0 0 auto;
+        flex-direction: row;
+        align-items: center;
+        gap: var(--space-xxs);
+        background: none;
+        border: none;
+        padding: 0;
+        border-radius: 0;
+    }
+    /* Interpunct separators between items instead of a card boundary each -
+       same character/role .row-title-sep already uses elsewhere for this
+       exact job (joining plain-text facts without a visual box). Only
+       between items (:not(:last-child)), not a divider floating after the
+       last one with nothing to separate. */
+    .filtered-content .stats-strip .stat-card:not(:last-child)::after {
+        content: '\00b7';
+        margin: 0 var(--space-xs);
+        color: var(--text-faint);
+    }
+    .filtered-content .stats-strip .stat-value {
+        font-size: var(--font-md);
+        font-weight: 700;
+    }
+    .filtered-content .stats-strip .stat-label {
+        font-size: var(--font-sm);
+        color: var(--text-secondary);
+        margin-top: 0;
+    }
+}
+
+/* Bottom .stats-strip hidden at <=480px specifically - the page-subtitle
+   line under the page title (above, each page's own page_subtitle block)
+   is the one copy shown there instead (live feedback: "the stats row
+   takes up a lot of space, can this be under Students"). Placed after
+   every other .filtered-content .stats-strip rule in this file (the
+   unconditional 3-column grid rule + this same <=480px block's own "plain
+   details" conversion above) so it reliably wins the cascade at equal
+   specificity - an earlier attempt at this same override, placed before
+   those rules, was silently beaten by them regardless of the media query
+   being true. Scoped to .filtered-content generically now (was
+   #students-filtered-content only) - every page with this footer hides it
+   the same way at true mobile width, not just Students. */
+@media (max-width: 480px) {
+    .filtered-content .stats-strip {
+        display: none;
+    }
+}

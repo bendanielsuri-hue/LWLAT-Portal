@@ -44,7 +44,7 @@ export function initDragReorder(zoneConfig, options) {
     // rows during drag, so the list doesn't visibly swap/shuffle around
     // until the drop actually happens.
     var dropIndicator = document.createElement('div');
-    dropIndicator.className = 'agenda-drop-indicator';
+    dropIndicator.className = 'drop-indicator';
 
     function removeIndicator() {
         if (dropIndicator.parentNode) dropIndicator.parentNode.removeChild(dropIndicator);

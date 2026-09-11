@@ -140,3 +140,32 @@ dialog.modal-dialog .btn-row { justify-content: flex-end; margin-top: var(--spac
 .modal-subtitle { font-size: var(--font-sm); color: var(--text-secondary); margin: 0; }
 
 .modal-divider { border: none; border-top: 1px solid var(--border-color); margin: var(--space-md) 0; }
+
+/* Promoted out of panel.css (#211) - generic, no domain vocabulary. */
+/* The unconditional `display: flex` above is author CSS, which always beats
+   the browser's own `dialog:not([open]) { display: none }` UA-stylesheet
+   rule regardless of selector specificity - so without this, a *closed*
+   dialog still rendered as an invisible (opacity: 0) centred fixed box and
+   went on intercepting clicks underneath it indefinitely. That was always
+   true, but harmless as long as closing was itself delayed by the full
+   fade-out duration (dialog.close() only fired once the CSS transition
+   finished) - the native modal block from still being technically "open"
+   covered the same window, so nobody could click through to notice this
+   second, permanent layer underneath it. Closing instantly (see closeModal()
+   in panel.js) removed that mask and made this the actual, lasting blocker -
+   e.g. Referral Selection sitting right under where the dialog centres
+   itself stayed unclickable forever after closing, while Panel Agenda,
+   further off to the side, was unaffected. Higher specificity than the bare
+   `dialog.modal-dialog` rule above, so this correctly wins once `[open]` is
+   gone. */
+dialog.modal-dialog:not([open]) {
+    display: none;
+}
+
+html.nav-touch-mode dialog.modal-dialog .modal-body {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode dialog.modal-dialog .modal-body::-webkit-scrollbar {
+    display: none;
+}

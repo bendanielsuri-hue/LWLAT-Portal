@@ -576,3 +576,32 @@
 .entity-row > .row-btn-row { padding-left: var(--space-lg); }
 
 .entity-body > .btn-row { margin-top: var(--space-xs); }
+
+/* Promoted out of panel.css (#211) - generic, no domain vocabulary. */
+@keyframes empty-note-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ==================== Touch scrollbar-hide audit ====================
+   feedback_hide_scrollbar_touch_mode (memory): any overflow:auto scroll
+   region should hide its native scrollbar on touch (html.nav-touch-mode),
+   same pair layout.css's .list-card .entity-list already uses - momentum
+   scroll already signals scrollability there, a mouse/trackpad user still
+   sees it elsewhere. Meetings' own .meeting-list turned up missing this
+   (live feedback: "I thought we documented this so that all pages that
+   were touch did not show these"), which prompted sweeping every other
+   overflow:auto region in this file for the same gap - these are the ones
+   that were never actually covered (a handful of others, e.g. the Home
+   carousels/#my-referrals-list, .stats-carousel-track, .row-facts-cols,
+   already hide their scrollbar unconditionally for everyone, not just
+   touch - nothing to add there). Grouped here as one sweep rather than
+   scattered at each individual rule, since there's no shared reasoning
+   worth repeating a dozen times over. */
+html.nav-touch-mode .activity-list {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode .activity-list::-webkit-scrollbar {
+    display: none;
+}
