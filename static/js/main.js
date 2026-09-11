@@ -42,9 +42,7 @@ import { isFilterBarMobile, isFilterBarNarrowDesktop } from './components/filter
 document.addEventListener('DOMContentLoaded', initApp);
 
 // A module body runs after parsing but before DOMContentLoaded (measured,
-// es-modules-findings.md §3) - a listener registered above is still in
-// time. Named rather than inline so the registration line above stays a
-// one-liner and this reads as the app's own boot sequence, not a callback.
+// es-modules-findings.md §3) - a listener registered above is still in time.
 function initApp() {
 
     // (INT-U3) Disabled-reason tooltips, wired once for the whole document
@@ -78,16 +76,7 @@ function initApp() {
        narrow-desktop attempts both still read as unfinished).
        html.filter-bar-mobile-mode is the single switch every affected CSS rule
        keys off, rather than each rule re-deriving this same OR condition from
-       raw media features.
-
-       narrowMql / portraitMql / portraitWideMql are imports from
-       layout/breakpoints.js, which carries the reasoning for each - that's
-       where a reader asking "why 900px, and why orientation rather than
-       width?" should find it. isFilterBarMobile/isFilterBarNarrowDesktop
-       are imports too now (components/filter-bar/mobile-mode.js, which
-       carries their own reasoning), promoted out to real exports so
-       expand-collapse.js/more-filters.js can import them directly instead
-       of reading window.isFilterBarMobile. */
+       raw media features. */
     function syncFilterBarMobileClass() {
         // filter-bar-mode-switching (panel.css: forces transition: none on
         // .filter-bar-collapsible) - live feedback: "I saw [the tray reduce
@@ -174,11 +163,6 @@ function initApp() {
 
     initMatHome();
 
-    /* Layout chrome. Each of these was an IIFE inline in this handler; they are
-       modules under js/layout/ now and this is the whole of what is left. Order
-       is the order they ran in before, which is not known to matter - none of
-       them reads state another one writes - but preserving it costs nothing and
-       makes the extraction a move rather than a change. */
     initSettingsPanel();
     initViewFullSystemToggle();
     initSchoolSwitcher();
