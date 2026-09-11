@@ -15,6 +15,7 @@
    docs/adr/0018 records what the panel was. */
 
 import { rafThrottle } from '../raf-throttle.js';
+import { resyncFilterTriggerWidths } from '../select.js';
 import { phoneMql, narrowMql, portraitMql, portraitWideMql } from '../../layout/breakpoints.js';
 import { groupFilterSections } from './sections.js';
 import { wireFilterSectionScroll } from './section-scroll.js';
@@ -512,7 +513,7 @@ export function setupFilterBarMoreFilters(bar) {
         // (or unwind) the tray's section wrappers to match it. Both run in
         // either direction, so crossing the boundary settles correctly even
         // with the tray already open.
-        if (window.resyncFilterTriggerWidths) window.resyncFilterTriggerWidths(bar);
+        resyncFilterTriggerWidths(bar);
         groupFilterSections(bar);
         // After grouping, never before: the tracks this measures are the
         // wrappers groupFilterSections has just built or unwound (#186).

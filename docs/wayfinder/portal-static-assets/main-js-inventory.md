@@ -248,15 +248,15 @@ below is under it except where noted.
 | `disabled-tooltip.js` | `wireDisabledTooltips`, `syncDisabledTooltip` | 89–133 | 24 |
 | `tabs.js` | `setupOverflowTabs`, `buildOverflowFade` — **merges into the `tabs.js` taxonomy §3 already assigns from `panel.js` region 11** | 134–223, 2667–2676 | ~49 |
 | `drag-scroll.js` | `setupOverflowDragScroll` | 224–275 — see §6 | 30 |
-| `carousel.js` | `wireScrollCarousel` | 824–935, 2902–3047 — see §6 | ~157 |
+| `carousel.js` | `wireScrollCarousel` | 824–935, 2902–3047 — see §6 | ~157 | ✅ done (slice 4a for the first range; the second, the stats carousel, stayed its own file — §6) |
 | `card-switcher.js` | card-switcher wiring | 2760–2805 | 22 | ✅ done (slice 3b) |
 | `backdrop.js` | `addBackdrop`, `removeBackdrop` | 2042–2082 | ~25 | ✅ done (slice 3a) |
-| `popover.js` | `positionPopover`, `closeAllUiPopovers`, `forwardClickThrough` | 3971–4120 | 57 |
-| `select.js` | `enhanceSelect`, `resyncFilterTriggerWidths` | 4121–4553 | 217 |
-| `date-input.js` | `enhanceDateInput` | 4554–4806 | 226 |
-| `time-input.js` | `enhanceTimeInput` | 4807–5154 | 274 |
-| `fused-field.js` | `initFusedFieldStacking` | 5155–5206 | ~27 |
-| `form-controls.js` | `enhanceFormControls` | 5207–5239 | ~12 |
+| `popover.js` | `positionPopover`, `closeAllUiPopovers`, `forwardClickThrough` | 3971–4120 | 57 | ✅ done (slice 5) |
+| `select.js` | `enhanceSelect`, `resyncFilterTriggerWidths` | 4121–4553 | 217 | ✅ done (slice 5) |
+| `date-input.js` | `enhanceDateInput` | 4554–4806 | 226 | ✅ done (slice 5) |
+| `time-input.js` | `enhanceTimeInput` | 4807–5154 | 274 | ✅ done (slice 5) |
+| `fused-field.js` | `initFusedFieldStacking` | 5155–5206 | ~27 | ✅ done (slice 5) |
+| `form-controls.js` | `enhanceFormControls` | 5207–5239 | ~12 | ✅ done (slice 5) |
 | `select-row.js` | `uiSelectRowAdders` click delegation | 5240–5251 | 12 |
 
 `select.js` at 217 code lines keeps the width-measurement half (4121–4350) rather than publishing it:
@@ -522,13 +522,72 @@ section-scroll imports it. **4b:** `tray-position.js`, `expand-collapse.js`, `aj
   just by the URL moving — and at 430px the tray pins to the bar's rect and stops above the tab bar.
   Zero console errors.
 
+### Slice 5 — the last two IIFEs: popovers, form controls, the KPI carousel ✅
+
+`popover.js`, `select.js`, `date-input.js`, `time-input.js`, `fused-field.js`, `form-controls.js`,
+`select-row.js`, `stats-carousel.js`, `layout/page-header-actions.js`, and `components/format.js`
+for a shared `pad2`. **`main.js`: 1,173 → 213 code lines** — under the review trigger for the first
+time since this file existed as one thing. What remains is `syncDisabledTooltip`/
+`wireDisabledTooltips`, `setupOverflowTabs`/`buildOverflowFade`/`setupOverflowDragScroll`, and a
+`DOMContentLoaded` handler of ~15 `init*()` calls in the order they always ran in.
+
+- **Two boundary slips in the same extraction, both caught before commit.** `form-controls.js`
+  first grabbed 1919–1951, which is `initFusedFieldStacking` *and* `enhanceFormControls` both —
+  `initFusedFieldStacking` actually starts at 1919, not 1935, so it printed with an unclosed IIFE
+  wrapper stitched onto the end. Re-derived the boundary from a fresh grep rather than trusting the
+  number in my head and it split cleanly at 1926/1935. Second: a `sed -n` preview of
+  `setupPageExtrasOverflow`'s bounds was stale from an earlier point in this same slice (main.js had
+  shifted under it since); re-grepped fresh and the true range was 494, not 491, off by exactly the
+  three lines the earlier edit had removed elsewhere.
+- **A shared-preamble constant split unevenly, and it shipped before the browser caught it.**
+  `CALENDAR_ICON_SVG`/`CLOCK_ICON_SVG`/`MONTH_NAMES`/`daysInMonth` were declared once, together,
+  ahead of both `enhanceDateInput` and `enhanceTimeInput` in the original closure. Splitting the
+  closure in two put all four in `date-input.js` by line-range accident — `CLOCK_ICON_SVG` is never
+  read there, only assigned. `time-input.js`, which actually uses it, got nothing. `node --check`
+  passed (it's valid syntax, just a runtime `ReferenceError`); `enhanceFormControls`'s own
+  `try`-free forEach loop meant one throw aborted the whole enhancement pass for every remaining
+  field on the page. Found live: opening "New Panel Meeting" left the dialog un-enhanced past the
+  date field. Moved to the file that uses it, with a comment on why a clock icon was ever declared
+  in the date module.
+- **A side-effect-only module needs an explicit import, and I shipped one that didn't have one.**
+  `select-row.js` has zero exports — its only job is the `document.addEventListener('click', ...)`
+  it attaches at module-load time. Nothing in `main.js` referenced it by name, so nothing forced the
+  browser to fetch or execute it, and the listener silently never attached. `node --check` cannot
+  catch this — the file is valid on its own; the bug is an absent import in a *different* file.
+  Found by testing the actual feature end to end (the "Create new Panel Group" quick-add button did
+  nothing), not by any static check. Swept every other new module for the same shape — one file
+  with zero exports (a real hit) turned out to load via its own `<script src>` tag, not an import,
+  so it needed nothing.
+- **Both bugs were invisible to every check that ran before the browser did**: `node --check` on
+  every file individually, the linked-module-graph execution under a DOM stub, `check_stale_comments`,
+  `check_file_size`. All passed on both bugs. A hand-rolled static "undeclared free identifier"
+  scanner was attempted for the `CLOCK_ICON_SVG` class of bug and abandoned — its own regex-based
+  string/comment stripping had false positives (bare words leaking out of what should have been
+  stripped string literals), and a heredoc pass silently dropped backslashes from its source twice
+  while writing it, the same class of tooling failure as the truncated-grep in slice 4a. A checker
+  that cannot be trusted to be right is worse than no checker: it was worth building, and worth
+  discarding once it proved unreliable rather than shipping "clean" results from it.
+- **The methodology for finding both bugs, once browser-checked, still needed a second pass to
+  trust.** The first click-delegation test used a synthetic `.ui-select-row` container that (it
+  turned out, on inspection) no real template in this codebase ever pairs with `data-add-trigger` —
+  a latent gap in the original selector's comma-concatenation, not a regression. The real regression
+  was confirmed only by testing the actual "Create new Panel Group" button against a genuinely fresh
+  page load, comparing content-length before/after rather than dialog-open count (which never
+  changes — the feature swaps content into the existing dialog, it doesn't open a second one), and
+  stash-comparing against pristine `main` with the identical signal. Two of those three signals were
+  wrong on the first attempt; only the third was trustworthy.
+- **Verified in a browser:** `enhanceSelect` opens/picks/writes/closes and fires a real `change`
+  (referrals filter navigated); `enhanceDateInput`'s day/month/year triplet and its calendar-grid
+  popover both write the native input; `enhanceTimeInput`'s spinner arrows write it too, with the
+  clock icon rendering; `initFusedFieldStacking` genuinely stacks rows that don't fit (2 of 7 groups
+  on a real discussion page) and leaves the rest inline; `select-row.js`'s delegated "+" opens the
+  inline Panel Group create form, confirmed against a pristine baseline; the KPI carousel's arrow
+  click and pointer-drag both scroll. Zero console errors across nine pages at desktop and 430px.
+
 Remaining, in order — each unblocked by the one above it:
 
 | Item | Owner |
 | --- | --- |
-| `components/filter-bar/` (§5.2), the largest single piece | the execution issue |
-| The remaining `components/` modules (§5.1) | the execution issue |
 | `.senco-*` already promoted into `static/css/` under a domain name (§4.2) | new issue — a live breach of rule 1 on shipped files |
-| ~~`studentsNarrowMql` naming the canonical breakpoint tier in `responsive.css`~~ | ✅ closed by slice 1 — the registry now names `phoneMql`/`narrowMql`/`touchMql`/`railMql` and points at `js/layout/breakpoints.js` |
 | Drag-to-scroll ×6 plus the sidebar's seventh variant (§6) | #214 |
-| `components/filter-bar.js` file/folder collision (§5.2) | the execution issue |
+| Adding `static/js/pages/` and `static/js/layout/` to taxonomy §1's tree, now that both are populated | the execution issue's wrap-up |

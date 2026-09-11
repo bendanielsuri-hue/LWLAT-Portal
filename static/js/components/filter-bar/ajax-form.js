@@ -8,6 +8,7 @@
    restore below is what stops the browser throwing away the scroll position. */
 
 import { closest } from '../dom.js';
+import { enhanceFormControls } from '../form-controls.js';
 
 // Server-side dashboard filter bars (e.g. SEND & Provision) can opt into
 // AJAX partial-reload instead of a full navigation via
@@ -60,7 +61,7 @@ export function initAjaxFilterBars() {
                 .then(function (html) {
                     target.innerHTML = html;
                     if (overlayEl) target.insertBefore(overlayEl, target.firstChild);
-                    window.enhanceFormControls(target);
+                    enhanceFormControls(target);
                     target.classList.remove('is-loading');
                     history.replaceState(null, '', url);
                     // Header stat strip (.page-subtitle-stats, e.g.

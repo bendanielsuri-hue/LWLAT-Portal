@@ -13,6 +13,7 @@
    already gone stale once when the duration grew. */
 
 import { closest } from '../dom.js';
+import { resyncFilterTriggerWidths } from '../select.js';
 import { positionFilterTray, scrollStickyBarToTop } from './tray-position.js';
 import { balanceFilterGroupLabels, setMoreFiltersLabel } from './more-filters.js';
 import { groupFilterSections } from './sections.js';
@@ -208,7 +209,7 @@ export function initFilterBarExpandCollapse() {
                 // second line changes its group's height) and before
                 // positionFilterTray, whose max-height cap depends on the
                 // row count grouping decides.
-                if (window.resyncFilterTriggerWidths) window.resyncFilterTriggerWidths(bar);
+                resyncFilterTriggerWidths(bar);
                 groupFilterSections(bar);
                 // Re-measured here too: opening the tray is the first moment
                 // these rows have a real width to overflow (#186).
