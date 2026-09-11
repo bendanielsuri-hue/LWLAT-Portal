@@ -3,13 +3,13 @@
    (taxonomy.md §6). One dialog/fetch path for both "Create Panel Meeting"
    and "Edit Panel Settings" (see openPanelMeetingModal's own comment).
 
-   enhanceFormControls stays window.* - it's still main.js's, unsplit
-   (#213). window.openPanelMeetingModal stays window.* - meetings.html's
+   window.openPanelMeetingModal stays window.* - meetings.html's
    own [data-create-panel-trigger] delegated click above already covers the
    in-file trigger, but other panel pages/dialogs may still reach for it by
    name. */
 
 import { closeModalWithFadeOut } from '../../../js/components/modal.js';
+import { enhanceFormControls } from '../../../js/components/form-controls.js';
 
 (function () {
     var dialog = document.getElementById('panel-meeting-dialog');
@@ -88,7 +88,7 @@ import { closeModalWithFadeOut } from '../../../js/components/modal.js';
                 dialog.innerHTML = html;
                 wireSchoolFilter();
                 wireRequiredFields();
-                window.enhanceFormControls(dialog);
+                enhanceFormControls(dialog);
                 dialog.showModal();
                 requestAnimationFrame(function () { dialog.classList.add('is-open'); });
             });

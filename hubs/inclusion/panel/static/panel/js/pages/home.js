@@ -11,6 +11,9 @@
    what used to be two near-1:1 copies into this one shared
    implementation) rather than separating two different things. */
 
+import { initSelectable } from '../../../js/components/selectable.js';
+import { setupOverflowTabs } from '../../../js/components/overflow-tabs.js';
+
 // Shared by both tab rows (My Referrals' setupTabs below, My Actions'
 // initActionTabs) - "All" is always first and never collapses on its own
 // (zero-count tabs stay in the DOM collapsed rather than omitted), so it's
@@ -970,7 +973,7 @@ function refreshMyActionsCard(html) {
     // horizontally-scrolling carousel everywhere else (wireActionCarousel
     // Interactions, below, resets that scroll position itself).
     if (newList) newList.scrollTop = scrollTop;
-    window.initSelectable(freshCard);
+    initSelectable(freshCard);
     // The old wrap/list DOM (and every listener wireActionCarouselInteractions
     // attached to it) went away with card.replaceWith above - re-wire fresh
     // against the new one, same as a first page load.
@@ -1018,10 +1021,10 @@ function refreshMyActionsCard(html) {
         if (!newTabRow.querySelector('button.active')) {
             firstUsableTabButton(newTabRow.querySelectorAll('[data-action-tab]')).classList.add('active');
         }
-        // The old row's own "More" overflow dropdown (static/js/main.js) went
-        // away with it — re-init on the fresh row rather than leaving narrow
-        // viewports without one.
-        window.setupOverflowTabs(newTabRow);
+        // The old row's own overflow-scroll wiring (components/overflow-
+        // tabs.js) went away with it — re-init on the fresh row rather than
+        // leaving narrow viewports without one.
+        setupOverflowTabs(newTabRow);
     }
 
     initActionTabs();

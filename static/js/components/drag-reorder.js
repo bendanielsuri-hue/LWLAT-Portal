@@ -17,21 +17,17 @@
    callers (meeting_agenda.html, meeting_setup.html) already pass it
    explicitly.
 
-   Still also set on `window` as both initDragReorder and the pre-rename
-   initAgendaDragDrop: meeting_agenda.html/meeting_setup.html's own inline
-   <script> blocks call it from a plain DOMContentLoaded handler, which
-   this repo's convention (see doc-conventions.md's "inline template
-   scripts" rule, #203) hasn't relocated yet - the old name stays a
-   working alias rather than a silent break for whichever call site isn't
-   updated to the new one in the same pass. flash/shrinkAndFadeOut/growIn/
-   cancelRowAnim/ROW_ANIM_DURATION/ROW_ANIM_EASING/diffPatchRowList/
-   pulseCount import from their real homes now that they have one;
-   enhanceSelect stays window.* - it's still main.js's, unsplit (#213). */
+   flash/shrinkAndFadeOut/growIn/cancelRowAnim/ROW_ANIM_DURATION/
+   ROW_ANIM_EASING/diffPatchRowList/pulseCount/enhanceSelect all import
+   from their real homes now that meeting-agenda.js/meeting-setup.js (its
+   only two callers) are modules themselves - no window.* alias left to
+   keep working. */
 
 import { flash } from './flash.js';
 import { shrinkAndFadeOut, growIn, cancelRowAnim, ROW_ANIM_DURATION, ROW_ANIM_EASING } from './row-animate.js';
 import { diffPatchRowList } from './row-list-patch.js';
 import { pulseCount } from './tabs.js';
+import { enhanceSelect } from './select.js';
 
 export function initDragReorder(zoneConfig, options) {
     options = options || {};
@@ -244,9 +240,7 @@ export function initDragReorder(zoneConfig, options) {
             // idempotent (its own _uiSelect guard), so it's safe to call
             // broadly here rather than tracking exactly which rows the diff
             // just touched.
-            if (window.enhanceSelect) {
-                oldZoneEl.querySelectorAll('select').forEach(window.enhanceSelect);
-            }
+            oldZoneEl.querySelectorAll('select').forEach(enhanceSelect);
 
             var oldCol = oldZoneEl.closest('.setup-col') || oldZoneEl;
             if (patchedCols.indexOf(oldCol) !== -1) return;
@@ -1053,6 +1047,3 @@ export function initDragReorder(zoneConfig, options) {
     document.addEventListener('dragend', stopAutoScroll, true);
     document.addEventListener('drop', stopAutoScroll, true);
 }
-
-window.initDragReorder = initDragReorder;
-window.initAgendaDragDrop = initDragReorder;

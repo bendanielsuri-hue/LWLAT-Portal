@@ -14,6 +14,7 @@ import { rafThrottle } from '../raf-throttle.js';
 import { resyncFilterTriggerWidths } from '../select.js';
 import { phoneMql, narrowMql, portraitMql, portraitWideMql } from '../../layout/breakpoints.js';
 import { resyncFilterSections } from './sections.js';
+import { isFilterBarMobile } from './mobile-mode.js';
 
 // Progressive-disclosure filter bar: secondary filters sit behind a "More
 // filters"/"Hide filters" toggle and reveal inline, at the same .btn.btn-sm
@@ -43,7 +44,7 @@ export function setupFilterBarMoreFilters(bar) {
 
     // An opted-in tray bar (.filter-bar-tray, added per page alongside
     // .filter-bar) also treats a narrowed, hover-capable desktop window as
-    // "mobile" via window.isFilterBarMobile below; a plain `.filter-bar` with
+    // "mobile" via isFilterBarMobile below; a plain `.filter-bar` with
     // no tray keeps the exact 480px threshold.
     var isTrayBar = bar.matches('.filter-bar-tray');
     // A bar with a pinned Search needs the toggle at every width above mobile
@@ -299,7 +300,7 @@ export function setupFilterBarMoreFilters(bar) {
            the buttons report a real offsetWidth rather than the 0 a display:
            none box gives, which would read as "always fits" and never let the
            class back on once set. */
-        if (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile()) {
+        if (isTrayBar && isFilterBarMobile()) {
             if (allFields.length) moreFiltersBtn.hidden = false;
             bar.classList.remove('filter-bar-actions-cramped');
             var barLabel = bar.querySelector('.filter-bar-label');
@@ -411,7 +412,7 @@ function wireMoreFiltersToggle(moreFiltersBtn, secondaryRow, bar) {
            returns and the listener does nothing beyond the label sync above.
            Kept rather than deleted: a bar that ever opts out of the tray
            needs this path back. */
-        if (bar && bar.matches('.filter-bar-tray') && window.isFilterBarMobile && window.isFilterBarMobile()) return;
+        if (bar && bar.matches('.filter-bar-tray') && isFilterBarMobile()) return;
     });
 }
 

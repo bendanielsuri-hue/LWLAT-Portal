@@ -13,14 +13,13 @@
    pages showing this group elsewhere (Panel Groups settings) can patch just
    their own row live.
 
-   enhanceFormControls/initExpertiseFields stay window.* - main.js is
-   unsplit (#213), and expertise-field.js's own DOMContentLoaded wiring
-   already covers a fresh render without this dialog calling it directly.
-   Everything else generic imports from its real home now that it has one.
-   window.openPanelGroupModal/openPanelGroupEditModal/uiSelectRowAdders
-   stay window.* deliberately - other panel pages (meeting_setup.html,
-   _panel_meeting_form_modal.html, the generic .ui-select-row "+" button in
-   main.js) call them by name. */
+   initExpertiseFields stays window.* - expertise-field.js's own
+   DOMContentLoaded wiring already covers a fresh render without this
+   dialog calling it directly. Everything else generic imports from its
+   real home now that it has one. window.openPanelGroupModal/
+   openPanelGroupEditModal/uiSelectRowAdders stay window.* deliberately -
+   other panel pages (meeting_setup.html, _panel_meeting_form_modal.html,
+   the generic .ui-select-row "+" button in main.js) call them by name. */
 
 import { closeModalWithFadeOut, animateModalHeightChange, setFadeHidden } from '../../../js/components/modal.js';
 import { pulseCount } from '../../../js/components/tabs.js';
@@ -29,6 +28,7 @@ import { diffPatchRowList } from '../../../js/components/row-list-patch.js';
 import { beginFetchSeq, isCurrentFetchSeq } from '../../../js/components/fetch-seq.js';
 import { resolvePanelSchoolFilter } from '../components/school-filter.js';
 import { initPersonPicker } from '../../../js/components/person-picker.js';
+import { enhanceFormControls } from '../../../js/components/form-controls.js';
 
 (function () {
     var dialog = document.getElementById('panel-group-dialog');
@@ -447,7 +447,7 @@ import { initPersonPicker } from '../../../js/components/person-picker.js';
             });
         }
 
-        window.enhanceFormControls(dialog);
+        enhanceFormControls(dialog);
         dialog.querySelectorAll('[data-member-picker-root]').forEach(initPersonPicker);
         if (window.initExpertiseFields) window.initExpertiseFields(dialog);
         wireCreateForm();
@@ -649,7 +649,7 @@ import { initPersonPicker } from '../../../js/components/person-picker.js';
                     host.appendChild(form);
                     host.appendChild(errorNote);
                 });
-                window.enhanceFormControls(host);
+                enhanceFormControls(host);
 
                 // The template's Create Group button starts `disabled`,
                 // only ever enabled by #panel-group-dialog's own

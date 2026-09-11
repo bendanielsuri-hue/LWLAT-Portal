@@ -7,6 +7,7 @@
    which imports it directly rather than going through a global. */
 
 import { animateModalHeightChange } from '../../../js/components/modal.js';
+import { enhanceFormControls } from '../../../js/components/form-controls.js';
 
 // Panel Discussion's Actions column (see #51) - no Edit button, every field
 // on an action row autosaves in place instead. One <form data-inline-action-
@@ -29,7 +30,7 @@ import { animateModalHeightChange } from '../../../js/components/modal.js';
                 var freshForm = wrapper.firstElementChild;
                 if (freshForm) {
                     form.replaceWith(freshForm);
-                    window.enhanceFormControls(freshForm);
+                    enhanceFormControls(freshForm);
                 }
             });
     }

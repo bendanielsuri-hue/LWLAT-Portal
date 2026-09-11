@@ -11,13 +11,13 @@
    every field inline instead (see components/action-assign.js's own
    autosave IIFE); this stays create-only.
 
-   enhanceFormControls stays window.* - still main.js's, unsplit (#213).
    window.openActionFormModal stays window.* - _discussion_action_item.html
    calls it by name for both the create trigger and the Assigned-To Edit
    button (initialStep === 'assign'). */
 
 import { closeModalWithFadeOut, animateModalHeightChange } from '../../../js/components/modal.js';
 import { snapshotFormValues, formValuesDirty, confirmModalDiscard } from '../../../js/components/form-dirty.js';
+import { enhanceFormControls } from '../../../js/components/form-controls.js';
 import { initActionAssignFields } from '../components/action-assign.js';
 
 (function () {
@@ -170,7 +170,7 @@ import { initActionAssignFields } from '../components/action-assign.js';
                 wireDueDatePreset();
                 wireSteps(initialStep);
                 dialog.querySelectorAll('[data-action-assign-fields-root]').forEach(initActionAssignFields);
-                window.enhanceFormControls(dialog);
+                enhanceFormControls(dialog);
                 // After every wireXxx() above (they can set initial values,
                 // e.g. an auto-assign suggestion) so that setup doesn't
                 // itself register as a "change" - see guardedClose's INT-U4

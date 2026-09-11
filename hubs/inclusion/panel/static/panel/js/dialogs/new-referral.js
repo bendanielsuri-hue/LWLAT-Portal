@@ -4,13 +4,13 @@
    same dialog element, opened in different modes (openModal/openEditModal/
    openViewModal) - and the inline Action status dropdown inside it.
 
-   enhanceFormControls stays window.* - it's still main.js's, unsplit
-   (#213). snapshotFormValues/formValuesDirty/confirmModalDiscard and
-   closeModalWithFadeOut/animateModalHeightChange import from their real
-   homes instead of reading window.* now that both have moved. */
+   snapshotFormValues/formValuesDirty/confirmModalDiscard,
+   closeModalWithFadeOut/animateModalHeightChange, and enhanceFormControls
+   all import from their real homes instead of reading window.*. */
 
 import { closeModalWithFadeOut, animateModalHeightChange as sharedAnimateModalHeightChange } from '../../../js/components/modal.js';
 import { snapshotFormValues, formValuesDirty, confirmModalDiscard } from '../../../js/components/form-dirty.js';
+import { enhanceFormControls } from '../../../js/components/form-controls.js';
 
 (function () {
     var dialog = document.getElementById('new-referral-dialog');
@@ -43,7 +43,7 @@ import { snapshotFormValues, formValuesDirty, confirmModalDiscard } from '../../
             .then(function (res) { return res.text(); })
             .then(function (html) {
                 dialog.innerHTML = html;
-                window.enhanceFormControls(dialog);
+                enhanceFormControls(dialog);
                 wireStudentPicker();
                 // After wireStudentPicker's own initial setup (it can reset
                 // fields, e.g. showPicker()'s input.value = '') so that
@@ -315,7 +315,7 @@ import { snapshotFormValues, formValuesDirty, confirmModalDiscard } from '../../
         }).then(function (res) { return res.text(); })
             .then(function (html) {
                 dialog.innerHTML = html;
-                window.enhanceFormControls(dialog);
+                enhanceFormControls(dialog);
                 wireStudentPicker();
             });
     });
