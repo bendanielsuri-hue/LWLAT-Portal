@@ -29,6 +29,7 @@ import { initAppSearch } from './layout/app-search.js';
 import { initContentShellHeight } from './layout/content-shell.js';
 import { initAppStatus } from './layout/app-status.js';
 import { initReportProblem } from './layout/report-problem.js';
+import { initMobileSheet } from './layout/mobile-sheet.js';
 import {
     phoneMql,
     narrowMql,
@@ -435,6 +436,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initContentShellHeight();
     initAppStatus();
     initReportProblem();
+    initMobileSheet();
 
     document.querySelectorAll('.card .tab-row, .card-switcher, [data-overflow-tabs]').forEach(setupOverflowTabs);
     initFilterBars();
