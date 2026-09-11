@@ -1296,61 +1296,8 @@
 // intercepted and swaps the dialog's content in place (same server fragment
 // re-rendered); the page only actually navigates to the Panel Agenda once a
 // submit comes back with started:true (the Start Meeting button itself).
-(function () {
-    var dialog = document.getElementById('meeting-start-dialog');
-    if (!dialog) return;
-
-    function closeDialog() {
-        window.closeModalWithFadeOut(dialog);
-    }
-
-    function openDialog(panelId) {
-        dialog.dataset.panelId = panelId;
-        fetch('/inclusion/panel/meetings/' + encodeURIComponent(panelId) + '/attendance/', {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        })
-            .then(function (res) { return res.text(); })
-            .then(function (html) {
-                dialog.innerHTML = html;
-                dialog.showModal();
-                requestAnimationFrame(function () { dialog.classList.add('is-open'); });
-            });
-    }
-
-    document.addEventListener('click', function (e) {
-        var trigger = e.target.closest('[data-open-meeting-start-trigger]');
-        if (trigger) {
-            openDialog(trigger.dataset.panelId);
-            return;
-        }
-        if (e.target.closest('[data-modal-close]') && e.target.closest('#meeting-start-dialog')) {
-            closeDialog();
-        }
-    });
-
-    dialog.addEventListener('click', function (e) {
-        if (e.target === dialog) closeDialog();
-    });
-
-    dialog.addEventListener('submit', function (e) {
-        var form = e.target.closest('[data-attendance-ajax-form]');
-        if (!form) return;
-        e.preventDefault();
-
-        fetch(form.action, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: new FormData(form),
-        }).then(function (res) { return res.json(); })
-            .then(function (data) {
-                if (data.started) {
-                    window.location = '/inclusion/panel/meetings/' + dialog.dataset.panelId + '/agenda/';
-                    return;
-                }
-                window.animateModalHeightChange(dialog, function () { dialog.innerHTML = data.html; });
-            });
-    });
-})();
+// #meeting-start-dialog moved out entirely (#211) - see
+// panel/js/dialogs/meeting-start.js, loaded from _base.html.
 
 // Add Action modal (see #51) - one dialog/fetch-fragment pair, same
 // convention as #panel-meeting-dialog above: openActionFormModal fetches
@@ -1565,39 +1512,8 @@
 // fetches _discussion_summary_modal.html (inclusion_panel_discussion_summary)
 // into the shared #discussion-summary-dialog shell (_base.html). Read-only,
 // no form/save - just closes.
-(function () {
-    var dialog = document.getElementById('discussion-summary-dialog');
-    if (!dialog) return;
-
-    function closeModal() {
-        window.closeModalWithFadeOut(dialog);
-    }
-
-    window.openDiscussionSummaryModal = function (panelReferralId) {
-        var url = '/inclusion/panel/panel-referral/' + encodeURIComponent(panelReferralId) + '/discussion-summary/';
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (res) { return res.text(); })
-            .then(function (html) {
-                dialog.innerHTML = html;
-                dialog.showModal();
-                requestAnimationFrame(function () { dialog.classList.add('is-open'); });
-            });
-    };
-
-    document.addEventListener('click', function (e) {
-        if (e.target.closest('[data-open-discussion-summary-trigger]')) {
-            var trigger = e.target.closest('[data-open-discussion-summary-trigger]');
-            window.openDiscussionSummaryModal(trigger.dataset.panelReferralId);
-            return;
-        }
-        if (e.target.closest('[data-modal-close]') && e.target.closest('#discussion-summary-dialog')) {
-            closeModal();
-        }
-    });
-    dialog.addEventListener('click', function (e) {
-        if (e.target === dialog) closeModal();
-    });
-})();
+// #discussion-summary-dialog moved out entirely (#211) - see
+// panel/js/dialogs/discussion-summary.js, loaded from _base.html.
 
 // Panel Discussion's Actions column (see #51) - no Edit button, every field
 // on an action row autosaves in place instead. One <form data-inline-action-
