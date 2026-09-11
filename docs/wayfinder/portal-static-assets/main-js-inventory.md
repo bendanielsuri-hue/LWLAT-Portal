@@ -270,13 +270,13 @@ trigger asks "one module or two?" and the honest answer here is six:
 
 | Module | From | Code |
 | --- | --- | --- |
-| `more-filters.js` | 276–823, 936–1051, 1374–1420 | 230 |
-| `sections.js` (`groupFilterSections`, `balanceFilterGroupLabels`) | 1052–1180 | 37 |
-| `section-scroll.js` | 1181–1373 | 114 |
-| `tray-position.js` (`positionFilterTray`, sticky trays, `scrollStickyBarToTop`) | 3166–3392 | 57 |
-| `expand-collapse.js` | 3393–3773 | 77 |
-| `ajax-form.js` | 3774–3970, 3075–3120 | 94 |
-| `wire.js` — the one call a page makes | 2677–2759 | 60 |
+| ✅ `more-filters.js` | 276–823, 936–1051, 1374–1420 | 230 |
+| ✅ `sections.js` (`groupFilterSections`, `balanceFilterGroupLabels`) | 1052–1180 | 37 |
+| ✅ `section-scroll.js` | 1181–1373 | 114 |
+| ✅ `tray-position.js` (`positionFilterTray`, sticky trays, `scrollStickyBarToTop`) | 3166–3392 | 57 |
+| ✅ `expand-collapse.js` | 3393–3773 | 77 |
+| ✅ `ajax-form.js` | 3774–3970, 3075–3120 | 94 |
+| ✅ `wire.js` — the one call a page makes | 2677–2759 | 60 |
 
 **`static/js/components/filter-bar.js` already exists** (61 lines, `wireFilterBarActiveState`,
 promoted from `panel.js` region 1 in #208). A folder and a file of the same name cannot coexist
@@ -485,6 +485,42 @@ expand-in-place and every overlay share one backdrop element.
   clears on the way back, single-select `.chosen` is mutually exclusive, the card switcher moves and
   restores, and at 430px the tray still sizes itself from the two FAB measurements. Zero JS console
   errors across six pages.
+
+### Slice 4 — `components/filter-bar/`, in two halves ✅
+
+**4a:** `more-filters.js`, `sections.js`, `section-scroll.js`, plus `components/carousel.js` because
+section-scroll imports it. **4b:** `tray-position.js`, `expand-collapse.js`, `ajax-form.js` and
+`wire.js`. **`main.js`: 1,849 → 1,173 code lines.** The filter bar is seven modules, one call.
+
+- **§5.2's shape held, and one module deliberately did not split.** `more-filters.js` covers three
+  non-adjacent regions of the old file because `setupFilterBarMoreFilters` and
+  `wireMoreFiltersToggle` are mutually recursive — the trigger builder calls the toggle, and the
+  toggle re-enters the builder's `measure()` after a reflow. Splitting along the old line numbers
+  would publish that recursion as a file boundary. 233 code lines in 765 total: over the review
+  trigger on total, under it on code.
+- **The file/folder collision resolved as §5.2 predicted** — `components/filter-bar.js` →
+  `filter-bar/active-state.js`, keeping its `window.*` so the six inline callers are untouched.
+  **Two templates load it and I repointed one**, because the grep I checked was truncated at eight
+  lines and I read a missing second hit as proof there wasn't one. The browser console caught it: a
+  404 plus `window.wireFilterBarActiveState is not a function`. Third time in this migration a
+  truncated or mis-scoped search has answered "nothing there" and been believed.
+- **Module bodies run before `DOMContentLoaded`, so side effects need an init.** `tray-position.js`
+  ends in a block that measures the tab bar immediately; left at module scope it would have measured
+  at a different point in the page lifecycle. It is `initTrayPosition()`, called from the same place
+  the old code ran.
+- **A correction to what slice 4a's commit message claims.** It records a pre-existing bug —
+  the tray keeping `.is-expanded` after close while `aria-expanded` returns to false. There is no
+  bug. The close path deliberately holds the class for the whole 720ms height animation (its own
+  comment says why: several tray styles are scoped to `.is-expanded`, so stripping it early makes
+  the box visibly fall back to non-mobile styling mid-shrink). The 600ms sample landed inside the
+  animation; sampling at 900ms shows it cleared. **Two observations agreeing is not a finding when
+  both share one wrong assumption** — the stash-and-compare that "confirmed" it used the same short
+  wait against both versions, so it could only ever agree.
+- **Verified in a browser:** tray opens and closes fully with its inline `top`/`left`/`width`/
+  `max-height` cleared on close (the stray-line fix), clicking a field's label opens its popover,
+  the AJAX dashboard bar updates in place — proven by a `window` marker surviving the change, not
+  just by the URL moving — and at 430px the tray pins to the bar's rect and stops above the tab bar.
+  Zero console errors.
 
 Remaining, in order — each unblocked by the one above it:
 
