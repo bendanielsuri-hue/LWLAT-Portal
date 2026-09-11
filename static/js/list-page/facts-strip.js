@@ -2,21 +2,14 @@
    carries, and every scroll affordance over them (drag, edge fades, per-row
    prev/next arrows).
 
-   ⚠️ IN PROGRESS - #210, slice C/D. This file is assembled and parameterised
-   but NOT yet imported by anything, and panel.js still holds the original
-   copy that actually runs. Nothing here is live yet. stack-mode.js and
-   button-row-overflow.js now exist alongside this file; list-page.js (the
-   orchestrator that assembles all three plus filter wiring and infinite
-   scroll) does not yet - panel.js keeps its copy until that lands.
-
    Merges three inventory regions (14 drag-to-scroll, 15 measurement, 18 edge
    wiring) on purpose - #204 §3. They are one mechanism reached through one
    interface, and splitting them by region would publish the measurement
    cache's generation counter as an interface between files, which is exactly
    the internal detail this module exists to hide.
 
-   938 total lines against a ~600 review trigger that counts CODE lines
-   (~325 here), so the trigger is not tripped - but the question it asks is
+   759 total lines against a ~600 review trigger that counts CODE lines
+   (268 here), so the trigger is not tripped - but the question it asks is
    worth answering anyway: one module, for the reason above.
 
    The generation counter itself is NOT owned here. It arrives as a parameter,
@@ -28,6 +21,8 @@
    once per page, not once per list: they cover rows that do not exist yet,
    which is the whole reason they are delegated.
 */
+
+import { wireDragToScroll } from '../components/drag-scroll.js';
 
 var delegatesInstalled = false;
 
@@ -67,43 +62,16 @@ export function initFactsStrip(root) {
 // time - one delegated listener covers every row that ever exists, present
 // or future, with nothing to re-wire.
 //
-// Drag-to-scroll (mouse only - touch already gets native momentum-scroll
-// from overflow-x: auto). Same pointerdown/move/up + DRAG_THRESHOLD
-// technique as wireScrollCarousel's own click-drag (main.js) - see that
-// function's comment for the full reasoning (defers "is this a drag" until
-// real movement happens, so a plain click still reaches whatever's under
-// the pointer - here, the row's own select-on-click behaviour).
+// Drag-to-scroll, delegated on `document` rather than bound per-track -
+// unlike wireScrollCarousel's one fixed track, a list page has many
+// independent .row-facts-cols strips mounting and unmounting as rows
+// filter in and out, so this resolves whichever one the pointer landed on
+// per event instead of re-binding listeners every time the row set
+// changes. Shared with wireScrollCarousel's own drag via drag-scroll.js
+// (#214 - see that file's header for the full reasoning and which other
+// drag-to-scroll copies stayed separate).
 function installDragToScroll() {
-    var DRAG_THRESHOLD = 6;
-    var drag = null;
-    document.addEventListener('pointerdown', function (e) {
-        if (e.pointerType !== 'mouse' || e.button !== 0) return;
-        var track = e.target.closest('.row-facts-cols');
-        if (!track || track.scrollWidth <= track.clientWidth) return;
-        drag = { track: track, startX: e.clientX, startScroll: track.scrollLeft, moved: false, id: e.pointerId };
-    });
-    document.addEventListener('pointermove', function (e) {
-        if (!drag || e.pointerId !== drag.id) return;
-        var dx = e.clientX - drag.startX;
-        if (!drag.moved) {
-            if (Math.abs(dx) < DRAG_THRESHOLD) return;
-            drag.moved = true;
-            drag.track.setPointerCapture(drag.id);
-            drag.track.classList.add('is-dragging');
-        }
-        drag.track.scrollLeft = drag.startScroll - dx;
-    });
-    function endDrag(e) {
-        if (!drag || e.pointerId !== drag.id) return;
-        if (drag.moved) {
-            drag.track.classList.remove('is-dragging');
-            var suppressClick = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
-            drag.track.addEventListener('click', suppressClick, { capture: true, once: true });
-        }
-        drag = null;
-    }
-    document.addEventListener('pointerup', endDrag);
-    document.addEventListener('pointercancel', endDrag);
+    wireDragToScroll(document, function (e) { return e.target.closest('.row-facts-cols'); });
 }
 
 // Actions/Referrals/Students facts strip (#154) - every row scrolls fully

@@ -4,12 +4,18 @@
    cards contain. ADR 0020's example of the nature test - a carousel does not
    become domain-specific by being pointed at referrals.
 
-   THIS IS ONE OF THREE CAROUSEL IMPLEMENTATIONS, and its click-drag is one of
-   six copies of drag-to-scroll. Consolidating them is #214; this move is only
-   the promotion the taxonomy already assigned, so the duplication is unchanged
-   and is catalogued in main-js-inventory.md section 6. */
+   THIS IS ONE OF THREE CAROUSEL IMPLEMENTATIONS (stats-carousel.js and
+   home.html's own referral/action carousels are the other two) - #214.
+   Its click-drag used to be one of four near-identical copies; that half is
+   now shared via drag-scroll.js (see that file's header for which copies
+   stayed separate, and why). The carousel-level duplication above it -
+   arrows, wheel redirect, edge state - is unchanged; each of the other two
+   carries real behavioural differences (KPI "flat" grid mode, fling-
+   velocity settle) that make sharing that layer a genuine rewrite, not a
+   promotion, per main-js-inventory.md section 6. */
 
 import { rafThrottle } from './raf-throttle.js';
+import { wireDragToScroll } from './drag-scroll.js';
 
 // Horizontal scroll-snap carousel: a .*-carousel-wrap holding a scrolling
 // track plus prev/next arrow buttons that nudge scrollLeft by one card
@@ -72,48 +78,12 @@ export function wireScrollCarousel(wrap, trackSelector, cardSelector, prevSelect
         e.preventDefault();
     }, { passive: false });
 
-    // Click-and-drag scroll for a mouse (touch already gets native
-    // momentum-scroll from overflow-x: auto, and a pen isn't a horizontal-
-    // drag gesture users expect here) - a strip this narrow relative to its
-    // content otherwise only moves via the arrows or the wheel redirect
+    // Click-and-drag scroll for a mouse - a strip this narrow relative to
+    // its content otherwise only moves via the arrows or the wheel redirect
     // above, neither of which is how a mouse user instinctively tries to pan
-    // a horizontal strip first (grabbing and dragging it). DRAG_THRESHOLD
-    // defers "is this actually a drag" until real movement happens, so a
-    // plain click still reaches whatever's under the pointer (a filter's
-    // <select> trigger, a toggle) untouched - only once threshold is crossed
-    // does this (a) start actually moving scrollLeft and (b) arm the one-shot
-    // capturing click-suppressor below, so the click a real drag would
-    // otherwise fire on release never reaches - and spuriously activates -
-    // whatever the drag happened to start on top of.
-    var DRAG_THRESHOLD = 6;
-    var drag = null;
-    track.addEventListener('pointerdown', function (e) {
-        if (e.pointerType !== 'mouse' || e.button !== 0) return;
-        if (track.scrollWidth <= track.clientWidth) return;
-        drag = { startX: e.clientX, startScroll: track.scrollLeft, moved: false, id: e.pointerId };
-    });
-    track.addEventListener('pointermove', function (e) {
-        if (!drag || e.pointerId !== drag.id) return;
-        var dx = e.clientX - drag.startX;
-        if (!drag.moved) {
-            if (Math.abs(dx) < DRAG_THRESHOLD) return;
-            drag.moved = true;
-            track.setPointerCapture(drag.id);
-            track.classList.add('is-dragging');
-        }
-        track.scrollLeft = drag.startScroll - dx;
-    });
-    function endDrag(e) {
-        if (!drag || e.pointerId !== drag.id) return;
-        if (drag.moved) {
-            track.classList.remove('is-dragging');
-            var suppressClick = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
-            track.addEventListener('click', suppressClick, { capture: true, once: true });
-        }
-        drag = null;
-    }
-    track.addEventListener('pointerup', endDrag);
-    track.addEventListener('pointercancel', endDrag);
+    // a horizontal strip first (grabbing and dragging it). Shared with the
+    // facts strip's own drag (drag-scroll.js) - see that file's header.
+    wireDragToScroll(track, function () { return track; });
 
     function updateArrows() {
         var overflowing = track.scrollWidth > track.clientWidth + 1;
