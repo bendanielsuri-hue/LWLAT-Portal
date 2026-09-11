@@ -111,10 +111,10 @@ function installDragToScroll() {
 // per-row prev/next arrows, below, made keeping rows aligned pointless).
 // .is-cut-left/.is-cut-right (CSS: facts-strip.css) - toggled from the track's
 // own real scroll position, same convention as the filter bar's own
-// wireFilterCutoffEdges (main.js): drives both the edge fade AND which
-// arrow (below) is visible, so the fade only ever shows - and an arrow
-// only ever offers to scroll - when there's genuinely more of the strip
-// hidden in that direction.
+// wireFilterSectionScroll (components/filter-bar/sections.js): drives both
+// the edge fade AND which arrow (below) is visible, so the fade only ever
+// shows - and an arrow only ever offers to scroll - when there's genuinely
+// more of the strip hidden in that direction.
 
 function markFactsStripEdges(track) {
     var scrollable = track.scrollWidth - track.clientWidth;
@@ -374,9 +374,9 @@ function fillFactsColumns(columns, strip, cacheHost, generation) {
        sibling of the whole strip, not of each column individually), and
        track's own base rule (facts-strip.css: flex: 1 1 0) leaves its flex-basis
        at a flat 0, so its TRUE natural content size (Due/Created/Referral
-       added together) was never part of the .row-facts-level split at all
-       - only whatever grow-weight it was given was. Weighting grow alone
-       (first attempt here) gave Description a hugely disproportionate
+       added together) was never part of the flex split at .row-facts' own
+       level at all - only whatever grow-weight it was given was. Weighting
+       grow alone (first attempt here) gave Description a hugely disproportionate
        share (541px of a 1220px row, confirmed live) for exactly that
        reason: with basis 0, ALL of track's natural content requirement had
        to come out of its grow allocation too, not just its fair share of

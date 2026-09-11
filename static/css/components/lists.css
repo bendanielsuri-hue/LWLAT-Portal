@@ -118,8 +118,8 @@
    so Meetings' own list (.meeting-list, no .entity-list anywhere in its
    markup) shipped with a plain, unstyled "No panel meetings yet." instead
    (live feedback: "No panel meeting need the same striped effect as other
-   pages, can this be global so it is not forgotten") - the exact class of
-   bug the .chosen-divider fix above already got caught for. .filtered-list
+   pages, can this be global so it is not forgotten") - the same class of
+   per-page-not-global bug a hook like this always risks. .filtered-list
    is a shared marker class any filtered-content list wrapper can carry
    alongside its own specific class (.meeting-list filtered-list, in
    _meetings_filtered_content.html) - the two selectors below cover today's
@@ -330,9 +330,8 @@
 /* Shrink-wrapped to its own content (the real segmented status control,
    Incomplete/Complete/Not Required, is the widest thing in it) rather than
    a proportional split of the row - went through flex: 0 0 38%, then a
-   plain 50/50 (both sides sharing the base .stack-item-col flex: 1, for a
-   dead-centred .mc-vdivider), before landing here on live feedback: "the
-   left column [should be] the width of the three status fused selector".
+   plain 50/50 split, before landing here on live feedback: "the left
+   column [should be] the width of the three status fused selector".
    flex-shrink: 0 too, not just flex-grow: 0 - unlike .stack-item-col--
    centered (flex: 1, takes whatever's left), this column must never give
    up width once sized to its content, or the segmented control would be
@@ -528,9 +527,9 @@
    own "concern"/"category" style field) + pills. Facts row: grouped
    two-line columns, dynamically sized per-column to the widest value
    actually present (ch units, capped server-side - see each view's
-   _col_width() helper), divided by .mc-vdivider. Button column stretched
-   to the row's full content height, divided from the row body. See
-   issues #8/#10/#12. */
+   _col_width() helper) - no divider between them any more (below).
+   Button column stretched to the row's full content height, divided from
+   the row body. See issues #8/#10/#12. */
 .row-title-row { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
 
 /* Referrals' two status pills (#118 mobile follow-up) - display: contents
@@ -560,10 +559,6 @@
    put concern+pills on their own line under Year/House/Reg, every width. */
 .row-title-secondary { display: contents; }
 
-/* Raised by/date (#118 fourth follow-up) removed entirely (live feedback:
-   "only need it as a data col" - it duplicated the RAISED fact col's own
-   date + "By <initials>" pair once that stopped hiding at mobile width).
-   .row-title-raised-by no longer exists in _referrals_rows.html. */
 .row-secondary-text { font-weight: 600; }
 
 .entity-list[data-selectable] > .entity-row { align-items: stretch; }

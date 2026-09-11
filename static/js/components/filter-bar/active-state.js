@@ -12,8 +12,9 @@
 // in place - but should still get the same .filter-bar-count badge and
 // .filter-field--active highlight as the server-side flavour (DES-L1, filter
 // bar branch). Wired once here rather than duplicated into each page's inline
-// <script>: pass the .filter-bar element, get back a refresh() to call from
-// the page's own applyFilters()/clearFilters().
+// <script>: pass the .filter-bar element, get back a refresh() to call on
+// every relevant field's own `change` (each page's own call sites name it
+// refreshFilterBarState - see hubs/inclusion/panel/CLAUDE.md).
 //
 // A field counts as "active" when its control differs from its default (a
 // non-empty select, a non-empty text input, or an "on" toggle-pill) - unless
