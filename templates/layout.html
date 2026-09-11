@@ -136,7 +136,21 @@
     </title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <script src="{% static 'js/main.js' %}" defer></script>
+    {% comment %}
+    type="module", not a classic deferred script (ADR 0021). The swap is
+    ordering-safe rather than a change of behaviour: a module is deferred by
+    definition, and deferred classic scripts and modules execute in document
+    order, so main.js still runs before every other script on the page and
+    still runs after parsing - exactly where `defer` had it. Measured in
+    docs/wayfinder/portal-static-assets/es-modules-findings.md.
+
+    What did change is that main.js's top-level declarations are module-scoped
+    now instead of global. Everything reached from outside it - inline
+    <script> blocks in templates, panel.js - already went through an explicit
+    window.* property, so nothing outside this file had to change; those
+    window.* assignments stay until #212 moves the inline callers to modules.
+    {% endcomment %}
+    <script type="module" src="{% static 'js/main.js' %}"></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>

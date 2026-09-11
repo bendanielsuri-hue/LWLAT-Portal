@@ -17,7 +17,7 @@
                           mobile bottom tab bar (_hub_sidebar.html), the
                           filter-bar tap-to-expand collapse, compact KPI
                           grid, dashboard card/chart phone treatments.
-                          JS: trueMobileMql (main.js).
+                          JS: phoneMql (js/layout/breakpoints.js).
    stacked   RETIRED      Was <= 700px: the width where a list row gave up
                           its desktop row+action-column split for the
                           stacked-card format (Referrals, Actions, Meetings,
@@ -32,16 +32,26 @@
                           this, and don't reuse the number by analogy.
    narrow    <= 900px     Narrowed-desktop filter-bar mode, page-header
                           actions overflow menu, form field stacking, card
-                          layouts. JS: studentsNarrowMql (main.js).
+                          layouts. JS: narrowMql (js/layout/breakpoints.js).
    tablet    <= 1024px    Dashboard KPI strip 3-up grid, breakdown-grid
                           rhythm, the 2-column breakdown-grid--top band
                           (which is floored at 481px - see its own comment).
    touch     <= 1180px    Touch/tablet rail expand-in-place, card-switcher
                           tab collapse, app-footer hidden. Matches the
                           latest iPad's 1180px logical viewport.
-                          JS: touchRailMql (main.js).
+                          JS: touchMql (js/layout/breakpoints.js).
    rail      <= 1200px    Hub sidebar auto-collapses to the 64px icon rail;
-                          global hub-rail hidden. JS: narrowMql (main.js).
+                          global hub-rail hidden. JS: railMql (js/layout/breakpoints.js).
+   wide      >= 1401px    The only min-width tier in the set, and so the only
+                          one with no matching max (everything below it is the
+                          unqualified base). Widens .main-inner's page gutter
+                          from --space-2xl to --space-4xl, and the sticky
+                          header zone's bleed with it. 1400 is where a
+                          desktop window still has width to spare after the
+                          sidebar: below it the gutter is usable content
+                          width and stays tight, above it the content is
+                          drifting towards .main-inner's 1600px cap and reads
+                          as edge-to-edge without more air either side.
 
    HEIGHT AXIS - the one tier not measured in width. See ADR 0016.
 
@@ -84,8 +94,8 @@
    Both are now normalised to <= 480 / >= 481. Same applies to the 700/701 and
    1180/1181 pairs, which were already correct.
 
-   Known deliberate exception: main.js's portraitWideMql is `min-width: 900px`
-   against studentsNarrowMql's `max-width: 900px`. Both match at exactly 900px,
+   Known deliberate exception: breakpoints.js's portraitWideMql is
+   `min-width: 900px` against narrowMql's `max-width: 900px`. Both match at exactly 900px,
    but they are read as separate branches of one OR (isFilterBarMobile) rather
    than as competing declarations, and 900px is meant to be inclusively "wide
    enough to show filters inline" - so the overlap is harmless here. Left as
@@ -106,8 +116,8 @@
        band this used to reuse, since moving that shared value would also
        have shifted Students' own narrow-desktop filter-bar mode, form
        field stacking, and card layouts, site-wide - not what was asked
-       for). Everything else still keyed to 900px (main.js's
-       studentsNarrowMql/narrowMql, forms.css, cards.css) stays exactly as
+       for). Everything else still keyed to 900px (breakpoints.js's
+       narrowMql, forms.css, cards.css) stays exactly as
        it was - a real, accepted side effect of that choice is the 900-
        1200px band now has the sidebar expanded while those other systems
        still believe it's collapsed (main.js's setupPageExtrasOverflow
@@ -746,5 +756,33 @@ html.filter-bar-narrow-desktop .breadcrumbs {
        clobber the phone tier's own tighter gap. See that block's comment. */
     .stats-strip--compact {
         gap: var(--space-sm);
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   WIDE (>= 1401px) — see the registry at the top of this file.
+   --------------------------------------------------------------------------- */
+@media (min-width: 1401px) {
+    /* Only the horizontal padding grows. The vertical rhythm is set by the
+       page header and the first card below it, neither of which has any more
+       room at 1600px than at 1200px, so stretching the top/bottom gutter to
+       match would just push content below the fold for nothing. */
+    .main-inner {
+        padding-left: var(--space-4xl);
+        padding-right: var(--space-4xl);
+    }
+
+    /* Same coupling as the phone tier above: .sticky-header-zone/
+       .home-header-sticky (layout.css) cancel .main-inner's own padding with
+       a negative margin so they can bleed edge-to-edge while staying sticky,
+       and that margin must track .main-inner's padding or the sticky header
+       overshoots the content edge. Only the horizontal half changes here,
+       matching the padding rule above. */
+    .sticky-header-zone,
+    .home-header-sticky {
+        margin-left: calc(-1 * var(--space-4xl));
+        margin-right: calc(-1 * var(--space-4xl));
+        padding-left: var(--space-4xl);
+        padding-right: var(--space-4xl);
     }
 }

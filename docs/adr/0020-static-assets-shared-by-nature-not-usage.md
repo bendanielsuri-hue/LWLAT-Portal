@@ -6,11 +6,12 @@ The alternative test, "promote it once a second hub needs it", is what produced 
 
 **Domain vocabulary is read strictly.** `#my-referrals-list` is domain; `.row-facts-cols` is not; and a carousel does not become domain-specific by being wired to referrals. The composition rule for the shape this produces constantly: when a portal component is composed with a domain one — `.ui-select-trigger.status-pill`, a Referral status rendered as a dropdown — **both ingredients promote and the composition stays hub-owned**.
 
-## The four tiers, and the folders they became
+## The five tiers, and the folders they became
 
 | Tier | Holds | Home |
 | --- | --- | --- |
 | component | anything a page outside the list pattern could use | `static/{css,js}/components/` |
+| layout | the app frame — shell, sidebar, rail, breakpoint tiers. Singleton chrome bound to `layout.html`'s own DOM, not instantiated per element | `static/{css,js}/layout/` |
 | list-page | the filterable-entity-list pattern's own machinery — facts-strip measurement, stack mode, button-row overflow | `static/{css,js}/list-page/` |
 | page | one page's own layout, not a reusable pattern | `static/{css,js}/pages/` |
 | hub-owned | domain vocabulary | `hubs/<hub>/static/<hub>/` |
