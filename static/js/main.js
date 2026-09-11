@@ -12,7 +12,6 @@ import { enhanceSelect } from './components/select.js';
    Group" quick-add button stopped doing anything). */
 import './components/select-row.js';
 import { wireScrollCarousel } from './components/carousel.js';
-import { setupFilterBarMoreFilters } from './components/filter-bar/more-filters.js';
 import { initFilterBars } from './components/filter-bar/wire.js';
 import { initSelectable } from './components/selectable.js';
 import { initCardSwitchers } from './components/card-switcher.js';
@@ -28,6 +27,8 @@ import { initSettingsPanel, initViewFullSystemToggle } from './layout/settings-p
 import { initSchoolSwitcher, initIdentitySwitcher, initIdentitySearch } from './layout/identity-switcher.js';
 import { initAppSearch } from './layout/app-search.js';
 import { initContentShellHeight } from './layout/content-shell.js';
+import { initAppStatus } from './layout/app-status.js';
+import { initReportProblem } from './layout/report-problem.js';
 import {
     phoneMql,
     narrowMql,
@@ -44,20 +45,17 @@ import {
 } from './layout/breakpoints.js';
 
 
-/* Still on window, deliberately, until #212 moves the inline <script> blocks
-   that call them to modules: panel.js reads rafThrottle, and panel's home.html
-   calls initSelectable on a fragment it has just swapped in. Both are modules
-   now (components/raf-throttle.js, components/selectable.js) - this is the
-   compatibility shim, not their definition. */
-window.rafThrottle = rafThrottle;
+/* Still on window, deliberately: every remaining reader is itself an ES
+   module (panel's dialogs/home.js, drag-reorder.js) that calls these off
+   window instead of importing them directly - #212 finished moving the
+   inline <script> blocks these shims existed for (panel.js is gone
+   entirely), but converting an already-migrated module's own window.* calls
+   to real imports is a separate cleanup, not done here. enhanceSelect
+   specifically: drag-reorder.js's own dialog-close cleanup re-enhances a
+   stale zone's <select>s by calling window.enhanceSelect directly, not
+   through enhanceFormControls (it doesn't want the date/time/fused-field
+   passes that come with the full sweep). */
 window.initSelectable = initSelectable;
-window.setupFilterBarMoreFilters = setupFilterBarMoreFilters;
-/* Still on window, deliberately: panel.js (a non-module classic script) and
-   inline <script> blocks in templates call these directly, and both move to
-   modules in #212. enhanceSelect specifically: panel.js's own dialog-close
-   cleanup re-enhances a stale zone's <select>s by calling window.enhanceSelect
-   directly, not through enhanceFormControls (it doesn't want the date/time/
-   fused-field passes that come with the full sweep). */
 window.enhanceFormControls = enhanceFormControls;
 window.enhanceSelect = enhanceSelect;
 
@@ -435,6 +433,8 @@ document.addEventListener('DOMContentLoaded', function () {
     initIdentitySearch();
     initAppSearch();
     initContentShellHeight();
+    initAppStatus();
+    initReportProblem();
 
     document.querySelectorAll('.card .tab-row, .card-switcher, [data-overflow-tabs]').forEach(setupOverflowTabs);
     initFilterBars();
@@ -456,7 +456,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Auto-enhance every plain select/date/time field already in the page on
     // load (server-rendered pages). AJAX-injected modal content (e.g.
-    // hubs/inclusion/panel/static/panel/js/panel.js) isn't in the DOM yet at this point,
-    // so it calls window.enhanceFormControls(dialog) itself after injecting.
+    // hubs/inclusion/panel/static/panel/js/dialogs/*.js) isn't in the DOM yet
+    // at this point, so it calls window.enhanceFormControls(dialog) itself
+    // after injecting.
     enhanceFormControls(document);
 });

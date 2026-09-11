@@ -192,31 +192,7 @@
         main.js still runs its own copy afterwards as normal, a no-op once
         this already got it right.
         {% endcomment %}
-        <script>
-        (function () {
-            var rail = document.querySelector('.hub-rail-inner');
-            var seamTop = document.getElementById('hub-rail-seam-top');
-            var seamBottom = document.getElementById('hub-rail-seam-bottom');
-            var activeFill = document.getElementById('hub-rail-active-fill');
-            if (!rail || !seamTop || !seamBottom || !activeFill) return;
-            try {
-                var active = rail.querySelector('.hub-rail-item.active');
-                if (active) {
-                    var railRect = rail.getBoundingClientRect();
-                    var pillRect = (active.querySelector('svg') || active).getBoundingClientRect();
-                    var top = pillRect.top - railRect.top;
-                    seamTop.style.height = top + 'px';
-                    seamBottom.style.top = (top + pillRect.height) + 'px';
-                    activeFill.style.top = top + 'px';
-                    activeFill.style.height = pillRect.height + 'px';
-                    activeFill.style.left = (pillRect.left - railRect.left) + 'px';
-                }
-            } catch (e) { }
-            seamTop.style.visibility = 'visible';
-            seamBottom.style.visibility = 'visible';
-            activeFill.style.visibility = 'visible';
-        })();
-        </script>
+        <script src="{% static 'js/layout/hub-rail-seam-preload.js' %}"></script>
 
         <div class="nav-stack">
         <div class="overlay-slot">
@@ -323,26 +299,7 @@
         plain-CSS-only fallback the way <=900px has, so it depended entirely
         on this script's timing) even after the class fix above shipped.
         {% endcomment %}
-        <script>
-        (function () {
-            var nav = document.getElementById('hub-sidebar-nav');
-            if (!nav) return;
-            try {
-                var touch = document.documentElement.classList.contains('nav-touch-mode');
-                var narrow = window.matchMedia('(max-width: 1200px)').matches;
-                var hoverCapable = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-                var locked = narrow && hoverCapable && !touch;
-                var touchRail = window.matchMedia('(min-width: 481px) and (max-width: 1180px)').matches && touch;
-                var wideDesktop = hoverCapable && !narrow && !touch;
-                var manualCollapsed = false;
-                try { manualCollapsed = localStorage.getItem('pref-sidebar-collapsed') === '1'; } catch (e) { }
-                if (touchRail || locked || (wideDesktop && manualCollapsed)) {
-                    nav.classList.add('collapsed');
-                }
-            } catch (e) { }
-            nav.style.visibility = 'visible';
-        })();
-        </script>
+        <script src="{% static 'js/layout/sidebar-collapse-preload.js' %}"></script>
         </div>
         </div>
         {% comment %}
@@ -804,7 +761,7 @@
     without a separate reporting path.
     {% endcomment %}
     <dialog class="ui-dialog" id="report-problem-dialog">
-        <form method="dialog" class="ui-dialog-form" id="report-problem-form">
+        <form method="dialog" class="ui-dialog-form" id="report-problem-form" data-report-url="{% url 'report_problem' %}">
             {% csrf_token %}
             {% comment %}
             Not submitted by name - report-problem-form's JS reads the
@@ -833,77 +790,6 @@
             </div>
         </form>
     </dialog>
-
-    <script>
-    (function () {
-        // Generic footer status slot + shared JS API (#128) - any page's JS
-        // can call window.AppStatus.show('Saving…')/success('Saved')/
-        // error('Failed to save') to surface transient async state, rather
-        // than each feature building its own one-off indicator.
-        var statusEl = document.getElementById('footer-status');
-        var statusTimer = null;
-        function showStatus(text, kind) {
-            clearTimeout(statusTimer);
-            statusEl.textContent = text;
-            statusEl.hidden = false;
-            statusEl.className = 'footer-item footer-status' + (kind ? ' footer-status--' + kind : '');
-            if (kind === 'success' || kind === 'error') {
-                statusTimer = setTimeout(function () { statusEl.hidden = true; }, 4000);
-            }
-        }
-        window.AppStatus = {
-            show: function (text) { showStatus(text, 'pending'); },
-            success: function (text) { showStatus(text || 'Saved', 'success'); },
-            error: function (text) { showStatus(text || 'Something went wrong', 'error'); },
-            clear: function () { clearTimeout(statusTimer); statusEl.hidden = true; },
-        };
-
-    })();
-    </script>
-
-    <script>
-    (function () {
-        // "Report Issue" wiring - one path for every audience (#128 follow-up
-        // grilling). window.__footerErrors, set below by the dev-only error
-        // console when it exists, is read at submit time so the attachment
-        // stays silent even though this script always runs.
-        function getCookie(name) {
-            var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-            return match ? decodeURIComponent(match[2]) : '';
-        }
-
-        var reportDialog = document.getElementById('report-problem-dialog');
-        var reportForm = document.getElementById('report-problem-form');
-        document.getElementById('report-problem-btn').addEventListener('click', function () {
-            reportForm.reset();
-            reportDialog.showModal();
-        });
-        document.getElementById('report-problem-cancel-btn').addEventListener('click', function () {
-            reportDialog.close();
-        });
-        reportForm.addEventListener('submit', function () {
-            var description = document.getElementById('report-problem-description').value.trim();
-            if (!description) return;
-            reportDialog.close();
-            window.AppStatus.show('Sending report…');
-            fetch('{% url "report_problem" %}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                body: JSON.stringify({
-                    description: description,
-                    category: document.getElementById('report-problem-category').value,
-                    page_url: location.href,
-                    errors: window.__footerErrors || [],
-                }),
-            }).then(function (response) {
-                if (!response.ok) throw new Error();
-                window.AppStatus.success('Report sent - thank you');
-            }).catch(function () {
-                window.AppStatus.error('Could not send report');
-            });
-        });
-    })();
-    </script>
 
     {% if current_staff.is_developer %}
     <script>
