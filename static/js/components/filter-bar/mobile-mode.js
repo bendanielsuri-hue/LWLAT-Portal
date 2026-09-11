@@ -1,13 +1,13 @@
-/* Which of the filter bar's two layout modes applies right now - the
-   question main.js's own syncFilterBarMobileClass (still there; it also
-   owns the document-class toggle, the mode-switch transition guard, and
-   re-running each tray's dynamic-overflow measurement, none of which this
-   module's own callers need) answers on every relevant media-query change.
-   Promoted out as real exports (was window.isFilterBarMobile/
-   window.isFilterBarNarrowDesktop) so expand-collapse.js/more-filters.js -
-   both modules already - can import them directly. */
+/* Which of the filter bar's two layout modes applies right now, and
+   initFilterBarMobileMode (bottom of this file) which keeps the document
+   classes every affected CSS rule keys off in step with it. Both were
+   promoted out of main.js - isFilterBarMobile/isFilterBarNarrowDesktop
+   first (were window.isFilterBarMobile/window.isFilterBarNarrowDesktop, so
+   expand-collapse.js/more-filters.js could import them directly), then
+   the orchestrator itself once it was clear this is where the state it
+   drives actually belongs, not portal-wide boot glue. */
 
-import { phoneMql, narrowMql, portraitMql, portraitWideMql, isTouchNav, isShortTouch } from '../../layout/breakpoints.js';
+import { phoneMql, narrowMql, shortMql, portraitMql, portraitWideMql, isTouchNav, isShortTouch, onTouchNavChange } from '../../layout/breakpoints.js';
 
 /* (#187) Every width uses the tray now - live feedback: "I think we make
    all the filter modes work like mobile. It's a great compromise!"
@@ -49,4 +49,75 @@ export function isFilterBarMobile() {
 // positioning branch.
 export function isFilterBarNarrowDesktop() {
     return !phoneMql.matches && !isShortTouch() && ((narrowMql.matches && !isTouchNav()) || (isTouchNav() && portraitMql.matches && !portraitWideMql.matches));
+}
+
+// Keeps html.filter-bar-mobile-mode/filter-bar-narrow-desktop in step with
+// the two functions above on every relevant media-query change. Called
+// once from main.js's own boot sequence.
+export function initFilterBarMobileMode() {
+    function syncFilterBarMobileClass() {
+        // filter-bar-mode-switching (panel.css: forces transition: none on
+        // .filter-bar-collapsible) - live feedback: "I saw [the tray reduce
+        // in height, leaving a thin line] when I switched to portrait
+        // tablet mode" - resizing/rotating into or out of mobile mode while
+        // a page is already open re-triggers the exact same height/border-
+        // bottom-color transition the layout.html head script's own
+        // synchronous classification (same bug, same fix, on first paint)
+        // was written to prevent - that fix only covers the very first
+        // paint, not a live reclassification like this one. Without this
+        // guard, .filter-bar-collapsible flips between display: contents
+        // (no box, live at its full open content height) and the mobile
+        // box (height: 0, a real transition property) in the same
+        // recalculation triggered by this class toggle, so the browser
+        // interpolates from that full height down to 0 - visibly, and
+        // (confirmed via Playwright) with a wildly wrong intermediate
+        // `top` too, since position: fixed's own static-position fallback
+        // recomputes every frame as the box's height/flow changes mid-
+        // transition. Only guards an actual VALUE change (below), not
+        // every call - this also fires on every touch-nav toggle
+        // (onTouchNavChange, breakpoints.js), most of which don't actually
+        // flip either class.
+        var wasMobile = document.documentElement.classList.contains('filter-bar-mobile-mode');
+        var wasNarrow = document.documentElement.classList.contains('filter-bar-narrow-desktop');
+        var nowMobile = isFilterBarMobile();
+        var nowNarrow = isFilterBarNarrowDesktop();
+        var modeChanged = wasMobile !== nowMobile || wasNarrow !== nowNarrow;
+        if (modeChanged) document.documentElement.classList.add('filter-bar-mode-switching');
+        document.documentElement.classList.toggle('filter-bar-mobile-mode', nowMobile);
+        document.documentElement.classList.toggle('filter-bar-narrow-desktop', nowNarrow);
+        // Re-run each tray bar's own dynamic-overflow measurement
+        // (setupFilterBarMoreFilters's measure(), exposed as
+        // bar._filterBarMeasure) on every call here, not just a genuine
+        // bar.clientWidth change - this function also fires from a touch-
+        // nav-only transition (onTouchNavChange, breakpoints.js), which flips
+        // filter-bar-mobile-mode without necessarily resizing anything.
+        // Skipping this left fields that measure() had already buried
+        // behind the hidden "More filters" group (built while still non-
+        // mobile) stuck there once mobile-mode's own CSS hid the only
+        // control that could reveal it again - live feedback: "lost the
+        // close and clear button" (they render, just via the wrong,
+        // desktop-only .filter-actions-right placement, because the field
+        // grid itself never made it back into the tray).
+        document.querySelectorAll('.filter-bar-tray').forEach(function (trayBar) {
+            if (trayBar._filterBarMeasure) trayBar._filterBarMeasure();
+        });
+        // Removes the guard one frame later (below), not synchronously -
+        // the class toggle/measure() calls above still need to actually
+        // commit and paint with transitions suppressed first; removing the
+        // guard in the same tick would let the *next* recalculation (this
+        // one) re-enable the transition before the browser ever renders a
+        // frame with it off, defeating the whole guard.
+        if (modeChanged) {
+            requestAnimationFrame(function () {
+                document.documentElement.classList.remove('filter-bar-mode-switching');
+            });
+        }
+    }
+    syncFilterBarMobileClass();
+    phoneMql.addEventListener('change', syncFilterBarMobileClass);
+    shortMql.addEventListener('change', syncFilterBarMobileClass);
+    narrowMql.addEventListener('change', syncFilterBarMobileClass);
+    portraitMql.addEventListener('change', syncFilterBarMobileClass);
+    portraitWideMql.addEventListener('change', syncFilterBarMobileClass);
+    onTouchNavChange(syncFilterBarMobileClass);
 }
