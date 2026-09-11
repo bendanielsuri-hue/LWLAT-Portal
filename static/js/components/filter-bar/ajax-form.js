@@ -10,21 +10,16 @@
 import { closest } from '../dom.js';
 import { enhanceFormControls } from '../form-controls.js';
 
-// Server-side dashboard filter bars (e.g. SEND & Provision) can opt into
-// AJAX partial-reload instead of a full navigation via
-// data-ajax-target="<selector>" on the <form class="filter-bar">. On
-// change (or a click on .filter-bar-clear inside it), fetches the same
-// URL+querystring with X-Requested-With: XMLHttpRequest — the existing
-// AJAX convention this codebase already uses for modal content (see
-// hubs/inclusion/panel/static/panel/js/panel.js's loadModal(), and the
-// is_ajax checks in hubs/inclusion/panel/views.py) — and the view (see
-// hubs/inclusion/views.py::inclusion_hub) returns just the target's
-// inner HTML fragment instead of the full page. The <form> itself is
-// never touched, only the target, so no re-enhancement of its own
-// selects/dialogs is needed and nothing about it can be left detached.
-// Falls back to a real navigation if the fetch fails — the scroll-restore
-// listener above already covers that path's scroll jump, same as before
-// this existed.
+// A bar opts in with data-ajax-target="<selector>" on the <form
+// class="filter-bar">. On change (or a click on .filter-bar-clear inside
+// it), fetches the same URL+querystring with X-Requested-With:
+// XMLHttpRequest — the AJAX convention this codebase already uses for modal
+// content — and the view returns just the target's inner HTML fragment
+// instead of the full page. The <form> itself is never touched, only the
+// target, so its own selects and dialogs need no re-enhancement and nothing
+// about it can be left detached. Falls back to a real navigation if the
+// fetch fails; initFilterBarScrollRestore (below) covers that path's scroll
+// jump.
 export function initAjaxFilterBars() {
     document.querySelectorAll('form.filter-bar[data-ajax-target]').forEach(function (form) {
         var target = document.querySelector(form.dataset.ajaxTarget);
@@ -36,22 +31,14 @@ export function initAjaxFilterBars() {
             var controller = new AbortController();
             pendingController = controller;
             target.classList.add('is-loading');
-            // Students' own dimmed tray backdrop (.filter-bar-overlay,
-            // panel.css) lives inside this same target so it visually
-            // anchors (position: absolute; inset: 0) against its box -
-            // but that means the plain target.innerHTML swap below wipes
-            // it out along with the old list every time, and the
-            // server's AJAX partial response never re-renders it (that
-            // markup isn't part of the swapped fragment) - live
-            // feedback: "when I apply a filter, the overlay disappears.
-            // It should stay till filter tray is closed". Detached here
-            // and reinserted after the swap (below) instead of
-            // recreating it from a string - keeps the exact same node,
-            // including any inline style state main.js's own filter-bar
-            // click handler may have set on it (e.g. transitionDuration,
-            // above) rather than starting fresh every filter change.
-            // null on any other page using this same AJAX mechanism
-            // with no such overlay in its markup - harmless no-op below.
+            // The dimmed tray backdrop (.filter-bar-overlay) lives inside this
+            // same target so it can anchor (position: absolute; inset: 0)
+            // against its box - which means the innerHTML swap below wipes it
+            // out with the old list, and the server's partial never re-renders
+            // it. Detached here and reinserted after the swap rather than
+            // recreated from a string, so it keeps the exact same node and any
+            // inline style state the tray's click handler set on it. null on a
+            // page with no such overlay - a harmless no-op below.
             var overlayEl = target.querySelector('.filter-bar-overlay');
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: controller.signal })
                 .then(function (res) {
@@ -64,22 +51,14 @@ export function initAjaxFilterBars() {
                     enhanceFormControls(target);
                     target.classList.remove('is-loading');
                     history.replaceState(null, '', url);
-                    // Header stat strip (.page-subtitle-stats, e.g.
-                    // Students' "240 Students · 59 Referrals · 82
-                    // Actions") lives outside the ajax-target, so the
-                    // innerHTML swap above never touches it - it'd stay
-                    // showing the unfiltered totals after a filter
-                    // change (live feedback: "adding filters should
-                    // update the stats"). Synced here instead of
-                    // duplicating the numbers into the response some
-                    // other way: every page using this pattern already
-                    // repeats the identical .stats-strip .stat-value
-                    // markup inside the swapped fragment (its own
-                    // footer stats-strip), in the same order - copy
-                    // those freshly-rendered values across by position.
-                    // No-op wherever the counts don't match 1:1 (a page
-                    // with this filter-bar pattern but no header stat
-                    // strip, or a mismatched one).
+                    // The header stat strip (.page-subtitle-stats) lives
+                    // outside the ajax-target, so the swap above never
+                    // touches it and it would keep showing unfiltered
+                    // totals. Synced by position rather than by duplicating
+                    // the numbers into the response: every page using this
+                    // pattern already repeats the identical .stats-strip
+                    // .stat-value markup inside the swapped fragment, in the
+                    // same order. No-op wherever the counts don't match 1:1.
                     var freshStats = target.querySelectorAll('.stats-strip .stat-value');
                     var headerStats = document.querySelectorAll('.page-subtitle-stats .stat-value');
                     if (freshStats.length && freshStats.length === headerStats.length) {
@@ -133,24 +112,15 @@ export function initAjaxFilterBars() {
                 if (input.value.trim().length === 1) return;
                 searchDebounce = setTimeout(function () {
                     loadCurrent();
-                    // A page-level 'change' listener (e.g. Students'
-                    // own refreshFilterBarState, wireFilterBarActiveState
-                    // in panel.js) is what recomputes the active-filter
-                    // count badge - typing alone never fires a real
-                    // 'change' event (only blur/Enter do), so without
-                    // this the AJAX result already reflected the typed
-                    // search while the badge stayed stuck at whatever it
-                    // showed before typing started (live feedback: "it
-                    // auto filters but does not count in the badge till
-                    // I press enter"). Dispatched on the input itself,
-                    // not the form (Clear's own synthetic dispatch,
-                    // below, targets the form since nothing there needs
-                    // to distinguish it) - bubbling still reaches
-                    // Students' own filterBar 'change' listener, but
-                    // this file's own AJAX 'change' listener (above)
-                    // explicitly skips text/search e.target so it
-                    // doesn't also re-run loadCurrent() a second,
-                    // redundant time right after the one two lines up.
+                    // A page-level 'change' listener (wireFilterBarActiveState's
+                    // refresh) is what recomputes the active-filter count
+                    // badge, and typing alone never fires a real 'change' -
+                    // only blur and Enter do - so without this the results
+                    // reflect the typed search while the badge stays stuck.
+                    // Dispatched on the input, not the form: bubbling still
+                    // reaches the page's filterBar listener, while this file's
+                    // own AJAX 'change' listener above skips text/search
+                    // targets and so doesn't re-run loadCurrent() redundantly.
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                 }, 250);
             });
@@ -159,24 +129,18 @@ export function initAjaxFilterBars() {
             var clear = closest(e.target, '.filter-bar-clear');
             if (!clear) return;
             e.preventDefault();
-            // Unlike a normal filter change - where the control the user
-            // just touched already shows its new value - the AJAX swap
-            // only ever replaces the target, never the filter bar itself
-            // (see the filter-bar branch of DES-L1), so
-            // nothing resets the bar's own controls back to "no filter"
-            // on Clear Filters. form.reset() looked like the obvious
-            // fix but is wrong here: it restores each control's value at
-            // *page load*, and the page was server-rendered with these
-            // same filters already applied/selected - so on a page
-            // that's showing filtered results, reset() is a no-op.
-            // Blank every named control explicitly instead, then refresh
-            // anything that mirrors a control's value outside the
-            // control itself (an enhanced select's trigger button, a
-            // toggle-pill's .on class) since setting .value/.checked
-            // directly doesn't touch either of those. Skips
-            // [data-not-a-filter] fields (see wireFilterBarActiveState in
-            // panel.js) - those aren't a filter to clear, just a value
-            // that happens to live in the same bar.
+            // The AJAX swap only ever replaces the target, never the filter
+            // bar itself (DES-L1, filter bar branch), so nothing resets the
+            // bar's controls on Clear Filters. form.reset() is the obvious
+            // fix and is wrong: it restores each control's value at PAGE
+            // LOAD, and the page was server-rendered with these filters
+            // already selected - so on a page showing filtered results it is
+            // a no-op. Blank every named control explicitly instead, then
+            // refresh anything mirroring a control's value outside the
+            // control (an enhanced select's trigger, a toggle-pill's .on
+            // class), since setting .value/.checked touches neither. Skips
+            // [data-not-a-filter]: not a filter to clear, just a value that
+            // happens to live in the same bar.
             Array.prototype.forEach.call(form.querySelectorAll('select'), function (s) {
                 if (closest(s, '[data-not-a-filter]')) return;
                 s.value = '';
@@ -195,10 +159,8 @@ export function initAjaxFilterBars() {
                 btn.setAttribute('aria-pressed', String(input.checked));
             });
             // Lets any page-level `filterBar.addEventListener('change', ...)`
-            // (e.g. wireFilterBarActiveState's refresh(), see panel.js)
-            // re-derive the active-field highlighting and count badge
-            // from the now-blanked controls, the same way it would after
-            // a real user-driven change.
+            // re-derive the active-field highlighting and count badge from
+            // the now-blanked controls, as after a real user-driven change.
             form.dispatchEvent(new Event('change'));
             load(clear.href);
         });

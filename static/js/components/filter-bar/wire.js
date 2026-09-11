@@ -16,15 +16,11 @@ import { initTrayPosition } from './tray-position.js';
 import { initAjaxFilterBars, initFilterBarScrollRestore } from './ajax-form.js';
 
 export function initFilterBars() {
-    // balanceFilterGroupLabels alongside setupFilterBarMoreFilters, not just
-    // inside the Students mobile tray/tablet-strip open handlers that used
-    // to be its only callers (live feedback: "Can we do this on all
-    // filters" - every filter bar's labels, at every width, not only
-    // Students'). Word-count splitting (not pixel measurement, this
-    // function's own comment) doesn't depend on the field's current width
-    // or which bar it's in, so a single run here at setup covers every
-    // page's filter bar in one pass - no per-width/per-bar special-casing
-    // needed the way the old measured-max-width approach would have.
+    // balanceFilterGroupLabels runs here at setup, for every bar, rather than
+    // inside a tray-open handler: it splits by word count, not pixel width
+    // (see its own comment), so it depends on neither the field's current
+    // width nor which bar it is in, and one pass covers every page with no
+    // per-width or per-bar special-casing.
     document.querySelectorAll('.filter-bar').forEach(function (bar) {
         setupFilterBarMoreFilters(bar);
         balanceFilterGroupLabels(bar);

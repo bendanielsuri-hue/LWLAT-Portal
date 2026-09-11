@@ -7,10 +7,9 @@
 
 import { rafThrottle } from '../raf-throttle.js';
 import { fabProtrusionAboveTabbar, fabOverlapClearance } from '../../layout/mobile-tabbar.js';
-import { groupFilterSections } from './sections.js';
-import { wireFilterSectionScroll } from './section-scroll.js';
+import { resyncFilterSections } from './sections.js';
 
-// #134: positions the floating tray (panel.css: .filter-bar-collapsible,
+// Positions the floating tray (panel.css: .filter-bar-collapsible,
 // position: fixed) against its own .filter-bar's current bottom edge,
 // capped to clear the mobile tabbar. Factored out of the click handler
 // below so the visualViewport listener further down can re-run the
@@ -20,42 +19,26 @@ import { wireFilterSectionScroll } from './section-scroll.js';
 // screen is actually visible without firing any DOM resize of its own;
 // a one-time-at-open measurement goes stale the moment that happens.
 //
-// Caps against .mobile-tabbar's own top edge, not the true bottom of
-// the screen - live feedback: an earlier version of this reached the
-// full screen and painted over the tabbar (a deliberate main:has() +
-// z-index escalation, git history), but that meant the tabbar's own
-// icon row could end up covering the tray's sticky Clear/Close footer
-// depending on how much of the tabbar the tray's bottom edge actually
-// overlapped ("the mobile nav is covering the bottom button on the
-// filter tray when its full screen"). Landing the cap just above the
-// tabbar instead means the footer is never behind it, full stop - the
-// FAB (.mobile-tab-fab, a separate circular button that already floats
-// above the tabbar's own top edge by design) can still visually poke
-// over the tray's edge without covering interactive content the same
-// way ("I like the FAB overlaying it but not the whole bar").
+// Caps against .mobile-tabbar's own top edge, not the true bottom of the
+// screen, so the tray's sticky Clear/Close footer can never end up behind
+// the tabbar's icon row. The FAB (.mobile-tab-fab) already floats above
+// the tabbar's top edge by design, so it still pokes over the tray's edge
+// - it covers no interactive content doing so. See docs/adr/0024.
 export function positionFilterTray(bar, box) {
     var barRect = bar.getBoundingClientRect();
     var barBottom = barRect.bottom;
-    // .getClientRects().length check, not just querySelector -
-    // .mobile-tabbar stays in the DOM at every width (CSS alone hides
-    // it below <=480px via display: none, layout.css), so a bare
-    // existence check found it "present" for narrow-desktop/portrait-
-    // tablet too once this function started running there - a display:
-    // none element's own getBoundingClientRect() resolves to all
-    // zeros, not where it would render if visible, which silently
-    // capped maxHeight at 0 (top: 0, bar already well below that).
-    // offsetParent (an earlier version of this check) isn't the right
-    // tool here - it's null for a display: none ancestor chain, but
-    // ALSO null for any position: fixed element regardless of
-    // visibility, which .mobile-tabbar always is (layout.css) - so
-    // that check was reading a genuinely visible tabbar as hidden at
-    // every true-mobile width, live feedback: "the tray is meant to
-    // have a gap to the bottom nav so that nothing is clipped" (this
-    // fell back to the full viewport height instead of stopping above
-    // the tabbar). getClientRects().length is 0 for display: none (or
-    // detached) regardless of position, non-zero for anything actually
-    // rendered - the correct general-purpose "is this really on
-    // screen" check fabProtrusionAboveTabbar (layout/mobile-tabbar.js) uses.
+    // .getClientRects().length, not a bare querySelector and not
+    // offsetParent. .mobile-tabbar stays in the DOM at every width (CSS
+    // alone hides it below 480px), so mere existence proves nothing, and a
+    // display: none element's getBoundingClientRect() resolves to all zeros
+    // rather than where it would render - which silently caps maxHeight at
+    // 0. offsetParent is the wrong tool despite looking right: it is null
+    // for a display: none ancestor chain but ALSO null for any position:
+    // fixed element regardless of visibility, and .mobile-tabbar is always
+    // fixed - so it reads a genuinely visible tabbar as hidden.
+    // getClientRects().length is 0 for display: none (or detached)
+    // regardless of position, non-zero for anything actually rendered - the
+    // same check fabProtrusionAboveTabbar (layout/mobile-tabbar.js) uses.
     var tabbar = document.querySelector('.mobile-tabbar');
     // Not in the `short` tier (ADR 0016): the tabbar is a full-height
     // strip down the right edge there, so its .top is 0 and using it as a
@@ -65,105 +48,59 @@ export function positionFilterTray(bar, box) {
     var sideStrip = document.documentElement.classList.contains('phone-chrome-side');
     var tabbarVisible = tabbar && tabbar.getClientRects().length !== 0 && !sideStrip;
     var bottomLimit = tabbarVisible ? tabbar.getBoundingClientRect().top : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-    /* The `short` tier used to clamp this to the counts strip's own top,
-       on the reasoning that a strip sticky to the foot of the viewport is
-       this tier's bottom furniture, playing the role the tabbar plays in
-       portrait. That was solving the real symptom (the tray's own footer
-       rendered underneath the counts, unreachable however far you
-       scrolled - "I can't get to bottom of filters if screen is this
-       short") from the wrong end: the counts strip is not furniture the
-       tray has to respect, it's list chrome the tray is entitled to cover
-       while it's open, the same way it already covers the rows. Stopping
-       short of it spent ~40px of the scarcest axis on this tier to show
-       three numbers nobody is reading mid-filter (live feedback: "can the
-       filter open tray go over the footer to use all available space").
-       The tray now runs to the foot of the viewport and paints over the
-       strip (panel.css raises its z-index in this tier to make that true
-       rather than merely intended), so its Clear/Close footer sits at the
-       screen's bottom edge with nothing over it - which is what made the
-       original symptom a bug rather than a layout choice. */
+    /* No clamp against the counts strip in the `short` tier: the strip is
+       list chrome the tray is entitled to cover, not furniture it has to
+       respect. panel.css raises the tray's z-index in that tier to make
+       that true rather than merely intended. See docs/adr/0024. */
     box.style.top = barBottom + 'px';
-    // (INT-R2) left/width anchored to the bar's own rect, not the base CSS rule's
-    // left: 0; right: 0 (panel.css) - true phone width has no side nav,
-    // so the bar already spans edge to edge and this is a no-op there,
-    // but narrow-desktop/portrait-tablet still show the icon rail beside
-    // an inset card (live feedback: "I like the slide over the top that
-    // mobile does... can we do this for portrait tablet as well") - an
-    // edge-to-edge tray there would float under/over the nav rail
-    // instead of over the actual filter bar, the exact misalignment that
-    // originally kept this mode on a push-down layout instead. Setting
-    // width explicitly (not just left) makes the CSS right: 0 irrelevant
-    // for a position: fixed box - left + width alone fully determine its
-    // horizontal extent.
-    // Widened by .list-card's own left/right border width (live
-    // feedback: "I am noticing a border around the filter tray... it is
-    // likely within an element that probably already has border" -
-    // exactly right: bar's own rect already sits inset from .list-card's
-    // true edge by that border's width (.list-card .filter-bar, layout.
-    // css, has no border of its own - the card's outer 1px border is
-    // what bar's rect is inset from), so anchoring box to bar's rect
-    // verbatim left it floating flush against, not over, that border -
-    // confirmed via computed styles: .list-card's own border rendered
-    // exactly along the tray's left/right edges, reading as if the tray
-    // had a border of its own when it never did. Reading the border
-    // width off .list-card directly (not a hardcoded px guess) so this
-    // keeps working if that token's value ever changes.
+    // (INT-R2) left/width anchored to the bar's own rect, not the base CSS
+    // rule's left: 0; right: 0 (panel.css). A no-op at true phone width,
+    // where the bar already spans edge to edge - but narrow-desktop and
+    // portrait-tablet still show the icon rail beside an inset card, and an
+    // edge-to-edge tray there would float over the nav rail instead of over
+    // the actual filter bar. Setting width explicitly (not just left) makes
+    // the CSS right: 0 irrelevant: for a position: fixed box, left + width
+    // alone fully determine its horizontal extent.
+    //
+    // Widened by .list-card's own left/right border width. The bar's rect
+    // already sits inset from .list-card's true edge by that border (.list-
+    // card .filter-bar has no border of its own), so anchoring to the bar's
+    // rect verbatim leaves the tray flush against that border rather than
+    // over it - which reads as the tray having a border it does not have.
+    // Read off .list-card directly, not a hardcoded px, so it survives a
+    // change to that token's value.
     var listCard = bar.closest('.list-card');
     var cardBorderLeft = listCard ? parseFloat(getComputedStyle(listCard).borderLeftWidth) || 0 : 0;
     var cardBorderRight = listCard ? parseFloat(getComputedStyle(listCard).borderRightWidth) || 0 : 0;
     box.style.left = (barRect.left - cardBorderLeft) + 'px';
     box.style.width = (barRect.width + cardBorderLeft + cardBorderRight) + 'px';
-    // Half the FAB's own protrusion above the tabbar, not a fixed number
-    // - live feedback: "it should be based on math... the amount of Fab
-    // that sticks out, the bottom padding of tray so this can be dynamic
-    // if we change any of these settings." So this stays correct if the
-    // FAB's size or offset ever changes. Landed on half - a small sliver
-    // of tray bottom padding stays clear of the FAB rather than the
-    // FAB's whole reach overlapping it. Plus fabOverlapClearance() on
-    // top (live feedback: "slightly less overlap") - a bigger reserve
-    // here means the FAB's own top edge sits that much further below
-    // the tray's own bottom edge, i.e. less of the FAB overlaps it.
+    // Derived from the FAB's own protrusion above the tabbar, never a fixed
+    // number, so it stays correct if the FAB's size or offset changes. Half
+    // of it: a small sliver of tray bottom padding stays clear of the FAB
+    // rather than the FAB's whole reach overlapping it. Plus
+    // fabOverlapClearance() on top - a bigger reserve here puts the FAB's
+    // top edge further below the tray's bottom edge, i.e. less overlap.
     box.style.maxHeight = Math.max(0, bottomLimit - barBottom - (fabProtrusionAboveTabbar() / 2) - fabOverlapClearance()) + 'px';
-    // #134 follow-up (live feedback: "if filter tray is max size, can it
-    // lose the bottom radius corners") - a rounded corner sitting right
-    // at the tray's own hard-capped edge (where the field grid is
-    // genuinely being clipped/scrolled, not just ending on its own)
-    // reads as a deliberate stopping point rather than a soft, natural
-    // end. .filter-bar-collapsible-inner's own scrollHeight vs
-    // clientHeight is the standard "does this actually need to scroll"
-    // check - inner (not box) because box's own scrollHeight always
-    // just matches whatever flex: 1 handed inner (box's only child), it
-    // never reflects inner's own internal overflow. Re-checked on every
-    // call (open and the visualViewport listener, above), so a tray
-    // that WAS maxed out un-squares itself again if the screen grows
-    // back (e.g. the browser's own chrome collapsing) enough to fit
-    // everything without scrolling.
+    // Squares off the bottom corners when the tray is genuinely hard-capped:
+    // a rounded corner at a clipped edge reads as a soft, natural end when
+    // it is anything but. Measured on inner, not box - box's scrollHeight
+    // always just matches whatever flex: 1 handed inner (its only child), so
+    // it never reflects inner's own internal overflow. Re-checked on every
+    // call, so a tray that WAS maxed un-squares itself if the screen grows
+    // back enough to fit everything without scrolling.
     var inner = box.querySelector('.filter-bar-collapsible-inner');
     box.classList.toggle('is-maxed', !!inner && inner.scrollHeight > inner.clientHeight + 1);
-    // Overlay's own bottom edge pinned to stop right above the stats
-    // footer (Students/Referrals/Actions counts, last child of
-    // #students-filtered-content, sibling of the overlay) instead of
-    // its base inset: 0 (panel.css) reaching all the way down behind
-    // it - the footer already stays undimmed/clickable through the
-    // overlay via its own z-index (panel.css, live feedback: "overlay
-    // should not overlay the stats footer"), but the overlay was still
-    // painting behind it, and the entity-list content directly above
-    // the footer's own border was still getting dimmed right up
-    // against it - live feedback, on a tray short enough to leave that
-    // gap exposed: "the border gets slightly darker" (confirmed via
-    // pixel sampling: the border's own colour never actually changes -
-    // this reads as darker purely from contrast against the newly-dark
-    // strip sitting directly above it) - then "really the overlay
-    // should not affect the stats bar at all. Are we not able to size
-    // the overlay so it stops short?" Recomputed on every call here
-    // (open, and the visualViewport listener, above) alongside the
-    // tray's own maxHeight, for the same "screen size can change while
-    // open" reasoning that recheck already exists for.
-    // Scoped to the tray's own .list-card (already read above for its
-    // border width), not a hardcoded #students-filtered-content - keeps
-    // this reusable for any page built on the same .list-card >
-    // .filter-bar / .filter-bar-overlay / .stats-strip structure, not
-    // just Students.
+    // The dim overlay stops above the stats strip rather than taking its
+    // base inset: 0 (panel.css) all the way down behind it. The strip's own
+    // z-index already keeps it undimmed and clickable, but the overlay was
+    // still painting behind it and still dimming the list content right up
+    // against the strip's top border - which reads as that border darkening,
+    // purely from the contrast against the newly-dark strip above it.
+    // Recomputed on every call alongside maxHeight, for the same "screen
+    // size can change while open" reason. Scoped to the tray's own
+    // .list-card rather than a hardcoded page id, so this works for any page
+    // built on the same .list-card > .filter-bar / .filter-bar-overlay /
+    // .stats-strip structure.
     var statsStrip = listCard ? listCard.querySelector('.stats-strip') : null;
     var overlayEl = listCard ? listCard.querySelector('.filter-bar-overlay') : null;
     if (overlayEl) overlayEl.style.bottom = statsStrip ? statsStrip.getBoundingClientRect().height + 'px' : '';
@@ -206,8 +143,7 @@ export function initTrayPosition() {
                 // tablet boundary, which is the one thing that changes
                 // whether the tray's sections are wrapped - re-decide before
                 // re-measuring the tray's own cap against the result.
-                groupFilterSections(bar);
-                wireFilterSectionScroll(bar);
+                resyncFilterSections(bar);
                 if (box) positionFilterTray(bar, box);
             });
         }));
@@ -232,25 +168,21 @@ export function initTrayPosition() {
     window.addEventListener('scroll', repositionStickyTrays, true);
 
 
-    // .entity-list::after's own "end of content" stripe (panel.css) - live
-    // feedback: "same for the last entity of filtered content... should be
-    // based on math", the same complaint as positionFilterTray's own gap
-    // above. Twice fabProtrusionAboveTabbar(), not half - the FAB should
-    // cover roughly half of this box, so the box itself is twice however
-    // far the FAB actually reaches. Exposed as a CSS custom property (not
-    // set inline on the element, unlike the tray) because this is a
-    // ::after - there's no real element for JS to style directly.
+    // .entity-list::after's "end of content" stripe (panel.css), sized off
+    // the same FAB measurement as the tray's own gap above. Twice
+    // fabProtrusionAboveTabbar(), not half - the FAB should cover roughly
+    // half of this box, so the box is twice however far the FAB reaches.
+    // Exposed as a CSS custom property rather than set inline (unlike the
+    // tray) because this is a ::after: there is no element to style.
     (function setupListEndCapHeight() {
         function apply() {
             document.documentElement.style.setProperty('--list-endcap-height', (fabProtrusionAboveTabbar() * 2) + 'px');
-            // Pushes the cap's own bottom edge up off the tabbar by the same
-            // fabOverlapClearance() positionFilterTray now reserves (live
-            // feedback: "slightly less overlap. This is for both!") - the
-            // cap is otherwise flush with the scroll container's bottom, so
-            // margin-bottom is what actually trims the FAB's overlap into it
-            // rather than just changing its own height (which only changes
-            // how much unobscured stripe shows above the overlap, not the
-            // overlap itself).
+            // Pushes the cap's bottom edge off the tabbar by the same
+            // fabOverlapClearance() positionFilterTray reserves. The cap is
+            // otherwise flush with the scroll container's bottom, so
+            // margin-bottom is what actually trims the FAB's overlap into
+            // it - changing its height only changes how much unobscured
+            // stripe shows above the overlap, not the overlap itself.
             document.documentElement.style.setProperty('--list-endcap-clearance', fabOverlapClearance() + 'px');
         }
         apply();
