@@ -1997,7 +1997,10 @@ def inclusion_panel_escalations(request):
         **filters.context,
         'academic_year_choices': academic_year_choices,
         'term_choices': term_choices,
-        'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
+        # Raw dict for json_script (escalations.js reads it as a data
+        # island, not the escapejs-in-a-string-literal convention the
+        # inline <script> used before #210).
+        'terms_by_academic_year': terms_by_academic_year,
         'concern_choices': concern_question.choice_list() if concern_question else [],
         'priority_choices': InclusionReferral.PRIORITY_CHOICES,
         'years': years,

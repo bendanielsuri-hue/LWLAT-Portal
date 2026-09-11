@@ -3387,11 +3387,13 @@ function syncFactsColumnWidths() {
 // instead of one for the whole list (same split as markAllFactsStripEdges
 // above).
 function updateFactsLineLayout() {
-    // #actions-filtered-content dropped (#210) - Actions now owns its own
-    // copy via initListPage (panel/js/pages/actions.js); see
-    // LIST_ROOT_SELECTOR's comment below for why the two can't both run
-    // against the same container.
-    ['escalations-filtered-content'].forEach(function (id) {
+    // #actions-filtered-content/#escalations-filtered-content dropped
+    // (#210) - both now own their own copy via initListPage
+    // (panel/js/pages/actions.js, escalations.js); see LIST_ROOT_SELECTOR's
+    // comment below for why the two can't both run against the same
+    // container. This is the pair's whole target list, so this loop is a
+    // permanent no-op until #211 removes the function outright.
+    [].forEach(function (id) {
         var listRoot = document.getElementById(id);
         if (!listRoot) return;
         var entries = [];
@@ -3509,13 +3511,14 @@ function updateFactsLineLayout() {
    Referrals/Students/Meetings .row-facts IS the strip, so the two boxes
    are the same element and the distinction costs nothing. */
 // #students-filtered-content/#referrals-filtered-content/
-// #actions-filtered-content dropped (#210) - each now owns its own copy
-// of this whole refresh loop via initListPage (panel/js/pages/students.js,
-// referrals.js, actions.js), and the two must never both run against the
-// same container: they write the same cache properties
-// (_stackCache/_factsStripNatural/...) under two independent generation
-// counters, which would thrash rather than merely duplicate work.
-var LIST_ROOT_SELECTOR = '#escalations-filtered-content, #meetings-filtered-content';
+// #actions-filtered-content/#escalations-filtered-content dropped (#210) -
+// each now owns its own copy of this whole refresh loop via initListPage
+// (panel/js/pages/students.js, referrals.js, actions.js, escalations.js),
+// and the two must never both run against the same container: they write
+// the same cache properties (_stackCache/_factsStripNatural/...) under two
+// independent generation counters, which would thrash rather than merely
+// duplicate work.
+var LIST_ROOT_SELECTOR = '#meetings-filtered-content';
 var STACK_ROW_SELECTOR = '.entity-row, .meeting-card';
 // Subpixel guard: rowWidth - overhead and need are fractional measurements
 // of the same boxes, so an exact-fit row can land a hair either side of
@@ -3844,9 +3847,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     var refreshAfterResize = debounceTrailing(refreshFactsStrips, 120);
     // #students-filtered-content/#referrals-filtered-content/
-    // #actions-filtered-content dropped (#210) - see LIST_ROOT_SELECTOR's
-    // own comment above, same reason.
-    document.querySelectorAll('#escalations-filtered-content, #meetings-filtered-content').forEach(function (container) {
+    // #actions-filtered-content/#escalations-filtered-content dropped
+    // (#210) - see LIST_ROOT_SELECTOR's own comment above, same reason.
+    document.querySelectorAll('#meetings-filtered-content').forEach(function (container) {
         if (typeof MutationObserver !== 'undefined') {
             /* childList only, never attributes - this refresh's own work
                IS a pile of style/class writes on these containers'
