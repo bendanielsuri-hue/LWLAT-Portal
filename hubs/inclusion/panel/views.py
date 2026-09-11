@@ -138,10 +138,11 @@ def _safe_next(request, default_url):
 
 
 def _paginate_for_infinite_scroll(queryset, request, is_ajax, page_size):
-    # Shared by Students/Referrals/Actions/Meetings' wireListInfiniteScroll
-    # pagination. `page` in the URL only ever means "how far this visitor
-    # has scrolled" - wireListInfiniteScroll (panel.js) replaceState()s it in
-    # as each batch loads, never typed by hand. An AJAX continuation fetch
+    # Shared by Students/Referrals/Actions/Meetings/Escalations' own
+    # initListPage-driven infinite scroll (#210, components/infinite-
+    # scroll.js). `page` in the URL only ever means "how far this visitor
+    # has scrolled" - wireListInfiniteScroll replaceState()s it in as each
+    # batch loads, never typed by hand. An AJAX continuation fetch
     # (is_ajax and page>1) gets just that one page's slice, spliced onto rows
     # already in the DOM. A full render (fresh visit, or a refresh mid-scroll
     # now that the URL carries that page number) has no existing DOM to
@@ -1386,8 +1387,8 @@ def inclusion_panel_referrals(request):
     total_students_count = referrals_qs.values('student_id').distinct().count()
     total_actions_count = Action.objects.filter(referral__in=referrals_qs).count()
 
-    # REFERRALS_PAGE_SIZE referrals per page (infinite scroll,
-    # wireListInfiniteScroll in referrals.html - shared with Students'
+    # REFERRALS_PAGE_SIZE referrals per page (infinite scroll, wired via
+    # initListPage in referrals.js - shared with Students' own
     # inclusion_panel_students, above) - only this page's referrals go
     # through the per-row lookups below (actions counts, panel history),
     # not the full filtered set.
@@ -2241,10 +2242,9 @@ def inclusion_panel_actions(request):
     total_students_count = actions_qs.values('referral__student_id').distinct().count()
     total_referrals_count = actions_qs.values('referral_id').distinct().count()
 
-    # ACTIONS_PAGE_SIZE actions per page (infinite scroll,
-    # wireListInfiniteScroll in actions.html - shared with Students/
-    # Referrals, above) - only this page's actions go through the per-row
-    # lookups below.
+    # ACTIONS_PAGE_SIZE actions per page (infinite scroll, wired via
+    # initListPage in actions.js - shared with Students/Referrals, above) -
+    # only this page's actions go through the per-row lookups below.
     ACTIONS_PAGE_SIZE = 50
     page_obj, page_number, is_continuation = _paginate_for_infinite_scroll(
         actions_qs, request, is_ajax, ACTIONS_PAGE_SIZE
@@ -3034,9 +3034,9 @@ def inclusion_panel_meetings(request):
     upcoming_meetings_count = len(upcoming_meetings)
     past_meetings_count = len(past_meetings)
 
-    # MEETINGS_PAGE_SIZE meetings per page (infinite scroll,
-    # wireListInfiniteScroll in meetings.html - shared with Students/
-    # Referrals/Actions, above). Paginated as a plain Python list (Paginator
+    # MEETINGS_PAGE_SIZE meetings per page (infinite scroll, wired via
+    # initListPage in meetings.js - shared with Students/Referrals/Actions,
+    # above). Paginated as a plain Python list (Paginator
     # works on either), not a queryset slice before the per-panel loop above
     # the way the other pages do it - is_next/discussed_panels_by_referral
     # and the upcoming-then-past reordering all genuinely need the full
