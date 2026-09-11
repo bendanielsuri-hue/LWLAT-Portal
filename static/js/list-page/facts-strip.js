@@ -2,12 +2,12 @@
    carries, and every scroll affordance over them (drag, edge fades, per-row
    prev/next arrows).
 
-   ⚠️ IN PROGRESS - #210, slice C. This file is assembled and parameterised but
-   NOT yet imported by anything, and panel.js still holds the original copy
-   that actually runs. Nothing here is live yet. What is left: the comment
-   cross-references below still say "panel.css"/"panel.js" in ~25 places and
-   need repointing at their new homes; stack-mode.js, button-row-overflow.js
-   and list-page.js do not exist yet; panel.js keeps its copy until they do.
+   ⚠️ IN PROGRESS - #210, slice C/D. This file is assembled and parameterised
+   but NOT yet imported by anything, and panel.js still holds the original
+   copy that actually runs. Nothing here is live yet. stack-mode.js and
+   button-row-overflow.js now exist alongside this file; list-page.js (the
+   orchestrator that assembles all three plus filter wiring and infinite
+   scroll) does not yet - panel.js keeps its copy until that lands.
 
    Merges three inventory regions (14 drag-to-scroll, 15 measurement, 18 edge
    wiring) on purpose - #204 §3. They are one mechanism reached through one
@@ -60,7 +60,7 @@ export function initFactsStrip(root) {
 }
 
 // Actions/Referrals/Students facts strip (#154) - .row-facts-cols is a
-// permanently-scrollable region now (panel.css), not a wrap-to-a-second-
+// permanently-scrollable region now (facts-strip.css), not a wrap-to-a-second-
 // line one. Delegated at the document level rather than wired per-row:
 // these pages render rows via server-side pagination AND client-side
 // infinite-scroll/AJAX swaps, so a fresh .row-facts-cols can appear at any
@@ -109,7 +109,7 @@ function installDragToScroll() {
 // Actions/Referrals/Students facts strip (#154) - every row scrolls fully
 // independently now (a page-wide synced scroll was tried and reverted once
 // per-row prev/next arrows, below, made keeping rows aligned pointless).
-// .is-cut-left/.is-cut-right (CSS: panel.css) - toggled from the track's
+// .is-cut-left/.is-cut-right (CSS: facts-strip.css) - toggled from the track's
 // own real scroll position, same convention as the filter bar's own
 // wireFilterCutoffEdges (main.js): drives both the edge fade AND which
 // arrow (below) is visible, so the fade only ever shows - and an arrow
@@ -155,7 +155,7 @@ function markAllFactsStripEdges(root) {
 // own comment there) - sets each [data-col] column's flex-basis to a
 // shared "natural" width instead of leaving it at its own row's content
 // size. Deliberately does NOT compute a manual leftover/bonus for the
-// columns - ordinary flex-grow (base rule, panel.css) already redistributes
+// columns - ordinary flex-grow (base rule, facts-strip.css) already redistributes
 // a line's own leftover space among its own items automatically, for free,
 // per browser spec, once every column shares one grow factor - reinventing
 // that in JS was solving a problem (equal-not-proportional bonus, live
@@ -170,7 +170,7 @@ function markAllFactsStripEdges(root) {
 // query (panel.css, .row-fact-col-status/@container action-row), and its
 // own width is fixed content-size (flex: 0 0 auto, panel.css), neither of
 // which this width-syncing system needs to know about.
-// .row-fact-col-clamp's own max-width: 26ch (base rule, panel.css) still
+// .row-fact-col-clamp's own max-width: 26ch (base rule, facts-strip.css) still
 // caps what counts as "natural" width for Ethnicity/Behaviour/Referral's
 // concern category before this - it constrains the measurement itself
 // (getBoundingClientRect respects max-width regardless of flex-basis), so
@@ -201,7 +201,7 @@ function naturalFactsColumnWidths(groups, columns, cacheHost, generation) {
     // Behaviour reading narrower than DOB despite genuinely longer
     // content, #155 follow-up).
     // flexGrow: 0 too, not just flexBasis: 'auto' - the CSS rule
-    // (panel.css) sets flex-grow: 1 unconditionally, and grow keeps
+    // (facts-strip.css) sets flex-grow: 1 unconditionally, and grow keeps
     // claiming whatever's left regardless of an item's OWN flex-basis, so
     // measuring with grow still on would report "content width plus this
     // scope's current share of leftover space" instead of pure content
@@ -216,7 +216,7 @@ function naturalFactsColumnWidths(groups, columns, cacheHost, generation) {
            the one exception: the pills line was explicitly exempted from
            that same outlier-suppression already (live feedback: "the
            referral pills on action page are truncated too much... this
-           must always show", panel.css) precisely because chips aren't
+           must always show", facts-strip.css) precisely because chips aren't
            free text that SHOULD get clipped - so a stale cap left over
            from a narrower measurement (a shorter concern-category value,
            fewer/shorter pills on a different row, a pre-scroll layout
@@ -372,7 +372,7 @@ function fillFactsColumns(columns, strip, cacheHost, generation) {
        competes for .row-facts' own leftover space against row-facts-track
        as a single peer (track is one level up from row-facts-cols, a
        sibling of the whole strip, not of each column individually), and
-       track's own base rule (panel.css: flex: 1 1 0) leaves its flex-basis
+       track's own base rule (facts-strip.css: flex: 1 1 0) leaves its flex-basis
        at a flat 0, so its TRUE natural content size (Due/Created/Referral
        added together) was never part of the .row-facts-level split at all
        - only whatever grow-weight it was given was. Weighting grow alone
@@ -704,7 +704,7 @@ function installEdgeSync() {
 }
 
 // Per-row prev/next arrows (shown on every device now - own comment,
-// panel.css, "if we include it on touch devices as well, its even more
+// facts-strip.css, "if we include it on touch devices as well, its even more
 // clear there is extra content"; native swipe still works underneath
 // regardless) - live feedback: "can we have a next and back arrow for each
 // row instead" (raised while discussing how to give desktop a real scroll
@@ -723,7 +723,7 @@ function installEdgeSync() {
 // underneath the same button that just revealed it (live feedback: "I want
 // the next cut off data col to be fully visible plus a little more so it
 // is not beneath the next button"). BUTTON_CLEARANCE_PX is the button's own
-// current width (28px, 36px on touch - panel.css) plus a little breathing
+// current width (28px, 36px on touch - facts-strip.css) plus a little breathing
 // room past it. .is-cut-left/-right (above) already hide whichever arrow
 // has nothing left to reveal, so there's no separate enabled/disabled
 // state to manage here beyond that.
