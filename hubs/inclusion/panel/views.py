@@ -1453,13 +1453,16 @@ def inclusion_panel_referrals(request):
         'stage_choices': stage_choices,
         'academic_year_choices': academic_year_choices,
         'term_choices': term_choices,
-        'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
+        # Raw dicts for json_script (referrals.js reads them as data
+        # islands, not the escapejs-in-a-string-literal convention the
+        # inline <script> used before #210).
+        'terms_by_academic_year': terms_by_academic_year,
         'concern_choices': concern_question.choice_list() if concern_question else [],
         'priority_choices': InclusionReferral.PRIORITY_CHOICES,
         'panel_groups': PanelGroup.objects.filter(is_active=True).select_related('school').order_by('name'),
         'years': years,
         'forms': forms,
-        'forms_by_year_json': json.dumps(forms_by_year),
+        'forms_by_year': forms_by_year,
         'has_houses': has_houses,
         'houses': houses,
         'active_filter_count': filters.active_count,
