@@ -45,14 +45,11 @@ document.addEventListener('DOMContentLoaded', initApp);
 // es-modules-findings.md §3) - a listener registered above is still in time.
 function initApp() {
 
-    // (INT-U3) Disabled-reason tooltips (components/disabled-tooltip.js),
-    // wired once for the whole document. The observer - not a call per
-    // page - is the point: a reason has to keep up with a button that gets
-    // disabled/enabled by JS (a modal's Save while its form is invalid) or
-    // arrives in an AJAX-swapped fragment, and every page that forgot to
-    // re-run it would silently lose the tooltip again. The pass itself is
-    // idempotent, so its own DOM edits settle immediately rather than
-    // re-triggering the observer indefinitely.
+    // Disabled-reason tooltips (INT-U3, full reasoning in
+    // components/disabled-tooltip.js) - re-run on every DOM change so a
+    // button that's disabled/enabled by JS or arrives in an AJAX-swapped
+    // fragment keeps its tooltip. Idempotent, so this doesn't retrigger
+    // itself via the DOM edits it makes.
     wireDisabledTooltips();
     var syncDisabledTooltips = rafThrottle(function () { wireDisabledTooltips(); });
     new MutationObserver(syncDisabledTooltips).observe(document.body, {
@@ -68,14 +65,10 @@ function initApp() {
        the page lifecycle: every subscriber registered by a later module is
        in place by now, and this notifies all of them. */
     initBreakpointClasses();
-    /* The filter bar's "mobile" treatment covers a narrowed desktop browser
-       window too, not just a true phone (live feedback: "I basically want
-       everything to be the same as mobile except we keep the side nav and do
-       not have the bottom mobile nav" - after two narrower bespoke
-       narrow-desktop attempts both still read as unfinished).
-       html.filter-bar-mobile-mode is the single switch every affected CSS rule
-       keys off, rather than each rule re-deriving this same OR condition from
-       raw media features. */
+    // isFilterBarMobile/isFilterBarNarrowDesktop's own reasoning lives in
+    // components/filter-bar/mobile-mode.js. html.filter-bar-mobile-mode is
+    // the single switch every affected CSS rule keys off, rather than each
+    // rule re-deriving the same condition from raw media features.
     function syncFilterBarMobileClass() {
         // filter-bar-mode-switching (panel.css: forces transition: none on
         // .filter-bar-collapsible) - live feedback: "I saw [the tray reduce
