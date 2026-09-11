@@ -1,0 +1,192 @@
+/* The sidebar's slide-in Settings overlay panel: the dimming backdrop behind
+   it, its own nav content (settings groups, the switch-school stand-in,
+   colour/theme/text-size pickers).
+
+   Named settings-overlay.css, not settings-panel.css/settings.css -
+   components/settings.css already exists for something unrelated (Portal
+   Admin's .settings-section/.settings-row page furniture); either of those
+   names would collide with it.
+
+   Promoted out of layout.css (#215 layout.css split) - was regions 5, 19,
+   plus the Settings-overlay-specific part of region 18 (its own
+   .side-nav .menu-label-stack/.nav-row-dropdown-list li.hidden/
+   .hub-home-header/.hub-home-lead neighbours are unrelated sidebar rules
+   that stayed behind in layout.css, same carve-out layout.css's own
+   remaining .page-header comment already explains for region 17). No
+   content change to what moved, just relocated. */
+
+/* The dimming backdrop covers <main> only — signals that main content isn't
+   the current focus while a side panel is open.
+   z-index must be above .page-header (var(--z-page-header) = 10) to prevent
+   the sticky header escaping the dim, but below .global-nav (var(--z-global-nav) = 20)
+   so the overlay panel itself stays on top. position:fixed (not absolute) so it
+   covers the viewport even when <main> is scrolled — absolute would scroll away
+   with main's content. */
+.global-backdrop { opacity: 0; transition: opacity var(--transition-slide); pointer-events: none; }
+.global-backdrop.active { opacity: 1; position: fixed; inset: 0; background: rgba(3,6,23,0.45); z-index: var(--z-backdrop); pointer-events: auto; }
+/* Dark theme: use solid black so the overlay reads clearly on the dark page */
+[data-theme-mode="dark"] .global-backdrop.active { background: rgba(0,0,0,0.65); }
+
+/* Settings panel overlay content */
+.settings-nav .settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-lg);
+}
+.settings-nav .settings-group .settings-label {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+/* Un-hidden below whenever the sidebar's own standalone Switch School row
+   is hidden (a real duplicate otherwise) - touch/tablet always (responsive.css),
+   or any collapsed icon-only rail (desktop locked-narrow or manually
+   collapsed - .switch-school is dropped from that rail too, above). */
+.settings-switch-school-group {
+    display: none;
+}
+/* :has() rather than a shared ancestor - the Settings overlay
+   (.settings-nav, _settings_content.html) and the hub sidebar are separate
+   subtrees under <body>, not nested. Same pattern this file already uses
+   for .global-nav:has(.side-nav.hub-side.collapsed) above. */
+body:has(.side-nav.hub-side.collapsed) .settings-switch-school-group {
+    display: flex;
+}
+
+/* Primary colour swatches */
+.colour-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+.colour-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-surface);
+    background: var(--swatch);
+    padding: 0;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px var(--border-color);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.colour-swatch:hover {
+    transform: scale(1.12);
+}
+.colour-swatch:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
+}
+.colour-swatch.selected {
+    box-shadow: 0 0 0 2px var(--swatch), 0 0 0 4px var(--bg-surface), 0 0 0 5px var(--swatch);
+}
+/* "Corporate" option - no single --swatch hex (it resolves to whichever
+   school is currently selected, main.js), so a conic rainbow reads as
+   "this one isn't fixed" instead of a flat colour matching one specific
+   choice below it - still sets --swatch (to --primary) so the shared
+   .selected ring above has something real to reference when this is the
+   active pick. */
+.colour-swatch--corporate {
+    --swatch: var(--primary);
+    background: conic-gradient(from 180deg, #7c3aed, #2563eb, #0d9488, #16a34a, #ea580c, #db2777, #7c3aed);
+}
+.settings-current {
+    font-size: var(--font-sm);
+    color: var(--text-tertiary);
+}
+
+/* Theme toggle (sun / moon) */
+.theme-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 64px;
+    height: 32px;
+    padding: 0 7px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+.theme-toggle:hover {
+    border-color: var(--primary);
+    transform: scale(1.04);
+}
+.theme-toggle-icon {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--text-tertiary);
+    transition: color var(--transition-base);
+}
+.theme-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    transition: transform 200ms ease;
+}
+.theme-toggle[aria-checked="true"] .theme-toggle-thumb {
+    transform: translateX(32px);
+}
+.theme-toggle[aria-checked="false"] .theme-toggle-sun {
+    color: var(--bg-surface);
+}
+.theme-toggle[aria-checked="true"] .theme-toggle-moon {
+    color: var(--bg-surface);
+}
+
+/* Text size picker — each option previews its own size at fixed px */
+.text-size-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+}
+.text-size-option {
+    flex: 1 1 30%;
+    min-width: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xxs);
+    padding: var(--space-xs) var(--space-micro);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+.text-size-option:hover {
+    border-color: var(--primary);
+    background: rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+[data-theme-mode="dark"] .text-size-option:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.text-size-option .size-preview {
+    line-height: 1;
+    font-weight: 600;
+}
+.text-size-option .size-name {
+    font-size: var(--font-2xs);
+    color: var(--text-tertiary);
+}
+.text-size-option.selected {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+.text-size-option.selected .size-name {
+    color: var(--active-text);
+}

@@ -586,7 +586,7 @@
 /* ==================== Touch scrollbar-hide audit ====================
    feedback_hide_scrollbar_touch_mode (memory): any overflow:auto scroll
    region should hide its native scrollbar on touch (html.nav-touch-mode),
-   same pair layout.css's .list-card .entity-list already uses - momentum
+   same pair this file's own .list-card .entity-list already uses - momentum
    scroll already signals scrollability there, a mouse/trackpad user still
    sees it elsewhere. Meetings' own .meeting-list turned up missing this
    (live feedback: "I thought we documented this so that all pages that
@@ -604,6 +604,192 @@ html.nav-touch-mode .activity-list {
 
 html.nav-touch-mode .activity-list::-webkit-scrollbar {
     display: none;
+}
+
+/* ---------- promoted from layout.css (#215 layout.css split) ---------- */
+/* .list-card: wraps the filter bar and entity-list so they read as one card
+   (Students/Referrals/Actions/Panel Home) - was layout.css's region 16
+   alongside .content-shell, which stayed behind in layout/content-shell.css
+   (a page-shell concern, not a list one - see that file's own comment). No
+   content change to what moved here, just relocated. */
+
+/* List card: wraps the filter bar and the entity-list so they read as one card.
+   The card itself never scrolls — only .entity-list scrolls internally. */
+.list-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    background: var(--bg-surface);
+    /* --border-strong, not --border-color - same "too pale to read as an
+       edge against its own backdrop in Soft/pastel" problem already fixed
+       on .ui-select-trigger, .toggle-pill, and .filter-bar itself (see
+       grilling session 2026-07-12). */
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+/* Students/Referrals/Actions each AJAX-swap their row list inside a plain
+   wrapper div (data-ajax-target's target, id="<page>-filtered-content") that
+   sits between .list-card and .entity-list. That div needs to be a flex
+   container itself, or .entity-list's flex:1;min-height:0 below has no
+   flex context to size against - the wrapper (and .entity-list inside it)
+   would just grow to fit every row instead of being bounded and scrolling
+   internally, and .list-card's own overflow:hidden would silently clip
+   whatever doesn't fit instead of it being reachable via any scrollbar. */
+.list-card .filtered-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+.list-card .filter-bar {
+    position: static;
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: none;
+    margin-bottom: 0;
+    /* --border-strong, matching .tab-row's own divider and every other
+       card border fixed this session (see grilling session 2026-07-12). */
+    border-bottom: 1px solid var(--border-strong);
+}
+.list-card .entity-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border: none;
+    /* Recessed well behind the gapped row-cards below (same depth-tier
+       pairing as forms.css's filter bar: --bg-well under a --bg-surface
+       control) - the gap itself is what now separates rows, not a
+       border/fill difference. No padding on the list itself - rows are
+       flush to every edge (list-card's own left/right, and the first/last
+       row against the scroll area's own top/bottom) rather than getting
+       their own inset gap against the list-card boundary or the scroll
+       viewport's edge. */
+    background: var(--bg-well);
+    gap: var(--space-xxs);
+    /* No radius here at all - .list-card's own border-radius + overflow:
+       hidden already gives the whole card its rounded corners; leaving
+       .entity-list's own base border-radius (cards.css) in place clips a
+       chosen/hovered row's own background fill into an unwanted rounded
+       notch at the top of the list, right below the filter bar. */
+    border-radius: 0;
+}
+/* :not(.nav-touch-mode) - scrollbar-gutter: stable forces the browser to
+   always reserve real layout space for this list's own vertical
+   scrollbar, whether the platform's scrollbar style is "classic" (space-
+   reserving, what most automated/headless Chromium defaults to) or
+   "overlay" (paints on top of content instead, increasingly the default
+   on real desktop Chrome/Windows) - live feedback (real narrow-desktop
+   browser, Referrals): "buttons are colliding with edge... no
+   margin/padding right", not reproducible via any simulated/automated
+   check (Playwright's own scrollbar defaults to classic) until this
+   overlay-vs-classic distinction was the difference - an overlay
+   scrollbar was painting directly over the row's own already-correct
+   padding-right, rather than sitting outside it the way a classic one
+   does. Excluded for touch-nav specifically - that mode already hides
+   this scrollbar entirely (::-webkit-scrollbar/scrollbar-width: none,
+   below), and reserving gutter space for a scrollbar that's deliberately
+   invisible there would just reopen the exact gap true mobile's own
+   careful edge-to-edge padding tuning was set against. */
+html:not(.nav-touch-mode) .list-card .entity-list {
+    scrollbar-gutter: stable;
+}
+/* Gapped per-row cards, replacing the zebra alternating fill this portal
+   briefly settled on (#118 - git history has both). Zebra ties every
+   row's own look to its position (:nth-child(even)) - deleting/animating
+   one row out of the list means every row after it has to re-stripe to
+   keep alternating correctly. A gap + independent card per row has no such
+   dependency: removing one row never touches its neighbours' styling.
+   --border-color, not --border-strong - .list-card itself (the outer
+   container these rows sit inside) already uses --border-strong for its
+   own boundary; giving each nested row that same weight made the inside
+   of the card read busier/heavier than its own outer edge (live feedback:
+   "card borders should not be stronger than the overall main page
+   container"). --border-color is the plain per-card weight everywhere
+   else, just deliberately kept a step below the container it's nested in
+   here. Scoped to .list-card specifically (not the bare
+   .entity-row base rule, cards.css, which every other .entity-row consumer
+   - modal member pickers, Panel Agenda rosters, Referral Selection, etc. -
+   keeps unchanged) since those compact contexts were never part of this
+   list-page treatment. No :not(.chosen) guard needed here (unlike the old
+   zebra rule) - this selector's specificity (2 classes) no longer outranks
+   .entity-row.chosen's (cards.css, also 2 classes, loaded later), so
+   .chosen's own background fill wins on its own. No border-radius -
+   rows are flush to the list-card's own left/right edge (no side margin
+   on .entity-list, above), so a rounded corner here would just expose the
+   well underneath at a mismatched radius rather than reading as a card. */
+.list-card .entity-row {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    /* --card-shadow, same token every other card in the portal uses
+       (cards.css) - resolves to a real drop shadow on themes that have one,
+       none on flat/Pastel (themes.css), so this never fights that theme's
+       own "no shadow on cards" rule. Rows nearest .entity-list's own
+       scroll edges (overflow-y: auto, above) can clip a sliver of this at
+       the very top/bottom of a scroll - accepted, same tradeoff every
+       other scrollable card list in the portal already lives with. */
+    box-shadow: var(--card-shadow);
+}
+/* SYNC: restates the shared hover/chosen accent bar (.selectable:hover,
+   .entity-row.chosen - cards.css, source of truth, see its own SYNC
+   comment) combined with var(--card-shadow) in one box-shadow list -
+   box-shadow isn't additive across separate declarations, so without this
+   override hovering/choosing a row would silently drop its drop shadow the
+   moment the shared rule's own box-shadow (higher specificity or later in
+   cascade) took over. Scoped to .list-card - the shared rule's other
+   consumers (modal pickers, Panel Agenda rosters, etc.) never had a
+   card-shadow to begin with. */
+/* border-left-color, not just the box-shadow bar - an inset shadow paints
+   inside the border, not over it (the border itself is drawn after/on top,
+   see .list-card .entity-row's own border: 1px solid var(--border-color)
+   above), so without this the row's plain left border edge still showed as
+   its own 1px sliver in front of the accent bar (live feedback: "rectangle
+   within border"). Matching the border to the bar's own colour makes the
+   two read as one continuous accent edge instead of a border framing a
+   bar. Only -color, not the full border-left shorthand - width/style stay
+   whatever the base rule already set. Lives on :hover/:focus-visible now,
+   not .chosen - the bar is a hover-only marker (cards.css). */
+.list-card .entity-row:hover,
+.list-card .entity-row:focus-visible {
+    border-left-color: var(--accent-border);
+    box-shadow: inset var(--space-xxs) 0 0 var(--accent-border), var(--card-shadow);
+}
+/* The true-mobile halving that used to be restated here is gone along with
+   the cards.css override it mirrored (see its own comment there) - one bar
+   width at every size now. */
+/* Touch already auto-hides its own scrollbar except while actively
+   scrolling - a persistently-visible one here only ever shows because the
+   dev breakpoint preview iframe is still a real desktop mouse over a
+   resized frame (same reasoning as every other .nav-touch-mode rule,
+   main.js: real touch input OR the preview's forced-touch override both
+   set this class). Hidden explicitly so previewing matches what a real
+   touch device actually shows (live feedback, #117: "on touch devices we
+   can hide scroll bar"). */
+html.nav-touch-mode .list-card .entity-list {
+    scrollbar-width: none;
+}
+html.nav-touch-mode .list-card .entity-list::-webkit-scrollbar {
+    display: none;
+}
+/* .stats-strip now lives inside .list-card (issue #7), following
+   .entity-list as the card's own footer rather than sitting outside the
+   card as a separate shell-level element - the AJAX-swapped fragment
+   still contains both, they're just both inside the card now. */
+.list-card .stats-strip {
+    flex-shrink: 0;
+    margin-bottom: 0;
+    padding: var(--space-md);
+    border-top: 1px solid var(--border-strong);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.setup-col .entity-list {
+    background: none;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
 }
 
 /* Plain HTML <table> default - #215: this convention was only ever written

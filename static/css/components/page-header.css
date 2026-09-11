@@ -103,3 +103,59 @@ body:has(.content-shell--header-stats) .sticky-header-zone {
         margin-top: 0;
     }
 }
+
+/* ---------- promoted from layout.css (#215 layout.css split) ---------- */
+/* .sticky-header-zone/.home-header-sticky/.sticky-zone-sentinel and
+   .page-header/.key-actions*: was layout.css's region 13 plus the
+   page-header/key-actions part of region 17 - the rest of region 17
+   (.side-nav .nav-row-btn:focus-visible, .nav-footer-divider,
+   .nav-header-divider, .hub-menu-divider) is unrelated sidebar chrome that
+   stayed behind in layout.css. No content change to what moved here, just
+   relocated. */
+
+/* Sticky page header (breadcrumbs/actions) and home screen title+search row.
+   Feathers the hard cut where scrolled content disappears under the header
+   by fading the fill out over its own existing bottom padding (var(--space-
+   md)) instead of staying opaque right to its own edge - a plain calc()
+   percentage stop, not a fixed px fade height, since header height (and so
+   this gradient's total span) varies per page (title-only vs title+filters).
+   Shown unconditionally (not gated to a scrolled/stuck state) - unlike an
+   earlier version that pushed the fade in an extra strip past the header's
+   own box, this fade is fully inset within the header's own real box, so
+   there's nothing below it to smudge on a page too short to ever scroll. */
+.sticky-header-zone,
+.home-header-sticky {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-page-header);
+    background: linear-gradient(to bottom, var(--bg-page) calc(100% - var(--space-md)), transparent 100%);
+    /* Tokenised, not a hardcoded -32px: this negative bleed must always
+       equal .main-inner's own padding or the sticky header overshoots the
+       viewport edge. The <=480px override (responsive.css) already tracks
+       the token this way - the base rule was the odd one out, silently
+       correct only while --space-2xl happened to be 32px. */
+    margin: calc(-1 * var(--space-2xl)) calc(-1 * var(--space-2xl)) 0;
+    /* Top matches .nav-header's own top padding (layout.css) - both headers
+       now start at the same 20px offset from their container's top edge. */
+    padding: var(--space-lg) var(--space-2xl) var(--space-md);
+}
+
+/* Zero-height marker placed immediately before a position:sticky element.
+   static/js/main.js observes it via IntersectionObserver and toggles
+   .is-stuck on the sticky sibling once the marker scrolls out of view —
+   CSS alone has no way to detect "currently stuck". */
+.sticky-zone-sentinel { height: 0; }
+
+/* Page header: left (breadcrumbs + page title) and right (key actions) */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); }
+.page-header-main { min-width: 0; }
+.page-header-extras { display: flex; align-items: center; flex-shrink: 0; }
+/* Two stacked rows (app-wide actions on top, a page's own primary action
+   below via key_actions_extra - see hubs/inclusion/panel/_base.html) rather
+   than one flat row, so the page-specific action's already-stronger button
+   styling isn't visually flattened into the same line as the muted
+   app-wide actions. align-items: flex-end keeps both rows right-aligned
+   against the page header's right edge, matching the single-row layout
+   this replaced. */
+.key-actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-xs); }
+.key-actions-row { display: flex; gap: var(--space-xs); flex-wrap: wrap; }

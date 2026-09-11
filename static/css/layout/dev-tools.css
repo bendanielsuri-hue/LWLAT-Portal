@@ -1,0 +1,464 @@
+/* Dev-only scaffolding docked in the app footer: the status bar itself, the
+   breakpoint-switcher buttons + their size/orientation dropdowns, the dev
+   error console dropdown, the footer's "report a problem" dialog, and the
+   breakpoint device-preview iframe chrome. Kept contiguous (same relative
+   order as the source file) since they're all one system, wired together by
+   layout.html's script.
+
+   Promoted out of layout.css (#215 layout.css split) - was regions 6-9, no
+   content change, just relocated. */
+
+/* Always-present app footer (see #128 grilling, merged to one report system
+   in the #128 follow-up grilling) - a permanent docked bar inside
+   .content-column, so it runs under <main> only, never under .global-nav to
+   its left. General cluster (everyone) pushed left; the two dev-only
+   .footer-cluster--dev instances (Errors, then the breakpoint switcher) sit
+   either side of the unconditional "Report Issue" button. Only the first
+   dev cluster's margin-left: auto actually consumes the free space -
+   .footer-report-btn's own copy is what lands *it* correctly on its own
+   when the dev clusters aren't rendered. The second (breakpoint) instance
+   overrides margin-left below to cancel .app-footer's gap instead, so it
+   sits flush against Report Issue rather than one gap further right. */
+.app-footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    /* Wrap rather than overflow: below 1180px this bar survives only for the
+       breakpoint tool's own host page (see html.dev-bp-host in responsive.css),
+       and its dev cluster is flex-shrink: 0, so on a genuinely narrow real
+       window the row used to push off the right edge and clip the last control
+       - i.e. the tool's own controls became unreachable at exactly the widths
+       you'd be using it at. Wrapping gives it a second row instead (same
+       native-flex-wrap approach the Actions list uses for its data strip). */
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    min-height: 34px;
+    padding: 0 var(--space-sm);
+    /* Stronger than the default --border-color - the footer sits directly
+       below the side-nav's own background (same --bg-nav), so the seam
+       between them needs a clearer line than the faint default gives it
+       (live feedback: "footer blends into the sidenav too much"). */
+    border-top: 1px solid var(--border-strong);
+    background: var(--bg-nav);
+}
+.footer-cluster {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+.footer-cluster--dev {
+    position: relative;
+    margin-left: auto;
+    padding-left: var(--space-sm);
+    border-left: 1px solid var(--border-color);
+}
+.footer-cluster--dev-bp {
+    margin-left: calc(-1 * var(--space-md));
+}
+.footer-report-btn {
+    margin-left: auto;
+}
+.footer-item { flex-shrink: 0; }
+.footer-meta-item {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+}
+.footer-status {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+}
+.footer-status--success { color: var(--btn-add-bg); }
+.footer-status--error { color: var(--btn-delete-bg); }
+
+/* Plain text+icon buttons (Report Issue/Errors) - not .btn/.btn-sm, which
+   are too visually heavy for a 34px status-bar sliver. */
+.footer-text-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xxs);
+    background: transparent;
+    border: none;
+    padding: var(--space-xxs) var(--space-xs);
+    border-radius: var(--radius-xs);
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+}
+.footer-text-btn:hover { color: var(--text-primary); background: var(--bg-well); }
+.footer-text-btn svg { width: 14px; height: 14px; }
+/* [hidden] beats the unconditional display: inline-flex above on
+   specificity alone (both single-selector, this stylesheet loading after
+   the UA stylesheet's own [hidden]{display:none}) - without this
+   #dev-error-btn stays visible with hidden set (see #128). */
+.footer-text-btn[hidden] { display: none; }
+.footer-error-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--btn-delete-bg);
+    color: var(--btn-delete-text);
+    font-size: 10px;
+    line-height: 1;
+}
+.footer-error-badge[hidden] { display: none; }
+
+/* Breakpoint switcher: plain icon buttons matching the app's own
+   icon-button conventions (transparent, tinted-background active state)
+   rather than the earlier PowerApps-style bordered squares - see #128
+   grilling. Sized to the footer's 34px height rather than the icons
+   dictating the bar's height. */
+.dev-bp-group {
+    display: flex;
+    align-items: center;
+    /* 1px was right when these were bare 24px icon squares reading as one
+       segmented control. Now every button carries a text label and an active
+       fill, so at 1px two adjacent pills touch and read as a single lozenge -
+       8px separates them into distinct controls (live feedback: "can we have
+       some spacing between dev tools"). */
+    gap: var(--space-xs);
+}
+.dev-bp-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    border-radius: var(--radius-xs);
+    cursor: pointer;
+}
+.dev-bp-option svg { width: 14px; height: 14px; }
+/* Icon colour only - no background/border - so hover reads as a distinct,
+   lighter-weight signal from .active's filled chip below rather than a
+   dimmer version of the same thing. */
+.dev-bp-option:hover { color: var(--primary); }
+/* Fill + border, not fill alone - a border-only-on-activation ring would nudge
+   layout by ~1px each side, so the border is always transparent above and
+   only recolours here (same invariant as .filter-field--active in forms.css,
+   which this reuses the vocabulary of). --primary-light alone isn't reliably
+   visible against --bg-nav in every theme (it's a *dark* tint in dark mode -
+   see theme/dark.css), so the border carries the contrast the fill can't. */
+.dev-bp-option.active {
+    background: var(--primary-light);
+    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+    color: var(--primary);
+}
+/* The orientation button is disabled, not hidden, on Desktop (see the comment
+   on it in layout.html) - so it needs a real disabled look, and must stop
+   claiming the :hover recolour above. */
+.dev-bp-option:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+.dev-bp-option:disabled:hover { color: var(--text-secondary); }
+/* visibility, not display/[hidden] - the rotate button hides on tiers with
+   nothing to rotate, and this cluster is right-aligned, so removing its box
+   would slide all four tier buttons sideways every time you switch to Desktop
+   or Laptop. Reserving the space keeps them put; see the rotate button's own
+   comment in layout.html. Swap to display:none if you'd rather reclaim the gap
+   than keep the buttons still. */
+.dev-bp-option.is-hidden { visibility: hidden; }
+
+/* Every control here carries a permanent text label (live feedback) -
+   the three tiers named outright rather than left to a tooltip, so you never
+   have to hover unfamiliar device silhouettes to find the one you want, and
+   the orientation button reading out "Portrait"/"Landscape".
+
+   Consequence: this cluster is now ~290px wide rather than ~150px, and it sits
+   at the footer's far right past Report Issue, so it's the first thing to
+   crowd on a narrowed real window. flex-shrink: 0 below keeps it intact rather
+   than letting the labels squeeze into ellipses. */
+.dev-bp-group { flex-shrink: 0; }
+/* width:auto + min-width, not the fixed 24px square this was: a labelled
+   button has to grow around its text, while the unlabelled rotate button
+   still collapses to the same square it always was. */
+.dev-bp-option {
+    width: auto;
+    min-width: 24px;
+    gap: var(--space-xxs);
+    padding: 0 var(--space-xxs);
+}
+.dev-bp-label {
+    font-size: var(--font-xs);
+    font-weight: 600;
+    white-space: nowrap;
+}
+/* The orientation label reads out "Portrait"/"Landscape", which aren't the same
+   width - and since this cluster is right-aligned in the footer, that swap
+   slides Desktop/Tablet/Mobile sideways. Transitioned rather than jumped
+   (INT-M1).
+
+   Two declared ch widths, not width:auto: a transition needs the *declared*
+   value to change, and swapping the text alone leaves width declared as auto in
+   both states, so nothing would animate - interpolate-size/calc-size() (INT-M5)
+   doesn't help for the same reason. ch (the width of "0", comfortably wider
+   than these lowercase letters average) over a measured px value keeps this
+   CSS-only and keeps it correct across the data-text-size settings, at the cost
+   of a little trailing slack inside the box.
+
+   Sized with real slack (10ch, not the 9ch "Landscape" nominally needs): ch is
+   the width of "0", but at 600 weight these letters average wider than that
+   estimate suggests, so 9ch landed within ~2px of the string and clipped its
+   final glyph (live feedback). No overflow:hidden either - it's what turned
+   that near-miss into a permanent clip rather than a harmless overhang, and
+   this is the last control in the footer so there's nothing to its right to
+   overhang into. */
+.dev-bp-orient-label {
+    display: inline-block;
+    width: 8ch;
+    text-align: left;
+    transition: width var(--transition-fast);
+}
+.dev-bp-orient-label.is-landscape { width: 10ch; }
+.dev-bp-tier { position: relative; display: flex; }
+/* The caret is the open/closed signal now that the label is always on. It
+   ships pointing down; these menus open UPWARD out of the footer, so flip it
+   when open to point at the thing it opened. Sized below the 14px device
+   icons - it's secondary chrome. */
+.dev-bp-tier-btn svg:last-child { width: 11px; height: 11px; opacity: 0.7; }
+.dev-bp-tier-btn[aria-expanded="true"] svg:last-child { transform: rotate(180deg); }
+
+/* Size menu - same surface/border/shadow vocabulary as .tab-row-more-menu in
+   navigation.css, but anchored bottom:100% instead of top:100% because the
+   footer docks at the page bottom (matching .dev-error-panel below). */
+.dev-bp-menu {
+    position: absolute;
+    bottom: calc(100% + var(--space-xs));
+    right: 0;
+    z-index: var(--z-global-nav);
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-xxs);
+}
+.dev-bp-menu.hidden { display: none; }
+/* Vendor heading. Label-cased and dimmed to sit clearly below the device rows
+   in the hierarchy - it's a divider you read once on the way to a row, never a
+   target, so it takes no hover/active treatment and no separator line (the
+   spacing above does that job without adding a rule to every group).
+   :first-child kills the leading gap so the first group sits flush with the
+   menu padding rather than looking like a stray inset. */
+.dev-bp-menu-group {
+    padding: var(--space-xs) var(--space-xs) var(--space-xxs);
+    margin-top: var(--space-xxs);
+    font-size: var(--font-2xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    white-space: nowrap;
+}
+.dev-bp-menu-group:first-child { margin-top: 0; padding-top: var(--space-xxs); }
+.dev-bp-size {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-xs);
+    padding: var(--space-xxs) var(--space-xs);
+    font-size: var(--font-xs);
+    font-family: inherit;
+    color: var(--text-secondary);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+/* The dimensions half, dimmer than the device name - it's the detail you check
+   once, not what you scan the list by. */
+.dev-bp-size span {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+}
+.dev-bp-size:hover { background: var(--bg-well); color: var(--text-primary); }
+/* Neutral well + accent inset border for the applied row, never a primary
+   fill (DES-F1) - and inset so marking it can't nudge the row's height. */
+.dev-bp-size.active {
+    background: var(--bg-well);
+    color: var(--primary);
+    box-shadow: inset 2px 0 0 var(--primary);
+}
+
+/* Dev error console dropdown - anchored above the footer button that opens
+   it since the footer docks at the page bottom. */
+.dev-error-panel {
+    position: absolute;
+    bottom: calc(100% + var(--space-xs));
+    right: 0;
+    width: 320px;
+    max-height: 240px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-global-nav);
+}
+.dev-error-panel.hidden { display: none; }
+.dev-error-panel-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-xs) var(--space-sm);
+    border-bottom: 1px solid var(--border-color);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.dev-error-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    list-style: none;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-xs);
+    color: var(--text-primary);
+}
+.dev-error-list li {
+    padding: var(--space-xxs) 0;
+    border-bottom: 1px solid var(--border-faint);
+    word-break: break-word;
+}
+.dev-error-list li:last-child { border-bottom: none; }
+
+/* Minimal native <dialog>-based modal for the footer's "report a problem"
+   form (#128) - self-contained here rather than depending on
+   hubs/inclusion/panel's own .modal-dialog, since this footer is loaded on
+   every page site-wide, not just Inclusion Panel. */
+/* position/inset/margin: the global `* { margin: 0 }` reset above kills the
+   native <dialog> auto-centering trick (which relies on margin: auto), so
+   every real dialog in the app sets this explicitly - see dialog.modal-dialog
+   in panel.css for the same fix. Without it a <dialog> opened via
+   showModal() renders top-left with no working overlay instead of centred. */
+.ui-dialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 0;
+    width: 420px;
+    max-width: calc(100vw - var(--space-xl));
+}
+.ui-dialog::backdrop { background: rgba(3, 6, 23, 0.45); }
+.ui-dialog-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+}
+.ui-dialog-title { font-size: var(--font-lg); font-weight: 600; }
+.ui-dialog-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xxs);
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+.ui-dialog-field select, .ui-dialog-field textarea {
+    font: inherit;
+    color: var(--text-primary);
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-well);
+    resize: vertical;
+}
+.ui-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-xs);
+}
+
+/* Not a modal - takes <main>'s own slot in .content-column's flex column,
+   so picking a breakpoint reads as the app itself resizing rather than a
+   dialog opening on top of it. <main> (and .global-nav, see above) are
+   hidden (not removed) while this shows - see the toggle logic in
+   layout.html. Deliberately a sibling of <main>, not a replacement for the
+   whole #page-shell (an earlier version hid #page-shell entirely, which
+   took the footer - and the very breakpoint buttons used to switch/exit
+   the preview - down with it, see #128). [hidden] beats the unconditional
+   display:flex below on specificity alone (both single-selector, and this
+   stylesheet loads after the UA stylesheet's own [hidden]{display:none}) -
+   without this the overlay would show on every page load and never close,
+   since setting the hidden *attribute* stops doing anything once an
+   equal-specificity author rule already forces a display value. */
+.dev-bp-overlay[hidden] { display: none; }
+
+.dev-bp-overlay {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    /* Centres the device mockup vertically as well as horizontally - a short
+       landscape frame otherwise pinned itself to the top with all its slack
+       below, reading as "stuck under the header" rather than as an inset
+       mockup. margin:auto on the child rather than align-items:center here,
+       because this overlay scrolls (overflow:auto below): a centred flex item
+       taller than its container has its overflowing TOP made unreachable,
+       whereas auto margins collapse instead of overflowing. */
+    align-items: flex-start;
+    background: var(--bg-page);
+    overflow: auto;
+    /* Vertical padding is deliberately SMALL, and was 32px (--space-2xl) until
+       the laptop tier arrived. The air above/below a mockup (#128) is real, but
+       .dev-bp-frame-wrap's margin:auto is what actually provides it: whenever
+       the frame fits with slack, auto margins centre it and the gap appears for
+       free. Padding only ever bites when the frame is close to filling the
+       overlay - i.e. it costs height at exactly the moment height is scarce,
+       and buys nothing at every other size.
+
+       That 64px of vertical padding was the difference between computeScale()
+       returning 1 and returning ~0.95 for a 864px-tall laptop preset, which is
+       the commonest real laptop viewport there is. Phones and small tablets
+       look identical to before; they had slack either way.
+
+       Not zero: .dev-bp-frame-wrap carries a box-shadow, and it needs a few px
+       to render into rather than clip against the overlay edge. Horizontal
+       padding stays --space-lg - width is never the binding constraint here
+       (see the laptop tier's comment in layout.html for the arithmetic). */
+    padding: var(--space-xs) var(--space-lg);
+}
+/* Sized to the device's true width*scale/height*scale (script below) -
+   scale is 1 (no shrink) whenever the preset already fits the available
+   viewport, so this only ever shrinks a preset that wouldn't otherwise fit,
+   never distorts one that does. Carries the chrome (radius/shadow) instead
+   of .dev-bp-frame itself, since transform:scale()-ing a border-radius/
+   box-shadow along with the frame's content looks subtly off at the seam
+   compared to clipping a crisp, unscaled frame inside a correctly-sized,
+   already-chromed box. */
+/* margin:auto is what actually centres this in .dev-bp-overlay - see the
+   comment there for why it isn't align-items:center. */
+.dev-bp-frame-wrap {
+    margin: auto;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+.dev-bp-frame {
+    border: none;
+    background: var(--bg-page);
+    /* width/height set inline per breakpoint by the script in layout.html
+       to the device's true (unscaled) size, so @media inside it evaluates
+       against real dimensions regardless of how small the wrap/transform
+       above end up shrinking it visually - transform-origin: top left keeps
+       the scaled-down box's top-left corner aligned with the wrap's own,
+       matching how its width/height were used to size the wrap. */
+    transform-origin: top left;
+}
