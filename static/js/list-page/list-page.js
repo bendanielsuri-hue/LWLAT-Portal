@@ -90,6 +90,23 @@ export function initListPage(root, options) {
         new MutationObserver(refreshAfterContentChange).observe(root, { childList: true, subtree: true });
     }
     window.addEventListener('resize', refreshAfterResize);
+    // A window resize isn't the only way this root's own width changes -
+    // the sidebar collapsing/expanding resizes the content column with no
+    // 'resize' event of its own. A per-root ResizeObserver catches that too.
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(refreshAfterResize).observe(root);
+    }
+    // Phone chrome swaps the column-width scope from per-list to per-row
+    // (facts-strip.js's syncFactsColumnWidths) - i.e. which element the
+    // cached measurements belong to - so crossing it has to invalidate
+    // them rather than wait for the resize debounce.
+    if (window.matchMedia) {
+        window.matchMedia('(max-width: 480px)').addEventListener('change', refreshAfterContentChange);
+    }
+    // Late webfont swaps change text metrics - and so every natural width
+    // already measured - without any resize or DOM mutation firing to say
+    // so. Cheap one-off correction after the page finishes loading.
+    window.addEventListener('load', refreshAfterContentChange);
 
     wireListInfiniteScroll(root);
 

@@ -3504,7 +3504,13 @@ function updateFactsLineLayout() {
    while the strip still had a whole wrapped line waiting for it. On
    Referrals/Students/Meetings .row-facts IS the strip, so the two boxes
    are the same element and the distinction costs nothing. */
-var LIST_ROOT_SELECTOR = '#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #students-filtered-content, #meetings-filtered-content';
+// #students-filtered-content dropped (#210) - Students now owns its own
+// copy of this whole refresh loop via initListPage
+// (panel/js/pages/students.js), and the two must never both run against
+// the same container: they write the same cache properties
+// (_stackCache/_factsStripNatural/...) under two independent generation
+// counters, which would thrash rather than merely duplicate work.
+var LIST_ROOT_SELECTOR = '#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #meetings-filtered-content';
 var STACK_ROW_SELECTOR = '.entity-row, .meeting-card';
 // Subpixel guard: rowWidth - overhead and need are fractional measurements
 // of the same boxes, so an exact-fit row can land a hair either side of
@@ -3623,11 +3629,12 @@ function updateListStackMode() {
 // nowrap set and no ellipsis, exactly the "Delete cut off" screenshot
 // this was written against) - getBoundingClientRect() would only ever
 // report the shrunk box's own current size, never what it actually needs.
+// #students-filtered-content dropped (#210) - see LIST_ROOT_SELECTOR's own
+// comment above, same reason.
 var BUTTON_ROW_SELECTORS = [
     '#meetings-filtered-content .meeting-card-actions',
     '#referrals-filtered-content .row-btn-row',
     '#actions-filtered-content .action-row-buttons',
-    '#students-filtered-content .btn-row',
 ].join(', ');
 function updateButtonRowOverflow() {
     /* Restructured into strict write-pass / read-pass / write-pass phases
@@ -3832,7 +3839,9 @@ document.addEventListener('DOMContentLoaded', function () {
         refreshSoon();
     }
     var refreshAfterResize = debounceTrailing(refreshFactsStrips, 120);
-    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #students-filtered-content, #meetings-filtered-content').forEach(function (container) {
+    // #students-filtered-content dropped (#210) - see LIST_ROOT_SELECTOR's
+    // own comment above, same reason.
+    document.querySelectorAll('#actions-filtered-content, #referrals-filtered-content, #escalations-filtered-content, #meetings-filtered-content').forEach(function (container) {
         if (typeof MutationObserver !== 'undefined') {
             /* childList only, never attributes - this refresh's own work
                IS a pile of style/class writes on these containers'

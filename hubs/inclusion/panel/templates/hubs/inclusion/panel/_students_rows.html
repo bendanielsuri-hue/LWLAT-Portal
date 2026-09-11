@@ -4,9 +4,10 @@ Row markup only, no .entity-list wrapper - shared by the initial/filtered
 render (_students_filtered_content.html, wraps this in .entity-list) and
 the infinite-scroll continuation response (inclusion_panel_students,
 views.py: a page>1 AJAX request renders just this template, and
-wireStudentsInfiniteScroll, students.html, inserts the result directly
-into the existing .entity-list before the old sentinel). Keeping the row
-markup in one place means both call sites can never drift apart.
+initListPage's own wireListInfiniteScroll (#210, components/infinite-
+scroll.js) inserts the result directly into the existing .entity-list
+before the old sentinel). Keeping the row markup in one place means both
+call sites can never drift apart.
 {% endcomment %}
 {% for s in students %}
 <div class="entity-row selectable{% if is_aggregate_view %} has-dual-thumb{% endif %}" tabindex="0" role="button" aria-pressed="false">
@@ -184,13 +185,13 @@ markup in one place means both call sites can never drift apart.
 Infinite scroll (live feedback: "cap the number of results... roughly 4000
 students eventually" - #134 follow-up, the stutter this replaced turned
 out to be plain DOM-size layout cost, confirmed by testing with all JS
-disabled and it still being slow). wireStudentsInfiniteScroll
-(students.html) watches this via IntersectionObserver; once it scrolls
-into view, it fetches next_page_url and splices the response in right
-before this element, then removes it - the response's own trailing
-sentinel (if that page also has a next one) becomes the new observation
-target automatically, since it's inserted as part of the same fetched
-fragment.
+disabled and it still being slow). initListPage's own wireListInfiniteScroll
+(#210, components/infinite-scroll.js, wired from students.js) watches this
+via IntersectionObserver; once it scrolls into view, it fetches
+next_page_url and splices the response in right before this element, then
+removes it - the response's own trailing sentinel (if that page also has a
+next one) becomes the new observation target automatically, since it's
+inserted as part of the same fetched fragment.
 {% endcomment %}
 <div class="list-load-sentinel" data-next-page-url="{{ next_page_url }}"></div>
 {% endif %}

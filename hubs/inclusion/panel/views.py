@@ -1222,7 +1222,10 @@ def inclusion_panel_students(request):
         'is_aggregate_view': is_aggregate_view,
         'years': years,
         'forms': forms,
-        'forms_by_year_json': json.dumps(forms_by_year),
+        # Raw dict for json_script (students.js reads it as a data island,
+        # not the escapejs-in-a-string-literal convention the inline
+        # <script> used before #210).
+        'forms_by_year': forms_by_year,
         'has_houses': has_houses,
         'houses': houses,
         **filters.context,
