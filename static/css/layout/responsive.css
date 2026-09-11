@@ -42,6 +42,16 @@
                           JS: touchMql (js/layout/breakpoints.js).
    rail      <= 1200px    Hub sidebar auto-collapses to the 64px icon rail;
                           global hub-rail hidden. JS: railMql (js/layout/breakpoints.js).
+   wide      >= 1401px    The only min-width tier in the set, and so the only
+                          one with no matching max (everything below it is the
+                          unqualified base). Widens .main-inner's page gutter
+                          from --space-2xl to --space-4xl, and the sticky
+                          header zone's bleed with it. 1400 is where a
+                          desktop window still has width to spare after the
+                          sidebar: below it the gutter is usable content
+                          width and stays tight, above it the content is
+                          drifting towards .main-inner's 1600px cap and reads
+                          as edge-to-edge without more air either side.
 
    HEIGHT AXIS - the one tier not measured in width. See ADR 0016.
 
@@ -746,5 +756,33 @@ html.filter-bar-narrow-desktop .breadcrumbs {
        clobber the phone tier's own tighter gap. See that block's comment. */
     .stats-strip--compact {
         gap: var(--space-sm);
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   WIDE (>= 1401px) — see the registry at the top of this file.
+   --------------------------------------------------------------------------- */
+@media (min-width: 1401px) {
+    /* Only the horizontal padding grows. The vertical rhythm is set by the
+       page header and the first card below it, neither of which has any more
+       room at 1600px than at 1200px, so stretching the top/bottom gutter to
+       match would just push content below the fold for nothing. */
+    .main-inner {
+        padding-left: var(--space-4xl);
+        padding-right: var(--space-4xl);
+    }
+
+    /* Same coupling as the phone tier above: .sticky-header-zone/
+       .home-header-sticky (layout.css) cancel .main-inner's own padding with
+       a negative margin so they can bleed edge-to-edge while staying sticky,
+       and that margin must track .main-inner's padding or the sticky header
+       overshoots the content edge. Only the horizontal half changes here,
+       matching the padding rule above. */
+    .sticky-header-zone,
+    .home-header-sticky {
+        margin-left: calc(-1 * var(--space-4xl));
+        margin-right: calc(-1 * var(--space-4xl));
+        padding-left: var(--space-4xl);
+        padding-right: var(--space-4xl);
     }
 }
