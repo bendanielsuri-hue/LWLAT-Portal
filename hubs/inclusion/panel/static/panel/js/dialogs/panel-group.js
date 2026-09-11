@@ -13,14 +13,14 @@
    pages showing this group elsewhere (Panel Groups settings) can patch just
    their own row live.
 
-   enhanceFormControls/initMemberPicker/initExpertiseFields stay window.* -
-   none of the three has moved yet (main.js is unsplit, #213; the person-
-   picker/expertise-field components are still panel.js's own top-level
-   functions, not modules). Everything else generic imports from its real
-   home now that it has one. window.openPanelGroupModal/
-   openPanelGroupEditModal/uiSelectRowAdders stay window.* deliberately -
-   other panel pages (meeting_setup.html, _panel_meeting_form_modal.html,
-   the generic .ui-select-row "+" button in main.js) call them by name. */
+   enhanceFormControls/initExpertiseFields stay window.* - main.js is
+   unsplit (#213), and expertise-field.js's own DOMContentLoaded wiring
+   already covers a fresh render without this dialog calling it directly.
+   Everything else generic imports from its real home now that it has one.
+   window.openPanelGroupModal/openPanelGroupEditModal/uiSelectRowAdders
+   stay window.* deliberately - other panel pages (meeting_setup.html,
+   _panel_meeting_form_modal.html, the generic .ui-select-row "+" button in
+   main.js) call them by name. */
 
 import { closeModalWithFadeOut, animateModalHeightChange, setFadeHidden } from '../../../js/components/modal.js';
 import { pulseCount } from '../../../js/components/tabs.js';
@@ -28,6 +28,7 @@ import { shrinkAndFadeOut } from '../../../js/components/row-animate.js';
 import { diffPatchRowList } from '../../../js/components/row-list-patch.js';
 import { beginFetchSeq, isCurrentFetchSeq } from '../../../js/components/fetch-seq.js';
 import { resolvePanelSchoolFilter } from '../components/school-filter.js';
+import { initPersonPicker } from '../../../js/components/person-picker.js';
 
 (function () {
     var dialog = document.getElementById('panel-group-dialog');
@@ -209,7 +210,7 @@ import { resolvePanelSchoolFilter } from '../components/school-filter.js';
             // callback being wrapped in animateModalHeightChange.
             if (enterBtn) setFadeHidden(enterBtn, mode !== 'list');
             if (backBtn) setFadeHidden(backBtn, mode !== 'add');
-            // Only force-hide on the way OUT of add mode - initMemberPicker
+            // Only force-hide on the way OUT of add mode - initPersonPicker
             // (its own External segmented option) owns showing it back on
             // the way in, since this footer (unlike the picker's own markup)
             // stays visible in list mode too and would otherwise keep
@@ -447,7 +448,7 @@ import { resolvePanelSchoolFilter } from '../components/school-filter.js';
         }
 
         window.enhanceFormControls(dialog);
-        dialog.querySelectorAll('[data-member-picker-root]').forEach(window.initMemberPicker || function () {});
+        dialog.querySelectorAll('[data-member-picker-root]').forEach(initPersonPicker);
         if (window.initExpertiseFields) window.initExpertiseFields(dialog);
         wireCreateForm();
         wireAutosaveForms();

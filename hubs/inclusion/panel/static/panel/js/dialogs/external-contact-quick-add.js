@@ -5,9 +5,10 @@
    External Contact" button rather than each picker expanding its own
    inline fields.
 
-   window.openExternalContactQuickAdd stays window.* - initMemberPicker
-   (still panel.js's own top-level function, not yet a module) calls it by
-   name. */
+   window.openExternalContactQuickAdd stays window.* - it's reached via the
+   delegated [data-member-add-external-toggle] click below, and
+   _personPicker.addExternalContact (static/js/components/person-picker.js)
+   reads the created contact back off targetPickerRoot._personPicker. */
 
 import { closeModalWithFadeOut } from '../../../js/components/modal.js';
 
@@ -44,7 +45,7 @@ import { closeModalWithFadeOut } from '../../../js/components/modal.js';
     };
 
     // Delegated at the document level (rather than wired per-picker inside
-    // initMemberPicker) so one listener covers every picker instance on the
+    // initPersonPicker) so one listener covers every picker instance on the
     // page, present now or rendered in later. The toggle itself now lives in
     // the including page's own footer (e.g. .panel-group-modal-footer), not
     // inside the picker's own root (see _member_picker.html's doc comment),
@@ -78,8 +79,8 @@ import { closeModalWithFadeOut } from '../../../js/components/modal.js';
         }).then(function (res) { return res.json(); })
             .then(function (data) {
                 if (!data.success) return;
-                if (targetPickerRoot._memberPicker && targetPickerRoot._memberPicker.addExternalContact) {
-                    targetPickerRoot._memberPicker.addExternalContact(data.contact);
+                if (targetPickerRoot._personPicker && targetPickerRoot._personPicker.addExternalContact) {
+                    targetPickerRoot._personPicker.addExternalContact(data.contact);
                 }
                 closeDialog();
             });
