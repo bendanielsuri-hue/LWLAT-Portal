@@ -1,5 +1,4 @@
 import datetime
-import json
 from collections import Counter
 from urllib.parse import quote
 
@@ -4256,7 +4255,7 @@ def inclusion_panel_safeguarding_notes(request):
         'year_group_choices': year_group_choices,
         'house_choices': house_choices,
         'reg_choices': reg_choices,
-        'reg_by_year_json': json.dumps(reg_by_year),
+        'reg_by_year': reg_by_year,
         'gender_choices': gender_choices,
         'sen_status_choices': sen_status_choices,
         'ethnicity_choices': ethnicity_choices,
