@@ -11,12 +11,13 @@
 import { closest } from '../../../js/components/dom.js';
 import { flash } from '../../../js/components/flash.js';
 import { diffPatchRowList } from '../../../js/components/row-list-patch.js';
+import { wireFilterBarActiveState } from '../../../js/components/filter-bar/active-state.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
     var yearFilter = document.getElementById('dsl-year-filter');
     var regFilter = document.getElementById('dsl-reg-filter');
-    var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+    var refreshFilterBarState = wireFilterBarActiveState(filterBar);
 
     // Reg narrows to the selected Year Group, same dependent-filter
     // convention as students.html's forms_by_year/refreshRegOptions.

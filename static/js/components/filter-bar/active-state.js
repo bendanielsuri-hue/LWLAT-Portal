@@ -1,12 +1,4 @@
-/* Filter-bar active state: the count badge and the per-field highlight.
-
-   Still a window.* global rather than an ES module export, because its callers
-   are inline <script> blocks in six templates. Those move to modules in #212,
-   and this becomes a real export at that point; changing the file's home and
-   how it is called in one step would mean six templates changing for two
-   reasons at once. Nothing imports this file - it loads from its own
-   <script src>, so it is not part of this folder's module graph.
-*/
+/* Filter-bar active state: the count badge and the per-field highlight. */
 
 // Client-side filter bars don't submit or reload - they filter .entity-rows
 // in place - but should still get the same .filter-bar-count badge and
@@ -21,7 +13,7 @@
 // marked [data-not-a-filter], for fields that feed another filter rather than
 // constrain the list themselves (an identity picker that only matters once an
 // "Assigned to Me" toggle is on).
-window.wireFilterBarActiveState = function (filterBar) {
+export function wireFilterBarActiveState(filterBar) {
     if (!filterBar) return function () { };
     var badge = filterBar.querySelector('.filter-bar-count');
     var fields = Array.prototype.slice.call(filterBar.querySelectorAll('.filter-field')).filter(function (field) {
@@ -53,4 +45,4 @@ window.wireFilterBarActiveState = function (filterBar) {
 
     refresh();
     return refresh;
-};
+}

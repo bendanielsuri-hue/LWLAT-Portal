@@ -7,6 +7,8 @@
    the view passes the raw dict rather than a pre-dumped JSON string, so
    json_script's own escaping/serialization is the only place it's encoded. */
 
+import { wireFilterBarActiveState } from '../../../js/components/filter-bar/active-state.js';
+
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('.filter-bar[data-ajax-target]');
     var yearFilter = document.getElementById('year-filter');
@@ -46,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (regFilter._uiSelect) regFilter._uiSelect.refresh();
     }
 
-    var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
+    var refreshFilterBarState = wireFilterBarActiveState(filterBar);
     yearFilter.addEventListener('change', refreshRegOptions);
     filterBar.addEventListener('change', refreshFilterBarState);
     // "More filters" toggle - handled globally, see setupFilterBarMoreFilters() (main.js).

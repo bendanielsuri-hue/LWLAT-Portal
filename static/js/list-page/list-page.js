@@ -8,21 +8,6 @@
            buttonRowSelector: '.btn-row',
        });
 
-   ⚠️ IN PROGRESS - #210, slice E. Assembled but NOT yet imported by any page
-   template - panel.js still holds the five inline copies of this wiring
-   (students.html, referrals.html, actions.html, escalations.html,
-   meetings.html) that actually run. Switching a page over is #211's job, one
-   page at a time (taxonomy.md §4 - a module entry coexists with the classic
-   scripts already loaded, so this is safe to do incrementally).
-
-   `filterBar` is read off `window.wireFilterBarActiveState` rather than
-   imported - that function is still a window global on purpose (#212 hasn't
-   run yet: its callers are six inline <script> blocks, and moving its file
-   and its calling convention in the same step would change six templates
-   for two reasons at once, per its own header comment). This module reaches
-   for the same global rather than inventing a second way to call it, and
-   drops the reference cleanly once #212 gives it a real export.
-
    Owns the one thing none of facts-strip/stack-mode/button-row-overflow
    owns individually: the measurement-cache generation counter, and the
    MutationObserver/resize listeners that decide when to bump it. Each
@@ -35,6 +20,7 @@ import { initButtonRowOverflow } from './button-row-overflow.js';
 import { wireListInfiniteScroll } from '../components/infinite-scroll.js';
 import { rafThrottle } from '../components/raf-throttle.js';
 import { debounceTrailing } from '../components/debounce.js';
+import { wireFilterBarActiveState } from '../components/filter-bar/active-state.js';
 
 export function initListPage(root, options) {
     if (!root) return;
@@ -110,8 +96,8 @@ export function initListPage(root, options) {
 
     wireListInfiniteScroll(root);
 
-    if (options.filterBar && typeof window.wireFilterBarActiveState === 'function') {
-        var refreshFilterState = window.wireFilterBarActiveState(options.filterBar);
+    if (options.filterBar) {
+        var refreshFilterState = wireFilterBarActiveState(options.filterBar);
         // One delegated listener covers every field this filter bar will
         // ever hold, present or future - the badge/highlight only need to
         // know THAT something changed, never which field, so there is no
