@@ -1,101 +1,41 @@
-// The shared-helper region that used to open this file (region 1: school
-// filter, infinite scroll, modal fade/height/dirty-check helpers) is gone
-// (#211) - resolvePanelSchoolFilter moved to panel/js/components/
-// school-filter.js (the one domain helper); closeModalWithFadeOut/
-// animateModalHeightChange/setFadeHidden to static/js/components/modal.js;
-// snapshotFormValues/formValuesDirty/confirmModalDiscard to static/js/
-// components/form-dirty.js. wireListInfiniteScroll (the containerId-based
-// original) was dead - every list page now calls initListPage's own
-// element-based copy (components/infinite-scroll.js) instead - and is
-// deleted outright rather than moved. The new-referral-dialog IIFE that
-// used to open this file has moved too, to panel/js/dialogs/
-// new-referral.js. All shared helpers above are still set on `window`, so
-// every dialog IIFE below keeps working unchanged until each is migrated
-// to import them directly.
+/* Promoted out of panel.js (#211, ADR 0020, taxonomy.md §3) as
+   initDragReorder - renamed from initAgendaDragDrop on the way out (it was
+   never actually agenda-specific; "agenda" was just the first caller).
+   Generic drag-and-drop for moving rows between/within any number of
+   named zones: one "sink" zone supports live reordering, any number of
+   "pool" zones are add sources and double as remove targets when
+   something is dragged back out of the sink. Dropped rows are never
+   mutated directly - every drop either persists a new order (no reload,
+   the drag already left the DOM in the right shape) or calls the
+   caller-supplied form_action the existing Add/Remove buttons already
+   use, then refreshes so counts/tabs/empty-states stay in sync.
 
-// flash/setTabCollapsed/pulseCount/recountTabsFromRows/shrinkAndFadeOut/
-// growIn/diffPatchRowList/wireRowRemoveForm/beginFetchSeq/isCurrentFetchSeq
-// (the shared row/list/fetch mechanics the file's remaining IIFEs use) also
-// moved out - to static/js/components/{flash,tabs,row-animate,
-// row-list-patch,fetch-seq}.js (#211, ADR 0020) - and are likewise still
-// set on `window`.
+   options.removeAction has no default any more (taxonomy.md §3: "already
+   parameterised; drop the removeAction default") - the old
+   'remove_referral_from_agenda' fallback was Inclusion Panel's own
+   action name leaking into an otherwise generic module, and both actual
+   callers (meeting_agenda.html, meeting_setup.html) already pass it
+   explicitly.
 
-// The Panel Group modal IIFE that used to sit here has moved too, to
-// panel/js/dialogs/panel-group.js.
+   Still also set on `window` as both initDragReorder and the pre-rename
+   initAgendaDragDrop: meeting_agenda.html/meeting_setup.html's own inline
+   <script> blocks call it from a plain DOMContentLoaded handler, which
+   this repo's convention (see doc-conventions.md's "inline template
+   scripts" rule, #203) hasn't relocated yet - the old name stays a
+   working alias rather than a silent break for whichever call site isn't
+   updated to the new one in the same pass. flash/shrinkAndFadeOut/growIn/
+   cancelRowAnim/ROW_ANIM_DURATION/ROW_ANIM_EASING/diffPatchRowList/
+   pulseCount import from their real homes now that they have one;
+   enhanceSelect stays window.* - it's still main.js's, unsplit (#213). */
 
-// #panel-meeting-dialog moved out entirely (#211) - see
-// panel/js/dialogs/panel-meeting.js, loaded from _base.html.
-// window.openPanelMeetingModal still lives there too - meeting_setup.html
-// calls it by name.
+import { flash } from './flash.js';
+import { shrinkAndFadeOut, growIn, cancelRowAnim, ROW_ANIM_DURATION, ROW_ANIM_EASING } from './row-animate.js';
+import { diffPatchRowList } from './row-list-patch.js';
+import { pulseCount } from './tabs.js';
 
-// Meeting Start dialog (Panel Meetings list) - same
-// fetch/dialog.innerHTML/showModal convention as #panel-meeting-dialog
-// above, fetching _meeting_attendance_dialog.html
-// (inclusion_panel_meeting_attendance) instead of navigating to the Panel
-// Agenda page first. Every reschedule/check-in/mark-left submit inside is
-// intercepted and swaps the dialog's content in place (same server fragment
-// re-rendered); the page only actually navigates to the Panel Agenda once a
-// submit comes back with started:true (the Start Meeting button itself).
-// #meeting-start-dialog moved out entirely (#211) - see
-// panel/js/dialogs/meeting-start.js, loaded from _base.html.
-
-// Add Action modal (#action-form-dialog) moved out entirely (#211) - see
-// panel/js/dialogs/action-form.js, loaded from _base.html.
-// window.openActionFormModal still lives there too -
-// _discussion_action_item.html calls it by name.
-
-// Panel Discussion's Actions column inline autosave, and
-// initActionAssignFields (Assign Staff Mode), both moved to
-// panel/js/components/action-assign.js (#211).
-
-// Discussion Summary modal (#44) - one dialog/fetch-fragment pair, same
-// convention as #action-form-dialog above: openDiscussionSummaryModal
-// fetches _discussion_summary_modal.html (inclusion_panel_discussion_summary)
-// into the shared #discussion-summary-dialog shell (_base.html). Read-only,
-// no form/save - just closes.
-// #discussion-summary-dialog moved out entirely (#211) - see
-// panel/js/dialogs/discussion-summary.js, loaded from _base.html.
-
-
-// initMemberPicker/window.resetMemberPicker moved out entirely (#211,
-// ADR 0020, taxonomy.md §3 - no SEND vocabulary in the mechanism itself)
-// - to static/js/components/person-picker.js as initPersonPicker/
-// resetPersonPicker ("member" was Panel Group's own word for this, not
-// the picker's). Still set on `window` too - dialogs/panel-group.js
-// imports it directly now, but the rename means anything still reading
-// window.initMemberPicker by the old name would silently break; nothing
-// does (checked).
-
-
-// flash/setTabCollapsed/pulseCount/recountTabsFromRows moved to
-// static/js/components/tabs.js + flash.js (#211, ADR 0020) - generic,
-// no SEND vocabulary. shrinkAndFadeOut/growIn moved to
-// static/js/components/row-animate.js; diffPatchRowList/wireRowRemoveForm
-// (plus its own DOMContentLoaded wiring) to
-// static/js/components/row-list-patch.js; beginFetchSeq/isCurrentFetchSeq
-// to static/js/components/fetch-seq.js. All still set on `window`, so
-// every bare reference below (initAgendaDragDrop and friends) keeps
-// resolving unchanged until those call sites import them directly.
-
-// Shared drag-and-drop for moving referrals onto/off/around a panel's agenda
-// (Panel Agenda Setup's Referral Selection <-> Panel Agenda columns, and the live
-// Meeting Agenda's Reviews Due card <-> Students Pending list). One "sink"
-// zone holds the actual agenda and supports live reordering; any number of
-// "pool" zones (New Referrals, Reviews Due) are add
-// sources and double as remove targets when something is dragged back out
-// of the sink. Dropped rows are never mutated directly - every drop either
-// persists a new order (no reload, the drag already left the DOM in the
-// right shape) or calls the same form_action the existing Add/Remove buttons
-// already use, then reloads so counts/tabs/empty-states stay in sync.
-//
-// Defined at top level (not inside a DOMContentLoaded callback) so it's
-// available the moment panel.js parses — layout.html renders
-// {% block content %} (where pages call this) before {% block extra_scripts %}
-// (where panel.js itself loads), so a page's own DOMContentLoaded listener
-// always registers, and fires, before one nested inside this file would.
-window.initAgendaDragDrop = function (zoneConfig, options) {
+export function initDragReorder(zoneConfig, options) {
     options = options || {};
-    var removeAction = options.removeAction || 'remove_referral_from_agenda';
+    var removeAction = options.removeAction;
     var zones = {};
     var dragged = null;
 
@@ -147,10 +87,6 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
             body: new FormData(form),
         });
     }
-
-    // flash/shrinkAndFadeOut/growIn/cancelRowAnim/ROW_ANIM_DURATION/
-    // ROW_ANIM_EASING are now shared top-level helpers defined above -
-    // reused here as-is.
 
     // growIn runs *after* a column has already been swapped (flashAcrossZones
     // calls it at the tail end of applyFreshDoc, on the freshly-inserted
@@ -279,7 +215,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
     // which meant tearing out and recreating every row in that column - tab
     // buttons, drag zones, everything - on every single Add/Remove/reorder,
     // even the rows nothing about this action touched. Now diff-patches just
-    // each zone's own row list (window.diffPatchRowList, keyed on
+    // each zone's own row list (diffPatchRowList, keyed on
     // data-drop-id) in place instead: a row this action didn't touch keeps
     // its exact DOM node - and any shrink/grow animation still playing on it
     // from a *different*, concurrent action - rather than being destroyed
@@ -301,7 +237,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
             var oldZoneEl = zones[name].el;
             if (!freshZoneEl || !oldZoneEl) return;
             growPromises = growPromises.concat(
-                window.diffPatchRowList(oldZoneEl, freshZoneEl, 'data-drop-id', function (row) { bindRow(row, name); })
+                diffPatchRowList(oldZoneEl, freshZoneEl, 'data-drop-id', function (row) { bindRow(row, name); })
             );
             // freshZoneEl's <select>s (Priority, etc.) are plain DOMParser
             // output, never run through enhanceSelect - enhanceSelect is
@@ -331,7 +267,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
                 var countEl = el.classList.contains('count') ? el : el.querySelector('.count');
                 if (countEl) {
                     countEl.textContent = '(' + newCount + ')';
-                    window.pulseCount(countEl, newCount > oldCount ? 'up' : 'down');
+                    pulseCount(countEl, newCount > oldCount ? 'up' : 'down');
                 }
             });
         });
@@ -535,7 +471,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
             var countEl = el.classList.contains('count') ? el : el.querySelector('.count');
             if (countEl) {
                 countEl.textContent = '(' + newCount + ')';
-                window.pulseCount(countEl, 'down');
+                pulseCount(countEl, 'down');
             }
         });
     }
@@ -1116,23 +1052,7 @@ window.initAgendaDragDrop = function (zoneConfig, options) {
     }, true); // capture: zone-level dragover handlers above call stopPropagation()
     document.addEventListener('dragend', stopAutoScroll, true);
     document.addEventListener('drop', stopAutoScroll, true);
-};
+}
 
-// expertise-quick-add-dialog/external-contact-quick-add-dialog moved out
-// entirely (#211) - see panel/js/dialogs/{expertise-quick-add,
-// external-contact-quick-add}.js, loaded from _base.html.
-// window.openExpertiseQuickAdd/openExternalContactQuickAdd still live
-// there too - components/expertise-field.js calls them by name.
-
-// initExpertiseField/initExpertiseFields moved to
-// panel/js/components/expertise-field.js (#211), including their own
-// DOMContentLoaded wiring. Same for the [data-member-picker-root] wiring
-// that used to sit here - it's static/js/components/person-picker.js's
-// own DOMContentLoaded wiring now (initMemberPicker moved out above).
-
-// #panel-search-dialog moved out entirely (#211) - to
-// panel/js/dialogs/panel-search.js, loaded from _base.html. It used to sit
-// here, nested *inside* the DOMContentLoaded callback above (which never
-// closed before it opened) - taxonomy.md §6 flagged this as the one
-// dialog needing untangling rather than a mechanical cut; the extracted
-// module is a real independent top-level IIFE now.
+window.initDragReorder = initDragReorder;
+window.initAgendaDragDrop = initDragReorder;

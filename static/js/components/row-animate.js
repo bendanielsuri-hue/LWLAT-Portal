@@ -4,7 +4,14 @@
    Still also set on `window`, same reason as components/modal.js: panel.js's
    own dialogs and initAgendaDragDrop are classic-script code and call these
    by that name from inside event handlers, so the window assignment keeps
-   them working until they're migrated to import this directly. */
+   them working until they're migrated to import this directly.
+
+   ROW_ANIM_DURATION/ROW_ANIM_EASING/cancelRowAnim are exported too, not
+   just shrinkAndFadeOut/growIn - panel/js/components/drag-reorder.js's own
+   slideRow (a third, FLIP-style row animation with no home here, since
+   it's specific to drag-reorder) builds directly on Element.animate() with
+   these same constants/guard rather than composing shrinkAndFadeOut/
+   growIn, so it needs the primitives, not just the two finished shapes. */
 
 // Both animations below use the Web Animations API (Element.animate) rather
 // than toggling a CSS transition class - explicit from/to keyframes over a
@@ -14,8 +21,8 @@
 // double rAF - still intermittently snapped straight to the end state
 // instead of animating, especially on freshly-inserted rows or under load
 // from a concurrent fetch).
-var ROW_ANIM_DURATION = 900;
-var ROW_ANIM_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
+export var ROW_ANIM_DURATION = 900;
+export var ROW_ANIM_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
 // If this element still has an animation in flight from a previous
 // shrinkAndFadeOut/growIn call (e.g. the same row reordered twice in
@@ -26,7 +33,7 @@ var ROW_ANIM_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
 // instantly instead of animating. Cancelling also reverts the element to
 // its underlying (un-animated) style, so the height measured right after
 // is always the row's true natural height, not a mid-animation value.
-function cancelRowAnim(el) {
+export function cancelRowAnim(el) {
     if (el._rowAnim) {
         el._rowAnim.cancel();
         el._rowAnim = null;

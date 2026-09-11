@@ -1,4 +1,4 @@
-"""The POST vocabulary agrees across Python, the templates and panel.js.
+"""The POST vocabulary agrees across Python, the templates and panel's JS.
 
 `form_action` is the contract between three languages with nothing joining them
 but the string itself. There is no compiler, no type and - until now - no test,
@@ -17,8 +17,19 @@ from django.test import SimpleTestCase
 from hubs.inclusion.panel import form_actions
 
 PANEL_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = PANEL_DIR.parent.parent.parent / 'static'
 TEMPLATE_DIR = PANEL_DIR / 'templates' / 'hubs' / 'inclusion' / 'panel'
-PANEL_JS = PANEL_DIR / 'static' / 'panel' / 'js' / 'panel.js'
+# panel.js (a single classic script) no longer exists (#211) - its
+# form_action literals are now spread across every file under panel/js/
+# (dialogs/, components/, pages/), so this globs the whole tree instead of
+# reading one path. drag-reorder.js is included explicitly even though it
+# lives under the portal-wide static/js/, not panel/js/: it still posts
+# two literal 'reorder_agenda' form_actions inherited from its
+# initAgendaDragDrop days, and missing it would be exactly the "second,
+# blind spot" this file's own tests exist to catch.
+JS_FILES = list((PANEL_DIR / 'static' / 'panel' / 'js').glob('**/*.js')) + [
+    STATIC_DIR / 'js' / 'components' / 'drag-reorder.js',
+]
 VIEWS_PY = PANEL_DIR / 'views.py'
 
 # <input type="hidden" name="form_action" value="start_meeting">
@@ -59,7 +70,10 @@ def template_actions():
 
 
 def js_actions():
-    return set(JS_LITERAL.findall(PANEL_JS.read_text(encoding='utf-8')))
+    found = set()
+    for path in JS_FILES:
+        found.update(JS_LITERAL.findall(path.read_text(encoding='utf-8')))
+    return found
 
 
 class FormActionVocabularyTest(SimpleTestCase):
@@ -74,7 +88,7 @@ class FormActionVocabularyTest(SimpleTestCase):
         unknown = js_actions() - form_actions.ALL
         self.assertEqual(
             unknown, set(),
-            f'panel.js posts form_action values not declared in form_actions.py: {sorted(unknown)}',
+            f"panel's JS posts form_action values not declared in form_actions.py: {sorted(unknown)}",
         )
 
     def test_every_declared_action_is_actually_posted_somewhere(self):
