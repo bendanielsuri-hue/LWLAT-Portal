@@ -1000,19 +1000,29 @@ html:not(.nav-touch-mode) #my-referrals-list {
         justify-content: center;
         margin-top: var(--space-xs);
     }
-/* Carousel chrome (home.html: .referral-carousel-wrap around the ul,
-       .referral-carousel-dots as its own row below) - dots for touch
-       devices, arrows for mouse/trackpad (nav-touch-mode class, main.js),
-       one navigation affordance per device type rather than both stacked
-       (#116 grilling). All hidden outside this breakpoint via the base
-       display:none below - no horizontal carousel above phone width to
-       navigate. JS (home.html) toggles fade opacity / arrow disabled state
-       / active dot to match actual scroll position. .referral-carousel-wrap
-       itself (position:relative, needed for the fade/arrows below) is
-       defined unconditionally near .content-shell .stack-list - it's also
-       load-bearing for the desktop flex-height chain, not phone-specific. */
+/* Carousel chrome (home.html: .referral-carousel-wrap/.action-carousel-wrap
+       around each ul, .referral-carousel-dots/.action-carousel-dots as its
+       own row below) - dots for touch devices, arrows for mouse/trackpad
+       (nav-touch-mode class, main.js), one navigation affordance per device
+       type rather than both stacked (#116 grilling). All hidden outside
+       this breakpoint via the base display:none below - no horizontal
+       carousel above phone width to navigate. JS (home.html,
+       wireCardStackCarousel) toggles fade opacity / arrow disabled state /
+       active dot to match actual scroll position. .referral-carousel-wrap/
+       .action-carousel-wrap themselves (position:relative, needed for the
+       fade/arrows below) are defined unconditionally near .content-shell
+       .stack-list - also load-bearing for the desktop flex-height chain,
+       not phone-specific.
+
+       Shared between My Referrals and My Actions (#214) - this chrome was
+       two near-identical rule sets, one per carousel's own class prefix,
+       until combined selectors folded them into one; each list's own card
+       content (thumb, pills, status changer, ...) stays genuinely separate,
+       further down and inside Actions' own @media block below. */
 .referral-carousel-fade-l,
-.referral-carousel-fade-r {
+.referral-carousel-fade-r,
+.action-carousel-fade-l,
+.action-carousel-fade-r {
         position: absolute;
         top: 0;
         /* Flush with the wrap's real bottom edge, not inset by --space-xs -
@@ -1028,21 +1038,26 @@ html:not(.nav-touch-mode) #my-referrals-list {
         opacity: 0;
         transition: opacity var(--transition-base);
     }
-/* --bg-page, not --bg-surface - #referrals-card is transparent in
-       carousel mode (above), so the fade sits directly on the page canvas
-       between cards, same reasoning as the KPI carousel's own fade
-       (.stats-carousel-fade-l/-r) which never had a card behind it either. */
-.referral-carousel-fade-l { left: 0; background: linear-gradient(to right, var(--bg-page), transparent); }
-.referral-carousel-fade-r { right: 0; background: linear-gradient(to left, var(--bg-page), transparent); }
+/* --bg-page, not --bg-surface - #referrals-card/#actions-card are
+       transparent in carousel mode (above), so the fade sits directly on
+       the page canvas between cards, same reasoning as the KPI carousel's
+       own fade (.stats-carousel-fade-l/-r) which never had a card behind
+       it either. */
+.referral-carousel-fade-l,
+.action-carousel-fade-l { left: 0; background: linear-gradient(to right, var(--bg-page), transparent); }
+.referral-carousel-fade-r,
+.action-carousel-fade-r { right: 0; background: linear-gradient(to left, var(--bg-page), transparent); }
 /* Same visual treatment as .stats-carousel-arrow, smaller (36px, not
        48px) - this row sits inside a card next to its own tab-row, not the
        full page canvas the KPI row owns alone, so the KPI row's touch-sized
        target would crowd it. Desktop/mouse-only (html:not(.nav-touch-mode));
        further hidden/disabled by JS once nothing actually overflows. */
-html:not(.nav-touch-mode) .referral-carousel-arrow {
+html:not(.nav-touch-mode) .referral-carousel-arrow,
+html:not(.nav-touch-mode) .action-carousel-arrow {
         display: flex;
     }
-.referral-carousel-arrow {
+.referral-carousel-arrow,
+.action-carousel-arrow {
         display: none;
         position: absolute;
         top: 50%;
@@ -1067,25 +1082,31 @@ html:not(.nav-touch-mode) .referral-carousel-arrow {
            feedback: "arrows disabled if directly above a card"). */
         z-index: 20;
     }
-.referral-carousel-arrow:hover:not(:disabled) { background: var(--border-color); }
-.referral-carousel-arrow:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.referral-carousel-arrow:hover:not(:disabled),
+.action-carousel-arrow:hover:not(:disabled) { background: var(--border-color); }
+.referral-carousel-arrow:disabled,
+.action-carousel-arrow:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
 /* 6px, not a negative offset - the wrap now bleeds all the way to the
        real viewport edge (its own rule above), so there's no page-padding
        gutter left to float a negative-offset arrow into any more; a
        negative value here pushed it fully off-screen. Small positive inset
        instead, staying just inside the wrap/viewport. */
-.referral-carousel-arrow--prev { left: 6px; }
-.referral-carousel-arrow--next { right: 6px; }
+.referral-carousel-arrow--prev,
+.action-carousel-arrow--prev { left: 6px; }
+.referral-carousel-arrow--next,
+.action-carousel-arrow--next { right: 6px; }
 /* Dots: touch-only (html.nav-touch-mode), tappable (home.html) - one
-       per currently *visible* (tab-filtered) referral, rebuilt on tab
+       per currently *visible* (tab-filtered) card, rebuilt on tab
        switch/delete rather than reflecting the full unfiltered set. Past
        COUNT_LABEL_THRESHOLD (home.html) this row becomes a single "3 / 12"
        text label instead - a dot per card stops being a usable indicator
        (or a realistic tap target) once there are more than a handful. */
-html.nav-touch-mode .referral-carousel-dots {
+html.nav-touch-mode .referral-carousel-dots,
+html.nav-touch-mode .action-carousel-dots {
         display: flex;
     }
-.referral-carousel-dots {
+.referral-carousel-dots,
+.action-carousel-dots {
         display: none;
         justify-content: center;
         align-items: center;
@@ -1094,8 +1115,8 @@ html.nav-touch-mode .referral-carousel-dots {
            sitting clear of it (live feedback: "I want them to overlap the
            shadow of the active card"). Position, not visual layer - the
            dots sit above the shadow in paint order (DOM order, no z-index
-           conflict) since #referrals-card's own isolation: isolate (above)
-           already keeps this card's stacking self-contained. */
+           conflict) since #referrals-card/#actions-card's own isolation:
+           isolate (above) already keeps each card's stacking self-contained. */
         margin-top: -14px;
     }
 /* 24px button box (WCAG 2.5.5-ish touch target), not the 8px visual dot
@@ -1103,7 +1124,8 @@ html.nav-touch-mode .referral-carousel-dots {
        than what's actually drawn without changing how the row looks. Boxes
        sit edge-to-edge (no gap) since 24px of centre-to-centre spacing is
        already plenty visual separation between 8px dots. */
-.referral-carousel-dot {
+.referral-carousel-dot,
+.action-carousel-dot {
         width: 24px;
         height: 24px;
         padding: 0;
@@ -1114,7 +1136,8 @@ html.nav-touch-mode .referral-carousel-dots {
         align-items: center;
         justify-content: center;
     }
-.referral-carousel-dot::after {
+.referral-carousel-dot::after,
+.action-carousel-dot::after {
         content: '';
         width: 8px;
         height: 8px;
@@ -1122,11 +1145,13 @@ html.nav-touch-mode .referral-carousel-dots {
         background: var(--border-strong);
         transition: background var(--transition-fast), transform var(--transition-fast);
     }
-.referral-carousel-dot.active::after {
+.referral-carousel-dot.active::after,
+.action-carousel-dot.active::after {
         background: var(--primary);
         transform: scale(1.25);
     }
-.referral-carousel-count {
+.referral-carousel-count,
+.action-carousel-count {
         display: none;
         margin-top: var(--space-xs);
         text-align: center;
@@ -1139,31 +1164,34 @@ html.nav-touch-mode .referral-carousel-dots {
        once the dot row itself gets suppressed for having too many cards
        (.many-cards, set alongside .has-cards in updateState, home.html) -
        otherwise it'd just duplicate what the dots already show. */
-html:not(.nav-touch-mode) .referral-carousel-count.has-cards {
+html:not(.nav-touch-mode) .referral-carousel-count.has-cards,
+html:not(.nav-touch-mode) .action-carousel-count.has-cards {
         display: block;
     }
-html.nav-touch-mode .referral-carousel-count.many-cards {
+html.nav-touch-mode .referral-carousel-count.many-cards,
+html.nav-touch-mode .action-carousel-count.many-cards {
         display: block;
     }
 }
 
-/* My Actions carousel: mirrors My Referrals' own above 1:1 (wrap/fade/
-   arrows/dots/spacer/snap mechanics, breakpoint, peek %, bleed) - originally
-   this card was deliberately kept on internal vertical scroll instead (its
-   status tabs already being "the row's one horizontal affordance" -
-   #116 grilling), but revisited later at the same time as My Referrals'
-   own carousel polish, accepting the tab-row+carousel combination after
-   all. Own class prefix (.action-carousel-*, not shared with
-   .referral-carousel-*) rather than a generalised shared name, matching
-   this codebase's existing precedent (see .stats-carousel-arrow's own
-   comment on not renaming .senco-carousel-arrow for a "one-word
-   difference") - two cards, not yet worth a shared abstraction. Wired in
-   home.html (wireActionCarouselInteractions/rebuildActionCarousel),
-   mirroring wireReferralCarouselInteractions/rebuildReferralCarousel -
-   the one real mechanical difference is refreshMyActionsCard (a status
-   change re-renders this whole card via AJAX), which re-wires the
-   carousel fresh after every swap, since the old wrap/list DOM is
-   discarded along with it. */
+/* My Actions carousel - wrap/fade/arrows/dots/spacer/snap mechanics,
+   breakpoint, peek %, bleed shared with My Referrals above (their common
+   chrome rules now combine both carousels' selectors, #214; the JS side
+   (wireCardStackCarousel, home.js) was folded the same way). What's below
+   is what's genuinely NOT shared: each card's own content layout (thumb,
+   category/description, status changer). Originally this card was
+   deliberately kept on internal vertical scroll instead (its status tabs
+   already being "the row's one horizontal affordance" - #116 grilling),
+   but revisited later at the same time as My Referrals' own carousel
+   polish, accepting the tab-row+carousel combination after all. Own class
+   prefix (.action-carousel-*, not merged into .referral-carousel-* on the
+   elements themselves) stays - matching this codebase's existing
+   precedent (see .stats-carousel-arrow's own comment on not renaming
+   .senco-carousel-arrow for a "one-word difference") - only the CSS rules
+   and JS logic needed merging, not the markup's own naming. The one real
+   mechanical difference: refreshMyActionsCard (a status change re-renders
+   this whole card via AJAX), which re-wires the carousel fresh after
+   every swap, since the old wrap/list DOM is discarded along with it. */
 
 /* Drops "All" every width - same reasoning/unconditional scope as My
    Referrals' own tab row above. firstUsableTabButton (home.html) skips
@@ -1435,98 +1463,9 @@ html.nav-touch-mode .referral-carousel-count.many-cards {
            instead of blending into it. */
         box-shadow: var(--shadow-emphasis, var(--shadow-lg));
     }
-    .action-carousel-fade-l,
-.action-carousel-fade-r {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        width: 28px;
-        pointer-events: none;
-        /* See .referral-carousel-fade-l/-r's own identical change for why. */
-        z-index: 15;
-        opacity: 0;
-        transition: opacity var(--transition-base);
-    }
-    .action-carousel-fade-l { left: 0; background: linear-gradient(to right, var(--bg-page), transparent); }
-    .action-carousel-fade-r { right: 0; background: linear-gradient(to left, var(--bg-page), transparent); }
-
-    html:not(.nav-touch-mode) .action-carousel-arrow {
-        display: flex;
-    }
-    .action-carousel-arrow {
-        display: none;
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: 1px solid var(--border-strong);
-        background: var(--bg-surface);
-        color: var(--text-primary);
-        box-shadow: var(--shadow-md);
-        font-size: var(--font-xl);
-        line-height: 1;
-        cursor: pointer;
-        align-items: center;
-        justify-content: center;
-        transition: background var(--transition-fast), opacity var(--transition-fast);
-        /* See .referral-carousel-arrow's own identical change for why. */
-        z-index: 20;
-    }
-    .action-carousel-arrow:hover:not(:disabled) { background: var(--border-color); }
-    .action-carousel-arrow:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
-    .action-carousel-arrow--prev { left: 6px; }
-    .action-carousel-arrow--next { right: 6px; }
-
-    html.nav-touch-mode .action-carousel-dots {
-        display: flex;
-    }
-    .action-carousel-dots {
-        display: none;
-        justify-content: center;
-        align-items: center;
-        /* See .referral-carousel-dots' own identical change for why. */
-        margin-top: -14px;
-    }
-    .action-carousel-dot {
-        width: 24px;
-        height: 24px;
-        padding: 0;
-        border: none;
-        background: transparent;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .action-carousel-dot::after {
-        content: '';
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--border-strong);
-        transition: background var(--transition-fast), transform var(--transition-fast);
-    }
-    .action-carousel-dot.active::after {
-        background: var(--primary);
-        transform: scale(1.25);
-    }
-    .action-carousel-count {
-        display: none;
-        margin-top: var(--space-xs);
-        text-align: center;
-        font-size: var(--font-sm);
-        color: var(--text-secondary);
-    }
-    /* Same has-cards/many-cards split as .referral-carousel-count - see its
-       own comment above for the full reasoning. */
-    html:not(.nav-touch-mode) .action-carousel-count.has-cards {
-        display: block;
-    }
-    html.nav-touch-mode .action-carousel-count.many-cards {
-        display: block;
-    }
+    /* Fade/arrow/dots/count chrome shared with My Referrals - see the
+       combined .referral-carousel-*/.action-carousel-* rules in the
+       @media (max-width: 1180px) block above (#214). */
 }
 
 @media (max-width: 480px) {
