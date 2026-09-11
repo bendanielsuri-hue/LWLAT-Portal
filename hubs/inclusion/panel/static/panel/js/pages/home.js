@@ -4,12 +4,12 @@
    AJAX-refresh wiring for My Referrals and My Actions - no other page
    uses any of it.
 
-   Over the 600-line review trigger (742 code lines) and stays one file:
-   the My Referrals and My Actions carousels are a deliberate parallel
-   implementation, not a shared one (each function below says so inline,
-   e.g. wireActionCarouselInteractions' own header comment) - splitting
-   by card would just draw the file boundary through the middle of one
-   mechanism twice, publishing nothing a reader gains from. */
+   Over the 600-line review trigger and stays one file: the My Referrals
+   and My Actions carousels are Panel Home's own layout, used nowhere
+   else, so splitting by card would draw a file boundary through the
+   middle of one mechanism (wireCardStackCarousel, below - #214 folded
+   what used to be two near-1:1 copies into this one shared
+   implementation) rather than separating two different things. */
 
 // Shared by both tab rows (My Referrals' setupTabs below, My Actions'
 // initActionTabs) - "All" is always first and never collapses on its own
@@ -400,21 +400,31 @@ function wireReferralRecount() {
 // switch to a plain "3 / 12" text label instead once the count exceeds it.
 var CAROUSEL_COUNT_LABEL_THRESHOLD = 8;
 
-function wireReferralCarouselInteractions() {
-    var wrap = document.querySelector('[data-referral-carousel]');
-    var viewport = document.getElementById('my-referrals-list');
+// My Referrals and My Actions carousels used to be two near-1:1 copies of
+// this whole mechanism (#200/#214 - "mirrors ... above 1:1", "same
+// mirrored bug, same fix" throughout the old per-carousel comments). They
+// really were the same code, not just similarly shaped, so #214 folded
+// them into this one implementation, parameterised by `cfg` -
+// REFERRAL_CAROUSEL/ACTION_CAROUSEL below carry the only two things that
+// ever differed: which elements/selectors to bind and which noun to put
+// in front of "1 of 4". wireReferralCarouselInteractions/
+// wireActionCarouselInteractions etc. stay as the named entry points every
+// other call site in this file already uses.
+function wireCardStackCarousel(cfg) {
+    var wrap = document.querySelector(cfg.wrapSelector);
+    var viewport = document.getElementById(cfg.viewportId);
     if (!wrap || !viewport) return;
-    var prev = wrap.querySelector('.referral-carousel-arrow--prev');
-    var next = wrap.querySelector('.referral-carousel-arrow--next');
-    var fadeL = wrap.querySelector('.referral-carousel-fade-l');
-    var fadeR = wrap.querySelector('.referral-carousel-fade-r');
-    var countLabel = document.querySelector('[data-referral-count]');
-    var liveRegion = document.querySelector('[data-referral-live]');
+    var prev = wrap.querySelector(cfg.prevArrowSelector);
+    var next = wrap.querySelector(cfg.nextArrowSelector);
+    var fadeL = wrap.querySelector(cfg.fadeLSelector);
+    var fadeR = wrap.querySelector(cfg.fadeRSelector);
+    var countLabel = document.querySelector(cfg.countSelector);
+    var liveRegion = document.querySelector(cfg.liveSelector);
     var lastAnnouncedIndex = -1;
 
     function visibleCards() {
         return Array.prototype.filter.call(viewport.children, function (li) {
-            return li.style.display !== 'none' && !li.classList.contains('referral-carousel-spacer');
+            return li.style.display !== 'none' && !li.classList.contains(cfg.spacerClass);
         });
     }
 
@@ -439,7 +449,7 @@ function wireReferralCarouselInteractions() {
     // it).
     //
     // card.offsetLeft is relative to card.offsetParent, not necessarily
-    // viewport - here it's actually .referral-carousel-wrap (the nearest
+    // viewport - here it's actually the carousel wrap (the nearest
     // positioned ancestor), a different coordinate origin than viewport's
     // own scrollLeft/clientWidth. Mixing the two silently threw every
     // distance below off by a constant amount (live feedback, reproduced
@@ -471,9 +481,9 @@ function wireReferralCarouselInteractions() {
     // Scrolls to and (optionally) focuses card `index` - the one shared
     // path behind prev/next arrows, keyboard paging, dot taps, and tapping
     // a peeking neighbour card directly. focusCard is skipped for the
-    // initial/reset call (home.html's rebuildReferralCarousel) - autofocus
-    // on page load or a tab switch the user didn't ask to navigate away
-    // from would be a worse surprise than not moving focus at all.
+    // initial/reset call (rebuildCardStackCarousel, below) - autofocus on
+    // page load or a tab switch the user didn't ask to navigate away from
+    // would be a worse surprise than not moving focus at all.
     function goTo(index, focusCard) {
         var cards = visibleCards();
         var card = cards[index];
@@ -505,12 +515,11 @@ function wireReferralCarouselInteractions() {
 
         // Raises whichever card is currently "active" (nearest the
         // viewport's centre) above its neighbours - the "stack" effect
-        // (panel.css, #my-referrals-list > li): the active card scales up
-        // front and centre (highest z-index, via --absdist below) while
-        // its neighbours shrink, dim, and tuck behind it. --dist (signed)
-        // drives left/right-specific transforms where a variant wants them
-        // (e.g. rotation); --absdist (unsigned) drives symmetric ones
-        // (scale, opacity).
+        // (panel.css): the active card scales up front and centre (highest
+        // z-index, via --absdist below) while its neighbours shrink, dim,
+        // and tuck behind it. --dist (signed) drives left/right-specific
+        // transforms where a variant wants them (e.g. rotation); --absdist
+        // (unsigned) drives symmetric ones (scale, opacity).
         cards.forEach(function (card, i) {
             card.classList.toggle('is-active', i === closestIndex);
             var dist = i - closestIndex;
@@ -524,7 +533,7 @@ function wireReferralCarouselInteractions() {
             card.style.zIndex = String(Math.max(1, 10 - Math.abs(dist)));
         });
 
-        var dots = wrap.parentNode.querySelectorAll('.referral-carousel-dot');
+        var dots = wrap.parentNode.querySelectorAll('.' + cfg.dotClass);
         dots.forEach(function (dot, i) {
             var isActive = i === closestIndex;
             dot.classList.toggle('active', isActive);
@@ -541,7 +550,7 @@ function wireReferralCarouselInteractions() {
 
         if (liveRegion && cards.length > 1 && closestIndex !== lastAnnouncedIndex) {
             lastAnnouncedIndex = closestIndex;
-            liveRegion.textContent = 'Referral ' + (closestIndex + 1) + ' of ' + cards.length;
+            liveRegion.textContent = cfg.itemLabel + ' ' + (closestIndex + 1) + ' of ' + cards.length;
         }
     }
 
@@ -566,8 +575,12 @@ function wireReferralCarouselInteractions() {
 
     // Click-and-drag (mouse/pen only - touch already gets native
     // panning/flick from the CSS overflow-x: auto). Same plain scrollLeft
-    // manipulation as the KPI carousel (main.js), not a transform, so
-    // scroll-snap still settles it on release.
+    // manipulation as the KPI carousel (stats-carousel.js), not a
+    // transform, so scroll-snap still settles it on release. NOT the
+    // shared drag-scroll.js primitive (#214) - that one is threshold-gated
+    // mouse-only pointer capture with no notion of momentum; this one
+    // tracks fling velocity and settles on a card via goTo below, which
+    // drag-scroll.js's callers don't need.
     var isPointerDown = false;
     var dragMoved = false;
     var startX = 0;
@@ -589,8 +602,8 @@ function wireReferralCarouselInteractions() {
         // "selecting buttons does not work"). Same guard as the click
         // handler further down.
         if (e.target.closest('button, a, form')) return;
-        // Without this, a mousedown+move over a referral row (role="button")
-        // can kick off native drag/text-selection instead of ever reaching
+        // Without this, a mousedown+move over a row (role="button") can
+        // kick off native drag/text-selection instead of ever reaching
         // pointermove below with useful deltas.
         e.preventDefault();
         isPointerDown = true;
@@ -696,7 +709,7 @@ function wireReferralCarouselInteractions() {
         // before it ever reached the button.
         if (e.target.closest('button, a, form')) return;
         var li = e.target.closest('li');
-        if (!li || li.classList.contains('referral-carousel-spacer')) return;
+        if (!li || li.classList.contains(cfg.spacerClass)) return;
         var cards = visibleCards();
         var idx = cards.indexOf(li);
         if (idx === -1 || idx === activeIndex().index) return;
@@ -705,12 +718,12 @@ function wireReferralCarouselInteractions() {
         goTo(idx, true);
     }, true);
 
-    window.updateReferralCarouselState = updateState;
+    window[cfg.stateGlobal] = updateState;
     // true (not false) - centres the first card on initial mount, same as
     // any other reset. Without this, initial scrollLeft was just the
     // default 0 (flush at the start of any padding-left, live feedback:
     // "active card should be in the middle").
-    rebuildReferralCarousel(true);
+    rebuildCardStackCarousel(cfg, true);
 }
 
 // Rebuilds the dots row to match whichever cards are *currently visible*
@@ -719,36 +732,36 @@ function wireReferralCarouselInteractions() {
 // switch (the previous scroll position belongs to a different card set) but
 // not on a delete (the remaining cards' order is still valid - #116
 // grilling: "dots track filtered set").
-function rebuildReferralCarousel(resetScroll) {
-    var dotsContainer = document.querySelector('[data-referral-dots]');
-    var viewport = document.getElementById('my-referrals-list');
+function rebuildCardStackCarousel(cfg, resetScroll) {
+    var dotsContainer = document.querySelector(cfg.dotsSelector);
+    var viewport = document.getElementById(cfg.viewportId);
     if (!dotsContainer || !viewport) return;
 
-    // Same coordinate-origin fix as wireReferralCarouselInteractions' own
-    // cardLeft (above) - card.offsetLeft is relative to card.offsetParent
-    // (.referral-carousel-wrap), not viewport, so it can't be compared
-    // against viewport.clientWidth/scrollLeft directly.
+    // Same coordinate-origin fix as wireCardStackCarousel's own cardLeft
+    // (above) - card.offsetLeft is relative to card.offsetParent (the
+    // carousel wrap), not viewport, so it can't be compared against
+    // viewport.clientWidth/scrollLeft directly.
     function cardLeft(card) {
         return card.getBoundingClientRect().left - viewport.getBoundingClientRect().left + viewport.scrollLeft;
     }
 
     var cards = Array.prototype.filter.call(viewport.children, function (li) {
         return li.style.display !== 'none' && !li.classList.contains('empty-note')
-            && !li.classList.contains('referral-carousel-spacer');
+            && !li.classList.contains(cfg.spacerClass);
     });
-    // panel.css's #my-referrals-list > li:first-child { margin-left: 0 }
-    // only zeroes the -60px stack-overlap margin for the DOM's literal
-    // first child - tab-filtering (setupTabs' applyTab, above) hides rows
-    // via style.display: none without removing them, so the true
-    // :first-child is very often a *hidden* row once a tab narrows the
-    // set, not the first visible card. That card then silently kept the
-    // base -60px it was never meant to have, starving it of exactly the
-    // room needed to ever reach true centre - activeIndex() (correctly
-    // measuring distance, see cardLeft above) then always preferred card 2
-    // instead (live feedback + Playwright repro: loaded straight onto
-    // "2 / 4"). Explicit inline override instead of relying on the CSS
-    // selector at all - re-applied on every rebuild (tab switch or
-    // delete), since either can change which card is now first.
+    // panel.css's `> li:first-child { margin-left: 0 }` only zeroes the
+    // -60px stack-overlap margin for the DOM's literal first child - tab-
+    // filtering (setupTabs' applyTab, above) hides rows via style.display:
+    // none without removing them, so the true :first-child is very often a
+    // *hidden* row once a tab narrows the set, not the first visible card.
+    // That card then silently kept the base -60px it was never meant to
+    // have, starving it of exactly the room needed to ever reach true
+    // centre - activeIndex() (correctly measuring distance, see cardLeft
+    // above) then always preferred card 2 instead (live feedback +
+    // Playwright repro: loaded straight onto "2 / 4"). Explicit inline
+    // override instead of relying on the CSS selector at all - re-applied
+    // on every rebuild (tab switch or delete), since either can change
+    // which card is now first.
     cards.forEach(function (card, i) {
         card.style.marginLeft = i === 0 ? '0px' : '';
     });
@@ -766,322 +779,78 @@ function rebuildReferralCarousel(resetScroll) {
     if (resetScroll && cards[0]) {
         requestAnimationFrame(function () {
             viewport.scrollTo({ left: cardLeft(cards[0]) - (viewport.clientWidth - cards[0].offsetWidth) / 2 });
-            if (window.updateReferralCarouselState) window.updateReferralCarouselState();
+            if (window[cfg.stateGlobal]) window[cfg.stateGlobal]();
         });
     }
 
     dotsContainer.innerHTML = '';
     // Past CAROUSEL_COUNT_LABEL_THRESHOLD, a dot per card stops being a
     // usable indicator (or a realistic tap target) - leave the row empty
-    // and let the "3 / 12" text label (.referral-carousel-count, styled in
-    // panel.css, kept in sync by updateState) carry the signal instead.
+    // and let the "3 / 12" text label (styled in panel.css, kept in sync by
+    // updateState) carry the signal instead.
     if (cards.length > 1 && cards.length <= CAROUSEL_COUNT_LABEL_THRESHOLD) {
         cards.forEach(function (card, i) {
             var dot = document.createElement('button');
             dot.type = 'button';
             dot.setAttribute('role', 'tab');
-            dot.className = 'referral-carousel-dot' + (i === 0 ? ' active' : '');
+            dot.className = cfg.dotClass + (i === 0 ? ' active' : '');
             dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-            dot.setAttribute('aria-label', 'Go to referral ' + (i + 1) + ' of ' + cards.length);
+            dot.setAttribute('aria-label', 'Go to ' + cfg.itemLabel.toLowerCase() + ' ' + (i + 1) + ' of ' + cards.length);
             dot.addEventListener('click', function () {
                 // Explicit scrollLeft, not scrollIntoView - see goTo's own
-                // identical change (wireReferralCarouselInteractions, above)
-                // for why.
+                // identical change (wireCardStackCarousel, above) for why.
                 viewport.scrollTo({ left: cardLeft(card) - (viewport.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
                 card.focus({ preventScroll: true });
             });
             dotsContainer.appendChild(dot);
         });
     }
-    if (window.updateReferralCarouselState) window.updateReferralCarouselState();
+    if (window[cfg.stateGlobal]) window[cfg.stateGlobal]();
 }
 
-// My Actions carousel - mirrors wireReferralCarouselInteractions/
-// rebuildReferralCarousel above 1:1 (see panel.css's own .action-carousel-*
-// comment for why this is a parallel implementation, not a shared one).
-// The one real difference: My Actions' whole card is replaced via AJAX on
-// every status change (refreshMyActionsCard, below), discarding the old
-// #my-actions-list/.action-carousel-wrap DOM along with any listeners on it
-// - wireActionCarouselInteractions is called again there, fresh, after every
+var REFERRAL_CAROUSEL = {
+    wrapSelector: '[data-referral-carousel]',
+    viewportId: 'my-referrals-list',
+    prevArrowSelector: '.referral-carousel-arrow--prev',
+    nextArrowSelector: '.referral-carousel-arrow--next',
+    fadeLSelector: '.referral-carousel-fade-l',
+    fadeRSelector: '.referral-carousel-fade-r',
+    countSelector: '[data-referral-count]',
+    liveSelector: '[data-referral-live]',
+    dotsSelector: '[data-referral-dots]',
+    dotClass: 'referral-carousel-dot',
+    spacerClass: 'referral-carousel-spacer',
+    itemLabel: 'Referral',
+    stateGlobal: 'updateReferralCarouselState',
+};
+
+function wireReferralCarouselInteractions() { wireCardStackCarousel(REFERRAL_CAROUSEL); }
+function rebuildReferralCarousel(resetScroll) { rebuildCardStackCarousel(REFERRAL_CAROUSEL, resetScroll); }
+
+var ACTION_CAROUSEL = {
+    wrapSelector: '[data-action-carousel]',
+    viewportId: 'my-actions-list',
+    prevArrowSelector: '.action-carousel-arrow--prev',
+    nextArrowSelector: '.action-carousel-arrow--next',
+    fadeLSelector: '.action-carousel-fade-l',
+    fadeRSelector: '.action-carousel-fade-r',
+    countSelector: '[data-action-count]',
+    liveSelector: '[data-action-live]',
+    dotsSelector: '[data-action-dots]',
+    dotClass: 'action-carousel-dot',
+    spacerClass: 'action-carousel-spacer',
+    itemLabel: 'Action',
+    stateGlobal: 'updateActionCarouselState',
+};
+
+// My Actions' whole card is replaced via AJAX on every status change
+// (refreshMyActionsCard, below), discarding the old #my-actions-list/
+// .action-carousel-wrap DOM along with any listeners on it -
+// wireActionCarouselInteractions is called again there, fresh, after every
 // such swap (as well as once at DOMContentLoad), each call targeting a
 // brand-new element, so there's no double-binding risk to guard against.
-function wireActionCarouselInteractions() {
-    var wrap = document.querySelector('[data-action-carousel]');
-    var viewport = document.getElementById('my-actions-list');
-    if (!wrap || !viewport) return;
-    var prev = wrap.querySelector('.action-carousel-arrow--prev');
-    var next = wrap.querySelector('.action-carousel-arrow--next');
-    var fadeL = wrap.querySelector('.action-carousel-fade-l');
-    var fadeR = wrap.querySelector('.action-carousel-fade-r');
-    var countLabel = document.querySelector('[data-action-count]');
-    var liveRegion = document.querySelector('[data-action-live]');
-    var lastAnnouncedIndex = -1;
-
-    function visibleCards() {
-        return Array.prototype.filter.call(viewport.children, function (li) {
-            return li.style.display !== 'none' && !li.classList.contains('action-carousel-spacer');
-        });
-    }
-
-    function step() {
-        var card = visibleCards()[0];
-        if (!card) return viewport.clientWidth;
-        var style = window.getComputedStyle(viewport);
-        return card.getBoundingClientRect().width + (parseFloat(style.columnGap || style.gap) || 0);
-    }
-
-    // Card centre vs viewport centre - see My Referrals' identical change
-    // (wireReferralCarouselInteractions, above) for why, including the
-    // card.offsetLeft/offsetParent coordinate-origin fix below (cardLeft) -
-    // same mirrored bug, same fix.
-    function cardLeft(card) {
-        return card.getBoundingClientRect().left - viewport.getBoundingClientRect().left + viewport.scrollLeft;
-    }
-
-    function activeIndex() {
-        var cards = visibleCards();
-        var viewportCenter = viewport.scrollLeft + viewport.clientWidth / 2;
-        var closestIndex = 0;
-        var closestDist = Infinity;
-        cards.forEach(function (card, i) {
-            var cardCenter = cardLeft(card) + card.offsetWidth / 2;
-            var dist = Math.abs(cardCenter - viewportCenter);
-            if (dist < closestDist) { closestDist = dist; closestIndex = i; }
-        });
-        return { cards: cards, index: closestIndex };
-    }
-
-    function goTo(index, focusCard) {
-        var cards = visibleCards();
-        var card = cards[index];
-        if (!card) return;
-        // Explicit scrollLeft, not card.scrollIntoView({inline: 'center'}) -
-        // scrollIntoView only scrolls the *minimum* needed to satisfy its
-        // own "is this already visible" heuristic, which doesn't know two
-        // overlapping cards (the stack effect, panel.css) are meant to
-        // trade places - it can decide the target card is already
-        // "visible enough" mid-stack and never actually scroll at all
-        // (confirmed empirically: scrollLeft unchanged after goTo). Always
-        // computes and sets a real target instead.
-        viewport.scrollTo({ left: cardLeft(card) - (viewport.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
-        if (focusCard) card.focus({ preventScroll: true });
-    }
-
-    function updateState() {
-        var overflowing = viewport.scrollWidth > viewport.clientWidth + 1;
-        var active = activeIndex();
-        var cards = active.cards;
-        var closestIndex = active.index;
-        var atStart = closestIndex === 0;
-        var atEnd = closestIndex === cards.length - 1;
-
-        if (prev) { prev.hidden = !overflowing; prev.disabled = atStart; }
-        if (next) { next.hidden = !overflowing; next.disabled = atEnd; }
-        if (fadeL) fadeL.style.opacity = (!overflowing || atStart) ? 0 : 1;
-        if (fadeR) fadeR.style.opacity = (!overflowing || atEnd) ? 0 : 1;
-
-        // --dist/--absdist and z-index drive the stack effect (panel.css,
-        // #my-actions-list > li) - see My Referrals' identical addition
-        // (above) for the full reasoning.
-        cards.forEach(function (card, i) {
-            card.classList.toggle('is-active', i === closestIndex);
-            var dist = i - closestIndex;
-            card.style.setProperty('--dist', dist);
-            card.style.setProperty('--absdist', Math.abs(dist));
-            // See My Referrals' identical change (wireReferralCarouselInteractions,
-            // above) for why this is capped rather than left at 100.
-            card.style.zIndex = String(Math.max(1, 10 - Math.abs(dist)));
-        });
-
-        var dots = wrap.parentNode.querySelectorAll('.action-carousel-dot');
-        dots.forEach(function (dot, i) {
-            var isActive = i === closestIndex;
-            dot.classList.toggle('active', isActive);
-            dot.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        });
-
-        if (countLabel && cards.length > 1) {
-            countLabel.textContent = (closestIndex + 1) + ' / ' + cards.length;
-            countLabel.classList.add('has-cards');
-            countLabel.classList.toggle('many-cards', cards.length > CAROUSEL_COUNT_LABEL_THRESHOLD);
-        } else if (countLabel) {
-            countLabel.classList.remove('has-cards', 'many-cards');
-        }
-
-        if (liveRegion && cards.length > 1 && closestIndex !== lastAnnouncedIndex) {
-            lastAnnouncedIndex = closestIndex;
-            liveRegion.textContent = 'Action ' + (closestIndex + 1) + ' of ' + cards.length;
-        }
-    }
-
-    if (prev) prev.addEventListener('click', function () { goTo(activeIndex().index - 1, true); });
-    if (next) next.addEventListener('click', function () { goTo(activeIndex().index + 1, true); });
-    viewport.addEventListener('scroll', updateState);
-    window.addEventListener('resize', function () {
-        goTo(activeIndex().index, false);
-        updateState();
-    });
-    wrap.addEventListener('keydown', function (e) {
-        if (e.key === 'ArrowRight') { e.preventDefault(); goTo(activeIndex().index + 1, true); }
-        else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(activeIndex().index - 1, true); }
-    });
-
-    var isPointerDown = false;
-    var dragMoved = false;
-    var startX = 0;
-    var startScrollLeft = 0;
-    var lastSampleScrollLeft = 0;
-    var lastSampleTime = 0;
-    var flingVelocity = 0;
-    viewport.addEventListener('pointerdown', function (e) {
-        if (e.pointerType === 'touch') return;
-        // See My Referrals' identical guard (wireReferralCarouselInteractions,
-        // above) for why - a real control needs its own pointerdown/click
-        // untouched, not hijacked into a drag-to-scroll start.
-        if (e.target.closest('button, a, form')) return;
-        e.preventDefault();
-        isPointerDown = true;
-        dragMoved = false;
-        startX = e.clientX;
-        startScrollLeft = viewport.scrollLeft;
-        lastSampleScrollLeft = viewport.scrollLeft;
-        lastSampleTime = performance.now();
-        flingVelocity = 0;
-    });
-    viewport.addEventListener('pointermove', function (e) {
-        if (!isPointerDown) return;
-        var dx = e.clientX - startX;
-        // setPointerCapture only once an actual drag starts, not on every
-        // pointerdown - capturing immediately retargeted the eventual
-        // click event to the viewport itself rather than whatever card was
-        // actually under the pointer (confirmed empirically:
-        // document.elementFromPoint found the right <li>, but the click
-        // event's own target was the <ul>), silently breaking "click a
-        // peeking card to activate it" for any tap/click that never moved
-        // (live feedback: "can selecting a non active card activate that
-        // card"). A real drag still needs capture so tracking continues
-        // even if the pointer leaves the element's bounds mid-drag.
-        if (!dragMoved && Math.abs(dx) > 5) {
-            dragMoved = true;
-            viewport.classList.add('is-grabbing');
-            viewport.setPointerCapture(e.pointerId);
-        }
-        if (dragMoved) {
-            viewport.scrollLeft = startScrollLeft - dx;
-            var now = performance.now();
-            var dt = now - lastSampleTime;
-            if (dt > 8) {
-                flingVelocity = (viewport.scrollLeft - lastSampleScrollLeft) / dt;
-                lastSampleScrollLeft = viewport.scrollLeft;
-                lastSampleTime = now;
-            }
-        }
-    });
-    function endPointerDrag() {
-        isPointerDown = false;
-        viewport.classList.remove('is-grabbing');
-        if (dragMoved) {
-            // See My Referrals' identical change (wireReferralCarouselInteractions,
-            // above) for why this projects+settles via goTo rather than a
-            // plain momentum scrollBy.
-            var distance = 0;
-            if (Math.abs(flingVelocity) > 0.05) {
-                var cap = step() * 1.5;
-                distance = Math.max(-cap, Math.min(cap, flingVelocity * 220));
-            }
-            var projectedCenter = viewport.scrollLeft + distance + viewport.clientWidth / 2;
-            var cards = visibleCards();
-            var settleIndex = 0;
-            var settleDist = Infinity;
-            cards.forEach(function (card, i) {
-                var d = Math.abs((cardLeft(card) + card.offsetWidth / 2) - projectedCenter);
-                if (d < settleDist) { settleDist = d; settleIndex = i; }
-            });
-            goTo(settleIndex, false);
-        }
-        flingVelocity = 0;
-    }
-    viewport.addEventListener('pointerup', endPointerDrag);
-    viewport.addEventListener('pointercancel', endPointerDrag);
-    viewport.addEventListener('click', function (e) {
-        // See #my-referrals-list's own identical guard (wireReferralCarousel
-        // Interactions, above) for why - same fix, same bug.
-        if (!window.matchMedia('(max-width: 1180px)').matches) return;
-        if (dragMoved) { e.preventDefault(); e.stopPropagation(); dragMoved = false; return; }
-        // See #my-referrals-list's own identical guard for why - the status
-        // segmented control (Incomplete/Complete/Not Required) is a real
-        // control too, same reasoning.
-        if (e.target.closest('button, a, form')) return;
-        var li = e.target.closest('li');
-        if (!li || li.classList.contains('action-carousel-spacer')) return;
-        var cards = visibleCards();
-        var idx = cards.indexOf(li);
-        if (idx === -1 || idx === activeIndex().index) return;
-        e.preventDefault();
-        e.stopPropagation();
-        goTo(idx, true);
-    }, true);
-
-    window.updateActionCarouselState = updateState;
-    // true (not false) - see My Referrals' identical change
-    // (wireReferralCarouselInteractions, above) for why. Also re-centres
-    // after every status-change refresh (refreshMyActionsCard calls this
-    // again fresh) - consistent with "the active card is always front and
-    // centre" being the whole point of the stack effect, not just its
-    // first-load state.
-    rebuildActionCarousel(true);
-}
-
-function rebuildActionCarousel(resetScroll) {
-    var dotsContainer = document.querySelector('[data-action-dots]');
-    var viewport = document.getElementById('my-actions-list');
-    if (!dotsContainer || !viewport) return;
-
-    // Same coordinate-origin fix as rebuildReferralCarousel's own cardLeft
-    // (above).
-    function cardLeft(card) {
-        return card.getBoundingClientRect().left - viewport.getBoundingClientRect().left + viewport.scrollLeft;
-    }
-
-    var cards = Array.prototype.filter.call(viewport.children, function (li) {
-        return li.style.display !== 'none' && !li.classList.contains('empty-note')
-            && !li.classList.contains('action-carousel-spacer');
-    });
-    // Same :first-child-vs-first-visible fix as rebuildReferralCarousel's
-    // own identical change (above) - see there for the full reasoning.
-    cards.forEach(function (card, i) {
-        card.style.marginLeft = i === 0 ? '0px' : '';
-    });
-    // Deferred one frame - see rebuildReferralCarousel's own identical
-    // change for why.
-    if (resetScroll && cards[0]) {
-        requestAnimationFrame(function () {
-            viewport.scrollTo({ left: cardLeft(cards[0]) - (viewport.clientWidth - cards[0].offsetWidth) / 2 });
-            if (window.updateActionCarouselState) window.updateActionCarouselState();
-        });
-    }
-
-    dotsContainer.innerHTML = '';
-    if (cards.length > 1 && cards.length <= CAROUSEL_COUNT_LABEL_THRESHOLD) {
-        cards.forEach(function (card, i) {
-            var dot = document.createElement('button');
-            dot.type = 'button';
-            dot.setAttribute('role', 'tab');
-            dot.className = 'action-carousel-dot' + (i === 0 ? ' active' : '');
-            dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-            dot.setAttribute('aria-label', 'Go to action ' + (i + 1) + ' of ' + cards.length);
-            dot.addEventListener('click', function () {
-                // Explicit scrollLeft, not scrollIntoView - see goTo's own
-                // identical change (wireReferralCarouselInteractions, above)
-                // for why.
-                viewport.scrollTo({ left: cardLeft(card) - (viewport.clientWidth - card.offsetWidth) / 2, behavior: 'smooth' });
-                card.focus({ preventScroll: true });
-            });
-            dotsContainer.appendChild(dot);
-        });
-    }
-    if (window.updateActionCarouselState) window.updateActionCarouselState();
-}
+function wireActionCarouselInteractions() { wireCardStackCarousel(ACTION_CAROUSEL); }
+function rebuildActionCarousel(resetScroll) { rebuildCardStackCarousel(ACTION_CAROUSEL, resetScroll); }
 
 var actionMatchers = {
     all: function (row) { return true; },
