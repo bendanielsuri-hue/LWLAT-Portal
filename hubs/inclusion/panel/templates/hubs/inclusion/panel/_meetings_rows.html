@@ -3,10 +3,11 @@ Row markup only, no .meeting-list wrapper - shared by the initial/filtered
 render (_meetings_filtered_content.html, wraps this in .meeting-list) and
 the infinite-scroll continuation response (inclusion_panel_meetings,
 views.py: a page>1 AJAX request renders just this template, and
-wireListInfiniteScroll, meetings.html, inserts the result directly into
-the existing .meeting-list before the old sentinel). Keeping the row
-markup in one place means both call sites can never drift apart - same
-convention as Students/Referrals/Actions' own _<name>_rows.html.
+initListPage's own wireListInfiniteScroll (#210, components/infinite-
+scroll.js) inserts the result directly into the existing .meeting-list
+before the old sentinel). Keeping the row markup in one place means both
+call sites can never drift apart - same convention as Students/Referrals/
+Actions' own _<name>_rows.html.
 {% endcomment %}
 {% for m in meetings %}
 <div class="meeting-card selectable" tabindex="0" role="button" aria-pressed="false">
@@ -74,9 +75,10 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
         topic with the label on its own top line, same convention as e.g.
         _referrals_rows.html's Raised/Panels/Review/Actions columns. Gets
         per-column width sync + horizontal scroll/arrows for free from the
-        existing shared JS (panel.js's syncFactsColumnWidths/markFactsStripEdges
-        - both delegated or list-scoped by ID, #meetings-filtered-content
-        added to their selector list, panel.js). Each column's data line
+        existing shared JS (static/js/list-page/facts-strip.js's
+        syncFactsColumnWidths/markFactsStripEdges - list-scoped via
+        initFactsStrip's own root element, meetings.js's own copy of the
+        call). Each column's data line
         stays a coloured .bd-pill rather than plain text (unlike Referrals'
         own columns) - New/Review/Priority are meant to read at a glance,
         which the shared columns' plain-text convention doesn't give up,
@@ -127,7 +129,8 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
                 feedback: "have referrals col to be same width and position
                 but different heading, Assigned or Discussed, depending".
                 Two different data-col names meant syncFactsColumnWidths
-                (panel.js) treated them as two unrelated columns, keyed
+                (static/js/list-page/facts-strip.js) treated them as two
+                unrelated columns, keyed
                 separately, so a mixed list of upcoming ("Assigned"/not-yet-
                 discussed) and past ("Discussed") meetings never actually
                 shared one synced width/position the way every other shared
@@ -195,7 +198,8 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
     did not want this, lose the icons if it does not fit" - text stays,
     icon goes. Each button's icon is wrapped in .btn-icon and its text in
     .btn-label (aria-label/title restate the same text so the accessible
-    name survives either way, updateButtonRowOverflow, panel.js) so
+    name survives either way, updateButtonRowOverflow, static/js/list-page/
+    button-row-overflow.js) so
     icons can be hidden first, text alone as the fallback - flex-wrap
     (panel.css, ≤700px block) is the last resort if even text-only still
     doesn't fit. View Meeting/View Agenda (below) are deliberately left
@@ -222,8 +226,8 @@ convention as Students/Referrals/Actions' own _<name>_rows.html.
         <a href="{% url 'inclusion_panel_meeting_start' m.panel.id %}" class="btn btn-secondary btn-sm" aria-label="Continue Meeting" title="Continue Meeting"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> <span class="btn-label">Continue Meeting</span></a>
         {% else %}
         {% comment %}
-        Opens the Attendance dialog in place (see the #meeting-start-dialog
-        module in panel.js / inclusion_panel_meeting_attendance) - the
+        Opens the Attendance dialog in place (see panel/js/dialogs/
+        meeting-start.js / inclusion_panel_meeting_attendance) - the
         page only navigates to the Panel Agenda once the meeting has
         actually started from inside that dialog.
         {% endcomment %}

@@ -1,0 +1,427 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+/* Multi-column setup/discussion layouts */
+.setup-columns {
+    display: flex;
+    gap: var(--space-xl);
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card).
+   .discussion-toolbar-card shares this chrome (see #56 - Meeting Notes/
+   Discussion Controls cards above .discussion-columns) but not
+   .discussion-col's own tall scrolling-column treatment below, which is
+   sized for the viewport-height detail cards, not a toolbar-sized card. */
+.setup-col {
+    flex: 1 1 280px;
+    min-width: 260px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    padding: var(--space-lg);
+    box-shadow: var(--card-shadow);
+}
+
+.content-shell .setup-columns {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    align-items: stretch;
+}
+
+.setup-columns .setup-col,
+.agenda-layout .setup-col {
+    display: flex;
+    flex-direction: column;
+    /* height: 100% + min-height: 0, not align-items: stretch alone - same
+       belt-and-braces pairing as .content-shell .card below. Flex
+       items default to min-height: auto, which floors them at their
+       content's min-content size and silently defeats stretch whenever that
+       content is taller than the stretched height. Shared with .agenda-layout
+       (a grid, not flex) - Panel Agenda wraps in .content-shell too now,
+       see .content-shell .agenda-layout further below. */
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Each card's own H2 title lives outside the scrolling area entirely (a flex
+   sibling of .setup-col-body) rather than merely sticky within it - so
+   scrolled content can never peek out from behind it at the top of the
+   scroll. */
+.setup-col-body {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    /* Bleed out to the card's own padding so the scrollbar sits flush against
+       the card's right edge instead of inset by --space-lg - same technique
+       as .stack-list's edge-to-edge bleed above. */
+    margin: 0 calc(-1 * var(--space-lg));
+    padding: 0 var(--space-lg);
+}
+
+/* When nothing follows the scrolling body (no .setup-col-footer), bleed the
+   bottom too (DES-L5) - otherwise the card's own bottom padding traps the
+   scroll region short of the card's bottom edge, so the scrollbar's track
+   stops there instead of running flush to the bottom like every other
+   flush-scroll card (.list-card .entity-list, .meetings-scroll). Left alone
+   when a footer follows: that padding is the footer's own breathing room,
+   not dead space. */
+.setup-col-body:last-child {
+    margin-bottom: calc(-1 * var(--space-lg));
+    padding-bottom: var(--space-lg);
+}
+
+/* Panel Agenda's Members Register: a persistent action slot pinned below the
+   scrolling member list, same fixed-footer extension of the header/body
+   split as #panel-group-dialog's own .panel-group-modal-footer (DES-L5) - stays
+   reachable without scrolling down past a long member list, and out of
+   .setup-col-header since editing group membership is a rare, out-of-band
+   action, not this card's everyday job (attendance-taking). */
+.setup-col-footer { flex-shrink: 0; display: flex; justify-content: flex-end; padding-top: var(--space-sm); }
+
+.setup-col h2 { font-size: var(--font-xl); margin-bottom: var(--space-md); }
+
+.setup-col h2 { text-align: center; }
+
+/* Heading sits in the true centre column regardless of the button's width
+   (a flex justify-content: space-between/center would instead drift the
+   heading toward whichever side is empty when there's only one button). */
+.setup-col-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+}
+
+.setup-divider { border: none; border-top: 1px solid var(--border-color); margin: var(--space-md) 0; }
+
+.setup-col-header h2 { margin-bottom: 0; text-align: center; grid-column: 2; }
+
+.setup-col-header h3 { margin-bottom: 0; text-align: left; grid-column: 1; justify-self: start; font-size: var(--font-lg); font-weight: 600; }
+
+/* Settings (Panel Summary column) reads as a lightweight aside rather than
+   the page's centrepiece the way Referral Selection/Panel Agenda's h2s do,
+   so it's left-aligned like the h3 sub-headings instead of centred. */
+.setup-col--narrow > .setup-col-header h2 { text-align: left; grid-column: 1; justify-self: start; }
+
+/* ...except the Members Register card, which reads as this page's own
+   centrepiece (every card/column heading is centre-aligned by default, per
+   the --font-xl convention in tokens/typography.css) same as Referral
+   Selection's - only Settings/Panel Summary above wants the left-aligned
+   aside look. */
+.members-register-col.setup-col--narrow > .setup-col-header h2 { text-align: center; grid-column: 2; justify-self: auto; }
+
+.setup-col-header > .btn,
+.setup-col-header > form { grid-column: 3; justify-self: end; }
+
+/* Sub-section headings (e.g. "Panel Members", "New Referrals") stay visible
+   while their own card's body scrolls past beneath them. top: 0 is exact -
+   .setup-col-body is their direct scrolling ancestor, no page-header offset
+   to account for. */
+.setup-col-body .setup-col-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-surface);
+    padding-bottom: var(--space-xs);
+    margin-bottom: var(--space-xs);
+}
+
+/* Referral Selection's New Referrals/Reviews Due tab row - same treatment,
+   pinned above its own scrolling body rather than the whole card. */
+.setup-col-body .tab-row {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-surface);
+}
+
+.panel-details-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); flex-wrap: wrap; }
+
+.panel-details-row > div { flex: 1; min-width: 0; }
+
+/* .setup-col/.discussion-col's own padding is --space-lg (20px) - bleed by
+   exactly that on both sides to reach their true edge. */
+.setup-col .tab-row { margin-left: calc(-1 * var(--space-lg)); margin-right: calc(-1 * var(--space-lg)); }
+
+.referral-pick-item { background: var(--bg-nested); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--space-sm); margin-bottom: var(--space-sm); }
+
+.referral-pick-item h4 { font-size: var(--font-md); margin-bottom: var(--space-xxs); }
+
+.referral-pick-item .meta { font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: var(--space-sm); }
+
+.agenda-layout:has(.setup-col--narrow) { grid-template-columns: minmax(220px, 240px) repeat(auto-fit, minmax(280px, 1fr)); }
+
+/* Panel Summary (Panel Agenda Setup's condensed replacement for the old inline
+   settings form) - plain label/value pairs, one per line, no box/padding
+   like .field-group's .field-readonly - deliberately lighter-weight since
+   this card is no longer the page's main event. Grid (not flex) so every
+   row's label lands in one aligned column regardless of its own text
+   length ("Group" vs "Chair"), same subgrid-style trick as
+   .ui-fused-field-group; each .summary-line is flattened via `display:
+   contents` so its two children land directly in this shared grid. */
+.panel-summary { display: grid; grid-template-columns: max-content 1fr; align-items: center; column-gap: var(--space-sm); row-gap: var(--space-sm); margin-bottom: var(--space-lg); }
+
+.summary-line { display: contents; font-size: var(--font-sm); }
+
+.summary-label { color: var(--text-secondary); font-weight: 600; }
+
+.summary-value { color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Chair is the one summary field that stays directly editable (rather than
+   moving into the Edit Settings dialog with Date/Time/Group), using the same
+   fused "label + dropdown in one box" .ui-fused-field component Date/
+   Time/Group use there, instead of a bare unstyled <select> - so it needs
+   its own 2-column grid (matching .ui-fused-field's subgrid expectations)
+   rather than participating in .panel-summary's shared label/value grid via
+   `display: contents` the way the plain rows above do. Still spans both of
+   .panel-summary's own columns so the fused box gets the full row width. */
+.summary-line-chair { display: grid; grid-template-columns: max-content 1fr; grid-column: 1 / -1; align-items: center; }
+
+.priority-form { display: flex; align-items: center; gap: var(--space-xs); margin-top: var(--space-xs); }
+
+.priority-form-label { display: block; margin-bottom: var(--space-xxs); }
+
+/* Priority (Referral Selection and Panel Agenda Setup's Panel Agenda column -
+   Meeting Agenda's live-running page keeps the separate .priority-chips row
+   of independent pill buttons above, so none of this touches that): a real
+   <select class="priority-select"> in .referral-details-actions - the
+   select's own selected option ("Set Priority"/"High Priority"/etc) is the
+   only label it needs, so no separate text label sits beside it.
+   window.enhanceSelect (main.js) turns every <select> on the site into a
+   .ui-select-trigger popover button and hides the real <select> off-screen
+   (.ui-select-native) - it already has a purpose-built hook for this exact
+   case: any select carrying the .priority-select class gets a mirrored
+   `priority-{value}` modifier class copied onto the visible trigger (and
+   each popover row) whenever it re-renders, so the colour rules below key
+   off that class, not the hidden native element. Tinted the same way
+   .priority-chip.active is above, once a value is set. */
+.priority-mini-form { display: flex; }
+
+/* .ui-select-trigger's vertical padding already matches .btn's by default
+   (see forms.css) - font-size is the one thing still worth trimming here,
+   to match the row's .btn-sm buttons specifically (a size down from .btn's
+   own default font-size). */
+.priority-select { font-size: var(--font-sm); }
+
+/* Unset ("Set Priority") state: an explicit solid --bg-surface fill, a shade
+   stronger than .ui-select-trigger's own --bg-surface-alt default, since this
+   state has no colour of its own to lean on the way High/Medium/Low do below.
+   The border no longer needs its own override here - .ui-select-trigger's
+   shared default is --border-strong now (forms.css), which was previously
+   only patched in on this one component (see grilling session 2026-07-12). */
+.priority-select { background-color: var(--bg-surface); }
+
+/* Read-only counterpart, once a meeting's ended (agenda_readonly - see
+   _priority_mini.html): same box model as .ui-select-trigger (forms.css)
+   minus the chevron background-image and pointer cursor, since there's
+   nothing to open. Shares .priority-select's own tint rules below rather
+   than duplicating the colour values. */
+.priority-static { display: inline-flex; align-items: center; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background-color: var(--bg-surface); color: var(--text-primary); font-size: var(--font-sm); white-space: nowrap; }
+
+/* Trigger button: border + text colour full-strength as before, but the
+   fill is diluted well below the popover's own option rows
+   (.ui-option.priority-*, still full-strength -bg tint below) - the
+   saturated tint made the control read as loud/attention-grabbing as a
+   status pill, more than a plain field-level control warrants, but losing
+   the fill entirely made it blend into the hovered row (see the "Unset"
+   comment above). Mixing a quarter of the tint into the plain surface
+   colour keeps just enough of a wash to stay legible as a distinct field. */
+.priority-select.priority-high,
+.priority-static.priority-high { background-color: color-mix(in srgb, var(--color-negative-bg) 25%, var(--bg-surface)); border-color: var(--color-negative); color: var(--color-negative); }
+
+.priority-select.priority-medium,
+.priority-static.priority-medium { background-color: color-mix(in srgb, var(--color-warning-bg) 25%, var(--bg-surface));  border-color: var(--color-warning);  color: var(--color-warning); }
+
+.priority-select.priority-low,
+.priority-static.priority-low { background-color: color-mix(in srgb, var(--color-caution-bg) 25%, var(--bg-surface)); border-color: var(--color-caution);  color: var(--color-caution); }
+
+.ui-option.priority-high { background-color: var(--color-negative-bg); border-color: var(--color-negative); color: var(--color-negative); }
+
+.ui-option.priority-medium { background-color: var(--color-warning-bg);  border-color: var(--color-warning);  color: var(--color-warning); }
+
+.ui-option.priority-low { background-color: var(--color-caution-bg);  border-color: var(--color-caution);  color: var(--color-caution); }
+
+/* Panel Members rows keep dropdowns in the body (with the rest of the row's
+   details) and only action buttons in .btn-row, so the button area stays
+   narrow and isn't stretched to match a dropdown row's width. */
+.setup-col .entity-row { flex-wrap: wrap; align-items: flex-start; padding-left: 0; padding-right: 0; }
+
+.setup-col .entity-body { min-width: 140px; }
+
+.setup-col .btn-row { margin-left: auto; }
+
+/* The Members list (_panel_member_row.html, data-panel-members-list) is a
+   much simpler row - just a thumb + name + pills, no dropdown/button-row
+   content - so it doesn't need (and in this narrow column, actively breaks
+   under) the wrap/min-width treatment above: 42px thumb + a 140px-min body
+   don't both fit on one line in .setup-col--narrow, so the body wraps onto
+   its own line below the thumb instead of sitting inline beside it. */
+.setup-col [data-panel-members-list] .entity-row { flex-wrap: nowrap; align-items: center; }
+
+.setup-col [data-panel-members-list] .entity-body { min-width: 0; }
+
+/* Referral Selection: the drag handle is a direct child of .selection-row
+   (a flex row), not nested inside .referral-row-grid, so align-items:
+   stretch gives it the row's true full height rather than just the height
+   of the grid row it used to share with the handle. .selection-row-content
+   wraps .referral-row-grid alongside the handle. Add to Agenda lives
+   in-flow as the last item of .referral-details-actions (see below), not a
+   side rail, so no absolute positioning/reserved padding is needed here. */
+.setup-col .selection-row { display: flex; flex-direction: row; align-items: stretch; gap: var(--space-xs); }
+
+/* Panel Settings' Date/Time/Panel Group/Panel Chair grid has its own
+   row-gap, but nothing previously separated it from the Members heading
+   directly beneath it - the two sat flush against each other. */
+.setup-col .ui-fused-field-group { margin-bottom: var(--space-md); }
+
+/* Referral Selection/Panel Agenda: bleed the list out to the card's own
+   padding (same technique as .stack-list above) so each row's hover/chosen
+   background reaches the card's true edge instead of stopping at the
+   .setup-col-body padding line - then give the row back its own padding so
+   the content itself doesn't sit flush against the edge. */
+.setup-col-body .entity-list--bleed { margin: 0 calc(-1 * var(--space-lg)); }
+
+/* Left padding is tighter than the right so the drag handle sits close to
+   the card's edge - an obvious grab target - while the row's text/buttons
+   on the right keep the fuller --space-lg breathing room. */
+.setup-col-body .entity-list--bleed .entity-row { padding-left: var(--space-sm); padding-right: var(--space-lg); }
+
+/* .entity-row:last-child suppresses its border-bottom by default (cards.css)
+   since most cards' own outer border already closes off the last row - but
+   Referral Selection/Panel Agenda's rows end in a line of buttons
+   (Add to Agenda/Remove/Referral Details), not plain text, so without a
+   line underneath, the last row's buttons read as loose and unassociated
+   with any row rather than belonging to the card's final entry. */
+.setup-col-body .entity-list--bleed .entity-row:last-child { border-bottom: 1px solid var(--border-faint); }
+
+/* Settings takes noticeably less width than Referral Selection/Panel
+   Agenda, which keep flex: 1 1 280px and absorb the freed space. Overrides
+   the base .setup-col's min-width: 260px too, not just its flex-basis -
+   otherwise that inherited floor would win once shrunk this far and this
+   rule would have no visible effect below 260px. Group/Date values that
+   don't fit already ellipsis via .summary-value's own overflow handling. */
+.setup-col--narrow { flex: 0 1 240px; min-width: 220px; }
+
+/* Dashed accent outline rather than a solid fill - a solid --bg-well fill read
+   as a heavy dark block, especially in dark mode. Green (--color-positive,
+   the same token the drop indicator itself uses) rather than the plain
+   --primary accent, so hovering a valid drop target reads as "yes, drop
+   here" rather than just a neutral focus ring. Only zones panel.js actually
+   knows how to handle a drop into (see canDropInto) get this class in the
+   first place - e.g. dragging a Referral Selection row over another
+   Referral Selection tab never lights up, since nothing happens if you drop
+   there.
+   .setup-col (the whole card, header included) is the target on pages built
+   from meeting_setup.html's layout - highlighting the full card rather than
+   just the inner row list, so the highlight reads as "drop into this
+   container" with a shape that matches the card itself, rather than one
+   that shrinks/grows with however many rows happen to be in it right now.
+   .entity-list remains the fallback for pages (e.g. meeting_agenda.html)
+   that use the same drag-drop JS without that column structure. Both need
+   position: relative - the .drag-over-remove label below is centered
+   within whichever one is the actual drop target. */
+.setup-col {
+    position: relative;
+    transition: background-color 150ms ease, outline-color 150ms ease, outline-width 150ms ease;
+}
+
+/* .drag-add-armed mirrors .drag-remove-armed (below) for the opposite
+   direction: shown on Panel Agenda for the whole duration of a Referral
+   Selection row's drag, not just while it's actually hovering the card -
+   same dashed outline as .drag-over itself, since (unlike remove) there's
+   no need for a subtler "armed" tier before the louder "actually hovering"
+   one - Add is the expected, non-destructive action. */
+.setup-col.drag-over,
+.setup-col.drag-add-armed { outline: 2px dashed var(--color-positive); outline-offset: -2px; border-radius: var(--radius-xl); }
+
+/* Dragging a Panel Agenda row back onto Referral Selection removes it - red
+   rather than green. Two tiers so the affordance escalates as you get closer
+   to actually doing it: .drag-remove-armed is a subtle hint shown on every
+   pool card the moment the row is picked up (see the dragstart handler in
+   panel.js) so the destructive target is discoverable without hovering it
+   first; .drag-over-remove is the much louder version JS adds on top only
+   while the drag is actually over that specific card (or drops anywhere on
+   it - see wireCardRemoveDrop - not just precisely on its row list), so the
+   moment that will actually complete the removal is unmistakable. */
+.setup-col.drag-remove-armed {
+    outline: 2px dashed var(--color-negative);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--color-negative) 4%, transparent);
+}
+
+.setup-col.drag-over-remove {
+    outline-style: solid;
+    outline-width: 3px;
+    outline-color: var(--color-negative);
+    background: color-mix(in srgb, var(--color-negative) 12%, transparent);
+}
+
+/* One shared generated box - .setup-col only ever has one ::after regardless
+   of which of these two classes is present, so animating opacity/font-size
+   here cross-fades between the subtle and loud label instead of the two
+   states just snapping between each other. */
+.setup-col.drag-remove-armed::after,
+.setup-col.drag-over-remove::after {
+    content: 'Remove';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-negative);
+    pointer-events: none;
+    transition: opacity 150ms ease, font-size 150ms ease;
+}
+
+.setup-col.drag-remove-armed::after {
+    font-size: var(--font-md);
+    font-weight: 600;
+    opacity: 0.5;
+}
+
+.setup-col.drag-over-remove::after {
+    font-size: var(--font-xl);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 1;
+}
+
+/* Both the armed and active tint are painted on .setup-col itself - the
+   tab row's own opaque background (needed so it doesn't go transparent when
+   sticky-pinned over scrolled-past rows) would otherwise sit on top of that
+   tint as a flat white/surface-coloured bar. Drop it during either remove
+   state so the red shows through the header the same as everywhere else on
+   the card. */
+.setup-col.drag-remove-armed .tab-row,
+.setup-col.drag-over-remove .tab-row {
+    background: transparent;
+}
+
+#panel-agenda-card .setup-col-body {
+    display: flex;
+    flex-direction: column;
+}
+
+[data-referral-tab-panel]:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.setup-col-body .entity-list--bleed { flex: 1 1 auto; min-height: 0; }
+
+.setup-col .entity-list:has(+ .picker-list-divider) { margin-bottom: 0; }
+
+html.nav-touch-mode .setup-col-body {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode .setup-col-body::-webkit-scrollbar {
+    display: none;
+}

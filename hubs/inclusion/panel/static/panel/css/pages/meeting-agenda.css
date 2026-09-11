@@ -1,0 +1,54 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+/* Panel Agenda: members register + pending/discussed, all equal-width columns
+   by default. .setup-col--narrow (its own flex: 0 1 240px rule, further
+   below, is for .setup-columns' flex layout elsewhere and has no effect
+   here) instead narrows the grid's own first track via :has() below - the
+   Members Register card no longer needs to match Pending/Discussed's width
+   now that "Manage Members" has moved out of its header into a footer slot
+   (see .setup-col-footer), leaving it with far less to show per row. */
+.agenda-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-xl); align-items: start; }
+
+.agenda-layout .members-register-col { min-width: 0; }
+
+/* Once the meeting is running (#60), the Members Register still shows photo
+   + expertise/Chair pill per member (#89 - restored, matching the
+   Attendance dialog's own .person-card and Setup's Members section) split
+   into In Attendance / Not In Attendance groups, so it keeps the standard
+   .setup-col--narrow width above rather than narrowing further. */
+.members-register-col--compact .entity-row { padding: var(--space-sm) var(--space-md); gap: var(--space-sm); }
+
+.members-register-col--compact .entity-title { font-size: var(--font-sm); }
+
+.members-register-col--compact .member-attendance-form { margin-top: var(--space-xxs); }
+
+/* Running-state Members Register splits into In Attendance / Not In
+   Attendance groups - a plain sub-heading between the two, same weight/size
+   as the rest of the compact register's already-shrunk type. */
+.members-group-heading { font-size: var(--font-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-tertiary); margin: var(--space-sm) 0 var(--space-xs); }
+
+.members-group-heading:first-child { margin-top: 0; }
+
+/* Pre-start Members Register column - attendance is only ever set inside
+   the attendance-dialog (see #attendance-dialog above), so this column is
+   read-only here: a plain count, and (for whoever can start the meeting) a
+   button that reopens the same dialog. */
+.members-register-placeholder { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 600; margin: 0 0 var(--space-sm); }
+
+/* Panel Agenda wraps toolbar + agenda-layout in the standard .content-shell
+   (see meeting_setup.html's identical .content-shell .setup-columns rule
+   above, and DES-L5) -
+   the live stats bar (elapsed timer, progress, counts) stays pinned while
+   each column's own list scrolls, rather than the whole page scrolling with
+   it. align-items: stretch overrides .agenda-layout's own align-items: start
+   above so every column fills the grid row's height. */
+.content-shell .agenda-layout {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    align-items: stretch;
+}
+
+.members-register-add-btn { margin-bottom: var(--space-sm); }
+
+.member-attendance-form { margin-top: var(--space-xs); display: flex; align-items: center; gap: var(--space-xs); }

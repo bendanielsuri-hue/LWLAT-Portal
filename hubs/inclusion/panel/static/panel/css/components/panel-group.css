@@ -1,0 +1,259 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+/* "Edit Group Membership" runs on with its icon in the narrow Members
+   Register column (.setup-col--narrow, 220-240px) - .btn's own
+   white-space:nowrap keeps it from wrapping at all, so it overflows the
+   column instead. flex-wrap here plus .btn-label-break's flex-basis:100%
+   forces "Membership" onto its own line (still centred, same as the rest
+   of the label, via .btn's own justify-content:center applying per line). */
+[data-open-group-edit-trigger] { flex-wrap: wrap; }
+
+[data-open-group-edit-trigger] .btn-label-break { flex-basis: 100%; }
+
+/* Chair select's "Default Chair" option carries a real newline in its
+   template source (meeting_setup.html) so the name reads as a genuine
+   second line rather than a parenthetical - the base .ui-select-trigger/
+   .ui-option rules (forms.css) set white-space: nowrap/no wrapping at all,
+   which would otherwise collapse that newline into a plain space. Scoped to
+   .chair-select (mirrored by enhanceSelect, static/js/main.js, onto both the
+   closed trigger and the open popover rows) so no other select on the site
+   is affected by allowing wrapped/multi-line text. */
+.ui-select-trigger.chair-select,
+.ui-select-panel.chair-select .ui-option {
+    white-space: pre-line;
+    text-overflow: clip;
+}
+
+/* Panel Agenda's Discussed rows: read-only Review Date + Change/Mark
+   Reviewed/No Longer Needed, only while a follow-up is actually still
+   incomplete - avoids the round-trip through Discussion's End Discussion
+   dialog for a simple adjustment (Change opens review-date-dialog, same
+   preset shape as End Discussion's own follow-up date picker). Once
+   resolved/cancelled the row reverts to the plain read-only text line
+   (base .entity-meta) above, since there's nothing left to act on. */
+.review-date-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+
+.entity-meta.member-expertise-meta { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+
+.member-expertise-form { display: inline-flex; }
+
+.member-expertise-form select { font-size: var(--font-sm); padding: var(--space-xxs) var(--space-xs); border-radius: var(--radius-xs); }
+
+/* Square, not the old 56x72 portrait card - a round avatar (live feedback:
+   "not round, does not need square card") needs equal width/height so
+   border-radius: 50% traces a circle rather than an oval, same as the
+   round .senco-avatar-wrap on the Inclusion hub homepage (cards.css). */
+.discussion-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: var(--space-sm);
+}
+
+.discussion-thumb svg { width: 70%; height: 70%; color: var(--text-faint); }
+
+.discussion-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Panel Group modal — single column, shared 560px shell like every other
+   modal. Name/Chair form a plain non-scrolling header (flex-shrink: 0);
+   everything below it (tabs + member list, or the Add Member picker) is a
+   separate scrolling body - same "header outside, body scrolls" split
+   dialog.modal-dialog itself uses one level up (.modal-header/.modal-body,
+   DES-L5), just
+   applied a second time inside this specific dialog's .modal-body so the
+   member list's own scrollbar starts below the header instead of running
+   behind it. */
+#panel-group-dialog .modal-body { display: flex; flex-direction: column; overflow: hidden; }
+
+#panel-group-dialog .panel-group-modal-header { flex-shrink: 0; display: flex; flex-direction: column; gap: var(--space-sm); }
+
+/* .panel-group-modal-header's own unconditional `display: flex` above is
+   author CSS, which beats the browser's `[hidden] { display: none }` UA
+   rule regardless of specificity - same trap as dialog.modal-dialog's
+   `display: flex` and every other `[hidden]` override already documented
+   in this file. Without this, hiding the header in Add Member mode (see
+   wireMembersModeToggle in panel.js) silently does nothing. */
+#panel-group-dialog .panel-group-modal-header[hidden] { display: none; }
+
+/* The border/spacing below only makes sense once there's scrolling content
+   underneath to separate from - [data-panel-group-header] (the Edit-mode
+   header) carries it; the New Panel Group form has nothing below it. */
+
+/* Also a .ui-fused-field-group (Name + Chair as its two rows) so both
+   labels share one subgrid and render the same width instead of each
+   one-field form guessing its own - see DES-C1 ("Matching label widths").
+   Beats .panel-group-modal-header's own
+   unconditional `display: flex` above via the ID selector's specificity,
+   not source order. */
+#panel-group-dialog [data-panel-group-header] {
+    display: grid;
+    grid-template-columns: max-content 1fr max-content;
+    gap: var(--space-sm) 0;
+    margin-bottom: var(--space-md);
+}
+
+#panel-group-dialog .panel-group-modal-header .field-group { margin-bottom: 0; }
+
+/* New Panel Group form only (no group yet, so none of the scroll/tabs/member
+   markup above exists) - Name + School + the Cancel/Create buttons share one
+   row inside the header. #panel-group-dialog only: openInlinePanelGroupCreate
+   (panel.js) strips this class off the same fetched form when swapping it
+   into a *different* modal (Create Panel Meeting/Edit Panel Settings)
+   instead, in favour of .ui-fused-field-group + its own .btn-row (below) -
+   see INT-U6 for why. */
+#panel-group-dialog .panel-group-modal-sticky-row {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-md);
+}
+
+#panel-group-dialog .panel-group-modal-sticky-row .field-group {
+    flex: 1;
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+/* Bleeds out through .modal-body's own right padding (same technique as
+   .panel-search-results/.setup-col-body, DES-L5) so this scroll region's scrollbar sits flush
+   against the dialog's right edge instead of inset by --space-xl.
+   padding-right restores that gap for the content itself (tab row, member
+   rows) so nothing actually shifts, only the scrollbar's own position does. */
+#panel-group-dialog .panel-group-modal-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin-right: calc(-1 * var(--space-xl));
+    padding-right: var(--space-xl);
+}
+
+/* Lets the Default Chair / External pills sit inline right after the
+   member's name instead of dropping to their own line below, unlike every
+   other .entity-title in the app (plain bold text). */
+#panel-group-dialog .entity-title { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
+
+/* Nested-card look removed: the base .entity-list background/border/radius
+   (cards.css) would otherwise put a second bordered box inside the modal's
+   own border. Row-to-row division still comes from .entity-row's own
+   border-bottom. */
+#panel-group-dialog .entity-list--bleed { background: none; border: none; border-radius: 0; }
+
+/* .entity-row:last-child suppresses its border-bottom by default (cards.css)
+   since most cards' own outer border already closes off the last row - but
+   with that border removed above, and each row ending in its own Expertise
+   picker/Active toggle rather than plain text, the last member row's
+   controls would otherwise read as loose and unassociated with any row.
+   Same fix, same reasoning, as .setup-col-body .entity-list--bleed's
+   Referral Selection/Panel Agenda rows above. */
+#panel-group-dialog .entity-list--bleed .entity-row:last-child { border-bottom: 1px solid var(--border-faint); }
+
+/* Same `[hidden]` vs. unconditional `display` trap as above -
+   .entity-list's own `display: flex` (cards.css) otherwise keeps the
+   Inactive tab's panel visibly rendered (stacked directly below the Active
+   panel) regardless of the `hidden` attribute switching between tabs. */
+#panel-group-dialog [data-members-tab-panel][hidden] { display: none; }
+
+/* Same `[hidden]` vs. unconditional `display` trap again - .tab-row button's
+   own `display: inline-block` (base rule above) otherwise keeps a tab with
+   zero members visible even once panel.js sets `hidden` on it (see
+   tabHasMembers in panel.js). */
+#panel-group-dialog [data-members-tab][hidden] { display: none; }
+
+/* Expertise picker + Active toggle share one line per member row (the row's
+   2nd of 2 total lines) instead of stacking - the expertise field takes the
+   leftover width, the toggle stays its own compact size. */
+#panel-group-dialog .member-row-controls { display: flex; align-items: center; gap: var(--space-sm); margin-top: var(--space-xxs); }
+
+#panel-group-dialog .member-row-controls .ui-fused-field-group { flex: 1; min-width: 0; }
+
+#panel-group-dialog .member-row-controls .member-attendance-form { margin-top: 0; flex-shrink: 0; }
+
+/* Tabs (Active/Inactive Members) get their own row, no button beside them -
+   see the "Tab row" rule in components/navigation.css. margin-left: 0 is
+   just restating .tab-row's own default (no bleed) explicitly, since it
+   sits directly under this selector's specificity - .modal-body's own
+   padding (--space-xl) is what the tabs align with unbled.
+   Sticky against .panel-group-modal-scroll (its nearest scrolling ancestor)
+   so the tabs stay put as the member list scrolls underneath them, same
+   "tab row pinned above its own scrolling body" treatment as
+   .setup-col-body .tab-row - see the "Tab row" rule in
+   components/navigation.css.
+   Keeps the base .tab-row rule's own border-bottom (not overridden here),
+   same as that Referral Selection instance - the divider belongs directly
+   under the tabs, not between the static Name/Chair fields above and the
+   tabbed area (hence no border on [data-panel-group-header] either). */
+#panel-group-dialog [data-members-list-view] > .tab-row {
+    margin-left: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-surface);
+}
+
+/* margin-bottom matches .tab-row's own (--space-md), not the usual
+   generic 28px below an <h3> - this
+   heading only ever renders in place of the tab-row (a brand-new group
+   with no members at all yet), so it needs the same gap above the member
+   list the tab-row would leave, not a bigger one that shifts the list down
+   depending on which of the two happened to render. */
+#panel-group-dialog .members-list-heading { margin: 0 0 var(--space-md); font-size: var(--font-md); }
+
+/* Persistent action slot pinned below the scrolling member list/picker,
+   swapping between "+ Add Member" (list view) and "Back" (add view) rather
+   than each view rendering its own trailing button inline - moved here
+   specifically so it no longer shares a row with the Active/Inactive tabs
+   above. Same fixed-footer extension of the header/body split
+   dialog.modal-dialog already uses (DES-L5), so it stays flush against the bottom of the
+   dialog regardless of how long the member list/picker above it gets.
+   Centred rather than docked to an edge - whichever button(s) are visible
+   (Add Member alone, or Back plus New External Contact) read as one
+   self-contained action slot, not an advancing/undoing pair that needs a
+   side each. */
+#panel-group-dialog .panel-group-modal-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding-top: var(--space-sm);
+}
+
+.panel-group-member-row { display: flex; gap: var(--space-xs); margin-bottom: var(--space-xs); }
+
+.panel-group-member-row select { flex: 1; min-width: 0; }
+
+.member-staff-selected[hidden] { display: none; }
+
+.member-staff-selected-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface-alt);
+}
+
+.expertise-field-inline { display: flex; gap: var(--space-xs); align-items: center; }
+
+.expertise-field-inline .ui-select { flex: 1; min-width: 0; width: auto; }
+
+/* Match the "+" button's height to the select trigger's (10px vertical
+   padding + line-height + border) so they sit flush on the same row instead
+   of the shorter btn-sm padding leaving it visibly squat. */
+.expertise-field-inline .ui-select-trigger,
+.expertise-field-inline .btn-icon-only { height: 41px; box-sizing: border-box; }
+
+html.nav-touch-mode .panel-group-modal-scroll {
+    scrollbar-width: none;
+}
+
+html.nav-touch-mode .panel-group-modal-scroll::-webkit-scrollbar {
+    display: none;
+}

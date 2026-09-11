@@ -704,10 +704,10 @@ html.filter-bar-mobile-mode .filter-bar-tray .filter-field--search input[type="t
    scroll in desktop mode?".
 
    What wrapping buys: a filter you cannot see is a filter you do not use,
-   and the prev/next arrows, the edge fades and the cut-off masking all
-   existed only to soften that. A drop-down panel has vertical room to
-   spend. Deleted with the scroll: .filter-secondary-fields-arrow (both
-   buttons and every rule for them) and the ::before/::after edge fades.
+   and the prev/next scroll arrows, the edge fades and the cut-off masking
+   all existed only to soften that. A drop-down panel has vertical room to
+   spend. Deleted along with the scroll: both arrow buttons, every rule for
+   them, and the ::before/::after edge fades.
 
    Row gap narrower than the column gap: the vertical step separates one
    line of categories from the next, where the horizontal one has to
@@ -1270,7 +1270,7 @@ html.filter-bar-mobile-mode .filter-bar-tray .filter-field--search input[type="t
 }
 
 /* Prev/next, the pair the desktop strip used to carry before it wrapped
-   (.filter-secondary-fields-arrow, deleted in de5fa4f) - back per track.
+   (its own dedicated arrow buttons, since deleted) - back per track.
 
    In the tray they hang on the caption row, which is already a flex line
    with a tick running out to each end, so an arrow at each end lands in
@@ -1625,10 +1625,10 @@ html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-sticky-row {
     top: 0;
     z-index: 1;
     background: var(--bg-well);
-    /* No border of its own (used to fade in a border-bottom via
-       an .is-covering class toggled from JS, since removed, once the
-       field grid scrolled up underneath it) - redundant once the tray
-       went back to full screen width (above): .list-card .filter-bar
+    /* No border of its own (used to fade in a border-bottom from JS once
+       the field grid scrolled up underneath it, since removed) -
+       redundant once the tray went back to full screen width (above):
+       .list-card .filter-bar
        (layout.css) already carries its own permanent border-bottom
        right at this exact boundary (the collapsed bar's own bottom
        edge, which the expanded tray floats directly beneath without
@@ -2480,10 +2480,10 @@ html.filter-bar-mobile-mode .filter-bar-tray.is-expanded .filter-bar-sticky-foot
     padding-right: var(--space-sm);
     /* No border-top at all - live feedback: "we can also lose the border
        top above footer buttons", alongside dropping the one under the
-       header. It used to fade in via .is-covering once the field grid
-       had something scrolled out of view above it; the buttons already
-       read as their own band against the fields, and the tray scrolls
-       behind a footer that never overlapped that content anyway. The
+       header. It used to fade in from JS once the field grid had
+       something scrolled out of view above it; the buttons already read
+       as their own band against the fields, and the tray scrolls behind
+       a footer that never overlapped that content anyway. The
        scroll-position tracking that drove it went with it (main.js). */
     /* Both properties in ONE declaration, not left as two separate
        `transition:` rules (this one plus the base rule's own
@@ -2824,4 +2824,330 @@ html.filter-bar-mobile-mode:not(.filter-bar-narrow-desktop) .list-card:has(.filt
        below it. */
     border-top: none;
     border-radius: 0;
+}
+
+/* Promoted out of panel.css (#211) - generic, no domain vocabulary. */
+/* .entity-row.chosen > .btn-row's own !important (cards.css/panel.css)
+   now covers this globally - no per-page re-assertion needed here any
+   more. */
+
+/* Wide desktop used to swap the buttons column to a horizontal row here too
+   (live feedback originally: "in wide desktop it should be horizontal
+   stack like actions", reused Actions' own 1200px threshold, then a
+   follow-up moved it to its own later 1401px one) - reverted (live
+   feedback: "the buttons in wide desktop should be vertically stacked"),
+   same call as Referrals' own identical revert, above: Actions itself
+   never actually keeps a wide-desktop horizontal stack, so this and
+   Referrals' copy were both chasing a stale description of it.
+   #students-filtered-content .btn-row's own >=701px grid-band rule
+   (flex-direction: column; align-items: stretch, above) already stacks at
+   every desktop width with nothing left here to override it back. The
+   per-slot --btn-w-actions/--btn-w-referrals measurement this band used to
+   consume was dropped from wireStudentButtonColumnWidth (students.html) -
+   that function's own --students-btn-col-w measurement (the shared column
+   width every row's grid track uses) is unrelated and still runs. */
+
+/* Students list (#117): "table -> stacked card" per #113's shared
+   vocabulary - now just the leftover bits of that band still shared by
+   tablet and mobile alike (smaller thumb, compact Data cards); the row's
+   own stacking/button-wrap behaviour moved to the dynamic-overflow block
+   above (tablet) and the true-mobile-only block below (<=480px), per live
+   feedback that tablet should try the same "buttons beside content" layout
+   desktop uses. Scoped to #students-filtered-content (this page's own
+   AJAX-swap target, unique per list page) rather than the bare
+   .entity-row/.row-facts-cols classes above - those are shared markup
+   with Referrals/Actions (#118/#119), each with its own separately-scoped
+   stacking rules (#118's own <=480px block is above, #119 still
+   not-yet-designed). */
+@media (max-width: 900px) {
+    /* Top corners square off below 480px only (mobile's own full-bleed
+       rule, further down, which zeroes every corner unconditionally
+       regardless of anything here) - this width band's own version of
+       that squaring (live feedback at the time: "the card doesn't read as
+       floating below the sticky filter-bar header above it") was removed
+       (live feedback, #135 follow-up: "this is the first thing on the
+       page so it is not floating under anything. It [is] the first item
+       so needs rounded corners" - the filter bar IS the card's own first
+       element with nothing above it to read as detached from, so the
+       original reasoning didn't actually apply to it in the first place).
+       .filter-bar keeps whatever top radius it already had (layout.css)
+       between 480-900px now. */
+    /* "Filters · N" label reserves layout space for its count badge even
+       at zero (.filter-bar-count--empty, forms.css) - deliberate on
+       desktop (keeps the label from changing width as filters are
+       applied/cleared), but reads as an oversized dead gap once the bar
+       itself is this narrow and the label no longer shares its row with
+       much else (live feedback: "gap for the filter count... when there
+       is no filters the gap is too big"). Collapses that reserved space
+       only when actually empty - a real non-zero count still gets its
+       normal badge width once one exists. width/min-width/padding/margin
+       animate to 0 rather than an instant display: none (live feedback,
+       #135 follow-up: "when I add a filter the badge suddenly appears and
+       shifts things... make it animate in") - display: none can't be
+       transitioned at all, so the badge (and everything after it) used to
+       jump straight to its new position the instant a filter was
+       added/cleared; forms.css's own .filter-bar-count already carries the
+       matching transition for these same properties. */
+    .filter-bar-tray .filter-bar-count--empty {
+        min-width: 0;
+        width: 0;
+        padding: 0;
+        margin: 0;
+        overflow: hidden;
+    }
+    .filter-bar-tray .filter-bar-label:has(.filter-bar-count--empty) {
+        margin-right: 0;
+    }
+    /* Dynamic overflow's own divider (setupFilterBarMoreFilters, main.js -
+       a plain 2px border-top rule between the primary row and whatever's
+       moved behind "More filters") reads as an extra bordered-off section
+       at this width - live feedback: "lose the horizontal divider in
+       filter row in mobile mode". Shared across every dynamic-mode bar
+       (SEND & Provision, Panel Actions/Meetings too), so scoped to
+       Students' own form rather than the bare .filter-divider class. */
+    .filter-bar-tray .filter-divider {
+        display: none;
+    }
+    /* Year/House/Reg narrowed specifically so all three reliably land on
+       the bar's own first (always-visible) row together rather than the
+       dynamic overflow measurement splitting one of them off into "More
+       filters" once the row gets this tight (live feedback: "can Year,
+       House and Form all be on same row in mobile") - the three are early
+       enough in DOM order (right after Name Search) that they'd normally
+       fit before anything else runs out of room, this just gives that
+       margin back. */
+    .filter-bar-tray .filter-field:has(#year-filter),
+.filter-bar-tray .filter-field:has(#house-filter),
+.filter-bar-tray .filter-field:has(#reg-filter) {
+        max-width: 90px;
+    }
+}
+
+/* Base hide for the expanded-only backdrop (students.html) - same
+   unconditional-outside-the-media-query reasoning as the sticky footer
+   above, so it never shows at desktop/tablet widths either. Lives beside
+   #students-filtered-content's own content, not inside .filter-bar - see
+   the show rule (below, scoped off .filter-bar.is-expanded as a preceding
+   sibling) for why. position: relative here is what anchors that rule's
+   position: absolute against exactly this element's own box. */
+
+/* .filter-tray-content (SEND & Provision dashboard, hub.html): same tray
+   overlay hooks as .filtered-content, but a distinct class - the dashboard's
+   own .stats-strip (KPI cards) would otherwise pick up .filtered-content
+   .stats-strip's unrelated 3-col grid rule below (Students/Referrals/
+   Actions/Meetings' entity-count footer), which isn't what the KPI strip
+   wants at every width. */
+.filtered-content,
+.filter-tray-content {
+    position: relative;
+}
+
+@media (max-width: 900px), (max-height: 500px) {
+    /* Expanded: auto-sized to its own content (live feedback: "no longer
+       hide the mobile nav... expanded height of filter should auto size" -
+       supersedes an earlier "filters take over the card" design, which
+       force-grew the bar to fill .list-card's entire remaining height via
+       flex: 1 1 auto + collapsed the entity list to zero to free that space
+       for it; once the field grid didn't need all of that claimed height,
+       the leftover just sat there as dead space with nothing in it - a
+       "gap" no less empty than the sliver-list problem this design
+       originally replaced). No flex/overflow override here at all now -
+       the bar's own default flex-basis (content-sized, like any other flex
+       item) is exactly the "auto size" behaviour asked for; no override
+       left for the entity list below it either now, so it's back to its
+       own normal default (flex: 1 + overflow-y: auto, layout.css) and
+       simply claims whatever's left after the bar's real content height,
+       scrollable as always - no dedicated scroll handling needed on the
+       bar itself for the field grid to ever plausibly outgrow. Hiding
+       the mobile bottom nav while expanded is dropped too, along with it -
+       that only existed to keep the sticky Clear/Close footer clear of the
+       nav bar, and the footer isn't sticky/full-height-claiming any more
+       either. */
+    /* .filter-actions-right (forms.css) wraps "More filters"/the *original*
+       Clear Filters - the desktop-only pairing, unconditionally irrelevant
+       on mobile now that both have their own dedicated mobile equivalents
+       instead (moreFiltersBtn already always hidden at this width, main.js;
+       Clear Filters and Close both have their own sticky-header instance -
+       .filter-bar-clear--sticky/.filter-bar-close, above). Previously only
+       hidden while collapsed, un-hidden once expanded (its own border-left
+       divider was the "vertical divider in mobile" live feedback flagged, and its
+       stretch-to-the-field-column's-height styling was the "Clear Filters
+       floating in the middle of the list" live feedback flagged) - both
+       problems now moot with the wrapper simply never shown on mobile at
+       all, expanded or not. */
+    /* :has([data-filter-pinned]) - the reasoning above is entirely about
+       Search: both of this pair's mobile equivalents exist because the one
+       row this bar has at these widths belongs to Search. A bar with no
+       pinned Search has no such claim on the row, and hiding the pair there
+       left it as a lone "Filters" label on a full-width bar - live
+       feedback: "it does look empty, and there is space!", then "this can
+       change for no search bars as there is more space to play with". Those
+       bars keep the desktop pair, pinned to the same top-right corner by
+       the same forms.css rule; main.js builds it there now rather than
+       bailing out of setup (setupFilterBarMoreFilters). */
+    /* (#187) Phone width only. Every width renders the tray now, so this
+       rule - written when "tray" and "phone" meant the same thing - was
+       hiding the pair on a 1400px desktop row too (live feedback: "view
+       filter button is not showing"). The reasoning above is entirely about
+       a row too narrow to hold anything but Search, which is a fact about
+       390px, not about the tray.
+       Above phone width the measured .filter-bar-actions-cramped rule below
+       takes over, and it now runs for search-bearing bars as well
+       (measure(), main.js): the pair is shown unless the label, the buttons
+       and a usable Search width genuinely do not fit together. */
+    html.phone-chrome .filter-bar-tray:has([data-filter-pinned]) .filter-actions-right {
+        display: none;
+    }
+}
+
+/* display: flex, unconditionally (not gated on .is-expanded like every
+   other .filter-field rule below still is) - overrides the shared
+   collapse rule every other filter bar in the app still relies on
+   (.filter-bar .filter-field { display: none }, responsive.css),
+   which would otherwise keep these fields un-rendered (and so
+   invisible to the grid-rows trick above, which needs their real
+   content height throughout, not just once fully open) until
+   .is-expanded landed. Visibility is entirely the wrapper's job now -
+   these three selectors just need to always participate in normal
+   layout so the slide has real content to reveal as it opens, rather
+   than popping in only once already fully expanded. */
+html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible .filter-field,
+html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible .filter-bar-sticky-footer,
+html.filter-bar-mobile-mode .filter-bar-tray .filter-bar-collapsible .filter-bar-clear {
+    display: flex;
+}
+
+/* Back to the plain default flex, cancelling responsive.css' shared
+   2-up basis for an expanded bar (.filter-bar.is-expanded .filter-field
+   { flex: 1 1 calc(50% - var(--space-xs)) }, its own <=480px block).
+   That rule is a layout for a bar with no sections in it - here a field
+   is content-sized and it is the GROUP that decides what shares a line,
+   so a half-width basis would put two fields per row and leave every
+   section spanning the tray. The old chip grid overrode this same rule
+   with its own 3-up basis; nothing overrode it for the tray tiers because
+   at their widths it never applied at all (#185). */
+.filter-bar-tray .filter-bar-collapsible-inner.filter-bar-sections .filter-field {
+    flex: 0 1 auto;
+}
+
+/* Hidden outright above true-mobile width now (live feedback: "it should
+   only show in mobile... it is really only necessary on full page cards
+   on mobile due to the FAB overlapping the page" - the whole reason this
+   box exists is to keep the FAB's own protrusion, mobile-only, from
+   sitting on top of real row content; --list-endcap-height's underlying
+   JS math already resolves to 0 above mobile (base rule's own comment),
+   but flex-grow: 1 there has nothing stopping it from filling leftover
+   vertical space in a SHORT list on a tall desktop viewport regardless of
+   that 0 basis - display: none is the one change that can't leave a
+   residual band behind the way relying on a 0 basis alone could). */
+@media (min-width: 481px) {
+    .filtered-content .entity-list::after,
+.filtered-content .filtered-list::after {
+        display: none;
+    }
+}
+
+/* Halved (live feedback with a screenshot: "should be much shorter for
+   mobile as well") - still at least fabProtrusionAboveTabbar()'s own
+   single reach (not halved further than that), so the FAB's full
+   protrusion still lands inside the box rather than spilling onto real
+   row content above it; it now just covers the WHOLE box instead of only
+   the bottom half of a taller one. Scoped here rather than changing
+   setupListEndCapHeight (main.js) itself - that same --list-endcap-height
+   custom property also sizes My Referrals'/My Actions'/Upcoming Panel
+   Meetings' own end-of-list stripes (own comment, above), which weren't
+   part of this ask and keep their existing height. */
+@media (max-width: 480px) {
+    .filtered-content .entity-list::after,
+.filtered-content .filtered-list::after {
+        flex-basis: calc(var(--list-endcap-height, 47px) / 2);
+    }
+}
+
+@media (max-width: 480px) {
+    /* Moves the app-wide bottom-nav scroll clearance (_hub_sidebar.html:
+       padding-bottom: calc(47px + 18px + var(--space-lg)) on .main-inner,
+       every phone-width page) off .main-inner and onto .entity-list
+       itself, on every filter-bar-tray/list-card page that actually has an
+       .entity-list to carry it (Students, Referrals, Actions, Escalations -
+       originally Students-only, live feedback: "This need to be removed
+       when the page is not meant to be scrolled... yes on this page", then
+       once the FAB started overlapping the last card: "Can the gap be
+       added to the student list card instead so button does not overlap
+       the last card"). Meetings/Safeguarding Notes share the .filtered-
+       content wrapper but not the .entity-list row shape (.meetings-scroll/
+       .dsl-briefing-list-col instead), so they're deliberately excluded
+       here - zeroing .main-inner without an .entity-list end-cap to take
+       over the clearance would reintroduce #129's original bug (last row
+       stuck behind the fixed bar) on those pages. .main-inner's own
+       reservation is a static value added regardless of whether the page's
+       content actually needs to scroll - zeroing it outright (an earlier
+       version of this rule) fixed the "why does a nearly-fitting filter
+       tray scroll at all" complaint but also removed the entity list's own
+       genuine clearance, reintroducing #129's bug once the list itself was
+       what needed scrolling. Reserving the same space at the entity list's
+       own trailing edge instead keeps that clearance exactly where a long
+       result list still needs it, without it also being tacked onto the
+       very end of main-inner regardless of what's actually rendered there
+       (the filter tray's own footer, on a short result set). No
+       !important needed on .entity-list's own rule below - nothing else
+       sets its padding-bottom, unlike .main-inner's own zeroing above
+       (which still needs it, for the reason given where it's declared). */
+    body:has(.filtered-content .entity-list) .main-inner {
+        padding-bottom: 0 !important;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   `short` tier (landscape phone, ADR 0016): pin the filter bar to the top of
+   the list and the stats strip to the bottom.
+
+   Why this tier specifically: the page header now scrolls away here (it was
+   costing 30% of a 430px viewport), which took the filter bar with it since
+   the bar lives inside .sticky-header-zone's flow. Filters and the result
+   counts are the two things you steer a list by, so they're exactly what
+   should survive a scroll - the title, which you already know, is what
+   shouldn't (live feedback: "filters and footer stats should be sticky on list
+   pages").
+
+   The overflow override is load-bearing, not tidying: overflow: hidden makes
+   an element a scroll container, and position: sticky resolves against the
+   NEAREST scrolling ancestor - so a sticky child of these boxes would stick to
+   a box that never scrolls and simply never move. The real scroller is <main>.
+   That hidden is there to clip the card's rounded corners (see the card
+   scrollbar pattern), and in this tier the card is already full-bleed and
+   borderless - mobile mode strips its side borders and radius - so there are
+   no corners left to clip and nothing is given up by releasing it.
+   --------------------------------------------------------------------------- */
+html.phone-chrome-side .content-shell,
+html.phone-chrome-side .list-card {
+    overflow: visible;
+}
+
+/* Both strips need an OPAQUE fill or the rows scroll visibly through them, and
+   the fill has to be --bg-well specifically. These are chrome - a controls
+   strip and a counts strip bookending the list - not content, and DES-F1 puts
+   chrome on --bg-well (forms.css's own .filter-bar rule says so outright:
+   "the bar is a controls strip (chrome), not an editable field itself").
+
+   An earlier pass here set --bg-surface purely to get opacity, which is the
+   same white as .list-card - so both strips dissolved into the rows they were
+   meant to frame (live feedback: "the footer is usually chrome and the filter
+   bar seems to have padding that is messing with the fill"). Sticky needs
+   opacity, not a colour of its own; taking the colour from the depth ladder
+   rather than picking one is what keeps them reading as chrome. */
+html.phone-chrome-side .list-card .filter-bar,
+html.phone-chrome-side .content-shell > .filter-bar {
+    background: var(--bg-well);
+}
+
+/* No bottom border on the card either. It's the last 1px before the viewport
+   edge here - the stats strip is flush against the bottom of the screen - so
+   the border has nothing below it to separate the card from and just reads as
+   a stray line under the counts (live feedback: "I think I am seeing border on
+   footer but this is not needed if it's at screen edge in this mode"). The
+   strip's own border-TOP stays: that one still does a job, dividing the counts
+   from the rows scrolling behind them. */
+html.phone-chrome-side .list-card {
+    border-bottom: none;
 }

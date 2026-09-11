@@ -178,63 +178,6 @@ beyond this template split.
 
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var filterBar = document.querySelector('form.filter-bar');
-    var myMeetingsToggle = document.getElementById('my-meetings-toggle');
-    var myMeetingsInput = document.getElementById('my-meetings-input');
-    var refreshFilterBarState = window.wireFilterBarActiveState(filterBar);
-    if (window.wireListInfiniteScroll) window.wireListInfiniteScroll('meetings-filtered-content');
-
-    {% comment %}
-    #121 follow-up: Term cascades to whichever Academic Year is selected -
-    live feedback: "if I select academic year, can term filter be filtered
-    to available terms... can this be a standard link throughout ecosystem"
-    - same {parent_value: [child_options]} JSON map + rebuild-on-change
-    convention as Students' own Year->Reg Group cascade (students.html:
-    formsByYear/refreshRegOptions), not a new mechanism - only difference is
-    each Term option is a [value, label] pair (a bare term name repeats
-    every year, so option.value != option.textContent the way Reg Group's
-    own value==label options are), so the option-rebuild loop needs both.
-    {% endcomment %}
-    var yearFilter = document.getElementById('academic-year-filter');
-    var termFilter = document.getElementById('term-filter');
-    if (yearFilter && termFilter) {
-        var allTerms = Array.prototype.slice.call(termFilter.options).slice(1)
-            .map(function (o) { return [o.value, o.textContent]; });
-        var termsByYear = JSON.parse('{{ terms_by_academic_year_json|escapejs }}');
-
-        function refreshTermOptions() {
-            var year = yearFilter.value;
-            var terms = year ? (termsByYear[year] || []) : allTerms;
-            var previous = termFilter.value;
-            termFilter.innerHTML = '<option value="">All</option>';
-            terms.forEach(function (pair) {
-                var opt = document.createElement('option');
-                opt.value = pair[0];
-                opt.textContent = pair[1];
-                termFilter.appendChild(opt);
-            });
-            termFilter.value = terms.some(function (pair) { return pair[0] === previous; }) ? previous : '';
-            // Term is enhanced into a custom popover control by
-            // enhanceFormControls() on page load, same as Students' own Reg
-            // Group - mutating the underlying native <select>'s options
-            // above doesn't by itself refresh that popover's cached option
-            // list (own comment, students.html).
-            if (termFilter._uiSelect) termFilter._uiSelect.refresh();
-        }
-        yearFilter.addEventListener('change', refreshTermOptions);
-    }
-
-    if (myMeetingsToggle && myMeetingsInput) {
-        myMeetingsToggle.addEventListener('click', function () {
-            var isOn = myMeetingsToggle.classList.toggle('on');
-            myMeetingsToggle.setAttribute('aria-pressed', String(isOn));
-            myMeetingsInput.checked = isOn;
-            myMeetingsInput.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-    }
-    if (filterBar) filterBar.addEventListener('change', refreshFilterBarState);
-});
-</script>
+{{ terms_by_academic_year|json_script:"meetings-terms-by-academic-year" }}
+<script type="module" src="{% static 'panel/js/pages/meetings.js' %}"></script>
 {% endblock %}

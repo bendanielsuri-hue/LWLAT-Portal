@@ -1,0 +1,401 @@
+/* The facts strip: the horizontally-scrolling band of labelled data columns a
+   filterable list row carries (Students' DOB/Ethnicity/Behaviour/Attendance,
+   Actions' Due/Created/Referral, Meetings' own priority cluster).
+
+   Promoted out of panel.css (#210, ADR 0020). Nothing here names a domain: a
+   column of labelled facts inside a list row is the pattern, and which facts
+   it holds is the page's business. The per-page rules that reshape it - every
+   #<name>-filtered-content selector, the bleeds, the Description/Status line
+   on Actions and Escalations - stay hub-side, which is why the base
+   .row-facts rule below travels with the strip: it and .row-facts-cols land
+   on the SAME element on Referrals/Students (dual class,
+   _referrals_rows.html/_students_rows.html) and disagree at equal
+   specificity about flex-wrap and gap, so only their source order decides
+   which wins. Splitting them across two stylesheets would flip that pair
+   silently.
+
+   The measurement half lives in static/js/list-page/facts-strip.js.
+*/
+
+/* align-items: flex-start, not center (#121) - every .row-fact-label
+   should start at the same y position regardless of how many data lines
+   follow it in that particular column. Referrals'/Actions'/Students' own
+   columns are always a fixed, schema-defined line count (e.g. date+"By X",
+   always exactly 2 lines) so centering vs top-aligning was never visibly
+   different there - genuinely a no-op for them, changed here rather than
+   overridden per page so any column that DOES end up variable-height (like
+   Meetings' own Priority, 0-4 lines depending on which levels are actually
+   present) gets the correct behaviour automatically instead of needing its
+   own one-off fix - live feedback: "if there was a data col with one line,
+   I would want it to act the same". */
+.row-facts { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; margin-top: var(--space-xs); padding-top: var(--space-xs); font-size: var(--font-sm); color: var(--text-secondary); }
+
+/* Permanent horizontal scroll, one row always (#157 follow-up - live
+   feedback with a screenshot of Students at mobile width: "Data cols must
+   always be one row, so it needs to be scrollable if it does not fit" -
+   reverting #156's wrap-and-fill for THIS group specifically. #156 (own
+   git history) had put flex-wrap: wrap here instead, so a group with more
+   columns than fit on one line (Students'/Referrals' 5-6 groups, at
+   mobile width) split across two internal rows - fine for Actions' own
+   3-column Due/Created/Referral strip, which rarely needs a second line,
+   but read as an ugly uneven stack for the wider groups (screenshot:
+   DOB/Details/Pastoral on one row, Behaviour/Attendance orphaned on a
+   second). flex-wrap: nowrap + overflow-x: auto (drag, arrows, edge fade -
+   all below) is the same mechanism #154 originally built and #156 later
+   replaced - reinstated here rather than rebuilt, since none of that
+   scroll-affordance CSS/JS was ever deleted, only left dormant (own
+   comments on cursor/arrow rules, below) while nothing overflowed a
+   wrapped box. .row-fact-col's own flex-shrink: 0 (base rule, below) is
+   what makes this scroll rather than squash once content doesn't fit.
+   Referrals/Students: this IS .row-facts (same div, dual class,
+   _referrals_rows.html/_students_rows.html) - the whole strip scrolls.
+   Actions: a separate inner div (_actions_rows.html) holding just Due/
+   Created/Referral, a sibling of Description/the Status fused control
+   inside .row-facts - THAT outer .row-facts still wraps as a whole (own
+   rule, above unchanged) once Description+Status no longer fit beside
+   this strip; only this inner group itself now never splits across
+   multiple lines. */
+.row-facts-cols {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.row-facts-cols::-webkit-scrollbar {
+    display: none;
+}
+
+/* Fade affordance (native scrollbar is hidden above, on every device, not
+   just touch - live feedback: "not sure I like the scroll bar appearing on
+   every row" - a scrollbar visible on every single row read as cluttered
+   even once synced together, own comment above), via mask-image, not a
+   painted overlay:
+   1st attempt, an absolutely-positioned ::before/::after pseudo-element -
+   its containing block (this same scrolling element, since it needs
+   position: relative on itself) is part of the scrollable overflow region,
+   so it scrolled along WITH the content underneath instead of staying
+   pinned to the visible edge (live feedback + screenshots: "the fade
+   seems to move when scrolling").
+   2nd attempt, a background-image gradient on .row-facts-cols itself -
+   fixed to the element's own border box regardless of scroll (correct),
+   but an element's own background always paints BEHIND its children/
+   content, so the gradient sat invisibly underneath every column's actual
+   text (live feedback: "now I am not seeing any fade?").
+   mask-image fixes both at once: it fades the element's OWN rendered
+   output (background AND children, whatever they are) to transparent
+   toward each edge, revealing genuinely whatever sits behind it - the
+   parent .entity-row's real background, .chosen's own var(--primary-light)
+   tint included, automatically, with no synthetic fade colour to keep in
+   sync (no --facts-fade-color/.chosen override needed at all, unlike
+   either attempt above). Like background-image, a mask is fixed to the
+   element's own box, not its scrolled content, so it doesn't move either.
+   24px, transparent -> opaque, matches the fade's old visual width.
+   ONE single gradient across the whole width, not two separate mask
+   layers (1st attempt at this: two independently-sized 0-24px layers,
+   composited via mask's default "add"/union behaviour - a layer sized 0
+   doesn't mean "contributes nothing", it means "covers a zero-width box",
+   and outside a no-repeat layer's own box it contributes zero alpha; with
+   BOTH layers at 0 width, the entire middle of the strip fell outside
+   both boxes and got masked to fully invisible - confirmed live via
+   Playwright, "not seeing any fade" turned into the whole strip vanishing
+   instead once this was fixed enough to actually apply). One continuous
+   gradient's middle stop pair (black at var(--mask-left-reach), black at
+   calc(100% - var(--mask-right-reach))) is opaque by construction - there
+   is no second layer for a gap to fall between.
+   --mask-left-reach/--mask-right-reach registered via @property (below)
+   specifically so they interpolate as real <length> values under
+   `transition` - an unregistered custom property is just inert text
+   substitution to the browser, so a transition on it (or on a mask-image
+   that merely references it) can't animate; @property is what makes the
+   browser actually tween 0px->24px frame by frame instead of snapping
+   (live feedback: "are the fade elements fading in and out as well" -
+   confirmed there was no transition at all before this). Falls back to a
+   harmless instant snap (no animation, but still visually correct) in any
+   browser that ignores @property.
+   -webkit- prefix still required for mask-image in Safari. */
+@property --mask-left-reach {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+}
+
+@property --mask-right-reach {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+}
+
+.row-facts-cols {
+    --mask-left-reach: 0px;
+    --mask-right-reach: 0px;
+    mask-image: linear-gradient(to right, transparent, black var(--mask-left-reach), black calc(100% - var(--mask-right-reach)), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black var(--mask-left-reach), black calc(100% - var(--mask-right-reach)), transparent);
+    transition: --mask-left-reach 200ms ease, --mask-right-reach 200ms ease;
+}
+
+/* 30px = the arrow's own 28px diameter + its 2px inset (row-facts-arrow,
+   below) - was 24px, tuned for this arrow's old 24px size; left unmatched
+   after that grew to 28px (live feedback: "does the button cover the now
+   revealed data col on scroll" - a few px of sharp, unfaded text could
+   peek from beside/under the button rather than being cushioned by this
+   fade the way the rest of the edge is). Keeps the arrow sitting over the
+   fade's own transparent-to-opaque transition rather than past its far
+   edge. */
+.row-facts-cols.is-cut-left {
+    --mask-left-reach: 30px;
+}
+
+.row-facts-cols.is-cut-right {
+    --mask-right-reach: 30px;
+}
+
+/* Wider still on touch - matches the arrow's own touch-sized 36px
+   diameter + inset (38px) now that it shows there too. */
+html.nav-touch-mode .row-facts-cols.is-cut-left {
+    --mask-left-reach: 38px;
+}
+
+html.nav-touch-mode .row-facts-cols.is-cut-right {
+    --mask-right-reach: 38px;
+}
+
+/* Drag-to-scroll cursor - reinstated (#157 follow-up - .row-facts-cols
+   scrolls again, own base rule above; briefly removed at #156 while this
+   group wrapped instead of scrolling, own git history). The JS drag
+   handler (list-page/facts-strip.js) still bails out on its own whenever
+   scrollWidth <= clientWidth, so this cursor genuinely does nothing when
+   the row's content already fits - only promising a drag once there's
+   really something to drag. */
+html:not(.nav-touch-mode) .row-facts-cols {
+    cursor: grab;
+}
+
+.row-facts-cols.is-dragging {
+    cursor: grabbing;
+}
+
+/* Prev/next arrows - standardised to match the filter bar's own carousel
+   arrows (live feedback: "standardise the move right and left arrow. I
+   like the one used on filters" - the filter bar's own arrow buttons have
+   since been deleted along with that strip's horizontal scroll, and this
+   recipe is the surviving copy of it): same 28px circle/border/shadow/
+   hover recipe and the same '‹'/'›' text-glyph buttons (_students_rows.html/
+   _referrals_rows.html/_actions_rows.html), not the arrow_left_svg/
+   arrow_right_svg icons this used before. Shown on touch now too (used to
+   be non-touch only - "touch already has native swipe" - live follow-up:
+   "if we include it on touch devices as well, its even more clear there
+   is extra content"; native swipe still works underneath regardless, this
+   is purely an additional visible affordance now).
+   .row-facts-track wraps just the scrolling .row-facts-cols - position:
+   relative, no overflow/scroll of its own, so the arrows (position:
+   absolute against IT) stay fixed at the row's own visible edges
+   regardless of the inner track's scroll position - the same containing-
+   block fix the mask fade (above) already needed once, now applied from
+   the start here instead of repeating that mistake.
+   display: none by default, shown per arrow via the general sibling
+   combinator against .row-facts-cols' own .is-cut-left/-right (list-page/facts-strip.js) -
+   an arrow only ever offers to scroll toward genuinely more content, same
+   condition the fade already uses, no separate JS-driven enabled/disabled
+   state needed - the filter arrows' own is-at-edge (opacity fade, JS-
+   driven per scroll event) reaches the identical "only show toward real
+   content" result a different way; no need to replace this element's own
+   already-working mechanism just to match that one too. Inset (not
+   overflowing the row's own edge, the way .stats-carousel-arrow's larger
+   48px circle does elsewhere) - .entity-list clips overflow (cards.css),
+   so anything hanging past the row's edge would just get cut off. */
+.row-facts-track {
+    position: relative;
+    /* isolation: isolate - live feedback: "the next arrow on row is above
+       overlay". The arrows carry z-index: 2 (below) purely to sit above
+       this track's own scrolling content, but with this element at z-index:
+       auto that 2 was resolving against the whole .filtered-content
+       stacking context, where it outranked .filter-bar-overlay's own
+       z-index: 1 (further below) - so an arrow kept painting bright and
+       undimmed over the tray's backdrop. Same bug class, and same remedy,
+       as .stats-carousel-wrap's own isolation (its comment: "escape past
+       unrelated page chrome sharing the same root stacking context"): a
+       stacking context here caps the arrows at this track, which then
+       ranks as the plain auto-level element it should be.
+       Fixing it here rather than by raising the overlay above 2 - the
+       overlay would only be chasing whatever local z-index the next
+       component picks, and every one of those values is meant to be local
+       to its own component in the first place. */
+    isolation: isolate;
+}
+
+.row-facts-arrow {
+    display: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+    font-size: var(--font-lg);
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: background var(--transition-fast);
+}
+
+.row-facts-arrow:hover {
+    background: var(--border-color);
+}
+
+.row-facts-arrow--prev {
+    left: 2px;
+}
+
+.row-facts-arrow--next {
+    right: 2px;
+}
+
+.row-facts-cols.is-cut-left ~ .row-facts-arrow--prev,
+.row-facts-cols.is-cut-right ~ .row-facts-arrow--next {
+    display: flex;
+}
+
+/* Bigger on touch - same touch-only upsizing the filter arrows use (own
+   rule further below, "the left and right seem a little small for touch
+   devices") - a real fingertip target now that these show on touch too,
+   not just a mouse-hover one. */
+html.nav-touch-mode .row-facts-arrow {
+    width: 36px;
+    height: 36px;
+}
+
+
+/* min-width: 0 (live feedback: "Referral col can get really big, can we
+   truncate long referral categories") - a flex item's default min-width is
+   auto, which resolves to its own content's min-content size whenever the
+   item's overflow is visible (spec default) - .row-fact-col itself never
+   set overflow:hidden, only the spans inside it did (below), so an
+   unusually long value (a long concern_category, say) could still force
+   the column div itself wider than its own explicit style="width: Xch"
+   (col_widths, views.py), defeating that span's ellipsis entirely since
+   there was nothing actually constraining its box to clip against.
+   min-width: 0 removes that auto floor, so the explicit width genuinely
+   caps the column and the span's overflow/ellipsis (below) can finally do
+   its job. */
+
+/* overflow: hidden - without it, a column collapsed to max-width:0 (Actions'
+   own @container fade, _actions_filtered_content.html) would still let its
+   nowrap child spans render outside its own now-empty box instead of
+   clipping away with it; harmless everywhere else since every child span
+   already clips its own text via ellipsis (row-fact-col span, below). */
+.row-fact-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; min-width: 0; overflow: hidden; }
+
+.row-fact-col span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Truncation cap for the few columns whose values are genuinely free text
+   rather than a fixed-format date/name/count (Ethnicity, Behaviour's own
+   incident summaries, Actions' Referral concern category) - intrinsic
+   sizing (base rule, above) otherwise lets an unusually long value stretch
+   that one column (and so the whole strip) far past its neighbours'
+   typical width. ch, not a plain px cap - scales with the column's own
+   font-size the same way the old computed col_widths (views.py, removed)
+   did, rather than a fixed pixel guess.
+   Only a no-JS/first-paint fallback now, not what actually does the
+   truncating - fillFactsColumns (list-page/facts-strip.js) always sets an inline
+   max-width on the BOX (natural width + its 100px bonus cap, own comment
+   there) once it runs, which beats this class rule outright regardless of
+   specificity, so this box-level cap alone stopped truncating anything in
+   practice (live feedback: "Ethnicity could be truncated more!" - a long
+   Ethnicity value was setting the whole column's shared natural width,
+   uncapped, since nothing was left actually clipping the text itself).
+   The real fix is the VALUE SPAN's own cap, below - same "cap the text,
+   let the box grow past it if it wants" split Description's own
+   span:last-child max-width (above) already uses, since a span cap
+   survives being a totally different element to whatever inline style
+   JS sets on the box around it. */
+
+/* One shared cap across every free-text column (live feedback: "I think we
+   should standardise!" - a Behaviour-specific 22ch override, tried first
+   right after tightening this to 13ch for Ethnicity, worked but left two
+   different numbers to keep track of for what's meant to be the same
+   mechanism). 18ch (bumped once more from an initial 17ch, live feedback:
+   "lets make it 18ch") favours Behaviour's own everyday default text - "No
+   incidents logged"/"No positive logged" - reading in full ("can we be
+   less mean on truncation in general! Students Behaviour data is
+   truncated") over how hard this clips the longest Ethnicity values
+   ("Ethnicity could be truncated more!" - see 26ch's own history below,
+   the first number tried here). */
+.row-fact-col-clamp {
+    max-width: 18ch;
+}
+
+.row-fact-col-clamp span:not(.row-fact-label) {
+    max-width: 18ch;
+}
+
+/* Exempt from the span-level cap above - a line of status-pill chips
+   (Actions' own Referral column, _actions_rows.html) isn't free text to
+   truncate, and 13ch clipped it mid-chip, hiding the second pill
+   (review_pill_label) entirely (live feedback: "the referral pills on
+   action page are truncated too much so second pill is hidden... this
+   must always show"). overflow: visible + no width cap - the pills simply
+   read past the column's own nominal width when there are two, same as
+   any other column's own MAX_BONUS_PX bonus growth (fillFactsColumns,
+   list-page/facts-strip.js) already lets happen elsewhere.
+   span.row-fact-pills-line, not the bare-class selector this was - the
+   rule above beats a bare-class version of this on specificity alone
+   (0,2,1 vs 0,2,0: :not() counts as a class for specificity purposes,
+   and its own span element selector adds one more, so the "exemption"
+   was actually LOSING to the very cap it was meant to lift regardless of
+   appearing later in the file - confirmed live via getComputedStyle:
+   the pills line's own max-width was still resolving to 126px/18ch, not
+   none, live feedback with a screenshot: "Referral pills are still cut
+   off... I am seeing this in narrow desktop and also mobile mode").
+   Adding the same span element selector here matches that specificity
+   exactly, so source order (this rule comes after) decides it correctly
+   this time. */
+.row-fact-col-clamp span.row-fact-pills-line {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+/* The box itself (this same .row-fact-col-clamp) is already unconditionally
+   uncapped whenever it sits inside .row-facts-cols (own rule, below,
+   #actions-filtered-content .row-facts-cols .row-fact-col-clamp -
+   #students-filtered-content's Ethnicity/Behaviour is the one real free-
+   text use of this class that's NOT inside a nested row-facts-cols the
+   same way, so it's the one still governed by the 18ch cap above). So
+   the actual pills-clipping bug (live feedback with a screenshot: "the
+   referral pills are cut off... when I scroll to the right, I am still
+   getting Referral pill cut off") was never this box's own max-width -
+   it was fillFactsColumns' own inline max-width (natural + 100px, list-page/facts-strip.js)
+   landing short, because naturalFactsColumnWidths deliberately leaves a
+   STALE max-width in place across repeated measurements for every OTHER
+   column (own comment there - it's what stops one outlier value from
+   blowing out a shared column's width) - the wrong default specifically
+   for a pills line, which was already exempted from that same outlier-
+   suppression once, for text-clamping, at the span level (above); own
+   fix now lives there too, clearing any stale cap before measuring a
+   column that holds one. */
+
+/* Promoted out of panel.css (#211) - generic, no domain vocabulary. */
+/* Student name more prominent than the Year/House/Form group data it
+   shares a line with (live feedback: "Student name needs to be more
+   prominent than the group data") - text-primary + a heavier weight against
+   the line's own text-secondary/regular default (both pages' own
+   row-facts-primary-plain rules, above), same "visual weight should match
+   importance" reasoning (H1, PRINCIPLES-DESIGN.md) Due/Created's own
+   label-vs-value split already uses. Unscoped to one page - both Actions'
+   and Referrals' own copy of this line use the identical span/class
+   (_actions_rows.html/_referrals_rows.html). */
+.row-facts-primary-name {
+    color: var(--text-primary);
+    font-weight: 600;
+}

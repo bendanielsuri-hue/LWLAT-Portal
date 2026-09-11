@@ -53,7 +53,7 @@
 export const phoneMql = window.matchMedia('(max-width: 480px)');
 
 /* narrow tier. 900px - live feedback: "have more changes occur at the same
-   breakpoint" - unified with setupPageExtrasOverflow and the KPI carousel's
+   breakpoint" - unified with initPageHeaderActions and the KPI carousel's
    auto-width cutoff (both already 900px), so a narrowed desktop window hits
    every one of these transitions together instead of drifting through several
    different in-between states. The sidebar's own auto-collapse was unified to

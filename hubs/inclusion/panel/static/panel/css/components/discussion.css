@@ -1,0 +1,194 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+@keyframes discussing-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Panel Agenda Setup wraps its toolbar + card row in the standard .content-shell
+   (see layout.css) instead of a fixed-height guess: the toolbar is a
+   flex-shrink: 0 header and .setup-columns is the flex: 1; min-height: 0
+   body that absorbs the rest of the shell's height, exactly like
+   .content-shell .card-header + .stack-list elsewhere. This keeps it
+   exact even as the toolbar's own height changes with panel status.
+   align-items: stretch (instead of the flex-start above, which
+   .discussion-columns keeps) makes every card fill that height so its own
+   overflow, not the page's, does the scrolling. */
+.content-shell .panel-toolbar {
+    flex-shrink: 0;
+}
+
+/* Condensed read-only Q&A (Referral Details) - a definition list instead of
+   the boxed field-group/field-readonly treatment above, which read like an
+   editable form despite nothing here being editable (#49, prototyped on
+   prototype/49-condensed-referral-details). Row grid/border technique
+   matches the "Key-fact row" pattern (DES-A1)
+   and .referral-decision-strip .summary-line already implements - same
+   minmax(160px, 200px) 1fr columns, border via the sibling selector
+   (never a trailing border after the last row) rather than border-bottom
+   on every row.
+
+   dt stays left-aligned rather than adopting the meeting-card Chair row's
+   right-aligned-label/colon-suffix precedent (#96 decision) - that
+   technique assumes a short, guaranteed single-line label ("Chair", fixed
+   68px column). Here dt ranges from "Referred By" to full questions like
+   "What has been put in place so far?", which wraps inside the 160-200px
+   column; a wrapped label right-aligning itself line-by-line with a
+   trailing colon only on the last line would read more broken than the
+   current plain left-aligned list, not less. */
+.qa-category {
+    font-size: var(--font-md);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: var(--space-lg) 0 var(--space-sm);
+}
+
+.qa-definition-list {
+    margin: 0;
+}
+
+.qa-definition-row {
+    display: grid;
+    grid-template-columns: minmax(160px, 200px) 1fr;
+    column-gap: var(--space-md);
+    align-items: baseline;
+    padding: var(--space-xs) 0;
+}
+
+.qa-definition-row + .qa-definition-row {
+    border-top: 1px solid var(--border-faint);
+}
+
+.qa-definition-row dt {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: var(--font-sm);
+}
+
+.qa-definition-row dd {
+    margin: 0;
+}
+
+/* Previous Referrals' enhanced disclosure (#50) - real .status-pill instead
+   of the old parenthetical "(Closed)" text, a one-line topic, and a chevron
+   indicator, same convention as .referral-flat-section > summary above
+   (::before content swap on [open], native marker hidden). Nested
+   .qa-prev-discussion entries (one per past discussion, embedding the #44
+   Discussion Summary component) get the same chevron scoped one level in. */
+.qa-prev-summary,
+.qa-prev-discussion > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.qa-prev-summary::-webkit-details-marker,
+.qa-prev-discussion > summary::-webkit-details-marker {
+    display: none;
+}
+
+.qa-prev-summary::before,
+.qa-prev-discussion > summary::before {
+    content: '▸ ';
+    color: var(--text-faint);
+}
+
+.qa-prev-referral[open] > .qa-prev-summary::before,
+.qa-prev-discussion[open] > summary::before {
+    content: '▾ ';
+}
+
+.qa-prev-summary {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.qa-prev-topic {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+}
+
+.qa-prev-discussion {
+    margin-top: var(--space-sm);
+}
+
+/* --border-strong (see grilling session 2026-07-12, applied portal-wide to every card). */
+.panel-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-lg);
+    gap: var(--space-md);
+    flex-wrap: wrap;
+    box-shadow: var(--card-shadow);
+}
+
+.panel-toolbar-stats { display: flex; gap: var(--space-xl); font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; align-items: center; }
+
+/* Panel Discussion's Meeting Notes card (see #56 - split out of the old
+   single cramped toolbar row into its own card, .discussion-toolbar-row
+   above): quick Add Note form, with the full notes history collapsed
+   beneath via a plain native <details>. */
+.panel-toolbar-notes-form { display: flex; gap: var(--space-xs); align-items: stretch; min-width: 0; text-align: left; }
+
+.panel-toolbar-timer { font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; }
+
+/* Panel Agenda toolbar (#88): Elapsed timer grouped directly against End
+   Panel Meeting — ending the meeting is what stops the timer, so the two
+   read as one unit instead of the timer sitting anonymously among the
+   other stat spans. */
+.panel-toolbar-timer-group { display: flex; align-items: center; gap: var(--space-md); }
+
+.panel-toolbar-notes-form textarea {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: var(--font-base);
+    font-family: inherit;
+    resize: vertical;
+}
+
+/* Panel Discussion page */
+.discussion-timer { font-size: var(--font-2xl); font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+.discussion-timer-sm { font-size: var(--font-sm); font-weight: 700; }
+
+.discussion-profile-header { display: flex; justify-content: center; gap: var(--space-md); align-items: flex-start; margin-bottom: var(--space-md); }
+
+/* Condensed read-only Student Details fields (packed micro-grid) - same
+   "no boxes, not a form" fix as Referral Details' .qa-definition-list
+   (#49), but several short fields per row instead of one per row: Student
+   Details is mostly short values (name, reg, year group, dates) that
+   waste space stacked one-per-line. A field wide enough to need its own
+   line (.qa-packed-field--span, e.g. Flags' pill list) spans the full
+   row instead of squeezing into a column. */
+.qa-packed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-sm) var(--space-md);
+}
+
+.discussion-profile-grid { flex: 1; min-width: 0; align-self: center; }
+
+.discussion-profile-name { margin: 0 0 var(--space-xs); font-size: var(--font-lg); font-weight: 700; color: var(--text-primary); }
+
+.qa-packed-field--span { grid-column: 1 / -1; }
+
+.qa-packed-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: var(--font-sm);
+}
+
+.qa-packed-value {
+    margin: 0;
+}

@@ -4,8 +4,10 @@
      theme/      — colour system (light defaults, dark overrides, per-theme variants)
      layout/     — shell structure, sidebar, overlays, media queries
      components/ — reusable UI patterns
+     list-page/  — the filterable-entity-list pattern's own machinery
+     pages/      — one portal-wide page's own layout, not a reusable component
    App-specific styles live alongside their app:
-     hubs/inclusion/panel/static/css/panel.css
+     hubs/inclusion/panel/static/panel/css/panel.css
 */
 
 /* Tokens — no selectors, import order within group doesn't affect cascade */
@@ -22,6 +24,8 @@
 
 /* Layout — shell before components so components can rely on shell context */
 @import "layout/layout.css";
+@import "layout/hub-rail.css";
+@import "layout/dev-tools.css";
 
 /* Components — order within group matters only for specificity ties */
 @import "components/navigation.css";
@@ -29,7 +33,11 @@
 @import "components/forms.css";
 @import "components/cards.css";
 @import "components/pills.css";
-@import "components/tables.css";
+@import "components/settings-overlay.css";
+
+/* Pages — one page's own layout, not a reusable component. Empty until a
+   portal-wide page first needs one (taxonomy.md); home.css is the first. */
+@import "pages/home.css";
 
 /* Responsive — overrides must load last to win the cascade */
 @import "layout/responsive.css";
@@ -54,3 +62,10 @@
 @import "components/lists.css";
 @import "components/page-header.css";
 @import "components/filter-bar.css";
+
+/* The filterable-entity-list pattern's own machinery — meaningless outside a
+   list row, so it is its own tier rather than a component (#210, ADR 0020).
+   Same post-responsive.css position, and for the same reason, as the block
+   above. */
+@import "list-page/facts-strip.css";
+@import "list-page/stats-strip.css";

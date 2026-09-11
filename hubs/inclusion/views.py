@@ -1,5 +1,4 @@
 import datetime
-import json
 
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
@@ -115,7 +114,6 @@ def inclusion_hub(request):
         })
         for year in year_group_choices
     }
-    reg_groups_by_year_json = json.dumps(reg_groups_by_year)
 
     # House filter, sits between Year and Reg. Plain CharField, not a fixed
     # choice list (see Student.house) - houses are a per-school naming
@@ -301,7 +299,7 @@ def inclusion_hub(request):
         'code_pcts': code_pcts,
         'year_group_choices': year_group_choices,
         'reg_group_choices': reg_group_choices,
-        'reg_groups_by_year_json': reg_groups_by_year_json,
+        'reg_groups_by_year': reg_groups_by_year,
         'ethnicity_choices': Student.ETHNICITY_CHOICES,
         'prior_attainment_choices': Student.PRIOR_ATTAINMENT_CHOICES,
         'house_choices': house_choices,

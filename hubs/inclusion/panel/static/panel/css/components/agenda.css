@@ -1,0 +1,198 @@
+/* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6. */
+
+.agenda-remove { background: transparent; border: none; cursor: pointer; color: var(--text-faint); flex-shrink: 0; }
+
+.agenda-remove:hover { color: var(--active-text); }
+
+/* Panel Agenda page */
+.agenda-section { margin-bottom: var(--space-2xl); }
+
+.agenda-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    overflow: hidden;
+}
+
+.agenda-table th {
+    text-align: left;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface-alt);
+}
+
+.agenda-table td { padding: var(--space-sm) var(--space-md); font-size: var(--font-base); border-bottom: 1px solid var(--border-faint); }
+
+/* Row standard (see .selectable in cards.css): a left-edge accent bar on
+   hover (only wired up where a row's cells are plain text/links, e.g.
+   referrals/actions — not on rows that hold their own form controls), and
+   a --primary-light fill for rows marked .chosen.
+   Not a full outline (see cards.css's .selectable:hover comment for the
+   full reasoning). Hover/focus only - .chosen has no bar of its own to
+   collide with, so this applies to a chosen row too. */
+.agenda-table tbody tr:hover,
+.agenda-table tbody tr:focus-visible {
+    /* SYNC: cards.css's .selectable:hover is the source of truth (see its
+       own SYNC comment). No border-left-color companion needed here, unlike
+       .list-card .entity-row/.meeting-card/.stack-list li - table rows have
+       no border of their own to blend into (just cell border-bottoms). */
+    box-shadow: inset var(--space-xxs) 0 0 var(--accent-border);
+}
+
+.agenda-table tbody tr.chosen { background: var(--primary-light); }
+
+.agenda-table tbody tr.chosen:hover { background: var(--primary-light); }
+
+.agenda-table .empty-row:hover { box-shadow: none; }
+
+.agenda-table tr:last-child td { border-bottom: none; }
+
+.agenda-table .empty-row td { color: var(--text-muted); text-align: center; padding: var(--space-lg); }
+
+/* Student identity cell (Referrals / Actions tables) — same thumb format as the Students screen */
+.student-cell { display: flex; align-items: center; gap: var(--space-sm); }
+
+.student-cell .entity-thumb { width: 42px; height: 42px; }
+
+/* Panel Agenda's inline per-row timer (Students Pending) — same base timer
+   styling, shrunk to fit a compact entity-meta row instead of the toolbar. */
+.agenda-row-timer { font-size: var(--font-sm); color: var(--text-primary); font-weight: 600; }
+
+.agenda-layout .agenda-section { min-width: 0; margin-bottom: 0; }
+
+.priority-chips { display: flex; gap: var(--space-xxs); }
+
+.priority-chip { font-size: var(--font-xs); font-weight: 600; padding: var(--space-xxs) 10px; border-radius: var(--radius-pill, 999px); border: 1px solid var(--border-color); background-color: var(--bg-surface); color: var(--text-secondary); cursor: pointer; transition: transform 0.1s ease; }
+
+.priority-chip:hover { transform: translateY(-1px); }
+
+.priority-chip.priority-high { border-color: var(--color-negative); color: var(--color-negative); }
+
+.priority-chip.priority-medium { border-color: var(--color-warning);  color: var(--color-warning); }
+
+.priority-chip.priority-low { border-color: var(--color-caution);  color: var(--color-caution); }
+
+.priority-chip.priority-high.active { background-color: var(--color-negative-bg); border-color: var(--color-negative); color: var(--color-negative); }
+
+.priority-chip.priority-medium.active { background-color: var(--color-warning-bg);  border-color: var(--color-warning);  color: var(--color-warning); }
+
+.priority-chip.priority-low.active { background-color: var(--color-caution-bg);  border-color: var(--color-caution);  color: var(--color-caution); }
+
+/* Panel Agenda: grab handle back on the row's left edge (an ordinary grid
+   column, same as Referral Selection's handle), followed by the
+   number+buttons order-controls column, then the content. The Referral
+   Details actions (Change Priority/View Details/View Actions) are the last
+   item inside .agenda-content's own flex column - they fall directly under
+   Referral Details as their own line, sized purely by the content column's
+   own height, with no impact from however tall the order-rail's button
+   stack happens to be (a separate grid row keyed to the order-rail's height
+   left a gap above the actions when the content was shorter than the rail).
+   Meeting Agenda's Students Pending list adopted this same rail (no longer
+   the older .agenda-order-controls/-arrows/-number partial, since removed)
+   - see meeting_agenda.html's Pending column. */
+.agenda-row { display: grid; grid-template-columns: max-content max-content 1fr; position: relative; }
+
+.agenda-row > .drag-handle { grid-column: 1; grid-row: 1; }
+
+.agenda-row > .agenda-order-rail { grid-column: 2; grid-row: 1; align-self: center; }
+
+.agenda-row > .agenda-content { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
+
+/* The order number sits bigger and bolder above its own Promote/Demote
+   button stack, rather than a small badge squeezed beside a row of arrows -
+   it's the more important, glanceable piece of this column (where in the
+   agenda this referral sits), so it gets top billing and more visual weight
+   than the buttons underneath it. Remove lives in .referral-details-actions
+   instead (same solid .btn-delete treatment and end-of-line placement as
+   Referral Selection's Add to Agenda) - it's not a reorder, so grouping it
+   with Promote/Demote just because all three used to edit the agenda's
+   composition read as more confusing than helpful. */
+.agenda-order-rail { display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); flex-shrink: 0; }
+
+.agenda-order-rail-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 var(--space-xxs);
+    border-radius: var(--radius-xs);
+    background: var(--bg-well);
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    font-weight: 700;
+}
+
+.agenda-order-buttons { display: flex; flex-direction: column; gap: var(--space-xxs); }
+
+.agenda-order-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-xs);
+    color: var(--text-faint);
+    cursor: pointer;
+}
+
+.agenda-order-btn svg { width: 16px; height: 16px; }
+
+.agenda-order-btn:hover:not(:disabled) { color: var(--active-text); background: var(--bg-well); }
+
+.agenda-order-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Agenda drag-and-drop (Panel Agenda Setup's Referral Selection/Panel Agenda columns,
+   Meeting Agenda's Reviews Due/Students Pending) — see
+   window.initAgendaDragDrop in panel.js. */
+[data-drop-zone] { min-height: 60px; }
+
+/* Referral Selection's two pool zones only have a single small empty-note
+   line to size around when there's nothing to show, which made the actual
+   droppable area far smaller than the panel around it. */
+[data-drop-zone="new-referrals"],
+[data-drop-zone="followups"] { min-height: 320px; }
+
+/* Brief colour-coded feedback after a drag completes - green/added,
+   red/removed (added/moved/reordered all read as the same positive green;
+   only an outright removal gets the red treatment). The fade-out transition
+   is applied inline by flash() in panel.js only for the moment it's removing
+   the class, rather than living here permanently - a permanent transition on
+   every entity-row would also catch (and fade) the .selectable hover fill,
+   which should stay instant. The flash itself still appears immediately
+   since nothing transitions the class being added. */
+.entity-row.agenda-flash-added { background-color: color-mix(in srgb, var(--color-positive) 12%, transparent); }
+
+.entity-row.agenda-flash-removed { background-color: color-mix(in srgb, var(--color-negative) 12%, transparent); }
+
+/* Removing/adding/reordering a referral collapses/expands and fades the row
+   in place, instead of it just vanishing or popping in when zones refresh -
+   see shrinkAndFadeOut()/growIn() in panel.js, which drive max-height/
+   opacity/padding/margin via Element.animate() (same duration/easing/
+   properties both ways, values simply reversed, so the two read as the same
+   speed) rather than a CSS transition - only overflow:hidden is still needed
+   here, to clip content while max-height is animating down from/up to 0.
+   flex-shrink: 0 is load-bearing, not decorative: .entity-list is a flex
+   column, and a flex item's automatic min-height (its "don't shrink below
+   your own content" floor) collapses to 0 the instant its own overflow
+   stops being visible (CSS Flexbox's automatic minimum size rule) - so the
+   moment overflow:hidden above lands, this one row loses its floor while
+   every sibling row keeps theirs, and the already-space-constrained list
+   (.setup-col-body .entity-list--bleed is flex:1 1 auto; min-height:0)
+   crushes it down to a sliver in that same instant, before the max-height
+   animation has even taken its first frame - reads as an instant snap
+   followed by a barely-there crawl, not a smooth shrink. flex-shrink:0
+   keeps this row's natural size the whole time regardless of overflow, so
+   only the animated max-height ever changes its rendered height. */
+.agenda-row-removing,
+.agenda-row-adding {
+    overflow: hidden;
+    flex-shrink: 0;
+}

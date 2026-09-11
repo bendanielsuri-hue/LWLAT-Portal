@@ -17,6 +17,7 @@ import { resyncFilterTriggerWidths } from '../select.js';
 import { positionFilterTray, scrollStickyBarToTop } from './tray-position.js';
 import { balanceFilterGroupLabels, setMoreFiltersLabel } from './more-filters.js';
 import { resyncFilterSections } from './sections.js';
+import { isFilterBarMobile } from './mobile-mode.js';
 
 export function initFilterBarExpandCollapse() {
     // Tapping the "Filters · count" label toggles `.is-expanded`, which is
@@ -55,7 +56,7 @@ export function initFilterBarExpandCollapse() {
         // narrowed, hover-capable desktop width; a plain `.filter-bar` with
         // no tray keeps the exact 480px threshold.
         var isTrayBar = bar.matches('.filter-bar-tray');
-        var barIsMobile = window.matchMedia('(max-width: 480px)').matches || (isTrayBar && window.isFilterBarMobile && window.isFilterBarMobile());
+        var barIsMobile = window.matchMedia('(max-width: 480px)').matches || (isTrayBar && isFilterBarMobile());
         if (!barIsMobile) {
             return;
         }

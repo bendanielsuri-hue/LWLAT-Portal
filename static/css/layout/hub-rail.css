@@ -1,0 +1,346 @@
+/* The permanent global hub rail: the thin, always-visible icon strip (left of
+   the hub sidebar) for switching hubs, plus its tab-link seam and hover
+   tooltips (shared with the collapsed local sidebar rail's own icon-only
+   rows, which read the same small-card tooltip).
+
+   Promoted out of layout.css (#215 layout.css split) - was region 4, no
+   content change, just relocated. */
+
+/* The permanent hub rail: a thin, always-visible icon strip for switching hubs */
+.global-nav {
+    display: flex;
+    flex-shrink: 0;
+    order: 0;
+    position: relative;
+    z-index: var(--z-global-nav);
+    height: 100%;
+}
+/* [hidden] beats the unconditional display:flex above on specificity alone
+   (both single-selector, this stylesheet loading after the UA stylesheet's
+   own [hidden]{display:none}) - toggled off while the breakpoint preview
+   shows, since the iframe loads a full copy of this page (own global-nav
+   included) and two side-by-side copies of the nav would otherwise show
+   (#128). */
+.global-nav[hidden] { display: none; }
+.hub-rail {
+    /* Narrowed from 72px after prototyping A/B/C variants (72/64/56) - 56px
+       put the column narrower than the icon pill itself; 64px was the
+       narrowest option that still left the pill breathing room. */
+    width: 64px;
+    flex-shrink: 0;
+    background: transparent;
+    border-right: none;
+    /* Tooltips escape past the rail's right edge — would be clipped otherwise */
+    overflow: visible;
+    position: relative;
+    /* Always wins the z-index tie against both .overlay-slot (z-overlay:15)
+       and the resting hub sidebar in nav-stack (z-index:auto, but painted
+       later in DOM order) - was scoped to :has(.overlay-slot.open) only,
+       which meant the rail's own seam border/shadow (-16px "fusing" bleed,
+       below) sat UNDER the resting sidebar's opaque background the rest of
+       the time, invisible outside the moment an overlay was open (live
+       feedback: border only showed up when Settings/Search opened, never at
+       rest). Unconditional avoids depending on that transient win. Still
+       keeps a Settings/Search shelf sliding in via transform
+       (translateX(-100%) -> 0) tucked *under* the rail while it's open
+       (#131 follow-up), same as before. Touch/tablet mode already needs to
+       win this same tie in the OPPOSITE direction for its own
+       touch-expanded-rail case (responsive.css bumps .overlay-slot above
+       this rule there, unaffected by this no-longer-scoped version since
+       that override still applies on top of it). */
+    z-index: var(--z-global-nav);
+}
+.hub-rail-inner {
+    width: 100%;
+    height: 100%;
+    padding: var(--space-md) var(--space-xs);
+    display: flex;
+    flex-direction: column;
+    /* Breathing room so adjacent items' hover/active boxes (below) don't
+       touch and read as one fused block. */
+    gap: var(--space-xxs);
+    background-color: var(--bg-rail);
+    position: relative;
+}
+/* Tab-linking (#131): border/shadow moved off .hub-rail-inner itself onto
+   these two layers so main.js (positionHubRailSeam) can leave a real,
+   measured gap at the active hub's row instead of covering a guessed width -
+   a box-shadow's blur tail reaches further than its offset alone suggests,
+   so a fixed-width cover always leaves a faint residual edge. Transparent
+   themselves - .hub-rail-inner's own background (above) already shows
+   through everywhere except the gap, which .hub-rail-active-fill covers. */
+.hub-rail-seam {
+    position: absolute;
+    left: 0;
+    /* Was -16px (bled into the sidebar's own territory, relying on the
+       sidebar's opaque paint to hide the overshoot) - now that .hub-rail is
+       always elevated above the sidebar (see .hub-rail's own z-index
+       comment), that overshoot stopped being hidden and instead showed up
+       as the border sitting visibly inside the side-nav rather than flush
+       on the boundary (live feedback: "border is into the side nav").
+       Flush (0) puts it exactly on the shared edge instead. */
+    right: 0;
+    /* Plain --border-strong (used for .side-nav/.app-footer) still read too
+       faint here specifically - the rail's own background (--bg-rail) is a
+       more saturated/tinted surface than the light/near-white ones
+       --border-strong was calibrated against elsewhere, so the two sat too
+       close in lightness (live feedback: still can't see it). Darkened
+       further by mixing toward --text-secondary rather than hardcoding a
+       one-off colour, so it still adapts per theme/dark-mode instead of
+       just working in Pastel. Safe to change here alone since this is the
+       rail's only border source: the two seam layers (-top/-bottom) draw
+       it, split around the active hub's row, and .hub-rail-active-fill
+       (below) covers that gap with a plain background colour, no border of
+       its own to keep in sync. */
+    border-right: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
+    box-shadow: 3px 0 8px rgba(2, 6, 23, 0.07);
+    pointer-events: none;
+    /* Above the plain hub-rail-item rows below (position:relative,
+       z-index:auto) despite coming first in DOM - without this, a hovered
+       row's own icon-pill fill (.hub-rail-item:hover svg, further down)
+       painted on top of this border wherever the two happened to sit close
+       enough to touch, erasing it for as long as that row was hovered (live
+       feedback, screenshot: "Careers" row hovered, no border visible next
+       to it). Chrome shouldn't be erasable by a content-level hover state. */
+    z-index: 1;
+}
+.hub-rail-seam-top { top: 0; height: 100%; }
+.hub-rail-seam-bottom { top: 100%; bottom: 0; }
+/* Fills the gap the two seam layers above leave open at the active hub's
+   row - same colour as the sidebar it's fusing with, rounded only on the
+   outer corner so it reads as a tab poking out of the sidebar rather than
+   a flat-sided cutout. left:8px (not 0) matches .hub-rail-inner's own
+   inline padding (--space-xs) - position:absolute is relative to the
+   padding *box*, which ignores that padding entirely, so left:0 here would
+   put the fill flush with the rail's outer edge while the item itself
+   stays inset a further 8px. main.js (positionHubRailSeam) re-asserts this
+   same value inline from the item's real bounding box - belt and braces
+   in case the item's own left inset ever stops being a fixed value again. */
+.hub-rail-active-fill {
+    position: absolute;
+    left: var(--space-xs);
+    /* Was -16px, matching the seam's own now-removed bleed (see
+       .hub-rail-seam's comment) - flush for the same reason: with the rail
+       always elevated, the overshoot no longer hides under the sidebar, so
+       it was reading as its own second, confusing line/box edge sitting
+       just past the seam's rather than the two aligning as one clean cutout
+       (live feedback: "border still crosses notch"). */
+    right: 0;
+    top: 0;
+    height: 0;
+    background: var(--bg-nav);
+    /* Same border colour as .hub-rail-seam, so the notch reads as that same
+       line bending around the active row rather than a differently-styled
+       shape. No border-right deliberately - that edge is meant to fuse into
+       the sidebar (a plain background-colour match, nothing to outline),
+       not read as a fourth side boxing the tab in; giving it one made the
+       seam's line above/below look like it just ran straight through the
+       notch instead of opening up around it (live feedback). */
+    border-top: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
+    border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
+    border-left: 1px solid color-mix(in srgb, var(--border-strong) 75%, var(--text-secondary));
+    border-top-left-radius: var(--radius-sm);
+    border-bottom-left-radius: var(--radius-sm);
+    pointer-events: none;
+    /* Deliberately NOT z-indexed above the rows the way .hub-rail-seam is -
+       this fill sits BEHIND the active icon itself (same DOM/paint order as
+       before, icon painting on top), so raising it here would hide the icon
+       under its own background instead (tried it - live feedback: "icon of
+       active is not showing"). Nothing else paints over this element's own
+       border in practice: it only ever appears at the active row, and nav
+       rows don't get their own hover fill while already active. */
+    /* No transition (was top/height var(--transition-pop)) - the slide
+       read wrong specifically when it's Search/Settings stealing the notch
+       from a hub icon (live feedback), and every other rail button already
+       responds to a state change instantly with no animation, so snapping
+       here instead matches them rather than being a one-off exception. */
+}
+.hub-rail .hub-rail-item.active {
+    color: var(--primary);
+}
+.global-nav:has(.side-nav.hub-side.collapsed) .hub-rail {
+    display: none;
+}
+/* The outer item stays full-width and flush to the rail's inner edge -
+   deliberately NOT the narrow/centred box (that's on the svg below). It's
+   the .icon-tooltip-host, so its right edge is what the hover-card's
+   left: calc(100% + 8px) (further down) measures from; if this box were
+   narrower/centred the card would fall short of the rail's true edge and
+   visually clip into it. Keeping every item (hub links and the
+   Portal/Search/Settings buttons alike) at the same full width also means
+   they can't drift out of sync with each other the way the visual pill
+   below is free to (width: fit-content, centred). */
+.hub-rail .hub-rail-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 100%;
+    padding: 0;
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+}
+/* The visual "pill": narrow, centred (width: fit-content, not the full row
+   the item above spans), rounded box that shows the hover/active fill -
+   lives on the icon itself rather than the item so the item's own box can
+   stay full-width for tooltip anchoring (see above) without also being a
+   wide hover target. box-sizing:border-box + padding keeps the drawn icon
+   at the original 26px while the box itself grows to 44px for the pill. */
+.hub-rail-item svg {
+    width: 44px;
+    height: 44px;
+    padding: 9px;
+    box-sizing: border-box;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+/* :not(.active) - an active row already reads as distinct (icon colour +
+   the seam/notch border wrapping it), so it doesn't need the generic hover
+   pill too; skipping it here also sidesteps the fill repainting over the
+   notch's own border, which it otherwise would since that border has to
+   stay under the icon rather than elevated above it (live feedback: "hover
+   effect hides the borders" - the tooltip alone is still shown either way,
+   this only drops the extra fill). */
+.hub-rail .hub-rail-item:not(.active):hover svg,
+.hub-rail .hub-rail-item:not(.active):focus-visible svg {
+    background: var(--bg-nav);
+}
+/* CSS-only hover/focus tooltip — reads off data-tooltip, z-index 30 beats the
+   overlay slot (15) and global-nav (20) so it's always on top. The caret is
+   carved via clip-path since ::before is claimed by the accent-bar on selectable
+   rows. */
+.icon-tooltip-host {
+    position: relative;
+}
+.icon-tooltip-host::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%) translateX(-6px) scale(0.95);
+    padding: 6px 12px 6px 20px;
+    border-radius: var(--radius-xs);
+    background-color: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-base);
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    z-index: var(--z-tooltip);
+    clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 8px 62%, 0 50%, 8px 38%);
+    transition: opacity var(--transition-pop), transform var(--transition-pop);
+}
+.hub-rail .icon-tooltip-host::after {
+    left: 100%;
+}
+/* left: 100% here already sits at the row's own right edge (the row's own
+   padding lives inside that edge, border-box, so it doesn't move it) - but
+   that edge is still inset by .nav-scroll's padding-right (--space-sm) when
+   collapsed, short of the sidebar's true edge. Pushing out by that same
+   amount is what lands the card flush with the sidebar's true edge, the
+   same way the global rail's own +8px push lands its card flush with the
+   rail's true edge (that rail's padding lives on .hub-rail-inner instead of
+   a .nav-scroll, but it's the identical trick). */
+.side-nav.collapsed .icon-tooltip-host::after {
+    left: calc(100% + var(--space-sm));
+}
+/* Collapsed local rail reads its tooltip as the same small card as the
+   global rail below (real --bg-surface + border, no caret, same 44px
+   height as its own icon pill - now a match since that pill was sized up
+   to 44px too) rather than the shared dark bubble. */
+.side-nav.collapsed .icon-tooltip-host::after {
+    height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    clip-path: none;
+    transition: none;
+}
+/* The collapse-toggle's own tooltip in expanded mode is NOT this ::after
+   mechanism (see .rail-tooltip-fixed just below, positioned by main.js
+   instead) - a plain ::after here is clipped by .side-nav's own
+   overflow:hidden, which the sidebar's width-transition genuinely needs to
+   stay hidden (removing it caused a worse bug - the expanding sidebar's
+   real content flashing in at full width before the box visually caught up,
+   live feedback: "should just slide in or out"). position:fixed escapes
+   that clipping entirely instead of fighting it. Collapsed mode still uses
+   the plain ::after above unaffected - .side-nav.hub-side.collapsed is a
+   resting state, not a transition, so overflow is safely visible there. */
+.rail-tooltip-fixed {
+    position: fixed;
+    z-index: var(--z-tooltip);
+    height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    font-size: var(--font-base);
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.rail-tooltip-fixed[hidden] {
+    display: none;
+}
+/* Global rail hover state reads as a small card, not a tooltip bubble: real
+   --bg-surface (not --tooltip-bg's dark annotation layer) with a border, no
+   caret - now shared with the collapsed local rail's card above. */
+.hub-rail .icon-tooltip-host::after {
+    left: calc(100% + 8px);
+    /* Matches the 44px icon pill's own height (svg 26px + 9px padding each
+       side) - flex centres the label text inside it since padding alone no
+       longer sets the height. */
+    height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    clip-path: none;
+    /* No fade/slide-in on the rail's card (unlike the shared bubble above,
+       which keeps its transition) - it should just appear/disappear. */
+    transition: none;
+}
+.hub-rail .icon-tooltip-host:hover::after,
+.hub-rail .icon-tooltip-host:focus-visible::after,
+.side-nav.collapsed .icon-tooltip-host:hover::after,
+.side-nav.collapsed .icon-tooltip-host:focus-visible::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+}
+.hub-rail-global-action {
+    margin-top: auto;
+    border-top: 1px solid var(--border-color);
+    padding-top: var(--space-md);
+}
+/* Re-assert rail padding (0 - all sizing now lives on the svg pill, not
+   this item) - the generic .side-nav .nav-row-btn rule below is the same
+   specificity and comes later in the file, so without this it would win
+   and reintroduce an off-centre pill for Portal/Search/Settings vs the
+   hub links. */
+.hub-rail .hub-rail-item.nav-row-btn {
+    padding: 0;
+}

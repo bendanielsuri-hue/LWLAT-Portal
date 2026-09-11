@@ -335,3 +335,62 @@ html.nav-touch-mode .btn-row-fused > .btn:last-child {
     font-size: var(--font-xs);
     font-weight: 700;
 }
+
+/* Promoted out of panel.css (#211) - generic, no domain vocabulary. */
+/* HISTORY - list rows used to carry three internal dividers: a vertical
+   line before the buttons column, a horizontal .entity-row::before between
+   the header and the facts strip (declared fresh per page inside its own
+   >=701px grid band), and .mc-vdivider between data columns. All three are
+   gone (live feedback: "lose the horizontal and vertical dividers on
+   lists" - mobile had already dropped them, and the data-col dividers went
+   in an earlier pass of the same call). With them went the whole family of
+   "divider goes accent when .chosen" re-assertions they needed. A row's
+   chosen/hover state is carried by its own fill and left accent bar
+   (cards.css) alone now. Don't reintroduce a divider inside a list row
+   without revisiting this. */
+
+/* align-items: stretch (live feedback: "the buttons and dropdown are not
+   all inline vertically. All should be width of widest") - flex-start
+   (tried originally) left each child at its own natural content width,
+   so the narrower status control/dropdown sat left-aligned inside a
+   column actually sized (by the grid's own auto "buttons" column, above)
+   to whichever child is widest - usually the Referral Details/Edit Action
+   pair. stretch makes every child fill that same width instead, so the
+   status control and the button pair line up flush on both edges
+   regardless of which one happens to be the intrinsically wider one. */
+.row-btn-row-stacked { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--space-xs); }
+
+.btn-row-stacked { flex-direction: column; align-items: stretch; gap: var(--space-xs); }
+
+.btn-row-stacked form { width: 100%; }
+
+.btn-row-stacked .btn { width: 100%; justify-content: center; }
+
+.btn-icon-only { flex: 0 0 auto; padding: 0 14px; line-height: 1; }
+
+/* Panel Agenda's Pending row Remove button, pinned to the row's top-right
+   corner instead of a labelled bottom-row button (was too wide - #prototype
+   agenda-pending-row-actions branch compared it against a kebab-menu and a
+   dual-icon layout; this single icon won). .agenda-row is already
+   position: relative. */
+.row-corner-action { position: absolute; top: var(--space-sm); right: var(--space-sm); z-index: 2; }
+
+.row-corner-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-slide), border-color var(--transition-slide), color var(--transition-slide);
+}
+
+.row-corner-icon-btn svg { width: 16px; height: 16px; }
+
+.row-corner-icon-btn:hover,
+.row-corner-icon-btn:focus-visible { border-color: var(--btn-delete-border); color: var(--btn-delete-text); }
