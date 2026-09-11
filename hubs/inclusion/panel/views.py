@@ -3066,7 +3066,10 @@ def inclusion_panel_meetings(request):
         'academic_year_choices': academic_year_choices,
         'current_academic_year': current_academic_year,
         'term_choices': term_choices,
-        'terms_by_academic_year_json': json.dumps(terms_by_academic_year),
+        # Raw dict for json_script (meetings.js reads it as a data island,
+        # not the escapejs-in-a-string-literal convention the inline
+        # <script> used before #210).
+        'terms_by_academic_year': terms_by_academic_year,
         'status_choices': Panel.STATUS_CHOICES,
         'active_filter_count': active_filter_count,
         # New Panel Meeting is hidden entirely (not disabled) for staff in

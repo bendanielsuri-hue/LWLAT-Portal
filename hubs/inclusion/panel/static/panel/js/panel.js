@@ -3511,14 +3511,18 @@ function updateFactsLineLayout() {
    Referrals/Students/Meetings .row-facts IS the strip, so the two boxes
    are the same element and the distinction costs nothing. */
 // #students-filtered-content/#referrals-filtered-content/
-// #actions-filtered-content/#escalations-filtered-content dropped (#210) -
-// each now owns its own copy of this whole refresh loop via initListPage
-// (panel/js/pages/students.js, referrals.js, actions.js, escalations.js),
-// and the two must never both run against the same container: they write
-// the same cache properties (_stackCache/_factsStripNatural/...) under two
-// independent generation counters, which would thrash rather than merely
-// duplicate work.
-var LIST_ROOT_SELECTOR = '#meetings-filtered-content';
+// #actions-filtered-content/#escalations-filtered-content/
+// #meetings-filtered-content dropped (#210) - Meetings was the last of the
+// five, and each now owns its own copy of this whole refresh loop via
+// initListPage (panel/js/pages/{students,referrals,actions,escalations,
+// meetings}.js): the two must never both run against the same container,
+// since they write the same cache properties
+// (_stackCache/_factsStripNatural/...) under two independent generation
+// counters. '#__none__' rather than '' - an empty string is not a valid
+// selector and throws; every querySelectorAll(LIST_ROOT_SELECTOR) call
+// below is now a documented permanent no-op pending #211, which removes
+// the whole mechanism outright.
+var LIST_ROOT_SELECTOR = '#__none__';
 var STACK_ROW_SELECTOR = '.entity-row, .meeting-card';
 // Subpixel guard: rowWidth - overhead and need are fractional measurements
 // of the same boxes, so an exact-fit row can land a hair either side of
@@ -3638,11 +3642,9 @@ function updateListStackMode() {
 // this was written against) - getBoundingClientRect() would only ever
 // report the shrunk box's own current size, never what it actually needs.
 // #students-filtered-content/#referrals-filtered-content/
-// #actions-filtered-content dropped (#210) - see LIST_ROOT_SELECTOR's own
-// comment above, same reason.
-var BUTTON_ROW_SELECTORS = [
-    '#meetings-filtered-content .meeting-card-actions',
-].join(', ');
+// #actions-filtered-content/#meetings-filtered-content dropped (#210) -
+// see LIST_ROOT_SELECTOR's own comment above, same reason.
+var BUTTON_ROW_SELECTORS = '#__none__';
 function updateButtonRowOverflow() {
     /* Restructured into strict write-pass / read-pass / write-pass phases
        across the whole list (it used to do all three per row, so each
@@ -3713,41 +3715,9 @@ function updateButtonRowOverflow() {
         if (entry.horizontal && entry.natural > entry.available) entry.actions.classList.add('hide-icons');
     });
 }
-/* Meetings' button column, sized once for the whole list instead of per
-   card - live feedback: "Button collumn width should match all the way
-   down!". .meeting-card-actions is flex: 0 0 auto (panel.css), so each
-   card's column sized to its OWN buttons: a card offering Start Meeting/
-   Edit Agenda/Delete came out wider than one offering only View Meeting
-   (measured live: 128px against 124.7px), and the border-left down the
-   left edge of that column made every mismatch read as a ragged vertical
-   line down the list.
-   Same shared-width convention Students (--students-btn-col-w, its own
-   inline script) and Escalations (syncEscalationButtonWidths) already
-   use for the same complaint on their own lists, expressed as one custom
-   property on the list root rather than an inline width per row - one
-   write instead of one per card, and the actual sizing stays in CSS.
-   Only applied while the column really is a vertical side column: at the
-   narrow widths where it turns into a full-width horizontal row
-   (panel.css) every card's column is already the same width by
-   construction, and forcing a min-width there would just make it
-   overflow. Same live flex-direction test, and same reasoning, as the
-   icon-dropping guard above. */
-function syncMeetingsButtonColumnWidth() {
-    var listRoot = document.getElementById('meetings-filtered-content');
-    if (!listRoot) return;
-    var columnsList = listRoot.querySelectorAll('.meeting-card-actions');
-    if (!columnsList.length) return;
-    // Cleared before measuring, not just overwritten after - otherwise a
-    // previous pass's own shared width is what gets measured back and the
-    // column could only ever grow (same reasoning as Students' own
-    // buttons-column measurement and updateButtonRowOverflow's un-hide).
-    listRoot.style.removeProperty('--meetings-btn-col-w');
-    var vertical = getComputedStyle(columnsList[0]).flexDirection.indexOf('column') === 0;
-    if (!vertical) return;
-    var max = 0;
-    columnsList.forEach(function (col) { max = Math.max(max, col.getBoundingClientRect().width); });
-    if (max > 0) listRoot.style.setProperty('--meetings-btn-col-w', max + 'px');
-}
+// syncMeetingsButtonColumnWidth moved out entirely (#210) - Meetings was
+// the last page still reaching into panel.js's own copy, and it now owns
+// this via its own page module (panel/js/pages/meetings.js).
 /* The content-driven half of updateButtonRowOverflow, split out so its
    result can be cached per row - see the note there. Every item passed in
    is a real flex item/slot in this row - NOT necessarily a .btn itself: a
@@ -3818,12 +3788,6 @@ document.addEventListener('DOMContentLoaded', function () {
         syncFactsColumnWidths();
         updateFactsLineLayout();
         updateButtonRowOverflow();
-        // After updateButtonRowOverflow, never before: dropping a row's
-        // icons changes how wide its buttons are, so measuring the shared
-        // column first would size it against widths that are about to
-        // change underneath it (same ordering reasoning as
-        // syncFactsColumnWidths running ahead of the two functions above).
-        syncMeetingsButtonColumnWidth();
         markAllFactsStripEdges();
     }
     refreshFactsStrips();
@@ -3847,9 +3811,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     var refreshAfterResize = debounceTrailing(refreshFactsStrips, 120);
     // #students-filtered-content/#referrals-filtered-content/
-    // #actions-filtered-content/#escalations-filtered-content dropped
-    // (#210) - see LIST_ROOT_SELECTOR's own comment above, same reason.
-    document.querySelectorAll('#meetings-filtered-content').forEach(function (container) {
+    // #actions-filtered-content/#escalations-filtered-content/
+    // #meetings-filtered-content dropped (#210) - see LIST_ROOT_SELECTOR's
+    // own comment above, same reason.
+    document.querySelectorAll('#__none__').forEach(function (container) {
         if (typeof MutationObserver !== 'undefined') {
             /* childList only, never attributes - this refresh's own work
                IS a pile of style/class writes on these containers'
