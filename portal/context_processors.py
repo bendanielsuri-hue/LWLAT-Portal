@@ -89,7 +89,7 @@ def footer_meta(request):
 # own rail item) or Portal Admin's icon key.
 _HUB_ICON_BY_URL_PREFIX = [
     ('staff/', 'icons/staff_svg.html'),
-    ('student/', 'icons/student_svg.html'),
+    ('student/', 'icons/student_single_svg.html'),
     ('services/', 'icons/services_svg.html'),
     ('registers/', 'icons/registers_svg.html'),
     ('inclusion/panel/', 'icons/panel_shield_svg.html'),

@@ -72,7 +72,7 @@ AGGREGATE_ENTRIES = [
 # the Portal Admin entry is appended separately (developer-only, not module-gated).
 HUB_NAV_ITEMS = [
     {'url_name': 'staff_hub', 'icon': 'icons/staff_svg.html', 'label': 'Staff', 'prefix': '/staff/', 'module_key': 'staff_hub'},
-    {'url_name': 'student_hub', 'icon': 'icons/student_svg.html', 'label': 'Student', 'prefix': '/student/', 'module_key': 'student_hub'},
+    {'url_name': 'student_hub', 'icon': 'icons/student_single_svg.html', 'label': 'Student', 'prefix': '/student/', 'module_key': 'student_hub'},
     {'url_name': 'inclusion_hub', 'icon': 'icons/send_svg.html', 'label': 'SEND & Provision', 'prefix': '/inclusion/', 'module_key': 'inclusion_hub'},
     {'url_name': 'registers', 'icon': 'icons/registers_svg.html', 'label': 'Registers', 'prefix': '/registers/', 'module_key': 'registers'},
     {'url_name': 'careers_hub', 'icon': 'icons/careers_svg.html', 'label': 'Careers', 'prefix': '/careers/', 'module_key': 'careers_hub'},
@@ -163,7 +163,7 @@ def _raw_sections():
                 'student_profile', 'student_progress_tracker', 'student_standards_equipment',
                 'student_pastoral_tracker',
             )],
-            'icon_template': 'icons/student_svg.html',
+            'icon_template': 'icons/student_single_svg.html',
         },
         {
             'title': 'SEND & Provision',
