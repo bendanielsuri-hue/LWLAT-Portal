@@ -1,0 +1,16 @@
+# Scannable student identifiers are a table, and a QR code never carries the UPN
+
+Taking a register by scanning a card needs a code to resolve to a `Student`. That resolution goes through `core.StudentIdentifier` — `(student, kind, value, is_active, issued_at)` — rather than through new columns on `Student`. `kind` distinguishes the schemes: `library_barcode` (the school's existing library card number, which we store, not issue) and `qr_token` (an opaque value the portal generates), with room for MIS or trust-wide schemes later. A scan is one lookup on `(kind, value, is_active)`, so the scanning UI never knows or cares which scheme produced the string it was handed.
+
+A scannable code is a credential: whoever holds the card can be marked present somewhere. That makes **reissue** the requirement that decides the shape. A student loses a card, someone else finds it and scans into a club; with a table, the row is deactivated and the scan fails while the history that a card was revoked survives. With a column, the fix is to overwrite the value, which loses the fact that a revocation ever happened. `Student` already carries `upn` and `admission_number` as flat columns and that remains right — those are identity, issued once, not credentials that get lost in a car park.
+
+**The UPN must never be encoded in a QR code**, and this is the decision most likely to be casually reversed by someone looking for a unique value that is already to hand. A UPN is a national identifier that follows a child between schools; a QR code is photographable across a room and decodable by any phone. A library barcode is a different risk entirely — low-sensitivity, school-issued, already printed, already in the student's pocket — which is why reusing it is fine and generating our own token for QR is not paranoia.
+
+The card that follows from this carries **both codes on its front**: the existing library barcode, so the portal card replaces the library card rather than joining it in the same pocket and the library system keeps working untouched; and the portal QR token, which we can revoke without asking a librarian. Both on one face because flipping a card is what slows a queue of twenty at a door. Because a camera frame may then decode several codes at once, the scan handler takes the first code that resolves to an *active* identifier, preferring QR — which is needed anyway the first time someone holds a card up next to a poster.
+
+## Considered options
+
+- **Flat `barcode` and `qr_token` columns on `Student`**: rejected. No reissue story, no second card, and a third scheme is a migration. Two columns already being named on day one is the signal `(ENG-S1)` describes.
+- **Encode the UPN in the QR**: rejected, as above. Unique and to hand, and a data-protection problem printed onto 1,200 cards.
+- **Issue a new portal barcode rather than reusing the library number**: rejected. It means either two cards in the pocket or asking the library to re-enrol every student, and it buys only tidiness — `is_active` on our own row is what we actually revoke, and flipping it does not affect the library's lookup.
+- **One value rendered as both a barcode and a QR**: rejected. It binds portal revocation to the library system's: reissue a book card and register scanning breaks.

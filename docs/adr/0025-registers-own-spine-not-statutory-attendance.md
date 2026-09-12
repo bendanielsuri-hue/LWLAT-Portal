@@ -1,0 +1,13 @@
+# Registers keep their own attendance spine, separate from statutory attendance
+
+`core.models.AttendanceDay` records the statutory register: one row per student per day, with an AM and a PM session mark. The Registers hub records something different — attendance at a club, an intervention, an isolation room — at a different grain (a named sitting, possibly several a day, possibly none for weeks) and with a different meaning. Registers therefore gets its own `Register`/`RegisterSession`/`RegisterEvent` tables and **never writes into `AttendanceDay`, `BehaviourIncident`, `Exclusion` or `PositiveBehaviourIncident`**.
+
+The pressure to merge them is real and will recur, because both are "attendance" in English and both are "was this student here". The reason not to is that the statutory attendance percentage is a legally meaningful figure derived from `AttendanceDay` rows, and [ADR 0007](0007-student-history-tables-not-summary-fields.md) deliberately made every percentage in the app a query over those rows rather than a stored field. Letting a Thursday Chess Club sitting write an `AttendanceDay` row — or letting an Isolation Room mark write a `BehaviourIncident` — silently changes a number the school reports to the DfE. Nothing in the code would flag it; the figure would just be wrong.
+
+Reads go the other way and are welcome. A `register_history(student)` helper in `hubs.registers` is the single entry point for "what registers has this student been in", and `core.student_history` may import it when Inclusion Panel wants register activity on a student detail page. One fact, one home, read by whoever needs it.
+
+## Considered options
+
+- **Auto-create a `BehaviourIncident` when a student is marked into Isolation Room**: rejected. It is the most tempting version because it makes register data appear in Panel for free, but it stores one fact in two places with no reconciliation — retract the register event (a mis-scan, the wrong student) and the behaviour incident survives as an orphan claiming something that never happened.
+- **Generalise `AttendanceDay` to hold any kind of attendance**: rejected. The AM/PM shape is not incidental, it *is* the statutory register's shape; widening it means every query that currently means "statutory attendance" has to start filtering, and the first query that forgets to is a wrong compliance figure.
+- **Registers writes nothing and Panel queries the register tables directly**: this is what we do, with the single refinement that the query goes through a named helper rather than Panel building its own — so the reduce-events-to-state logic (see [ADR 0026](0026-register-attendance-is-an-append-only-event-log.md)) exists once.
