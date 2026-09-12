@@ -113,6 +113,10 @@ GitHub Issues (plus per-App Projects/roadmap boards) on `bendanielsuri-hue/LWLAT
 
 Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), unchanged. See `docs/agents/triage-labels.md`.
 
+### Grilling sessions
+
+When asking a multiple-choice question during a grilling/interview flow, put **each option on its own line**, not run together inside a prose paragraph. Options are scanned and compared against each other, which a wall of prose makes needlessly hard.
+
 ### Domain docs
 
 Read order and glossary-usage rules for agents (which `CONTEXT.md`/ADRs to consult before exploring, how to flag an ADR conflict) — see `docs/agents/domain.md`. What these docs are and when they get created is covered under "Architecture decisions" and "Domain glossary" below.
