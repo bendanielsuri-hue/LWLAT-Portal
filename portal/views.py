@@ -179,9 +179,10 @@ def _raw_sections():
             'title': 'Registers',
             'module_key': 'registers',
             'url': reverse('registers'),
-            'description': 'Behaviour and pastoral registers — clubs, isolation, reset room, interventions and pastoral tracking.',
+            'description': 'Behaviour and pastoral registers — clubs, library, isolation, reset room, interventions and pastoral tracking.',
             'items': [_leaf(k) for k in (
-                'register_clubs', 'register_isolation_room', 'register_reset_room', 'register_interventions',
+                'register_clubs', 'register_library', 'register_isolation_room', 'register_reset_room',
+                'register_interventions',
             )],
             'icon_template': 'icons/registers_svg.html',
         },

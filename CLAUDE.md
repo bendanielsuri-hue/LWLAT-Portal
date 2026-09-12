@@ -15,6 +15,25 @@ Each hub lives at `hubs/<name>/` with its own `apps.py`, `urls.py`, `views.py`, 
 
 Root URLs (`mysite/urls.py`) mount each hub at its own prefix — see that file for the current list of mounts and apps. One non-obvious grouping worth flagging: SEND & Provision (`/inclusion/`, `hubs.inclusion`) nests the **Inclusion Panel** sub-area at `/inclusion/panel/...` (students, referrals, actions, meetings, meeting setup/agenda/discussion) with its own `PANEL_MENU`/`PANEL_BASE_CONTEXT` and a "back to hub" link up one level. Portal Admin (`/portal-admin/`, `hubs.portaladmin`) is a developer-only console — see [core/CONTEXT.md](core/CONTEXT.md).
 
+## Adding a page or a hub
+
+A page is declared in several places joined only by a string convention, and most omissions **fail silently** rather than erroring. Work the list; don't trust "it renders".
+
+**A new leaf page inside an existing hub:**
+
+1. `hubs/<hub>/urls.py` — the path, with `name=` matching the module key (`core.models.Module.key` matches a Django URL name by convention, and `portal.views._leaf` relies on it).
+2. `hubs/<hub>/views.py` — the view.
+3. `hubs/<hub>/views.py` — an entry in that hub's `<HUB>_MENU`, which drives the sidebar.
+4. The template, under `hubs/<hub>/templates/hubs/<hub>/`.
+5. `core/management/commands/seed_modules.py` — a `Module` row, then rerun the command. **Omitting this doesn't hide the page — it defaults to visible**, so an unreleased page ships ungated.
+6. `portal/views.py` — the hub's card `items` tuple on MAT Home. Nothing fails if you forget; the tile is simply absent from Home while the page works everywhere else.
+
+Plus a new icon under `templates/icons/` if it needs one.
+
+**A new hub** additionally needs: the app itself (`apps.py` carrying `VERSION`, see [ADR 0011](docs/adr/0011-per-app-version-on-appconfig.md)); `INSTALLED_APPS`; a mount in `mysite/urls.py`; `HUB_NAV_ITEMS` and a section card in `portal/views.py`, plus its menu added to the tuple `_LEAF_BY_MODULE_KEY` is built from; all three prefix maps in `portal/context_processors.py` (app label, display name, icon — note the ordering pitfall documented there); a `Module` row for the hub itself as the leaves' parent; and its own `hubs/<name>/CLAUDE.md`.
+
+That this list is long is a known problem, tracked with a proposed fix in [#191](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/191) — derive what's derivable rather than restating it. Until that lands, the restatements are real and all of them are load-bearing.
+
 ## View pattern
 
 - School scoping (the sidebar switcher's `all`/`primary`/`secondary`/`School.id` key) goes through `core.school_scope.SchoolScope` — `scope.narrow(qs, via=..., mat_wide=...)`, plus `selects_every_school` and `is_aggregate`, which look like the same question and are not. The four-branch cascade used to be written out five times across two apps. `core.identity`'s `staff_queryset_for_school_key`/`student_queryset_for_school_key`/`is_aggregate_school_key` still exist and are still the names to call; they are thin wrappers now.
