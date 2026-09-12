@@ -11,7 +11,7 @@ A named thing attendance is taken for — "Badminton Club", "Year 9 Reading Inte
 _Avoid_: Club (one category of register), Group (that's `StaffGroup`), Session (a Register is not one sitting)
 
 **RegisterCategory**:
-The grouping a Register belongs to — Clubs, Isolation Room, Reset Room, Interventions — as **data, not a choices list**, so a category can be added without a deploy and without a new view. The hub's category pages are filtered views over `category.slug`. Owns the optional per-category outcome vocabulary (see *Outcome*).
+The grouping a Register belongs to — Clubs, Library, Isolation Room, Reset Room, Interventions — as **data, not a choices list**, so a category can be added without a deploy and without a new view. Library is deliberately its own category rather than filed with the rooms: Isolation and Reset are sanctions a student is sent to and are populated by rule, the library is voluntary, and categories group what people think of together rather than what shares a shape. The hub's category pages are filtered views over `category.slug`. Owns the optional per-category outcome vocabulary (see *Outcome*).
 _Avoid_: Type (nothing branches on category in code; it groups and it labels)
 
 **RegisterSession**:

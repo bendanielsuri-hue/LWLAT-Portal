@@ -36,6 +36,7 @@ MODULES = [
 
     ('registers', 'Registers', None, Module.STATUS_HIDDEN),
     ('register_clubs', 'Clubs', 'registers', Module.STATUS_HIDDEN),
+    ('register_library', 'Library', 'registers', Module.STATUS_HIDDEN),
     ('register_isolation_room', 'Isolation Room', 'registers', Module.STATUS_HIDDEN),
     ('register_reset_room', 'Reset Room', 'registers', Module.STATUS_HIDDEN),
     ('register_interventions', 'Interventions', 'registers', Module.STATUS_HIDDEN),
