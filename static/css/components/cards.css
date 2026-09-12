@@ -171,9 +171,19 @@
    2026-08-26 - was a single-line text-only pill before). Label wraps up
    to 2 lines; icon+label centred as a group (justify-content) so a tile
    stretched taller by a 2-line neighbour on the same wrapped row doesn't
-   pin its own 1-line content to the top with dead space below. */
+   pin its own 1-line content to the top with dead space below.
+
+   min-height reserves the two-line label height on every tile, so tiles
+   match whether or not their name wraps. Flex stretch already equalised
+   tiles sharing one wrapped row, which hid the problem until a card had
+   enough tiles to wrap onto a second row - then a row of short names
+   (Clubs, Library, Interventions) sat visibly shorter than the row
+   holding Isolation Room. The value is the padded height of a full tile
+   rather than a round number so it tracks the tokens: padding-block +
+   icon + gap + two lines of label. */
 .hub-card .hub-badge {
     width: 74px;
+    min-height: calc(var(--space-xs) + 20px + var(--space-xxs) + 2 * 1.2 * var(--font-xs) + 7px);
     padding: var(--space-xs) 4px 7px;
     background: var(--badge-bg);
     color: var(--text-primary);
