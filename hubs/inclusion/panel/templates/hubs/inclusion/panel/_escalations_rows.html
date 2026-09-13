@@ -1,3 +1,4 @@
+{% load static %}
 {% load avatar_extras %}
 {% comment %}
 Row markup only, no .entity-list wrapper - same split as Referrals' own
@@ -9,7 +10,7 @@ infinite-scroll continuation response).
     <div class="entity-thumb-group">
         {% if is_aggregate_view %}
         <div class="entity-thumb is-logo entity-thumb-school">
-            {% if escalation.referral.student.school.logo_url %}<img src="{{ escalation.referral.student.school.logo_url }}" alt="{{ escalation.referral.student.school.name }}">{% else %}{% include 'icons/portal/school_logo_placeholder_svg.html' %}{% endif %}
+            {% if escalation.referral.student.school.logo_url %}<img src="{{ escalation.referral.student.school.logo_url }}" alt="{{ escalation.referral.student.school.name }}">{% else %}<svg aria-hidden="true"><use href="{% static 'img/icons/portal/school_logo_placeholder.svg' %}#icon"></use></svg>{% endif %}
         </div>
         {% endif %}
         <div class="entity-thumb entity-thumb-student">
@@ -96,7 +97,7 @@ infinite-scroll continuation response).
         {% if escalation.status == 'open' and not mat_group_missing %}
         <form method="post" action="{% url 'inclusion_panel_escalation_quick_launch' escalation.id %}">
             {% csrf_token %}
-            <button type="submit" class="btn btn-primary btn-sm"><span class="btn-icon">{% include 'icons/ui/play_svg.html' %}</span> {% if running_mat_panel %}Add to Running Meeting{% else %}Launch Meeting{% endif %}</button>
+            <button type="submit" class="btn btn-primary btn-sm"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/play.svg' %}#icon"></use></svg></span> {% if running_mat_panel %}Add to Running Meeting{% else %}Launch Meeting{% endif %}</button>
         </form>
         {% endif %}
         <button type="button" class="btn btn-secondary btn-sm" data-view-referral-trigger data-referral-id="{{ escalation.referral.id }}" data-next="{% url 'inclusion_panel_escalations' %}">Referral Details</button>

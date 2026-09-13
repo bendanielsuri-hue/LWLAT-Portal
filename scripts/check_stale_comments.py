@@ -57,7 +57,7 @@ rather than a dead end, and it is the cheaper of the two errors.
 
 Comments are found with a character scanner, not a regex. `//` and `/* */`
 overlap in ways a regex gets wrong: a line comment mentioning a glob path
-(`templates/icons/*_svg.html`) contains `/*`, which a naive regex reads as the
+(`static/img/icons/**/*.svg`) contains `/*`, which a naive regex reads as the
 start of a block comment and then swallows the next 250 lines of real code as
 "comment" - which is exactly what happened here, and it manufactured three
 findings for functions that were defined inside the swallowed region.

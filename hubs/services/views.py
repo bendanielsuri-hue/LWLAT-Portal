@@ -3,13 +3,13 @@ from django.shortcuts import render
 from core.modules import filter_by_module, module_map
 
 SERVICES_MENU = [
-    {'name': 'Events Planner', 'url': '/services/events-planner/', 'icon': 'icons/hubs/services/calendar_star_svg.html', 'module_key': 'service_events_planner'},
-    {'name': 'Operations Overview', 'url': '/services/operations-dashboard/', 'icon': 'icons/hubs/services/operations_overview_svg.html', 'module_key': 'service_operations_dashboard'},
-    {'name': 'Exams', 'url': '/services/exams-dashboard/', 'icon': 'icons/hubs/services/exams_svg.html', 'module_key': 'service_exams_dashboard'},
-    {'name': 'Cover Manager', 'url': '/services/cover-manager/', 'icon': 'icons/hubs/services/cover_manager_svg.html', 'module_key': 'service_cover_manager'},
-    {'name': 'Duty & Rota Manager', 'url': '/services/duty-rota/', 'icon': 'icons/hubs/services/rota_svg.html', 'module_key': 'service_duty_rota'},
-    {'name': 'Assembly Manager', 'url': '/services/assembly-manager/', 'icon': 'icons/hubs/services/assembly_svg.html', 'module_key': 'service_assembly_manager'},
-    {'name': 'Admissions', 'url': '/services/admissions/', 'icon': 'icons/hubs/resources/admissions_svg.html', 'module_key': 'service_admissions'},
+    {'name': 'Events Planner', 'url': '/services/events-planner/', 'icon': 'services/icons/calendar_star.svg', 'module_key': 'service_events_planner'},
+    {'name': 'Operations Overview', 'url': '/services/operations-dashboard/', 'icon': 'services/icons/operations_overview.svg', 'module_key': 'service_operations_dashboard'},
+    {'name': 'Exams', 'url': '/services/exams-dashboard/', 'icon': 'services/icons/exams.svg', 'module_key': 'service_exams_dashboard'},
+    {'name': 'Cover Manager', 'url': '/services/cover-manager/', 'icon': 'services/icons/cover_manager.svg', 'module_key': 'service_cover_manager'},
+    {'name': 'Duty & Rota Manager', 'url': '/services/duty-rota/', 'icon': 'services/icons/rota.svg', 'module_key': 'service_duty_rota'},
+    {'name': 'Assembly Manager', 'url': '/services/assembly-manager/', 'icon': 'services/icons/assembly.svg', 'module_key': 'service_assembly_manager'},
+    {'name': 'Admissions', 'url': '/services/admissions/', 'icon': 'resources/icons/admissions.svg', 'module_key': 'service_admissions'},
 ]
 
 

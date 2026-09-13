@@ -5,4 +5,4 @@ class CareersConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'hubs.careers'
     # Shown in the footer - see docs/adr/0011.
-    VERSION = '0.1.0'
+    VERSION = '0.1.1'

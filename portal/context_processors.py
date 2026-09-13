@@ -88,15 +88,15 @@ def footer_meta(request):
 # row and has no row at all for Panel (a nested sub-app of Inclusion, not its
 # own rail item) or Portal Admin's icon key.
 _HUB_ICON_BY_URL_PREFIX = [
-    ('staff/', 'icons/hubs/staff/staff_svg.html'),
-    ('student/', 'icons/hubs/student/student_single_svg.html'),
-    ('services/', 'icons/hubs/services/services_svg.html'),
-    ('registers/', 'icons/hubs/registers/registers_svg.html'),
-    ('inclusion/panel/', 'icons/hubs/inclusion/panel_shield_svg.html'),
-    ('inclusion/', 'icons/hubs/inclusion/send_svg.html'),
-    ('careers/', 'icons/hubs/careers/careers_svg.html'),
-    ('resources/', 'icons/hubs/resources/resources_svg.html'),
-    ('portal-admin/', 'icons/hubs/inclusion/shield_check_svg.html'),
+    ('staff/', 'staff/icons/staff.svg'),
+    ('student/', 'student/icons/student_single.svg'),
+    ('services/', 'services/icons/services.svg'),
+    ('registers/', 'registers/icons/registers.svg'),
+    ('inclusion/panel/', 'inclusion/icons/panel_shield.svg'),
+    ('inclusion/', 'inclusion/icons/send.svg'),
+    ('careers/', 'careers/icons/careers.svg'),
+    ('resources/', 'resources/icons/resources.svg'),
+    ('portal-admin/', 'inclusion/icons/shield_check.svg'),
 ]
 
 

@@ -214,7 +214,7 @@ export function setupFilterBarMoreFilters(bar) {
     moreFiltersBtn.hidden = true;
     var icon = document.createElement('span');
     icon.className = 'more-filters-toggle-icon';
-    // Same path as templates/icons/ui/arrow_down_svg.html - kept inline (not
+    // Same path as templates/img/icons/ui/arrow_down.svg - kept inline (not
     // an {% include %}) since this markup is JS-authored.
     icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     var labelSpan = document.createElement('span');

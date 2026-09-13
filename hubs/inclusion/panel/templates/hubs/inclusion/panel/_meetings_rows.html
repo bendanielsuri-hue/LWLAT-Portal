@@ -1,3 +1,4 @@
+{% load static %}
 {% comment %}
 Row markup only, no .meeting-list wrapper - shared by the initial/filtered
 render (_meetings_filtered_content.html, wraps this in .meeting-list) and
@@ -38,7 +39,7 @@ Actions' own _<name>_rows.html.
                     {% elif mat_logo_url %}
                     <img src="{{ mat_logo_url }}" alt="LWLAT">
                     {% else %}
-                    {% include 'icons/portal/school_logo_placeholder_svg.html' %}
+                    <svg aria-hidden="true"><use href="{% static 'img/icons/portal/school_logo_placeholder.svg' %}#icon"></use></svg>
                     {% endif %}
                 </div>
             </div>
@@ -209,21 +210,21 @@ Actions' own _<name>_rows.html.
     {% endcomment %}
     <div class="meeting-card-actions">
         {% if m.panel.status == 'complete' %}
-        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/hubs/inclusion/document_svg.html" label="Summary" title="Coming soon" %}
+        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="inclusion/icons/document.svg" label="Summary" title="Coming soon" %}
         <a href="{% url 'inclusion_panel_meeting_agenda' m.panel.id %}" class="btn btn-tertiary btn-sm">View Meeting</a>
         {% elif m.can_manage %}
         {% if not m.panel.started_at and not m.referral_count %}
-        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/ui/play_svg.html" label="Start Meeting" title="Add at least one referral to the agenda before starting" %}
+        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="img/icons/ui/play.svg" label="Start Meeting" title="Add at least one referral to the agenda before starting" %}
         {% elif m.mat_start_blocked %}
         {% comment %}Only one MAT Panel Meeting may run at a time - see CONTEXT.md.{% endcomment %}
-        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="icons/ui/play_svg.html" label="Start Meeting" title="Another MAT Panel Meeting is already running - only one can run at a time" %}
+        {% include 'hubs/inclusion/panel/_disabled_btn.html' with classes="btn-secondary btn-sm" icon="img/icons/ui/play.svg" label="Start Meeting" title="Another MAT Panel Meeting is already running - only one can run at a time" %}
         {% elif m.panel.started_at %}
         {% comment %}
         A meeting already 'running' has nothing left to reschedule/check
         in - Continue Meeting goes straight to the Panel Agenda page,
         same as before, instead of opening the attendance dialog.
         {% endcomment %}
-        <a href="{% url 'inclusion_panel_meeting_start' m.panel.id %}" class="btn btn-secondary btn-sm" aria-label="Continue Meeting" title="Continue Meeting"><span class="btn-icon">{% include 'icons/ui/play_svg.html' %}</span> <span class="btn-label">Continue Meeting</span></a>
+        <a href="{% url 'inclusion_panel_meeting_start' m.panel.id %}" class="btn btn-secondary btn-sm" aria-label="Continue Meeting" title="Continue Meeting"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/play.svg' %}#icon"></use></svg></span> <span class="btn-label">Continue Meeting</span></a>
         {% else %}
         {% comment %}
         Opens the Attendance dialog in place (see panel/js/dialogs/
@@ -231,13 +232,13 @@ Actions' own _<name>_rows.html.
         page only navigates to the Panel Agenda once the meeting has
         actually started from inside that dialog.
         {% endcomment %}
-        <button type="button" class="btn btn-secondary btn-sm" data-open-meeting-start-trigger data-panel-id="{{ m.panel.id }}" aria-label="Start Meeting" title="Start Meeting"><span class="btn-icon">{% include 'icons/ui/play_svg.html' %}</span> <span class="btn-label">Start Meeting</span></button>
+        <button type="button" class="btn btn-secondary btn-sm" data-open-meeting-start-trigger data-panel-id="{{ m.panel.id }}" aria-label="Start Meeting" title="Start Meeting"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/play.svg' %}#icon"></use></svg></span> <span class="btn-label">Start Meeting</span></button>
         {% endif %}
         {% if not m.panel.started_at %}
-        <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm" aria-label="Edit Agenda" title="Edit Agenda"><span class="btn-icon">{% include 'icons/ui/edit_svg.html' %}</span> <span class="btn-label">Edit Agenda</span></a>
+        <a href="{% url 'inclusion_panel_meeting_setup' m.panel.id %}" class="btn btn-edit btn-sm" aria-label="Edit Agenda" title="Edit Agenda"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/edit.svg' %}#icon"></use></svg></span> <span class="btn-label">Edit Agenda</span></a>
         <form method="post" action="{% url 'inclusion_panel_meeting_delete' m.panel.id %}" data-row-remove-form data-confirm-message="Delete this panel meeting? This cannot be undone.">
             {% csrf_token %}
-            <button type="submit" class="btn btn-delete btn-sm" aria-label="Delete" title="Delete"><span class="btn-icon">{% include 'icons/ui/delete_svg.html' %}</span> <span class="btn-label">Delete</span></button>
+            <button type="submit" class="btn btn-delete btn-sm" aria-label="Delete" title="Delete"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/delete.svg' %}#icon"></use></svg></span> <span class="btn-label">Delete</span></button>
         </form>
         {% endif %}
         {% else %}

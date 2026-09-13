@@ -3,8 +3,8 @@ from django.shortcuts import render
 from core.modules import filter_by_module, module_map
 
 RESOURCES_MENU = [
-    {'name': 'Asset Register', 'url': '/resources/asset-register/', 'icon': 'icons/hubs/resources/asset_tag_svg.html', 'module_key': 'resource_asset_register'},
-    {'name': 'Room Bookings', 'url': '/resources/room-bookings/', 'icon': 'icons/hubs/services/room_booking_svg.html', 'module_key': 'resource_room_bookings'},
+    {'name': 'Asset Register', 'url': '/resources/asset-register/', 'icon': 'resources/icons/asset_tag.svg', 'module_key': 'resource_asset_register'},
+    {'name': 'Room Bookings', 'url': '/resources/room-bookings/', 'icon': 'services/icons/room_booking.svg', 'module_key': 'resource_room_bookings'},
 ]
 
 

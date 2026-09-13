@@ -28,7 +28,7 @@ A page is declared in several places joined only by a string convention, and mos
 5. `core/management/commands/seed_modules.py` — a `Module` row, then rerun the command. **Omitting this doesn't hide the page — it defaults to visible**, so an unreleased page ships ungated.
 6. `portal/views.py` — the hub's card `items` tuple on MAT Home. Nothing fails if you forget; the tile is simply absent from Home while the page works everywhere else.
 
-Plus a new icon under the appropriate `templates/icons/` ownership folder if it needs one: `ui/` for shared controls, `portal/` for the global shell, or `hubs/<hub>/` for hub-owned icons.
+Plus a new icon under the appropriate static ownership folder if it needs one: `static/img/icons/ui/` for shared controls, `static/img/icons/portal/` for the global shell, or `hubs/<hub>/static/<hub>/icons/` for hub-owned icons.
 
 **A new hub** additionally needs: the app itself (`apps.py` carrying `VERSION`, see [ADR 0011](docs/adr/0011-per-app-version-on-appconfig.md)); `INSTALLED_APPS`; a mount in `mysite/urls.py`; `HUB_NAV_ITEMS` and a section card in `portal/views.py`, plus its menu added to the tuple `_LEAF_BY_MODULE_KEY` is built from; all three prefix maps in `portal/context_processors.py` (app label, display name, icon — note the ordering pitfall documented there); a `Module` row for the hub itself as the leaves' parent; and its own `hubs/<name>/CLAUDE.md`.
 
@@ -40,7 +40,7 @@ That this list is long is a known problem, tracked with a proposed fix in [#191]
 - `hubs.inclusion` and `core` are the exception to plain hardcoded views: they have real Django models and applied migrations (`core.models.Staff`/`Student`/`School`, `hubs.inclusion.models` — Referral, Action, PanelReferral, etc.). Other hubs reference `core.models.Staff`/`Student` where they need real data (e.g. directory, dashboards) rather than duplicating hardcoded people. `Staff`/`Student` each have a nullable `school` FK to `core.models.School`; `portal.views.build_school_nav()` reads `School` rows (merged with hardcoded "All Schools"/"All Primary"/"All Secondary" aggregate entries) to drive the sidebar school-switcher instead of a hardcoded list.
 - Standard context per page: `local_menu` (list of `{name, url, icon}` for the hub's sidebar) and `hub_title`.
 - Templates: page extends `templates/layout.html`, includes `templates/hubs/_hub_sidebar.html` (driven by `local_menu`/`hub_title`) inside `{% block hub_sidebar %}`.
-- Icons are SVG templates under `templates/icons/`, grouped by ownership: `ui/`, `portal/`, or `hubs/<hub>/`. Do not add a vague `general/` bucket; hub-specific icons belong under their owning hub.
+- Icons are SVG assets under `static/img/icons/ui/`, `static/img/icons/portal/`, or `hubs/<hub>/static/<hub>/icons/`. Do not add a vague `general/` bucket; hub-specific icons belong under their owning hub.
 
 ## Other notes
 
@@ -87,7 +87,7 @@ Each app's `VERSION` (ADR 0011) patch-bumps automatically on any commit touching
 ```
 git config core.hooksPath .githooks
 ```
-Editing an app's `VERSION` line by hand in the same commit (e.g. a deliberate minor/major bump, see `/suggest-version-bump`) skips the auto-bump for that app so it doesn't get clobbered. A handful of portal-wide files (`static/css/layout/layout.css`, `static/css/style.css`, `static/js/main.js`, `templates/layout.html`, `templates/hubs/_hub_sidebar.html`, `templates/icons/**`, `mysite/**`, `portal/**`) are nobody's own and never trigger a bump — see `scripts/bump_versions.py` for the exact ownership rules.
+Editing an app's `VERSION` line by hand in the same commit (e.g. a deliberate minor/major bump, see `/suggest-version-bump`) skips the auto-bump for that app so it doesn't get clobbered. A handful of portal-wide files (`static/css/layout/layout.css`, `static/css/style.css`, `static/js/main.js`, `templates/layout.html`, `templates/hubs/_hub_sidebar.html`, `static/img/icons/**`, `mysite/**`, `portal/**`) are nobody's own and never trigger a bump — see `scripts/bump_versions.py` for the exact ownership rules.
 
 ### Module rollout status, Portal Admin hub, tiered portal settings
 

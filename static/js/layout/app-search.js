@@ -9,7 +9,7 @@ import { closest } from '../components/dom.js';
 // Small inline icons for the search results' hub label — kept here rather than
 // round-tripped through the server, since the result rows are built in JS from
 // the {{ search_items|json_script }} data, not server-rendered templates. Mirrors
-// the corresponding templates/icons/*_svg.html partials, just at a smaller size.
+// the corresponding static icon SVGs, just at a smaller size.
 var HUB_RESULT_ICONS = {
     'Staff': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     'Operations': '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="currentColor"/><path d="M12 2.5v2.6M12 18.9v2.6M4.2 6.2l1.9 1.5M17.9 16.3l1.9 1.5M2.5 12h2.6M18.9 12h2.6M4.2 17.8l1.9-1.5M17.9 7.7l1.9-1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',

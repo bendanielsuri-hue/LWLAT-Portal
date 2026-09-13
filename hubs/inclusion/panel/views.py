@@ -72,13 +72,13 @@ from .models import (
 )
 
 PANEL_MENU = [
-    {'name': 'Home', 'url': '/inclusion/panel/', 'icon': 'icons/portal/house_svg.html', 'module_key': 'inclusion_panel'},
-    {'name': 'Students', 'url': '/inclusion/panel/students/', 'icon': 'icons/hubs/student/student_single_svg.html', 'module_key': 'inclusion_panel_students'},
-    {'name': 'Referrals', 'url': '/inclusion/panel/referrals/', 'icon': 'icons/hubs/inclusion/document_svg.html', 'module_key': 'inclusion_panel_referrals'},
-    {'name': 'Actions', 'url': '/inclusion/panel/actions/', 'icon': 'icons/ui/checkmark_svg.html', 'module_key': 'inclusion_panel_actions'},
-    {'name': 'Panel Meetings', 'url': '/inclusion/panel/meetings/', 'icon': 'icons/ui/clock_svg.html', 'module_key': 'inclusion_panel_meetings'},
-    {'name': 'Escalations', 'url': '/inclusion/panel/escalations/', 'icon': 'icons/hubs/inclusion/escalate_tray_svg.html', 'module_key': 'inclusion_panel_escalations'},
-    {'name': 'Admin', 'url': '/inclusion/panel/settings/referral-questions/', 'icon': 'icons/hubs/registers/registers_svg.html', 'module_key': 'inclusion_panel_settings'},
+    {'name': 'Home', 'url': '/inclusion/panel/', 'icon': 'img/icons/portal/house.svg', 'module_key': 'inclusion_panel'},
+    {'name': 'Students', 'url': '/inclusion/panel/students/', 'icon': 'student/icons/student_single.svg', 'module_key': 'inclusion_panel_students'},
+    {'name': 'Referrals', 'url': '/inclusion/panel/referrals/', 'icon': 'inclusion/icons/document.svg', 'module_key': 'inclusion_panel_referrals'},
+    {'name': 'Actions', 'url': '/inclusion/panel/actions/', 'icon': 'img/icons/ui/checkmark.svg', 'module_key': 'inclusion_panel_actions'},
+    {'name': 'Panel Meetings', 'url': '/inclusion/panel/meetings/', 'icon': 'img/icons/ui/clock.svg', 'module_key': 'inclusion_panel_meetings'},
+    {'name': 'Escalations', 'url': '/inclusion/panel/escalations/', 'icon': 'inclusion/icons/escalate_tray.svg', 'module_key': 'inclusion_panel_escalations'},
+    {'name': 'Admin', 'url': '/inclusion/panel/settings/referral-questions/', 'icon': 'registers/icons/registers.svg', 'module_key': 'inclusion_panel_settings'},
 ]
 
 
@@ -109,7 +109,7 @@ def _panel_base_context(request):
         local_menu = local_menu[:insert_at] + [{
             'name': 'Safeguarding Notes',
             'url': '/inclusion/panel/safeguarding-notes/',
-            'icon': 'icons/hubs/inclusion/shield_check_svg.html',
+            'icon': 'inclusion/icons/shield_check.svg',
         }] + local_menu[insert_at:]
     return {
         'local_menu': local_menu,
@@ -565,7 +565,7 @@ def _recent_activity(scoped_students, school_key, limit=8):
         events.append({
             'timestamp': referral.created_at,
             'text': f'Referral created for {referral.student}',
-            'icon': 'hubs/inclusion/document', 'accent': 'primary',
+            'icon': 'inclusion/icons/document.svg', 'accent': 'primary',
         })
     for action in (
         Action.objects.filter(referral__student__in=scoped_students, completed_at__isnull=False)
@@ -574,7 +574,7 @@ def _recent_activity(scoped_students, school_key, limit=8):
         events.append({
             'timestamp': action.completed_at,
             'text': f'Action completed for {action.referral.student}',
-            'icon': 'ui/checkmark', 'accent': 'positive',
+            'icon': 'img/icons/ui/checkmark.svg', 'accent': 'positive',
         })
     for pr in (
         PanelReferral.objects.filter(referral__student__in=scoped_students, removed_at__isnull=True)
@@ -583,7 +583,7 @@ def _recent_activity(scoped_students, school_key, limit=8):
         events.append({
             'timestamp': pr.created_at,
             'text': f'{pr.referral.student} assigned to panel',
-            'icon': 'portal/people', 'accent': 'exceeding',
+            'icon': 'img/icons/portal/people.svg', 'accent': 'exceeding',
         })
     completed_panels = _panels_for_school_key(
         Panel.objects.filter(status='complete', ended_at__isnull=False).select_related('panel_group__school'),
@@ -594,7 +594,7 @@ def _recent_activity(scoped_students, school_key, limit=8):
         label = f'{school_name} panel meeting completed' if school_name else 'Panel meeting completed'
         events.append({
             'timestamp': panel.ended_at, 'text': label,
-            'icon': 'ui/checkmark', 'accent': 'positive',
+            'icon': 'img/icons/ui/checkmark.svg', 'accent': 'positive',
         })
 
     events.sort(key=lambda e: e['timestamp'], reverse=True)

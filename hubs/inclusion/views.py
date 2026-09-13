@@ -19,17 +19,17 @@ from hubs.inclusion.panel.models import Action, InclusionReferral
 INCLUSION_MENU = [
     {
         'name': 'Provision & Strategies', 'url': '/inclusion/provision-strategies/',
-        'icon': 'icons/hubs/student/strategies_svg.html', 'module_key': 'inclusion_provision_strategies',
+        'icon': 'student/icons/strategies.svg', 'module_key': 'inclusion_provision_strategies',
         'description': 'Interventions and support strategies',
     },
     {
         'name': 'Inclusion Panel', 'url': '/inclusion/panel/',
-        'icon': 'icons/hubs/inclusion/panel_shield_svg.html', 'module_key': 'inclusion_panel',
+        'icon': 'inclusion/icons/panel_shield.svg', 'module_key': 'inclusion_panel',
         'description': 'Referrals, actions and meetings',
     },
     {
         'name': 'SEND Diagnosis Tracker', 'url': '/inclusion/diagnosis-tracker/',
-        'icon': 'icons/hubs/student/diagnosis_svg.html', 'module_key': 'inclusion_diagnosis_tracker',
+        'icon': 'student/icons/diagnosis.svg', 'module_key': 'inclusion_diagnosis_tracker',
         'description': 'Track diagnosis pathways',
     },
 ]
@@ -260,12 +260,12 @@ def inclusion_hub(request):
     ehcp_pct = pct(e_count, total_students)
 
     kpi_cards = [
-        {'label': 'Total Students', 'value': total_students, 'accent': 'neutral', 'icon': 'icons/hubs/student/student_svg.html'},
-        {'label': 'SEND (K + E)', 'value': send_count, 'accent': 'neutral', 'sublabel': f'{send_pct}% of cohort', 'icon': 'icons/hubs/inclusion/send_svg.html'},
-        {'label': 'EHCP (E)', 'value': e_count, 'accent': 'primary', 'sublabel': f'{ehcp_pct}% of cohort', 'icon': 'icons/hubs/student/diagnosis_svg.html'},
-        {'label': 'Referrals This Year', 'value': referrals_this_year, 'accent': 'positive', 'icon': 'icons/hubs/inclusion/document_svg.html'},
+        {'label': 'Total Students', 'value': total_students, 'accent': 'neutral', 'icon': 'student/icons/student.svg'},
+        {'label': 'SEND (K + E)', 'value': send_count, 'accent': 'neutral', 'sublabel': f'{send_pct}% of cohort', 'icon': 'inclusion/icons/send.svg'},
+        {'label': 'EHCP (E)', 'value': e_count, 'accent': 'primary', 'sublabel': f'{ehcp_pct}% of cohort', 'icon': 'student/icons/diagnosis.svg'},
+        {'label': 'Referrals This Year', 'value': referrals_this_year, 'accent': 'positive', 'icon': 'inclusion/icons/document.svg'},
         {'label': 'Overdue Referrals', 'value': overdue_referrals,
-         'accent': 'negative' if overdue_referrals else 'positive', 'icon': 'icons/ui/clock_svg.html'},
+         'accent': 'negative' if overdue_referrals else 'positive', 'icon': 'img/icons/ui/clock.svg'},
     ]
 
     referral_trend = _referral_trend(students)

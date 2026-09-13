@@ -3,11 +3,11 @@ from django.shortcuts import render
 from core.modules import filter_by_module, module_map
 
 REGISTERS_MENU = [
-    {'name': 'Clubs', 'url': '/registers/clubs/', 'icon': 'icons/hubs/registers/clubs_svg.html', 'module_key': 'register_clubs'},
-    {'name': 'Library', 'url': '/registers/library/', 'icon': 'icons/hubs/registers/library_svg.html', 'module_key': 'register_library'},
-    {'name': 'Isolation Room', 'url': '/registers/isolation-room/', 'icon': 'icons/hubs/registers/isolation_room_svg.html', 'module_key': 'register_isolation_room'},
-    {'name': 'Reset Room', 'url': '/registers/reset-room/', 'icon': 'icons/hubs/registers/reset_room_svg.html', 'module_key': 'register_reset_room'},
-    {'name': 'Interventions', 'url': '/registers/interventions/', 'icon': 'icons/hubs/inclusion/interventions_svg.html', 'module_key': 'register_interventions'},
+    {'name': 'Clubs', 'url': '/registers/clubs/', 'icon': 'registers/icons/clubs.svg', 'module_key': 'register_clubs'},
+    {'name': 'Library', 'url': '/registers/library/', 'icon': 'registers/icons/library.svg', 'module_key': 'register_library'},
+    {'name': 'Isolation Room', 'url': '/registers/isolation-room/', 'icon': 'registers/icons/isolation_room.svg', 'module_key': 'register_isolation_room'},
+    {'name': 'Reset Room', 'url': '/registers/reset-room/', 'icon': 'registers/icons/reset_room.svg', 'module_key': 'register_reset_room'},
+    {'name': 'Interventions', 'url': '/registers/interventions/', 'icon': 'inclusion/icons/interventions.svg', 'module_key': 'register_interventions'},
 ]
 
 

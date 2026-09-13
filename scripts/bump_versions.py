@@ -38,7 +38,7 @@ SHARED_FILES = {
     'templates/hubs/_hub_sidebar.html',
 }
 SHARED_DIR_PREFIXES = (
-    'templates/icons/',
+    'static/img/icons/',
     'mysite/',
     'portal/',
 )
