@@ -71,17 +71,17 @@ AGGREGATE_ENTRIES = [
 # module_key tags each entry for core.modules.filter_by_module/module_label;
 # the Portal Admin entry is appended separately (developer-only, not module-gated).
 HUB_NAV_ITEMS = [
-    {'url_name': 'staff_hub', 'icon': 'icons/staff_svg.html', 'label': 'Staff', 'prefix': '/staff/', 'module_key': 'staff_hub'},
-    {'url_name': 'student_hub', 'icon': 'icons/student_single_svg.html', 'label': 'Student', 'prefix': '/student/', 'module_key': 'student_hub'},
-    {'url_name': 'inclusion_hub', 'icon': 'icons/send_svg.html', 'label': 'SEND & Provision', 'prefix': '/inclusion/', 'module_key': 'inclusion_hub'},
-    {'url_name': 'registers', 'icon': 'icons/registers_svg.html', 'label': 'Registers', 'prefix': '/registers/', 'module_key': 'registers'},
-    {'url_name': 'careers_hub', 'icon': 'icons/careers_svg.html', 'label': 'Careers', 'prefix': '/careers/', 'module_key': 'careers_hub'},
-    {'url_name': 'services', 'icon': 'icons/services_svg.html', 'label': 'Operations', 'prefix': '/services/', 'module_key': 'services'},
-    {'url_name': 'resources_hub', 'icon': 'icons/resources_svg.html', 'label': 'Resources', 'prefix': '/resources/', 'module_key': 'resources_hub'},
+    {'url_name': 'staff_hub', 'icon': 'icons/hubs/staff/staff_svg.html', 'label': 'Staff', 'prefix': '/staff/', 'module_key': 'staff_hub'},
+    {'url_name': 'student_hub', 'icon': 'icons/hubs/student/student_single_svg.html', 'label': 'Student', 'prefix': '/student/', 'module_key': 'student_hub'},
+    {'url_name': 'inclusion_hub', 'icon': 'icons/hubs/inclusion/send_svg.html', 'label': 'SEND & Provision', 'prefix': '/inclusion/', 'module_key': 'inclusion_hub'},
+    {'url_name': 'registers', 'icon': 'icons/hubs/registers/registers_svg.html', 'label': 'Registers', 'prefix': '/registers/', 'module_key': 'registers'},
+    {'url_name': 'careers_hub', 'icon': 'icons/hubs/careers/careers_svg.html', 'label': 'Careers', 'prefix': '/careers/', 'module_key': 'careers_hub'},
+    {'url_name': 'services', 'icon': 'icons/hubs/services/services_svg.html', 'label': 'Operations', 'prefix': '/services/', 'module_key': 'services'},
+    {'url_name': 'resources_hub', 'icon': 'icons/hubs/resources/resources_svg.html', 'label': 'Resources', 'prefix': '/resources/', 'module_key': 'resources_hub'},
 ]
 
 PORTAL_ADMIN_NAV_ITEM = {
-    'url_name': 'portaladmin_home', 'icon': 'icons/shield_check_svg.html', 'label': 'Portal Admin', 'prefix': '/portal-admin/',
+    'url_name': 'portaladmin_home', 'icon': 'icons/hubs/inclusion/shield_check_svg.html', 'label': 'Portal Admin', 'prefix': '/portal-admin/',
 }
 
 
@@ -152,7 +152,7 @@ def _raw_sections():
                 'staff_my_timetable', 'staff_directory', 'staff_absence_request', 'staff_payslips',
                 'staff_cpd_training', 'staff_calendar', 'staff_assessment_calendar', 'staff_school_map',
             )],
-            'icon_template': 'icons/staff_svg.html',
+            'icon_template': 'icons/hubs/staff/staff_svg.html',
         },
         {
             'title': 'Student',
@@ -163,7 +163,7 @@ def _raw_sections():
                 'student_profile', 'student_progress_tracker', 'student_standards_equipment',
                 'student_pastoral_tracker',
             )],
-            'icon_template': 'icons/student_single_svg.html',
+            'icon_template': 'icons/hubs/student/student_single_svg.html',
         },
         {
             'title': 'SEND & Provision',
@@ -173,7 +173,7 @@ def _raw_sections():
             'items': [_leaf(k) for k in (
                 'inclusion_provision_strategies', 'inclusion_panel', 'inclusion_diagnosis_tracker',
             )],
-            'icon_template': 'icons/send_svg.html',
+            'icon_template': 'icons/hubs/inclusion/send_svg.html',
         },
         {
             'title': 'Registers',
@@ -184,7 +184,7 @@ def _raw_sections():
                 'register_clubs', 'register_library', 'register_isolation_room', 'register_reset_room',
                 'register_interventions',
             )],
-            'icon_template': 'icons/registers_svg.html',
+            'icon_template': 'icons/hubs/registers/registers_svg.html',
         },
         {
             'title': 'Careers',
@@ -192,7 +192,7 @@ def _raw_sections():
             'url': reverse('careers_hub'),
             'description': 'Careers guidance and destinations support.',
             'items': [],
-            'icon_template': 'icons/careers_svg.html',
+            'icon_template': 'icons/hubs/careers/careers_svg.html',
         },
         {
             'title': 'Operations',
@@ -203,7 +203,7 @@ def _raw_sections():
                 'service_cover_manager', 'service_duty_rota', 'service_assembly_manager', 'service_admissions',
                 'service_events_planner', 'service_operations_dashboard', 'service_exams_dashboard',
             )],
-            'icon_template': 'icons/services_svg.html',
+            'icon_template': 'icons/hubs/services/services_svg.html',
         },
         {
             'title': 'Resources',
@@ -211,7 +211,7 @@ def _raw_sections():
             'url': reverse('resources_hub'),
             'description': 'Asset tracking and room bookings for the school estate.',
             'items': [_leaf(k) for k in ('resource_asset_register', 'resource_room_bookings')],
-            'icon_template': 'icons/resources_svg.html',
+            'icon_template': 'icons/hubs/resources/resources_svg.html',
         },
     ]
 
@@ -247,7 +247,7 @@ def build_sections(request):
             'url': reverse('portaladmin_home'),
             'description': 'Manage module rollout status and per-school portal settings.',
             'items': [],
-            'icon_template': 'icons/shield_check_svg.html',
+            'icon_template': 'icons/hubs/inclusion/shield_check_svg.html',
         })
     return sections
 

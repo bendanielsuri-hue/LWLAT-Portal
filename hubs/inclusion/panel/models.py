@@ -401,8 +401,6 @@ class PanelReferral(models.Model):
     # ready" indicator - out of scope, see #71) beyond driving Discussion's
     # auto-pop modal (see SafeguardingNote docstring) - it's surfaced on the
     # Safeguarding Briefings screen and Discussion for now.
-    briefing_ready = models.BooleanField(default=False)
-
     class Meta:
         unique_together = [('panel', 'referral')]
         db_table = 'inclusion_panelreferral'
@@ -425,6 +423,26 @@ class PanelReferralNote(models.Model):
 
     def __str__(self):
         return f'Note on {self.panel_referral} ({self.created_at:%Y-%m-%d})'
+
+
+class PanelReferralRecording(models.Model):
+    # Own table rather than a FileField on PanelReferral itself (ENG-S1) - a
+    # discussion can be paused/resumed (End Discussion, then Resume from
+    # Panel Agenda) producing more than one clip, same add-only-thread shape
+    # as PanelReferralNote above. No transcript field yet - audio-only for
+    # now, transcription is a deliberately separate follow-up.
+    panel_referral = models.ForeignKey(PanelReferral, on_delete=models.CASCADE, related_name='recordings')
+    recorded_by = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL)
+    audio = models.FileField(upload_to='panel_recordings/%Y/%m/%d/')
+    duration_seconds = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        db_table = 'inclusion_panelreferralrecording'
+
+    def __str__(self):
+        return f'Recording on {self.panel_referral} ({self.created_at:%Y-%m-%d})'
 
 
 class ActionCategory(models.Model):

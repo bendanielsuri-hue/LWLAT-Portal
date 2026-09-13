@@ -10,9 +10,11 @@
 
 import { closeModalWithFadeOut } from '../../../js/components/modal.js';
 import { initDiscussionTimers } from '../components/discussion-timer.js';
+import { initDiscussionRecorder } from '../components/discussion-recorder.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     initDiscussionTimers();
+    initDiscussionRecorder();
 
     // Only rendered at all when the view has already decided this load is
     // the actual start-of-discussion moment for today's specific meeting

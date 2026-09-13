@@ -30,13 +30,13 @@ re-rendered, swapped in wholesale.
             that felt like its own separate section rather than a fact about
             this student/panel pairing.
             {% endcomment %}
-            <div class="safeguarding-ready-banner{% if row.panel_referral.briefing_ready %} is-ready{% endif %}">
-                <span class="safeguarding-ready-banner-label">Ready for Panel</span>
-                {% if can_edit_briefing %}
+            <div class="safeguarding-ready-banner{% if row.is_ready %} is-ready{% endif %}">
+                <span class="safeguarding-ready-banner-label">{% if row.is_ready %}Notes fully updated{% else %}Notes need review{% endif %}</span>
+                {% if can_edit_briefing and not row.is_ready %}
                 <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}">
                     {% csrf_token %}
-                    <input type="hidden" name="form_action" value="toggle_ready">
-                    <button type="submit" class="toggle-pill toggle-pill--lg{% if row.panel_referral.briefing_ready %} on{% endif %}" aria-pressed="{% if row.panel_referral.briefing_ready %}true{% else %}false{% endif %}" aria-label="Ready for Panel"><span class="toggle-knob"></span></button>
+                    <input type="hidden" name="form_action" value="confirm_safeguarding_readiness">
+                    <button type="submit" class="btn btn-sm btn-add">Mark notes fully updated</button>
                 </form>
                 {% endif %}
             </div>
@@ -73,13 +73,13 @@ re-rendered, swapped in wholesale.
                     </div>
                     {% if can_edit_briefing %}
                     <div class="note-actions">
-                        <button type="button" class="btn btn-sm btn-secondary btn-edit" data-note-edit-toggle><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> Edit</button>
+                        <button type="button" class="btn btn-sm btn-secondary btn-edit" data-note-edit-toggle><span class="btn-icon">{% include 'icons/ui/edit_svg.html' %}</span> Edit</button>
                         <form method="post" action="{% url 'inclusion_panel_safeguarding_notes_mutate' row.panel_referral.id %}" class="safeguarding-note-form">
                             {% csrf_token %}
                             <input type="hidden" name="form_action" value="delete">
                             <input type="hidden" name="note_id" value="{{ note.id }}">
                             <input type="hidden" name="retirement_reason" value="no_longer_relevant">
-                            <button type="submit" class="btn btn-sm btn-secondary btn-delete"><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> Remove</button>
+                            <button type="submit" class="btn btn-sm btn-secondary btn-delete"><span class="btn-icon">{% include 'icons/ui/delete_svg.html' %}</span> Remove</button>
                         </form>
                     </div>
                     {% endif %}

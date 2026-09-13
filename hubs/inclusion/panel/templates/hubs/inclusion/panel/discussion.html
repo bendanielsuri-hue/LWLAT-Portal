@@ -17,7 +17,7 @@
 {% endblock %}
 
 {% block page_back %}
-<a href="{% url 'inclusion_panel_meeting_agenda' panel_referral.panel.id %}" class="page-back-btn" aria-label="Back to Panel Agenda">{% include 'icons/arrow_left_svg.html' %} Back</a>
+<a href="{% url 'inclusion_panel_meeting_agenda' panel_referral.panel.id %}" class="page-back-btn" aria-label="Back to Panel Agenda">{% include 'icons/ui/arrow_left_svg.html' %} Back</a>
 {% endblock %}
 
 {% block page_title %}Panel Discussion{% endblock %}
@@ -66,9 +66,31 @@
             {% if panel_referral.discussion_status == 'pending' and panel_referral.discussion_started_at %}
             <span class="panel-toolbar-timer">Discussing for: <span class="discussion-timer" id="discussion-timer" data-started-at="{{ panel_referral.discussion_started_at|date:'c' }}">00:00:00</span></span>
             {% endif %}
+
+            <div class="discussion-recorder" id="discussion-recorder" data-upload-url="{% url 'inclusion_panel_discussion_recording_upload' panel_referral.id %}">
+                {% csrf_token %}
+                <button type="button" class="btn btn-secondary" id="record-toggle-btn">
+                    <span class="btn-icon">{% include 'icons/ui/mic_svg.html' %}</span>
+                    <span id="record-toggle-label">Record Audio</span>
+                </button>
+                <span class="discussion-recorder-status" id="record-status" hidden></span>
+            </div>
+
+            <details class="panel-notes-history" id="recordings-details" {% if not recordings %}hidden{% endif %}>
+                <summary id="recordings-summary">Recordings ({{ recordings|length }})</summary>
+                <ul class="recording-list" id="recording-list">
+                    {% for rec in recordings %}
+                    <li class="recording-list-item">
+                        <audio controls preload="none" src="{{ rec.audio.url }}"></audio>
+                        <span class="entity-meta">{{ rec.created_at|date:"d/m/Y H:i" }} &middot; {{ rec.recorded_by|default:"Unknown" }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </details>
+
             <div class="btn-row btn-row-stacked">
                 <button type="button" class="btn btn-primary" data-open-end-discussion>End Discussion</button>
-                <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-secondary"><span class="btn-icon">{% include 'icons/arrow_up_svg.html' %}</span> Escalate to MAT</a>
+                <a href="{% url 'inclusion_panel_referral_escalate' referral.id %}?next={% url 'inclusion_panel_discussion' panel_referral.id %}" class="btn btn-secondary"><span class="btn-icon">{% include 'icons/ui/arrow_up_svg.html' %}</span> Escalate to MAT</a>
             </div>
         </div>
     </div>
@@ -215,7 +237,7 @@
         <div class="detail-stat-card detail-stat-card--{% if attendance_percentage == None %}neutral{% elif attendance_percentage >= 95 %}positive{% elif attendance_percentage >= 90 %}warning{% else %}negative{% endif %}" id="attendance-card">
             <div class="detail-stat-card-main">
             <div class="detail-stat-card-header">
-                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/calendar_check_svg.html' %}</span>
+                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/hubs/inclusion/calendar_check_svg.html' %}</span>
                 <strong>Attendance</strong>
             </div>
             {% if attendance_percentage == None %}
@@ -276,7 +298,7 @@
         <div class="detail-stat-card detail-stat-card--{% if behaviour_incidents %}negative{% else %}positive{% endif %}" id="behaviour-card">
             <div class="detail-stat-card-main">
             <div class="detail-stat-card-header">
-                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/document_svg.html' %}</span>
+                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/hubs/inclusion/document_svg.html' %}</span>
                 <strong>Behaviour</strong>
             </div>
             {% if behaviour_incidents %}
@@ -338,7 +360,7 @@
         <div class="detail-stat-card detail-stat-card--positive" id="positive-behaviour-card">
             <div class="detail-stat-card-main">
             <div class="detail-stat-card-header">
-                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/checkmark_svg.html' %}</span>
+                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/ui/checkmark_svg.html' %}</span>
                 <strong>Positive Behaviour</strong>
             </div>
             {% if positive_behaviour_points %}
@@ -387,7 +409,7 @@
         <div class="detail-stat-card detail-stat-card--{% if exclusion_count == 0 %}positive{% else %}negative{% endif %}">
             <div class="detail-stat-card-main">
             <div class="detail-stat-card-header">
-                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/shield_check_svg.html' %}</span>
+                <span class="detail-stat-card-icon detail-stat-card-icon--lg">{% include 'icons/hubs/inclusion/shield_check_svg.html' %}</span>
                 <strong>Exclusions</strong>
             </div>
             <div class="detail-stat-card-bignum-layout">
@@ -503,7 +525,7 @@
         {% endfor %}
         </div>
         <div class="setup-col-footer">
-            <button type="button" class="btn btn-add" data-add-action-trigger data-referral-id="{{ referral.id }}" data-panel-referral-id="{{ panel_referral.id }}"><span class="btn-icon">{% include 'icons/new_svg.html' %}</span> Add Action</button>
+            <button type="button" class="btn btn-add" data-add-action-trigger data-referral-id="{{ referral.id }}" data-panel-referral-id="{{ panel_referral.id }}"><span class="btn-icon">{% include 'icons/ui/new_svg.html' %}</span> Add Action</button>
         </div>
     </div>
 </div>

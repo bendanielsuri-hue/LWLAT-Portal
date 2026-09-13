@@ -28,7 +28,7 @@ A page is declared in several places joined only by a string convention, and mos
 5. `core/management/commands/seed_modules.py` — a `Module` row, then rerun the command. **Omitting this doesn't hide the page — it defaults to visible**, so an unreleased page ships ungated.
 6. `portal/views.py` — the hub's card `items` tuple on MAT Home. Nothing fails if you forget; the tile is simply absent from Home while the page works everywhere else.
 
-Plus a new icon under `templates/icons/` if it needs one.
+Plus a new icon under the appropriate `templates/icons/` ownership folder if it needs one: `ui/` for shared controls, `portal/` for the global shell, or `hubs/<hub>/` for hub-owned icons.
 
 **A new hub** additionally needs: the app itself (`apps.py` carrying `VERSION`, see [ADR 0011](docs/adr/0011-per-app-version-on-appconfig.md)); `INSTALLED_APPS`; a mount in `mysite/urls.py`; `HUB_NAV_ITEMS` and a section card in `portal/views.py`, plus its menu added to the tuple `_LEAF_BY_MODULE_KEY` is built from; all three prefix maps in `portal/context_processors.py` (app label, display name, icon — note the ordering pitfall documented there); a `Module` row for the hub itself as the leaves' parent; and its own `hubs/<name>/CLAUDE.md`.
 
@@ -40,7 +40,7 @@ That this list is long is a known problem, tracked with a proposed fix in [#191]
 - `hubs.inclusion` and `core` are the exception to plain hardcoded views: they have real Django models and applied migrations (`core.models.Staff`/`Student`/`School`, `hubs.inclusion.models` — Referral, Action, PanelReferral, etc.). Other hubs reference `core.models.Staff`/`Student` where they need real data (e.g. directory, dashboards) rather than duplicating hardcoded people. `Staff`/`Student` each have a nullable `school` FK to `core.models.School`; `portal.views.build_school_nav()` reads `School` rows (merged with hardcoded "All Schools"/"All Primary"/"All Secondary" aggregate entries) to drive the sidebar school-switcher instead of a hardcoded list.
 - Standard context per page: `local_menu` (list of `{name, url, icon}` for the hub's sidebar) and `hub_title`.
 - Templates: page extends `templates/layout.html`, includes `templates/hubs/_hub_sidebar.html` (driven by `local_menu`/`hub_title`) inside `{% block hub_sidebar %}`.
-- Icons are shared SVG templates under `templates/icons/`.
+- Icons are SVG templates under `templates/icons/`, grouped by ownership: `ui/`, `portal/`, or `hubs/<hub>/`. Do not add a vague `general/` bucket; hub-specific icons belong under their owning hub.
 
 ## Other notes
 

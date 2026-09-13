@@ -6,8 +6,8 @@ from core.models import CategorySettings, MatSettings, Module, School
 from core.portal_settings import FIELDS
 
 PORTALADMIN_MENU = [
-    {'name': 'Dashboard', 'url': '/portal-admin/', 'icon': 'icons/dashboard_svg.html'},
-    {'name': 'Themes', 'url': '/portal-admin/themes/', 'icon': 'icons/cog_svg.html'},
+    {'name': 'Dashboard', 'url': '/portal-admin/', 'icon': 'icons/hubs/student/dashboard_svg.html'},
+    {'name': 'Themes', 'url': '/portal-admin/themes/', 'icon': 'icons/portal/cog_svg.html'},
 ]
 
 PORTALADMIN_BASE_CONTEXT = {'local_menu': PORTALADMIN_MENU, 'hub_title': 'Portal Admin'}

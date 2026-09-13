@@ -4,16 +4,16 @@ from core.models import Staff
 from core.modules import filter_by_module, module_map
 
 STAFF_MENU = [
-    {'name': 'Staff Dashboard', 'url': '/staff/dashboard/', 'icon': 'icons/staff_dashboard_svg.html', 'module_key': 'staff_dashboard'},
-    {'name': 'Staff Reports', 'url': '/staff/reports/', 'icon': 'icons/reports_svg.html', 'module_key': 'staff_reports'},
-    {'name': 'My Timetable', 'url': '/staff/my-timetable/', 'icon': 'icons/timetable_grid_svg.html', 'module_key': 'staff_my_timetable'},
-    {'name': 'Staff Directory', 'url': '/staff/directory/', 'icon': 'icons/directory_svg.html', 'module_key': 'staff_directory'},
-    {'name': 'Absence Request', 'url': '/staff/absence-request/', 'icon': 'icons/absence_svg.html', 'module_key': 'staff_absence_request'},
-    {'name': 'Payslips', 'url': '/staff/payslips/', 'icon': 'icons/payslips_svg.html', 'module_key': 'staff_payslips'},
-    {'name': 'CPD & Training', 'url': '/staff/cpd-training/', 'icon': 'icons/training_cap_svg.html', 'module_key': 'staff_cpd_training'},
-    {'name': 'Staff Calendar', 'url': '/staff/calendar/', 'icon': 'icons/calendar_plain_svg.html', 'module_key': 'staff_calendar'},
-    {'name': 'Assessment Calendar', 'url': '/staff/assessment-calendar/', 'icon': 'icons/calendar_assessment_svg.html', 'module_key': 'staff_assessment_calendar'},
-    {'name': 'School Map', 'url': '/staff/school-map/', 'icon': 'icons/map_pin_svg.html', 'module_key': 'staff_school_map'},
+    {'name': 'Staff Dashboard', 'url': '/staff/dashboard/', 'icon': 'icons/hubs/staff/staff_dashboard_svg.html', 'module_key': 'staff_dashboard'},
+    {'name': 'Staff Reports', 'url': '/staff/reports/', 'icon': 'icons/hubs/staff/reports_svg.html', 'module_key': 'staff_reports'},
+    {'name': 'My Timetable', 'url': '/staff/my-timetable/', 'icon': 'icons/hubs/staff/timetable_grid_svg.html', 'module_key': 'staff_my_timetable'},
+    {'name': 'Staff Directory', 'url': '/staff/directory/', 'icon': 'icons/hubs/staff/directory_svg.html', 'module_key': 'staff_directory'},
+    {'name': 'Absence Request', 'url': '/staff/absence-request/', 'icon': 'icons/hubs/staff/absence_svg.html', 'module_key': 'staff_absence_request'},
+    {'name': 'Payslips', 'url': '/staff/payslips/', 'icon': 'icons/hubs/staff/payslips_svg.html', 'module_key': 'staff_payslips'},
+    {'name': 'CPD & Training', 'url': '/staff/cpd-training/', 'icon': 'icons/hubs/staff/training_cap_svg.html', 'module_key': 'staff_cpd_training'},
+    {'name': 'Staff Calendar', 'url': '/staff/calendar/', 'icon': 'icons/hubs/staff/calendar_plain_svg.html', 'module_key': 'staff_calendar'},
+    {'name': 'Assessment Calendar', 'url': '/staff/assessment-calendar/', 'icon': 'icons/hubs/staff/calendar_assessment_svg.html', 'module_key': 'staff_assessment_calendar'},
+    {'name': 'School Map', 'url': '/staff/school-map/', 'icon': 'icons/ui/map_pin_svg.html', 'module_key': 'staff_school_map'},
 ]
 
 

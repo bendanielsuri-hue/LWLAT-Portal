@@ -32,6 +32,7 @@ urlpatterns = [
     path('meetings/<int:panel_id>/agenda/', views.inclusion_panel_meeting_agenda, name='inclusion_panel_meeting_agenda'),
     path('meetings/<int:panel_id>/activity-poll/', views.inclusion_panel_meeting_activity_poll, name='inclusion_panel_meeting_activity_poll'),
     path('meetings/discussion/<int:panel_referral_id>/', views.inclusion_panel_discussion, name='inclusion_panel_discussion'),
+    path('meetings/discussion/<int:panel_referral_id>/recordings/', views.inclusion_panel_discussion_recording_upload, name='inclusion_panel_discussion_recording_upload'),
     path('panel-referral/<int:panel_referral_id>/discussion-summary/', views.inclusion_panel_discussion_summary, name='inclusion_panel_discussion_summary'),
 
     path('groups/new/', views.inclusion_panel_group_edit, name='inclusion_panel_group_new'),

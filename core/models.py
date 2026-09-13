@@ -11,6 +11,7 @@
 import datetime
 
 from django.db import models
+from django.db.models import F
 from django.utils import timezone
 
 # Reused by School/MatSettings/CategorySettings as the only colours available for
@@ -199,6 +200,7 @@ class Student(models.Model):
     # photos are more safeguarding-sensitive than staff photos and need a
     # deliberate sign-off before this holds anything but dummy data (#140).
     photo = models.ImageField(upload_to='student_photos/', blank=True, null=True)
+    safeguarding_notes_version = models.PositiveIntegerField(default=0)
 
     # Inclusion/SEND context fields.
     is_pp = models.BooleanField('Pupil Premium', default=False)
@@ -576,8 +578,13 @@ class SafeguardingNote(models.Model):
     def save(self, *args, **kwargs):
         # Single place enforcing the one-line/150-char constraint (#78),
         # rather than every caller remembering to slice before create()/save().
+        is_new = self.pk is None
         self.text = self.text[:150]
         super().save(*args, **kwargs)
+        if is_new:
+            Student.objects.filter(pk=self.student_id).update(
+                safeguarding_notes_version=F('safeguarding_notes_version') + 1
+            )
 
     def supersede(self, author, text):
         # "Editing" a note - see class docstring. Single owner for this so
@@ -588,6 +595,9 @@ class SafeguardingNote(models.Model):
         self.retired_by = author
         self.retirement_reason = self.RETIREMENT_REASON_SUPERSEDED
         self.save(update_fields=['retired_at', 'retired_by', 'retirement_reason'])
+        Student.objects.filter(pk=self.student_id).update(
+            safeguarding_notes_version=F('safeguarding_notes_version') + 1
+        )
         return new_note
 
     def retire(self, retired_by, reason, retirement_note=''):
@@ -596,6 +606,9 @@ class SafeguardingNote(models.Model):
         self.retirement_reason = reason
         self.retirement_note = retirement_note
         self.save(update_fields=['retired_at', 'retired_by', 'retirement_reason', 'retirement_note'])
+        Student.objects.filter(pk=self.student_id).update(
+            safeguarding_notes_version=F('safeguarding_notes_version') + 1
+        )
 
     def reactivate(self, reactivated_by):
         # Undoes a manual retire() (#84) - moves a note back from Inactive
@@ -617,3 +630,27 @@ class SafeguardingNote(models.Model):
             'retired_at', 'retired_by', 'retirement_reason', 'retirement_note',
             'reactivated_at', 'reactivated_by',
         ])
+        Student.objects.filter(pk=self.student_id).update(
+            safeguarding_notes_version=F('safeguarding_notes_version') + 1
+        )
+
+
+class SafeguardingReadinessConfirmation(models.Model):
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name='safeguarding_readiness_confirmations'
+    )
+    confirmed_by = models.ForeignKey(
+        Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='+'
+    )
+    confirmed_at = models.DateTimeField(auto_now_add=True)
+    notes_version = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ['-confirmed_at', '-id']
+
+    @property
+    def is_current(self):
+        current_version = Student.objects.values_list(
+            'safeguarding_notes_version', flat=True,
+        ).get(pk=self.student_id)
+        return self.notes_version == current_version

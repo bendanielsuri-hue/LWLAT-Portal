@@ -19,7 +19,8 @@ from core.identity import (
     student_queryset_for_school_key,
 )
 from core.models import (
-    AcademicYear, MatSettings, Referral as CoreReferral, SafeguardingNote, School, Staff, StaffGroup, Student, Term,
+    AcademicYear, MatSettings, Referral as CoreReferral, SafeguardingNote, SafeguardingReadinessConfirmation,
+    School, Staff, StaffGroup, Student, Term,
 )
 from core.dashboard_filters import Filter, FilterSet, equals, flag, tristate
 from core.school_scope import SchoolScope
@@ -64,19 +65,20 @@ from .models import (
     PanelMember,
     PanelReferral,
     PanelReferralNote,
+    PanelReferralRecording,
     ReferralCategory,
     ReferralQuestion,
     ReferralResponse,
 )
 
 PANEL_MENU = [
-    {'name': 'Home', 'url': '/inclusion/panel/', 'icon': 'icons/house_svg.html', 'module_key': 'inclusion_panel'},
-    {'name': 'Students', 'url': '/inclusion/panel/students/', 'icon': 'icons/student_single_svg.html', 'module_key': 'inclusion_panel_students'},
-    {'name': 'Referrals', 'url': '/inclusion/panel/referrals/', 'icon': 'icons/document_svg.html', 'module_key': 'inclusion_panel_referrals'},
-    {'name': 'Actions', 'url': '/inclusion/panel/actions/', 'icon': 'icons/checkmark_svg.html', 'module_key': 'inclusion_panel_actions'},
-    {'name': 'Panel Meetings', 'url': '/inclusion/panel/meetings/', 'icon': 'icons/clock_svg.html', 'module_key': 'inclusion_panel_meetings'},
-    {'name': 'Escalations', 'url': '/inclusion/panel/escalations/', 'icon': 'icons/escalate_tray_svg.html', 'module_key': 'inclusion_panel_escalations'},
-    {'name': 'Admin', 'url': '/inclusion/panel/settings/referral-questions/', 'icon': 'icons/registers_svg.html', 'module_key': 'inclusion_panel_settings'},
+    {'name': 'Home', 'url': '/inclusion/panel/', 'icon': 'icons/portal/house_svg.html', 'module_key': 'inclusion_panel'},
+    {'name': 'Students', 'url': '/inclusion/panel/students/', 'icon': 'icons/hubs/student/student_single_svg.html', 'module_key': 'inclusion_panel_students'},
+    {'name': 'Referrals', 'url': '/inclusion/panel/referrals/', 'icon': 'icons/hubs/inclusion/document_svg.html', 'module_key': 'inclusion_panel_referrals'},
+    {'name': 'Actions', 'url': '/inclusion/panel/actions/', 'icon': 'icons/ui/checkmark_svg.html', 'module_key': 'inclusion_panel_actions'},
+    {'name': 'Panel Meetings', 'url': '/inclusion/panel/meetings/', 'icon': 'icons/ui/clock_svg.html', 'module_key': 'inclusion_panel_meetings'},
+    {'name': 'Escalations', 'url': '/inclusion/panel/escalations/', 'icon': 'icons/hubs/inclusion/escalate_tray_svg.html', 'module_key': 'inclusion_panel_escalations'},
+    {'name': 'Admin', 'url': '/inclusion/panel/settings/referral-questions/', 'icon': 'icons/hubs/registers/registers_svg.html', 'module_key': 'inclusion_panel_settings'},
 ]
 
 
@@ -107,7 +109,7 @@ def _panel_base_context(request):
         local_menu = local_menu[:insert_at] + [{
             'name': 'Safeguarding Notes',
             'url': '/inclusion/panel/safeguarding-notes/',
-            'icon': 'icons/shield_check_svg.html',
+            'icon': 'icons/hubs/inclusion/shield_check_svg.html',
         }] + local_menu[insert_at:]
     return {
         'local_menu': local_menu,
@@ -563,7 +565,7 @@ def _recent_activity(scoped_students, school_key, limit=8):
         events.append({
             'timestamp': referral.created_at,
             'text': f'Referral created for {referral.student}',
-            'icon': 'document', 'accent': 'primary',
+            'icon': 'hubs/inclusion/document', 'accent': 'primary',
         })
     for action in (
         Action.objects.filter(referral__student__in=scoped_students, completed_at__isnull=False)
@@ -572,7 +574,7 @@ def _recent_activity(scoped_students, school_key, limit=8):
         events.append({
             'timestamp': action.completed_at,
             'text': f'Action completed for {action.referral.student}',
-            'icon': 'checkmark', 'accent': 'positive',
+            'icon': 'ui/checkmark', 'accent': 'positive',
         })
     for pr in (
         PanelReferral.objects.filter(referral__student__in=scoped_students, removed_at__isnull=True)
@@ -581,7 +583,7 @@ def _recent_activity(scoped_students, school_key, limit=8):
         events.append({
             'timestamp': pr.created_at,
             'text': f'{pr.referral.student} assigned to panel',
-            'icon': 'people', 'accent': 'exceeding',
+            'icon': 'portal/people', 'accent': 'exceeding',
         })
     completed_panels = _panels_for_school_key(
         Panel.objects.filter(status='complete', ended_at__isnull=False).select_related('panel_group__school'),
@@ -592,7 +594,7 @@ def _recent_activity(scoped_students, school_key, limit=8):
         label = f'{school_name} panel meeting completed' if school_name else 'Panel meeting completed'
         events.append({
             'timestamp': panel.ended_at, 'text': label,
-            'icon': 'checkmark', 'accent': 'positive',
+            'icon': 'ui/checkmark', 'accent': 'positive',
         })
 
     events.sort(key=lambda e: e['timestamp'], reverse=True)
@@ -3815,7 +3817,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
             # stays at the coarser is_panel_staff level everywhere else this
             # displays. No panel link (SafeguardingNote is student-scoped
             # only, see #77-#81) - readiness for *this* meeting is tracked
-            # separately via PanelReferral.briefing_ready.
+            # separately via the student's readiness confirmation.
             text = request.POST.get('text', '').strip()
             if text and current_staff and current_staff.is_dsl:
                 SafeguardingNote.objects.create(
@@ -3881,11 +3883,10 @@ def inclusion_panel_discussion(request, panel_referral_id):
     # not derivable from discussion_started_at alone since a GET must never
     # mutate it). Old rule was "no note prepared for this specific meeting"
     # - not representable once notes have no panel FK, so this collapses to
-    # the only signal still scoped to (student, panel): briefing_ready
-    # itself (kept on PanelReferral, unchanged - see #79).
+    # the student's current, version-anchored readiness confirmation.
     show_safeguarding_modal = (
         request.GET.get('discussion_started') == '1'
-        and not panel_referral.briefing_ready
+        and not _student_safeguarding_ready(referral.student)
     )
 
     # Attendance/Behaviour/Positive Behaviour cards (#95) each have a
@@ -3942,6 +3943,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
         'actions': actions,
         'categories': visible_categories_for(current_staff),
         'panel_notes': panel_referral.notes.select_related('author'),
+        'recordings': panel_referral.recordings.select_related('recorded_by'),
         'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),
         'next_term_date': next_term(referral.student.school, timezone.localdate()),
         # Named (e.g. "Summer Term (...)") rather than a generic "Next Term"
@@ -3956,6 +3958,37 @@ def inclusion_panel_discussion(request, panel_referral_id):
     }
 
     return render(request, 'hubs/inclusion/panel/discussion.html', context)
+
+
+def inclusion_panel_discussion_recording_upload(request, panel_referral_id):
+    # Separate AJAX endpoint rather than a form_actions.py dispatch entry
+    # (form_actions.py's docstring) - this posts a captured audio blob via
+    # FormData, not a hidden form_action field, and returns JSON for the
+    # recorder widget to append a row without a full page reload, same
+    # convention as inclusion_panel_action_inline_update below.
+    if request.method != 'POST':
+        return JsonResponse({'success': False}, status=405)
+
+    panel_referral = get_object_or_404(PanelReferral, pk=panel_referral_id)
+    audio_file = request.FILES.get('audio')
+    if not audio_file:
+        return JsonResponse({'success': False, 'error': 'No audio received.'}, status=400)
+
+    current_staff = _current_staff(request)
+    duration_raw = request.POST.get('duration_seconds')
+    recording = PanelReferralRecording.objects.create(
+        panel_referral=panel_referral,
+        recorded_by=current_staff,
+        audio=audio_file,
+        duration_seconds=int(duration_raw) if duration_raw and duration_raw.isdigit() else None,
+    )
+    return JsonResponse({
+        'success': True,
+        'id': recording.id,
+        'url': recording.audio.url,
+        'created_at': timezone.localtime(recording.created_at).strftime('%d/%m/%Y %H:%M'),
+        'recorded_by': full_name(current_staff) if current_staff else 'Unknown',
+    })
 
 
 def inclusion_panel_action_inline_update(request, action_id):
@@ -4072,8 +4105,6 @@ def _safeguarding_note_rows(
         qs = qs.filter(referral__student__is_pp=True)
     elif pp_filter == '0':
         qs = qs.filter(referral__student__is_pp=False)
-    if not_ready_filter:
-        qs = qs.filter(briefing_ready=False)
     panel_referrals = list(qs.order_by('panel__date', 'panel__time'))
 
     student_notes_cache = {}
@@ -4098,15 +4129,28 @@ def _safeguarding_note_rows(
                 sorted(retired_visible, key=lambda n: n.retired_at, reverse=True),
             )
         notes, history = student_notes_cache[student.id]
+        is_ready = _student_safeguarding_ready(student)
+        if not_ready_filter and is_ready:
+            continue
         rows.append({
             'panel_referral': pr,
             'panel': pr.panel,
             'student': student,
             'notes': notes,
             'has_briefing': bool(notes),
+            'is_ready': is_ready,
             'history': history,
         })
     return rows
+
+
+def _student_safeguarding_ready(student):
+    confirmation = SafeguardingReadinessConfirmation.objects.filter(
+        student=student,
+    ).order_by('-confirmed_at', '-id').first()
+    return bool(
+        confirmation and confirmation.notes_version == student.safeguarding_notes_version
+    )
 
 
 def _safeguarding_note_extra_context(request):
@@ -4185,7 +4229,7 @@ def inclusion_panel_safeguarding_notes(request):
         gender_filter=gender_filter, ethnicity_filter=ethnicity_filter, pp_filter=pp_filter,
         not_ready_filter=not_ready_filter,
     )
-    needs_briefing_count = sum(1 for r in rows if not r['has_briefing'])
+    needs_briefing_count = sum(1 for r in rows if not r['is_ready'])
     ready_count = len(rows) - needs_briefing_count
     # rows is one per (student, panel) pair, not one per student - a student
     # on two upcoming panels would otherwise be double-counted here the way
@@ -4299,7 +4343,7 @@ def _reactivatable_student_note(student, note_id):
 def inclusion_panel_safeguarding_notes_mutate(request, panel_referral_id):
     # Add/edit(=supersede)/delete(=retire)/reactivate a note in this
     # student's SafeguardingNote list, and toggle this (student, panel)
-    # pair's briefing_ready flag. Gated on is_dsl only - see
+    # student's readiness confirmation. Gated on is_dsl only - see
     # SafeguardingNote's docstring/#78 for why the old "still drafting,
     # panel not complete" exception no longer applies. "Delete" in the UI
     # is still the model's existing soft retire() (#78's no-hard-delete
@@ -4329,9 +4373,12 @@ def inclusion_panel_safeguarding_notes_mutate(request, panel_referral_id):
             note = _reactivatable_student_note(student, request.POST.get('note_id'))
             if note:
                 note.reactivate(current_staff)
-        elif form_action == form_actions.TOGGLE_READY:
-            panel_referral.briefing_ready = not panel_referral.briefing_ready
-            panel_referral.save(update_fields=['briefing_ready'])
+        elif form_action == form_actions.CONFIRM_SAFEGUARDING_READINESS:
+            SafeguardingReadinessConfirmation.objects.create(
+                student=student,
+                confirmed_by=current_staff,
+                notes_version=student.safeguarding_notes_version,
+            )
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         rows = _safeguarding_note_rows(request)

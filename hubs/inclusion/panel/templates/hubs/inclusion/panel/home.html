@@ -168,11 +168,11 @@ Each card's own <h2> is its own "where am I" cue.
                 {% endcomment %}
                 {% if not referral.discussed_pr %}
                 <div class="stack-item-actions">
-                    <button type="button" class="btn btn-edit btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}"><span class="btn-icon">{% include 'icons/edit_svg.html' %}</span> <span class="btn-label">Edit</span></button>
+                    <button type="button" class="btn btn-edit btn-sm" data-edit-referral-trigger data-referral-id="{{ referral.id }}" data-next="{% url 'inclusion_panel' %}"><span class="btn-icon">{% include 'icons/ui/edit_svg.html' %}</span> <span class="btn-label">Edit</span></button>
                     <form method="post" action="{% url 'inclusion_panel_referral_delete' referral.id %}" data-row-remove-form data-confirm-message="Delete this referral? This cannot be undone.">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{% url 'inclusion_panel' %}">
-                        <button type="submit" class="btn btn-delete btn-sm"{% if not referral.can_delete %} disabled data-disabled-reason="Already assigned to a panel - remove it from the panel first to delete it"{% endif %}><span class="btn-icon">{% include 'icons/delete_svg.html' %}</span> <span class="btn-label">Delete</span></button>
+                        <button type="submit" class="btn btn-delete btn-sm"{% if not referral.can_delete %} disabled data-disabled-reason="Already assigned to a panel - remove it from the panel first to delete it"{% endif %}><span class="btn-icon">{% include 'icons/ui/delete_svg.html' %}</span> <span class="btn-label">Delete</span></button>
                     </form>
                 </div>
                 {% else %}
@@ -236,7 +236,7 @@ Each card's own <h2> is its own "where am I" cue.
                 <div class="panel-preview-top">
                     <span class="panel-preview-logo">
                         {% if preview.school_logo_url %}<img src="{{ preview.school_logo_url }}" alt="">
-                        {% else %}{% include 'icons/school_logo_placeholder_svg.html' %}{% endif %}
+                        {% else %}{% include 'icons/portal/school_logo_placeholder_svg.html' %}{% endif %}
                     </span>
                     <div class="panel-preview-heading">
                         <div class="panel-preview-title">{{ preview.school_name }} Panel Meeting
@@ -248,11 +248,11 @@ Each card's own <h2> is its own "where am I" cue.
                 </div>
                 <div class="btn-row">
                     {% if preview.is_running %}
-                    <a href="{% url 'inclusion_panel_meeting_agenda' preview.panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Resume Panel Meeting</a>
+                    <a href="{% url 'inclusion_panel_meeting_agenda' preview.panel.id %}" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/ui/play_svg.html' %}</span> Resume Panel Meeting</a>
                     {% elif preview.is_today and preview.can_manage %}
                     <form method="post" action="{% url 'inclusion_panel_meeting_start' preview.panel.id %}" style="display:inline">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/play_svg.html' %}</span> Start Panel Meeting</button>
+                        <button type="submit" class="btn btn-secondary btn-sm"><span class="btn-icon">{% include 'icons/ui/play_svg.html' %}</span> Start Panel Meeting</button>
                     </form>
                     {% endif %}
                 </div>
@@ -296,7 +296,7 @@ Each card's own <h2> is its own "where am I" cue.
     <div class="stats-carousel-track" id="stats-carousel-track">
         <div class="stats-carousel-slot">
             <a class="stat-card stat-card--accent-primary selectable" href="{% url 'inclusion_panel_referrals' %}?status=active">
-                <div class="stat-card-icon">{% include 'icons/document_svg.html' %}</div>
+                <div class="stat-card-icon">{% include 'icons/hubs/inclusion/document_svg.html' %}</div>
                 <div class="stat-card-text">
                     <div class="stat-value">{{ active_referrals_count }}</div>
                     <div class="stat-label">Active<br>Referrals</div>
@@ -305,7 +305,7 @@ Each card's own <h2> is its own "where am I" cue.
         </div>
         <div class="stats-carousel-slot">
             <a class="stat-card stat-card--accent-{{ actions_overdue_total_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=overdue">
-                <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
+                <div class="stat-card-icon">{% include 'icons/ui/clock_svg.html' %}</div>
                 <div class="stat-card-text">
                     <div class="stat-value">{{ actions_overdue_total }}</div>
                     <div class="stat-label">Overdue<br>Actions</div>
@@ -314,7 +314,7 @@ Each card's own <h2> is its own "where am I" cue.
         </div>
         <div class="stats-carousel-slot">
             <a class="stat-card stat-card--accent-{{ actions_due_this_week_accent }} selectable" href="{% url 'inclusion_panel_actions' %}?due=this_week">
-                <div class="stat-card-icon">{% include 'icons/clock_svg.html' %}</div>
+                <div class="stat-card-icon">{% include 'icons/ui/clock_svg.html' %}</div>
                 <div class="stat-card-text">
                     <div class="stat-value">{{ actions_due_this_week }}</div>
                     <div class="stat-label">Actions Due<br>This Week</div>
@@ -323,7 +323,7 @@ Each card's own <h2> is its own "where am I" cue.
         </div>
         <div class="stats-carousel-slot">
             <a class="stat-card stat-card--accent-{{ followups_due_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=overdue_review">
-                <div class="stat-card-icon">{% include 'icons/arrow_up_svg.html' %}</div>
+                <div class="stat-card-icon">{% include 'icons/ui/arrow_up_svg.html' %}</div>
                 <div class="stat-card-text">
                     <div class="stat-value">{{ followups_due_count }}</div>
                     <div class="stat-label">Referrals<br>Due a Review</div>
@@ -332,7 +332,7 @@ Each card's own <h2> is its own "where am I" cue.
         </div>
         <div class="stats-carousel-slot">
             <a class="stat-card stat-card--accent-{{ unassigned_referrals_count_accent }} selectable" href="{% url 'inclusion_panel_referrals' %}?stage=open">
-                <div class="stat-card-icon">{% include 'icons/new_svg.html' %}</div>
+                <div class="stat-card-icon">{% include 'icons/ui/new_svg.html' %}</div>
                 <div class="stat-card-text">
                     <div class="stat-value">{{ unassigned_referrals_count }}</div>
                     <div class="stat-label">Unassigned<br>Referrals</div>
@@ -347,7 +347,7 @@ Each card's own <h2> is its own "where am I" cue.
         {% endcomment %}
         <div class="stats-carousel-slot">
             <a class="stat-card stat-card--accent-{{ needs_briefing_count_accent }} selectable" href="{% url 'inclusion_panel_safeguarding_notes' %}">
-                <div class="stat-card-icon">{% include 'icons/shield_check_svg.html' %}</div>
+                <div class="stat-card-icon">{% include 'icons/hubs/inclusion/shield_check_svg.html' %}</div>
                 <div class="stat-card-text">
                     <div class="stat-value">{{ needs_briefing_count }}</div>
                     <div class="stat-label">Safeguarding<br>Notes Needed</div>

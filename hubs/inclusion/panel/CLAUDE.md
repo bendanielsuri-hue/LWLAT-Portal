@@ -13,7 +13,7 @@ All DB tables keep their original `inclusion_*` names (set via `Meta.db_table` o
 - `Referral` — one referral per student (`status`: open / assigned / discussing / review_scheduled / awaiting_review / overdue_review / closed, aggregated by `lifecycle.sync_referral_status`. `assigned`/`discussing` = genuinely on a panel's live agenda right now (same words as `lifecycle.stage`'s stage_key). The other three cover "discussed before, follow-up due, not on any current agenda" tiered by days until the follow-up's due date: `review_scheduled` (>7 days away), `awaiting_review` (within 7 days either side), `overdue_review` (>7 days past))
 - `Action` / `ActionCategory` — tasks arising from referrals; `ActionCategory.is_sensitive` controls visibility for non-panel staff
 
-Safeguarding notes now live in `core.models.SafeguardingNote`, not here — see this app's own CONTEXT.md and `core/CONTEXT.md`. Decoupled from Panel entirely (#77-#81); only `PanelReferral.briefing_ready` below stays panel-side.
+Safeguarding notes now live in `core.models.SafeguardingNote`, not here — see this app's own CONTEXT.md and `core/CONTEXT.md`. Decoupled from Panel entirely (#77-#81); readiness is a student-scoped confirmation in `core`.
 
 **Panel meeting structure:**
 - `PanelGroup` — staff group scoped to a `School` (nullable); holds `default_chair`
@@ -22,7 +22,7 @@ Safeguarding notes now live in `core.models.SafeguardingNote`, not here — see 
 - `ExternalContact` — guest speakers / external professionals who aren't `Staff`
 - `Panel` — a meeting session (`date`, `time`, `chair`, `status`, `panel_group`, `started_at`)
 - `PanelMember` — per-meeting *attendance* only (`checked_in_at`/`left_at` against a `PanelGroupMember`), not a roster — see `_panel_member_roster()` below and [docs/adr/0005-merge-panel-membership-into-panelgroupmember.md](../../../docs/adr/0005-merge-panel-membership-into-panelgroupmember.md)
-- `PanelReferral` — links a `Referral` to a `Panel`; tracks `discussion_status`, timing, follow-up. `briefing_ready` (bool, default `False`) is a DSL's own "briefing done" mark for this (student, panel) pair, set from the Safeguarding Notes screen — see #71/#74. Deliberately kept here, not decoupled alongside `SafeguardingNote` (#79)
+- `PanelReferral` — links a `Referral` to a `Panel`; tracks `discussion_status`, timing, and follow-up. Safeguarding readiness is not panel-scoped: `core.SafeguardingReadinessConfirmation` records which DSL confirmed the student's current note state.
 - `PanelReferralNote` — add-only thread notes during discussion (never edited)
 - `Escalation` — escalated referral with resolution tracking
 

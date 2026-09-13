@@ -53,7 +53,7 @@ export function initPersonPicker(rootEl) {
         return div.innerHTML;
     }
 
-    // Mirrors templates/icons/avatar_placeholder_svg.html - inlined here
+    // Mirrors templates/icons/portal/avatar_placeholder_svg.html - inlined here
     // since search results are built in JS from fetched JSON, not rendered
     // via {% include %} (same reasoning as HUB_RESULT_ICONS above).
     var AVATAR_PLACEHOLDER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +

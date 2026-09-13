@@ -28,7 +28,7 @@ Each hub also defines a `_hub_context(request)` helper — `{'local_menu': _loca
 - Page template extends `templates/layout.html`.
 - Includes `templates/hubs/_hub_sidebar.html` (driven by `local_menu`/`hub_title`) inside `{% block hub_sidebar %}`.
 - Hub-specific templates live at `hubs/<name>/templates/hubs/<name>/`.
-- Icons are shared SVG templates under `templates/icons/`.
+- Icons are SVG templates under `templates/icons/`; hub-specific icons belong under `templates/icons/hubs/<hub>/`, while shared controls belong under `ui/` and global shell icons under `portal/`.
 
 ## Adding a new page to a hub
 
