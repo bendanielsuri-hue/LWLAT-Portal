@@ -70,6 +70,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - uses: anthropics/claude-code-action@v1
+        id: claude
+        continue-on-error: true
         if: steps.time_check.outputs.allowed == 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -89,27 +91,49 @@ jobs:
             explaining what's blocking you and what you need, and remove
             the ready-for-agent label rather than guessing.
 
-      # A finished run has opened a PR, so the issue now wants a human, not
-      # another agent. Without this swap a worked ticket looks identical to
-      # an untouched one in the issue list, and reapplying the label sets a
+      # Label the outcome, so the issue list distinguishes a ticket an
+      # agent has already been at from one nothing has touched. Without this a worked ticket looked
+      # identical to an untouched one, and reapplying the label would set a
       # second agent off duplicating a PR that already exists.
       #
-      # The check is on the label still being present, not on the step's
-      # exit status: the prompt tells the agent to remove `ready-for-agent`
-      # itself when it gives up and asks for help, and that path also exits
-      # zero. The label surviving is what actually distinguishes a completed
-      # run from a bailed one.
+      # Two outcomes, and the label is the only durable record of which:
+      # `ready-for-review` (finished, PR open) and `agent-failed` (errored,
+      # or the agent gave up).
+      #
+      # The two failures are told apart by the label rather than by exit
+      # status alone: the prompt tells a stuck agent to remove
+      # `ready-for-agent` itself before commenting, and that path exits zero
+      # like a success does. So a zero exit with the label still on is the
+      # only reliable signature of a completed run. A hard failure also gets
+      # a comment here, since unlike the agent's own bail it leaves no
+      # explanation on the issue at all — only a run log.
+      #
+      # `continue-on-error` on the agent step keeps this step reachable on a
+      # failure; the run is marked failed at the end so the Actions list
+      # still shows red.
       #
       # Adding a label re-fires this `labeled` workflow. The job's `if`
       # filters it out immediately (the added label isn't `ready-for-agent`),
       # so the cost is one skipped run in the Actions list, not a loop.
-      - name: Hand back for review
-        if: steps.time_check.outputs.allowed == 'true' && success()
+      - name: Label the outcome
+        if: steps.time_check.outputs.allowed == 'true'
         run: |
           issue="${{ github.event.issue.number }}"
           repo="${{ github.repository }}"
-          if gh issue view "$issue" --repo "$repo" --json labels                --jq '.labels[].name' | grep -qx 'ready-for-agent'; then
-            gh issue edit "$issue" --repo "$repo"               --remove-label ready-for-agent --add-label ready-for-review
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ "${{ steps.claude.outcome }}" = "failure" ]; then
+            gh issue edit "$issue" --repo "$repo" --remove-label ready-for-agent --add-label agent-failed || true
+            gh issue comment "$issue" --repo "$repo" --body "The AFK agent run errored before opening a PR. Log: $run_url"
+            exit 1
+          fi
+
+          if gh issue view "$issue" --repo "$repo" --json labels --jq '.labels[].name' | grep -qx 'ready-for-agent'; then
+            gh issue edit "$issue" --repo "$repo" --remove-label ready-for-agent --add-label ready-for-review
+          else
+            # The agent removed the label itself: it stopped and explained
+            # why in its own comment, so don't add another one here.
+            gh issue edit "$issue" --repo "$repo" --add-label agent-failed
           fi
         env:
           GH_TOKEN: ${{ github.token }}

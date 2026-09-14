@@ -23,7 +23,14 @@ Edit the right-hand column to match whatever vocabulary you actually use.
 | `needs-stronger-model`  | Fully specified, but beyond what the AFK agent's configured model handles well — run it attended with a stronger model. |
 | `needs-budget-approval` | Fully specified, but large enough that an unattended run would burn a meaningful chunk of the credit budget — run it deliberately. |
 
-`ready-for-review` is the other end of the same run: a completed AFK run swaps `ready-for-agent` for it, so a ticket with a PR waiting is distinguishable in the issue list from one nothing has touched yet. It is set by the workflow, not by hand — the issue stays open either way, since the agent never merges its own PR.
+A finished AFK run always swaps `ready-for-agent` for one of two outcome labels, so no ticket is left looking untouched after an agent has been at it. Both are set by the workflow, not by hand, and neither closes the issue — the agent never merges its own PR.
+
+| Label | Meaning |
+| ----- | ------- |
+| `ready-for-review` | The run finished and opened a PR. Yours to review and merge. |
+| `agent-failed` | The run errored, or the agent stopped and asked for help. Either way there is a comment on the issue saying what happened. |
+
+`agent-failed` deliberately covers both failure modes under one label. They differ in where the explanation lives — a stuck agent writes its own comment, a hard failure gets one from the workflow pointing at the run log — but in both cases the next move is the same: a human reads the issue and decides whether to respecify it, relabel it, or take it on.
 
 Either one present on the issue makes `.github/workflows/afk-agent.yml` skip the run entirely. The skip is silent — the job never starts, so there is no comment on the issue, unlike the off-hours gate. These are opt-out, not opt-in: a ticket nobody has judged still runs, on the grounds that a wasted run costs less than a queue that silently stalls because a label was forgotten.
 
