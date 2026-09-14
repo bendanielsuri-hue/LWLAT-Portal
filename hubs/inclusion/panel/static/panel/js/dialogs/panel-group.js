@@ -513,8 +513,9 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
     //     that already has one) - Panel has no school field of its own,
     //     only via panel.panel_group.school, but the select's selected
     //     <option> already carries that as data-school.
-    //  3. The sidebar School-switcher filter (resolvePanelSchoolFilter) -
-    //     today's only signal, still the right fallback when neither of
+    //  3. The sidebar School switcher's own selection
+    //     (resolvePanelSchoolFilter, read from the cookie the server reads)
+    //     - today's only signal, still the right fallback when neither of
     //     the above apply (e.g. no group chosen yet, or called from
     //     outside any dialog).
     function resolveCreateGroupSchoolId(select, hostDialog) {
@@ -529,11 +530,7 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
             if (current && current.dataset.school) return current.dataset.school;
         }
 
-        if (select) {
-            var options = Array.prototype.slice.call(select.options).filter(function (opt) { return opt.value; });
-            return resolvePanelSchoolFilter(options, select.dataset.currentStaffSchool);
-        }
-        return '';
+        return select ? resolvePanelSchoolFilter(select.dataset.currentStaffSchool) : '';
     }
 
     // Swaps `hostDialog`'s .modal-body over to a bare "Create Panel Group"

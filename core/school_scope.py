@@ -42,6 +42,30 @@ CATEGORY_KEYS = {'primary': 'Primary', 'secondary': 'Secondary'}
 AGGREGATE_SCHOOL_KEYS = EVERY_SCHOOL_KEYS + tuple(CATEGORY_KEYS)
 
 
+def canonical_key(key):
+    """The key as this module understands it, or 'all' for anything it doesn't.
+
+    The key arrives from a cookie, which is client-controlled text that no
+    view validates, so "a School.id" is really "any string at all". Before
+    this existed, a cookie of `current_school_key=nonexistent` reached
+    `Q(school_id='nonexistent')` and Django raised ValueError out of the
+    sidebar's own context processor - every page 500ed until the user found
+    the cookie. Anything that is neither an aggregate key nor a run of digits
+    is therefore read as "no school chosen", which is also what an absent
+    cookie means.
+
+    Whether a numeric id names a School that still exists is a database
+    question and belongs at the cookie-reading seam - see
+    core.identity.current_school_key.
+    """
+    if key is None or key in AGGREGATE_SCHOOL_KEYS:
+        return key
+    text = str(key).strip()
+    if text in AGGREGATE_SCHOOL_KEYS:
+        return text
+    return text if text.isdigit() else 'all'
+
+
 class SchoolScope:
     """One school-switcher selection, decoded once.
 
@@ -51,7 +75,9 @@ class SchoolScope:
     """
 
     def __init__(self, key):
-        self.key = key
+        # Decoded once, and made safe once: every caller below can then treat
+        # self.key as one of the four shapes the docstring names.
+        self.key = canonical_key(key)
 
     @classmethod
     def from_request(cls, request):

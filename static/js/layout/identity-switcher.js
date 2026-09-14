@@ -9,28 +9,28 @@
    school-filtered staff list, the default identity), so re-rendering is both
    simpler and the only way to keep those three consistent with each other. */
 
+import { COOKIE_NAME as SCHOOL_COOKIE } from './school-key.js';
+
 /* Shared by both switchers: persist a chosen value to a cookie and reload. */
-function setupCookieSwitcher(options, cookieName, datasetKey, onClick) {
+function setupCookieSwitcher(options, cookieName, datasetKey) {
     options.forEach(function (opt) {
         opt.addEventListener('click', function () {
             var value = opt.dataset[datasetKey];
             document.cookie = cookieName + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; SameSite=Lax';
-            if (onClick) onClick(opt);
             location.reload();
         });
     });
 }
 
 /* School switcher: persists the selected school so the server can filter the
-   identity dropdown and pick a sensible default identity. */
+   identity dropdown and pick a sensible default identity. The cookie is the
+   only place the selection is kept (#196) - anything client-side that needs
+   to know which school is selected reads it back via school-key.js rather
+   than keeping its own copy. */
 export function initSchoolSwitcher() {
     var options = Array.prototype.slice.call(document.querySelectorAll('.school-nav-option[data-key]'));
     if (!options.length) return;
-    setupCookieSwitcher(options, 'current_school_key', 'key', function (opt) {
-        // Mirrors the selection for hubs/inclusion/templates/hubs/inclusion/panel/meeting_setup.html,
-        // which still reads this localStorage key to default its own school filter.
-        try { localStorage.setItem('pref-school', opt.dataset.school); } catch (e) { }
-    });
+    setupCookieSwitcher(options, SCHOOL_COOKIE, 'key');
 }
 
 /* Current-user identity switcher: a full overlay nav (like "Select School"),
