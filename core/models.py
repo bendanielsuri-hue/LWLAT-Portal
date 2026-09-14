@@ -521,6 +521,48 @@ class Referral(models.Model):
         return f'{self.get_referral_type_display()} referral #{self.pk} - {self.student}'
 
 
+class ThreadEntryQuerySet(models.QuerySet):
+    def visible(self):
+        # The one definition of "still in the thread". Soft-deleted entries
+        # stay in the table (an action chased four times and half-retracted
+        # is a different history from one nobody touched), so every read path
+        # has to filter, and a path that forgets silently resurrects them.
+        return self.filter(deleted_at__isnull=True)
+
+
+class ThreadEntry(models.Model):
+    """What every dated, attributed thread on this portal is made of.
+
+    Abstract, so each thread keeps its own table and its own real foreign key
+    (ActionUpdate.action, and the meeting-note thread when it moves across).
+    A single generic table keyed by content type was the alternative and was
+    rejected: it would make every per-thread query a join through a type id,
+    and it would put entries on sensitive and non-sensitive parents in one
+    table, so the Action sensitivity gate could no longer be expressed as a
+    filter on the parent. See docs/adr/0031.
+
+    Concrete subclasses supply the parent FK, `db_table` and `ordering`
+    (oldest-first - a thread reads as a history, top to bottom).
+    """
+
+    body = models.TextField()
+    author = models.ForeignKey(Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Null until an edit actually happens, so "edited" is a fact about the
+    # entry rather than something every row claims from birth.
+    edited_at = models.DateTimeField(null=True, blank=True)
+    # Soft delete: see ThreadEntryQuerySet.visible() above.
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = ThreadEntryQuerySet.as_manager()
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return f'{type(self).__name__} #{self.pk} ({self.created_at:%Y-%m-%d})'
+
+
 class SafeguardingNote(models.Model):
     # A DSL's atomic, one-line safeguarding statement about a student -
     # student-scoped only, no link to any Panel/Referral. Relocated to core

@@ -85,15 +85,53 @@
                 <label class="ui-fused-field-label" for="action-modal-due-date">Custom Date</label>
                 <input type="date" id="action-modal-due-date" name="due_date" value="{{ action.due_date|date:'Y-m-d' }}">
             </span>
+            {% comment %}
+            Only in edit mode: a create has no Action for a thread to hang
+            off, and opening every create on a dead empty thread is exactly
+            what keeping Updates behind a step avoids. Same static-text +
+            fused button shape as the Staff Assigned row above - the count is
+            the whole summary, so there is nothing to show inline.
+            {% endcomment %}
+            {% if action %}
+            <span class="ui-fused-field">
+                <span class="ui-fused-field-label">Updates</span>
+                <span class="ui-fused-field-value" data-action-updates-count>{{ updates|length }}</span>
+                <button type="button" class="ui-fused-field-add btn btn-edit btn-sm" data-action-updates-toggle aria-label="View and add updates"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/edit.svg' %}#icon"></use></svg></span></button>
+            </span>
+            {% endif %}
         </div>
 
         <div data-action-step-assign hidden>
             {% include 'hubs/inclusion/panel/_action_assign_fields.html' with school_id=referral.student.school_id year_group=referral.student.year_group initial_type=initial_assign_type initial_id=initial_assign_id initial_name=initial_assign_name %}
         </div>
 
+        {% comment %}
+        The third step (details / assign / updates), reached from the details
+        step's Updates row and left by the same Back button the assign step
+        uses. Not a second dialog, and not always-visible under the form -
+        below the form it would push Save under an unbounded list.
+
+        Posting is a fetch, not a submit: this whole modal is already a
+        <form> and HTML forbids a nested one, so the button posts
+        add_action_update to the same view and appends the entry it answers
+        with. Oldest-first, matching the Discussion's note thread - a thread
+        reads as a history.
+        {% endcomment %}
+        <div data-action-step-updates hidden>
+            <div class="note-thread" data-action-updates-thread>
+                {% for update in updates %}{% include 'hubs/inclusion/panel/_action_update_entry.html' %}{% endfor %}
+            </div>
+            <p class="note-thread-empty" data-action-updates-empty {% if updates %}hidden{% endif %}>No updates yet.</p>
+            <span class="ui-fused-field">
+                <label class="ui-fused-field-label" for="action-modal-update-body">New Update</label>
+                <textarea id="action-modal-update-body" data-action-update-body placeholder="What was tried?"></textarea>
+            </span>
+        </div>
+
         <div class="btn-row">
             <button type="button" class="btn btn-sm" data-modal-close data-action-cancel-btn>Cancel</button>
             <button type="button" class="btn btn-sm" data-action-back-btn hidden>Back</button>
+            <button type="button" class="btn btn-add btn-sm" data-action-update-post-btn hidden><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/new.svg' %}#icon"></use></svg></span> Post Update</button>
             <button type="submit" class="btn btn-add btn-sm" data-action-save-btn><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/new.svg' %}#icon"></use></svg></span> {% if action %}Save{% else %}Add Action{% endif %}</button>
         </div>
     </form>

@@ -55,6 +55,7 @@ from . import form_actions, lifecycle, presenters, reconcile
 from .models import (
     Action,
     ActionCategory,
+    ActionUpdate,
     Escalation,
     Expertise,
     ExternalContact,
@@ -2394,6 +2395,25 @@ def inclusion_panel_action_new(request, referral_id):
     origin_panel_referral_id = request.GET.get('panel_referral') or request.POST.get('panel_referral') or None
 
     if request.method == 'POST':
+        # The Updates thread posts to this same view rather than a URL of
+        # its own, so it inherits the sensitive-category redirect above for
+        # free - an update is exactly as reachable as the action it hangs off,
+        # with no sensitivity of its own (see ActionUpdate). It arrives as a
+        # fetch body because the modal is already a <form> and HTML forbids a
+        # nested one, and it answers with the rendered entry rather than a
+        # redirect so the thread grows in place without throwing away the
+        # half-filled form around it.
+        if request.POST.get('form_action') == form_actions.ADD_ACTION_UPDATE:
+            body = request.POST.get('body', '').strip()
+            if not action or not body:
+                return JsonResponse({'success': False})
+            update = ActionUpdate.objects.create(
+                action=action, author=_current_staff(request), body=body,
+            )
+            return JsonResponse({'success': True, 'html': render_to_string(
+                'hubs/inclusion/panel/_action_update_entry.html', {'update': update}, request=request,
+            )})
+
         category_id = request.POST.get('category') or None
         if category_id and not categories.filter(pk=category_id).exists():
             category_id = None
@@ -2440,6 +2460,10 @@ def inclusion_panel_action_new(request, referral_id):
         'initial_assign_id': initial_assign_id,
         'initial_assign_name': initial_assign_name,
         'auto_assign_by_category': auto_assign_by_category,
+        # Empty in create mode - there is no Action to hang a thread off
+        # yet, which is also why the details step's Updates row only renders
+        # for an edit (see _action_form_modal.html).
+        'updates': list(action.updates.visible().select_related('author')) if action else [],
         'next': request.GET.get('next', ''),
         'panel_referral_id': origin_panel_referral_id,
         'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),

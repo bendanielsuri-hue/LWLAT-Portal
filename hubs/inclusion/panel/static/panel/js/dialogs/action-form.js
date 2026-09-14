@@ -6,10 +6,12 @@
    POST that redirects the whole page back to wherever it opened from
    (Discussion today, kept generic for other future callers) rather than
    swapping anything in place - there's no in-place update to do since the
-   new Action's row belongs to a page this dialog doesn't own. Editing an
-   existing Action doesn't use this dialog at all - Panel Discussion edits
-   every field inline instead (see components/action-assign.js's own
-   autosave IIFE); this stays create-only.
+   new Action's row belongs to a page this dialog doesn't own. It also serves
+   edits (?edit=<id>, from the Actions list's Edit Action button and the
+   Discussion row's Assigned-To button); what Panel Discussion still edits
+   inline, without this dialog, is the assignment (see
+   components/action-assign.js's own autosave IIFE). The Updates step is
+   edit-only - a create has no Action for a thread to hang off yet.
 
    window.openActionFormModal stays window.* - _discussion_action_item.html
    calls it by name for both the create trigger and the Assigned-To Edit
@@ -63,6 +65,49 @@ import { initActionAssignFields } from '../components/action-assign.js';
         });
     }
 
+    // Posting an update can't be a submit: this dialog's content is one
+    // <form> already and HTML forbids a nested one, so the Post Update button
+    // sends the panel's add_action_update form_action as a fetch body to the
+    // same view the form posts to, and appends the entry it answers with.
+    // Nothing else on the page changes, so there is nothing to reload - and a
+    // reload here would throw away whatever the user had half-typed on the
+    // details step.
+    //
+    // The textarea is left in the dirty snapshot deliberately: an update typed
+    // but never posted is real content, and INT-U4's discard guard should ask
+    // about it. Clearing it after a successful post puts it back to the
+    // snapshotted empty string, so a posted update leaves the modal clean.
+    function postUpdate() {
+        var form = dialog.querySelector('[data-action-modal-form]');
+        var textarea = dialog.querySelector('[data-action-update-body]');
+        var thread = dialog.querySelector('[data-action-updates-thread]');
+        if (!form || !textarea || !thread || !textarea.value.trim()) return;
+
+        var body = new FormData();
+        body.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+        body.append('form_action', 'add_action_update');
+        body.append('action_id', form.querySelector('[name=action_id]').value);
+        body.append('body', textarea.value);
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: body,
+        }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (!data.success) return;
+                animateModalHeightChange(dialog, function () {
+                    thread.insertAdjacentHTML('beforeend', data.html);
+                    textarea.value = '';
+                    var empty = dialog.querySelector('[data-action-updates-empty]');
+                    if (empty) empty.hidden = true;
+                    var count = dialog.querySelector('[data-action-updates-count]');
+                    if (count) count.textContent = thread.children.length;
+                });
+                thread.scrollTop = thread.scrollHeight;
+            });
+    }
+
     // Toggles between the details step and Assign Staff Mode (#98 revision)
     // - same hidden-view-swap + animateModalHeightChange convention as the
     // Panel Group modal's list/add modes. Both create and edit open on
@@ -73,6 +118,9 @@ import { initActionAssignFields } from '../components/action-assign.js';
     function wireSteps(initialStep) {
         var detailsStep = dialog.querySelector('[data-action-step-details]');
         var assignStep = dialog.querySelector('[data-action-step-assign]');
+        var updatesStep = dialog.querySelector('[data-action-step-updates]');
+        var updatesToggleBtn = dialog.querySelector('[data-action-updates-toggle]');
+        var updatePostBtn = dialog.querySelector('[data-action-update-post-btn]');
         var assignToggleBtn = dialog.querySelector('[data-action-assign-toggle]');
         var cancelBtn = dialog.querySelector('[data-action-cancel-btn]');
         var backBtn = dialog.querySelector('[data-action-back-btn]');
@@ -95,10 +143,21 @@ import { initActionAssignFields } from '../components/action-assign.js';
         function applyStep(step) {
             detailsStep.hidden = step !== 'details';
             assignStep.hidden = step !== 'assign';
+            // Updates is edit-only, so this step is absent in create mode -
+            // every read of it stays optional rather than the whole step
+            // machinery bailing out when it isn't there.
+            if (updatesStep) updatesStep.hidden = step !== 'updates';
             if (cancelBtn) cancelBtn.hidden = step !== 'details';
-            if (backBtn) backBtn.hidden = step !== 'assign';
+            if (backBtn) backBtn.hidden = step === 'details';
             if (saveBtn) saveBtn.hidden = step !== 'details';
-            if (titleEl) titleEl.textContent = step === 'assign' ? 'Assign Staff to Action' : titleEl.dataset.actionModalTitleBase;
+            // Save belongs to the action, Post Update to the thread - one
+            // button per step rather than a Save that means two things.
+            if (updatePostBtn) updatePostBtn.hidden = step !== 'updates';
+            if (titleEl) {
+                titleEl.textContent = step === 'assign' ? 'Assign Staff to Action'
+                    : step === 'updates' ? 'Action Updates'
+                    : titleEl.dataset.actionModalTitleBase;
+            }
         }
 
         function setStep(step) {
@@ -106,6 +165,8 @@ import { initActionAssignFields } from '../components/action-assign.js';
         }
 
         if (assignToggleBtn) assignToggleBtn.addEventListener('click', function () { setStep('assign'); });
+        if (updatesToggleBtn) updatesToggleBtn.addEventListener('click', function () { setStep('updates'); });
+        if (updatePostBtn) updatePostBtn.addEventListener('click', postUpdate);
         if (backBtn) backBtn.addEventListener('click', function () { setStep('details'); });
         // Bubbles from initActionAssignFields' select() (a live pick, or
         // wireAutoAssign's category-driven suggestion) - keeps the details
