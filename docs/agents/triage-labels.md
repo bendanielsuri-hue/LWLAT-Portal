@@ -23,6 +23,8 @@ Edit the right-hand column to match whatever vocabulary you actually use.
 | `needs-stronger-model`  | Fully specified, but beyond what the AFK agent's configured model handles well — run it attended with a stronger model. |
 | `needs-budget-approval` | Fully specified, but large enough that an unattended run would burn a meaningful chunk of the credit budget — run it deliberately. |
 
+`ready-for-review` is the other end of the same run: a completed AFK run swaps `ready-for-agent` for it, so a ticket with a PR waiting is distinguishable in the issue list from one nothing has touched yet. It is set by the workflow, not by hand — the issue stays open either way, since the agent never merges its own PR.
+
 Either one present on the issue makes `.github/workflows/afk-agent.yml` skip the run entirely. The skip is silent — the job never starts, so there is no comment on the issue, unlike the off-hours gate. These are opt-out, not opt-in: a ticket nobody has judged still runs, on the grounds that a wasted run costs less than a queue that silently stalls because a label was forgotten.
 
 The blockers are also a pair of distinct questions, not one severity dial — a small fiddly refactor can need a stronger model without being expensive, and a wide mechanical sweep can be expensive without being hard. Apply both where both are true.

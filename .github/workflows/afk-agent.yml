@@ -88,3 +88,28 @@ jobs:
             decision only a human should make, stop, comment on the issue
             explaining what's blocking you and what you need, and remove
             the ready-for-agent label rather than guessing.
+
+      # A finished run has opened a PR, so the issue now wants a human, not
+      # another agent. Without this swap a worked ticket looks identical to
+      # an untouched one in the issue list, and reapplying the label sets a
+      # second agent off duplicating a PR that already exists.
+      #
+      # The check is on the label still being present, not on the step's
+      # exit status: the prompt tells the agent to remove `ready-for-agent`
+      # itself when it gives up and asks for help, and that path also exits
+      # zero. The label surviving is what actually distinguishes a completed
+      # run from a bailed one.
+      #
+      # Adding a label re-fires this `labeled` workflow. The job's `if`
+      # filters it out immediately (the added label isn't `ready-for-agent`),
+      # so the cost is one skipped run in the Actions list, not a loop.
+      - name: Hand back for review
+        if: steps.time_check.outputs.allowed == 'true' && success()
+        run: |
+          issue="${{ github.event.issue.number }}"
+          repo="${{ github.repository }}"
+          if gh issue view "$issue" --repo "$repo" --json labels                --jq '.labels[].name' | grep -qx 'ready-for-agent'; then
+            gh issue edit "$issue" --repo "$repo"               --remove-label ready-for-agent --add-label ready-for-review
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
