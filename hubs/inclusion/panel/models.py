@@ -551,8 +551,16 @@ class Escalation(models.Model):
     escalated_at = models.DateTimeField(auto_now_add=True)
     reason = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
-    resolution_notes = models.TextField(blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+    # No resolution_notes field - it was write-only (nothing ever rendered
+    # it) and the prose it was reaching for already exists, dated and
+    # attributed, on the MAT Panel Meeting that discussed the referral.
+    # Dropping the prose without adding this FK would have left an
+    # Escalation with an actor on the way in (escalated_by) and none on the
+    # way out (#230).
+    resolved_by = models.ForeignKey(
+        'core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+    )
 
     class Meta:
         ordering = ['-escalated_at']
