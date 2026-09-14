@@ -63,15 +63,17 @@ export function initFactsStrip(root) {
 // or future, with nothing to re-wire.
 //
 // Drag-to-scroll, delegated on `document` rather than bound per-track -
-// unlike wireScrollCarousel's one fixed track, a list page has many
-// independent .row-facts-cols strips mounting and unmounting as rows
-// filter in and out, so this resolves whichever one the pointer landed on
-// per event instead of re-binding listeners every time the row set
-// changes. Shared with wireScrollCarousel's own drag via drag-scroll.js
-// (#214 - see that file's header for the full reasoning and which other
-// drag-to-scroll copies stayed separate).
+// unlike a carousel's one fixed track, a list page has many independent
+// .row-facts-cols strips mounting and unmounting as rows filter in and out,
+// so `resolveTrack` picks whichever one the pointer landed on per event
+// instead of re-binding listeners every time the row set changes. That
+// option is the reason this and every carousel can share one drag
+// implementation (#214 - drag-scroll.js, six copies folded into one; see
+// its header). Everything else here is that module's defaults.
 function installDragToScroll() {
-    wireDragToScroll(document, function (e) { return e.target.closest('.row-facts-cols'); });
+    wireDragToScroll(document, {
+        resolveTrack: function (e) { return e.target.closest('.row-facts-cols'); },
+    });
 }
 
 // Actions/Referrals/Students facts strip (#154) - every row scrolls fully

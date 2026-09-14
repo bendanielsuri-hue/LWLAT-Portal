@@ -26,7 +26,8 @@ Settled while grilling; every entry obeys them.
    shipping a convention that never touches the majority of the files it exists for.
 2. **Relocate, don't rewrite.** The one exception: CSS blocks that are textually identical modulo
    the selector may be collapsed, because nothing renders differently and a diff proves it. No JS is
-   consolidated, and the three carousel *implementations* stay three.
+   consolidated, and the three carousel *implementations* stay three **during this migration** —
+   #214 consolidated them afterwards, as its own ticket, which is what the carve-out was for.
 3. **A tier holds what has nowhere else to go.** Test for the `list-page` tier: could a page outside
    the list pattern use this sensibly? If yes it is a component.
 4. **Promoted names don't say "panel".** Renames happen at promotion, not as a later pass.
@@ -334,7 +335,7 @@ test is that the duplication becomes unnecessary, not that a crash stops happeni
 | Inline template scripts: the rule | #203 | `home.html`'s 1,255 lines (0 template refs) named here with a destination — panel-owned JS, since the carousels are `#my-referrals-list`-specific. `_hub_sidebar.html` (1,719 lines, 139 refs) and `layout.html` (699, 1) are #203's inputs; the sidebar is its hardest case and probably determines the rule. |
 | Migration slicing | #198, open | Unordered set — but §6 and §2.7 imply a natural first move: filter bar + `.settings-*` makes acceptance test 1 pass early, on the hardest volume rather than the easiest. |
 | Intra-panel duplication | new issue, file against the finished convention | `refreshRegOptions`/`refreshTermOptions` ×6, button-column-width sync ×4, `setupToggle` ×3, mm:ss timer ×3, `wireStudentsInfiniteScroll` duplicating `wireListInfiniteScroll`. Held out under constraint 2. Loudest: `panel.js`'s own comment already calls `wireListInfiniteScroll` generic. |
-| Carousel *implementation* consolidation | new issue | `home.html`'s two hand-rolled carousels bypass `wireScrollCarousel` entirely. Real rewrite, own risk, own ticket. CSS collapse (§2.2) is in scope; JS is not. |
+| Carousel *implementation* consolidation | #214 ✅ | `home.html`'s two hand-rolled carousels bypassed `wireScrollCarousel` entirely. Real rewrite, own risk, own ticket — done as `components/carousel.js`'s `initCarousel` plus `components/drag-scroll.js`. CSS collapse (§2.2) was in scope here; JS was not. |
 | `main.js` inventory + internal split | new issue | Prerequisite for any taxonomy call on it. |
 | `panel.css`/`panel.js` residue shape | #204 | ~1,700 CSS + ~2,300 JS lines remain. Observation for #204, not a decision: the nine dialog IIFEs are already independent modules with no shared state, so the residue has obvious internal seams — it needn't stay two files. |
 

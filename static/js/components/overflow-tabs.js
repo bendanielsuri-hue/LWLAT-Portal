@@ -14,6 +14,7 @@
    so it imports this directly instead of reaching through window. */
 
 import { rafThrottle } from './raf-throttle.js';
+import { wireDragToScroll } from './drag-scroll.js';
 
 export function setupOverflowTabs(row) {
     if (!row) return;
@@ -99,48 +100,32 @@ function buildOverflowFade(side) {
     return fade;
 }
 
-// Pointer-based drag-to-scroll (mouse and touch alike — devtools mobile
-// emulation and non-touch trackpads don't get native touch-scroll for
-// free). Suppresses the click that would otherwise fire on the tab under
-// the pointer once the drag has moved past a small threshold, so dragging
-// doesn't also switch tabs.
+// Pointer-based drag-to-scroll, via the one shared implementation (#214 -
+// drag-scroll.js, which six copies of this folded into). The three things
+// this row needs that a carousel does not, each an option there rather than
+// a fork here:
 //
-// NOT components/drag-scroll.js's shared primitive (#214) - that one is
-// mouse-only (every overflow-x region it covers already gets native touch
-// momentum-scroll for free) and uses pointer capture with a one-shot click
-// suppressor; this needs touch handling too (devtools emulation and
-// non-touch trackpads don't get native touch-scroll), has no pointer
-// capture, and ends the drag the moment the pointer leaves the row rather
-// than tracking it globally - see drag-scroll.js's own header for the full
-// reasoning on why these stayed separate.
+//   touch: true            - devtools mobile emulation and non-touch
+//                            trackpads never get native touch-scroll for
+//                            free, and this row has to work in both.
+//   moveBeforeThreshold    - the row starts moving from the first pixel;
+//                            the threshold only decides whether the click
+//                            that follows gets suppressed, so dragging
+//                            never also switches tab.
+//   endOnPointerLeave,     - the drag ends the moment the pointer leaves
+//   pointerCapture: false    the row, rather than tracking globally.
+//
+// requireOverflow is off too: a row measures its own overflow constantly
+// (measure(), above), and gating pointerdown on it as well would just mean
+// a second, staler answer to the same question.
 function setupOverflowDragScroll(el) {
-    var dragging = false;
-    var moved = false;
-    var startX = 0;
-    var startScroll = 0;
-
-    el.addEventListener('pointerdown', function (e) {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        dragging = true;
-        moved = false;
-        startX = e.clientX;
-        startScroll = el.scrollLeft;
-        el.classList.add('overflow-scroll-dragging');
+    wireDragToScroll(el, {
+        touch: true,
+        threshold: 5,
+        moveBeforeThreshold: true,
+        pointerCapture: false,
+        endOnPointerLeave: true,
+        requireOverflow: false,
+        draggingClass: 'overflow-scroll-dragging',
     });
-    el.addEventListener('pointermove', function (e) {
-        if (!dragging) return;
-        var dx = e.clientX - startX;
-        if (Math.abs(dx) > 4) moved = true;
-        el.scrollLeft = startScroll - dx;
-    });
-    function endDrag() {
-        dragging = false;
-        el.classList.remove('overflow-scroll-dragging');
-    }
-    el.addEventListener('pointerup', endDrag);
-    el.addEventListener('pointercancel', endDrag);
-    el.addEventListener('pointerleave', function () { if (dragging) endDrag(); });
-    el.addEventListener('click', function (e) {
-        if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
-    }, true);
 }

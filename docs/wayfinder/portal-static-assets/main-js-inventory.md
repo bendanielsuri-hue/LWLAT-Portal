@@ -350,6 +350,20 @@ option because #1 does not want it and #2/#5/#6 do.
 **Carousel implementations are three, not one**: `wireScrollCarousel` (824), the stats carousel
 (2902) and home.html's referral carousel. Only the `.senco-carousel` uses `wireScrollCarousel`.
 
+### Outcome (#214) ✅
+
+Both counts are one now. `components/drag-scroll.js` exports `wireDragToScroll(root, options)`
+and copies 1–6 are its call sites; the click suppression this section flagged is the
+`suppressClick` option, exactly because #1 does not want it and #2/#5/#6 do. Copy #7 was
+assessed as this section asked and deliberately left alone — it is `mousedown`-based and
+axis-switching, a different mechanism rather than a seventh copy.
+
+`components/carousel.js` exports `initCarousel(root, options)` with two modes: `step` (a
+scrolling strip, arrows nudge by one card or by a caller's `scrollTo`) and `card` (a card
+stack, arrows move by one index, with the active-card state, dots, count readout, live region
+and fling-settle). The KPI row's grid/"flat" mode is the `flat` option, its floor supplied by
+the caller as a registry tier rather than a literal width.
+
 ---
 
 ## 7. `window` as the current import graph
