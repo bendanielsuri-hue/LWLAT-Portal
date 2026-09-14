@@ -52,10 +52,10 @@ Four repo variables (Settings > Secrets and variables > Actions > Variables), ea
 | -------- | -------- | --------- |
 | `AFK_MODEL` | `sonnet` | Ordinary run |
 | `AFK_STRONG_MODEL` | `opus` | `needs-stronger-model` is on the issue |
-| `AFK_MAX_TURNS` | `30` | Ordinary run |
-| `AFK_MAX_TURNS_LARGE` | `60` | `needs-budget-approval` is on the issue |
+| `AFK_MAX_TURNS` | `80` | Ordinary run |
+| `AFK_MAX_TURNS_LARGE` | `150` | `needs-budget-approval` is on the issue |
 
-Changing `AFK_MODEL` moves the bar for `needs-stronger-model` with it, and nothing re-judges issues already carrying the label — so a deliberate raise is also a prompt to look back over them.
+The turn caps started at 30/60 and were raised after a field-rename ticket — six templates, a migration and a seed command — died at turn 31 without reaching the git step. A cap only costs anything on a run that would have failed anyway; the risk it carries is a runaway ticket burning the whole cap before giving up, which serialised runs keep to one ticket at a time. Changing `AFK_MODEL` moves the bar for `needs-stronger-model` with it, and nothing re-judges issues already carrying the label — so a deliberate raise is also a prompt to look back over them.
 
 ## Applying the labels (agents)
 
