@@ -87,7 +87,7 @@ class Command(BaseCommand):
                     due_date=due_date,
                     status='complete' if complete else 'incomplete',
                     completed_at=timezone.now() if complete else None,
-                    note=self._description_for(category, pr.referral_id + slot),
+                    description=self._description_for(category, pr.referral_id + slot),
                     origin_panel_referral=pr,
                     created_by=pr.panel.chair,
                 )
@@ -112,15 +112,15 @@ class Command(BaseCommand):
             ))
 
         # Actions created before ACTION_DESCRIPTIONS existed (or added by hand
-        # with no note) sit with a blank Description - backfill those too,
+        # with no description) sit with a blank Description - backfill those too,
         # deterministically by category, same as new ones above. Never
-        # touches an action that already has a note.
+        # touches an action that already has a description.
         backfilled = 0
-        for action in Action.objects.filter(note='').select_related('category'):
+        for action in Action.objects.filter(description='').select_related('category'):
             if not action.category:
                 continue
-            action.note = self._description_for(action.category, action.id)
-            action.save(update_fields=['note'])
+            action.description = self._description_for(action.category, action.id)
+            action.save(update_fields=['description'])
             backfilled += 1
         if backfilled:
             self.stdout.write(self.style.SUCCESS(
