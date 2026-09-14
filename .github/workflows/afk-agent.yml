@@ -29,7 +29,36 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Off-hours gate: only run weekday evenings/nights (after 19:00 or
+      # before 07:00 UK time) or any time on a weekend. Outside that window,
+      # skip and leave a comment — the label stays, so removing and
+      # reapplying it during an allowed window retriggers this workflow.
+      # (A schedule/cron-based queue was considered instead, so labeling any
+      # time would auto-run at the next window, but claude-code-action has a
+      # known open bug where cron-triggered runs fail OIDC token exchange —
+      # see anthropics/claude-code-action#814 — so this simpler skip-and-
+      # relabel approach was chosen instead. Revisit once that's fixed.)
+      - name: Check off-hours window
+        id: time_check
+        run: |
+          dow=$(TZ='Europe/London' date +%u)   # 1=Mon .. 7=Sun
+          hour=$(TZ='Europe/London' date +%H)  # 00-23
+          if [ "$dow" -ge 6 ] || [ "$hour" -ge 19 ] || [ "$hour" -lt 7 ]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment if outside window
+        if: steps.time_check.outputs.allowed == 'false'
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body \
+            "Labeled during work hours (weekday 07:00-19:00 UK time), so the AFK agent is skipping this for now. Remove and reapply the \`ready-for-agent\` label during an evening/night or weekend to trigger it."
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - uses: anthropics/claude-code-action@v1
+        if: steps.time_check.outputs.allowed == 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: "--model sonnet --max-turns 30"
