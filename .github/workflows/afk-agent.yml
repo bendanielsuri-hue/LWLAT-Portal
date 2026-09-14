@@ -1,18 +1,9 @@
 name: AFK agent (ready-for-agent)
 
-# Fires when the `ready-for-agent` label is applied to an issue — see
-# docs/agents/triage-labels.md and docs/agents/issue-tracker.md for the
-# label taxonomy this ties into. The agent works the ticket unattended and
-# opens a PR for review; it never merges on its own.
-#
-# `ready-for-agent` means "fully specified", not "safe to run unattended on
-# a small model". Two blocker labels carve out the tickets that are the
-# former but not the latter, and this workflow skips when either is
-# present: `needs-stronger-model` (beyond what the model configured below
-# can do well) and `needs-budget-approval` (large enough that an unattended
-# run would burn a meaningful chunk of the credit budget). Both are opt-out
-# rather than opt-in on purpose — a ticket nobody has judged still runs, and
-# the wrong outcome there is a wasted run, not a silently stalled queue.
+# Fires when a ticket is cleared to be worked unattended — see
+# docs/agents/triage-labels.md for the label vocabulary and
+# docs/adr/0030-afk-runs-are-permitted-per-run.md for why it is shaped this
+# way. The agent opens a PR for review; it never merges on its own.
 #
 # `issues`-triggered workflows only run from the file on the repo's default
 # branch (currently `main`). If a separate published/live branch is ever
@@ -25,12 +16,39 @@ on:
   issues:
     types: [labeled]
 
+# One run at a time, queued rather than cancelled. Two reasons, and the
+# second is the load-bearing one: runs draw on a Claude subscription's
+# rolling usage window rather than per-token billing, so several finishing
+# together can empty the window someone was about to work in. And tickets
+# in a dependency chain touch the same models and templates — run them in
+# parallel and you get PRs that conflict with each other.
+concurrency:
+  group: afk-agent
+  cancel-in-progress: false
+
 jobs:
   claude:
+    # Three conditions, in the order they are easiest to read:
+    #
+    #   1. the label just applied is one of the two that can start a run;
+    #   2. the ticket is actually ready for an agent;
+    #   3. either nothing blocks it, or you have granted permission.
+    #
+    # `afk-approved` is in (1) as well as (3) so that granting permission is
+    # itself the gesture that starts the run. Without that you would approve
+    # a ticket and then have to remember a second step, and the failure mode
+    # — an approved ticket that silently never runs — is invisible.
     if: >-
-      github.event.label.name == 'ready-for-agent'
-      && !contains(github.event.issue.labels.*.name, 'needs-stronger-model')
-      && !contains(github.event.issue.labels.*.name, 'needs-budget-approval')
+      (github.event.label.name == 'ready-for-agent'
+        || github.event.label.name == 'afk-approved')
+      && contains(github.event.issue.labels.*.name, 'ready-for-agent')
+      && (
+        contains(github.event.issue.labels.*.name, 'afk-approved')
+        || (
+          !contains(github.event.issue.labels.*.name, 'needs-stronger-model')
+          && !contains(github.event.issue.labels.*.name, 'needs-budget-approval')
+        )
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -50,6 +68,11 @@ jobs:
       # known open bug where cron-triggered runs fail OIDC token exchange —
       # see anthropics/claude-code-action#814 — so this simpler skip-and-
       # relabel approach was chosen instead. Revisit once that's fixed.)
+      #
+      # This applies to approved runs too. Approval answers whether a run
+      # should happen; the window answers when. An approved run is by
+      # construction the expensive kind, which is more reason to keep it out
+      # of working hours, not less.
       - name: Check off-hours window
         id: time_check
         run: |
@@ -69,85 +92,129 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      # The blocker labels do double duty: they stop an unattended run, and
+      # once you have approved one they say what kind of run it should be. A
+      # ticket marked `needs-stronger-model` is one you judged beyond the
+      # default model, so running it on the default model after approving it
+      # would be the wrong half of the decision.
+      #
+      # All four values come from repo variables (Settings > Secrets and
+      # variables > Actions > Variables) so they change without a commit —
+      # and without the `workflow` token scope that editing this file needs.
+      # The literals are the fallback when a variable is unset.
+      - name: Pick run settings
+        id: settings
+        if: steps.time_check.outputs.allowed == 'true'
+        run: |
+          if [ "${{ contains(github.event.issue.labels.*.name, 'needs-stronger-model') }}" = "true" ]; then
+            echo "model=${{ vars.AFK_STRONG_MODEL || 'opus' }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "model=${{ vars.AFK_MODEL || 'sonnet' }}" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ contains(github.event.issue.labels.*.name, 'needs-budget-approval') }}" = "true" ]; then
+            echo "turns=${{ vars.AFK_MAX_TURNS_LARGE || '60' }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "turns=${{ vars.AFK_MAX_TURNS || '30' }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: anthropics/claude-code-action@v1
         id: claude
         continue-on-error: true
         if: steps.time_check.outputs.allowed == 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Model and turn cap come from repo variables (Settings > Secrets
-          # and variables > Actions > Variables) so they can be changed
-          # without a commit — and, more to the point, without the `workflow`
-          # token scope that editing this file needs. The literals here are
-          # the fallback when the variable is unset, so the workflow still
-          # runs on a fresh clone with nothing configured.
+          # `--allowedTools` is not optional. The action allows Read, Write,
+          # Edit and the GitHub MCP tools by default and denies everything
+          # else — Bash entirely. A denial does not fail the run: the agent
+          # is simply refused, carries on, and the step still exits zero. The
+          # first three runs of this workflow looked green, spent 15 turns
+          # each and produced nothing at all for exactly this reason.
           #
-          # These two are the cost dial. --max-turns is the harder ceiling of
-          # the pair: a ticket that needs more turns than it gets stops
-          # half-built, having spent the whole budget.
-          #
-          # Raising the model here lowers the bar for `needs-stronger-model`
-          # on issues — see docs/agents/triage-labels.md. Tickets already
-          # carrying that label are not reconsidered automatically.
-          claude_args: "--model ${{ vars.AFK_MODEL || 'sonnet' }} --max-turns ${{ vars.AFK_MAX_TURNS || '30' }}"
+          # The list is enumerated rather than opened up to plain `Bash`
+          # because a run reaching for something outside it should stop and
+          # show up as a failure. `python:*` is here because this repo's
+          # tickets routinely require a committed migration, and
+          # `makemigrations` is neither git nor gh.
+          claude_args: "--model ${{ steps.settings.outputs.model }} --max-turns ${{ steps.settings.outputs.turns }} --allowedTools Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(gh:*),Bash(python:*)"
           prompt: |
-            Work the GitHub issue that triggered this run (see the issue
-            context provided alongside this prompt). Follow this repo's
-            CLAUDE.md and the relevant hub/app CLAUDE.md and CONTEXT.md
-            files before making changes.
+            Work GitHub issue #${{ github.event.issue.number }} in this
+            repository. Follow this repo's CLAUDE.md and the relevant
+            hub/app CLAUDE.md and CONTEXT.md files before making changes.
 
-            Implement what the issue describes, run any relevant checks,
-            and open a pull request against main with a clear description
-            linking back to the issue. Do not merge the PR yourself.
+            Implement what the issue describes and run any relevant checks.
+            If you change models, generate the migration and commit it.
+
+            This action does not open a pull request for you. Do it
+            yourself, as the last thing you do: create a branch named
+            claude/issue-${{ github.event.issue.number }}, commit your work,
+            push it, then run `gh pr create --base main` with a body
+            containing "Closes #${{ github.event.issue.number }}".
+
+            Do not merge the PR yourself.
 
             If the issue turns out to be underspecified or you hit a
             decision only a human should make, stop, comment on the issue
             explaining what's blocking you and what you need, and remove
-            the ready-for-agent label rather than guessing.
+            the ready-for-agent label rather than guessing. Push whatever
+            partial work you have onto the branch first — a branch with
+            real work on it is worth more than a clean slate.
 
-      # Label the outcome, so the issue list distinguishes a ticket an
-      # agent has already been at from one nothing has touched. Without this a worked ticket looked
-      # identical to an untouched one, and reapplying the label would set a
-      # second agent off duplicating a PR that already exists.
+      # Record the outcome on the issue, because a finished run that leaves
+      # no trace is indistinguishable from one that never happened — and
+      # reapplying the label would then set a second agent off duplicating a
+      # PR that already exists.
       #
-      # Two outcomes, and the label is the only durable record of which:
-      # `ready-for-review` (finished, PR open) and `agent-failed` (errored,
-      # or the agent gave up).
+      # The test is whether a PR referencing this issue exists. Nothing else
+      # is trustworthy: the step's exit status is zero when the agent was
+      # denied every tool it needed, zero when it gave up and asked for
+      # help, and zero on success. A PR is the only artifact that means the
+      # work actually happened.
       #
-      # The two failures are told apart by the label rather than by exit
-      # status alone: the prompt tells a stuck agent to remove
-      # `ready-for-agent` itself before commenting, and that path exits zero
-      # like a success does. So a zero exit with the label still on is the
-      # only reliable signature of a completed run. A hard failure also gets
-      # a comment here, since unlike the agent's own bail it leaves no
-      # explanation on the issue at all — only a run log.
-      #
-      # `continue-on-error` on the agent step keeps this step reachable on a
-      # failure; the run is marked failed at the end so the Actions list
-      # still shows red.
+      # Both `ready-for-agent` and `afk-approved` come off either way. The
+      # grant is single-use by design: a retry is a fresh decision to spend,
+      # and re-granting it is the moment you look at what went wrong.
       #
       # Adding a label re-fires this `labeled` workflow. The job's `if`
-      # filters it out immediately (the added label isn't `ready-for-agent`),
+      # filters it out immediately (neither outcome label can start a run),
       # so the cost is one skipped run in the Actions list, not a loop.
-      - name: Label the outcome
+      - name: Record the outcome
         if: steps.time_check.outputs.allowed == 'true'
         run: |
           issue="${{ github.event.issue.number }}"
           repo="${{ github.repository }}"
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          branch="${{ steps.claude.outputs.branch_name }}"
+          exec_file="${{ steps.claude.outputs.execution_file }}"
 
-          if [ "${{ steps.claude.outcome }}" = "failure" ]; then
-            gh issue edit "$issue" --repo "$repo" --remove-label ready-for-agent --add-label agent-failed || true
-            gh issue comment "$issue" --repo "$repo" --body "The AFK agent run errored before opening a PR. Log: $run_url"
-            exit 1
+          pr=$(gh pr list --repo "$repo" --state all --limit 50 \
+                 --json url,body \
+                 --jq "[.[] | select(.body | test(\"#${issue}([^0-9]|$)\"))] | .[0].url // empty")
+
+          # Turns used is not a step output; it is in the execution file the
+          # action writes. Worth reporting because --max-turns is the dial
+          # you would reach for, and "stopped at the cap" and "stopped
+          # because it was finished" look identical from outside.
+          turns=""
+          if [ -n "$exec_file" ] && [ -f "$exec_file" ]; then
+            n=$(jq -r '.. | .num_turns? // empty' "$exec_file" | head -1)
+            [ -n "$n" ] && turns=" Used $n of ${{ steps.settings.outputs.turns }} turns."
           fi
 
-          if gh issue view "$issue" --repo "$repo" --json labels --jq '.labels[].name' | grep -qx 'ready-for-agent'; then
-            gh issue edit "$issue" --repo "$repo" --remove-label ready-for-agent --add-label ready-for-review
-          else
-            # The agent removed the label itself: it stopped and explained
-            # why in its own comment, so don't add another one here.
-            gh issue edit "$issue" --repo "$repo" --add-label agent-failed
+          gh issue edit "$issue" --repo "$repo" \
+            --remove-label ready-for-agent --remove-label afk-approved || true
+
+          if [ -n "$pr" ]; then
+            gh issue edit "$issue" --repo "$repo" --add-label ready-for-review
+            exit 0
           fi
+
+          gh issue edit "$issue" --repo "$repo" --add-label agent-failed
+          msg="The AFK agent run finished without opening a PR."
+          if [ -n "$branch" ] && git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            msg="$msg Partial work was pushed to \`$branch\` — open a PR from it or delete it."
+          fi
+          gh issue comment "$issue" --repo "$repo" \
+            --body "$msg$turns Ran on \`${{ steps.settings.outputs.model }}\`. Log: $run_url"
+          exit 1
         env:
           GH_TOKEN: ${{ github.token }}

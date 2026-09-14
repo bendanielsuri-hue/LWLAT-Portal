@@ -132,7 +132,7 @@ GitHub Issues (plus per-App Projects/roadmap boards) on `bendanielsuri-hue/LWLAT
 
 ### Triage labels
 
-Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), unchanged, plus two AFK blocker labels (`needs-stronger-model`, `needs-budget-approval`) that mark a fully-specified ticket as unsuitable for an unattended run and make `.github/workflows/afk-agent.yml` skip it, and the two outcome labels that workflow swaps in when a run ends (`ready-for-review` on a PR, `agent-failed` on an error or a bail). Judge and apply both every time you apply `ready-for-agent`, and say in your reply which you applied and why — see `docs/agents/triage-labels.md`.
+Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), unchanged, plus five AFK agent labels: two blockers that also configure an approved run (`needs-stronger-model`, `needs-budget-approval`), the single-use human grant that starts one (`afk-approved` — never applied by an agent), and the two outcomes (`ready-for-review`, `agent-failed`). Judge both blockers every time you apply `ready-for-agent`, and say in your reply which you applied and why. See `docs/agents/triage-labels.md`, and [ADR 0030](docs/adr/0030-afk-runs-are-permitted-per-run.md) for why permission is per-run.
 
 ### Claude Code usage (model/effort selection)
 
