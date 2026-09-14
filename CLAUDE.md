@@ -101,6 +101,8 @@ Domain vocabulary and mechanism for `Module` (rollout/visibility cascade), the d
 - **Django's `{# ... #}` comment tag is single-line only** — if the comment text wraps onto a second line, Django doesn't parse it as a comment at all and renders it as literal visible text on the page instead (this has actually happened and shipped, e.g. `hubs/inclusion/panel/templates/hubs/inclusion/panel/_referral_form_fields.html`). Any comment explaining more than one line's worth of "why" — which most of this codebase's comments do — must use the block form instead: `{% comment %}...{% endcomment %}`. Reach for `{# ... #}` only for a genuinely single-line, single-sentence note.
 - **There are no `?v=N` cache-bust markers any more, and none should be added back.** `static/css/style.css` is still an `@import` chain, but the markers it used to carry (plus the ones on `panel.css`/`panel.js`/`main.js` in the templates) were a workaround for the dev server serving static with `Last-Modified` and no `Cache-Control`, which lets a browser apply a heuristic freshness window and serve a file with no request at all. `core/management/commands/runserver.py` now sends `Cache-Control: no-cache, must-revalidate` for static under DEBUG, which fixes the actual cause — see that file for the measurements. If a stale asset ever reappears, check that header is present before reaching for a version marker.
 
+- **Before starting the dev server for the user, check `docs/agents/claude-code-usage.md` for staleness**: run `git log -1 --format=%cd --date=short -- docs/agents/claude-code-usage.md`; if that's 7+ days old, refresh the file per its own "Keeping this current" section before or alongside starting the server. This is the repo's staleness trigger — tied to actual repo/session activity (whoever starts the server, on whatever machine), not a machine-local schedule.
+
 ## Responsive breakpoints
 
 The canonical tier list (phone/stacked/narrow/tablet/touch/rail, what each owns, and which JS media queries mirror it) is a **breakpoint registry comment at the top of [static/css/layout/responsive.css](static/css/layout/responsive.css)** — add a tier there before using a new number anywhere. Boundary rule: a tier's max is `N`, its matching min is `N+1`; never pair `max-width: N` with `min-width: N`, and never write a floor as `max-width: N-1`. Both mistakes had shipped (an end-of-list stripe that vanished at exactly 480px; a mobile tab bar that didn't render at exactly 480px) — the registry records them so they aren't reintroduced.
@@ -131,6 +133,10 @@ GitHub Issues (plus per-App Projects/roadmap boards) on `bendanielsuri-hue/LWLAT
 ### Triage labels
 
 Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), unchanged. See `docs/agents/triage-labels.md`.
+
+### Claude Code usage (model/effort selection)
+
+Task-to-model/effort decision table, prompting patterns by task type, subagent/parallel-work guidance, and the advisory heuristics for flagging a likely settings mismatch before starting substantial work — see `docs/agents/claude-code-usage.md`.
 
 ### Grilling sessions
 
