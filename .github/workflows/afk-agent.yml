@@ -4,6 +4,14 @@ name: AFK agent (ready-for-agent)
 # docs/agents/triage-labels.md and docs/agents/issue-tracker.md for the
 # label taxonomy this ties into. The agent works the ticket unattended and
 # opens a PR for review; it never merges on its own.
+#
+# `issues`-triggered workflows only run from the file on the repo's default
+# branch (currently `main`). If a separate published/live branch is ever
+# cut, don't just leave `main` as the dev branch and assume this is safe —
+# add branch protection (required review, no direct pushes) on the live
+# branch regardless, since nothing in this workflow itself restricts where
+# a PR could target. This workflow only ever opens PRs, never merges, but
+# protection on the live branch is the actual backstop, not this comment.
 on:
   issues:
     types: [labeled]
