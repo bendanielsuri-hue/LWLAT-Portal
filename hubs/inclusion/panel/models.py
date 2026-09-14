@@ -490,7 +490,7 @@ class Action(models.Model):
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='incomplete')
     completed_at = models.DateTimeField(null=True, blank=True)
-    note = models.TextField(blank=True)
+    description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     # Who raised the action - the discussion's chair when raised from a live
     # discussion, or whoever used the standalone "New Action" form otherwise.

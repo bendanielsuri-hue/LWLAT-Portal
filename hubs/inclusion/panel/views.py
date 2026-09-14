@@ -2405,7 +2405,7 @@ def inclusion_panel_action_new(request, referral_id):
             action.assigned_to_staff_id = assigned_to_staff_id
             action.assigned_to_group_id = assigned_to_group_id
             action.due_date = request.POST.get('due_date') or None
-            action.note = request.POST.get('note', '')
+            action.description = request.POST.get('description', '')
             action.save()
         else:
             Action.objects.create(
@@ -2414,7 +2414,7 @@ def inclusion_panel_action_new(request, referral_id):
                 assigned_to_staff_id=assigned_to_staff_id,
                 assigned_to_group_id=assigned_to_group_id,
                 due_date=request.POST.get('due_date') or None,
-                note=request.POST.get('note', ''),
+                description=request.POST.get('description', ''),
                 origin_panel_referral_id=origin_panel_referral_id,
                 created_by=_current_staff(request),
             )
@@ -4015,7 +4015,7 @@ def inclusion_panel_action_inline_update(request, action_id):
         if category_id and not categories.filter(pk=category_id).exists():
             category_id = None
         action.category_id = category_id
-        action.note = request.POST.get('note', '')
+        action.description = request.POST.get('description', '')
         # The interval-select/custom-date-picker split (see
         # _discussion_action_item.html) resolves client-side into one hidden
         # due_date input, so this side just parses a plain ISO date or
