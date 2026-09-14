@@ -132,7 +132,7 @@ GitHub Issues (plus per-App Projects/roadmap boards) on `bendanielsuri-hue/LWLAT
 
 ### Triage labels
 
-Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), unchanged. See `docs/agents/triage-labels.md`.
+Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix), unchanged, plus two AFK blocker labels (`needs-stronger-model`, `needs-budget-approval`) that mark a fully-specified ticket as unsuitable for an unattended run and make `.github/workflows/afk-agent.yml` skip it. Judge and apply both every time you apply `ready-for-agent`, and say in your reply which you applied and why — see `docs/agents/triage-labels.md`.
 
 ### Claude Code usage (model/effort selection)
 

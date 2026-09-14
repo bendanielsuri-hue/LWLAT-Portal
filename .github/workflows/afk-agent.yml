@@ -5,6 +5,15 @@ name: AFK agent (ready-for-agent)
 # label taxonomy this ties into. The agent works the ticket unattended and
 # opens a PR for review; it never merges on its own.
 #
+# `ready-for-agent` means "fully specified", not "safe to run unattended on
+# a small model". Two blocker labels carve out the tickets that are the
+# former but not the latter, and this workflow skips when either is
+# present: `needs-stronger-model` (beyond what the model configured below
+# can do well) and `needs-budget-approval` (large enough that an unattended
+# run would burn a meaningful chunk of the credit budget). Both are opt-out
+# rather than opt-in on purpose — a ticket nobody has judged still runs, and
+# the wrong outcome there is a wasted run, not a silently stalled queue.
+#
 # `issues`-triggered workflows only run from the file on the repo's default
 # branch (currently `main`). If a separate published/live branch is ever
 # cut, don't just leave `main` as the dev branch and assume this is safe —
@@ -18,7 +27,10 @@ on:
 
 jobs:
   claude:
-    if: github.event.label.name == 'ready-for-agent'
+    if: >-
+      github.event.label.name == 'ready-for-agent'
+      && !contains(github.event.issue.labels.*.name, 'needs-stronger-model')
+      && !contains(github.event.issue.labels.*.name, 'needs-budget-approval')
     runs-on: ubuntu-latest
     permissions:
       contents: write
