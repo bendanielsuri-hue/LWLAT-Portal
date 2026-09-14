@@ -36,7 +36,7 @@ Either one present on the issue makes `.github/workflows/afk-agent.yml` skip the
 
 The blockers are also a pair of distinct questions, not one severity dial — a small fiddly refactor can need a stronger model without being expensive, and a wide mechanical sweep can be expensive without being hard. Apply both where both are true.
 
-The workflow's model is set in `claude_args` in that file; if it changes, the bar for `needs-stronger-model` moves with it.
+The workflow's model and turn cap come from the `AFK_MODEL` and `AFK_MAX_TURNS` repo variables (Settings > Secrets and variables > Actions > Variables), falling back to `sonnet` / `30` when unset. Changing `AFK_MODEL` moves the bar for `needs-stronger-model` with it, and nothing re-judges issues already carrying the label — so a deliberate raise is also a prompt to look back over them.
 
 ## Applying the blockers (agents)
 

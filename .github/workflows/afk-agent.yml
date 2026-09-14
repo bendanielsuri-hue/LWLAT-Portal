@@ -75,7 +75,21 @@ jobs:
         if: steps.time_check.outputs.allowed == 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--model sonnet --max-turns 30"
+          # Model and turn cap come from repo variables (Settings > Secrets
+          # and variables > Actions > Variables) so they can be changed
+          # without a commit — and, more to the point, without the `workflow`
+          # token scope that editing this file needs. The literals here are
+          # the fallback when the variable is unset, so the workflow still
+          # runs on a fresh clone with nothing configured.
+          #
+          # These two are the cost dial. --max-turns is the harder ceiling of
+          # the pair: a ticket that needs more turns than it gets stops
+          # half-built, having spent the whole budget.
+          #
+          # Raising the model here lowers the bar for `needs-stronger-model`
+          # on issues — see docs/agents/triage-labels.md. Tickets already
+          # carrying that label are not reconsidered automatically.
+          claude_args: "--model ${{ vars.AFK_MODEL || 'sonnet' }} --max-turns ${{ vars.AFK_MAX_TURNS || '30' }}"
           prompt: |
             Work the GitHub issue that triggered this run (see the issue
             context provided alongside this prompt). Follow this repo's
