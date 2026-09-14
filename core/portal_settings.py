@@ -1,17 +1,21 @@
 from core.identity import current_school_key
-from core.models import CategorySettings, MatSettings, School
+from core.models import CategorySettings, MatSettings, PortalSettingsFields, School
 from core.school_scope import SchoolScope
 
+# The last tier of the fallthrough, below MAT. Only the fields with a real
+# portal-wide meaning appear here; every other field's floor is the empty
+# string, which is also what "no override anywhere" already looks like at the
+# three DB tiers. Deliberately not a copy of the field list - that comes from
+# the model (FIELDS below), so adding a field is one edit, in core.models.
 HARDCODED_DEFAULTS = {
     'student_term': 'Student',
     'staff_term': 'Staff',
     'portal_title': 'LWLAT Data Portal',
-    'accent_colour': '',
-    'logo_url': '',
-    'support_email': '',
-    'support_phone': '',
 }
-FIELDS = list(HARDCODED_DEFAULTS)
+
+# Derived from the abstract model every tier inherits, so a field added there
+# is resolved here without a second, hand-kept list to forget (#195).
+FIELDS = [f.name for f in PortalSettingsFields._meta.fields]
 
 
 def resolve_portal_settings(request):
@@ -33,11 +37,15 @@ def resolve_portal_settings(request):
 
     resolved = {}
     for field in FIELDS:
+        # getattr with no default on purpose: every tier inherits the same
+        # abstract model, so a name in FIELDS that a tier does not have is a
+        # bug that should raise here rather than quietly resolve to blank and
+        # fall through to the next tier.
         value = (
-            (getattr(school, field, '') if school else '')
-            or (getattr(category_row, field, '') if category_row else '')
-            or (getattr(mat_row, field, '') if mat_row else '')
-            or HARDCODED_DEFAULTS[field]
+            (getattr(school, field) if school else '')
+            or (getattr(category_row, field) if category_row else '')
+            or (getattr(mat_row, field) if mat_row else '')
+            or HARDCODED_DEFAULTS.get(field, '')
         )
         resolved[field] = value
     return resolved
