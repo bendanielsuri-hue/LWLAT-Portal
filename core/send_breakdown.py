@@ -6,7 +6,7 @@ Provision hub and the Inclusion Panel's own pages - wants the same row shape,
 so it lives here rather than in either hub.
 
 It used to live in both. `_pct` was byte-identical in hubs/inclusion/views.py
-and hubs/inclusion/panel/views.py, and `_ken_breakdown` was a near-copy where
+and hubs/inclusion/panel/views/, and `_ken_breakdown` was a near-copy where
 the panel version silently dropped the `total` and `send_pct` keys: two
 functions, one name, different output shapes, both feeding templates that read
 keys by name. A template moved between the two hubs would have rendered blank

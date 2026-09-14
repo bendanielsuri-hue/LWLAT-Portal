@@ -102,7 +102,7 @@ def inclusion_hub(request):
     # The filter bar itself isn't part of the AJAX-swapped region (see
     # hub.html), so once JS is driving, Year -> Reg Group narrowing has to
     # happen client-side — this is the same {year: [reg_forms]} shape as
-    # forms_by_year_json in hubs/inclusion/panel/views.py::inclusion_panel_students.
+    # forms_by_year_json in hubs/inclusion/panel/views/students.py.
     reg_groups_by_year = {
         year: sorted({
             reg_form for reg_form in base_students.filter(year_group=year)
