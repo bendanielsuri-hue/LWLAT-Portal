@@ -3,7 +3,7 @@ from django.conf import settings
 
 from core.identity import current_school_key, current_staff, staff_queryset_for_school_key
 from core.modules import view_full_system
-from core.portal_settings import resolve_portal_settings
+from core.portal_settings import request_portal_settings
 
 from .views import build_hub_nav, build_school_nav, build_sections, build_search_items
 
@@ -28,7 +28,7 @@ def module_settings(request):
 
 
 def portal_settings(request):
-    return resolve_portal_settings(request)
+    return request_portal_settings(request)
 
 
 # Mirrors the hub prefixes mounted in mysite/urls.py - maps each to the

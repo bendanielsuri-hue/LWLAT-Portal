@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 from core.models import Staff
-from core.modules import filter_by_module, module_map
+from core.modules import filter_by_module, request_module_map
 
 STAFF_MENU = [
     {'name': 'Staff Dashboard', 'url': '/staff/dashboard/', 'icon': 'staff/icons/staff_dashboard.svg', 'module_key': 'staff_dashboard'},
@@ -18,7 +18,7 @@ STAFF_MENU = [
 
 
 def _local_menu(request):
-    return filter_by_module(STAFF_MENU, module_map(), request)
+    return filter_by_module(STAFF_MENU, request_module_map(request), request)
 
 
 def _hub_context(request):

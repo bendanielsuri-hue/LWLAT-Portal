@@ -24,7 +24,7 @@ from core.models import (
 )
 from core.dashboard_filters import Filter, FilterSet, equals, flag, tristate
 from core.school_scope import SchoolScope
-from core.modules import filter_by_module, module_map
+from core.modules import filter_by_module, request_module_map
 from core.student_history import (
     attendance_authorised_pct,
     attendance_percentage,
@@ -83,7 +83,7 @@ PANEL_MENU = [
 
 
 def _local_menu(request):
-    return filter_by_module(PANEL_MENU, module_map(), request)
+    return filter_by_module(PANEL_MENU, request_module_map(request), request)
 
 
 def _panel_base_context(request):
