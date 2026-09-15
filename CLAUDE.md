@@ -138,6 +138,8 @@ Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-f
 
 Task-to-model/effort decision table, prompting patterns by task type, subagent/parallel-work guidance, and the advisory heuristics for flagging a likely settings mismatch before starting substantial work — see `docs/agents/claude-code-usage.md`.
 
+**When starting work on a ticket** — however it's identified (a number, "do ticket X", or a contextual back-reference like "go with that" after you recommended one) — apply that same advisory check yourself before beginning substantial work, using the ticket's actual content. The two ticket hooks (`.claude/hooks/ticket-settings-check.js`, `.claude/hooks/ticket-create-settings-suggest.js`) only catch a literal number/phrase in the raw prompt text; they can't see "that one" referring back to your own earlier recommendation. Don't switch model/effort yourself — flag the mismatch, in one line, and let the user decide.
+
 ### Grilling sessions
 
 When asking a multiple-choice question during a grilling/interview flow, put **each option on its own line**, not run together inside a prose paragraph. Options are scanned and compared against each other, which a wall of prose makes needlessly hard.
