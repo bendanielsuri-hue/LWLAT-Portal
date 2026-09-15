@@ -1,0 +1,46 @@
+{% load static %}
+{% comment %}
+Author-only edit/delete affordance for one core.ThreadEntry-based entry.
+Not Action-specific: ActionUpdate is the first thread built on that shared
+base, and this partial is what the meeting-note thread reuses unchanged once
+PanelReferralNote moves onto the same base (#236) - the two threads get
+identical edit/delete UI by construction rather than by keeping two copies
+in step.
+
+Hiding these buttons when `can_edit` is false is a convenience, not the
+guard - the view rejects a forged POST from a non-author regardless of what
+the template rendered.
+
+Callers pass:
+- `entry` - the ThreadEntry instance (its `.id` and `.body` are read)
+- `can_edit` - whether the current-staff cookie identity is this entry's
+  author, computed server-side and passed in rather than compared here
+- `entry_id_field` - the POST field name the view reads the entry's id from
+  (e.g. "update_id")
+- `edit_form_action` / `delete_form_action` - the form_actions.py constants
+  to post
+
+Posting itself (in panel.js) reads these back off `[data-thread-entry-id]`
+and posts to the nearest enclosing <form>'s action URL - the same
+fetch-body convention `add_action_update` already uses, since the entry
+usually lives inside a <form> that forbids a nested one.
+{% endcomment %}
+{% if can_edit %}
+<div class="note-thread-controls" data-thread-entry-controls
+     data-thread-entry-id="{{ entry.id }}" data-thread-entry-id-field="{{ entry_id_field }}"
+     data-thread-entry-edit-action="{{ edit_form_action }}" data-thread-entry-delete-action="{{ delete_form_action }}">
+    <button type="button" class="row-corner-icon-btn" data-thread-entry-edit-btn aria-label="Edit entry">
+        <svg aria-hidden="true"><use href="{% static 'img/icons/ui/edit.svg' %}#icon"></use></svg>
+    </button>
+    <button type="button" class="row-corner-icon-btn" data-thread-entry-delete-btn aria-label="Delete entry">
+        <svg aria-hidden="true"><use href="{% static 'img/icons/ui/delete.svg' %}#icon"></use></svg>
+    </button>
+</div>
+<div class="note-thread-edit-form" data-thread-entry-edit-form hidden>
+    <textarea data-thread-entry-edit-textarea data-thread-entry-original-body="{{ entry.body }}">{{ entry.body }}</textarea>
+    <div class="btn-row">
+        <button type="button" class="btn btn-sm" data-thread-entry-edit-cancel>Cancel</button>
+        <button type="button" class="btn btn-add btn-sm" data-thread-entry-edit-save>Save</button>
+    </div>
+</div>
+{% endif %}
