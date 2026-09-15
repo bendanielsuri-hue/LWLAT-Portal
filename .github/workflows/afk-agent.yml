@@ -81,7 +81,13 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
-      actions: read
+      # `write`, not `read`: the last step of this job dispatches
+      # afk-queue.yml to ask for the next ticket, and dispatching a workflow
+      # is a write on the actions scope. With `read` the chain still looked
+      # healthy from the outside — the agent ran and the outcome was
+      # recorded — and only the hand-off failed, with a 403 that stalls the
+      # queue after a single ticket.
+      actions: write
     steps:
       - uses: actions/checkout@v6
 
@@ -215,6 +221,18 @@ jobs:
         if: steps.time_check.outputs.allowed == 'true' && steps.target.outputs.eligible == 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Runs that afk-queue.yml starts are dispatched by the queue's
+          # GITHUB_TOKEN, so the actor GitHub reports is the `github-actions`
+          # bot rather than a person. The action refuses a non-human actor by
+          # default and exits in under two seconds with "Workflow initiated by
+          # non-human actor", which is exactly every unattended run — the only
+          # ones that ever worked were those a human started by applying a
+          # label, which is the opposite of the point. Naming the one bot that
+          # legitimately drives this, rather than opening it to all bots, keeps
+          # the allowance as narrow as the actual need. The real permission
+          # gate is the label predicate and the off-hours window above, not the
+          # identity of the dispatcher.
+          allowed_bots: "github-actions[bot]"
           # `--allowedTools` is not optional. The action allows Read, Write,
           # Edit and the GitHub MCP tools by default and denies everything
           # else — Bash entirely. A denial does not fail the run: the agent
