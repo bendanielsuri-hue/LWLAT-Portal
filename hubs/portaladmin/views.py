@@ -21,8 +21,14 @@ def _hub_context(request):
 
 
 def _apply_fields(instance, post):
+    # Only fields the submitted form actually carried. A blank input still
+    # posts its (empty) name, so clearing an override works exactly as before;
+    # what this refuses to do is blank a stored value because a field was added
+    # to the model and not to this template - which is how a settings field
+    # could erase itself on an unrelated save (#195).
     for field in FIELDS:
-        setattr(instance, field, post.get(field, ''))
+        if field in post:
+            setattr(instance, field, post[field])
 
 
 def portaladmin_home(request):

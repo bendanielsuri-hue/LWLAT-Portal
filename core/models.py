@@ -24,15 +24,26 @@ ACCENT_COLOUR_CHOICES = [
 ]
 
 
-class School(models.Model):
-    CATEGORY_CHOICES = [('Primary', 'Primary'), ('Secondary', 'Secondary')]
+class PortalSettingsFields(models.Model):
+    """The seven portal-chrome overrides, declared once for all three tiers.
 
-    name = models.CharField(max_length=100, unique=True)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
-    is_active = models.BooleanField(default=True)
+    School, CategorySettings and MatSettings are three separate tables on
+    purpose - one row per tier is what makes the School -> Category -> MAT
+    fallthrough in core.portal_settings possible at all - but the field
+    definitions themselves were byte-identical in all three places, so adding
+    an eighth field meant remembering three models and a hand-kept name list,
+    with every omission failing silently rather than erroring (#195). An
+    abstract base leaves the tiers and the cascade exactly as ADR 0003 decided
+    them and removes only the restatement.
 
-    # Portal-chrome overrides for this school — see core.portal_settings for the
-    # School -> Category -> MAT fallthrough that resolves these (blank = inherit).
+    core.portal_settings.FIELDS derives its field-name list from this model's
+    _meta, so a field added here is resolved everywhere automatically.
+
+    A blank value always means "inherit from the next tier down", which is why
+    every field is blank=True with no default - a default would make a tier
+    that has never been touched look like a deliberate override.
+    """
+
     student_term = models.CharField(max_length=30, blank=True)
     staff_term = models.CharField(max_length=30, blank=True)
     portal_title = models.CharField(max_length=100, blank=True)
@@ -42,22 +53,26 @@ class School(models.Model):
     support_phone = models.CharField(max_length=30, blank=True)
 
     class Meta:
+        abstract = True
+
+
+class School(PortalSettingsFields):
+    CATEGORY_CHOICES = [('Primary', 'Primary'), ('Secondary', 'Secondary')]
+
+    name = models.CharField(max_length=100, unique=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
         ordering = ['category', 'name']
 
     def __str__(self):
         return self.name
 
 
-class MatSettings(models.Model):
+class MatSettings(PortalSettingsFields):
     # Singleton MAT-wide defaults — the bottom tier of the School -> Category -> MAT
     # fallthrough in core.portal_settings. Always exactly one row (forced pk=1).
-    student_term = models.CharField(max_length=30, blank=True)
-    staff_term = models.CharField(max_length=30, blank=True)
-    portal_title = models.CharField(max_length=100, blank=True)
-    accent_colour = models.CharField(max_length=10, choices=ACCENT_COLOUR_CHOICES, blank=True)
-    logo_url = models.CharField(max_length=300, blank=True)
-    support_email = models.EmailField(blank=True)
-    support_phone = models.CharField(max_length=30, blank=True)
 
     class Meta:
         verbose_name = 'MAT settings'
@@ -71,16 +86,9 @@ class MatSettings(models.Model):
         return 'MAT defaults'
 
 
-class CategorySettings(models.Model):
+class CategorySettings(PortalSettingsFields):
     # Middle tier of the fallthrough — one optional row per School.CATEGORY_CHOICES.
     category = models.CharField(max_length=20, choices=School.CATEGORY_CHOICES, unique=True)
-    student_term = models.CharField(max_length=30, blank=True)
-    staff_term = models.CharField(max_length=30, blank=True)
-    portal_title = models.CharField(max_length=100, blank=True)
-    accent_colour = models.CharField(max_length=10, choices=ACCENT_COLOUR_CHOICES, blank=True)
-    logo_url = models.CharField(max_length=300, blank=True)
-    support_email = models.EmailField(blank=True)
-    support_phone = models.CharField(max_length=30, blank=True)
 
     class Meta:
         verbose_name_plural = 'Category settings'
