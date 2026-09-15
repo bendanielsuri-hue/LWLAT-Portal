@@ -46,7 +46,7 @@ The hand-off is the agent's last step asking the queue for the next ticket. Watc
 
 ### How a run ends
 
-The outcome is decided by asking whether a PR referencing the issue exists — not by the workflow's exit status, which is zero whether the agent succeeded, gave up, or was denied every tool it needed and did nothing. Both `ready-for-agent` and `afk-approved` come off either way, so a retry needs a fresh grant. Neither outcome closes the issue; the agent never merges its own PR.
+The outcome is decided by asking whether the run's own PR exists — not by the workflow's exit status, which is zero whether the agent succeeded, gave up, or was denied every tool it needed and did nothing. "Its own" means the branch the prompt tells it to create, `claude/issue-<n>`, or a PR whose body says it closes the issue. Matching any PR that merely *references* the number is what shipped first and it marked six tickets done in one evening off a single base-class PR that listed what it unblocked. Both `ready-for-agent` and `afk-approved` come off either way, so a retry needs a fresh grant. Neither outcome closes the issue; the agent never merges its own PR.
 
 A failed run that pushed a branch keeps it, and the comment names it. A branch with real work on it tells you the run got most of the way and ran out of turns, which is the signal to raise the cap rather than rewrite the ticket.
 
