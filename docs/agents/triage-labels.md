@@ -50,6 +50,12 @@ The outcome is decided by asking whether the run's own PR exists — not by the 
 
 A failed run that pushed a branch keeps it, and the comment names it. A branch with real work on it tells you the run got most of the way and ran out of turns, which is the signal to raise the cap rather than rewrite the ticket.
 
+A run that never started is reported differently and leaves every label alone, so the ticket stays queued and a hand-granted `afk-approved` is not spent on work nobody attempted. The case that makes this worth separating is an exhausted usage window: the run comes back in well under a second with `is_error`, one turn and no model usage at all, which is indistinguishable from a genuine failure unless you open the log. An infrastructure fault also stops the queue rather than handing the next ticket to whatever refused this one — so a night that ends early with tickets still queued is the expected shape of one, not a second bug.
+
+### Checking what actually happened
+
+`.venv\Scripts\python.exe scripts\afk_status.py` reports the queue against reality — labels that disagree with whether a PR exists, a stalled chain, and whether the schedule has ticked. It runs on your machine and depends on nothing but `gh`, which is the point: a check living inside the system goes quiet at the same moment the system does, and the schedule failing produces no run at all to carry a warning.
+
 ### Settings
 
 Six repo variables (Settings > Secrets and variables > Actions > Variables), each with a fallback if unset:
