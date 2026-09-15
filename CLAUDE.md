@@ -136,7 +136,9 @@ Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-f
 
 ### Claude Code usage (model/effort selection)
 
-Task-to-model/effort decision table, prompting patterns by task type, subagent/parallel-work guidance, and the advisory heuristics for flagging a likely settings mismatch before starting substantial work — see `docs/agents/claude-code-usage.md`.
+**Before starting substantial work — a ticket, a refactor, anything spanning more than a file or two, and before delegating any of it to subagents — read `docs/agents/claude-code-usage.md`'s decision table and flag a likely model/effort mismatch in one line before beginning.** That file also holds the prompting patterns by task type and the subagent/parallel-work guidance.
+
+The trigger is spelled out here rather than only in that file because the instruction to run the check used to live solely inside the file you would open only if you had already decided to check — so an agent that judged the pointer "reference, read if asked" never learned the check existed, and skipped it silently. That has actually happened: a run of eight tickets went out at one effort level below what the table asks for, with no flag raised.
 
 ### Grilling sessions
 
