@@ -16,25 +16,22 @@ name: AFK queue
 # dispatches afk-agent.yml, which then starts on `workflow_dispatch` and is
 # not a scheduled run at all.
 on:
-  # Hourly rather than once at 19:00, deliberately. GitHub cron is UTC and
-  # has no notion of British Summer Time, so a single pinned hour silently
-  # slips by one in late October. Firing every hour and asking
-  # afk-agent.yml's own gate whether the window is open costs a few seconds
-  # of a free runner per hour and cannot drift. GitHub also delays or drops
-  # scheduled runs under load, which an hourly schedule shrugs off and a
-  # once-a-day one does not.
-  # Two jobs. It opens the queue when the window opens, and it is the safety
-  # net if the hand-off below ever fails to fire — a tick every quarter hour
-  # means a broken hand-off costs fifteen minutes of idle rather than the
-  # whole night. With eleven tickets and a twelve-hour window, the schedule
-  # alone would get through most of the queue unaided.
+  # Two jobs. It opens the queue when the window opens at 22:00 UK time, and
+  # it is the safety net if the hand-off ever fails to fire — a tick every
+  # quarter hour means a broken hand-off costs fifteen minutes of idle
+  # rather than the whole night.
+  #
+  # Repeated ticks rather than one pinned start, deliberately. GitHub delays
+  # and drops scheduled runs under load, which a frequent schedule shrugs
+  # off and a once-a-day one does not.
   #
   # Hours are deliberately wider than the window and in UTC, because cron
-  # has no notion of British Summer Time and a pinned hour silently slips by
-  # one in late October. The job re-checks the real window in Europe/London
-  # and exits in seconds outside it, so the extra ticks cost almost nothing.
+  # has no notion of British Summer Time: 22:00 in London is 21:00 UTC in
+  # summer and 22:00 UTC in winter, so a pinned hour silently slips by one
+  # in late October. The job re-checks the real window in Europe/London and
+  # exits in seconds outside it, so the extra ticks cost almost nothing.
   schedule:
-    - cron: '7,22,37,52 18-23,0-7 * * 1-5'
+    - cron: '7,22,37,52 20-23,0-7 * * 1-5'
     - cron: '7,22,37,52 * * * 6,0'
 
   # The queue advances one ticket at a time, and afk-agent.yml's last step
@@ -100,7 +97,7 @@ jobs:
           # the two in step; if one moves, move both.
           dow=$(TZ='Europe/London' date +%u)   # 1=Mon .. 7=Sun
           hour=$(TZ='Europe/London' date +%H)  # 00-23
-          if ! { [ "$dow" -ge 6 ] || [ "$hour" -ge 19 ] || [ "$hour" -lt 7 ]; }; then
+          if ! { [ "$dow" -ge 6 ] || [ "$hour" -ge 22 ] || [ "$hour" -lt 7 ]; }; then
             echo "::notice::Outside the off-hours window. Nothing dispatched."
             exit 0
           fi

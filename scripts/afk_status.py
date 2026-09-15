@@ -109,11 +109,11 @@ def uk_now() -> datetime:
 
 
 def window_is_open(now: datetime) -> bool:
-    """The same predicate both workflows apply: weekday evenings and nights, or
+    """The same predicate both workflows apply: weekday nights from 22:00, or
     any time at the weekend. Written out a third time here rather than imported
     because there is nothing to import from - it lives in shell inside two YAML
     files. If it moves, move all three."""
-    return now.isoweekday() >= 6 or now.hour >= 19 or now.hour < 7
+    return now.isoweekday() >= 6 or now.hour >= 22 or now.hour < 7
 
 
 def parse_ts(value: str) -> datetime:

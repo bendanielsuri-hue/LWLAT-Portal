@@ -138,7 +138,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      # Off-hours gate: only run weekday evenings/nights (after 19:00 or
+      # Off-hours gate: only run weekday nights (after 22:00 or
       # before 07:00 UK time) or any time on a weekend. Outside that window,
       # skip and leave a comment — the label stays, so removing and
       # reapplying it during an allowed window retriggers this workflow.
@@ -161,7 +161,7 @@ jobs:
         run: |
           dow=$(TZ='Europe/London' date +%u)   # 1=Mon .. 7=Sun
           hour=$(TZ='Europe/London' date +%H)  # 00-23
-          if [ "$dow" -ge 6 ] || [ "$hour" -ge 19 ] || [ "$hour" -lt 7 ]; then
+          if [ "$dow" -ge 6 ] || [ "$hour" -ge 22 ] || [ "$hour" -lt 7 ]; then
             echo "allowed=true" >> "$GITHUB_OUTPUT"
           else
             echo "allowed=false" >> "$GITHUB_OUTPUT"
@@ -175,7 +175,7 @@ jobs:
         if: steps.time_check.outputs.allowed == 'false' && github.event_name == 'issues'
         run: |
           gh issue comment "${{ steps.target.outputs.issue }}" --repo "${{ github.repository }}" --body \
-            "Labeled during work hours (weekday 07:00-19:00 UK time), so the AFK agent is skipping this for now. The label stays on, and \`afk-queue.yml\` picks it up automatically when the window opens this evening — you don't need to do anything. To force it sooner, remove and reapply the label during an evening/night or weekend."
+            "Labeled during work hours (weekday 07:00-22:00 UK time), so the AFK agent is skipping this for now. The label stays on, and \`afk-queue.yml\` picks it up automatically when the window opens this evening — you don't need to do anything. To force it sooner, remove and reapply the label during an evening/night or weekend."
         env:
           GH_TOKEN: ${{ github.token }}
 
