@@ -1,0 +1,40 @@
+name: Cron probe (temporary)
+
+# A diagnostic, not part of the AFK system. Delete it once it has answered
+# its question.
+#
+# `afk-queue.yml`'s schedule has never produced a single run — not one
+# `schedule` event in the repository's whole history, across ten missed
+# ticks on the evening of 2026-09-15. Everything checkable about it checks
+# out: the workflow is active, the repository is public and is not a fork or
+# archived, and the cron is present and correctly formed in the file GitHub
+# actually has on the default branch. That leaves two possibilities which
+# look identical from outside and need different fixes:
+#
+#   1. Scheduled events do not run in this repository at all, in which case
+#      nothing about afk-queue.yml's cron is worth reshaping and the AFK
+#      night needs starting some other way.
+#   2. Scheduled events work and something specific to afk-queue.yml stops
+#      it, in which case the fix is in that file.
+#
+# This runs the shortest interval GitHub accepts and does nothing but print
+# the time. If `gh run list --workflow=cron-probe.yml` shows runs by
+# morning, it is (2). If it shows none while this file has sat on the
+# default branch all night, it is (1).
+#
+# Deliberately a separate file rather than a step added to afk-queue.yml:
+# the whole question is whether *that workflow* is the problem, which a
+# probe living inside it could not distinguish.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say when
+        run: |
+          echo "Probe tick at $(date -u '+%Y-%m-%d %H:%M:%S') UTC"
+          echo "Triggered by: ${{ github.event_name }}"
