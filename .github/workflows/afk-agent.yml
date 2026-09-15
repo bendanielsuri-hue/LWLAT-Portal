@@ -296,9 +296,21 @@ jobs:
           branch="${{ steps.claude.outputs.branch_name }}"
           exec_file="${{ steps.claude.outputs.execution_file }}"
 
+          # Match the branch this run was told to create, not a mention of
+          # the issue number in a body. Searching bodies matched any PR that
+          # merely referenced the ticket — a base-class PR saying "unblocks
+          # #232, #233, #234" marked all three ready-for-review, stripped
+          # their labels and dropped them out of the queue, having produced
+          # nothing. Six tickets went that way in one evening. The branch
+          # name is dictated by the prompt above, so it identifies this run's
+          # own work and cannot collide with a PR about something else.
+          #
+          # The closing-keyword body match stays as a fallback for a run that
+          # opened its PR from a differently named branch, but it is anchored
+          # to "closes/fixes/resolves #N" rather than any mention.
           pr=$(gh pr list --repo "$repo" --state all --limit 50 \
-                 --json url,body \
-                 --jq "[.[] | select(.body | test(\"#${issue}([^0-9]|$)\"))] | .[0].url // empty")
+                 --json url,body,headRefName \
+                 --jq "[.[] | select(.headRefName == \"claude/issue-${issue}\" or (.body | test(\"(clos|fix|resolv)(e|es|ed)? +#${issue}([^0-9]|\$)\"; \"i\")))] | .[0].url // empty")
 
           # Turns used is not a step output; it is in the execution file the
           # action writes. Worth reporting because --max-turns is the dial
