@@ -84,6 +84,16 @@ jobs:
         )
       )
     runs-on: ubuntu-latest
+    # A second backstop, independent of the turn cap, because the two catch
+    # different things. The turn cap stops a run that is *doing* too much; it
+    # cannot stop one that is doing nothing — a hung tool call consumes no
+    # turns and would otherwise sit here for GitHub's six-hour default,
+    # holding the single concurrency slot and silently ending the night.
+    #
+    # Ninety minutes is generous against observed behaviour: runs go at
+    # roughly ten turns a minute, so even a 500-turn approved run lands near
+    # fifty. It bounds a hang without threatening legitimate work.
+    timeout-minutes: 90
     permissions:
       contents: write
       pull-requests: write
