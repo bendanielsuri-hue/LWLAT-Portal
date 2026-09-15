@@ -12,6 +12,7 @@ from core.models import School
 from core.modules import filter_by_module, is_module_visible, module_label, module_map
 from core.most_used import most_used_apps, personal_usage_counts
 from core.portal_settings import resolve_portal_settings
+from core.request_cache import per_request
 from hubs.inclusion.views import INCLUSION_MENU
 from hubs.registers.views import REGISTERS_MENU
 from hubs.resources.views import RESOURCES_MENU
@@ -91,7 +92,7 @@ def _developer_nav_extras(request):
 
 
 def build_hub_nav(request):
-    modules = module_map()
+    modules = module_map(request)
     entries = filter_by_module(HUB_NAV_ITEMS, modules, request) + _developer_nav_extras(request)
     items = []
     for entry in entries:
@@ -217,7 +218,14 @@ def _raw_sections():
 
 
 def build_sections(request):
-    modules = module_map()
+    # Built once per request: the search_items context processor indexes it on
+    # every page in the portal, and on Home mat_home() then renders the same
+    # list. Nothing here depends on anything a single request can change.
+    return per_request(request, 'sections', lambda: _build_sections(request))
+
+
+def _build_sections(request):
+    modules = module_map(request)
     settings = resolve_portal_settings(request)
     # Generic role-noun overrides only apply to these two hub entries — every
     # other hub's label comes from Module.name/hardcoded default, see plan notes.

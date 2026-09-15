@@ -36,7 +36,7 @@ INCLUSION_MENU = [
 
 
 def _local_menu(request):
-    return filter_by_module(INCLUSION_MENU, module_map(), request)
+    return filter_by_module(INCLUSION_MENU, module_map(request), request)
 
 
 def _hub_context(request):

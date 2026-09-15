@@ -1,7 +1,9 @@
 import logging
+from collections import defaultdict
 
 from core.identity import current_school_key, is_aggregate_school_key
 from core.models import Module
+from core.request_cache import per_request
 
 logger = logging.getLogger(__name__)
 
@@ -21,25 +23,70 @@ def view_full_system(request):
     return request.COOKIES.get(VIEW_FULL_SYSTEM_COOKIE) == '1'
 
 
-def module_map():
-    # One query per request, passed around by callers rather than re-queried per
-    # item — building this once is the caller's job (avoids N+1 across the nav
-    # rail, home sections, and every hub's local menu).
-    return {module.key: module for module in Module.objects.all()}
+class ModuleMap(dict):
+    """Every Module row, keyed by Module.key, plus the indexes callers need.
+
+    A dict subclass rather than a plain dict so the two indexes a visibility
+    check needs can travel with the rows they were derived from; both used to
+    be rebuilt per check instead of per row set (see #193). Every caller's
+    `.get(key)` / `.values()` still works unchanged.
+
+    `by_id` backs the parent-chain walk in `_status_with_cascade`, which used
+    to rebuild it on every single visibility check - roughly 37 checks against
+    45 modules per page render, all to re-derive something the row set already
+    fixes. `pilot_school_ids` is the other, described on its own method.
+    """
+
+    def __init__(self, modules):
+        modules = list(modules)
+        super().__init__({module.key: module for module in modules})
+        self.by_id = {module.id: module for module in modules}
+        self._pilot_school_ids = None
+
+    def pilot_school_ids(self, module):
+        """The School ids piloting `module`, as strings.
+
+        Loaded for every module at once, lazily, on the first pilot check of
+        the request - a STATUS_PILOT module otherwise costs one `.exists()`
+        query per check, and the same module gets checked from the nav rail,
+        Home's sections and the hub's own menu on a single render. Lazy rather
+        than prefetched with the rows above because nothing is piloting most
+        of the time, and a page with no pilot module should pay nothing.
+        """
+        if self._pilot_school_ids is None:
+            by_module = defaultdict(set)
+            for module_id, school_id in Module.pilot_schools.through.objects.values_list(
+                'module_id', 'school_id'
+            ):
+                by_module[module_id].add(str(school_id))
+            self._pilot_school_ids = by_module
+        return self._pilot_school_ids[module.id]
+
+
+def module_map(request=None):
+    """The Module rows for this request, built once and reused.
+
+    "One query per request" has been this function's stated intent from the
+    start but nothing enforced it - the nav rail, Home's sections, the search
+    index and every hub's local menu each called it independently, three times
+    on a single render. Passing `request` is what makes the claim true; without
+    one (a management command, a helper called outside a request) it falls back
+    to querying every time, which is the old behaviour.
+    """
+    return per_request(request, 'module_map', lambda: ModuleMap(Module.objects.all()))
 
 
 def _status_with_cascade(module, modules):
     # "Hidden cascades down, everything else is evaluated independently" — walk
     # up the parent chain (including the module itself); the instant any
     # ancestor is hidden, the whole branch is hidden regardless of the leaf's
-    # own stored status. Traverses via parent_id against an id-index built from
-    # the already-loaded `modules` dict, so this never issues extra queries.
-    by_id = {m.id: m for m in modules.values()}
+    # own stored status. Traverses via parent_id against the ModuleMap's
+    # id-index, so this never issues extra queries.
     node = module
     while node is not None:
         if node.status == Module.STATUS_HIDDEN:
             return Module.STATUS_HIDDEN
-        node = by_id.get(node.parent_id)
+        node = modules.by_id.get(node.parent_id)
     return module.status
 
 
@@ -73,7 +120,7 @@ def is_module_visible(module_key, modules, request):
             # A pilot module is only visible when one concrete school is
             # selected - there's no "is this piloting anywhere" aggregate.
             return False
-        return module.pilot_schools.filter(pk=key).exists()
+        return str(key) in modules.pilot_school_ids(module)
     return False
 
 

@@ -1,6 +1,7 @@
 from django.db.models import Q
 
 from core.models import Staff, Student
+from core.request_cache import per_request
 from core.school_scope import SchoolScope
 
 # No login system exists yet (see CLAUDE.md), so "current identity" is just a
@@ -82,6 +83,16 @@ def default_staff_for_school_key(key):
 
 
 def current_staff(request):
+    # Resolved once per request. Practically every page asks several times over
+    # - the identity context processor, the hub rail's developer check, Home's
+    # sections, the view itself, then the page-view middleware after the
+    # response - and each ask was its own query (see #193). The cookie it reads
+    # is set client-side by the switcher, which then reloads, so it cannot
+    # change part-way through a request.
+    return per_request(request, 'current_staff', lambda: _resolve_staff(request))
+
+
+def _resolve_staff(request):
     staff_id = request.COOKIES.get(CURRENT_STAFF_COOKIE)
     school_key = current_school_key(request)
     if staff_id:

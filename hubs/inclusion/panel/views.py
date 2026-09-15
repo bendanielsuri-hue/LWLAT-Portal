@@ -83,7 +83,7 @@ PANEL_MENU = [
 
 
 def _local_menu(request):
-    return filter_by_module(PANEL_MENU, module_map(), request)
+    return filter_by_module(PANEL_MENU, module_map(request), request)
 
 
 def _panel_base_context(request):
