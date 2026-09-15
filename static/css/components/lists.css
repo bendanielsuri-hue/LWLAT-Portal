@@ -295,14 +295,11 @@
 }
 
 /* SYNC: Row standard (see .selectable in cards.css, source of truth, see
-   its own SYNC comment) - a thin left-edge accent bar on hover (not a
-   background fill or full outline - a full outline would paint over
-   .chosen's own left accent bar below and make it disappear on hover,
-   cards.css's own comment has the full story), bolder primary fill + fuller
-   fill once .chosen (click-to-select) — both spanning the full card width
-   via the negative margin above. The bar is a hover/focus marker only now
-   (cards.css has the live-feedback trail), so no :not(.chosen) exclusion -
-   hovering an already-chosen row shows it over that row's fill too. */
+   its own SYNC comment) - a thin left-edge accent bar on hover, and the
+   same bar in --primary once .chosen (click-to-select) — both spanning the
+   full card width via the negative margin above. Not a background fill or
+   full outline - a full outline would paint over .chosen's own bar and
+   make it disappear on hover, cards.css's own comment has the full story. */
 .stack-list li:hover,
 .stack-list li:focus-visible {
     /* var(--accent-border) — kept in sync with cards.css's .selectable:hover;
@@ -310,9 +307,19 @@
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border);
 }
 
-.stack-list li.chosen { background: var(--primary-light); }
-
-.stack-list li.chosen:hover { background: var(--primary-light); }
+/* Chosen bar, not a --primary-light fill (SYNC: .entity-row.chosen,
+   cards.css - #218, dropped the fill portal-wide since rows here are never
+   actually multi-selected). Restated combined with :hover/:focus-visible so
+   a chosen row outranks hover on specificity (3 classes/pseudo-classes vs.
+   the plain hover rule's 2) and keeps its primary bar instead of falling
+   back to the neutral hover colour. */
+.stack-list li.chosen {
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary);
+}
+.stack-list li.chosen:hover,
+.stack-list li.chosen:focus-visible {
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary);
+}
 
 .stack-list li.empty-note:hover { box-shadow: none; }
 
@@ -713,13 +720,10 @@ html:not(.nav-touch-mode) .list-card .entity-list {
    .entity-row base rule, cards.css, which every other .entity-row consumer
    - modal member pickers, Panel Agenda rosters, Referral Selection, etc. -
    keeps unchanged) since those compact contexts were never part of this
-   list-page treatment. No :not(.chosen) guard needed here (unlike the old
-   zebra rule) - this selector's specificity (2 classes) no longer outranks
-   .entity-row.chosen's (cards.css, also 2 classes, loaded later), so
-   .chosen's own background fill wins on its own. No border-radius -
-   rows are flush to the list-card's own left/right edge (no side margin
-   on .entity-list, above), so a rounded corner here would just expose the
-   well underneath at a mismatched radius rather than reading as a card. */
+   list-page treatment. No border-radius - rows are flush to the list-card's
+   own left/right edge (no side margin on .entity-list, above), so a rounded
+   corner here would just expose the well underneath at a mismatched radius
+   rather than reading as a card. */
 .list-card .entity-row {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
@@ -749,12 +753,26 @@ html:not(.nav-touch-mode) .list-card .entity-list {
    within border"). Matching the border to the bar's own colour makes the
    two read as one continuous accent edge instead of a border framing a
    bar. Only -color, not the full border-left shorthand - width/style stay
-   whatever the base rule already set. Lives on :hover/:focus-visible now,
-   not .chosen - the bar is a hover-only marker (cards.css). */
+   whatever the base rule already set. */
 .list-card .entity-row:hover,
 .list-card .entity-row:focus-visible {
     border-left-color: var(--accent-border);
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border), var(--card-shadow);
+}
+/* Chosen restates the bar in --primary (SYNC: .entity-row.chosen, cards.css
+   - #218, no more --primary-light fill) combined with var(--card-shadow),
+   same reasoning as the hover override above. Also restated combined with
+   :hover/:focus-visible, at higher specificity than the plain hover rule
+   above (4 classes/pseudo-classes vs. its 3) so chosen outranks hover on a
+   chosen+hovered row instead of losing its own colour to the neutral bar. */
+.list-card .entity-row.chosen {
+    border-left-color: var(--primary);
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary), var(--card-shadow);
+}
+.list-card .entity-row.chosen:hover,
+.list-card .entity-row.chosen:focus-visible {
+    border-left-color: var(--primary);
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary), var(--card-shadow);
 }
 /* The true-mobile halving that used to be restated here is gone along with
    the cards.css override it mirrored (see its own comment there) - one bar

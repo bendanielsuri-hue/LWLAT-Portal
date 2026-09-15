@@ -1631,34 +1631,6 @@ html.nav-touch-mode .action-carousel-count.many-cards {
         border: 1px solid var(--border-color);
         box-shadow: var(--card-shadow);
     }
-    /* background restated (not just relying on the base .stack-list
-       li.chosen rule, cards.css-equivalent) - that base rule and this
-       file's own .content-shell .stack-list li (above) are the same
-       specificity (2 classes + type each), so without this the later of
-       the two in source order silently won regardless of .chosen -
-       confirmed live: chosen rows on Home showed a plain bg-surface card
-       with no primary fill or accent bar at all, reading as just another
-       bordered rectangle instead of a selected row.
-       Sits ABOVE the hover/focus rule below, not after it, for the same
-       source-order reason: a chosen row and a hovered row tie on
-       specificity here too (3 classes + type each, :hover counting as a
-       class), so whichever comes last wins outright. With this block last,
-       a chosen row's own box-shadow silently replaced the hover bar, so
-       hovering a selected row looked different from hovering any other one
-       (live feedback: "hover on active My actions is not the same as hover
-       when inactive"). box-shadow kept here anyway (rather than left to the
-       base li rule) so this block stands alone as the chosen row's full
-       resting state. */
-    .content-shell .stack-list li.chosen {
-        background: var(--primary-light);
-        box-shadow: var(--card-shadow);
-    }
-    /* Combines the accent bar with var(--card-shadow) in one box-shadow
-       list - box-shadow isn't additive across separate declarations, so
-       restating it here (same fix as .list-card .entity-row's own hover
-       override, layout.css) is what keeps the shadow from disappearing on
-       hover. Last of the three rules deliberately - see .chosen's own
-       source-order comment above. */
     /* :not(.empty-note), matching the base "gapped card" rule above - the
        placeholder row is not selectable and has no card chrome, but these
        selectors tie with .stack-list li.empty-note:hover's own box-shadow:
@@ -1670,6 +1642,23 @@ html.nav-touch-mode .action-carousel-count.many-cards {
 .content-shell .stack-list li:not(.empty-note):focus-visible {
         border-left-color: var(--accent-border);
         box-shadow: inset var(--space-xxs) 0 0 var(--accent-border), var(--card-shadow);
+    }
+    /* Chosen bar, not a --primary-light fill (SYNC: .entity-row.chosen,
+       cards.css - #218, dropped the fill portal-wide since rows here are
+       never actually multi-selected). .chosen:hover/:focus-visible below
+       ties on specificity with the plain hover rule above (4 classes +
+       type each, :not()/:hover both counting as a class) so - same as the
+       old fill version's own ordering requirement - it has to come AFTER
+       the hover rule in source to win the tie, or a chosen+hovered row
+       would silently fall back to the neutral hover bar. */
+    .content-shell .stack-list li.chosen {
+        border-left-color: var(--primary);
+        box-shadow: inset var(--space-xxs) 0 0 var(--primary), var(--card-shadow);
+    }
+    .content-shell .stack-list li.chosen:hover,
+    .content-shell .stack-list li.chosen:focus-visible {
+        border-left-color: var(--primary);
+        box-shadow: inset var(--space-xxs) 0 0 var(--primary), var(--card-shadow);
     }
 }
 

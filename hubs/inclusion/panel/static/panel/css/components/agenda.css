@@ -31,10 +31,9 @@
 /* Row standard (see .selectable in cards.css): a left-edge accent bar on
    hover (only wired up where a row's cells are plain text/links, e.g.
    referrals/actions — not on rows that hold their own form controls), and
-   a --primary-light fill for rows marked .chosen.
+   the same bar in --primary for rows marked .chosen.
    Not a full outline (see cards.css's .selectable:hover comment for the
-   full reasoning). Hover/focus only - .chosen has no bar of its own to
-   collide with, so this applies to a chosen row too. */
+   full reasoning). */
 .agenda-table tbody tr:hover,
 .agenda-table tbody tr:focus-visible {
     /* SYNC: cards.css's .selectable:hover is the source of truth (see its
@@ -44,9 +43,19 @@
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border);
 }
 
-.agenda-table tbody tr.chosen { background: var(--primary-light); }
-
-.agenda-table tbody tr.chosen:hover { background: var(--primary-light); }
+/* Chosen bar, not a --primary-light fill (SYNC: .entity-row.chosen,
+   cards.css - #218, dropped the fill portal-wide since rows here are never
+   actually multi-selected). Restated combined with :hover/:focus-visible so
+   a chosen row outranks hover on specificity (3 classes/pseudo-classes vs.
+   the plain hover rule's 2) and keeps its primary bar instead of falling
+   back to the neutral hover colour. */
+.agenda-table tbody tr.chosen {
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary);
+}
+.agenda-table tbody tr.chosen:hover,
+.agenda-table tbody tr.chosen:focus-visible {
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary);
+}
 
 .agenda-table .empty-row:hover { box-shadow: none; }
 

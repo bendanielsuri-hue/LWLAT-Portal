@@ -406,11 +406,12 @@
    #145; Home's own lists were still 3px until that was noticed live). Grep
    "SYNC:" across the repo before changing bar width, hover colour, or
    chosen colour here — every other hit needs the same edit:
-   - .list-card .entity-row (layout.css) — desktop list-page rows
-   - .stack-list li / .content-shell .stack-list li (panel.css) — Home's
-     My Referrals/My Actions/Upcoming Panel Meetings
-   - .meeting-card (panel.css) — Meetings page
-   - .agenda-table tbody tr (panel.css) — Panel Agenda table rows */
+   - .list-card .entity-row (components/lists.css) — desktop list-page rows
+   - .stack-list li / .content-shell .stack-list li (panel's pages/home.css)
+     — Home's My Referrals/My Actions/Upcoming Panel Meetings
+   - .meeting-card (panel's components/meeting-card.css) — Meetings page
+   - .agenda-table tbody tr (panel's components/agenda.css) — Panel Agenda
+     table rows */
 .selectable { cursor: pointer; }
 /* No title emphasis on hover/focus or selection anywhere in the portal
    (live feedback: "we can lose the make title look bolder on hover or
@@ -436,17 +437,7 @@
    a full inset outline (tried first, live feedback: "don't like the hover
    rectangle") drew a plain 4-sided ring around the row instead of a
    pointer marker.
-   The bar is now the hover/focus marker ONLY (live feedback: "can hovered
-   row have primary fill selector rectangle... we can lose the active row
-   having the rectangle, we can just show if hovered") - .chosen keeps just
-   its var(--primary-light) fill (plus the fake-bold title below) and no
-   bar of its own. That removes the collision the old split existed to
-   manage: the two states no longer fight over the same box-shadow, so the
-   hover bar no longer has to stay a neutral var(--border-color) to read as
-   distinct from a coloured chosen one - it's var(--accent-border) in both
-   cases now, with no :not(.chosen) exclusion, so hovering an already-chosen
-   row shows the bar over its fill like any other row. */
-/* var(--space-xxs) (4px), narrowed from a hardcoded 6px - live feedback:
+   var(--space-xxs) (4px), narrowed from a hardcoded 6px - live feedback:
    "can hover and selector rectangle on lists be narrower, maybe 4px or
    closest token?". Tokenised on the way rather than swapping one hardcoded
    number for another; 4px is the scale's own slot next to the old value.
@@ -455,8 +446,34 @@
 .selectable:focus-visible {
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border);
 }
-.entity-row.chosen { background: var(--primary-light); }
-.entity-row.chosen:hover { background: var(--primary-light); }
+/* Chosen rows never get a primary-colour fill (#218) - rows in this app
+   aren't actually multi-selected by the user (interaction is always
+   through a button on the row, never picking the row itself), so a full
+   var(--primary-light) fill read as a selection affordance that doesn't
+   apply here, and it fought the neutral-bg-plus-accent-bar convention
+   every other chosen/selected state in the portal uses. Reuses the same
+   left-edge bar as hover/focus instead, just in --primary rather than
+   --accent-border, so "chosen" and "hovered" read as the same kind of
+   marker at two different colours rather than two unrelated treatments.
+   If a list ever needs true multi-select, that gets its own distinct
+   visual rather than reusing this one. */
+.entity-row.chosen {
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary);
+}
+/* Chosen must outrank hover (#218) - hovering an already-chosen row keeps
+   the primary bar rather than falling back to the neutral hover colour.
+   .entity-row.chosen and .selectable:hover/:focus-visible tie on
+   specificity (2 classes/pseudo-classes each), so without a combined
+   selector here, whichever comes later in the cascade would win outright
+   on a chosen+hovered row - this rule has to out-specify both plain
+   .selectable:hover and plain .entity-row.chosen at once, which only a
+   selector combining .chosen with :hover/:focus-visible can do.
+   SYNC: every restatement of this bar (see the list above the hover rule)
+   needs the same "chosen wins over hover" combinator. */
+.entity-row.chosen:hover,
+.entity-row.chosen:focus-visible {
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary);
+}
 /* The true-mobile halving (3px, live feedback: "left selector is too close to
    list contents" - every list page's own mobile block shrinks .entity-row's
    padding, so the old 6px read as noticeably wider against that tighter
