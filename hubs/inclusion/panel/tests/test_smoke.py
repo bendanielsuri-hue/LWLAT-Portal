@@ -37,6 +37,7 @@ class PanelPagesSmokeTest(PanelViewTestCase):
         'inclusion_panel_action_category_settings',
         'inclusion_panel_group_settings',
         'inclusion_panel_expertise_settings',
+        'inclusion_panel_preset_reason_settings',
     ]
 
     # Modal fragments: rendered into a page that already has the chrome, so

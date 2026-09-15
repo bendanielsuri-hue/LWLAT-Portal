@@ -1,0 +1,32 @@
+{% comment %}
+The preset-reason control: a dropdown of the admin-managed PresetReason rows
+for one context, plus an "Other" option that reveals a free-text box. Wired by
+panel/js/components/preset-reason-field.js, which finds every part by the
+data- attributes below rather than by id, so several of these can render on
+one page (the Panel Group modal renders one inside a form that already shares
+the dialog with the member rows' own forms).
+
+Params: presets (the PresetReason rows for this context), field_id_suffix
+(unique per instance - only the label/control pairing uses it), label
+(defaults to "Reason"), required (bool).
+
+The "__other__" value is reasons.OTHER, written out here the same way
+form_action literals are - see reasons.py for the contract.
+{% endcomment %}
+<div data-preset-reason-field>
+    <div class="field-group">
+        <label for="reason-choice-{{ field_id_suffix }}">{{ label|default:"Reason" }}</label>
+        <select id="reason-choice-{{ field_id_suffix }}" name="reason_choice" data-preset-reason-choice{% if required %} required{% endif %}>
+            <option value="">Select a reason…</option>
+            {% for preset in presets %}
+            <option value="{{ preset.text }}">{{ preset.text }}</option>
+            {% endfor %}
+            <option value="__other__">Other (please specify)</option>
+        </select>
+    </div>
+
+    <div class="field-group" data-preset-reason-other-group hidden>
+        <label for="reason-other-{{ field_id_suffix }}">Please specify</label>
+        <textarea id="reason-other-{{ field_id_suffix }}" name="reason_other" data-preset-reason-other></textarea>
+    </div>
+</div>

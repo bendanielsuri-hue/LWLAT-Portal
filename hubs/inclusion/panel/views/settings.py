@@ -1,4 +1,4 @@
-"""The Admin area: referral questions, action categories, panel groups and expertise.
+"""The Admin area: referral questions, action categories, preset reasons, panel groups and expertise.
 
 Named for the URL prefix these pages sit behind (/inclusion/panel/settings/).
 Unrelated to django.conf.settings, which absolute imports keep distinct.
@@ -9,7 +9,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from core.identity import current_school_key
+from core.identity import current_school_key, current_staff as _current_staff
 from core.models import School
 
 # Imported as modules, not as names, so a call site reads
@@ -17,13 +17,14 @@ from core.models import School
 # which of the two it is - these used to be underscore-private functions in
 # this file, and the whole point of moving them out is that a reader can see
 # where a transition lives.
-from .. import form_actions, lifecycle
+from .. import form_actions, lifecycle, reasons
 from ..models import (
     ActionCategory,
     Expertise,
     ExternalContact,
     PanelGroup,
     PanelGroupMember,
+    PresetReason,
     ReferralCategory,
     ReferralQuestion,
 )
@@ -96,6 +97,51 @@ def inclusion_panel_action_category_settings(request):
     })
 
 
+# Where each PresetReason context's rows actually surface, shown on the
+# settings page above that context's own list. The label on PresetReason
+# names the context; this says which screen an admin's edit will change,
+# which is the thing they can't work out from the name alone.
+PRESET_REASON_BLURBS = {
+    PresetReason.CONTEXT_ESCALATION:
+        'Offered on the Escalate to MAT form, above its "Other" free-text box.',
+    PresetReason.CONTEXT_MEMBER_DEACTIVATION:
+        'Asked for when a member is taken off a Panel Group\'s roster, in the Edit Panel Group modal.',
+}
+
+
+def inclusion_panel_preset_reason_settings(request):
+    if request.method == 'POST':
+        action = request.POST.get('form_action')
+        if action == form_actions.ADD_PRESET_REASON:
+            context = request.POST.get('context', '')
+            text = request.POST.get('text', '').strip()
+            if text and context in dict(PresetReason.CONTEXT_CHOICES):
+                next_order = (
+                    PresetReason.objects.filter(context=context).aggregate(Max('order'))['order__max'] or 0
+                ) + 1
+                PresetReason.objects.create(context=context, text=text, order=next_order)
+        elif action == form_actions.DEACTIVATE_PRESET_REASON:
+            PresetReason.objects.filter(pk=request.POST.get('reason_id')).update(is_active=False)
+        return redirect('inclusion_panel_preset_reason_settings')
+
+    return render(request, 'hubs/inclusion/panel/preset_reason_settings.html', {
+        **_panel_base_context(request),
+        # One section per context rather than one flat list with a context
+        # column: a preset only means anything next to the form it appears
+        # on, and adding one has to pick a context anyway - per-section Add
+        # forms carry it in a hidden field instead of asking again.
+        'context_groups': [
+            {
+                'key': key,
+                'label': label,
+                'blurb': PRESET_REASON_BLURBS[key],
+                'presets': PresetReason.objects.for_context(key),
+            }
+            for key, label in PresetReason.CONTEXT_CHOICES
+        ],
+    })
+
+
 def inclusion_panel_group_settings(request):
     if request.method == 'POST':
         action = request.POST.get('form_action')
@@ -115,6 +161,12 @@ def inclusion_panel_group_settings(request):
         **_panel_base_context(request),
         'groups': groups,
     })
+
+
+# Every way back onto a roster clears the same three fields together - a
+# member who is active again has no deactivation left to describe, and a
+# half-cleared one would have the roster reading "Deactivated by nobody".
+_CLEARED_DEACTIVATION = {'deactivated_at': None, 'deactivated_by': None, 'deactivation_reason': ''}
 
 
 def _group_member_sort_key(member):
@@ -189,18 +241,28 @@ def inclusion_panel_group_edit(request, group_id=None):
                     panel_group=group, staff_id=staff_id,
                     defaults={
                         'expertise_id': expertise_id, 'external_contact_id': None,
-                        'is_active': True, 'deactivated_at': None,
+                        'is_active': True, **_CLEARED_DEACTIVATION,
                     },
                 )
             elif external_contact_id:
                 PanelGroupMember.objects.update_or_create(
                     panel_group=group, external_contact_id=external_contact_id,
-                    defaults={'expertise_id': expertise_id, 'is_active': True, 'deactivated_at': None},
+                    defaults={'expertise_id': expertise_id, 'is_active': True, **_CLEARED_DEACTIVATION},
                 )
         elif action == form_actions.TOGGLE_GROUP_MEMBER_ACTIVE:
             member = get_object_or_404(PanelGroupMember, pk=request.POST.get('member_id'), panel_group=group)
             member.is_active = not member.is_active
-            member.deactivated_at = timezone.now() if not member.is_active else None
+            if member.is_active:
+                for field, value in _CLEARED_DEACTIVATION.items():
+                    setattr(member, field, value)
+            else:
+                member.deactivated_at = timezone.now()
+                member.deactivated_by = _current_staff(request)
+                # Blank only if the client somehow posted no reason - the
+                # deactivate step's own dropdown is `required`, and the
+                # roster reads a missing reason as an em dash rather than
+                # refusing the deactivation over it.
+                member.deactivation_reason = reasons.reason_from_post(request.POST)
             member.save()
             if not member.is_active and member.staff_id:
                 if group.default_chair_id == member.staff_id:
@@ -230,7 +292,7 @@ def inclusion_panel_group_edit(request, group_id=None):
         })
 
     members = list(
-        group.members.select_related('staff', 'external_contact', 'expertise').all()
+        group.members.select_related('staff', 'external_contact', 'expertise', 'deactivated_by').all()
     )
     members.sort(key=_group_member_sort_key)
     active_members = [m for m in members if m.is_active]
@@ -245,6 +307,9 @@ def inclusion_panel_group_edit(request, group_id=None):
         'existing_staff_ids': {m.staff_id for m in active_members if m.staff_id},
         'existing_external_ids': {m.external_contact_id for m in active_members if m.external_contact_id},
         'available_expertise': Expertise.objects.visible_for_school(group.school_id),
+        'deactivation_reason_presets': PresetReason.objects.for_context(
+            PresetReason.CONTEXT_MEMBER_DEACTIVATION
+        ),
         'existing_groups': list(
             PanelGroup.objects.filter(is_active=True).exclude(pk=group.pk).values('name', 'school_id')
         ),

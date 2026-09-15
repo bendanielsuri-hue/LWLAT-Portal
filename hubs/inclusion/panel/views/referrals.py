@@ -24,13 +24,14 @@ from core.dashboard_filters import Filter, FilterSet, equals
 # which of the two it is - these used to be underscore-private functions in
 # this file, and the whole point of moving them out is that a reader can see
 # where a transition lives.
-from .. import lifecycle, presenters
+from .. import lifecycle, presenters, reasons
 from ..models import (
     Action,
     Escalation,
     InclusionReferral,
     PanelGroup,
     PanelMember,
+    PresetReason,
     ReferralCategory,
     ReferralQuestion,
     ReferralResponse,
@@ -651,17 +652,14 @@ def inclusion_panel_referral_escalate(request, referral_id):
         # unique_open_escalation_per_referral). Silently no-op a resubmit
         # instead of letting the constraint raise.
         if not already_escalated:
-            # 'reason_choice' is one of Escalation.REASON_CHOICES' preset
-            # sentences, or the '__other__' sentinel (escalate_form.html)
-            # meaning "use the free-text reason_other box instead" - see
-            # Escalation.REASON_CHOICES' own comment for why this isn't a
-            # `choices=` constraint on the model field itself.
-            reason_choice = request.POST.get('reason_choice', '')
-            reason = request.POST.get('reason_other', '').strip() if reason_choice == '__other__' else reason_choice
             Escalation.objects.create(
                 referral=referral,
                 escalated_by_id=request.POST.get('escalated_by') or None,
-                reason=reason,
+                # One sentence either way - whichever preset was picked, or
+                # whatever was typed into "Other". See reasons.py for the
+                # field pair this reads, and Escalation.reason for why it's
+                # stored as text rather than pointing back at the preset.
+                reason=reasons.reason_from_post(request.POST),
             )
         # Escalating doesn't change anything about this referral's own
         # panel/discussion state, so its status is left as whatever
@@ -675,6 +673,6 @@ def inclusion_panel_referral_escalate(request, referral_id):
         'referral': referral,
         'already_escalated': already_escalated,
         'staff_list': staff_queryset_for_school_key(current_school_key(request)),
-        'reason_choices': Escalation.REASON_CHOICES,
+        'reason_presets': PresetReason.objects.for_context(PresetReason.CONTEXT_ESCALATION),
         'next': request.GET.get('next', ''),
     })

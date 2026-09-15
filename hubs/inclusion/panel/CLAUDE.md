@@ -17,7 +17,7 @@ Safeguarding notes now live in `core.models.SafeguardingNote`, not here — see 
 
 **Panel meeting structure:**
 - `PanelGroup` — staff group scoped to a `School` (nullable); holds `default_chair`
-- `PanelGroupMember` — membership in a group (either `staff` or `external_contact`, plus optional `expertise`)
+- `PanelGroupMember` — membership in a group (either `staff` or `external_contact`, plus optional `expertise`). Coming off the roster records `deactivated_at`/`deactivated_by`/`deactivation_reason`; all three are cleared again by either way back on (the Active toggle, or being re-added through the picker) — see `_CLEARED_DEACTIVATION` in `views/settings.py`
 - `Expertise` — skill tags (shared or school-specific via nullable `school` FK); custom manager `ExpertiseQuerySet.visible_for_school(school_id)`
 - `ExternalContact` — guest speakers / external professionals who aren't `Staff`
 - `Panel` — a meeting session (`date`, `time`, `chair`, `status`, `panel_group`, `started_at`)
@@ -25,6 +25,9 @@ Safeguarding notes now live in `core.models.SafeguardingNote`, not here — see 
 - `PanelReferral` — links a `Referral` to a `Panel`; tracks `discussion_status`, timing, and follow-up. Safeguarding readiness is not panel-scoped: `core.SafeguardingReadinessConfirmation` records which DSL confirmed the student's current note state.
 - `PanelReferralNote` — add-only thread notes during discussion (never edited)
 - `Escalation` — escalated referral with resolution tracking
+
+**Shared vocabulary:**
+- `PresetReason` — the admin-editable sentences offered wherever the app asks "why?", one table for every asking context (`escalation`, `member_deactivation`), managed on Panel Settings' Preset Reasons tab. Consumers store the chosen sentence as their own free text, never an FK — see the model's docstring and [CONTEXT.md](CONTEXT.md)'s Preset Reason entry
 
 ## Views package (`views/`)
 
@@ -38,6 +41,7 @@ The area module each lives in is named in brackets.
 - `visible_categories_for(staff, categories=None)` / `visible_actions_for(staff, actions)` (`views/shared.py`) — single owner for "hide `is_sensitive` categories/actions from non-panel staff". Every view touching `ActionCategory`/`Action` querysets for display should filter through these instead of re-deriving `_is_panel_staff(...)` and excluding inline.
 - `_due_followups(panel, as_of)` (`views/meeting_shared.py`) — scoped to the referral's student's current school (any active Panel Group there, not just the one that originally discussed it — see [#70](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/70)), matching `unassigned_referrals`' own school-level scoping; a MAT-wide group or an ungrouped panel sees nothing due. Pulling follow-ups onto the agenda is only done from Panel Agenda Setup (`inclusion_panel_meeting_setup`'s "Reviews Due" tab, `add_followup_to_agenda` action) — the live Panel Agenda page has no agenda-composition UI of its own, it's for running a meeting whose agenda was already decided.
 - `_panel_member_roster(panel)` (`views/meeting_shared.py`) — "who's on this panel," used by both Panel Agenda Setup and the live Panel Agenda page. Reads the live `PanelGroupMember` roster for any non-`complete` panel; for a `complete` panel, reads only members with a `PanelMember` row (i.e. who actually checked in) instead, so a finished meeting's attendance record doesn't change if the group's membership changes later.
+- `reasons.reason_from_post(post)` (`reasons.py`) — turns a submitted preset-reason field (`reason_choice` plus `reason_other` when the choice is `reasons.OTHER`) into the one sentence to store. Reach for it, `_preset_reason_field.html` and `panel/js/components/preset-reason-field.js` together — they are the three halves of one mechanism, and a fourth consumer should add a `PresetReason.CONTEXT_*` value rather than a fourth copy of the field.
 - `_safeguarding_note_rows(request)` (`views/safeguarding.py`) — one row per student+upcoming-panel pair, MAT-wide/school-switcher scoped (same convention as `_due_followups`), backing the Safeguarding Notes screen (`safeguarding_notes.html`, renamed from "Safeguarding Briefings" - #84; URL/route and Python names renamed to match in #85). `row.notes` is that student's whole active `core.models.SafeguardingNote` list (no panel filter — every row for the same student shows the same notes, see #77-#81); `row.history` is that student's retired notes, most-recently-retired first, excluding any note retired automatically by an edit (`retirement_reason == 'superseded'`) - History is Delete-only (#83).
 
 ## Referral lifecycle (`lifecycle.py`) and reconciliation (`reconcile.py`)
@@ -94,6 +98,7 @@ Run after `seed_dummy_data` and `seed_schools`:
 
 ```
 manage.py seed_referral_questions   # ReferralCategory + ReferralQuestion rows
+manage.py seed_preset_reasons       # PresetReason rows for both contexts - run before seed_escalations
 manage.py seed_panel_groups         # Expertise tags + one PanelGroup per active School
 manage.py seed_demo_referrals       # 5 unassigned Referrals with placeholder responses
 manage.py seed_panel_meetings       # Past (complete) + upcoming Panel rows per group

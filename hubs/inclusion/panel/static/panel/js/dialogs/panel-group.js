@@ -29,6 +29,7 @@ import { beginFetchSeq, isCurrentFetchSeq } from '../../../js/components/fetch-s
 import { resolvePanelSchoolFilter } from '../components/school-filter.js';
 import { initPersonPicker } from '../../../js/components/person-picker.js';
 import { enhanceFormControls } from '../../../js/components/form-controls.js';
+import { initPresetReasonFields, resetPresetReasonField } from '../components/preset-reason-field.js';
 
 (function () {
     var dialog = document.getElementById('panel-group-dialog');
@@ -55,6 +56,11 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
     // .tab-row's own entrance animation but scoped to a single button
     // instead of the whole row.
     var tabMemberState = { active: true, inactive: true };
+    // wireMembersModeToggle's own setMode, published here so the submit
+    // handler below can switch the modal into the deactivate-member step
+    // (and back out of it) without re-querying the whole footer/view set.
+    // Reassigned on every render, since each one rewires against fresh nodes.
+    var setMembersMode = null;
 
     // A tab with zero members hides its own button entirely rather than
     // showing an empty "No members"/"No inactive members" state - unlike the
@@ -177,31 +183,40 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
         });
     }
 
+    // Three modes, not two, since #239: 'list', 'add', and 'deactivate' - the
+    // reason step a member goes through on the way off the roster (see
+    // _panel_group_form_modal.html).
+    //
     // Two distinct buttons rather than one relabelled toggle: [data-members-mode-toggle]
     // ("+ Add Member" in the shared footer, data-panel-group-footer) enters
-    // add mode; [data-members-back-btn] (same footer, hidden until add mode)
-    // exits it without adding. Both live in the one persistent footer slot
-    // below the scrolling member list/picker rather than each view rendering
-    // its own trailing button inline, so the two modes never fight over one
-    // button's label/meaning. The whole sticky header
-    // (Name/Chair) hides while adding - Default Chair only makes sense
-    // against members that already exist, and the add-member picker doesn't
-    // need the group's own name repeated above it. Always resets to list
+    // add mode; [data-members-back-btn] (same footer, hidden in list mode)
+    // backs out of whichever mode is showing without completing it. Both live
+    // in the one persistent footer slot below the scrolling member list/
+    // picker rather than each view rendering its own trailing button inline,
+    // so the modes never fight over one button's label/meaning. The whole
+    // sticky header (Name/Chair) hides outside list mode - Default Chair only
+    // makes sense against members that already exist, and neither the
+    // add-member picker nor the deactivate step needs the group's own name
+    // repeated above it. Always resets to list
     // mode on every render, which is also what auto-returns here right after
     // a member is successfully added (render() re-runs post-submit).
     function wireMembersModeToggle() {
         var header = dialog.querySelector('[data-panel-group-header]');
         var listView = dialog.querySelector('[data-members-list-view]');
         var addView = dialog.querySelector('[data-members-add-view]');
+        var deactivateView = dialog.querySelector('[data-members-deactivate-view]');
         var enterBtn = dialog.querySelector('[data-members-mode-toggle]');
         var backBtn = dialog.querySelector('[data-members-back-btn]');
         var addExternalBtn = dialog.querySelector('[data-member-add-external]');
         var title = dialog.querySelector('[data-panel-group-modal-title]');
         if (!listView || !addView) return;
 
+        var MODE_TITLES = { add: 'Add Member', deactivate: 'Deactivate Member', list: 'Edit Panel Group' };
+
         function applyMode(mode) {
             listView.hidden = mode !== 'list';
             addView.hidden = mode !== 'add';
+            if (deactivateView) deactivateView.hidden = mode !== 'deactivate';
             if (header) header.hidden = mode !== 'list';
             // The footer's own buttons are small, same-height elements that
             // pop in/out without changing the dialog's height - fade rather
@@ -209,7 +224,10 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
             // which are real content swaps already covered by this whole
             // callback being wrapped in animateModalHeightChange.
             if (enterBtn) setFadeHidden(enterBtn, mode !== 'list');
-            if (backBtn) setFadeHidden(backBtn, mode !== 'add');
+            // Back cancels out of either of the two non-list modes - the
+            // deactivate step needs a way out that doesn't deactivate, and
+            // that is exactly what this button already means in add mode.
+            if (backBtn) setFadeHidden(backBtn, mode === 'list');
             // Only force-hide on the way OUT of add mode - initPersonPicker
             // (its own External segmented option) owns showing it back on
             // the way in, since this footer (unlike the picker's own markup)
@@ -217,7 +235,7 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
             // showing a stale "New External Contact" from the last time
             // External was selected.
             if (addExternalBtn && mode !== 'add') setFadeHidden(addExternalBtn, true);
-            if (title) title.textContent = mode === 'add' ? 'Add Member' : 'Edit Panel Group';
+            if (title) title.textContent = MODE_TITLES[mode] || MODE_TITLES.list;
             if (mode === 'add') {
                 var searchInput = addView.querySelector('[data-member-search]');
                 if (searchInput) searchInput.focus();
@@ -231,11 +249,46 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
         function setMode(mode) {
             animateModalHeightChange(dialog, function () { applyMode(mode); });
         }
+        setMembersMode = setMode;
 
         if (enterBtn) enterBtn.addEventListener('click', function () { setMode('add'); });
         if (backBtn) backBtn.addEventListener('click', function () { setMode('list'); });
 
         applyMode('list');
+    }
+
+    // The Default Chair / External pills render inside .entity-title next to
+    // the name, so its textContent reads "Jane Doe Default Chair" - the name
+    // on its own is the element's own text nodes, everything outside those
+    // spans.
+    function memberDisplayName(row) {
+        var titleEl = row && row.querySelector('.entity-title');
+        if (!titleEl) return 'this member';
+        var name = Array.prototype.filter.call(titleEl.childNodes, function (node) {
+            return node.nodeType === Node.TEXT_NODE;
+        }).map(function (node) { return node.textContent; }).join(' ').trim();
+        return name || 'this member';
+    }
+
+    // Opens the deactivate-member step for one member, in place of that
+    // member's Active toggle completing on its own click. The step's form is
+    // rendered once per modal (not per row), so it carries whichever member
+    // was last asked about - both fields it reuses are reset here rather than
+    // relying on a re-render, since cancelling out of the step doesn't cause
+    // one. Returns false when the step isn't in the DOM at all, which lets
+    // the caller fall through to the old straight-to-submit behaviour rather
+    // than leaving the toggle doing nothing.
+    function openDeactivateStep(memberId, memberName) {
+        var view = dialog.querySelector('[data-members-deactivate-view]');
+        if (!view || !setMembersMode) return false;
+        var idField = view.querySelector('[data-deactivate-member-id]');
+        var nameEl = view.querySelector('[data-deactivate-member-name]');
+        if (!idField) return false;
+        idField.value = memberId;
+        if (nameEl) nameEl.textContent = memberName;
+        resetPresetReasonField(view.querySelector('[data-preset-reason-field]'));
+        setMembersMode('deactivate');
+        return true;
     }
 
     // Active/Inactive Members tabs. Restores currentMembersTab after every
@@ -449,6 +502,7 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
 
         enhanceFormControls(dialog);
         dialog.querySelectorAll('[data-member-picker-root]').forEach(initPersonPicker);
+        initPresetReasonFields(dialog);
         if (window.initExpertiseFields) window.initExpertiseFields(dialog);
         wireCreateForm();
         wireAutosaveForms();
@@ -735,6 +789,22 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
         if (!form) return;
         e.preventDefault();
 
+        // A member row's Active toggle no longer finishes the job on its own
+        // click in the deactivating direction (#239) - it opens the reason
+        // step instead, which posts this same form_action back here once a
+        // reason has been given. Reactivating still goes straight through.
+        // Detected from the row's own pill rather than from anything the
+        // server sent, which is the same source the optimistic flip below
+        // reads, so the two can't disagree about which direction this is.
+        var clickedRow = form.closest('.entity-row');
+        if (form.dataset.panelGroupFormAction === 'toggle_group_member_active' && clickedRow) {
+            var rowPill = form.querySelector('.toggle-pill');
+            if (rowPill && rowPill.classList.contains('on')
+                && openDeactivateStep(clickedRow.dataset.memberId, memberDisplayName(clickedRow))) {
+                return;
+            }
+        }
+
         // Rapid successive submits (e.g. clicking Remove on two different
         // rows before the first fetch has returned) have no guaranteed
         // resolution order - captures which submit this is so a response
@@ -757,9 +827,13 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
         // already visually settled, so the replace doesn't snap. This only
         // animates the removal half; the row reappears in its new tab
         // already in its final state, no matching grow-in.
-        if (form.dataset.panelGroupFormAction === 'toggle_group_member_active') {
-            var row = form.closest('.entity-row');
-
+        // Only a toggle clicked on a row of the visible list animates. The
+        // reason step posts the same action from outside the member list
+        // (one form per modal, not one per row), with that list hidden
+        // behind it - there is no row on screen to shrink out or pill to
+        // flip, so that submit falls through to the plain fetch-and-render
+        // below and lands back on an already-correct list.
+        if (form.dataset.panelGroupFormAction === 'toggle_group_member_active' && clickedRow) {
             // Flip the toggle-pill's own knob (.toggle-knob already has a
             // transform transition, see components/pills.css) the instant
             // the click lands, instead of leaving it static while the row
@@ -803,7 +877,7 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
             }
 
             var shrinkPromise = new Promise(function (resolve) {
-                shrinkAndFadeOut(row, resolve);
+                shrinkAndFadeOut(clickedRow, resolve);
             });
             Promise.all([fetchPromise, shrinkPromise]).then(function (results) {
                 var data = results[0];

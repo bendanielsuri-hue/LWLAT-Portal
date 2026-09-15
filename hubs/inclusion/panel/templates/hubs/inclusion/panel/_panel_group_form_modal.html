@@ -73,6 +73,33 @@
             {% include 'hubs/inclusion/panel/_member_picker.html' with school=group.school existing_staff_ids=existing_staff_ids existing_external_ids=existing_external_ids already_member_label='Already in Group' %}
         </form>
     </div>
+
+    {% comment %}
+    The third mode of the same list/add pair above (#239): deactivating a
+    member asks why before it completes, so the Active toggle no longer
+    finishes the job on its own click. One form for the whole modal rather
+    than one folded into each member's row - only one member is ever being
+    taken off at a time, and a per-row copy would put a hidden preset
+    dropdown into every row of a long roster. dialogs/panel-group.js fills
+    in which member it is and switches the mode; the footer's own Back
+    button cancels out of it, same as it does out of add mode. Reactivating
+    stays a single click - there is nothing to explain about someone
+    rejoining.
+    {% endcomment %}
+    <div data-members-deactivate-view hidden>
+        <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}"
+              data-panel-group-form data-panel-group-form-action="toggle_group_member_active" data-deactivate-member-form>
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="toggle_group_member_active">
+            <input type="hidden" name="member_id" value="" data-deactivate-member-id>
+            <input type="hidden" name="next" value="{{ next }}">
+            <p class="empty-note">Taking <strong data-deactivate-member-name></strong> off this group's roster.</p>
+            {% include 'hubs/inclusion/panel/_preset_reason_field.html' with presets=deactivation_reason_presets field_id_suffix='member-deactivation' required=True %}
+            <div class="btn-row">
+                <button type="submit" class="btn btn-primary btn-sm">Deactivate Member</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="panel-group-modal-footer" data-panel-group-footer>

@@ -5,6 +5,56 @@ from django.utils import timezone
 from core.models import AcademicYear, ThreadEntry
 
 
+class PresetReasonQuerySet(models.QuerySet):
+    def for_context(self, context):
+        return self.filter(context=context, is_active=True)
+
+
+class PresetReason(models.Model):
+    """The admin-managed sentences offered wherever this app asks "why?".
+
+    Two forms ask for a reason off a fixed list - escalating a referral to MAT
+    level, and taking someone off a Panel Group's standing roster - and both
+    had the gap the Panel Settings page already closed for ReferralCategory
+    and ActionCategory: the list was hardcoded in Python, so changing a
+    sentence meant a code change and a redeploy.
+
+    One table serves both rather than a near-identical table per form,
+    discriminated by `context`; the next form that needs presets adds a
+    CONTEXT_* value and a Panel Settings section, not a model.
+
+    Presets are offered, never enforced. Each consumer stores the chosen
+    sentence as its own free text (Escalation.reason,
+    PanelGroupMember.deactivation_reason) next to an "Other" free-text answer,
+    so the reason IS the stored sentence rather than a coded value pointing
+    back here. That keeps what somebody already said immune to a preset being
+    reworded or withdrawn afterwards, and it is why a withdrawn preset is
+    deactivated rather than deleted: nothing downstream reads these rows, so
+    is_active only decides what the next person is offered.
+    """
+
+    CONTEXT_ESCALATION = 'escalation'
+    CONTEXT_MEMBER_DEACTIVATION = 'member_deactivation'
+    CONTEXT_CHOICES = [
+        (CONTEXT_ESCALATION, 'Escalation'),
+        (CONTEXT_MEMBER_DEACTIVATION, 'Panel Group Member Deactivation'),
+    ]
+
+    context = models.CharField(max_length=30, choices=CONTEXT_CHOICES)
+    text = models.TextField()
+    order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    objects = PresetReasonQuerySet.as_manager()
+
+    class Meta:
+        ordering = ['context', 'order', 'id']
+        db_table = 'inclusion_presetreason'
+
+    def __str__(self):
+        return self.text
+
+
 class ReferralCategory(models.Model):
     name = models.CharField(max_length=100)
     order = models.PositiveSmallIntegerField(default=0)
@@ -220,6 +270,20 @@ class PanelGroupMember(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     deactivated_at = models.DateTimeField(null=True, blank=True)
+    # Coming off a group's standing roster is a decision somebody made about
+    # somebody else, so it records who and why alongside when. Both are
+    # cleared again on reactivation (and on being re-added through the picker)
+    # rather than kept as history - a member who is back on the roster has no
+    # deactivation to describe, and the roster screen reads these three
+    # together as one sentence.
+    deactivated_by = models.ForeignKey(
+        'core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+    )
+    # Free text, the sentence itself, whether it came from a PresetReason
+    # (context 'member_deactivation') or the "Other" box - see PresetReason's
+    # docstring for why this isn't an FK, and reasons.py for the one place
+    # that turns the submitted pair of fields back into this sentence.
+    deactivation_reason = models.TextField(blank=True)
 
     class Meta:
         unique_together = [('panel_group', 'staff'), ('panel_group', 'external_contact')]
@@ -553,27 +617,21 @@ class ActionUpdate(ThreadEntry):
 
 class Escalation(models.Model):
     STATUS_CHOICES = [('open', 'Open'), ('resolved', 'Resolved')]
-    # Escalate to MAT form (escalate_form.html) offers these as a dropdown
-    # plus a free-text "Other" option, rather than a bare textarea - live
-    # feedback: "Escalation Reason could benefit from being a choice of
-    # option... with one option being custom and showing a freeform text
-    # box". Plain strings, not (value, label) tuples - the reason IS the
-    # text stored on `reason` below, not a coded value needing a separate
-    # label. Not a `choices=` constraint on the `reason` field itself -
-    # that would reject the free-text "Other" answer at the DB level, and
-    # `reason` is meant to hold a real sentence either way, not one of a
-    # closed set of stored keys. seed_escalations.py reuses this same list
-    # so its demo data reads as genuine answers, not invented copy.
-    REASON_CHOICES = [
-        'Concerns have escalated beyond what the school-level panel can resolve alone.',
-        'Family has requested MAT-level involvement after repeated attempts at school level.',
-        'Safeguarding threshold may be met - needs MAT-level oversight as a precaution.',
-        'Multiple agencies now involved; needs coordinating at MAT level.',
-    ]
 
     referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='escalations')
     escalated_by = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     escalated_at = models.DateTimeField(auto_now_add=True)
+    # Escalate to MAT form (escalate_form.html) offers a dropdown of
+    # PresetReason rows (context 'escalation') plus a free-text "Other"
+    # option, rather than a bare textarea - live feedback: "Escalation Reason
+    # could benefit from being a choice of option... with one option being
+    # custom and showing a freeform text box". Whichever the user picked,
+    # this holds the sentence itself, never a coded value: a `choices=`
+    # constraint here would reject the "Other" answer at the DB level, and a
+    # foreign key would let an admin reword or withdraw a preset and change
+    # what an escalation raised months ago appears to say. The offered list
+    # was a hardcoded REASON_CHOICES on this model until #239 moved it into
+    # PresetReason, where an admin can edit it.
     reason = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     resolved_at = models.DateTimeField(null=True, blank=True)

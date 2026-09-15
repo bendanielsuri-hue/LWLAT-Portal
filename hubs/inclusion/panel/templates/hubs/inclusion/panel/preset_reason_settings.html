@@ -1,0 +1,65 @@
+{% extends 'hubs/inclusion/panel/_base.html' %}
+{% load static %}
+
+{% block title %}Preset Reasons{% endblock %}
+
+{% block breadcrumbs %}
+	<a href="{% url 'inclusion_hub' %}">SEND & Provision</a>
+	<span class="sep">></span>
+	<a href="{% url 'inclusion_panel' %}">Inclusion Panel</a>
+	<span class="sep">></span>
+	<span>Preset Reasons</span>
+{% endblock %}
+
+{% block page_title %}Preset Reasons{% endblock %}
+
+{% block content %}
+{% include 'hubs/inclusion/panel/_settings_tabs.html' %}
+<p>Preset reasons are the sentences offered in a dropdown wherever the panel asks why something happened. They are suggestions, not a closed list — whoever fills the form in can always choose "Other" and write their own, and what they choose is stored as the sentence itself. Rewording or deactivating a preset here changes what the next person is offered; it never changes a reason somebody has already given.</p>
+
+{% for group in context_groups %}
+<details class="settings-section" {% if forloop.first %}open{% endif %}>
+    <summary>{{ group.label }}</summary>
+    <div class="settings-body">
+        <p>{{ group.blurb }}</p>
+        <table class="agenda-table">
+            <thead>
+                <tr><th>Reason</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for preset in group.presets %}
+                <tr>
+                    <td>{{ preset.text }}</td>
+                    <td>
+                        <form method="post" style="display:inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="form_action" value="deactivate_preset_reason">
+                            <input type="hidden" name="reason_id" value="{{ preset.id }}">
+                            <button type="submit" class="btn btn-sm">Deactivate</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="2">No presets yet — this form offers only "Other".</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% comment %}
+        The Add form sits inside its own context's section rather than
+        standing alone with a context dropdown - the section heading has
+        already said which form these appear on, so asking again would only
+        add a way to get it wrong.
+        {% endcomment %}
+        <form method="post" class="field-group">
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_preset_reason">
+            <input type="hidden" name="context" value="{{ group.key }}">
+            <label for="preset-reason-text-{{ group.key }}">New Reason</label>
+            <textarea id="preset-reason-text-{{ group.key }}" name="text" rows="2" required></textarea>
+            <button type="submit" class="btn btn-add btn-sm"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/new.svg' %}#icon"></use></svg></span> Add Reason</button>
+        </form>
+    </div>
+</details>
+{% endfor %}
+{% endblock %}
