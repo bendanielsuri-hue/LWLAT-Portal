@@ -213,11 +213,24 @@ def main() -> int:
             "Restart it with: gh workflow run afk-heartbeat.yml --ref main"
         )
 
+    # GitHub's own scheduler has never fired here, and schedule-canary.yml
+    # is an hourly attempt left running to notice if it ever starts. Finding
+    # a tick is good news rather than a fault, but it still belongs in the
+    # problem list: it is the signal to delete the heartbeat that replaced
+    # it, and good news nobody notices is how the heartbeat ends up running
+    # for years after it stopped being needed.
     all_runs = gh_json(
         "run", "list", "--repo", repo, "--limit", "100",
         "--json", "event,name,createdAt",
     )
     ticks = [r for r in all_runs if r["event"] == "schedule"]
+    if ticks:
+        problems.append(
+            f"GitHub's scheduler has fired {len(ticks)} time(s), most recently "
+            f"{ticks[0]['createdAt'][:16].replace('T', ' ')}Z. It appears to be "
+            "working again — afk-heartbeat.yml can probably be deleted, and "
+            "afk-queue.yml's own schedule takes over."
+        )
 
     # ---- Report -----------------------------------------------------------
     print(f"AFK status for {repo} at {now:%Y-%m-%d %H:%M %Z}")

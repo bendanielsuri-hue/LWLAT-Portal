@@ -1,0 +1,57 @@
+name: Schedule canary
+
+# Watches for GitHub's scheduler coming back to life. It does nothing else,
+# and it is meant to stay.
+#
+# WHAT IT IS WATCHING FOR
+#
+# Scheduled workflows have never run in this repository — not one
+# `schedule` event in its entire history, across dozens of missed ticks on
+# two separate workflows, while push, issue and manual triggers all work
+# perfectly. Everything that could explain it checks out: default branch,
+# file present on it, workflow active, Actions enabled, public, not a fork,
+# not archived.
+#
+# Because nothing in the repository can cause that, nothing in the
+# repository can fix it either — it is GitHub's to resolve, whether by a
+# support ticket or by quietly starting to work one day. This is how we
+# find out which. `afk-heartbeat.yml` replaced the scheduler in the
+# meantime, and `afk-queue.yml` kept its own `schedule:` so that a recovery
+# costs nothing to take advantage of.
+#
+# WHY HOURLY RATHER THAN EVERY FIVE MINUTES
+#
+# It started at the five-minute minimum, to answer the question fast. As a
+# permanent fixture the frequency should be low instead, for two reasons.
+# Twenty-four attempts a day is ample to notice a scheduler that works, and
+# the run it would produce every five minutes for the rest of the project's
+# life is noise in the Actions list of a repository people actually read.
+# Frequent schedules are also the ones GitHub most readily drops under
+# load, so an hourly tick is the cleaner test of whether scheduling happens
+# at all rather than of how busy GitHub is.
+#
+# HOW YOU FIND OUT
+#
+# Not by remembering to look. scripts/afk_status.py counts `schedule`
+# events and says plainly when one appears, because the whole failure mode
+# this project keeps hitting is a silent change nobody notices.
+#
+# Renamed from cron-probe.yml deliberately: a new filename is a new
+# workflow registration, which is a free extra attempt at whatever went
+# wrong the first time.
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say when
+        run: |
+          echo "Canary tick at $(date -u '+%Y-%m-%d %H:%M:%S') UTC"
+          echo "Triggered by: ${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "::notice::GitHub's scheduler fired. It has started working — afk-heartbeat.yml may no longer be needed."
+          fi
