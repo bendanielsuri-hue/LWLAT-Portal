@@ -42,6 +42,7 @@ urlpatterns = [
     path('settings/action-categories/', views.inclusion_panel_action_category_settings, name='inclusion_panel_action_category_settings'),
     path('settings/panel-groups/', views.inclusion_panel_group_settings, name='inclusion_panel_group_settings'),
     path('settings/expertise/', views.inclusion_panel_expertise_settings, name='inclusion_panel_expertise_settings'),
+    path('settings/reasons/', views.inclusion_panel_preset_reason_settings, name='inclusion_panel_preset_reason_settings'),
     path('settings/expertise/quick-add/', views.inclusion_panel_expertise_quick_add, name='inclusion_panel_expertise_quick_add'),
     path('external-contacts/quick-add/', views.inclusion_panel_external_contact_quick_add, name='inclusion_panel_external_contact_quick_add'),
 

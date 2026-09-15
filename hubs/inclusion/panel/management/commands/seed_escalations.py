@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from core.models import Staff
-from hubs.inclusion.panel.models import Escalation, InclusionReferral
+from hubs.inclusion.panel.models import Escalation, InclusionReferral, PresetReason
 
 
 class Command(BaseCommand):
@@ -12,14 +12,28 @@ class Command(BaseCommand):
         'Escalates a deterministic subset of seeded Referrals to MAT-level '
         'attention (see hubs/inclusion/panel/CONTEXT.md\'s Escalation entry) so '
         'the Escalations screen has demo rows - run after seed_dummy_data/ '
-        'seed_schools/seed_demo_referrals. Idempotent: skips any referral that '
-        'already has an Escalation (open or resolved).'
+        'seed_schools/seed_demo_referrals/seed_preset_reasons. Idempotent: skips '
+        'any referral that already has an Escalation (open or resolved).'
     )
 
     def handle(self, *args, **options):
         dsl_staff = list(Staff.objects.filter(is_dsl=True).order_by('id'))
         if not dsl_staff:
             self.stdout.write(self.style.WARNING('No is_dsl Staff found - run seed_dummy_data first. Nothing seeded.'))
+            return
+
+        # The demo reasons are the real presets the Escalate to MAT form
+        # offers, read back out of the table rather than restated here, so
+        # seeded escalations read as answers somebody could actually have
+        # given rather than as invented copy (they were a hardcoded list on
+        # the model shared by both until #239).
+        reason_presets = [
+            preset.text for preset in PresetReason.objects.for_context(PresetReason.CONTEXT_ESCALATION)
+        ]
+        if not reason_presets:
+            self.stdout.write(self.style.WARNING(
+                'No escalation preset reasons found - run seed_preset_reasons first. Nothing seeded.'
+            ))
             return
 
         referrals = list(
@@ -50,7 +64,7 @@ class Command(BaseCommand):
             escalation = Escalation.objects.create(
                 referral=referral,
                 escalated_by=escalated_by,
-                reason=Escalation.REASON_CHOICES[referral.id % len(Escalation.REASON_CHOICES)],
+                reason=reason_presets[referral.id % len(reason_presets)],
                 status=status,
             )
             Escalation.objects.filter(pk=escalation.pk).update(escalated_at=escalated_at)

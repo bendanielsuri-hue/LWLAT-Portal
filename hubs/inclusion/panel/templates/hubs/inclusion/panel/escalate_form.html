@@ -39,28 +39,14 @@ resolved on the Escalations screen.
         </select>
     </div>
 
-    <div class="field-group">
-        <label for="reason_choice">Reason</label>
-        <select id="reason_choice" name="reason_choice" required>
-            <option value="">Select a reason…</option>
-            {% for choice in reason_choices %}
-            <option value="{{ choice }}">{{ choice }}</option>
-            {% endfor %}
-            <option value="__other__">Other (please specify)</option>
-        </select>
-    </div>
-
     {% comment %}
-    Hidden by default, shown only once "Other" is picked (script below) -
-    live feedback: "Escalation Reason could benefit from being a choice of
-    option... with one option being custom and showing a freeform text
-    box". required is toggled alongside visibility so a hidden field can't
-    block submission, and a shown one can't be skipped.
+    The preset dropdown plus its "Other" free-text box - live feedback:
+    "Escalation Reason could benefit from being a choice of option... with
+    one option being custom and showing a freeform text box". Shared with
+    the Panel Group modal's deactivate-member step since #239; the presets
+    themselves are admin-editable on Panel Settings, not hardcoded.
     {% endcomment %}
-    <div class="field-group" id="reason-other-group" hidden>
-        <label for="reason_other">Please specify</label>
-        <textarea id="reason_other" name="reason_other"></textarea>
-    </div>
+    {% include 'hubs/inclusion/panel/_preset_reason_field.html' with presets=reason_presets field_id_suffix='escalation' required=True %}
 
     <button type="submit" class="btn btn-primary">Escalate</button>
 </form>

@@ -1,8 +1,9 @@
 {% load static %}
 {% comment %}
-One Panel Group member row - two lines: name (+ Default Chair / External
-pills) on line 1, the merged Expertise picker + Active toggle on line 2.
-Shared between the Active and Inactive Members tabs in
+One Panel Group member row - name (+ Default Chair / External pills) on line
+1, the merged Expertise picker + Active toggle on the last line, and on the
+Inactive tab a middle line saying when the member came off the roster, who
+took them off and why. Shared between the Active and Inactive Members tabs in
 _panel_group_form_modal.html; only the toggle's pressed state/label differs,
 driven by `active`. Params: member, group, active (bool).
 {% endcomment %}
@@ -20,6 +21,18 @@ driven by `active`. Params: member, group, active (bool).
             {% if active and member.staff_id and member.staff_id == group.default_chair_id %}<span class="status-pill type-chair">Default Chair</span>{% endif %}
             {% if not member.staff_id %}<span class="status-pill type-external">External</span>{% endif %}
         </div>
+        {% comment %}
+        When, who and why, as one line, on the Inactive tab only - an active
+        member has no deactivation to describe, and a row carrying a stale
+        one would read as though they were still off the roster. The reason
+        falls back to an em dash rather than being dropped: a member
+        deactivated before #239 added the field has no reason recorded, and
+        "Deactivated 03/02/26 by Jane Doe" trailing off mid-sentence would
+        read as a rendering bug rather than as missing history.
+        {% endcomment %}
+        {% if not active and member.deactivated_at %}
+        <div class="entity-meta">Deactivated {{ member.deactivated_at|date:"d/m/y" }}{% if member.deactivated_by %} by {{ member.deactivated_by }}{% endif %} &middot; {{ member.deactivation_reason|default:"—" }}</div>
+        {% endif %}
         <div class="member-row-controls">
             <form method="post" action="{% url 'inclusion_panel_group_edit' group.id %}" class="expertise-field-form ui-fused-field-group"
                   data-panel-group-form data-panel-group-form-action="update_member_expertise" data-autosave="change">

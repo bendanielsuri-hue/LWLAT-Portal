@@ -288,6 +288,7 @@ when found rather than carrying them across.
 | `components/school-filter.js` | `resolvePanelSchoolFilter` — the 1 domain helper of region 1's 9 |
 | `components/action-assign.js` | `initActionAssignFields`, inline action-row autosave (regions 8, 10) |
 | `components/expertise-field.js` | `initExpertiseField(s)` (region 21) |
+| `components/preset-reason-field.js` | `initPresetReasonFields`/`resetPresetReasonField` — not from the migration; added by #239, listed here because this table is the target file list |
 | `dialogs/new-referral.js` · `panel-group.js` · `panel-meeting.js` · `meeting-start.js` · `action-form.js` · `discussion-summary.js` · `expertise-quick-add.js` · `external-contact-quick-add.js` · `panel-search.js` | one file per dialog — the nine IIFEs, which #201 §9 established are already independent modules with no shared state, so this split is mechanical |
 | `pages/home.js` | `home.html`'s 1,255 inline lines, **zero template refs** — moves as-is (#203 owns the rule; the destination is named here) |
 | `pages/*.js` | one entry module per list page, per §4 |

@@ -64,7 +64,7 @@ UPDATE_GROUP_CHAIR = 'update_group_chair'
 UPDATE_GROUP_NAME = 'update_group_name'
 UPDATE_MEMBER_EXPERTISE = 'update_member_expertise'
 
-# --- Settings: referral questions, action categories, expertise ---
+# --- Settings: referral questions, action categories, expertise, preset reasons ---
 ADD_QUESTION = 'add_question'
 DEACTIVATE_QUESTION = 'deactivate_question'
 ADD_CATEGORY = 'add_category'
@@ -72,6 +72,8 @@ ADD_PRESET_CATEGORY = 'add_preset_category'
 DEACTIVATE_CATEGORY = 'deactivate_category'
 ADD_EXPERTISE = 'add_expertise'
 DEACTIVATE_EXPERTISE = 'deactivate_expertise'
+ADD_PRESET_REASON = 'add_preset_reason'
+DEACTIVATE_PRESET_REASON = 'deactivate_preset_reason'
 
 # --- Action updates ---
 # Posted by the action modal's Updates step. The modal is itself a <form>, and
@@ -96,6 +98,7 @@ ALL = frozenset({
     UPDATE_GROUP_NAME, UPDATE_MEMBER_EXPERTISE,
     ADD_QUESTION, DEACTIVATE_QUESTION, ADD_CATEGORY, ADD_PRESET_CATEGORY, DEACTIVATE_CATEGORY,
     ADD_EXPERTISE, DEACTIVATE_EXPERTISE,
+    ADD_PRESET_REASON, DEACTIVATE_PRESET_REASON,
     ADD_ACTION_UPDATE,
     ADD_SAFEGUARDING_NOTE, CONFIRM_SAFEGUARDING_READINESS,
 })
