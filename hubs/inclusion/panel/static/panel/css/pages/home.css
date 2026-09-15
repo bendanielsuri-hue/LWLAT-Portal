@@ -1,13 +1,16 @@
 /* Split out of panel.css by #211 - see docs/wayfinder/portal-static-assets/taxonomy.md S6.
 
-   SIZE-ANSWERED: 845 - one file (#211).
+   SIZE-ANSWERED: 849 - one file (#211).
 
    Over the 600-code-line review trigger and stays one file: every rule
    here is Panel Home's own layout - the My Referrals/My Actions carousels,
    the Next Panel Meeting preview, the stacked-card mobile mode - none of it
    reusable outside this one page template, so splitting further would
    fragment one page's own tuning across files rather than separate two
-   different things. */
+   different things. Re-answered unchanged at 849: the four lines since are
+   Recent Activity joining the existing #157 end-cap selectors (below),
+   which is this same page's layout landing on one more of this same page's
+   cards - nothing that suggests a second file. */
 
 /* Inclusion Panel: My Referrals / My Actions columns */
 .panel-columns {
@@ -203,10 +206,33 @@
    end in carousel mode") - the #157 comment's original assumption ("flex-
    grow has nothing to fill anyway once .card goes height:auto") only
    holds for a plain single-column stack, not this carousel, which does
-   still lay the ul out as a real (horizontally) scrollable flex row. */
+   still lay the ul out as a real (horizontally) scrollable flex row.
+
+   Recent Activity joins them here rather than getting a copy of this
+   declaration block of its own. #157's own audit comment ruled it out as
+   a content-driven collapsible (the 0fr/1fr grid-row one, which it named
+   by a class that doesn't exist) rather than a card stretched to a fixed
+   height, on the grounds that a short list just shrinks it and leaves no
+   bare space to fill. That is true at <=1180px and false
+   above it: .card-collapsible is display: contents there (cards.css), so
+   .activity-list is a direct flex child of .content-shell .card - height:
+   100%, and the list flex: 1/min-height: 0/overflow-y: auto, byte for
+   byte the shape .stack-list has. A short feed leaves the same bare card
+   background the other three did. The audit reached the same wrong answer
+   about Upcoming Panel Meetings and live feedback corrected it there
+   ("this also needs the striped no content effect like My Referrals");
+   this is that correction applied to the one card the same reasoning
+   missed. The <=1180px half of the audit's claim still holds, which is
+   why this stays inside the breakpoint guard rather than going
+   unconditional the way #upcoming-meetings-list's copy did: below 1181px
+   the collapsible's 0fr/1fr track and #activity-card's own max-height:
+   34vh cap mean the card hugs or clips its feed, with no leftover height
+   for a stripe to fill and a 47px flex-basis that would only eat into a
+   deliberately tightened cap. */
 @media (min-width: 1181px) {
     #my-referrals-list::after,
-#my-actions-list::after {
+#my-actions-list::after,
+#activity-card .activity-list::after {
         content: "";
         display: block;
         flex: 1 0 var(--list-endcap-height, 47px);
@@ -225,9 +251,13 @@
    .filtered-content .entity-list > .empty-note (see that rule's comment) -
    #my-referrals-list/#my-actions-list are the ul itself (position:relative
    set here since .stack-list's own base rule, above, doesn't need it
-   otherwise), the empty-note li is its sole child in that case. */
+   otherwise), the empty-note li is its sole child in that case.
+   #activity-card .activity-list needs it for the same reason and on the
+   same terms - its own "No recent activity." li is an .empty-note too
+   (home.html's {% empty %} branch). */
 #my-referrals-list,
-#my-actions-list {
+#my-actions-list,
+#activity-card .activity-list {
     position: relative;
 }
 
@@ -251,13 +281,15 @@
    this stripe should never appear at all. */
 @media (min-width: 1181px) {
     #my-referrals-list:has(> .empty-note)::after,
-#my-actions-list:has(> .empty-note)::after {
+#my-actions-list:has(> .empty-note)::after,
+#activity-card .activity-list:has(> .empty-note)::after {
         position: absolute;
         inset: 0;
         margin: 0;
     }
     #my-referrals-list > .empty-note,
-#my-actions-list > .empty-note {
+#my-actions-list > .empty-note,
+#activity-card .activity-list > .empty-note {
         position: relative;
         z-index: 1;
     }
