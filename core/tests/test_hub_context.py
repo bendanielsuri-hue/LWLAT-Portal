@@ -31,13 +31,6 @@ HUB_LANDING_ROUTES = [
     'careers_hub',
 ]
 
-# `/inclusion/` raises TemplateDoesNotExist on main for a reason that has
-# nothing to do with this file - its dashboard {% include %}s an icon by path
-# as if it were a template. The fix is PR #259; drop this set (and this
-# comment) once that has landed, rather than dropping the route above.
-KNOWN_BROKEN_ROUTES = {'inclusion_hub'}
-
-
 rf = RequestFactory()
 
 
@@ -45,15 +38,11 @@ class HubLandingPageTest(TestCase):
     def test_every_hub_landing_page_renders(self):
         for name in HUB_LANDING_ROUTES:
             with self.subTest(route=name):
-                if name in KNOWN_BROKEN_ROUTES:
-                    self.skipTest('broken on main, fixed by #259')
                 self.assertEqual(self.client.get(reverse(name)).status_code, 200)
 
     def test_every_hub_landing_page_supplies_the_sidebar_keys(self):
         for name in HUB_LANDING_ROUTES:
             with self.subTest(route=name):
-                if name in KNOWN_BROKEN_ROUTES:
-                    self.skipTest('broken on main, fixed by #259')
                 context = self.client.get(reverse(name)).context
                 self.assertTrue(context['hub_title'])
                 self.assertIsNotNone(context['local_menu'])

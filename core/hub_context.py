@@ -18,7 +18,7 @@ Anything a particular hub needs on top (the Inclusion Panel's back-to-hub
 link, say) rides in as a keyword argument rather than forking the helper.
 """
 
-from core.modules import filter_by_module, module_map
+from core.modules import filter_by_module, request_module_map
 
 
 def hub_context(request, menu, title, **extra):
@@ -29,7 +29,7 @@ def hub_context(request, menu, title, **extra):
     which is how Portal Admin's developer-only menu stays ungated.
     """
     return {
-        'local_menu': filter_by_module(menu, module_map(), request),
+        'local_menu': filter_by_module(menu, request_module_map(request), request),
         'hub_title': title,
         **extra,
     }
