@@ -292,18 +292,32 @@ jobs:
         run: |
           exec_file="${{ steps.claude.outputs.execution_file }}"
           turns=""
+          cost=""
           if [ -n "$exec_file" ] && [ -f "$exec_file" ]; then
             turns=$(jq -r '.. | .num_turns? // empty' "$exec_file" | head -1)
+            cost=$(jq -r '.. | .total_cost_usd? // empty' "$exec_file" | head -1)
           fi
           echo "turns=$turns" >> "$GITHUB_OUTPUT"
 
+          # Judge this on evidence of model work, never on the action's own
+          # status. The action reports failure for both cases this is trying
+          # to tell apart: a run that never started, and a run that worked
+          # for 81 turns and hit the turn cap. Reading its status as "never
+          # started" misfiled #232 — a genuine £2.75 attempt — as an
+          # infrastructure fault, which stopped the queue and threw away the
+          # real outcome.
+          #
+          # Turns and cost together are the evidence. A refused or starved
+          # run comes back with one turn and nothing spent; anything that
+          # actually reached the model has a cost, whatever it did next.
+          spent=$(awk -v c="${cost:-0}" 'BEGIN { print (c > 0) ? "yes" : "no" }')
           ran=true
-          if [ "${{ steps.claude.outcome }}" = "failure" ]; then
+          if [ -z "$turns" ]; then
             ran=false
-            reason="the action itself failed before or during the run"
-          elif [ -z "$turns" ] || [ "$turns" -eq 0 ] 2>/dev/null; then
+            reason="the action produced no execution record at all"
+          elif [ "$spent" = "no" ] && [ "$turns" -le 1 ] 2>/dev/null; then
             ran=false
-            reason="the action reported no turns, so the agent never started"
+            reason="the run reached the model for one turn and spent nothing, which means it was refused or the usage window is empty"
           fi
           echo "ran=$ran" >> "$GITHUB_OUTPUT"
           echo "reason=${reason:-}" >> "$GITHUB_OUTPUT"
