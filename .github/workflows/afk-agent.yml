@@ -12,9 +12,26 @@ name: AFK agent (ready-for-agent)
 # branch regardless, since nothing in this workflow itself restricts where
 # a PR could target. This workflow only ever opens PRs, never merges, but
 # protection on the live branch is the actual backstop, not this comment.
+#
+# Two ways in, and they are not redundant. Labelling a ticket starts a run
+# immediately, which is what you want when you have just triaged something
+# and it is already evening. `workflow_dispatch` is how `afk-queue.yml`
+# starts one without a human present, and it exists because a label applied
+# by a workflow using the default GITHUB_TOKEN does NOT start another
+# workflow — GitHub suppresses that to prevent recursive runs. The
+# suppression has documented exceptions, and `workflow_dispatch` is one of
+# them ("workflow_dispatch and repository_dispatch events always create
+# workflow runs"), which is the whole reason the queue can drive this at all
+# without a personal access token.
 on:
   issues:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: 'Issue number to work'
+        required: true
+        type: string
 
 # One run at a time, queued rather than cancelled. Two reasons, and the
 # second is the load-bearing one: runs draw on a Claude subscription's
@@ -38,15 +55,24 @@ jobs:
     # itself the gesture that starts the run. Without that you would approve
     # a ticket and then have to remember a second step, and the failure mode
     # — an approved ticket that silently never runs — is invisible.
+    #
+    # A dispatch skips all three, because there is no label event to read
+    # them from. That is not a hole: `afk-queue.yml` applies the same
+    # predicate when choosing what to dispatch, and the "Resolve the target
+    # issue" step below re-checks it against the issue's live labels before
+    # anything is spent. Two cheap checks beat one clever one.
     if: >-
-      (github.event.label.name == 'ready-for-agent'
-        || github.event.label.name == 'afk-approved')
-      && contains(github.event.issue.labels.*.name, 'ready-for-agent')
-      && (
-        contains(github.event.issue.labels.*.name, 'afk-approved')
-        || (
-          !contains(github.event.issue.labels.*.name, 'needs-stronger-model')
-          && !contains(github.event.issue.labels.*.name, 'needs-budget-approval')
+      github.event_name == 'workflow_dispatch'
+      || (
+        (github.event.label.name == 'ready-for-agent'
+          || github.event.label.name == 'afk-approved')
+        && contains(github.event.issue.labels.*.name, 'ready-for-agent')
+        && (
+          contains(github.event.issue.labels.*.name, 'afk-approved')
+          || (
+            !contains(github.event.issue.labels.*.name, 'needs-stronger-model')
+            && !contains(github.event.issue.labels.*.name, 'needs-budget-approval')
+          )
         )
       )
     runs-on: ubuntu-latest
@@ -59,15 +85,66 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Everything downstream refers to one issue number and one set of
+      # labels, and where they came from stops mattering here. A label event
+      # carries both in its payload; a dispatch carries neither, only a
+      # number typed into an input or passed by the queue.
+      #
+      # Labels are re-read from the API rather than taken from the event
+      # payload even when the payload has them. The payload is a snapshot
+      # from when the label was applied, and a run can sit queued behind
+      # another for an hour — long enough for someone to have withdrawn
+      # `afk-approved` or added `needs-budget-approval` in the meantime.
+      # Reading them now means the run spends on what the ticket says at the
+      # moment it actually starts.
+      - name: Resolve the target issue
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            issue="${{ inputs.issue }}"
+          else
+            issue="${{ github.event.issue.number }}"
+          fi
+          echo "issue=$issue" >> "$GITHUB_OUTPUT"
+
+          labels=$(gh issue view "$issue" --repo "${{ github.repository }}" \
+                     --json labels --jq '[.labels[].name] | join(" ")')
+          echo "Issue #$issue labels: $labels"
+
+          has() { printf '%s' " $labels " | grep -q " $1 "; }
+
+          approved=false; strong=false; wide=false
+          has afk-approved         && approved=true
+          has needs-stronger-model && strong=true
+          has needs-budget-approval && wide=true
+          echo "strong=$strong" >> "$GITHUB_OUTPUT"
+          echo "wide=$wide" >> "$GITHUB_OUTPUT"
+
+          # Same predicate as the job's `if`, re-applied against live labels.
+          eligible=false
+          if has ready-for-agent; then
+            if [ "$approved" = "true" ] || { [ "$strong" = "false" ] && [ "$wide" = "false" ]; }; then
+              eligible=true
+            fi
+          fi
+          echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
+          [ "$eligible" = "true" ] || echo "::notice::Issue #$issue is no longer eligible; skipping without spending a run."
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       # Off-hours gate: only run weekday evenings/nights (after 19:00 or
       # before 07:00 UK time) or any time on a weekend. Outside that window,
       # skip and leave a comment — the label stays, so removing and
       # reapplying it during an allowed window retriggers this workflow.
-      # (A schedule/cron-based queue was considered instead, so labeling any
-      # time would auto-run at the next window, but claude-code-action has a
-      # known open bug where cron-triggered runs fail OIDC token exchange —
-      # see anthropics/claude-code-action#814 — so this simpler skip-and-
-      # relabel approach was chosen instead. Revisit once that's fixed.)
+      # (`afk-queue.yml` now also watches the window and dispatches on its
+      # own, so a ticket labelled during the day is picked up at the next
+      # window without anyone relabelling it. This gate stays because it is
+      # the one place that decides *when*, and two places deciding that is
+      # how they drift. The earlier note here said a cron queue was rejected
+      # over claude-code-action's OIDC-in-cron bug, anthropics/claude-code-action#814;
+      # that bug is still open, and the queue sidesteps it by never running
+      # claude-code-action under a `schedule:` trigger — it only dispatches
+      # this workflow, which starts on `workflow_dispatch` as it always did.)
       #
       # This applies to approved runs too. Approval answers whether a run
       # should happen; the window answers when. An approved run is by
@@ -84,11 +161,15 @@ jobs:
             echo "allowed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Only worth saying out loud on a label event, where a human just did
+      # something and is owed an answer. A dispatch outside the window is
+      # `afk-queue.yml` being early, which is between the two workflows and
+      # does not belong in the ticket's history.
       - name: Comment if outside window
-        if: steps.time_check.outputs.allowed == 'false'
+        if: steps.time_check.outputs.allowed == 'false' && github.event_name == 'issues'
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body \
-            "Labeled during work hours (weekday 07:00-19:00 UK time), so the AFK agent is skipping this for now. Remove and reapply the \`ready-for-agent\` label during an evening/night or weekend to trigger it."
+          gh issue comment "${{ steps.target.outputs.issue }}" --repo "${{ github.repository }}" --body \
+            "Labeled during work hours (weekday 07:00-19:00 UK time), so the AFK agent is skipping this for now. The label stays on, and \`afk-queue.yml\` picks it up automatically when the window opens this evening — you don't need to do anything. To force it sooner, remove and reapply the label during an evening/night or weekend."
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -98,20 +179,31 @@ jobs:
       # default model, so running it on the default model after approving it
       # would be the wrong half of the decision.
       #
-      # All four values come from repo variables (Settings > Secrets and
+      # All six values come from repo variables (Settings > Secrets and
       # variables > Actions > Variables) so they change without a commit —
       # and without the `workflow` token scope that editing this file needs.
       # The literals are the fallback when a variable is unset.
+      #
+      # Effort rides with the model rather than getting a label of its own.
+      # `needs-stronger-model` already means "this needs sustained judgement
+      # rather than sustained typing", which is the same question effort
+      # answers; a third label asking it again would be a second dial for
+      # one decision. The defaults are the middle of each band in
+      # docs/agents/claude-code-usage.md's table rather than the top —
+      # these tickets are pre-vetted as fully specified, and effort is the
+      # cheaper dial to raise later if runs are coming up short.
       - name: Pick run settings
         id: settings
-        if: steps.time_check.outputs.allowed == 'true'
+        if: steps.time_check.outputs.allowed == 'true' && steps.target.outputs.eligible == 'true'
         run: |
-          if [ "${{ contains(github.event.issue.labels.*.name, 'needs-stronger-model') }}" = "true" ]; then
+          if [ "${{ steps.target.outputs.strong }}" = "true" ]; then
             echo "model=${{ vars.AFK_STRONG_MODEL || 'opus' }}" >> "$GITHUB_OUTPUT"
+            echo "effort=${{ vars.AFK_STRONG_EFFORT || 'high' }}" >> "$GITHUB_OUTPUT"
           else
             echo "model=${{ vars.AFK_MODEL || 'sonnet' }}" >> "$GITHUB_OUTPUT"
+            echo "effort=${{ vars.AFK_EFFORT || 'medium' }}" >> "$GITHUB_OUTPUT"
           fi
-          if [ "${{ contains(github.event.issue.labels.*.name, 'needs-budget-approval') }}" = "true" ]; then
+          if [ "${{ steps.target.outputs.wide }}" = "true" ]; then
             echo "turns=${{ vars.AFK_MAX_TURNS_LARGE || '150' }}" >> "$GITHUB_OUTPUT"
           else
             echo "turns=${{ vars.AFK_MAX_TURNS || '80' }}" >> "$GITHUB_OUTPUT"
@@ -120,7 +212,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         id: claude
         continue-on-error: true
-        if: steps.time_check.outputs.allowed == 'true'
+        if: steps.time_check.outputs.allowed == 'true' && steps.target.outputs.eligible == 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # `--allowedTools` is not optional. The action allows Read, Write,
@@ -135,9 +227,9 @@ jobs:
           # show up as a failure. `python:*` is here because this repo's
           # tickets routinely require a committed migration, and
           # `makemigrations` is neither git nor gh.
-          claude_args: "--model ${{ steps.settings.outputs.model }} --max-turns ${{ steps.settings.outputs.turns }} --allowedTools Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(gh:*),Bash(python:*)"
+          claude_args: "--model ${{ steps.settings.outputs.model }} --effort ${{ steps.settings.outputs.effort }} --max-turns ${{ steps.settings.outputs.turns }} --allowedTools Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(gh:*),Bash(python:*)"
           prompt: |
-            Work GitHub issue #${{ github.event.issue.number }} in this
+            Work GitHub issue #${{ steps.target.outputs.issue }} in this
             repository. Follow this repo's CLAUDE.md and the relevant
             hub/app CLAUDE.md and CONTEXT.md files before making changes.
 
@@ -146,9 +238,9 @@ jobs:
 
             This action does not open a pull request for you. Do it
             yourself, as the last thing you do: create a branch named
-            claude/issue-${{ github.event.issue.number }}, commit your work,
+            claude/issue-${{ steps.target.outputs.issue }}, commit your work,
             push it, then run `gh pr create --base main` with a body
-            containing "Closes #${{ github.event.issue.number }}".
+            containing "Closes #${{ steps.target.outputs.issue }}".
 
             Do not merge the PR yourself.
 
@@ -178,9 +270,9 @@ jobs:
       # filters it out immediately (neither outcome label can start a run),
       # so the cost is one skipped run in the Actions list, not a loop.
       - name: Record the outcome
-        if: steps.time_check.outputs.allowed == 'true'
+        if: steps.time_check.outputs.allowed == 'true' && steps.target.outputs.eligible == 'true'
         run: |
-          issue="${{ github.event.issue.number }}"
+          issue="${{ steps.target.outputs.issue }}"
           repo="${{ github.repository }}"
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           branch="${{ steps.claude.outputs.branch_name }}"
