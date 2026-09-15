@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0026_student_safeguarding_notes_version_and_more'),
-        ('panel', '0041_rename_note_action_description'),
+        ('panel', '0042_escalation_resolved_by_drop_resolution_notes'),
     ]
 
     operations = [
