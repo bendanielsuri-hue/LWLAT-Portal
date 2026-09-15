@@ -41,6 +41,8 @@ MODULES = [
     ('register_reset_room', 'Reset Room', 'registers', Module.STATUS_HIDDEN),
     ('register_interventions', 'Interventions', 'registers', Module.STATUS_HIDDEN),
 
+    ('medical_hub', 'Medical', None, Module.STATUS_HIDDEN),
+
     ('inclusion_hub', 'SEND & Provision', None, Module.STATUS_LIVE),
     ('inclusion_provision_strategies', 'Provision & Strategies', 'inclusion_hub', Module.STATUS_HIDDEN),
     ('inclusion_panel', 'Inclusion Panel', 'inclusion_hub', Module.STATUS_LIVE),

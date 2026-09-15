@@ -13,6 +13,7 @@ from core.modules import filter_by_module, is_module_visible, module_label, requ
 from core.most_used import most_used_apps, personal_usage_counts
 from core.portal_settings import request_portal_settings
 from hubs.inclusion.views import INCLUSION_MENU
+from hubs.medical.views import MEDICAL_MENU
 from hubs.registers.views import REGISTERS_MENU
 from hubs.resources.views import RESOURCES_MENU
 from hubs.services.views import SERVICES_MENU
@@ -29,7 +30,7 @@ from hubs.student.views import STUDENT_MENU
 # happened to agree; nothing made them.
 _LEAF_BY_MODULE_KEY = {
     entry['module_key']: entry
-    for menu in (STAFF_MENU, STUDENT_MENU, INCLUSION_MENU, REGISTERS_MENU, SERVICES_MENU, RESOURCES_MENU)
+    for menu in (STAFF_MENU, STUDENT_MENU, INCLUSION_MENU, REGISTERS_MENU, MEDICAL_MENU, SERVICES_MENU, RESOURCES_MENU)
     for entry in menu
 }
 
@@ -75,6 +76,7 @@ HUB_NAV_ITEMS = [
     {'url_name': 'student_hub', 'icon': 'student/icons/student_single.svg', 'label': 'Student', 'prefix': '/student/', 'module_key': 'student_hub'},
     {'url_name': 'inclusion_hub', 'icon': 'inclusion/icons/send.svg', 'label': 'SEND & Provision', 'prefix': '/inclusion/', 'module_key': 'inclusion_hub'},
     {'url_name': 'registers', 'icon': 'registers/icons/registers.svg', 'label': 'Registers', 'prefix': '/registers/', 'module_key': 'registers'},
+    {'url_name': 'medical_hub', 'icon': 'medical/icons/medical.svg', 'label': 'Medical', 'prefix': '/medical/', 'module_key': 'medical_hub'},
     {'url_name': 'careers_hub', 'icon': 'careers/icons/careers.svg', 'label': 'Careers', 'prefix': '/careers/', 'module_key': 'careers_hub'},
     {'url_name': 'services', 'icon': 'services/icons/services.svg', 'label': 'Operations', 'prefix': '/services/', 'module_key': 'services'},
     {'url_name': 'resources_hub', 'icon': 'resources/icons/resources.svg', 'label': 'Resources', 'prefix': '/resources/', 'module_key': 'resources_hub'},
@@ -185,6 +187,14 @@ def _raw_sections():
                 'register_interventions',
             )],
             'icon_template': 'registers/icons/registers.svg',
+        },
+        {
+            'title': 'Medical',
+            'module_key': 'medical_hub',
+            'url': reverse('medical_hub'),
+            'description': 'Medical and welfare logging for students and staff — first aid, medication and care plans.',
+            'items': [],
+            'icon_template': 'medical/icons/medical.svg',
         },
         {
             'title': 'Careers',
