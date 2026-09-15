@@ -35,6 +35,7 @@ General engineering values that hold regardless of which project this is. Entrie
 
 - **S1.** Design the structure (data models, architecture) to grow to future cases without a rewrite, even when only one case exists today — but don't build features or options for cases that don't exist yet.
 - **S2.** Wait for real repetition before extracting a shared helper or abstraction. A guessed abstraction is usually costlier to unwind than the duplication it was meant to avoid.
+- **S3.** A file that has grown past roughly 600 lines of code — comments don't count, they're free — owes an answer to one question: is this one thing, or several? "One thing" is a perfectly good answer, written down in the file's own header so the next reader doesn't have to ask again. What isn't good is never asking: a file nobody ever asks the question about doesn't stop growing.
 
 ## T — Testing
 
