@@ -589,11 +589,25 @@
 [data-theme="neon"] .stat-card--accent-warning   { --stat-card-bg: color-mix(in srgb, var(--color-warning) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 30%, transparent); }
 [data-theme="neon"] .stat-card--accent-negative  { --stat-card-bg: color-mix(in srgb, var(--color-negative) 24%, var(--bg-surface-alt)); box-shadow: 0 0 10px color-mix(in srgb, var(--color-negative) 30%, transparent); }
 
-/* Selected entity row: inner bloom only - the inset bar is a hover/focus
-   marker portal-wide now (cards.css's .selectable:hover), not part of the
-   chosen state, so restating one here would put it back on chosen rows in
-   this theme alone. */
-[data-theme="neon"] .entity-row.chosen {
+/* Selected entity row: inner bloom instead of the portal-wide left-edge bar
+   (cards.css's .entity-row.chosen, #218) - this theme's own chosen-state
+   treatment, kept as its own box-shadow rather than adding to the bar.
+   [data-theme="neon"] doubled - this file loads before components/cards.css
+   (see style.css's @import order), so at plain equal specificity cards.css's
+   own later .entity-row.chosen box-shadow would win the tie and silently
+   replace this glow with the generic primary bar. Doubling the attribute
+   selector (a no-op selector-wise, [data-theme="neon"] can only ever match
+   once) buys one extra specificity point without matching anything
+   different, which is enough to beat cards.css's rule regardless of import
+   order. Restated combined with :hover/:focus-visible, matching cards.css's
+   own .entity-row.chosen:hover/:focus-visible combinator (SYNC) at the same
+   +1 specificity, for the same reason - otherwise hovering a chosen row in
+   this theme would win against the resting rule above but still lose to
+   cards.css's own higher-specificity hover combinator, swapping the glow
+   for a plain bar only while hovered. */
+[data-theme="neon"][data-theme="neon"] .entity-row.chosen,
+[data-theme="neon"][data-theme="neon"] .entity-row.chosen:hover,
+[data-theme="neon"][data-theme="neon"] .entity-row.chosen:focus-visible {
     box-shadow: inset 0 0 28px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 

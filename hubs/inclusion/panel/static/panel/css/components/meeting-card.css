@@ -65,9 +65,7 @@
 /* Row standard (see .selectable in cards.css): inset outline, not a
    background fill - stays visible against the card's own border regardless.
    Left-edge accent bar (see cards.css's .selectable:hover comment for the
-   full reasoning), not a full outline. Hover/focus only - .chosen is a
-   fill, with no bar of its own to collide with, so this applies to a
-   chosen card too. */
+   full reasoning), not a full outline. */
 .meeting-card:hover,
 .meeting-card:focus-visible {
     /* SYNC: cards.css's .selectable:hover is the source of truth for bar
@@ -76,17 +74,29 @@
        list - box-shadow isn't additive across separate declarations, so
        restating it here is what keeps the card's own drop shadow from
        disappearing on hover. border-left-color (SYNC: .list-card
-       .entity-row:hover, layout.css) blends the card's own left border into
-       the bar instead of leaving it as a separate sliver in front. */
+       .entity-row:hover, components/lists.css) blends the card's own left
+       border into the bar instead of leaving it as a separate sliver in
+       front. */
     border-left-color: var(--accent-border);
     box-shadow: inset var(--space-xxs) 0 0 var(--accent-border), var(--card-shadow);
 }
 
-/* Fill only - the accent bar (and its border-left-color companion) is a
-   hover/focus marker now, on .meeting-card:hover above, not on .chosen
-   (cards.css). No box-shadow restatement needed either: with no bar of its
-   own, the base rule's own var(--card-shadow) just stands. */
-.meeting-card.chosen { background: var(--primary-light); }
+/* Chosen bar, not a --primary-light fill (SYNC: .entity-row.chosen,
+   cards.css - #218, dropped the fill portal-wide since rows here are never
+   actually multi-selected). border-left-color/box-shadow restated exactly
+   like the hover rule above, just in --primary; also restated combined
+   with :hover/:focus-visible so a chosen card outranks hover on specificity
+   (3 classes/pseudo-classes vs. the plain hover rule's 2) and keeps its
+   primary bar rather than falling back to the neutral hover colour. */
+.meeting-card.chosen {
+    border-left-color: var(--primary);
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary), var(--card-shadow);
+}
+.meeting-card.chosen:hover,
+.meeting-card.chosen:focus-visible {
+    border-left-color: var(--primary);
+    box-shadow: inset var(--space-xxs) 0 0 var(--primary), var(--card-shadow);
+}
 
 .meeting-card-body { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; gap: 6px; }
 
