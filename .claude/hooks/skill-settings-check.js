@@ -4,18 +4,7 @@
 // always exits 0. See docs/agents/claude-code-usage.md.
 const fs = require("fs");
 const path = require("path");
-
-const HEAVY = new Set([
-  "code-review", "security-review", "tdd", "domain-modeling",
-  "diagnosing-bugs", "codebase-design", "research",
-]);
-const LIGHT = new Set([
-  "sync", "suggest-version-bump", "keybindings-help", "grilling",
-  "prototype", "scaffold-exercises", "setup-pre-commit", "wizard",
-  "writing-for-agents", "claude-api", "run", "init", "loop",
-  "migrate-to-shoehorn", "resolving-merge-conflicts", "dataviz",
-  "fewer-permission-prompts", "simplify",
-]);
+const { HEAVY, LIGHT } = require("./lib/skill-weight.js");
 
 function main() {
   let input = "";

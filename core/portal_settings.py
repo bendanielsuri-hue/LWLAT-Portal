@@ -1,5 +1,6 @@
 from core.identity import current_school_key
 from core.models import CategorySettings, MatSettings, PortalSettingsFields, School
+from core.request_cache import per_request
 from core.school_scope import SchoolScope
 
 # The last tier of the fallthrough, below MAT. Only the fields with a real
@@ -25,6 +26,14 @@ def resolve_portal_settings(request):
     # off the viewer's own identity/home school: a MAT staff member who selects
     # "Babington Academy" sees Babington's settings, same as a Babington staff
     # member would.
+    #
+    # Resolved once per request: the portal_settings context processor and
+    # Home's build_sections both want it, and the cookie it keys off cannot
+    # change mid-request (see core.request_cache).
+    return per_request(request, 'portal_settings', lambda: _resolve(request))
+
+
+def _resolve(request):
     scope = SchoolScope(current_school_key(request))
     school = None
     category = scope.category
@@ -51,19 +60,12 @@ def resolve_portal_settings(request):
     return resolved
 
 
-# Same reasoning as core.modules._REQUEST_MODULE_MAP_ATTR: per request only,
-# never process-wide, because the School/CategorySettings/MatSettings rows
-# behind it are admin-editable at runtime.
-_REQUEST_SETTINGS_ATTR = '_portal_settings'
-
-
 def request_portal_settings(request):
-    # resolve_portal_settings costs two to three queries and was being paid
-    # twice on every page (the portal_settings context processor and
-    # build_sections) and three times on Home, for a result that is a pure
-    # function of the selected-school cookie. See issue #193.
-    resolved = getattr(request, _REQUEST_SETTINGS_ATTR, None)
-    if resolved is None:
-        resolved = resolve_portal_settings(request)
-        setattr(request, _REQUEST_SETTINGS_ATTR, resolved)
-    return resolved
+    """The resolved settings for `request`. Alias of `resolve_portal_settings`.
+
+    Same arrangement as `core.modules.request_module_map`: the caching lives in
+    `core.request_cache` rather than in a second per-module attribute, and this
+    name stays because it says at the call site that the once-per-request
+    version is the one being asked for.
+    """
+    return resolve_portal_settings(request)

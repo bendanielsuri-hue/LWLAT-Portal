@@ -43,9 +43,16 @@ Use a Skill instead of a subagent when you want a reusable prompt that still run
 
 ## Advisory check: when settings look mismatched
 
-There's no Claude Code hook that inspects "is the current model/effort a good fit for this task" before work starts — hooks fire on tool/lifecycle events, not on a semantic read of task difficulty. The practical mechanism is Claude's own judgment, prompted to flag a likely mismatch before doing substantial work, rather than a script.
+There's no Claude Code hook that inspects "is the current model/effort a good fit for this task" before work starts in general — hooks fire on tool/lifecycle events, not on a free-form semantic read of task difficulty. Two narrow surfaces close part of that gap with real hooks, keyed on GitHub Issues rather than task text in general:
 
-**Trigger heuristics** (flag before starting, don't act on unprompted):
+- **Skill invocation** (`.claude/hooks/skill-settings-check.js`, `PreToolUse`/`Skill`): flags when a skill's own known weight (heavy: `code-review`, `security-review`, `tdd`, `domain-modeling`, `diagnosing-bugs`, `codebase-design`, `research`; light: `sync`, `suggest-version-bump`, etc. — see `.claude/hooks/lib/skill-weight.js`) looks mismatched against current model/effort.
+- **Tickets** (`.claude/hooks/lib/ticket-classify.js`, shared by two hooks): a ticket's weight is guessed from architectural/ADR/schema language, debugging language (flaky/broken/regression), trivial-edit language, or a skill named in its body/comments (reusing the same heavy/light split above).
+  - `.claude/hooks/ticket-settings-check.js` (`UserPromptSubmit`): triggers on any mention of a ticket/issue number in the prompt — deliberately not pinned to a fixed phrase (wording varies too much, and the hook is silent when nothing's mismatched, so a loose trigger costs nothing) — fetches the issue via `gh`, and — if the guessed weight doesn't match current model/effort — injects an advisory note for Claude to relay, non-blocking.
+  - `.claude/hooks/ticket-create-settings-suggest.js` (`PostToolUse`/`Bash`, filtered to `gh issue create`): classifies the newly created ticket the same way and posts the suggestion as a `gh issue comment`, so it travels with the ticket instead of being recomputed differently each time someone opens it.
+
+Both ticket hooks are heuristic and best-effort — they guess from ticket text/labels, not a real understanding of scope, and stay silent (rather than blocking or erroring) if `gh` is unavailable or nothing looks mismatched. For every other task shape (prose descriptions, ad hoc requests with no GitHub issue), the practical mechanism is still Claude's own judgment, prompted to flag a likely mismatch before doing substantial work.
+
+**Trigger heuristics** (flag before starting, don't act on unprompted) — apply on top of the hooks above, not instead of them; the hooks catch the ticket-shaped case, this list covers task shapes with no ticket to inspect:
 
 1. Task reads as architectural/schema-level or "hard debugging" (see decision table) and current model is Haiku or effort is low/medium → recommend raising model/effort, in one line, with the specific reason (not a generic "this seems complex").
 2. Task reads as a single trivial edit/lookup and current settings are Opus at high/xhigh/max → note that a cheaper/faster setting would likely suffice, without blocking or auto-downgrading.

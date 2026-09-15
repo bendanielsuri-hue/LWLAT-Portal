@@ -4,7 +4,9 @@
       "Bash(.venv/Scripts/python.exe manage.py shell -c ' *)",
       "Bash(curl -s -c /tmp/cookies.txt -b \"current_school=1\" http://127.0.0.1:8000/inclusion/panel/students/)",
       "Bash(curl -s http://127.0.0.1:8000/inclusion/panel/students/)",
-      "Bash(curl -s -b \"current_school_key=1\" http://127.0.0.1:8000/inclusion/panel/students/)"
+      "Bash(curl -s -b \"current_school_key=1\" http://127.0.0.1:8000/inclusion/panel/students/)",
+      "Bash(gh issue *)",
+      "Bash(.venv/Scripts/python.exe \"C:/Users/bsuri/AppData/Local/Temp/claude/c--Users-bsuri-LWLAT-Portal/b7724454-7d0d-4924-8ea0-e3a4dc206e53/scratchpad/measure_nav_queries.py\")"
     ],
     "deny": [
       "Read(.venv/**)",
@@ -24,6 +26,30 @@
             "type": "command",
             "command": "node .claude/hooks/skill-settings-check.js",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/ticket-settings-check.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/ticket-create-settings-suggest.js",
+            "if": "Bash(gh issue create *)",
+            "timeout": 10
           }
         ]
       }

@@ -12,6 +12,7 @@ from core.models import School
 from core.modules import filter_by_module, is_module_visible, module_label, request_module_map
 from core.most_used import most_used_apps, personal_usage_counts
 from core.portal_settings import request_portal_settings
+from core.request_cache import per_request
 from hubs.inclusion.views import INCLUSION_MENU
 from hubs.medical.views import MEDICAL_MENU
 from hubs.registers.views import REGISTERS_MENU
@@ -229,6 +230,13 @@ def _raw_sections():
 
 
 def build_sections(request):
+    # Built once per request: the search_items context processor indexes it on
+    # every page in the portal, and on Home mat_home() then renders the same
+    # list. Nothing here depends on anything a single request can change.
+    return per_request(request, 'sections', lambda: _build_sections(request))
+
+
+def _build_sections(request):
     modules = request_module_map(request)
     settings = request_portal_settings(request)
     # Generic role-noun overrides only apply to these two hub entries — every
