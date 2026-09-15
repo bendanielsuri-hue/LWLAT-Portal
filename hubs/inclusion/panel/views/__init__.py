@@ -212,6 +212,7 @@ from .. import form_actions, lifecycle, presenters, reconcile  # noqa: F401
 from ..models import (  # noqa: F401
     Action,
     ActionCategory,
+    ActionUpdate,
     Escalation,
     Expertise,
     ExternalContact,
