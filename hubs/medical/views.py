@@ -15,13 +15,17 @@ from core.hub_context import hub_context
 # Stock) - and naming it is what made this list derivable rather than a set of
 # topics to remember. A page that would hold two kinds has picked the wrong one.
 #
-# Three of these look like they could collapse into another page and cannot:
+# Every label here has to read correctly with no hub name beside it. The "Most
+# Used Apps" tray on MAT Home (portal/templates/portal/home.html) renders a
+# leaf's name alone - no hub, no section, and the tooltip is the same bare
+# string - so "Profiles" or "Log" would arrive there meaning nothing. That is
+# the whole reason three of these four carry "Medical" and Immunisations does
+# not: the test is whether the name stands by itself, not whether the hub
+# prefixes by habit. Registers passes the same test without prefixing at all,
+# because "Clubs" and "Library" already say what they are.
 #
-# - The Accident Book is not the Medical Log. The log is clinical (what was
-#   wrong with this person, what care they were given); the accident book is
-#   the liability and RIDDOR record of what happened and where. Different
-#   retention, different readers, and it covers visitors and contractors, who
-#   are neither Staff nor Student and have no table in this portal at all.
+# Two of these look like they could collapse into another page and cannot:
+#
 # - Immunisations is an operation, not a record. The provider owns the consent
 #   and hands the school a list of students who are already being immunised;
 #   the school's job is getting them out of lessons and back without wrecking a
@@ -31,6 +35,18 @@ from core.hub_context import hub_context
 #   shape - an item, a location, a quantity, an expiry, a last-checked date -
 #   and the product is the alert, not the inventory. The statutory items have
 #   to surface first on the page; that is a layout job, not a second page.
+#
+# The accident book is a facet of a log entry, not a page. One occurrence -
+# a child trips and is treated - was producing two records on two pages, and
+# the accident half is the one nobody fills in, because it is the half nobody
+# needs until two years later. So the log holds one Incident, and the accident
+# facts and the treatment facts hang off it as optional detail: the shared base
+# table with per-type detail tables that ADR 0001 landed for core.Referral,
+# which is also what (ENG-S1) asks for here. Optional both ways, because they
+# are not alternatives - a contractor who takes himself to A&E is an accident
+# with no treatment, an asthma attack is a treatment with no accident, and a
+# near miss is an accident with no injury at all. Two mutually exclusive event
+# types would force a choice on the commonest case of all.
 #
 # Care plans are a section of a profile, not a page: a plan in force is a
 # standing statement about a person, which is what a profile already holds.
@@ -63,11 +79,10 @@ from core.hub_context import hub_context
 # The first aider directory is deliberately not in this list: it is on the hub
 # landing page rather than a page of its own. See hub.html.
 MEDICAL_MENU = [
-    {'name': 'Profiles', 'url': '/medical/profiles/', 'icon': 'medical/icons/profile.svg', 'module_key': 'medical_profiles'},
+    {'name': 'Medical Profiles', 'url': '/medical/profiles/', 'icon': 'medical/icons/profile.svg', 'module_key': 'medical_profiles'},
     {'name': 'Medical Log', 'url': '/medical/log/', 'icon': 'medical/icons/log.svg', 'module_key': 'medical_log'},
-    {'name': 'Accident Book', 'url': '/medical/accident-book/', 'icon': 'medical/icons/accident_book.svg', 'module_key': 'medical_accident_book'},
     {'name': 'Immunisations', 'url': '/medical/immunisations/', 'icon': 'medical/icons/immunisation.svg', 'module_key': 'medical_immunisations'},
-    {'name': 'Stock', 'url': '/medical/stock/', 'icon': 'medical/icons/stock.svg', 'module_key': 'medical_stock'},
+    {'name': 'Medical Stock', 'url': '/medical/stock/', 'icon': 'medical/icons/stock.svg', 'module_key': 'medical_stock'},
 ]
 
 
@@ -85,10 +100,6 @@ def medical_profiles(request):
 
 def medical_log(request):
     return render(request, 'hubs/medical/log.html', _hub_context(request))
-
-
-def medical_accident_book(request):
-    return render(request, 'hubs/medical/accident_book.html', _hub_context(request))
 
 
 def medical_immunisations(request):

@@ -194,8 +194,7 @@ def _raw_sections():
             'url': reverse('medical_hub'),
             'description': 'Medical and welfare logging for students and staff — first aid, medication and care plans.',
             'items': [_leaf(k) for k in (
-                'medical_profiles', 'medical_log', 'medical_accident_book', 'medical_immunisations',
-                'medical_stock',
+                'medical_profiles', 'medical_log', 'medical_immunisations', 'medical_stock',
             )],
             'icon_template': 'medical/icons/medical.svg',
         },

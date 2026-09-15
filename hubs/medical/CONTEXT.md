@@ -6,7 +6,7 @@ Every page is one of **three kinds**, and the kinds are what make the page list 
 
 Nothing below is built yet; this glossary was written alongside the design (see [#275](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/275) and [docs/wayfinder/medical-logging/map.md](../../docs/wayfinder/medical-logging/map.md)) so the models arrive with settled names. The standing-statement / historical-event split below is [ADR 0031](../../docs/adr/0031-three-kinds-of-note-and-one-thread-entry-base.md)'s taxonomy applied to this domain.
 
-Terms below are the domain names. Several sidebar labels are deliberately shorter than the term — "Profiles", "Consent" — because the hub name is already rendered beside every one of them: in the sidebar header, on the MAT Home card, and in each global search result, which carries the hub's name and icon. A label that repeats "Medical" repeats it three times. Registers does the same thing (`register_clubs` keyed, "Clubs" displayed); Staff and Student do not, and are the odd ones out.
+Terms below are the domain names; sidebar labels mostly match them. Labels carry "Medical" where they would otherwise be ambiguous alone — the "Most Used Apps" tray renders a leaf's name with no hub beside it, so "Profiles", "Log" and "Stock" would arrive there meaning nothing, while "Immunisations" is unambiguous and takes no prefix. That test, not a per-hub habit, is why Registers prefixes nothing and Staff prefixes most things. See the page-adding checklist in the root `CLAUDE.md`.
 
 ## Language
 
@@ -15,8 +15,8 @@ Everything currently true about one person's health — conditions, allergies, c
 _Avoid_: Medical record (ADR 0031 already uses "record attribute" for something else), Medical register (`Register` is a defined term in `hubs.registers` and means a different thing), Health profile
 
 **Medical Log**:
-The stream of things that have happened to a person medically — a first aid incident, a dose administered. A **historical event**: append-only, never stops being true, and never edited into a different account of the past. One stream with a kind per entry rather than one page per kind, the same shape `hubs.registers` chose for its category pages.
-_Avoid_: First aid log (doses are in it too and are not first aid), Incident log (an administered dose is not an incident), Medical history (that reads as the profile)
+The stream of things that have happened to a person medically — an incident with its accident and treatment facets, a dose administered. A **historical event**: append-only, never stops being true, and never edited into a different account of the past. One stream rather than one page per kind, the same shape `hubs.registers` chose for its category pages.
+_Avoid_: First aid log (doses are in it too and are not first aid), Incidents (an administered dose is not an incident, so it cannot be the page's name even though Incident is the row's), Medical Room (most of what is in here did not happen there — a car park accident, an asthma attack on the field, a dose given in a classroom — and `hubs.registers` separately owns a Medical Room register), Medical history (that reads as the profile)
 
 **First aid incident**:
 One episode of care — the trip at breaktime, the ice pack, the observation period. Carries the clinical narrative, and hangs a `core.ThreadEntry` thread for what was done about it afterwards ("phoned mum, no answer"), so the narrative never becomes a `notes` TextField.
@@ -29,9 +29,15 @@ _Avoid_: MAR (fine in UI copy; the term is opaque to anyone outside a medical ro
 A standing document describing how a named condition is to be managed — asthma, epilepsy, anaphylaxis, diabetes — with a review date. A standing statement, superseded rather than edited, and portal-owned: a care plan will never exist in SIMS. **A section of a Medical Profile, not a page of its own** — a plan in force is part of what is true about a person now, which is what the profile already holds. Its review cycle is what made it look separate, and "which plans are overdue review" is a worklist, not a page.
 _Avoid_: Individual Healthcare Plan / IHP (the statutory term in the DfE's *Supporting pupils at school with medical conditions*, and the better name if the trust's schools actually say it — unresolved on the map), Care package (social care)
 
-**Accident Book**:
-The liability and reporting record of what happened and where — a trip on a wet corridor, a fall in PE. Deliberately **not** the Medical Log: the log is clinical (what was wrong with a person and what care they were given), the accident book is the circumstance, and the two have different readers and different retention. The record that forces the visitor problem below, since it covers anyone on site.
-_Avoid_: Incident report (the Medical Log holds incidents too), H&S log
+**Incident**:
+One thing that happened to one person at one moment, and the single row the Medical Log is made of. Carries only what every occurrence has — subject, `occurred_at`, `recorded_at`, who recorded it, where — with the specifics in optional facets below. The shared-base-plus-detail shape of `core.Referral` ([ADR 0001](../../docs/adr/0001-shared-referral-base-table.md)), for the same reason.
+
+**Accident facts**:
+The liability and reporting side of an incident — the circumstance, the location, whether it is RIDDOR reportable, any witness. A facet of an Incident, not a record of its own: a child who trips and is treated is *one* occurrence, and two pages asking for it twice means the accident half goes unfilled, because it is the half nobody needs until two years later. The facet that forces the visitor problem below, since it covers anyone on site.
+_Avoid_: Accident Book (the statutory artefact this feeds, and it was a page here until the double-entry problem was noticed), H&S log
+
+**Treatment facts**:
+The clinical side of an incident — what care was given, by whom, what the outcome was. The other facet, and independent of the accident one: an asthma attack is treatment with no accident, a contractor who takes himself to A&E is an accident with no treatment, and a near miss is an accident with no injury at all. Which is why these are optional facets rather than two mutually exclusive event types — a type would force a choice on the commonest case of all.
 
 **Subject**:
 The person a record is *about*, as opposed to the staff member who wrote it. This portal has only ever used `core.Staff` as an actor — `author`, `logged_by`, `raised_by` — and medical records are the first thing to make a person the subject. Students and staff are separate tables because their visibility gates genuinely differ. **Visitors and contractors are a third subject with no table anywhere in this portal**, and the Accident Book needs them; unresolved on the map.

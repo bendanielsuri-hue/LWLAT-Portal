@@ -19,7 +19,7 @@ STUDENT_MENU = [
     # core.SafeguardingNote ended up there (#77-#81): more than one hub reads
     # it, and the Medical hub surfaces the medical-kind consents on a profile
     # so a first-aider can check one at the point of care.
-    {'name': 'Consent', 'url': '/student/consent/', 'icon': 'student/icons/consent.svg', 'module_key': 'student_consent'},
+    {'name': 'Parental Consent', 'url': '/student/consent/', 'icon': 'student/icons/consent.svg', 'module_key': 'student_consent'},
 ]
 
 

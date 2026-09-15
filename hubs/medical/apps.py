@@ -5,4 +5,4 @@ class MedicalConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'hubs.medical'
     # Shown in the footer - see docs/adr/0011.
-    VERSION = '0.2.3'
+    VERSION = '0.2.4'

@@ -23,7 +23,7 @@ A page is declared in several places joined only by a string convention, and mos
 
 1. `hubs/<hub>/urls.py` — the path, with `name=` matching the module key (`core.models.Module.key` matches a Django URL name by convention, and `portal.views._leaf` relies on it).
 2. `hubs/<hub>/views.py` — the view.
-3. `hubs/<hub>/views.py` — an entry in that hub's `<HUB>_MENU`, which drives the sidebar.
+3. `hubs/<hub>/views.py` — an entry in that hub's `<HUB>_MENU`, which drives the sidebar. **The `name` must read correctly with no hub name beside it**: the "Most Used Apps" tray (`portal/templates/portal/home.html`, fed by `_most_used_registries`) renders a leaf's name alone — no hub, no section, and the tooltip is the same bare string. So the test is whether the name stands by itself, not whether the hub prefixes by habit: Registers needs no prefix because "Clubs" and "Library" already say what they are, while "Profiles", "Log" and "Stock" do not and take one. Getting this wrong is invisible on every other surface — the sidebar, the hub card and global search all render the hub name next to the label — and only shows up in the one place a page arrives with no context at all.
 4. The template, under `hubs/<hub>/templates/hubs/<hub>/`.
 5. `core/management/commands/seed_modules.py` — a `Module` row, then rerun the command. **Omitting this doesn't hide the page — it defaults to visible**, so an unreleased page ships ungated.
 6. `portal/views.py` — the hub's card `items` tuple on MAT Home. Nothing fails if you forget; the tile is simply absent from Home while the page works everywhere else.
