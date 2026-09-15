@@ -38,7 +38,6 @@ function initApp() {
 
     initDisabledTooltips();
 
-    // Full reasoning in layout/breakpoints.js.
     initBreakpointClasses();
     initFilterBarMobileMode();
 
@@ -87,7 +86,5 @@ function initApp() {
 
     initStickyZoneSentinels();
 
-
-    // Full reasoning in components/form-controls.js.
     enhanceFormControls(document);
 }
