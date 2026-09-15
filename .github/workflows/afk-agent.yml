@@ -423,6 +423,32 @@ jobs:
 
           gh issue edit "$issue" --repo "$repo" --add-label agent-failed
           msg="The AFK agent run finished without opening a PR."
+
+          # Running out of turns is evidence about the ticket, not just about
+          # this run, so record it as a label rather than leaving it in a
+          # comment for someone to notice. `needs-budget-approval` is exactly
+          # the judgement "this is wider than a default run" — the same call
+          # a human makes by eye when labelling, made here by the ticket
+          # having actually proved it.
+          #
+          # This is a brake, never a grant. An agent applying
+          # `afk-approved` would defeat the point of having it (ADR 0030), so
+          # the retry still waits for a human to decide to spend. What
+          # changes is that the decision is now presented rather than having
+          # to be rediscovered from a turn count in a comment.
+          #
+          # A ticket that hits the *raised* cap gets told something different.
+          # More budget has already been tried, so the answer is almost
+          # certainly to split the work rather than to buy it more turns.
+          cap="${{ steps.settings.outputs.turns }}"
+          if [ -n "$n" ] && [ "$n" -ge "$cap" ] 2>/dev/null; then
+            if [ "${{ steps.target.outputs.wide }}" = "true" ]; then
+              msg="$msg It exhausted the raised cap of $cap turns, so more budget is unlikely to be the answer — this probably needs splitting into smaller tickets."
+            else
+              gh issue edit "$issue" --repo "$repo" --add-label needs-budget-approval
+              msg="$msg It used every one of its $cap turns, so \`needs-budget-approval\` has been added — a retry gets the larger cap, once you grant \`afk-approved\`."
+            fi
+          fi
           if [ -n "$branch" ] && git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
             msg="$msg Partial work was pushed to \`$branch\` — open a PR from it or delete it."
           fi
