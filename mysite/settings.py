@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'portal',
     'hubs.services',
     'hubs.registers',
+    'hubs.medical',
     'hubs.staff',
     'hubs.student',
     'hubs.inclusion',

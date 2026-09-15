@@ -29,6 +29,7 @@ urlpatterns = [
     path('student/', include('hubs.student.urls')),
     path('services/', include('hubs.services.urls')),
     path('registers/', include('hubs.registers.urls')),
+    path('medical/', include('hubs.medical.urls')),
     path('inclusion/', include('hubs.inclusion.urls')),
     path('careers/', include('hubs.careers.urls')),
     path('resources/', include('hubs.resources.urls')),
