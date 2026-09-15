@@ -581,6 +581,18 @@ a.stat-card.selectable:hover { border-bottom-color: var(--stat-card-border); }
     width: 20px;
     height: 20px;
 }
+/* The wrapper's 20px box above sized nothing on its own: icons are
+   <svg><use href="file.svg#icon">, and an <svg> with no width/height of its
+   own falls back to the 300x150 default for a replaced element rather than
+   to its parent's box. It went unnoticed while every icon file still
+   carried its own width/height attributes - the drawn glyph stayed small
+   inside an oversized, invisible host box. Those attributes are gone now
+   (they were what stopped CSS from sizing any icon at all once <use>
+   replaced inlining), so this is the rule that actually sets the size.
+   The .stats-strip--compact/.stats-carousel-slot copies of this same
+   declaration stay where they are: both override other properties on the
+   wrapper too, and neither is reached by this base rule's own context. */
+.stat-card-icon svg { width: 100%; height: 100%; }
 .stat-card[class*="stat-card--accent-"] { position: relative; border-width: 2px; border-style: solid; }
 /* --stat-card-border mirrors each variant's own border-color as a custom
    property, not just a plain value - lets a narrower override elsewhere
