@@ -138,8 +138,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      # Off-hours gate: only run weekday nights (after 22:00 or
-      # before 07:00 UK time) or any time on a weekend. Outside that window,
+      # Off-hours gate: only run overnight, 22:00 to 06:00 UK time, every
+      # day. The weekday/weekend split is gone — a weekend used to be open
+      # all day, and the same reasoning that closed weekday daytimes applies
+      # to it: the usage window is shared with whoever is working, and
+      # Saturday afternoon is no safer to empty it than Tuesday's. One rule
+      # every day also means there is no second case to keep in step when
+      # the hours move. Outside that window,
       # skip and leave a comment — the label stays, so removing and
       # reapplying it during an allowed window retriggers this workflow.
       # (`afk-queue.yml` now also watches the window and dispatches on its
@@ -159,9 +164,8 @@ jobs:
       - name: Check off-hours window
         id: time_check
         run: |
-          dow=$(TZ='Europe/London' date +%u)   # 1=Mon .. 7=Sun
           hour=$(TZ='Europe/London' date +%H)  # 00-23
-          if [ "$dow" -ge 6 ] || [ "$hour" -ge 22 ] || [ "$hour" -lt 7 ]; then
+          if [ "$hour" -ge 22 ] || [ "$hour" -lt 6 ]; then
             echo "allowed=true" >> "$GITHUB_OUTPUT"
           else
             echo "allowed=false" >> "$GITHUB_OUTPUT"
@@ -175,7 +179,7 @@ jobs:
         if: steps.time_check.outputs.allowed == 'false' && github.event_name == 'issues'
         run: |
           gh issue comment "${{ steps.target.outputs.issue }}" --repo "${{ github.repository }}" --body \
-            "Labeled during work hours (weekday 07:00-22:00 UK time), so the AFK agent is skipping this for now. The label stays on, and \`afk-queue.yml\` picks it up automatically when the window opens this evening — you don't need to do anything. To force it sooner, remove and reapply the label during an evening/night or weekend."
+            "Labeled outside the overnight window (runs go 22:00-06:00 UK time), so the AFK agent is skipping this for now. The label stays on, and \`afk-queue.yml\` picks it up automatically when the window next opens — you don't need to do anything. To force it sooner, remove and reapply the label during the window."
         env:
           GH_TOKEN: ${{ github.token }}
 

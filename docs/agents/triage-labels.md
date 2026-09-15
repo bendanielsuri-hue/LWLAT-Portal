@@ -34,7 +34,7 @@ They are also opt-out rather than opt-in: a ticket nobody has judged still runs.
 
 `.github/workflows/afk-agent.yml` starts when either `ready-for-agent` or `afk-approved` is applied, provided `ready-for-agent` is on the issue and either no blocker is present or `afk-approved` is. So an unblocked ticket runs as soon as you mark it ready, and a blocked one runs the moment you grant permission — granting is the gesture that fires it, rather than something you do and then have to remember to follow up.
 
-Everything still waits for the off-hours window (weekday evenings and nights, or any time at the weekend), approved runs included. Approval says whether; the window says when.
+Everything still waits for the overnight window — 22:00 to 06:00 UK time, every day including weekends — approved runs included. Approval says whether; the window says when.
 
 Labelling during the day is no longer something you have to come back to. `.github/workflows/afk-queue.yml` ticks every quarter of an hour, and when the window opens it dispatches the lowest-numbered eligible ticket itself. So "mark it ready and forget about it" is the whole interaction — nothing needs a machine left on overnight, which is what this replaced (see [#277](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/277)).
 

@@ -28,11 +28,15 @@ on:
   # Hours are deliberately wider than the window and in UTC, because cron
   # has no notion of British Summer Time: 22:00 in London is 21:00 UTC in
   # summer and 22:00 UTC in winter, so a pinned hour silently slips by one
-  # in late October. The job re-checks the real window in Europe/London and
-  # exits in seconds outside it, so the extra ticks cost almost nothing.
+  # in late October. 20-23 and 0-6 covers the window under both, with an
+  # hour's margin either side. The job re-checks the real window in
+  # Europe/London and exits in seconds outside it, so the extra ticks cost
+  # almost nothing.
+  #
+  # One line for every day, since the window no longer varies by day. The
+  # weekend used to have its own all-hours cron; it does not need one now.
   schedule:
-    - cron: '7,22,37,52 20-23,0-7 * * 1-5'
-    - cron: '7,22,37,52 * * * 6,0'
+    - cron: '7,22,37,52 20-23,0-6 * * *'
 
   # The queue advances one ticket at a time, and afk-agent.yml's last step
   # dispatches this workflow when it has finished real work. That indirection
@@ -95,9 +99,8 @@ jobs:
           # queue would dispatch during work hours, the agent would skip,
           # and the hourly tick would do it again every hour all day. Keep
           # the two in step; if one moves, move both.
-          dow=$(TZ='Europe/London' date +%u)   # 1=Mon .. 7=Sun
           hour=$(TZ='Europe/London' date +%H)  # 00-23
-          if ! { [ "$dow" -ge 6 ] || [ "$hour" -ge 22 ] || [ "$hour" -lt 7 ]; }; then
+          if ! { [ "$hour" -ge 22 ] || [ "$hour" -lt 6 ]; }; then
             echo "::notice::Outside the off-hours window. Nothing dispatched."
             exit 0
           fi
