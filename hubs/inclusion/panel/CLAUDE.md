@@ -77,8 +77,7 @@ Mechanics are commented inline at each function — this covers *when to reach f
 ## Constants
 
 - `PANEL_MENU` — 7-item sidebar for panel pages, each entry carries a `module_key` (children of `inclusion_panel` in `seed_modules`, seeded live)
-- `_local_menu(request)` — standard `filter_by_module(PANEL_MENU, module_map(), request)` helper, same convention as every other hub (see `hubs/CLAUDE.md`)
-- `_panel_base_context(request)` — dict spread into every panel render: `local_menu` (via `_local_menu`), `hub_title`, `back_to_hub_url`, `back_to_hub_label`
+- `_panel_base_context(request)` — dict spread into every panel render: `local_menu`, `hub_title`, `back_to_hub_url`, `back_to_hub_label`. Built by the shared `core.hub_context.hub_context` helper (same convention as every other hub, see `hubs/CLAUDE.md`), with the back-to-hub pair passed as keyword arguments; the Safeguarding Notes entry is then inserted into `local_menu` by hand, because it is gated on `Staff.is_dsl` rather than on a `module_key`
 - `ACTION_CATEGORY_PRESETS` — `['Parent Meeting', 'Intervention', 'Other']`
 
 ## Seed commands (all in `management/commands/`)

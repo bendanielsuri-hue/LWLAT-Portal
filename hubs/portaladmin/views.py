@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
+from core.hub_context import hub_context
 from core.identity import current_staff
 from core.models import CategorySettings, MatSettings, Module, School
 from core.portal_settings import FIELDS
@@ -10,7 +11,13 @@ PORTALADMIN_MENU = [
     {'name': 'Themes', 'url': '/portal-admin/themes/', 'icon': 'img/icons/portal/cog.svg'},
 ]
 
-PORTALADMIN_BASE_CONTEXT = {'local_menu': PORTALADMIN_MENU, 'hub_title': 'Portal Admin'}
+
+def _hub_context(request):
+    # Neither entry above carries a module_key, so nothing here is
+    # module-gated - this hub's gate is the is_developer check each view does
+    # for itself. Going through the shared helper anyway keeps the shape
+    # identical to every other hub and makes a gated entry a one-key change.
+    return hub_context(request, PORTALADMIN_MENU, 'Portal Admin')
 
 
 def _apply_fields(instance, post):
@@ -59,7 +66,7 @@ def portaladmin_home(request):
     mat_settings, _ = MatSettings.objects.get_or_create(pk=1)
     category_settings = {row.category: row for row in CategorySettings.objects.all()}
     return render(request, 'hubs/portaladmin/home.html', {
-        **PORTALADMIN_BASE_CONTEXT,
+        **_hub_context(request),
         'modules': Module.objects.select_related('parent').prefetch_related('pilot_schools'),
         'schools': School.objects.filter(is_active=True),
         'mat_settings': mat_settings,
@@ -77,5 +84,5 @@ def portaladmin_themes(request):
         return redirect('homepage')
 
     return render(request, 'hubs/portaladmin/themes.html', {
-        **PORTALADMIN_BASE_CONTEXT,
+        **_hub_context(request),
     })

@@ -24,7 +24,7 @@ from core.models import (
 )
 from core.dashboard_filters import Filter, FilterSet, equals, flag, tristate
 from core.school_scope import SchoolScope
-from core.modules import filter_by_module, request_module_map
+from core.hub_context import hub_context
 from core.student_history import (
     attendance_authorised_pct,
     attendance_percentage,
@@ -82,10 +82,6 @@ PANEL_MENU = [
 ]
 
 
-def _local_menu(request):
-    return filter_by_module(PANEL_MENU, request_module_map(request), request)
-
-
 def _panel_base_context(request):
     # Shared sidebar context for every page inside the Inclusion Panel sub-app.
     # "Safeguarding Notes" is appended here (not a PANEL_MENU entry) because
@@ -96,7 +92,14 @@ def _panel_base_context(request):
     # itself (#84) - this is a hardcoded string, not Module.name-driven, so
     # the rename was this one line; the URL path/name were renamed to match
     # separately in #85.
-    local_menu = _local_menu(request)
+    context = hub_context(
+        request,
+        PANEL_MENU,
+        'Inclusion Panel',
+        back_to_hub_url='/inclusion/',
+        back_to_hub_label='SEND & Provision',
+    )
+    local_menu = context['local_menu']
     current_staff = _current_staff(request)
     if current_staff and current_staff.is_dsl:
         # Inserted right after Students (not appended) - a DSL reaches for
@@ -111,12 +114,8 @@ def _panel_base_context(request):
             'url': '/inclusion/panel/safeguarding-notes/',
             'icon': 'inclusion/icons/shield_check.svg',
         }] + local_menu[insert_at:]
-    return {
-        'local_menu': local_menu,
-        'hub_title': 'Inclusion Panel',
-        'back_to_hub_url': '/inclusion/',
-        'back_to_hub_label': 'SEND & Provision',
-    }
+    context['local_menu'] = local_menu
+    return context
 
 ACTION_CATEGORY_PRESETS = ['Parent Meeting', 'Intervention', 'Other']
 
