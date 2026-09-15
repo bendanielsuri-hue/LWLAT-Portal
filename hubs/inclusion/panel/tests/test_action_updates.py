@@ -240,3 +240,18 @@ class SensitiveActionUpdateTest(PanelViewTestCase):
             'body': 'Called the parent',
         }, headers={'x-requested-with': 'XMLHttpRequest'})
         self.assertFalse(ActionUpdate.objects.exists())
+
+    def test_an_outsider_cannot_edit_or_delete_on_a_sensitive_action(self):
+        # Same redirect the read gate above gets - the sensitivity check
+        # happens while resolving `action` from action_id, before this
+        # view even looks at form_action, so edit/delete inherit it for free.
+        update = ActionUpdate.objects.create(action=self.action, author=self.outsider, body='Called the parent')
+        response = self.client.post(self.url, {
+            'form_action': 'edit_action_update',
+            'action_id': self.action.id,
+            'update_id': update.id,
+            'body': 'Sneaky edit',
+        }, headers={'x-requested-with': 'XMLHttpRequest'})
+        self.assertEqual(response.status_code, 302)
+        update.refresh_from_db()
+        self.assertEqual(update.body, 'Called the parent')

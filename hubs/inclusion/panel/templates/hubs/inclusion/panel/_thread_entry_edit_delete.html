@@ -26,8 +26,16 @@ fetch-body convention `add_action_update` already uses, since the entry
 usually lives inside a <form> that forbids a nested one.
 {% endcomment %}
 {% if can_edit %}
+{% comment %}
+data-thread-entry-id deliberately isn't repeated here - it lives once, on
+the entry's own root element (e.g. .note-thread-item), and every handler
+below reaches it via .closest('[data-thread-entry-id]') from the click
+target. Duplicating it on this inner wrapper would make that .closest()
+resolve to this element first instead, which has no `_view`/`_edit-form`
+descendants of its own to toggle.
+{% endcomment %}
 <div class="note-thread-controls" data-thread-entry-controls
-     data-thread-entry-id="{{ entry.id }}" data-thread-entry-id-field="{{ entry_id_field }}"
+     data-thread-entry-id-field="{{ entry_id_field }}"
      data-thread-entry-edit-action="{{ edit_form_action }}" data-thread-entry-delete-action="{{ delete_form_action }}">
     <button type="button" class="row-corner-icon-btn" data-thread-entry-edit-btn aria-label="Edit entry">
         <svg aria-hidden="true"><use href="{% static 'img/icons/ui/edit.svg' %}#icon"></use></svg>
