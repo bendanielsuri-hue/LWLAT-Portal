@@ -30,7 +30,15 @@ TEMPLATE_DIR = PANEL_DIR / 'templates' / 'hubs' / 'inclusion' / 'panel'
 JS_FILES = list((PANEL_DIR / 'static' / 'panel' / 'js').glob('**/*.js')) + [
     STATIC_DIR / 'js' / 'components' / 'drag-reorder.js',
 ]
-VIEWS_PY = PANEL_DIR / 'views.py'
+# views.py (a single 4,390-line module) no longer exists (#220) - its
+# form_action dispatch is now spread across every module in the views/
+# package, so these tests read the whole package as one body of text
+# rather than one path, the same way JS_FILES globs panel/js/ above.
+VIEW_FILES = sorted((PANEL_DIR / 'views').glob('*.py'))
+
+
+def views_source():
+    return '\n'.join(path.read_text(encoding='utf-8') for path in VIEW_FILES)
 
 # <input type="hidden" name="form_action" value="start_meeting">
 TEMPLATE_LITERAL = re.compile(r'name="form_action"[^>]*?value="([a-z_]+)"')
@@ -105,7 +113,7 @@ class FormActionVocabularyTest(SimpleTestCase):
     def test_every_posted_action_has_a_handler(self):
         # The other direction: a form that posts an action no view branches on
         # is a button that silently does nothing.
-        views = VIEWS_PY.read_text(encoding='utf-8')
+        views = views_source()
         for action in sorted(template_actions() | js_actions()):
             with self.subTest(action=action):
                 referenced = (
@@ -136,7 +144,7 @@ class FormActionVocabularyTest(SimpleTestCase):
         constant, the template and the JS agreeing perfectly and the view
         quietly matching nothing.
         """
-        literals = set(VIEW_LITERAL_DISPATCH.findall(VIEWS_PY.read_text(encoding='utf-8')))
+        literals = set(VIEW_LITERAL_DISPATCH.findall(views_source()))
         self.assertEqual(
             literals, set(),
             'views.py dispatches on bare form_action strings instead of '

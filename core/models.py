@@ -403,7 +403,7 @@ class AcademicYear(models.Model):
         # No seeded year starts before `d` at all (e.g. a historic date older
         # than seed_term_dates' range) - fall back to the conventional
         # Sept-Aug boundary the old ad-hoc _academic_year_key/_academic_year_
-        # label helpers (hubs/inclusion/panel/views.py) used to encode.
+        # label helpers (hubs/inclusion/panel/views/) used to encode.
         start_year = d.year if d.month >= 9 else d.year - 1
         year, _ = cls.objects.get_or_create(
             start_date=datetime.date(start_year, 9, 1),

@@ -19,7 +19,7 @@ def _hub_context(request):
 
 Every menu entry carries a `module_key` matching a Django URL name. `core.modules.filter_by_module` hides entries whose module is `hidden` (or `pilot` for the wrong school). Pass the filtered result as `local_menu` in context.
 
-A menu entry gated by something other than the Module system (e.g. a role flag like `Staff.is_dsl`, for a page a whole class of staff should see regardless of the sidebar's module rollout state) skips `module_key`/`filter_by_module` entirely and is appended to `local_menu` by hand, conditionally, after the usual filtering — see `hubs/inclusion/panel/views.py`'s `_panel_base_context` (Safeguarding Notes) for the pattern.
+A menu entry gated by something other than the Module system (e.g. a role flag like `Staff.is_dsl`, for a page a whole class of staff should see regardless of the sidebar's module rollout state) skips `module_key`/`filter_by_module` entirely and is appended to `local_menu` by hand, conditionally, after the usual filtering — see `hubs/inclusion/panel/views/base.py`'s `_panel_base_context` (Safeguarding Notes) for the pattern.
 
 `hub_context` returns `local_menu` and `hub_title`; anything a particular hub needs on top (the Inclusion Panel's back-to-hub link, say) rides in as a keyword argument rather than forking the helper. Each hub keeps the thin `_hub_context(request)` wrapper above so the title string isn't retyped in every view. Views with no extra context pass `_hub_context(request)` straight to `render`; views with extra keys spread it: `{**_hub_context(request), 'extra': ...}`.
 

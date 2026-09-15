@@ -162,7 +162,7 @@ Don't use the Playwright MCP browser tools — the user checks UI/layout changes
 
 ## Diagnosing perf issues
 
-Before blaming a resize/animation stutter on JS or animation cost, reproduce it with JS disabled — if it's still slow, the cost is DOM size/render, not the script (see `hubs/inclusion/panel/views.py`'s Students pagination for a case where this ruled out the actual culprit).
+Before blaming a resize/animation stutter on JS or animation cost, reproduce it with JS disabled — if it's still slow, the cost is DOM size/render, not the script (see `hubs/inclusion/panel/views/students.py`'s pagination for a case where this ruled out the actual culprit).
 
 ## Design mockups
 
