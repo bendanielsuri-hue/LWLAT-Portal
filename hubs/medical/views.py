@@ -7,27 +7,44 @@ from core.hub_context import hub_context
 # template today - the pages exist so the shape of the hub is visible and so
 # each one has a Module row to gate it, not because any of them does anything.
 #
-# The spine of the split is ADR 0031's, drawn as navigation. Medical Profiles,
-# Care Plans, Medical Consent and Immunisations hold standing statements - what
-# is true about a person now, superseded rather than mutated. Medical Log and
-# the Accident Book hold historical events - what happened at a moment,
-# append-only. A page that would hold both has picked the wrong one.
+# Pages fall into three kinds, and every one of them is one of the three.
+# ADR 0031 names the first two: a standing statement is what is true about a
+# person now (Profiles), superseded rather than mutated; a historical event is
+# what happened at a moment (Medical Log, the Accident Book), append-only. The
+# third kind is this hub's own - what needs to happen next (Immunisations,
+# Stock) - and naming it is what made this list derivable rather than a set of
+# topics to remember. A page that would hold two kinds has picked the wrong one.
 #
-# Four of these look like they could collapse into another page and cannot:
+# Three of these look like they could collapse into another page and cannot:
 #
 # - The Accident Book is not the Medical Log. The log is clinical (what was
 #   wrong with this person, what care they were given); the accident book is
 #   the liability and RIDDOR record of what happened and where. Different
 #   retention, different readers, and it covers visitors and contractors, who
 #   are neither Staff nor Student and have no table in this portal at all.
-# - Emergency Equipment is not a person's record. Spare inhalers, adrenaline
-#   auto-injectors and the defibrillator are assets with a location, an expiry
-#   and a recurring check - the product is the expiry alert, not the list.
-# - Immunisations are administered by the external school nursing team, not by
-#   school staff, which is an assumption nothing else in this hub makes.
-# - Medical Consent records what a parent has agreed to, so an administration
-#   can be checked against it. Recording consent is not parent-facing; parent
-#   facing views stay out of scope per the map.
+# - Immunisations is an operation, not a record. The provider owns the consent
+#   and hands the school a list of students who are already being immunised;
+#   the school's job is getting them out of lessons and back without wrecking a
+#   teaching day. The doses land in the Medical Log afterwards.
+# - Stock is not a person's record. Spare inhalers, auto-injectors, the
+#   defibrillator, and the plasters and ice packs that actually run out are one
+#   shape - an item, a location, a quantity, an expiry, a last-checked date -
+#   and the product is the alert, not the inventory. The statutory items have
+#   to surface first on the page; that is a layout job, not a second page.
+#
+# Care plans are a section of a profile, not a page: a plan in force is a
+# standing statement about a person, which is what a profile already holds.
+# What made it look separate is its review cycle, and "which plans are overdue
+# review" is a worklist - the third kind - alongside doses due and stock
+# expiries.
+#
+# Consent left this hub for hubs.student. A parent consents to photographs,
+# trips, internet use and biometrics in the same breath as medicines, so one
+# medical-only consent page would have been a second model of one shape; and
+# consent is parental, so it has nothing to say about the staff half of this
+# hub. The model belongs in core (the core.SafeguardingNote move, #77-#81),
+# and the medical-kind consents surface read-only on a profile, because a
+# first-aider checking "may we give paracetamol" needs it at the point of care.
 #
 # Profiles covers staff and students on one page over two tables. They stay
 # separate tables, because a student's allergy is meant to reach their teachers
@@ -49,10 +66,8 @@ MEDICAL_MENU = [
     {'name': 'Profiles', 'url': '/medical/profiles/', 'icon': 'medical/icons/profile.svg', 'module_key': 'medical_profiles'},
     {'name': 'Medical Log', 'url': '/medical/log/', 'icon': 'medical/icons/log.svg', 'module_key': 'medical_log'},
     {'name': 'Accident Book', 'url': '/medical/accident-book/', 'icon': 'medical/icons/accident_book.svg', 'module_key': 'medical_accident_book'},
-    {'name': 'Care Plans', 'url': '/medical/care-plans/', 'icon': 'medical/icons/care_plan.svg', 'module_key': 'medical_care_plans'},
-    {'name': 'Consent', 'url': '/medical/consent/', 'icon': 'medical/icons/consent.svg', 'module_key': 'medical_consent'},
     {'name': 'Immunisations', 'url': '/medical/immunisations/', 'icon': 'medical/icons/immunisation.svg', 'module_key': 'medical_immunisations'},
-    {'name': 'Emergency Equipment', 'url': '/medical/equipment/', 'icon': 'medical/icons/equipment.svg', 'module_key': 'medical_equipment'},
+    {'name': 'Stock', 'url': '/medical/stock/', 'icon': 'medical/icons/stock.svg', 'module_key': 'medical_stock'},
 ]
 
 
@@ -76,17 +91,9 @@ def medical_accident_book(request):
     return render(request, 'hubs/medical/accident_book.html', _hub_context(request))
 
 
-def medical_care_plans(request):
-    return render(request, 'hubs/medical/care_plans.html', _hub_context(request))
-
-
-def medical_consent(request):
-    return render(request, 'hubs/medical/consent.html', _hub_context(request))
-
-
 def medical_immunisations(request):
     return render(request, 'hubs/medical/immunisations.html', _hub_context(request))
 
 
-def medical_equipment(request):
-    return render(request, 'hubs/medical/equipment.html', _hub_context(request))
+def medical_stock(request):
+    return render(request, 'hubs/medical/stock.html', _hub_context(request))

@@ -2,6 +2,8 @@
 
 Django app (`hubs.medical`, mounted at `/medical/`) for medical and welfare logging about **both students and staff** — first aid, medication, care plans, and the standing medical facts a first-aider or SENDCo needs at a glance. The hub owns pages and templates only; the models live in `core`, because a medical record is about a `core.Staff` or a `core.Student` and has consumers in at least three hubs.
 
+Every page is one of **three kinds**, and the kinds are what make the page list derivable rather than a set of topics to remember. ADR 0031 names the first two — a **standing statement** is what is true about a person now (Profiles), a **historical event** is what happened at a moment (Medical Log, Accident Book). The third is this hub's own: **what needs to happen next** (Immunisations, Stock, and the doses-due / reviews-due / expiries worklist still unbuilt). A page holding two kinds has picked the wrong one, and a thing that keeps failing to find a page usually needs the third kind rather than a fourth page.
+
 Nothing below is built yet; this glossary was written alongside the design (see [#275](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/275) and [docs/wayfinder/medical-logging/map.md](../../docs/wayfinder/medical-logging/map.md)) so the models arrive with settled names. The standing-statement / historical-event split below is [ADR 0031](../../docs/adr/0031-three-kinds-of-note-and-one-thread-entry-base.md)'s taxonomy applied to this domain.
 
 Terms below are the domain names. Several sidebar labels are deliberately shorter than the term — "Profiles", "Consent" — because the hub name is already rendered beside every one of them: in the sidebar header, on the MAT Home card, and in each global search result, which carries the hub's name and icon. A label that repeats "Medical" repeats it three times. Registers does the same thing (`register_clubs` keyed, "Clubs" displayed); Staff and Student do not, and are the odd ones out.
@@ -24,7 +26,8 @@ One dose given, at a moment, to a person. Its own record rather than a field on 
 _Avoid_: MAR (fine in UI copy; the term is opaque to anyone outside a medical room)
 
 **Care plan**:
-A standing document describing how a named condition is to be managed — asthma, epilepsy, anaphylaxis, diabetes — with a review date. A standing statement, superseded rather than edited, and portal-owned: a care plan will never exist in SIMS.
+A standing document describing how a named condition is to be managed — asthma, epilepsy, anaphylaxis, diabetes — with a review date. A standing statement, superseded rather than edited, and portal-owned: a care plan will never exist in SIMS. **A section of a Medical Profile, not a page of its own** — a plan in force is part of what is true about a person now, which is what the profile already holds. Its review cycle is what made it look separate, and "which plans are overdue review" is a worklist, not a page.
+_Avoid_: Individual Healthcare Plan / IHP (the statutory term in the DfE's *Supporting pupils at school with medical conditions*, and the better name if the trust's schools actually say it — unresolved on the map), Care package (social care)
 
 **Accident Book**:
 The liability and reporting record of what happened and where — a trip on a wet corridor, a fall in PE. Deliberately **not** the Medical Log: the log is clinical (what was wrong with a person and what care they were given), the accident book is the circumstance, and the two have different readers and different retention. The record that forces the visitor problem below, since it covers anyone on site.
@@ -38,17 +41,19 @@ _Avoid_: Owner, Patient (nobody in a school says patient)
 Who on site is a qualified first aider, where they are, and what they are qualified for — an emergency lookup, so it lives on the hub landing page rather than behind a click. Owns nothing: the qualifications and their expiry dates are staff training records belonging in `hubs.staff` next to CPD & Training, and this reads them. The only content in this hub that is not special category data.
 _Avoid_: First aid team, First aider register (`Register` is Registers' term)
 
-**Emergency equipment**:
-The spare inhalers, adrenaline auto-injectors and defibrillator held for use on anyone, not prescribed to one person. An asset with a location, an expiry date and a recurring check — so the product is the expiry and check alert, not the inventory list. Distinct from a person's own supply, which is a standing statement on their profile.
-_Avoid_: Stock, Supplies (those are a person's own), Assets (too general; Resources owns that word)
+**Stock**:
+Everything the school holds for use on whoever needs it, rather than prescribed to one person: the statutory emergency items (spare inhalers, adrenaline auto-injectors, the defibrillator) and the consumables that actually run out (plasters, gloves, ice packs, paracetamol). One shape — an item, a location, a quantity, an expiry, a last-checked date — because a defibrillator is simply quantity one, and its pads and battery expire exactly as an inhaler does. The product is the alert, not the inventory.
+
+Named "Emergency equipment" until it was noticed that the narrow name gave the weekly problem (running out of plasters) nowhere to live while reserving a page for the once-a-decade one. The statutory items still have to surface first on the page — that duty is what the old name was carrying, and it is a layout job, not a second page.
+_Avoid_: Stocks (reads as shares; stock is uncountable here), Supplies (a person's own supply is a standing statement on their profile), Assets (too general; Resources owns that word), Equipment (excludes the consumables)
 
 **Immunisation session**:
-A visit by the external school nursing team to administer a programme — HPV, DTP, flu — to a cohort. The administering party is not school staff, which is an assumption nothing else in this hub makes: the school holds the consent and the record, and did not give the dose.
-_Avoid_: Vaccination clinic, Jab day
+A visit by the external school nursing team to administer a programme — HPV, DTP, flu — to a cohort. The provider collects the consent and hands the school a list of students who *are* being immunised; the school neither owns that consent nor gives the dose. What the school owns is the logistics — getting those students out of lessons and back again — which is why Immunisations is an operation rather than a record. The doses land in the Medical Log afterwards, with the provider as administrator.
+_Avoid_: Vaccination clinic, Jab day, Immunisation register (`Register` is Registers' term), Session unqualified (`RegisterSession` is one sitting of a register; this spans a day — unresolved collision, on the map)
 
-**Medical consent**:
-What a parent has agreed the school may do — administer a named medicine, give paracetamol, treat in an emergency. A standing statement, checked against before an administration. Recording it is not parent-facing; parent-facing views stay out of scope.
-_Avoid_: Permission slip (that's trips), Authorisation
+**Consent**:
+What a parent has agreed the school may do. **Not this hub's** — it lives in `hubs.student`, because a parent agrees to medicines, photographs, trips, internet use and biometrics in one breath, and a medical-only consent page would be a second model of one shape. It is also parental, so it has nothing to say about the staff half of this hub. The model belongs in `core` (the `core.SafeguardingNote` move, #77-#81); the medical-kind consents surface read-only on a Medical Profile, because a first-aider checking "may we give paracetamol" needs it at the point of care.
+_Avoid_: Medical consent (implies this hub owns a kind of its own), Permission slip (that's trips), Authorisation
 
 **Medical room attendance**:
 Who was in the medical room and for how long. **Not part of this hub** — it is attendance at a named thing, so it is a `RegisterCategory` in `hubs.registers` and follows that hub's vocabulary. It reads from the medical tables; the two are never merged. One head-bump therefore produces three rows in two hubs: an attendance, an incident, and (if a dose was given) an administration.

@@ -1,23 +1,31 @@
 # Medical Hub — `hubs.medical`
 
-Mounted at `/medical/`. A landing page plus seven leaves, every one a placeholder:
-Medical Profiles, Medical Log, Accident Book, Care Plans, Medical Consent,
-Immunisations and Emergency Equipment. No models, no ORM use. Vocabulary is settled in
-[CONTEXT.md](CONTEXT.md).
+Mounted at `/medical/`. A landing page plus five leaves, every one a placeholder:
+Profiles, Medical Log, Accident Book, Immunisations and Stock. No models, no ORM use.
+Vocabulary is settled in [CONTEXT.md](CONTEXT.md).
 
-The page split is not arbitrary — it is ADR 0031's line drawn as navigation. Profiles,
-Care Plans, Consent and Immunisations hold **standing statements** (what is true about
-a person now, superseded rather than mutated); Medical Log and the Accident Book hold
-**historical events** (what happened at a moment, append-only). A page that would hold
-both has picked the wrong one.
+Every page is one of **three kinds**. ADR 0031 names two — **standing statements**
+(Profiles: what is true about a person now, superseded rather than mutated) and
+**historical events** (Medical Log, Accident Book: what happened at a moment,
+append-only). The third is this hub's own, **what needs to happen next** (Immunisations,
+Stock, plus the worklist still unbuilt). Reach for the third kind before reaching for a
+fourth page: the doses-due list drifted homeless for three rounds of design because it
+was missing a category, not a page.
 
-Four things that look like omissions and are not:
+Six things that look like omissions and are not:
 
 - **Staff and students share one Profiles page** while keeping separate tables. Two
   pages would have deduplicated a template and left the two different visibility gates
   exactly as hard.
-- **There is no Medication page.** A dose given is an event and belongs in the log. What
-  that leaves open is the *worklist* of doses still due, which is on the map.
+- **There is no Medication page.** A dose given is an event and belongs in the log. The
+  *worklist* of doses still due is the third kind, and is on the map.
+- **Care plans are a section of Profiles**, not a page. A plan in force is a standing
+  statement about a person. Its review cycle is what made it look separate, and
+  "overdue for review" is a worklist.
+- **Consent is not here at all** — it is in `hubs.student`, because a parent consents to
+  medicines, photographs, trips and biometrics in one breath, and because consent is
+  parental and so says nothing about the staff half of this hub. The medical-kind
+  consents surface read-only on a profile.
 - **The Accident Book is not the Medical Log.** Clinical content versus circumstance —
   different readers, different retention, and the accident book covers visitors, who
   are not a subject this portal has a table for.

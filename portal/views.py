@@ -163,7 +163,7 @@ def _raw_sections():
             'description': 'Core student record — profile, progress and equipment standards.',
             'items': [_leaf(k) for k in (
                 'student_profile', 'student_progress_tracker', 'student_standards_equipment',
-                'student_pastoral_tracker',
+                'student_pastoral_tracker', 'student_consent',
             )],
             'icon_template': 'student/icons/student_single.svg',
         },
@@ -194,8 +194,8 @@ def _raw_sections():
             'url': reverse('medical_hub'),
             'description': 'Medical and welfare logging for students and staff — first aid, medication and care plans.',
             'items': [_leaf(k) for k in (
-                'medical_profiles', 'medical_log', 'medical_accident_book', 'medical_care_plans',
-                'medical_consent', 'medical_immunisations', 'medical_equipment',
+                'medical_profiles', 'medical_log', 'medical_accident_book', 'medical_immunisations',
+                'medical_stock',
             )],
             'icon_template': 'medical/icons/medical.svg',
         },
