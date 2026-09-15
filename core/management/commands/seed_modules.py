@@ -42,6 +42,13 @@ MODULES = [
     ('register_interventions', 'Interventions', 'registers', Module.STATUS_HIDDEN),
 
     ('medical_hub', 'Medical', None, Module.STATUS_HIDDEN),
+    ('medical_profiles', 'Profiles', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_log', 'Medical Log', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_accident_book', 'Accident Book', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_care_plans', 'Care Plans', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_consent', 'Consent', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_immunisations', 'Immunisations', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_equipment', 'Emergency Equipment', 'medical_hub', Module.STATUS_HIDDEN),
 
     ('inclusion_hub', 'SEND & Provision', None, Module.STATUS_LIVE),
     ('inclusion_provision_strategies', 'Provision & Strategies', 'inclusion_hub', Module.STATUS_HIDDEN),
