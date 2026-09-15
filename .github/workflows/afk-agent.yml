@@ -269,6 +269,63 @@ jobs:
             partial work you have onto the branch first — a branch with
             real work on it is worth more than a clean slate.
 
+      # Did the agent actually get to run at all?
+      #
+      # "The action refused to start" and "the agent worked and fell short"
+      # are different failures with different fixes, and they were
+      # indistinguishable from the issue: both ended as `agent-failed` with
+      # the grant consumed. That is how an evening of runs that each died in
+      # 1.5 seconds on `Workflow initiated by non-human actor` looked like a
+      # string of tickets the agent had genuinely attempted.
+      #
+      # Two signals, because either alone misses a case. The step's own
+      # outcome catches the action erroring out; a turn count of zero
+      # catches it exiting cleanly having done nothing, which is the shape
+      # ADR 0030 was written about.
+      - name: Check the agent actually ran
+        id: verify
+        if: steps.time_check.outputs.allowed == 'true' && steps.target.outputs.eligible == 'true'
+        run: |
+          exec_file="${{ steps.claude.outputs.execution_file }}"
+          turns=""
+          if [ -n "$exec_file" ] && [ -f "$exec_file" ]; then
+            turns=$(jq -r '.. | .num_turns? // empty' "$exec_file" | head -1)
+          fi
+          echo "turns=$turns" >> "$GITHUB_OUTPUT"
+
+          ran=true
+          if [ "${{ steps.claude.outcome }}" = "failure" ]; then
+            ran=false
+            reason="the action itself failed before or during the run"
+          elif [ -z "$turns" ] || [ "$turns" -eq 0 ] 2>/dev/null; then
+            ran=false
+            reason="the action reported no turns, so the agent never started"
+          fi
+          echo "ran=$ran" >> "$GITHUB_OUTPUT"
+          echo "reason=${reason:-}" >> "$GITHUB_OUTPUT"
+          [ "$ran" = "true" ] || echo "::error::Agent did not run: $reason"
+
+      # An infrastructure failure must not look like a ticket failure, and
+      # must not consume the grant. The labels stay exactly as they were, so
+      # the ticket is still queued once the cause is fixed — nobody has to
+      # notice that a run was wasted and re-grant permission for work that
+      # was never attempted.
+      #
+      # It also deliberately does NOT ask the queue for the next ticket.
+      # Whatever stopped this run will stop the next one, so the choice is
+      # between stopping the line and burning the night one 1.5-second run
+      # at a time. Stopping is louder and cheaper, and scripts/afk_status.py
+      # is what turns "the queue went quiet" into a sentence naming this.
+      - name: Report that the run never started
+        if: steps.verify.outputs.ran == 'false'
+        run: |
+          gh issue comment "${{ steps.target.outputs.issue }}" \
+            --repo "${{ github.repository }}" --body \
+            "The AFK agent run never started — ${{ steps.verify.outputs.reason }}. This is an infrastructure fault, not a verdict on the ticket: the labels are untouched and it is still queued. The queue has been left stopped deliberately, because whatever caused this would repeat on the next ticket. Log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          exit 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       # Record the outcome on the issue, because a finished run that leaves
       # no trace is indistinguishable from one that never happened — and
       # reapplying the label would then set a second agent off duplicating a
@@ -288,13 +345,12 @@ jobs:
       # filters it out immediately (neither outcome label can start a run),
       # so the cost is one skipped run in the Actions list, not a loop.
       - name: Record the outcome
-        if: steps.time_check.outputs.allowed == 'true' && steps.target.outputs.eligible == 'true'
+        if: steps.verify.outputs.ran == 'true'
         run: |
           issue="${{ steps.target.outputs.issue }}"
           repo="${{ github.repository }}"
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           branch="${{ steps.claude.outputs.branch_name }}"
-          exec_file="${{ steps.claude.outputs.execution_file }}"
 
           # Match the branch this run was told to create, not a mention of
           # the issue number in a body. Searching bodies matched any PR that
@@ -317,10 +373,8 @@ jobs:
           # you would reach for, and "stopped at the cap" and "stopped
           # because it was finished" look identical from outside.
           turns=""
-          if [ -n "$exec_file" ] && [ -f "$exec_file" ]; then
-            n=$(jq -r '.. | .num_turns? // empty' "$exec_file" | head -1)
-            [ -n "$n" ] && turns=" Used $n of ${{ steps.settings.outputs.turns }} turns."
-          fi
+          n="${{ steps.verify.outputs.turns }}"
+          [ -n "$n" ] && turns=" Used $n of ${{ steps.settings.outputs.turns }} turns."
 
           gh issue edit "$issue" --repo "$repo" \
             --remove-label ready-for-agent --remove-label afk-approved || true
@@ -352,19 +406,38 @@ jobs:
       # further events. `workflow_dispatch` is a documented exception to
       # that suppression, so asking is reliable where being watched was not.
       #
-      # Only when this run actually did work. A run that skipped on the
-      # window or on an ineligible ticket must not ask for another, or the
-      # pair spin against each other: queue dispatches, agent skips, agent
-      # asks, queue dispatches.
+      # A run that did work asks for the next ticket, and so does a run that
+      # found nothing to do — the second case is what deadlocked the queue on
+      # 2026-09-15. A ticket was dequeued while its run sat pending; the run
+      # then started, found it ineligible, and by the old rule stayed silent.
+      # It was the last link in the chain, so the night stopped there with
+      # seven eligible tickets waiting and nothing left to wake anything.
+      #
+      # The spin that rule guarded against — queue dispatches, agent skips,
+      # agent asks, queue dispatches the same ticket again — is closed by
+      # `after_issue` instead, which takes this ticket out of the running for
+      # the next selection. That is a narrower instrument than silence: it
+      # prevents repeating *this* ticket without also preventing progress to
+      # every other one.
+      #
+      # Still silent on two paths, both deliberate. Outside the window there
+      # is nothing to hand off to. And after an infrastructure failure the
+      # line stops on purpose, because whatever refused this run will refuse
+      # the next.
       #
       # Passing this run's own id matters — it is still in progress while
       # this step executes, and the queue's "is an agent already busy?"
       # check would otherwise see it and stall on this ticket forever.
       - name: Ask the queue for the next ticket
-        if: always() && steps.time_check.outputs.allowed == 'true' && steps.target.outputs.eligible == 'true'
+        if: >-
+          always()
+          && steps.time_check.outputs.allowed == 'true'
+          && (steps.verify.outputs.ran == 'true'
+              || steps.target.outputs.eligible == 'false')
         run: |
           gh workflow run afk-queue.yml --repo "${{ github.repository }}" \
-            -f after_run="${{ github.run_id }}"
+            -f after_run="${{ github.run_id }}" \
+            -f after_issue="${{ steps.target.outputs.issue }}"
           echo "::notice::Asked the queue for the next ticket."
         env:
           GH_TOKEN: ${{ github.token }}

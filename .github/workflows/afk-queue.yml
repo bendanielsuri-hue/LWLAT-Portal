@@ -61,6 +61,17 @@ on:
         description: 'Run id to ignore when checking whether an agent is busy'
         required: false
         type: string
+      after_issue:
+        # The ticket the asking run just handled, excluded from this
+        # selection. It is what lets a run that found nothing to do still
+        # advance the queue: without it, a run whose ticket turned
+        # ineligible mid-flight would hand off, the queue would hand the
+        # same ticket straight back, and the two would spin. Excluding one
+        # ticket for one tick closes that without the alternative, which was
+        # for such a run to stay silent and let the whole night stop.
+        description: 'Issue number to skip in this selection'
+        required: false
+        type: string
 
 # Two schedulers racing would hand out the same ticket twice. Queued rather
 # than cancelled so a tick that arrives while another is deciding still gets
@@ -120,9 +131,11 @@ jobs:
           # ascending so the backlog drains oldest-first and the order is
           # predictable from the outside — you can tell which ticket is next
           # without reading this file.
+          skip="${{ inputs.after_issue }}"
           next=$(gh issue list --repo "$repo" --label ready-for-agent --state open --limit 100 \
                    --json number,labels \
-                   --jq '[ .[]
+                 | jq -r --argjson skip "${skip:-0}" '[ .[]
+                           | select(.number != $skip)
                            | select(
                                ([.labels[].name] | index("afk-approved"))
                                or (([.labels[].name] | index("needs-stronger-model")) | not)
@@ -133,6 +146,30 @@ jobs:
           if [ -z "$next" ]; then
             echo "::notice::Nothing eligible in the queue. Done."
             exit 0
+          fi
+
+          # Say so when this tick is a rescue rather than a hand-off.
+          #
+          # Reaching here means there is eligible work and no agent running.
+          # If the last agent run also finished a long time ago, the chain
+          # broke and this tick is repairing it. The repair is silent by
+          # nature — the queue simply starts the next ticket and the night
+          # looks normal afterwards — so a chain that breaks every evening
+          # and is quietly rescued every evening would never be noticed. A
+          # warning annotation costs nothing and shows on the run.
+          #
+          # It cannot catch every stall: a break that also stops the queue
+          # ticking produces no run to carry the warning. That case needs an
+          # observer outside the system, which is scripts/afk_status.py.
+          last_end=$(gh run list --repo "$repo" --workflow afk-agent.yml --limit 20 \
+                       --json status,updatedAt \
+                     | jq -r '[ .[] | select(.status == "completed") ]
+                              | sort_by(.updatedAt) | last | .updatedAt // empty')
+          if [ -n "$last_end" ]; then
+            idle=$(( ( $(date -u +%s) - $(date -u -d "$last_end" +%s) ) / 60 ))
+            if [ "$idle" -gt 30 ]; then
+              echo "::warning::Queue had stalled — no agent run finished for ${idle} minutes while #$next was eligible. The hand-off chain broke and this tick is restarting it."
+            fi
           fi
 
           # A dispatch that silently starts nothing is the failure this whole
