@@ -1,0 +1,62 @@
+name: Tick test (temporary)
+
+# A diagnostic, not part of the AFK system. Delete it once it has answered
+# its question.
+#
+# GitHub's own scheduler does not fire in this repository — see
+# cron-probe.yml for the evidence. This tests the leading replacement: a job
+# that sleeps, does its check, and dispatches a fresh copy of itself before
+# it exits, so the chain ticks without a cron ever being involved.
+#
+# Three things have to hold for that to be viable, and this run answers all
+# three:
+#
+#   1. A run can dispatch itself. The AFK hand-off already dispatches a
+#      *different* workflow, which GitHub permits; self-dispatch is the same
+#      mechanism but worth confirming rather than assuming.
+#   2. The chain sustains across generations rather than being suppressed
+#      after the first. GitHub suppresses most events raised by a
+#      GITHUB_TOKEN-triggered run, and workflow_dispatch is documented as an
+#      exception — this is that exception load-bearing for a whole night.
+#   3. Sleeping in a job actually costs nothing. Public repositories get
+#      unlimited standard-runner minutes, so a job that mostly sleeps is
+#      free, which is what makes the approach affordable at all.
+#
+# Stops itself at generation 3 so a failed test cannot leave a loop running.
+on:
+  workflow_dispatch:
+    inputs:
+      generation:
+        description: 'Which link in the chain this is'
+        required: false
+        default: '1'
+        type: string
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Sleep, then hand on to the next generation
+        run: |
+          gen="${{ inputs.generation }}"
+          gen="${gen:-1}"
+          echo "Generation $gen started at $(date -u '+%H:%M:%S') UTC"
+
+          # Short on purpose. The real thing would sleep minutes at a time;
+          # this only has to prove the mechanism, not the duration.
+          sleep 45
+          echo "Generation $gen awake at $(date -u '+%H:%M:%S') UTC"
+
+          if [ "$gen" -ge 3 ]; then
+            echo "::notice::Chain reached generation $gen and stopped as designed."
+            exit 0
+          fi
+
+          next=$((gen + 1))
+          gh workflow run tick-test.yml --repo "${{ github.repository }}" \
+            -f generation="$next"
+          echo "::notice::Generation $gen dispatched generation $next."
+        env:
+          GH_TOKEN: ${{ github.token }}
