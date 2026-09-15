@@ -9,9 +9,9 @@ from django.views.decorators.http import require_POST
 
 from core.identity import current_staff
 from core.models import School
-from core.modules import filter_by_module, is_module_visible, module_label, module_map
+from core.modules import filter_by_module, is_module_visible, module_label, request_module_map
 from core.most_used import most_used_apps, personal_usage_counts
-from core.portal_settings import resolve_portal_settings
+from core.portal_settings import request_portal_settings
 from hubs.inclusion.views import INCLUSION_MENU
 from hubs.registers.views import REGISTERS_MENU
 from hubs.resources.views import RESOURCES_MENU
@@ -91,7 +91,7 @@ def _developer_nav_extras(request):
 
 
 def build_hub_nav(request):
-    modules = module_map()
+    modules = request_module_map(request)
     entries = filter_by_module(HUB_NAV_ITEMS, modules, request) + _developer_nav_extras(request)
     items = []
     for entry in entries:
@@ -217,8 +217,8 @@ def _raw_sections():
 
 
 def build_sections(request):
-    modules = module_map()
-    settings = resolve_portal_settings(request)
+    modules = request_module_map(request)
+    settings = request_portal_settings(request)
     # Generic role-noun overrides only apply to these two hub entries — every
     # other hub's label comes from Module.name/hardcoded default, see plan notes.
     term_overrides = {'staff_hub': settings['staff_term'], 'student_hub': settings['student_term']}

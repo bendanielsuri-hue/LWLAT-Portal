@@ -41,3 +41,21 @@ def resolve_portal_settings(request):
         )
         resolved[field] = value
     return resolved
+
+
+# Same reasoning as core.modules._REQUEST_MODULE_MAP_ATTR: per request only,
+# never process-wide, because the School/CategorySettings/MatSettings rows
+# behind it are admin-editable at runtime.
+_REQUEST_SETTINGS_ATTR = '_portal_settings'
+
+
+def request_portal_settings(request):
+    # resolve_portal_settings costs two to three queries and was being paid
+    # twice on every page (the portal_settings context processor and
+    # build_sections) and three times on Home, for a result that is a pure
+    # function of the selected-school cookie. See issue #193.
+    resolved = getattr(request, _REQUEST_SETTINGS_ATTR, None)
+    if resolved is None:
+        resolved = resolve_portal_settings(request)
+        setattr(request, _REQUEST_SETTINGS_ATTR, resolved)
+    return resolved

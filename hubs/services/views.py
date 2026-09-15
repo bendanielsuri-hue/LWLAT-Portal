@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from core.modules import filter_by_module, module_map
+from core.modules import filter_by_module, request_module_map
 
 SERVICES_MENU = [
     {'name': 'Events Planner', 'url': '/services/events-planner/', 'icon': 'services/icons/calendar_star.svg', 'module_key': 'service_events_planner'},
@@ -14,7 +14,7 @@ SERVICES_MENU = [
 
 
 def _local_menu(request):
-    return filter_by_module(SERVICES_MENU, module_map(), request)
+    return filter_by_module(SERVICES_MENU, request_module_map(request), request)
 
 
 def _hub_context(request):

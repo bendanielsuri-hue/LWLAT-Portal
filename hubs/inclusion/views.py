@@ -11,7 +11,7 @@ from core.identity import (
     student_queryset_for_school_key,
 )
 from core.models import Student
-from core.modules import filter_by_module, module_map
+from core.modules import filter_by_module, request_module_map
 from core.send_breakdown import ken_breakdown, pct
 
 from hubs.inclusion.panel.models import Action, InclusionReferral
@@ -36,7 +36,7 @@ INCLUSION_MENU = [
 
 
 def _local_menu(request):
-    return filter_by_module(INCLUSION_MENU, module_map(), request)
+    return filter_by_module(INCLUSION_MENU, request_module_map(request), request)
 
 
 def _hub_context(request):

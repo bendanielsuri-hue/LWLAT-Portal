@@ -21,11 +21,49 @@ def view_full_system(request):
     return request.COOKIES.get(VIEW_FULL_SYSTEM_COOKIE) == '1'
 
 
+class ModuleMap(dict):
+    # A plain key -> Module dict that also carries the parent-chain id index
+    # _status_with_cascade needs. The index used to be rebuilt inside that
+    # function, which runs once per nav item — roughly forty times per page
+    # against every seeded module, purely to reconstruct something that cannot
+    # change while the map is alive. Hanging it off the map itself keeps every
+    # caller's `modules` argument an ordinary dict while giving the cascade one
+    # index per map rather than one per item.
+    @property
+    def by_id(self):
+        index = self.__dict__.get('_by_id')
+        if index is None:
+            index = self.__dict__['_by_id'] = {module.id: module for module in self.values()}
+        return index
+
+
 def module_map():
     # One query per request, passed around by callers rather than re-queried per
     # item — building this once is the caller's job (avoids N+1 across the nav
-    # rail, home sections, and every hub's local menu).
-    return {module.key: module for module in Module.objects.all()}
+    # rail, home sections, and every hub's local menu). Callers that have a
+    # request should go through request_module_map() below, which enforces the
+    # "once per request" half of that; this stays for the caller that has no
+    # request (management commands, shell work).
+    return ModuleMap((module.key, module) for module in Module.objects.all())
+
+
+# Attribute the per-request map is stashed under. Deliberately not a cache
+# keyed on anything global: Module rows are admin-editable at runtime, so the
+# map must be rebuilt on the next request, and only the current request's
+# processors/views may share one.
+_REQUEST_MODULE_MAP_ATTR = '_portal_module_map'
+
+
+def request_module_map(request):
+    # The seven portal context processors, the hub menus and mat_home's own
+    # build_sections() all need the module map, and each used to build its own —
+    # three separate queries on Home for a table that cannot change mid-request.
+    # See issue #193.
+    modules = getattr(request, _REQUEST_MODULE_MAP_ATTR, None)
+    if modules is None:
+        modules = module_map()
+        setattr(request, _REQUEST_MODULE_MAP_ATTR, modules)
+    return modules
 
 
 def _status_with_cascade(module, modules):
@@ -34,7 +72,11 @@ def _status_with_cascade(module, modules):
     # ancestor is hidden, the whole branch is hidden regardless of the leaf's
     # own stored status. Traverses via parent_id against an id-index built from
     # the already-loaded `modules` dict, so this never issues extra queries.
-    by_id = {m.id: m for m in modules.values()}
+    # The getattr fallback covers a caller that hand-builds a plain dict rather
+    # than going through module_map().
+    by_id = getattr(modules, 'by_id', None)
+    if by_id is None:
+        by_id = {m.id: m for m in modules.values()}
     node = module
     while node is not None:
         if node.status == Module.STATUS_HIDDEN:
