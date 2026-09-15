@@ -424,8 +424,18 @@ jobs:
           gh issue edit "$issue" --repo "$repo" \
             --remove-label ready-for-agent --remove-label afk-approved || true
 
+          # A successful run says what it cost, same as a failing one.
+          #
+          # It used to add the label and say nothing, which put the numbers
+          # only on the runs that failed — exactly backwards. The turn cap is
+          # calibrated from what a job that *worked* actually needed, and
+          # those were the runs leaving no record: the number lived in an
+          # Actions log that GitHub expires, and answering "how many turns
+          # did that take?" meant digging one out. See #289.
           if [ -n "$pr" ]; then
             gh issue edit "$issue" --repo "$repo" --add-label ready-for-review
+            gh issue comment "$issue" --repo "$repo" \
+              --body "The AFK agent opened $pr.$turns Ran on \`${{ steps.settings.outputs.model }}\`. Log: $run_url"
             exit 0
           fi
 
