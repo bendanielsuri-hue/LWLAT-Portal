@@ -162,7 +162,8 @@ surviving reason for choosing modules at all).
 
 | Module | Exports | From |
 | --- | --- | --- |
-| `components/carousel.js` | `wireScrollCarousel` | `main.js:840` |
+| `components/carousel.js` | `initCarousel(root, options)` | `main.js:840`, plus the stats carousel and `home.html`'s card stack — **#214 folded all three into this one module**, `mode: 'step'` and `mode: 'card'` |
+| `components/drag-scroll.js` | `wireDragToScroll(root, options)` | `main.js:224`, `main.js:890`, `panel.js:2813` and `home.html`'s two blocks — **#214 folded all six copies into this one**; the sidebar's seventh, axis-switching variant stays its own (see `main-js-inventory.md` §6) |
 | `components/raf-throttle.js` | `rafThrottle` | `main.js` |
 | `components/debounce.js` | `debounceTrailing` | `panel.js:2908` — **reunites the split pair**; its own comment already says it pairs with `rafThrottle` |
 | `components/modal.js` | `closeModalWithFadeOut`, `animateModalHeightChange`, `setFadeHidden` | JS region 1 |

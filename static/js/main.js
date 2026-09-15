@@ -9,7 +9,7 @@ import { enhanceFormControls } from './components/form-controls.js';
    happened until this line was added (found live: the "Create new Panel
    Group" quick-add button stopped doing anything). */
 import './components/select-row.js';
-import { wireScrollCarousel } from './components/carousel.js';
+import { initCarousel } from './components/carousel.js';
 import { initFilterBars } from './components/filter-bar/wire.js';
 import { initCardSwitchers } from './components/card-switcher.js';
 import { initBreadcrumbs } from './layout/breadcrumbs.js';
@@ -80,7 +80,14 @@ function initApp() {
     initBreadcrumbs();
 
     document.querySelectorAll('.senco-carousel-wrap').forEach(function (wrap) {
-        wireScrollCarousel(wrap, '.senco-carousel', '.senco-card', '.senco-carousel-arrow--prev', '.senco-carousel-arrow--next');
+        initCarousel(wrap, {
+            track: '.senco-carousel',
+            card: '.senco-card',
+            prev: '.senco-carousel-arrow--prev',
+            next: '.senco-carousel-arrow--next',
+            wheel: true,
+            grabCursor: true,
+        });
     });
 
     initStatsCarousels();

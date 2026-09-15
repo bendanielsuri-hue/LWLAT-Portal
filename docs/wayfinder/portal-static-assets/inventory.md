@@ -195,10 +195,19 @@ JS (`discussion.html:662`), one `{% url %}` (`layout.html:875`). #203 enumerates
    So the generic carousel exists in `main.js` but the three richest carousels in the portal each
    bypass it, and 1,645 lines of carousel CSS live in the hub file.
 
+   **Resolved by #214**: one `components/carousel.js` (`initCarousel(root, options)`, step mode
+   and card mode), which the senco strip, the filter-section scroll, the KPI row and Panel
+   Home's two card stacks all now configure rather than reimplement.
+
 2. **Drag-to-scroll — four copies** of the same `pointerdown` / `DRAG_THRESHOLD = 6` /
    `setPointerCapture` pattern: `setupOverflowDragScroll` (main.js:224), `wireScrollCarousel`'s own
    (main.js:890), `panel.js:2813` for `.row-facts-cols`, and `home.html`'s two carousel blocks
    (920–1046, 1278–1373). `panel.js:2823` names the duplication in a comment.
+
+   **Resolved by #214**: one `components/drag-scroll.js` (`wireDragToScroll(root, options)`).
+   The genuine differences between the copies — touch, pointer capture, whether the threshold
+   gates the scrolling or only the click suppression, `preventDefault` on pointerdown, fling
+   velocity — are its options. See `main-js-inventory.md` §6 for the full count.
 
 3. **Filter bar CSS** — §1.2. 3,408 lines in `panel.css` against `.filter-bar*` rules that already
    live in `forms.css` and `responsive.css`, driven entirely by main.js

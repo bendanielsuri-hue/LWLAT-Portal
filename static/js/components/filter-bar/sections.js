@@ -13,7 +13,7 @@
    every mode change, resize and tray open rather than tracking what has
    already been done. */
 
-import { wireScrollCarousel } from '../carousel.js';
+import { initCarousel } from '../carousel.js';
 
 /* Bring a bar's sections back in step with whatever just changed - a resize
    across a tier boundary, a reclaim in measure(), a tray opening for the
@@ -140,7 +140,7 @@ function filterSectionFade(track) {
 }
 /* One arrow press = "show me the item I can only half see".
 
-   Not wireScrollCarousel's own default step of one card width: that is exact
+   Not initCarousel's own default step of one card width: that is exact
    for a carousel of identical cards and lands mid-field here, where a toggle
    sits beside "Concern Category". The landing is inset by the fade at
    whichever end the item arrives, the same inset scroll-padding-inline hands
@@ -208,17 +208,18 @@ function updateFilterSectionScroll(track) {
     if (!host) return;
     /* Each arrow disables at its own end of the travel. Disabled rather than
        hidden: a pair that disappears makes the caption row twitch its width
-       every time you reach an end. wireScrollCarousel's own updateArrows
-       handles the other axis of this - hiding BOTH when the track does not
-       overflow at all - but it has no opinion on per-end state beyond an
-       is-at-edge class nothing styles, so the disabling lives here. */
+       every time you reach an end. initCarousel's own update handles the
+       other axis of this - hiding BOTH when the track does not overflow at
+       all - and its own per-end state is the is-at-edge class nothing
+       styles (disableArrowsAtEdges, which this bar does not use, would
+       disable them instead of hiding them), so the disabling lives here. */
     var prev = host.querySelector('.filter-scroll-arrow[data-filter-scroll-arrow="prev"]');
     var next = host.querySelector('.filter-scroll-arrow[data-filter-scroll-arrow="next"]');
     if (prev) prev.disabled = !more.left;
     if (next) next.disabled = !more.right;
 }
-/* Arrows are built once per track and left in place; wireScrollCarousel's own
-   updateArrows hides them again whenever the track stops overflowing.
+/* Arrows are built once per track and left in place; initCarousel's own
+   update hides them again whenever the track stops overflowing.
    Everything they then do - drag-to-scroll, the vertical-wheel-to-horizontal
    redirect, the auto-hide, the edge state - comes from that shared helper
    rather than a fourth copy of the same logic, which its own comment asks
@@ -262,14 +263,16 @@ function wireFilterSectionScroll(bar) {
                 if (dir === 'prev') mount.insertBefore(btn, mount.firstChild);
                 else mount.appendChild(btn);
             });
-            host._filterScrollUpdate = wireScrollCarousel(
-                host,
-                ':scope > .filter-group-fields',
-                '.filter-field',
-                '.filter-scroll-arrow[data-filter-scroll-arrow="prev"]',
-                '.filter-scroll-arrow[data-filter-scroll-arrow="next"]',
-                { scrollTo: stepFilterSectionScroll }
-            );
+            var carousel = initCarousel(host, {
+                track: ':scope > .filter-group-fields',
+                card: '.filter-field',
+                prev: '.filter-scroll-arrow[data-filter-scroll-arrow="prev"]',
+                next: '.filter-scroll-arrow[data-filter-scroll-arrow="next"]',
+                scrollTo: stepFilterSectionScroll,
+                wheel: true,
+                grabCursor: true,
+            });
+            host._filterScrollUpdate = carousel && carousel.update;
         }
         if (host._filterScrollUpdate) host._filterScrollUpdate();
         updateFilterSectionScroll(track);
