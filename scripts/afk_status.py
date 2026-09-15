@@ -195,17 +195,29 @@ def main() -> int:
                 f"Restart with: gh workflow run afk-queue.yml --ref main"
             )
 
-    # ---- 3. Has the schedule ticked? --------------------------------------
+    # ---- 3. Is the clock still running? -----------------------------------
+    #
+    # GitHub's scheduler does not fire in this repository, so the clock is
+    # afk-heartbeat.yml: a job that sleeps, pokes the queue, and relaunches
+    # itself. Its weakness is that one missed hand-off ends it for good, and
+    # a dead heartbeat looks exactly like a quiet night. This is the check
+    # that tells the two apart.
+    beats = gh_json(
+        "run", "list", "--repo", repo, "--workflow", "afk-heartbeat.yml",
+        "--limit", "5", "--json", "status,conclusion,createdAt",
+    )
+    alive = [b for b in beats if b["status"] != "completed"]
+    if not alive:
+        problems.append(
+            "The heartbeat is not running, so no night will start by itself. "
+            "Restart it with: gh workflow run afk-heartbeat.yml --ref main"
+        )
+
     all_runs = gh_json(
         "run", "list", "--repo", repo, "--limit", "100",
         "--json", "event,name,createdAt",
     )
     ticks = [r for r in all_runs if r["event"] == "schedule"]
-    if not ticks:
-        problems.append(
-            "No scheduled run in the last 100 runs. The queue cannot start a "
-            "night on its own while this is true - it only sustains one."
-        )
 
     # ---- Report -----------------------------------------------------------
     print(f"AFK status for {repo} at {now:%Y-%m-%d %H:%M %Z}")
@@ -216,7 +228,9 @@ def main() -> int:
               f"({finished[0]['conclusion']})")
     else:
         print("  Last run:  none in recent history")
-    print(f"  Scheduled ticks seen: {len(ticks)}")
+    print(f"  Heartbeat: {'alive' if alive else 'NOT RUNNING'}")
+    print(f"  Scheduled ticks seen: {len(ticks)} "
+          f"(GitHub's own scheduler; 0 is expected here)")
     print(f"  Eligible queue ({len(queue)}): "
           + (", ".join(f"#{n}" for n in queue) if queue else "empty"))
 

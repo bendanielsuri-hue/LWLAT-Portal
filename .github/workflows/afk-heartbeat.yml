@@ -1,0 +1,112 @@
+name: AFK heartbeat
+
+# The clock the AFK queue runs on, because GitHub's own one does not work
+# here.
+#
+# `afk-queue.yml` still carries a `schedule:`, and that schedule has never
+# fired — not one `schedule` event in this repository's entire history,
+# across dozens of missed ticks on two separate workflows. Everything that
+# could explain it checks out: default branch, file present on it, workflow
+# active, Actions enabled, public, not a fork, not archived. Push, issue and
+# manual triggers all work perfectly in the same repository. Only `schedule`
+# does nothing, which is not something the repository's own configuration
+# can cause. The schedule stays where it is: if GitHub ever starts running
+# it, it costs nothing and becomes a second safety net, because the queue
+# refuses to dispatch when an agent is already busy.
+#
+# HOW THIS TICKS WITHOUT A CRON
+#
+# A job sleeps, pokes the queue, and dispatches a fresh copy of itself
+# before it reaches GitHub's six-hour job limit. That works because
+# `workflow_dispatch` is a documented exception to the rule that suppresses
+# events raised by a GITHUB_TOKEN-triggered run — the same exception the
+# queue's hand-off already depends on. It was tested end to end before this
+# workflow was written: three generations, each launching the next.
+#
+# It is not elegant. A job that mostly sleeps, running continuously, is a
+# poor substitute for a timer, and it is here only because the timer is
+# broken. Public repositories get unlimited standard-runner minutes, so the
+# sleeping costs nothing but one of twenty concurrent job slots. If GitHub's
+# scheduler ever starts working, delete this file and nothing else changes.
+#
+# STAYING ALIVE
+#
+# The chain's weakness is that one missed hand-off ends it permanently, and
+# a dead heartbeat is silent in exactly the way this whole system keeps
+# failing. Three things guard that:
+#
+#   - the hand-off runs under `if: always()`, so a failed tick still passes
+#     the baton;
+#   - any push to the default branch re-arms it, with the concurrency group
+#     cancelling the previous generation so only one is ever alive;
+#   - scripts/afk_status.py reports when the last heartbeat ran, so a
+#     stopped chain is a line in the morning check rather than a silent
+#     night.
+on:
+  workflow_dispatch:
+    inputs:
+      generation:
+        description: 'Which link in the chain this is (log readability only)'
+        required: false
+        default: '1'
+        type: string
+  # Re-arm on any push to the default branch. Cheap self-healing: if the
+  # chain ever dies, the next commit revives it without anyone noticing it
+  # had stopped.
+  push:
+    branches: [main]
+
+# One heartbeat, ever. `cancel-in-progress` is what makes the push re-arm
+# safe — without it a push would start a second chain alongside the first
+# and the queue would get poked twice as often for no benefit.
+concurrency:
+  group: afk-heartbeat
+  cancel-in-progress: true
+
+jobs:
+  beat:
+    runs-on: ubuntu-latest
+    # GitHub's hard ceiling for a job is six hours. Stopping at 5h40m leaves
+    # room for the hand-off to happen before the ceiling kills the job
+    # mid-step, which would break the chain.
+    timeout-minutes: 340
+    permissions:
+      actions: write
+    steps:
+      - name: Tick the queue until it is time to hand on
+        run: |
+          # Quarter-hourly, matching what the dead cron was asking for. The
+          # hand-off chain in afk-agent.yml does the real work of moving
+          # from one ticket to the next; this only has to start the night
+          # and rescue a chain that has broken, so a fifteen-minute
+          # granularity costs at most fifteen minutes of idle.
+          for i in $(seq 1 22); do
+            hour=$(TZ='Europe/London' date +%H)
+            if [ "$hour" -ge 22 ] || [ "$hour" -lt 6 ]; then
+              # The queue decides everything else — whether an agent is
+              # already busy, whether anything is eligible, and it re-checks
+              # the window itself. Poking it when there is nothing to do
+              # costs a few seconds of a free runner.
+              gh workflow run afk-queue.yml --repo "${{ github.repository }}" \
+                && echo "$(date -u '+%H:%M') UTC — poked the queue" \
+                || echo "::warning::Failed to poke the queue; continuing."
+            fi
+            sleep 900
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # `always()`, because a tick that failed must still pass the baton.
+      # The alternative is that one bad fifteen-minute window ends the
+      # heartbeat for good, which is the failure mode this design is most
+      # exposed to.
+      - name: Hand on to the next generation
+        if: always()
+        run: |
+          gen="${{ inputs.generation }}"
+          next=$(( ${gen:-1} + 1 ))
+          gh workflow run afk-heartbeat.yml --repo "${{ github.repository }}" \
+            -f generation="$next"
+          echo "::notice::Handed on to heartbeat generation $next."
+        env:
+          GH_TOKEN: ${{ github.token }}
