@@ -217,7 +217,14 @@ def inclusion_panel_group_edit(request, group_id=None):
 
     if group is None:
         school_id = request.GET.get('school')
-        preselect_school = School.objects.filter(pk=school_id).first() if school_id else None
+        # school_id is client-controlled and unvalidated (a stale cookie, or
+        # anything else) - only a run of digits can possibly name a School,
+        # so a non-numeric value reads as "no preselect" rather than
+        # reaching filter(pk=...) and raising ValueError (#281).
+        preselect_school = (
+            School.objects.filter(pk=school_id).first()
+            if school_id and school_id.isdigit() else None
+        )
         if preselect_school is None:
             preselect_school = _resolve_concrete_school(request)
         return render(request, 'hubs/inclusion/panel/_panel_group_form_modal.html', {

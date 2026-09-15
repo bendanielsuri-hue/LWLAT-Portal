@@ -32,17 +32,30 @@ export function isAggregateSchoolKey(key) {
 /* The selected key, or '' when the switcher has never been used in this
    browser - which the server reads as 'all' too. Parsed by splitting rather
    than by regex: the cookie name goes into the pattern, and a name is not a
-   regex. */
+   regex.
+
+   Mirrors core.school_scope.canonical_key's other half: anything that isn't
+   an aggregate key or a run of digits reads as '' (== "all"), same as an
+   absent cookie. That's the client-reachable half only - whether a numeric
+   id names a School that still exists is a database question the server
+   already absorbs on its own read (core.identity.current_school_key); this
+   function just can't invent a school out of a value the server has already
+   rejected (#281). */
 export function currentSchoolKey() {
     const entries = document.cookie ? document.cookie.split(';') : [];
     for (const entry of entries) {
         const parts = entry.trim().split('=');
         if (parts.shift() !== COOKIE_NAME) continue;
+        let value;
         try {
-            return decodeURIComponent(parts.join('='));
+            value = decodeURIComponent(parts.join('='));
         } catch (e) {
             return '';
         }
+        if (isAggregateSchoolKey(value) || /^[0-9]+$/.test(value)) {
+            return value;
+        }
+        return '';
     }
     return '';
 }
