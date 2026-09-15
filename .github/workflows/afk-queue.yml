@@ -1,0 +1,111 @@
+name: AFK queue
+
+# Drives the AFK agent queue from GitHub, so no Claude Code session has to
+# be open for tickets to be worked overnight. See issue #277 for why this
+# exists: the queue used to be a local scheduled task on one laptop, which
+# meant a closed laptop was a missed night, and that actually happened.
+#
+# This workflow decides *which* ticket runs next. It never decides whether
+# the window is open — `afk-agent.yml` owns that, and two workflows both
+# believing they own it is how they drift apart.
+#
+# It runs no claude-code-action step. That matters: the note in
+# afk-agent.yml about cron-triggered runs failing OIDC token exchange
+# (anthropics/claude-code-action#814, still open) is about the agent action
+# under a `schedule:` trigger. Nothing here invokes it — this only
+# dispatches afk-agent.yml, which then starts on `workflow_dispatch` and is
+# not a scheduled run at all.
+on:
+  # Hourly rather than once at 19:00, deliberately. GitHub cron is UTC and
+  # has no notion of British Summer Time, so a single pinned hour silently
+  # slips by one in late October. Firing every hour and asking
+  # afk-agent.yml's own gate whether the window is open costs a few seconds
+  # of a free runner per hour and cannot drift. GitHub also delays or drops
+  # scheduled runs under load, which an hourly schedule shrugs off and a
+  # once-a-day one does not.
+  schedule:
+    - cron: '7 * * * *'
+
+  # The queue advances itself: when one agent run finishes, start the next.
+  # This is what makes the sequencing correct rather than merely tidy —
+  # afk-agent.yml's concurrency group allows only one *pending* run, so
+  # dispatching several at once would leave the last one queued and cancel
+  # the ones waiting behind it. Waiting for completion is the only way every
+  # ticket in the queue actually gets its turn.
+  workflow_run:
+    workflows: ['AFK agent (ready-for-agent)']
+    types: [completed]
+
+  # Manual kick, for testing and for starting a queue early on a weekend.
+  workflow_dispatch:
+
+# Two schedulers racing would hand out the same ticket twice. Queued rather
+# than cancelled so a tick that arrives while another is deciding still gets
+# its turn, rather than being dropped.
+concurrency:
+  group: afk-queue
+  cancel-in-progress: false
+
+jobs:
+  dispatch-next:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      actions: write
+    steps:
+      - name: Dispatch the next eligible ticket
+        run: |
+          set -euo pipefail
+          repo="${{ github.repository }}"
+
+          # Never run two agents at once. afk-agent.yml's concurrency group
+          # would queue the second, and a queued run is exactly what gets
+          # cancelled when a third arrives — so the guard belongs here,
+          # before dispatching, not there.
+          #
+          # `workflow_run` fires on completion, but the run that just
+          # finished can still be reported as in_progress for a moment, so
+          # its own id is excluded rather than waiting and hoping.
+          just_finished="${{ github.event.workflow_run.id }}"
+          just_finished="${just_finished:-0}"
+          busy=$(gh run list --repo "$repo" --workflow afk-agent.yml --limit 20 \
+                   --json databaseId,status \
+                 | jq --argjson skip "$just_finished" '
+                     [ .[]
+                       | select(.status == "in_progress" or .status == "queued" or .status == "waiting")
+                       | select(.databaseId != $skip)
+                     ] | length')
+          if [ "$busy" -gt 0 ]; then
+            echo "::notice::An AFK agent run is already active. Leaving the queue alone."
+            exit 0
+          fi
+
+          # The same predicate afk-agent.yml's job `if` applies: ready for an
+          # agent, and either unblocked or explicitly approved. Sorted
+          # ascending so the backlog drains oldest-first and the order is
+          # predictable from the outside — you can tell which ticket is next
+          # without reading this file.
+          next=$(gh issue list --repo "$repo" --label ready-for-agent --state open --limit 100 \
+                   --json number,labels \
+                   --jq '[ .[]
+                           | select(
+                               ([.labels[].name] | index("afk-approved"))
+                               or (([.labels[].name] | index("needs-stronger-model")) | not)
+                                  and (([.labels[].name] | index("needs-budget-approval")) | not)
+                             )
+                         ] | sort_by(.number) | .[0].number // empty')
+
+          if [ -z "$next" ]; then
+            echo "::notice::Nothing eligible in the queue. Done."
+            exit 0
+          fi
+
+          # A dispatch that silently starts nothing is the failure this whole
+          # design is most exposed to, so say plainly what was asked for and
+          # fail loudly if the API refuses it. A green run that dispatched
+          # nothing must never look like a green run that found nothing.
+          echo "Dispatching AFK agent for issue #$next"
+          gh workflow run afk-agent.yml --repo "$repo" -f issue="$next"
+          echo "::notice::Dispatched AFK agent for issue #$next"
+        env:
+          GH_TOKEN: ${{ github.token }}

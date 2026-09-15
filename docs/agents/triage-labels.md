@@ -36,7 +36,11 @@ They are also opt-out rather than opt-in: a ticket nobody has judged still runs.
 
 Everything still waits for the off-hours window (weekday evenings and nights, or any time at the weekend), approved runs included. Approval says whether; the window says when.
 
+Labelling during the day is no longer something you have to come back to. `.github/workflows/afk-queue.yml` checks hourly, and when the window opens it dispatches the lowest-numbered eligible ticket itself. So "mark it ready and forget about it" is the whole interaction — nothing needs a machine left on overnight, which is what this replaced (see [#277](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/277)).
+
 Runs are serialised — one at a time, queued not cancelled. Runs draw on a Claude subscription's rolling usage window rather than per-token billing, so several finishing together can empty the window you were about to work in; and tickets in a dependency chain touch the same files, so parallel runs produce PRs that conflict.
+
+The queue advances by watching for a run to *finish* rather than by firing a batch, and that is a correctness requirement rather than good manners: GitHub allows only one **pending** run per concurrency group, so a third dispatch cancels the one already waiting. Anything that queued several at once would silently lose most of them.
 
 ### How a run ends
 
@@ -46,14 +50,18 @@ A failed run that pushed a branch keeps it, and the comment names it. A branch w
 
 ### Settings
 
-Four repo variables (Settings > Secrets and variables > Actions > Variables), each with a fallback if unset:
+Six repo variables (Settings > Secrets and variables > Actions > Variables), each with a fallback if unset:
 
 | Variable | Fallback | Used when |
 | -------- | -------- | --------- |
 | `AFK_MODEL` | `sonnet` | Ordinary run |
 | `AFK_STRONG_MODEL` | `opus` | `needs-stronger-model` is on the issue |
+| `AFK_EFFORT` | `medium` | Ordinary run |
+| `AFK_STRONG_EFFORT` | `high` | `needs-stronger-model` is on the issue |
 | `AFK_MAX_TURNS` | `80` | Ordinary run |
 | `AFK_MAX_TURNS_LARGE` | `150` | `needs-budget-approval` is on the issue |
+
+Effort rides with the model rather than having a label of its own: `needs-stronger-model` already asks whether the ticket needs sustained judgement, which is the question effort answers, and a separate label would be a second dial for one decision. The defaults sit in the middle of each band in [claude-code-usage.md](claude-code-usage.md)'s table rather than the top, because these tickets are pre-vetted as fully specified — and because effort is the cheaper of the two dials to raise if runs start coming up short.
 
 The turn caps started at 30/60 and were raised after a field-rename ticket — six templates, a migration and a seed command — died at turn 31 without reaching the git step. A cap only costs anything on a run that would have failed anyway; the risk it carries is a runaway ticket burning the whole cap before giving up, which serialised runs keep to one ticket at a time. Changing `AFK_MODEL` moves the bar for `needs-stronger-model` with it, and nothing re-judges issues already carrying the label — so a deliberate raise is also a prompt to look back over them.
 
