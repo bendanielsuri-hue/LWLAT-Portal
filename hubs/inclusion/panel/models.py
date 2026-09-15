@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from core.models import AcademicYear
+from core.models import AcademicYear, ThreadEntry
 
 
 class ReferralCategory(models.Model):
@@ -524,6 +524,31 @@ class Action(models.Model):
 
     def __str__(self):
         return f'Action #{self.pk} - {self.referral}'
+
+
+class ActionUpdate(ThreadEntry):
+    """What was tried, in English - the thread an Action's status can't hold.
+
+    Status says where an action got to, never what was attempted, so "called
+    the parent, no answer" had nowhere to live and an action chased four
+    times looked exactly like one nobody had touched. The latest entry is the
+    state in plain English; status itself is unchanged.
+
+    Deliberately free text with no outcome tag or method field: the same
+    model carries "complete the EHCP paperwork" and "ring mum", and an
+    optional tag that is usually blank yields counts nobody can trust.
+
+    No sensitivity of its own - an update is exactly as visible as the action
+    it hangs off (see visible_actions_for in views.py). Adding one stays
+    possible on a complete or not-required action; chasing an action does
+    not stop because its status moved.
+    """
+
+    action = models.ForeignKey(Action, on_delete=models.CASCADE, related_name='updates')
+
+    class Meta:
+        ordering = ['created_at']
+        db_table = 'inclusion_actionupdate'
 
 
 class Escalation(models.Model):

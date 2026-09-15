@@ -27,6 +27,7 @@ from django.utils import timezone
 
 from core.models import School, Staff, Student
 from hubs.inclusion.panel.models import (
+    Action,
     InclusionReferral,
     Panel,
     PanelGroup,
@@ -116,6 +117,17 @@ def make_panel(group=None, date=None, status='ready', **kwargs):
 
 def make_panel_referral(panel, referral, **kwargs):
     return PanelReferral.objects.create(panel=panel, referral=referral, **kwargs)
+
+
+def make_action(referral, description='Ring mum', **kwargs):
+    """An Action on a referral.
+
+    Category is left null by default: most rules about an action (assignment,
+    due date, its update thread) don't involve one, and the category that does
+    matter - a sensitive one - is worth a test setting explicitly rather than
+    inheriting from a default nobody reads.
+    """
+    return Action.objects.create(referral=referral, description=description, **kwargs)
 
 
 def build_panel_world(referral_count=1):

@@ -5,7 +5,9 @@ from django.utils import timezone
 
 from core.models import Staff
 from hubs.inclusion.panel.management.seed_helpers import backfill_raised_by
-from hubs.inclusion.panel.models import Action, ActionCategory, InclusionReferral, PanelReferral
+from hubs.inclusion.panel.models import (
+    Action, ActionCategory, ActionUpdate, InclusionReferral, PanelReferral,
+)
 from hubs.inclusion.panel.views import ACTION_CATEGORY_PRESETS
 
 # Alternated by referral id so demo data isn't uniformly 2 or uniformly 3.
@@ -29,6 +31,32 @@ ACTION_DESCRIPTIONS = {
         'Liaise with the student\'s form tutor and share the agreed plan for classroom support.',
     ],
 }
+
+
+# Threads for the Updates step, picked by action id rather than random (same
+# reasoning as ACTION_DESCRIPTIONS above). Deliberately a spread rather than
+# one per action: the follow-on badges and markers (#234) only mean anything
+# if a fresh clone has actions with no updates sitting next to actions with
+# several. Every thread opens with a failed contact attempt somewhere in it,
+# because "tried, got nowhere" is the state the thread exists to make
+# visible - an action chased four times looks like an untouched one without
+# it.
+ACTION_UPDATE_THREADS = [
+    [
+        'Called home, no answer. Left a voicemail asking for a call back.',
+        'Mum called back - meeting agreed for next week.',
+    ],
+    [
+        'Emailed the family, no reply yet.',
+        'Tried calling both numbers on file, neither connected.',
+        'Reached dad through the school office. He will come in on Friday.',
+    ],
+]
+
+# One seeded entry carries an edited timestamp so the "edited" marker has
+# something to render against in a fresh clone.
+EDITED_THREAD_INDEX = 1
+EDITED_ENTRY_INDEX = 2
 
 
 class Command(BaseCommand):
@@ -244,6 +272,36 @@ class Command(BaseCommand):
         if created_at_fixed:
             self.stdout.write(self.style.SUCCESS(
                 f'Backfilled "Created At" on {created_at_fixed} action(s) to their discussion date.'
+            ))
+
+        # A thread on some actions, none on others - see
+        # ACTION_UPDATE_THREADS. Idempotent by only ever seeding an action
+        # whose thread is empty, so a rerun neither duplicates nor renumbers
+        # anything; an action a human has since added an update to is left
+        # alone entirely.
+        updates_created = 0
+        for action in Action.objects.filter(updates__isnull=True).select_related('assigned_to_staff', 'created_by'):
+            # Every third action, so a fresh clone has plenty of empty
+            # threads to sit next to the seeded ones.
+            if action.id % 3:
+                continue
+            thread_index = (action.id // 3) % len(ACTION_UPDATE_THREADS)
+            author = action.assigned_to_staff or action.created_by
+            base = action.created_at or timezone.now()
+            for entry_index, body in enumerate(ACTION_UPDATE_THREADS[thread_index]):
+                update = ActionUpdate.objects.create(action=action, author=author, body=body)
+                # Same auto_now_add workaround as the actions above - a demo
+                # thread has to read as days of chasing, not as one burst at
+                # whatever moment this command last ran.
+                stamp = base + datetime.timedelta(days=2 * (entry_index + 1))
+                fields = {'created_at': stamp}
+                if thread_index == EDITED_THREAD_INDEX and entry_index == EDITED_ENTRY_INDEX:
+                    fields['edited_at'] = stamp + datetime.timedelta(hours=1)
+                ActionUpdate.objects.filter(pk=update.pk).update(**fields)
+                updates_created += 1
+        if updates_created:
+            self.stdout.write(self.style.SUCCESS(
+                f'Created {updates_created} action update(s).'
             ))
 
         # Documented as the last command in the panel seed sequence (see

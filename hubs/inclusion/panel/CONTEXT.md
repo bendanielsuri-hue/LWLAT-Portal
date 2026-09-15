@@ -40,8 +40,12 @@ The reusable component (`_discussion_summary_context()`/`_discussion_summary_con
 _Avoid_: Panel History (older name for the Panel Meetings section above; don't conflate the two components)
 
 **Action**:
-A task arising from a discussed referral, with its own status (`incomplete`/`complete`, default `incomplete`) and category. `ActionCategory.is_sensitive` hides an action from staff who aren't panel members (`_is_panel_staff`).
+A task arising from a discussed referral, with its own status (`incomplete`/`complete`/`not_needed`, default `incomplete`) and category. `ActionCategory.is_sensitive` hides an action from staff who aren't panel members (`_is_panel_staff`).
 _Avoid_: Task, follow-up (follow-up is a Referral/PanelReferral scheduling concept, not an Action)
+
+**Action Update**:
+A dated, attributed entry on an Action's thread saying *what was tried* — "called the parent, no answer". A historical event, not a statement that stops being true: entries accumulate, read oldest-first, and the newest one describes where the action has got to in English. Status is unchanged by an update and stays three values; an update can still be added to a `complete` or `not_needed` action. No sensitivity of its own — an update is exactly as visible as the Action it hangs off. Built on the shared `core.ThreadEntry` abstract base, so a soft-deleted entry leaves the thread without leaving the table. See [docs/adr/0031-three-kinds-of-note-and-one-thread-entry-base.md](../../../docs/adr/0031-three-kinds-of-note-and-one-thread-entry-base.md) for the three-way note taxonomy.
+_Avoid_: Note ("note" now means either a **Safeguarding Note** or a **Panel Note**, and `Action.description` — which says what the action *is* — was itself called `note` until #229), comment, log
 
 **Escalation**:
 A referral flagged for attention beyond the normal panel process, with its own open/resolved status and resolution tracking — separate from the Referral's own status field. Orthogonal to the Referral's normal school-`Panel` lifecycle — a referral can be `assigned`/`discussing` at a school panel and carry an open Escalation at the same time. An open Escalation is the only thing that makes a referral eligible for a **MAT Panel Meeting**'s agenda. Being discussed there never implicitly resolves the Escalation — resolving stays its own explicit action, independent of discussion happening.

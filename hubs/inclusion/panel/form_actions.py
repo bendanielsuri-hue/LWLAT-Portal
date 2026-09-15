@@ -73,6 +73,12 @@ DEACTIVATE_CATEGORY = 'deactivate_category'
 ADD_EXPERTISE = 'add_expertise'
 DEACTIVATE_EXPERTISE = 'deactivate_expertise'
 
+# --- Action updates ---
+# Posted by the action modal's Updates step. The modal is itself a <form>, and
+# HTML forbids a nested one, so this goes out as a fetch body rather than a
+# hidden input like most of the vocabulary - see dialogs/action-form.js.
+ADD_ACTION_UPDATE = 'add_action_update'
+
 # --- Safeguarding notes ---
 ADD_SAFEGUARDING_NOTE = 'add_safeguarding_note'
 CONFIRM_SAFEGUARDING_READINESS = 'confirm_safeguarding_readiness'
@@ -90,5 +96,6 @@ ALL = frozenset({
     UPDATE_GROUP_NAME, UPDATE_MEMBER_EXPERTISE,
     ADD_QUESTION, DEACTIVATE_QUESTION, ADD_CATEGORY, ADD_PRESET_CATEGORY, DEACTIVATE_CATEGORY,
     ADD_EXPERTISE, DEACTIVATE_EXPERTISE,
+    ADD_ACTION_UPDATE,
     ADD_SAFEGUARDING_NOTE, CONFIRM_SAFEGUARDING_READINESS,
 })
