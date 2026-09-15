@@ -6,18 +6,6 @@ from django.utils import timezone
 from core.models import Staff
 from hubs.inclusion.panel.models import Escalation, InclusionReferral
 
-# Reuses Escalation.REASON_CHOICES (the same presets escalate_form.html
-# offers) rather than its own copy, so seeded reasons read as genuine answers
-# a real user could have picked, not invented demo copy. Deterministic
-# (referral.id-keyed) selection, not random - cycled per referral so a rerun
-# always produces the same text for the same referral, same convention as
-# core's seed_safeguarding_notes.py NOTE_TEXTS.
-RESOLUTION_TEXTS = [
-    'Discussed at MAT Panel - agreed a joint plan with the school, no further MAT involvement needed.',
-    'Resolved directly with family; school-level plan resumed.',
-    'Referred on to external agency; MAT role in this case is complete.',
-]
-
 
 class Command(BaseCommand):
     help = (
@@ -67,9 +55,13 @@ class Command(BaseCommand):
             )
             Escalation.objects.filter(pk=escalation.pk).update(escalated_at=escalated_at)
             if status == 'resolved':
-                escalation.resolution_notes = RESOLUTION_TEXTS[referral.id % len(RESOLUTION_TEXTS)]
+                # Offset from escalated_by's index so the resolver isn't
+                # always the same person who raised it, same deterministic
+                # (referral.id-keyed) convention as escalated_by above.
+                resolved_by = (school_dsls or dsl_staff)[(referral.id + 1) % len(school_dsls or dsl_staff)]
+                escalation.resolved_by = resolved_by
                 escalation.resolved_at = escalated_at + datetime.timedelta(days=referral.id % 5 + 1)
-                escalation.save(update_fields=['resolution_notes', 'resolved_at'])
+                escalation.save(update_fields=['resolved_by', 'resolved_at'])
                 created_resolved += 1
             else:
                 created_open += 1

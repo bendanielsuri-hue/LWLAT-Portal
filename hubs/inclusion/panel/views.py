@@ -1951,7 +1951,7 @@ def inclusion_panel_escalations(request):
     years = sorted({y for y in scoped_students.values_list('year_group', flat=True) if y is not None})
 
     escalations_qs = Escalation.objects.filter(referral__student__in=scoped_students).select_related(
-        'referral', 'referral__student', 'referral__student__school', 'escalated_by', 'referral__referral',
+        'referral', 'referral__student', 'referral__student__school', 'escalated_by', 'resolved_by', 'referral__referral',
     ).prefetch_related(
         'referral__responses__question', 'referral__panel_referrals__panel__panel_group', 'referral__actions',
     )
@@ -2036,7 +2036,7 @@ def inclusion_panel_escalation_resolve(request, escalation_id):
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         escalation.status = 'resolved'
-        escalation.resolution_notes = request.POST.get('resolution_notes', '')
+        escalation.resolved_by = _current_staff(request)
         escalation.resolved_at = timezone.now()
         escalation.save()
         if is_ajax:
