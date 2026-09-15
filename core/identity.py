@@ -1,7 +1,7 @@
 from django.db.models import Q
 
-from core.models import Staff, Student
-from core.school_scope import SchoolScope
+from core.models import School, Staff, Student
+from core.school_scope import SchoolScope, canonical_key
 
 # No login system exists yet (see CLAUDE.md), so "current identity" is just a
 # client-side choice backed by a cookie, with Benjamin Suri as the fallback
@@ -33,7 +33,35 @@ def default_staff():
 
 
 def current_school_key(request):
-    return request.COOKIES.get(CURRENT_SCHOOL_COOKIE) or 'all'
+    """The school the sidebar switcher is pointing at, as a key we can trust.
+
+    This is the ONLY source of truth for "which school is selected" - the
+    cookie's key space (an aggregate key or a School.id) is the server's own,
+    and everything else, including the sidebar's displayed school name and the
+    Panel Groups picker's filter, is derived from it rather than stored
+    alongside it. #196: a second copy in localStorage held the display *name*,
+    which no rename could keep in step and nothing could reconcile back.
+
+    Nobody validates the cookie on the way in, so both ways it can be wrong
+    are absorbed here: a value the key space doesn't recognise (canonical_key)
+    and an id whose School has since been deleted or deactivated. Both read as
+    "no school chosen", so the sidebar label, the data and the settings all
+    agree on "All Schools" rather than one of them 500ing or silently
+    emptying.
+    """
+    cached = getattr(request, '_current_school_key', None)
+    if cached is not None:
+        return cached
+    key = canonical_key(request.COOKIES.get(CURRENT_SCHOOL_COOKIE)) or 'all'
+    if not SchoolScope(key).is_aggregate and not School.objects.filter(pk=key, is_active=True).exists():
+        key = 'all'
+    # Resolving it costs a query, and four call sites ask per request (the
+    # sidebar, the identity switcher, Module visibility, portal settings).
+    try:
+        request._current_school_key = key
+    except AttributeError:
+        pass
+    return key
 
 
 def _staff_matches_school_key(staff, key):
