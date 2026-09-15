@@ -24,6 +24,7 @@ MODULES = [
     ('student_progress_tracker', 'Progress Tracker', 'student_hub', Module.STATUS_HIDDEN),
     ('student_standards_equipment', 'Standards & Equipment', 'student_hub', Module.STATUS_HIDDEN),
     ('student_pastoral_tracker', 'Pastoral Tracker', 'student_hub', Module.STATUS_HIDDEN),
+    ('student_consent', 'Parental Consent', 'student_hub', Module.STATUS_HIDDEN),
 
     ('services', 'Operations', None, Module.STATUS_HIDDEN),
     ('service_cover_manager', 'Cover Manager', 'services', Module.STATUS_HIDDEN),
@@ -42,6 +43,10 @@ MODULES = [
     ('register_interventions', 'Interventions', 'registers', Module.STATUS_HIDDEN),
 
     ('medical_hub', 'Medical', None, Module.STATUS_HIDDEN),
+    ('medical_profiles', 'Medical Profiles', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_log', 'Medical Log', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_immunisations', 'Immunisations', 'medical_hub', Module.STATUS_HIDDEN),
+    ('medical_stock', 'Medical Stock', 'medical_hub', Module.STATUS_HIDDEN),
 
     ('inclusion_hub', 'SEND & Provision', None, Module.STATUS_LIVE),
     ('inclusion_provision_strategies', 'Provision & Strategies', 'inclusion_hub', Module.STATUS_HIDDEN),

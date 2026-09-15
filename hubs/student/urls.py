@@ -9,4 +9,5 @@ urlpatterns = [
     path('feedback-dashboard/', views.student_feedback_dashboard, name='student_feedback_dashboard'),
     path('standards-equipment/', views.student_standards_equipment, name='student_standards_equipment'),
     path('pastoral-tracker/', views.student_pastoral_tracker, name='student_pastoral_tracker'),
+    path('consent/', views.student_consent, name='student_consent'),
 ]
