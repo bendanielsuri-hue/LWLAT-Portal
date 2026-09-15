@@ -1,0 +1,27 @@
+{% comment %}
+One entry in an Action's Updates thread. Its own fragment because the same
+markup is rendered twice: server-side for the thread the modal opens on, and
+again on its own as the JSON answer to a post, which the Updates step appends
+in place (see inclusion_panel_action_new and dialogs/action-form.js). Two
+copies of this markup would drift the moment either side changed.
+
+Every entry carries its own author header, where the Discussion's thread
+collapses consecutive entries by the same author under one ({% ifchanged %}).
+That comparison needs the previous entry in the same loop, and an entry posted
+here is rendered on its own with nothing to compare against - so the grouped
+form would be wrong exactly half the time it rendered.
+
+Reuses the portal-wide .note-thread component the Discussion's own note thread
+uses - a dated, attributed entry is the same thing on both pages, and nothing
+here is action-specific.
+{% endcomment %}
+<div class="note-thread-item">
+    <div class="note-thread-header">
+        <span class="note-thread-avatar">{% if update.author %}{{ update.author.first_name|slice:":1" }}{{ update.author.last_name|slice:":1" }}{% else %}?{% endif %}</span>
+        <span class="note-thread-author">{{ update.author|default:"Unknown" }}</span>
+    </div>
+    <div class="note-thread-body">
+        <span class="note-thread-time">{{ update.created_at|date:"d/m/Y H:i" }}{% if update.edited_at %} · edited{% endif %}</span>
+        <div class="note-thread-text">{{ update.body|linebreaksbr }}</div>
+    </div>
+</div>

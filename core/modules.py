@@ -76,6 +76,17 @@ def module_map(request=None):
     return per_request(request, 'module_map', lambda: ModuleMap(Module.objects.all()))
 
 
+def request_module_map(request):
+    """The module map for `request`. Alias of `module_map(request)`.
+
+    Kept as its own name because `core.hub_context` and the panel views call
+    it, and because it says at the call site that a request is required rather
+    than optional - the management-command fallback in `module_map` is exactly
+    the case these callers must not silently land in.
+    """
+    return module_map(request)
+
+
 def _status_with_cascade(module, modules):
     # "Hidden cascades down, everything else is evaluated independently" — walk
     # up the parent chain (including the module itself); the instant any

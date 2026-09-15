@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from core.modules import filter_by_module, module_map
+from core.hub_context import hub_context
 
 REGISTERS_MENU = [
     {'name': 'Clubs', 'url': '/registers/clubs/', 'icon': 'registers/icons/clubs.svg', 'module_key': 'register_clubs'},
@@ -11,12 +11,8 @@ REGISTERS_MENU = [
 ]
 
 
-def _local_menu(request):
-    return filter_by_module(REGISTERS_MENU, module_map(request), request)
-
-
 def _hub_context(request):
-    return {'local_menu': _local_menu(request), 'hub_title': 'Registers'}
+    return hub_context(request, REGISTERS_MENU, 'Registers')
 
 
 def registers_home(request):

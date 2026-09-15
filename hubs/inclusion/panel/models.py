@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from core.models import AcademicYear
+from core.models import AcademicYear, ThreadEntry
 
 
 class ReferralCategory(models.Model):
@@ -490,7 +490,7 @@ class Action(models.Model):
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='incomplete')
     completed_at = models.DateTimeField(null=True, blank=True)
-    note = models.TextField(blank=True)
+    description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     # Who raised the action - the discussion's chair when raised from a live
     # discussion, or whoever used the standalone "New Action" form otherwise.
@@ -526,6 +526,31 @@ class Action(models.Model):
         return f'Action #{self.pk} - {self.referral}'
 
 
+class ActionUpdate(ThreadEntry):
+    """What was tried, in English - the thread an Action's status can't hold.
+
+    Status says where an action got to, never what was attempted, so "called
+    the parent, no answer" had nowhere to live and an action chased four
+    times looked exactly like one nobody had touched. The latest entry is the
+    state in plain English; status itself is unchanged.
+
+    Deliberately free text with no outcome tag or method field: the same
+    model carries "complete the EHCP paperwork" and "ring mum", and an
+    optional tag that is usually blank yields counts nobody can trust.
+
+    No sensitivity of its own - an update is exactly as visible as the action
+    it hangs off (see visible_actions_for in views.py). Adding one stays
+    possible on a complete or not-required action; chasing an action does
+    not stop because its status moved.
+    """
+
+    action = models.ForeignKey(Action, on_delete=models.CASCADE, related_name='updates')
+
+    class Meta:
+        ordering = ['created_at']
+        db_table = 'inclusion_actionupdate'
+
+
 class Escalation(models.Model):
     STATUS_CHOICES = [('open', 'Open'), ('resolved', 'Resolved')]
     # Escalate to MAT form (escalate_form.html) offers these as a dropdown
@@ -551,8 +576,16 @@ class Escalation(models.Model):
     escalated_at = models.DateTimeField(auto_now_add=True)
     reason = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
-    resolution_notes = models.TextField(blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+    # No resolution_notes field - it was write-only (nothing ever rendered
+    # it) and the prose it was reaching for already exists, dated and
+    # attributed, on the MAT Panel Meeting that discussed the referral.
+    # Dropping the prose without adding this FK would have left an
+    # Escalation with an actor on the way in (escalated_by) and none on the
+    # way out (#230).
+    resolved_by = models.ForeignKey(
+        'core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+    )
 
     class Meta:
         ordering = ['-escalated_at']

@@ -3,24 +3,24 @@
    every other helper in that region was generic and moved to
    static/js/components/ instead).
 
-   Still also set on `window`, same reason as components/modal.js
-   (static/js/): panel.js's own dialogs call this by that name from inside
-   event handlers, so the window assignment keeps them working until those
-   dialogs are migrated to import this directly. */
+   No longer installed on `window`: the one dialog that called it by that name
+   imports it (dialogs/panel-group.js), and nothing else ever did. */
+
+import { currentSchoolKey, isAggregateSchoolKey } from '../../../js/layout/school-key.js';
 
 // Resolves which school's Panel Groups should be shown, without a page-local
-// School dropdown: the sidebar's School switcher (localStorage 'pref-school',
-// a school name — set by main.js) is the source of truth once it has run.
-// "All Schools"/"All Primary"/"All Secondary" explicitly mean "no filter" —
-// only a genuinely-unset pref-school (shouldn't normally happen) falls back
-// to the current identity's own school.
-export function resolvePanelSchoolFilter(groupOptions, currentStaffSchoolId) {
-    var prefSchool;
-    try { prefSchool = localStorage.getItem('pref-school'); } catch (e) { }
-    if (!prefSchool) return currentStaffSchoolId || '';
-    if (prefSchool.indexOf('All ') === 0) return '';
-    var match = groupOptions.filter(function (opt) { return opt.dataset.schoolName === prefSchool; })[0];
-    return match ? match.dataset.school : (currentStaffSchoolId || '');
+// School dropdown: the sidebar's School switcher is the source of truth, read
+// from the cookie the server itself reads (#196) - so the id this returns and
+// the scoping the server applied to the rows on the page are the same
+// selection, not two representations of it that can drift.
+//
+// "All Schools"/"All Primary"/"All Secondary" explicitly mean "no filter".
+// Only a browser that has never used the switcher at all falls back to the
+// current identity's own school; that is a preselect for a create form, and
+// the server treats the same state as "all", so nothing on the page contradicts
+// it.
+export function resolvePanelSchoolFilter(currentStaffSchoolId) {
+    var key = currentSchoolKey();
+    if (!key) return currentStaffSchoolId || '';
+    return isAggregateSchoolKey(key) ? '' : key;
 }
-
-window.resolvePanelSchoolFilter = resolvePanelSchoolFilter;

@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
+from core.hub_context import hub_context
 from core.models import Student
-from core.modules import filter_by_module, module_map
 
 STUDENT_MENU = [
     {'name': 'Student Dashboard', 'url': '/student/dashboard/', 'icon': 'student/icons/dashboard_gauge.svg', 'module_key': 'student_dashboard'},
@@ -12,12 +12,8 @@ STUDENT_MENU = [
 ]
 
 
-def _local_menu(request):
-    return filter_by_module(STUDENT_MENU, module_map(request), request)
-
-
 def _hub_context(request):
-    return {'local_menu': _local_menu(request), 'hub_title': 'Student'}
+    return hub_context(request, STUDENT_MENU, 'Student')
 
 
 def student_hub(request):

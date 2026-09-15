@@ -5,13 +5,13 @@ from django.db.models.functions import TruncMonth
 from django.shortcuts import render
 from django.utils import timezone
 
+from core.hub_context import hub_context
 from core.identity import (
     current_school_key,
     staff_queryset_for_school_key,
     student_queryset_for_school_key,
 )
 from core.models import Student
-from core.modules import filter_by_module, module_map
 from core.send_breakdown import ken_breakdown, pct
 
 from hubs.inclusion.panel.models import Action, InclusionReferral
@@ -35,12 +35,8 @@ INCLUSION_MENU = [
 ]
 
 
-def _local_menu(request):
-    return filter_by_module(INCLUSION_MENU, module_map(request), request)
-
-
 def _hub_context(request):
-    return {'local_menu': _local_menu(request), 'hub_title': 'SEND & Provision'}
+    return hub_context(request, INCLUSION_MENU, 'SEND & Provision')
 
 
 def _referral_trend(students):
@@ -106,7 +102,7 @@ def inclusion_hub(request):
     # The filter bar itself isn't part of the AJAX-swapped region (see
     # hub.html), so once JS is driving, Year -> Reg Group narrowing has to
     # happen client-side — this is the same {year: [reg_forms]} shape as
-    # forms_by_year_json in hubs/inclusion/panel/views.py::inclusion_panel_students.
+    # forms_by_year_json in hubs/inclusion/panel/views/students.py.
     reg_groups_by_year = {
         year: sorted({
             reg_form for reg_form in base_students.filter(year_group=year)

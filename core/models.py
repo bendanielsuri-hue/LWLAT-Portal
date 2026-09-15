@@ -24,15 +24,26 @@ ACCENT_COLOUR_CHOICES = [
 ]
 
 
-class School(models.Model):
-    CATEGORY_CHOICES = [('Primary', 'Primary'), ('Secondary', 'Secondary')]
+class PortalSettingsFields(models.Model):
+    """The seven portal-chrome overrides, declared once for all three tiers.
 
-    name = models.CharField(max_length=100, unique=True)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
-    is_active = models.BooleanField(default=True)
+    School, CategorySettings and MatSettings are three separate tables on
+    purpose - one row per tier is what makes the School -> Category -> MAT
+    fallthrough in core.portal_settings possible at all - but the field
+    definitions themselves were byte-identical in all three places, so adding
+    an eighth field meant remembering three models and a hand-kept name list,
+    with every omission failing silently rather than erroring (#195). An
+    abstract base leaves the tiers and the cascade exactly as ADR 0003 decided
+    them and removes only the restatement.
 
-    # Portal-chrome overrides for this school — see core.portal_settings for the
-    # School -> Category -> MAT fallthrough that resolves these (blank = inherit).
+    core.portal_settings.FIELDS derives its field-name list from this model's
+    _meta, so a field added here is resolved everywhere automatically.
+
+    A blank value always means "inherit from the next tier down", which is why
+    every field is blank=True with no default - a default would make a tier
+    that has never been touched look like a deliberate override.
+    """
+
     student_term = models.CharField(max_length=30, blank=True)
     staff_term = models.CharField(max_length=30, blank=True)
     portal_title = models.CharField(max_length=100, blank=True)
@@ -42,22 +53,26 @@ class School(models.Model):
     support_phone = models.CharField(max_length=30, blank=True)
 
     class Meta:
+        abstract = True
+
+
+class School(PortalSettingsFields):
+    CATEGORY_CHOICES = [('Primary', 'Primary'), ('Secondary', 'Secondary')]
+
+    name = models.CharField(max_length=100, unique=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
         ordering = ['category', 'name']
 
     def __str__(self):
         return self.name
 
 
-class MatSettings(models.Model):
+class MatSettings(PortalSettingsFields):
     # Singleton MAT-wide defaults — the bottom tier of the School -> Category -> MAT
     # fallthrough in core.portal_settings. Always exactly one row (forced pk=1).
-    student_term = models.CharField(max_length=30, blank=True)
-    staff_term = models.CharField(max_length=30, blank=True)
-    portal_title = models.CharField(max_length=100, blank=True)
-    accent_colour = models.CharField(max_length=10, choices=ACCENT_COLOUR_CHOICES, blank=True)
-    logo_url = models.CharField(max_length=300, blank=True)
-    support_email = models.EmailField(blank=True)
-    support_phone = models.CharField(max_length=30, blank=True)
 
     class Meta:
         verbose_name = 'MAT settings'
@@ -71,16 +86,9 @@ class MatSettings(models.Model):
         return 'MAT defaults'
 
 
-class CategorySettings(models.Model):
+class CategorySettings(PortalSettingsFields):
     # Middle tier of the fallthrough — one optional row per School.CATEGORY_CHOICES.
     category = models.CharField(max_length=20, choices=School.CATEGORY_CHOICES, unique=True)
-    student_term = models.CharField(max_length=30, blank=True)
-    staff_term = models.CharField(max_length=30, blank=True)
-    portal_title = models.CharField(max_length=100, blank=True)
-    accent_colour = models.CharField(max_length=10, choices=ACCENT_COLOUR_CHOICES, blank=True)
-    logo_url = models.CharField(max_length=300, blank=True)
-    support_email = models.EmailField(blank=True)
-    support_phone = models.CharField(max_length=30, blank=True)
 
     class Meta:
         verbose_name_plural = 'Category settings'
@@ -395,7 +403,7 @@ class AcademicYear(models.Model):
         # No seeded year starts before `d` at all (e.g. a historic date older
         # than seed_term_dates' range) - fall back to the conventional
         # Sept-Aug boundary the old ad-hoc _academic_year_key/_academic_year_
-        # label helpers (hubs/inclusion/panel/views.py) used to encode.
+        # label helpers (hubs/inclusion/panel/views/) used to encode.
         start_year = d.year if d.month >= 9 else d.year - 1
         year, _ = cls.objects.get_or_create(
             start_date=datetime.date(start_year, 9, 1),
@@ -511,6 +519,48 @@ class Referral(models.Model):
 
     def __str__(self):
         return f'{self.get_referral_type_display()} referral #{self.pk} - {self.student}'
+
+
+class ThreadEntryQuerySet(models.QuerySet):
+    def visible(self):
+        # The one definition of "still in the thread". Soft-deleted entries
+        # stay in the table (an action chased four times and half-retracted
+        # is a different history from one nobody touched), so every read path
+        # has to filter, and a path that forgets silently resurrects them.
+        return self.filter(deleted_at__isnull=True)
+
+
+class ThreadEntry(models.Model):
+    """What every dated, attributed thread on this portal is made of.
+
+    Abstract, so each thread keeps its own table and its own real foreign key
+    (ActionUpdate.action, and the meeting-note thread when it moves across).
+    A single generic table keyed by content type was the alternative and was
+    rejected: it would make every per-thread query a join through a type id,
+    and it would put entries on sensitive and non-sensitive parents in one
+    table, so the Action sensitivity gate could no longer be expressed as a
+    filter on the parent. See docs/adr/0031.
+
+    Concrete subclasses supply the parent FK, `db_table` and `ordering`
+    (oldest-first - a thread reads as a history, top to bottom).
+    """
+
+    body = models.TextField()
+    author = models.ForeignKey(Staff, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Null until an edit actually happens, so "edited" is a fact about the
+    # entry rather than something every row claims from birth.
+    edited_at = models.DateTimeField(null=True, blank=True)
+    # Soft delete: see ThreadEntryQuerySet.visible() above.
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = ThreadEntryQuerySet.as_manager()
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return f'{type(self).__name__} #{self.pk} ({self.created_at:%Y-%m-%d})'
 
 
 class SafeguardingNote(models.Model):
