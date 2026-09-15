@@ -20,6 +20,7 @@ APP_APPS_PY_BY_PREFIX = [
     ('hubs/inclusion/panel/', 'hubs/inclusion/panel/apps.py'),
     ('hubs/inclusion/', 'hubs/inclusion/apps.py'),
     ('hubs/careers/', 'hubs/careers/apps.py'),
+    ('hubs/medical/', 'hubs/medical/apps.py'),
     ('hubs/portaladmin/', 'hubs/portaladmin/apps.py'),
     ('hubs/registers/', 'hubs/registers/apps.py'),
     ('hubs/resources/', 'hubs/resources/apps.py'),
