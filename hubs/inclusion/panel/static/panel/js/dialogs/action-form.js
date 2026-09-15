@@ -21,6 +21,7 @@ import { closeModalWithFadeOut, animateModalHeightChange } from '../../../js/com
 import { snapshotFormValues, formValuesDirty, confirmModalDiscard } from '../../../js/components/form-dirty.js';
 import { enhanceFormControls } from '../../../js/components/form-controls.js';
 import { initActionAssignFields } from '../components/action-assign.js';
+import { shrinkAndFadeOut } from '../../../js/components/row-animate.js';
 
 (function () {
     var dialog = document.getElementById('action-form-dialog');
@@ -105,6 +106,96 @@ import { initActionAssignFields } from '../components/action-assign.js';
                     if (count) count.textContent = thread.children.length;
                 });
                 thread.scrollTop = thread.scrollHeight;
+            });
+    }
+
+    // Author-only edit/delete on one already-posted update entry - the
+    // buttons and inline edit form come from the shared
+    // _thread_entry_edit_delete.html partial (only rendered at all when the
+    // view already decided the current-staff identity is this entry's
+    // author; the fetch below still gets rejected server-side if that ever
+    // disagrees, e.g. a stale fragment left open after switching identity).
+    //
+    // update_id/add_action_update's own field names are hardcoded here
+    // rather than read off the entry's data attributes - Action Updates is
+    // the only thread wired up to this dialog today. The shared partial
+    // still renders entry_id_field/edit_form_action/delete_form_action so a
+    // second consumer (the meeting-note thread, #236) has real values to
+    // read once it needs to branch on them.
+    function threadEntryItem(el) {
+        return el.closest('[data-thread-entry-id]');
+    }
+
+    function setThreadEntryEditing(item, editing) {
+        var view = item.querySelector('[data-thread-entry-view]');
+        var form = item.querySelector('[data-thread-entry-edit-form]');
+        if (!view || !form) return;
+        var textarea = form.querySelector('[data-thread-entry-edit-textarea]');
+        animateModalHeightChange(dialog, function () {
+            view.hidden = editing;
+            form.hidden = !editing;
+            if (editing && textarea) {
+                textarea.focus();
+            } else if (textarea) {
+                // Cancel (or a fresh re-open later) starts from what's
+                // actually on the entry, not whatever was left half-typed.
+                textarea.value = textarea.dataset.threadEntryOriginalBody;
+            }
+        });
+    }
+
+    function postThreadEntryEdit(item) {
+        var textarea = item.querySelector('[data-thread-entry-edit-textarea]');
+        var form = item.closest('form');
+        if (!textarea || !form || !textarea.value.trim()) return;
+
+        var body = new FormData();
+        body.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+        body.append('form_action', 'edit_action_update');
+        body.append('action_id', form.querySelector('[name=action_id]').value);
+        body.append('update_id', item.dataset.threadEntryId);
+        body.append('body', textarea.value);
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: body,
+        }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (!data.success) return;
+                animateModalHeightChange(dialog, function () {
+                    item.outerHTML = data.html;
+                });
+            });
+    }
+
+    function deleteThreadEntry(item) {
+        if (!window.confirm('Delete this update? This cannot be undone.')) return;
+        var form = item.closest('form');
+        var thread = item.closest('[data-action-updates-thread]');
+        if (!form) return;
+
+        var body = new FormData();
+        body.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+        body.append('form_action', 'delete_action_update');
+        body.append('action_id', form.querySelector('[name=action_id]').value);
+        body.append('update_id', item.dataset.threadEntryId);
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: body,
+        }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (!data.success) return;
+                shrinkAndFadeOut(item, function () {
+                    item.remove();
+                    if (!thread) return;
+                    var count = dialog.querySelector('[data-action-updates-count]');
+                    if (count) count.textContent = thread.children.length;
+                    var empty = dialog.querySelector('[data-action-updates-empty]');
+                    if (empty) empty.hidden = thread.children.length !== 0;
+                });
             });
     }
 
@@ -253,7 +344,28 @@ import { initActionAssignFields } from '../components/action-assign.js';
         }
     });
     dialog.addEventListener('click', function (e) {
-        if (e.target === dialog) guardedClose();
+        if (e.target === dialog) { guardedClose(); return; }
+        var item;
+        if (e.target.closest('[data-thread-entry-edit-btn]')) {
+            item = threadEntryItem(e.target);
+            if (item) setThreadEntryEditing(item, true);
+            return;
+        }
+        if (e.target.closest('[data-thread-entry-edit-cancel]')) {
+            item = threadEntryItem(e.target);
+            if (item) setThreadEntryEditing(item, false);
+            return;
+        }
+        if (e.target.closest('[data-thread-entry-edit-save]')) {
+            item = threadEntryItem(e.target);
+            if (item) postThreadEntryEdit(item);
+            return;
+        }
+        if (e.target.closest('[data-thread-entry-delete-btn]')) {
+            item = threadEntryItem(e.target);
+            if (item) deleteThreadEntry(item);
+            return;
+        }
     });
     dialog.addEventListener('cancel', function (e) {
         e.preventDefault();

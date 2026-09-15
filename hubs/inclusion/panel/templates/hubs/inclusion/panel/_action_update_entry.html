@@ -14,13 +14,22 @@ form would be wrong exactly half the time it rendered.
 Reuses the portal-wide .note-thread component the Discussion's own note thread
 uses - a dated, attributed entry is the same thing on both pages, and nothing
 here is action-specific.
+
+Edit/delete is author-only. `update.can_edit` is computed server-side (view
+compares update.author_id against the current-staff cookie identity) rather
+than here, since the same check has to happen again when the button is
+actually clicked - this only decides whether to offer it. The buttons and the
+inline edit form themselves live in the shared `_thread_entry_edit_delete.html`
+partial, not here, so the meeting-note thread can reuse the identical UI once
+it moves onto the same core.ThreadEntry base (#236).
 {% endcomment %}
-<div class="note-thread-item">
+<div class="note-thread-item" data-thread-entry-id="{{ update.id }}">
     <div class="note-thread-header">
         <span class="note-thread-avatar">{% if update.author %}{{ update.author.first_name|slice:":1" }}{{ update.author.last_name|slice:":1" }}{% else %}?{% endif %}</span>
         <span class="note-thread-author">{{ update.author|default:"Unknown" }}</span>
     </div>
-    <div class="note-thread-body">
+    {% include 'hubs/inclusion/panel/_thread_entry_edit_delete.html' with entry=update can_edit=update.can_edit entry_id_field='update_id' edit_form_action='edit_action_update' delete_form_action='delete_action_update' %}
+    <div class="note-thread-body" data-thread-entry-view>
         <span class="note-thread-time">{{ update.created_at|date:"d/m/Y H:i" }}{% if update.edited_at %} · edited{% endif %}</span>
         <div class="note-thread-text">{{ update.body|linebreaksbr }}</div>
     </div>

@@ -78,6 +78,12 @@ DEACTIVATE_EXPERTISE = 'deactivate_expertise'
 # HTML forbids a nested one, so this goes out as a fetch body rather than a
 # hidden input like most of the vocabulary - see dialogs/action-form.js.
 ADD_ACTION_UPDATE = 'add_action_update'
+# Author-only, both of these - enforced server-side against the current-staff
+# cookie identity, not just by which entries the template offers a button on.
+# Same fetch-body convention as ADD_ACTION_UPDATE, and shared with whatever
+# thread next moves onto core.ThreadEntry (see _thread_entry_edit_delete.html).
+EDIT_ACTION_UPDATE = 'edit_action_update'
+DELETE_ACTION_UPDATE = 'delete_action_update'
 
 # --- Safeguarding notes ---
 ADD_SAFEGUARDING_NOTE = 'add_safeguarding_note'
@@ -96,6 +102,6 @@ ALL = frozenset({
     UPDATE_GROUP_NAME, UPDATE_MEMBER_EXPERTISE,
     ADD_QUESTION, DEACTIVATE_QUESTION, ADD_CATEGORY, ADD_PRESET_CATEGORY, DEACTIVATE_CATEGORY,
     ADD_EXPERTISE, DEACTIVATE_EXPERTISE,
-    ADD_ACTION_UPDATE,
+    ADD_ACTION_UPDATE, EDIT_ACTION_UPDATE, DELETE_ACTION_UPDATE,
     ADD_SAFEGUARDING_NOTE, CONFIRM_SAFEGUARDING_READINESS,
 })

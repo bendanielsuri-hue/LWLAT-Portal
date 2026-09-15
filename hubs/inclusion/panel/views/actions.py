@@ -299,6 +299,13 @@ def inclusion_panel_actions(request):
     return render(request, template, context)
 
 
+def _updates_with_can_edit(action, current_staff):
+    updates = list(action.updates.visible().select_related('author'))
+    for update in updates:
+        update.can_edit = update.author_id == current_staff.id
+    return updates
+
+
 def inclusion_panel_action_new(request, referral_id):
     # Add Action is a 2-step modal (details, then Assign - see #98): this is
     # now the only caller of _action_form_modal.html, fetched into
@@ -355,6 +362,42 @@ def inclusion_panel_action_new(request, referral_id):
             update = ActionUpdate.objects.create(
                 action=action, author=_current_staff(request), body=body,
             )
+            update.can_edit = True
+            return JsonResponse({'success': True, 'html': render_to_string(
+                'hubs/inclusion/panel/_action_update_entry.html', {'update': update}, request=request,
+            )})
+
+        # Author-only, enforced here rather than trusted from the template -
+        # the edit/delete buttons only *offer* the action to whoever the
+        # template thinks is the author; a forged POST from anyone else still
+        # has to be rejected on this side. update_id is scoped to `action` (not
+        # looked up bare) so this can't be used to edit/delete an entry on an
+        # action the requester couldn't otherwise reach.
+        if request.POST.get('form_action') in (form_actions.EDIT_ACTION_UPDATE, form_actions.DELETE_ACTION_UPDATE):
+            if not action:
+                return JsonResponse({'success': False}, status=403)
+            update = get_object_or_404(
+                ActionUpdate.objects.visible().select_related('author'),
+                pk=request.POST.get('update_id'), action=action,
+            )
+            if update.author_id != _current_staff(request).id:
+                return JsonResponse({'success': False}, status=403)
+
+            if request.POST.get('form_action') == form_actions.DELETE_ACTION_UPDATE:
+                update.deleted_at = timezone.now()
+                update.save(update_fields=['deleted_at'])
+                return JsonResponse({'success': True})
+
+            # Edit: in place, no version history - the body changes but
+            # created_at and the entry's position in the thread don't. edited_at
+            # is what tells a reader "this isn't what was written on the day".
+            body = request.POST.get('body', '').strip()
+            if not body:
+                return JsonResponse({'success': False})
+            update.body = body
+            update.edited_at = timezone.now()
+            update.save(update_fields=['body', 'edited_at'])
+            update.can_edit = True
             return JsonResponse({'success': True, 'html': render_to_string(
                 'hubs/inclusion/panel/_action_update_entry.html', {'update': update}, request=request,
             )})
@@ -407,8 +450,11 @@ def inclusion_panel_action_new(request, referral_id):
         'auto_assign_by_category': auto_assign_by_category,
         # Empty in create mode - there is no Action to hang a thread off
         # yet, which is also why the details step's Updates row only renders
-        # for an edit (see _action_form_modal.html).
-        'updates': list(action.updates.visible().select_related('author')) if action else [],
+        # for an edit (see _action_form_modal.html). can_edit is computed
+        # here, once, rather than compared in the template - the same
+        # author-check the POST handlers above enforce server-side, so the
+        # template only ever hides a button the view would reject anyway.
+        'updates': _updates_with_can_edit(action, _current_staff(request)) if action else [],
         'next': request.GET.get('next', ''),
         'panel_referral_id': origin_panel_referral_id,
         'next_half_term_date': next_half_term(referral.student.school, timezone.localdate()),
