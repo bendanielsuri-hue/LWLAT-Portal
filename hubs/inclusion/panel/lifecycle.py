@@ -23,12 +23,13 @@ depends on that.
 
 import datetime
 
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from core.models import Referral as CoreReferral
 
-from .models import InclusionReferral, PanelReferral
+from .models import InclusionReferral, PanelReferral, ReferralPriorityChange
 
 # A panel that's finished, whether it reached that point with a real
 # discussion ('complete') or not ('void') - see Panel.STATUS_CHOICES
@@ -150,13 +151,42 @@ def remove_from_agenda(pr, removed_by_id, now=None):
     sync_referral_status(pr.referral)
 
 
-def set_referral_priority(referral_id, priority):
-    # Shared by Panel Agenda Setup and the live Panel Agenda page's own
-    # 'update_priority' actions so the valid-choices check can't drift.
+def set_referral_priority(referral_id, priority, changed_by=None, now=None):
+    """Move a referral's priority, and record the move.
+
+    Shared by Panel Agenda Setup and the live Panel Agenda page's own
+    'update_priority' actions so the valid-choices check can't drift.
+
+    The ReferralPriorityChange row is written here, inside the same
+    transaction as the referral's own save, for the same reason the verbs
+    above resync status rather than leaving it to their callers: a history
+    that each call site has to remember to append to is a history with holes
+    in it, and a missing row is unrecoverable after the fact - the old value
+    is gone the moment the referral is saved without it. `changed_by` is the
+    acting staff member (None where the portal has no identity to attribute,
+    which is honest rather than wrong); `now` is injectable so a seed can
+    write a history that reads as having happened over time.
+
+    A no-op re-select of the value the referral already holds writes nothing.
+    The <select> that drives this doesn't fire on an unchanged value, but a
+    replayed or duplicated POST does, and "High -> High" is not a change
+    anyone made.
+    """
     referral = get_object_or_404(InclusionReferral, pk=referral_id)
-    if priority == '' or priority in dict(InclusionReferral.PRIORITY_CHOICES):
+    if priority != '' and priority not in dict(InclusionReferral.PRIORITY_CHOICES):
+        return
+    if referral.priority == priority:
+        return
+    with transaction.atomic():
+        ReferralPriorityChange.objects.create(
+            referral=referral,
+            from_priority=referral.priority,
+            to_priority=priority,
+            changed_by=changed_by,
+            changed_at=now or timezone.now(),
+        )
         referral.priority = priority
-        referral.save()
+        referral.save(update_fields=['priority'])
 
 
 def reorder_panel_referrals(panel, ordered_ids):

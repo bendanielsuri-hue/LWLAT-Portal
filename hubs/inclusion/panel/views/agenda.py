@@ -134,7 +134,10 @@ def inclusion_panel_meeting_setup(request, panel_id):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
         elif action == form_actions.UPDATE_PRIORITY:
-            lifecycle.set_referral_priority(request.POST.get('referral_id'), request.POST.get('priority', ''))
+            lifecycle.set_referral_priority(
+                request.POST.get('referral_id'), request.POST.get('priority', ''),
+                changed_by=_current_staff(request),
+            )
         elif action == form_actions.REORDER_AGENDA:
             lifecycle.reorder_panel_referrals(panel, request.POST.getlist('panel_referral_id'))
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -311,7 +314,10 @@ def inclusion_panel_meeting_agenda(request, panel_id):
                 return JsonResponse({'success': removed})
         elif action == form_actions.UPDATE_PRIORITY:
             if not lifecycle.panel_is_ended(panel):
-                lifecycle.set_referral_priority(request.POST.get('referral_id'), request.POST.get('priority', ''))
+                lifecycle.set_referral_priority(
+                    request.POST.get('referral_id'), request.POST.get('priority', ''),
+                    changed_by=_current_staff(request),
+                )
         elif action == form_actions.UPDATE_REVIEW_DATE:
             # Not gated on follow_up_status already being 'incomplete' -
             # setting/rescheduling a date always (re)activates the follow-up

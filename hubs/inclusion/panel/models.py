@@ -133,6 +133,74 @@ class InclusionReferral(models.Model):
         self.referral.save(update_fields=['raised_by'])
 
 
+class ReferralPriorityChange(models.Model):
+    """Every move a referral's priority has ever made, one row per move.
+
+    Priority used to be overwritten in place, so a referral quietly taken
+    from High to Low read afterwards exactly like one that had been Low all
+    along. This is a live triage decision on a safeguarding-adjacent record,
+    and the question that matters is not "who set it last" but "what was it
+    before, and who moved it" - a single set_by/set_at pair on the referral
+    could answer the first and never the second, so this is a table.
+
+    Rows are written only by lifecycle.set_referral_priority, which saves the
+    referral and the row in one transaction. Nothing else may set
+    InclusionReferral.priority: a write that bypasses the verb leaves a gap
+    in the history that nothing can reconstruct afterwards.
+
+    Deliberately NOT a core.ThreadEntry subclass, though it is the same kind
+    of claim in ADR 0031's taxonomy (a historical event - a change that
+    happened on Tuesday does not stop having happened). A thread entry is
+    somebody's prose: its required `body` would be empty on every row here,
+    and its `edited_at`/`deleted_at` offer to revise and retract entries,
+    which is the one thing an audit trail of a triage decision must not
+    allow. See docs/adr/0032-priority-history-is-an-audit-table.md.
+    """
+
+    # Blank is a real value at both ends, not a missing one - it's the
+    # untriaged state InclusionReferral.priority defaults to (see its own
+    # comment), so the first triage of a referral reads Untriaged -> High.
+    # No `choices=` for that reason: '' isn't one of PRIORITY_CHOICES, and
+    # constraining the column would reject exactly the rows that record a
+    # referral being set back to untriaged. The valid-value check lives once,
+    # in lifecycle.set_referral_priority.
+    referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='priority_changes')
+    from_priority = models.CharField(max_length=10, blank=True, default='')
+    to_priority = models.CharField(max_length=10, blank=True, default='')
+    changed_by = models.ForeignKey('core.Staff', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    # default=timezone.now rather than auto_now_add, which ignores whatever a
+    # caller assigns. Same injected-clock convention as lifecycle/reconcile
+    # (ADR 0019): a test asserting on ordering and a seed writing a plausible
+    # multi-step history both need to say when a change happened.
+    changed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        # Newest first, unlike a ThreadEntry's oldest-first prose: this reads
+        # as an audit trail answering "what happened to it most recently",
+        # not as a narrative read top to bottom. The pk tiebreak keeps two
+        # changes seeded at the same instant in a stable order.
+        ordering = ['-changed_at', '-id']
+        db_table = 'inclusion_referralprioritychange'
+
+    UNTRIAGED_LABEL = 'Untriaged'
+
+    def _label(self, value):
+        return dict(InclusionReferral.PRIORITY_CHOICES).get(value) or self.UNTRIAGED_LABEL
+
+    @property
+    def from_label(self):
+        # get_FOO_display() can't do this job: the fields carry no `choices`
+        # (above), and '' has to read as Untriaged rather than as empty.
+        return self._label(self.from_priority)
+
+    @property
+    def to_label(self):
+        return self._label(self.to_priority)
+
+    def __str__(self):
+        return f'Referral #{self.referral_id} priority {self.from_label} -> {self.to_label}'
+
+
 class ReferralResponse(models.Model):
     referral = models.ForeignKey(InclusionReferral, on_delete=models.CASCADE, related_name='responses')
     question = models.ForeignKey(ReferralQuestion, on_delete=models.PROTECT)
