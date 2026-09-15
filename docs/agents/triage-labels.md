@@ -36,11 +36,13 @@ They are also opt-out rather than opt-in: a ticket nobody has judged still runs.
 
 Everything still waits for the off-hours window (weekday evenings and nights, or any time at the weekend), approved runs included. Approval says whether; the window says when.
 
-Labelling during the day is no longer something you have to come back to. `.github/workflows/afk-queue.yml` checks hourly, and when the window opens it dispatches the lowest-numbered eligible ticket itself. So "mark it ready and forget about it" is the whole interaction — nothing needs a machine left on overnight, which is what this replaced (see [#277](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/277)).
+Labelling during the day is no longer something you have to come back to. `.github/workflows/afk-queue.yml` ticks every quarter of an hour, and when the window opens it dispatches the lowest-numbered eligible ticket itself. So "mark it ready and forget about it" is the whole interaction — nothing needs a machine left on overnight, which is what this replaced (see [#277](https://github.com/bendanielsuri-hue/LWLAT-Portal/issues/277)).
 
 Runs are serialised — one at a time, queued not cancelled. Runs draw on a Claude subscription's rolling usage window rather than per-token billing, so several finishing together can empty the window you were about to work in; and tickets in a dependency chain touch the same files, so parallel runs produce PRs that conflict.
 
-The queue advances by watching for a run to *finish* rather than by firing a batch, and that is a correctness requirement rather than good manners: GitHub allows only one **pending** run per concurrency group, so a third dispatch cancels the one already waiting. Anything that queued several at once would silently lose most of them.
+The queue advances one ticket at a time rather than firing a batch, and that is a correctness requirement rather than good manners: GitHub allows only one **pending** run per concurrency group, so a third dispatch cancels the one already waiting. Anything that queued several at once would silently lose most of them.
+
+The hand-off is the agent's last step asking the queue for the next ticket. Watching for the run to finish (`workflow_run`) was tried first and does not fire at all: the agent run is started by the queue's `GITHUB_TOKEN`, and GitHub suppresses further events from token-triggered runs. `workflow_dispatch` is a documented exception to that suppression, which is why asking works where being watched did not. The schedule is the safety net if a hand-off is ever missed.
 
 ### How a run ends
 

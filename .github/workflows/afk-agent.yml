@@ -310,3 +310,31 @@ jobs:
           exit 1
         env:
           GH_TOKEN: ${{ github.token }}
+
+      # Ask the queue for the next ticket. `always()` because the step above
+      # deliberately exits non-zero when a run produced no PR, and a failed
+      # ticket must not stop the queue — the next one is unrelated work.
+      #
+      # This is how the queue advances at all. `workflow_run` on this
+      # workflow completing was the obvious mechanism and does not fire:
+      # this run was started by the queue's GITHUB_TOKEN, and GitHub's
+      # recursion suppression stops a token-triggered run from raising
+      # further events. `workflow_dispatch` is a documented exception to
+      # that suppression, so asking is reliable where being watched was not.
+      #
+      # Only when this run actually did work. A run that skipped on the
+      # window or on an ineligible ticket must not ask for another, or the
+      # pair spin against each other: queue dispatches, agent skips, agent
+      # asks, queue dispatches.
+      #
+      # Passing this run's own id matters — it is still in progress while
+      # this step executes, and the queue's "is an agent already busy?"
+      # check would otherwise see it and stall on this ticket forever.
+      - name: Ask the queue for the next ticket
+        if: always() && steps.time_check.outputs.allowed == 'true' && steps.target.outputs.eligible == 'true'
+        run: |
+          gh workflow run afk-queue.yml --repo "${{ github.repository }}" \
+            -f after_run="${{ github.run_id }}"
+          echo "::notice::Asked the queue for the next ticket."
+        env:
+          GH_TOKEN: ${{ github.token }}

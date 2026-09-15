@@ -23,21 +23,44 @@ on:
   # of a free runner per hour and cannot drift. GitHub also delays or drops
   # scheduled runs under load, which an hourly schedule shrugs off and a
   # once-a-day one does not.
+  # Two jobs. It opens the queue when the window opens, and it is the safety
+  # net if the hand-off below ever fails to fire — a tick every quarter hour
+  # means a broken hand-off costs fifteen minutes of idle rather than the
+  # whole night. With eleven tickets and a twelve-hour window, the schedule
+  # alone would get through most of the queue unaided.
+  #
+  # Hours are deliberately wider than the window and in UTC, because cron
+  # has no notion of British Summer Time and a pinned hour silently slips by
+  # one in late October. The job re-checks the real window in Europe/London
+  # and exits in seconds outside it, so the extra ticks cost almost nothing.
   schedule:
-    - cron: '7 * * * *'
+    - cron: '7,22,37,52 18-23,0-7 * * 1-5'
+    - cron: '7,22,37,52 * * * 6,0'
 
-  # The queue advances itself: when one agent run finishes, start the next.
-  # This is what makes the sequencing correct rather than merely tidy —
+  # The queue advances one ticket at a time, and afk-agent.yml's last step
+  # dispatches this workflow when it has finished real work. That indirection
+  # is not a style choice: `workflow_run` was tried here first and does not
+  # fire, because the agent run is itself started by this workflow's
+  # GITHUB_TOKEN, and GitHub's recursion suppression stops a token-triggered
+  # run from raising further events. `workflow_dispatch` is one of the two
+  # documented exceptions, so the agent asking for the next ticket works
+  # where watching for it to finish silently did not.
+  #
+  # Sequencing one at a time is a correctness requirement, not tidiness:
   # afk-agent.yml's concurrency group allows only one *pending* run, so
-  # dispatching several at once would leave the last one queued and cancel
-  # the ones waiting behind it. Waiting for completion is the only way every
-  # ticket in the queue actually gets its turn.
-  workflow_run:
-    workflows: ['AFK agent (ready-for-agent)']
-    types: [completed]
-
-  # Manual kick, for testing and for starting a queue early on a weekend.
+  # dispatching several at once leaves the last one queued and cancels the
+  # ones waiting behind it.
   workflow_dispatch:
+    inputs:
+      after_run:
+        # The agent run that asked for the next ticket is still in progress
+        # when it asks — dispatching the queue is its own last step. Without
+        # naming it here, the busy check below would see it, conclude an
+        # agent is already working, and stall the queue permanently on
+        # ticket one.
+        description: 'Run id to ignore when checking whether an agent is busy'
+        required: false
+        type: string
 
 # Two schedulers racing would hand out the same ticket twice. Queued rather
 # than cancelled so a tick that arrives while another is deciding still gets
@@ -58,6 +81,19 @@ jobs:
           set -euo pipefail
           repo="${{ github.repository }}"
 
+          # afk-agent.yml owns the authoritative window check — it is what
+          # actually refuses to spend. This is a second, cheaper copy of the
+          # same question, and it exists to stop a spin: without it, the
+          # queue would dispatch during work hours, the agent would skip,
+          # and the hourly tick would do it again every hour all day. Keep
+          # the two in step; if one moves, move both.
+          dow=$(TZ='Europe/London' date +%u)   # 1=Mon .. 7=Sun
+          hour=$(TZ='Europe/London' date +%H)  # 00-23
+          if ! { [ "$dow" -ge 6 ] || [ "$hour" -ge 19 ] || [ "$hour" -lt 7 ]; }; then
+            echo "::notice::Outside the off-hours window. Nothing dispatched."
+            exit 0
+          fi
+
           # Never run two agents at once. afk-agent.yml's concurrency group
           # would queue the second, and a queued run is exactly what gets
           # cancelled when a third arrives — so the guard belongs here,
@@ -66,11 +102,10 @@ jobs:
           # `workflow_run` fires on completion, but the run that just
           # finished can still be reported as in_progress for a moment, so
           # its own id is excluded rather than waiting and hoping.
-          just_finished="${{ github.event.workflow_run.id }}"
-          just_finished="${just_finished:-0}"
+          after_run="${{ inputs.after_run }}"
           busy=$(gh run list --repo "$repo" --workflow afk-agent.yml --limit 20 \
                    --json databaseId,status \
-                 | jq --argjson skip "$just_finished" '
+                 | jq --argjson skip "${after_run:-0}" '
                      [ .[]
                        | select(.status == "in_progress" or .status == "queued" or .status == "waiting")
                        | select(.databaseId != $skip)
