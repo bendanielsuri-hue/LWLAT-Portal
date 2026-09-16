@@ -16,6 +16,7 @@ import { initSelectable } from '../../../js/components/selectable.js';
 import { setupOverflowTabs } from '../../../js/components/overflow-tabs.js';
 import { initCarousel } from '../../../js/components/carousel.js';
 import { touchMql, phoneMql } from '../../../js/layout/breakpoints.js';
+import { flash } from '../../../js/components/flash.js';
 
 // Shared by both tab rows (My Referrals' setupTabs below, My Actions'
 // initActionTabs) - "All" is always first and never collapses on its own
@@ -636,6 +637,43 @@ function wireActionForms() {
                 body: new FormData(form, e.submitter),
             }).then(function (res) { return res.text(); })
                 .then(function (html) { refreshMyActionsCard(html); })
+                .catch(function () { form.classList.remove('is-submitting'); });
+        });
+    });
+
+    // Inline one-line Add Update (#232) - posts the same add_action_update
+    // the modal's own Updates step posts (dialogs/action-form.js's
+    // postUpdate), straight from the card. Nothing on the card itself shows
+    // a thread to grow in place - that stays the modal's job - so success
+    // just clears the input and flashes the form green, rather than
+    // refreshMyActionsCard's full-card swap which would also wipe out
+    // whatever is half-typed in every OTHER card's own input.
+    document.querySelectorAll('#actions-card [data-action-inline-update-form]').forEach(function (form) {
+        if (form.dataset.ajaxWired) return;
+        form.dataset.ajaxWired = 'true';
+        // initSelectable (components/selectable.js) only ignores a click or
+        // Enter/Space keydown on an `a`/`button` - a plain text <input>
+        // isn't one, so without this every tap into the field (or pressing
+        // Enter to submit) would also toggle the card's own .chosen state
+        // underneath it.
+        form.addEventListener('click', function (e) { e.stopPropagation(); });
+        form.addEventListener('keydown', function (e) { e.stopPropagation(); });
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var input = form.querySelector('[data-action-inline-update-input]');
+            if (!input || !input.value.trim()) return;
+            form.classList.add('is-submitting');
+            fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form),
+            }).then(function (res) { return res.json(); })
+                .then(function (data) {
+                    form.classList.remove('is-submitting');
+                    if (!data.success) return;
+                    input.value = '';
+                    flash(form, 'added');
+                })
                 .catch(function () { form.classList.remove('is-submitting'); });
         });
     });

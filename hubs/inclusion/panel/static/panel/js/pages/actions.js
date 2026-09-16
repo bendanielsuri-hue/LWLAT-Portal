@@ -12,6 +12,8 @@
 
 import { initListPage } from '../../../js/list-page/list-page.js';
 import { debounceTrailing } from '../../../js/components/debounce.js';
+import { closest } from '../../../js/components/dom.js';
+import { flash } from '../../../js/components/flash.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
@@ -140,4 +142,58 @@ document.addEventListener('DOMContentLoaded', function () {
     // overflowing columns onto a second line on its own (flex-wrap: wrap),
     // so capping its height to one line and clipping crops that wrapped
     // line away with nothing left to measure or flash.
+
+    // Add Update (#232): delegated on the container itself rather than
+    // wired per-row, so both the infinite-scroll continuation
+    // (_actions_rows.html rows appended in place, list-page.js) and a full
+    // filter re-render pick this up for free - unlike row-buttons-wrapped's
+    // MutationObserver above, there's no per-row re-init step to remember.
+    //
+    // The stopPropagation guard runs in the capture phase, ahead of
+    // .entity-list's own bubble-phase [data-selectable] click handler
+    // (components/selectable.js): that handler only ignores a click on an
+    // `a`/`button`, and a plain text <input> isn't one, so without this a
+    // tap into the field would also toggle the row's own .chosen state.
+    container.addEventListener('click', function (e) {
+        if (closest(e.target, '[data-action-row-update-form]')) e.stopPropagation();
+    }, true);
+    container.addEventListener('keydown', function (e) {
+        if (closest(e.target, '[data-action-row-update-form]')) e.stopPropagation();
+    }, true);
+
+    container.addEventListener('click', function (e) {
+        var toggle = closest(e.target, '[data-add-update-toggle]');
+        if (!toggle) return;
+        var row = closest(toggle, '.entity-row');
+        var form = row ? row.querySelector('[data-action-row-update-form]') : null;
+        if (!form) return;
+        var opening = form.hidden;
+        form.hidden = !opening;
+        toggle.setAttribute('aria-expanded', String(opening));
+        if (opening) form.querySelector('[data-action-row-update-input]').focus();
+    });
+
+    container.addEventListener('submit', function (e) {
+        var form = closest(e.target, '[data-action-row-update-form]');
+        if (!form) return;
+        e.preventDefault();
+        var input = form.querySelector('[data-action-row-update-input]');
+        if (!input || !input.value.trim()) return;
+        form.classList.add('is-submitting');
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form),
+        }).then(function (res) { return res.json(); })
+            .then(function (data) {
+                form.classList.remove('is-submitting');
+                if (!data.success) return;
+                input.value = '';
+                flash(form, 'added');
+                form.hidden = true;
+                var toggle = closest(form, '.entity-row').querySelector('[data-add-update-toggle]');
+                if (toggle) toggle.setAttribute('aria-expanded', 'false');
+            })
+            .catch(function () { form.classList.remove('is-submitting'); });
+    });
 });
