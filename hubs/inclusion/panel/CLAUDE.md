@@ -50,6 +50,7 @@ Both were underscore-private functions inside the old single `views.py` until th
 - Agenda mutations shared by Panel Agenda Setup and the live Panel Agenda page: `set_referral_priority(referral_id, priority)` / `reorder_panel_referrals(panel, ordered_ids)`. Each call site keeps its own guard (Setup has none pre-meeting; Agenda gates on `lifecycle.panel_is_ended`/discussion_status) — only the mutation body is shared.
 - Reads: `stage(pr)` → `(stage_key, label)` for a single PanelReferral (`discussing`/`assigned`/`deferred`/`requires_follow_up`/`complete`) — distinct from the referral-wide aggregate. `is_last_open_review(pr)`, `panel_is_ended(panel)`, `panel_had_any_discussion(panel)`.
 - `sync_referral_status(referral, today=None)` stays public for bulk loops and data repair. **A new mutation path should become a verb here rather than a new caller of this.**
+- `due_date_band(due_date, today=None)` — the `review_scheduled`/`awaiting_review`/`overdue_review` day-based tiering above, factored out for any other caller banding a due date the same way (`views/home.py`'s My Actions card uses it for `Action.due_date`, #245) rather than reimplementing the 7-day thresholds.
 
 **`reconcile.py` — the transitions nobody clicks.** A meeting going `delayed`, a stale meeting auto-ending, a quiet discussion timer stopping. One entry point, `reconcile_panels(now=None)`; `now` is a parameter throughout, which is what makes `STALE_PANEL_TIMEOUT` (60 min), `STALE_PANEL_WARNING_LEAD` (5 min) and `STALE_DISCUSSION_TIMEOUT` (30 min) testable at all.
 
