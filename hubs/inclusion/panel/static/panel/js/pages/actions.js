@@ -37,7 +37,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var submitter = e.submitter;
         if (!submitter || submitter.value !== 'not_needed' || submitter.classList.contains('active')) return;
         e.preventDefault();
-        showNotRequiredPrompt(form, {
+        // Anchored after the whole facts row, not the form itself - every
+        // .row-fact-col here (facts-strip.css) clips overflow to lay its
+        // columns out predictably, so a prompt box dropped inside the
+        // narrow Status column would be cropped instead of shown.
+        var anchor = form.closest('.row-facts-shell') || form;
+        showNotRequiredPrompt(anchor, {
             onResolve: function (note) {
                 var noteInput = document.createElement('input');
                 noteInput.type = 'hidden';
