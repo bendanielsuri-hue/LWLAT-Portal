@@ -613,9 +613,6 @@ function initActionTabs() {
 // (INT-M2: count-delta pulse; INT-M1: transition rather than a jump for
 // tabs entering/leaving the tab row). data-ajax-wired guards against double-
 // binding the same form across repeated initActionTabs-style re-inits.
-// FormData(form, submitter) picks up the clicked option's own name/value
-// pair, same as Panel Discussion's inline Actions column
-// (panel/js/components/action-assign.js).
 function wireActionForms() {
     document.querySelectorAll('#actions-card [data-action-status-form]').forEach(function (form) {
         if (form.dataset.ajaxWired) return;
