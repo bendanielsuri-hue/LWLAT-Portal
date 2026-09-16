@@ -163,6 +163,9 @@
     <div class="setup-col switch-card" id="panel-agenda-card">
         <div class="setup-col-header">
             <h2>Panel Agenda <span class="card-count count" data-count-key="heading" data-count="{{ agenda|length }}">({{ agenda|length }})</span></h2>
+            {% if agenda_estimated_total %}
+            <span class="entity-meta agenda-estimated-total" title="Estimated total discussion time for the {{ agenda_estimated_count }} agenda item{{ agenda_estimated_count|pluralize }} with an estimate, based on past discussion durations">Est. {{ agenda_estimated_total }} for {{ agenda_estimated_count }} item{{ agenda_estimated_count|pluralize }}</span>
+            {% endif %}
             {% if panel.status == 'draft' or panel.status == 'ready' %}
             <form method="post" class="ready-toggle-form" id="ready-toggle-form">
                 {% csrf_token %}
@@ -231,6 +234,16 @@
                                 <span>{{ pr.actions_complete }} of {{ pr.actions_total }} actions complete</span>
                             </div>
                             {% endif %}
+                            {% endif %}
+                            {% if pr.estimated_duration_display %}
+                            {% comment %}
+                            Which of the two averages produced this number is
+                            legible rather than a bare figure - one drawn from
+                            this referral's own past discussion(s) deserves
+                            different confidence from a chair than one drawn
+                            from the whole portal's history (#244).
+                            {% endcomment %}
+                            <div class="entity-meta">Est. discussion time: {{ pr.estimated_duration_display }} <span class="status-pill" title="{% if pr.estimated_duration_source == 'own' %}Averaged from this referral's own past discussions{% else %}No past discussion of this referral yet - averaged across every past discussion{% endif %}">{% if pr.estimated_duration_source == 'own' %}from history{% else %}portal average{% endif %}</span></div>
                             {% endif %}
                         </div>
                     </div>
