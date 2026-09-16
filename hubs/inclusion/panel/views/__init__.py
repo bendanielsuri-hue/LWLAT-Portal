@@ -102,6 +102,7 @@ from .referrals import (
 
 from .actions import (
     ACTION_FILTERS,
+    inclusion_panel_action_add_update,
     inclusion_panel_action_inline_update,
     inclusion_panel_action_new,
     inclusion_panel_action_set_status,

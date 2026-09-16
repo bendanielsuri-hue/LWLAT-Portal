@@ -11,6 +11,7 @@ the DOM like {% if count %} used to, so home.html's JS has something to
 animate in when a count goes from 0 back up.
 {% endcomment %}
 {% load avatar_extras %}
+{% load static %}
 <div class="card" id="actions-card">
     <div class="card-header">
         <h2>My Actions</h2>
@@ -135,6 +136,26 @@ animate in when a count goes from 0 back up.
                         <div class="stack-item-meta">Completed: {{ action.completed_at|date:"d/m/Y"|default:"—" }}</div>
                         {% endif %}
                     </div>
+                    {% comment %}
+                    Inline one-line add (#232) - the same add_action_update
+                    posted by the modal's own Updates step
+                    (dialogs/action-form.js's postUpdate), just aimed at
+                    inclusion_panel_action_add_update (action_id only, no
+                    referral in the URL) instead of the modal's edit view, so
+                    a line can be logged from the card someone is already
+                    sitting on without opening Add Action at all. wireActionForms
+                    (below) intercepts the submit; no thread renders here -
+                    reviewing what's already been posted is still the
+                    modal's job, this is only for adding.
+                    {% endcomment %}
+                    <form method="post" action="{% url 'inclusion_panel_action_add_update' action.id %}" class="action-inline-update-form" data-action-inline-update-form>
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="add_action_update">
+                        <input type="text" name="body" class="action-inline-update-input" data-action-inline-update-input placeholder="Add an update…" maxlength="4000">
+                        <button type="submit" class="btn btn-icon-only btn-sm" data-action-inline-update-submit aria-label="Post update">
+                            <span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/checkmark.svg' %}#icon"></use></svg></span>
+                        </button>
+                    </form>
                 </div>
             </div>
         </li>

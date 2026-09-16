@@ -296,8 +296,28 @@ own _students_rows.html/_referrals_rows.html.
         {% endcomment %}
         <div class="btn-row action-row-buttons">
             <button type="button" class="btn btn-sm btn-secondary" data-view-referral-trigger data-referral-id="{{ action.referral.id }}" data-next="{{ actions_list_url }}">Referral Details</button>
+            {% comment %}
+            Add Update (#232) - toggles the inline one-line form below
+            (data-action-row-update-form, hidden until this is pressed)
+            rather than opening Edit Action's modal: recording a line
+            someone just tried is the point of this button, not editing
+            the action itself. wireActionRowUpdateForms (actions.js) owns
+            the toggle and the fetch/flash on submit - same
+            add_action_update vocabulary and rendered-entry response the
+            modal's own Updates step and My Actions' inline add both use
+            (inclusion_panel_action_add_update).
+            {% endcomment %}
+            <button type="button" class="btn btn-sm btn-secondary" data-add-update-toggle aria-expanded="false"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/new.svg' %}#icon"></use></svg></span> <span class="btn-label">Add Update</span></button>
             <button type="button" class="btn btn-primary btn-sm" data-add-action-trigger data-referral-id="{{ action.referral.id }}" data-edit-action-id="{{ action.id }}"><span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/edit.svg' %}#icon"></use></svg></span> <span class="btn-label">Edit Action</span></button>
         </div>
+        <form method="post" action="{% url 'inclusion_panel_action_add_update' action.id %}" class="action-inline-update-form" data-action-row-update-form hidden>
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="add_action_update">
+            <input type="text" name="body" class="action-inline-update-input" data-action-row-update-input placeholder="Add an update…" maxlength="4000">
+            <button type="submit" class="btn btn-icon-only btn-sm" aria-label="Post update">
+                <span class="btn-icon"><svg aria-hidden="true"><use href="{% static 'img/icons/ui/checkmark.svg' %}#icon"></use></svg></span>
+            </button>
+        </form>
     </div>
 </div>
 {% empty %}

@@ -106,6 +106,42 @@ ACTION_FILTERS = FilterSet(
 )
 
 
+def _post_action_update(request, action):
+    # Shared by the modal's own Updates step (inclusion_panel_action_new,
+    # below) and inclusion_panel_action_add_update - same POST vocabulary,
+    # same author resolution (_current_staff), same rendered fragment, so an
+    # update posted from a list row is indistinguishable from one posted in
+    # the modal. Answers with the rendered entry rather than a redirect, same
+    # reasoning as the modal's own version: whatever page it's called from
+    # grows the thread in place instead of reloading.
+    if request.method != 'POST' or request.POST.get('form_action') != form_actions.ADD_ACTION_UPDATE:
+        return JsonResponse({'success': False})
+    body = request.POST.get('body', '').strip()
+    if not body:
+        return JsonResponse({'success': False})
+    update = ActionUpdate.objects.create(action=action, author=_current_staff(request), body=body)
+    return JsonResponse({'success': True, 'html': render_to_string(
+        'hubs/inclusion/panel/_action_update_entry.html', {'update': update}, request=request,
+    )})
+
+
+def inclusion_panel_action_add_update(request, action_id):
+    # My Actions' inline one-line add (_my_actions_card.html) and the Actions
+    # list row's add-note button (_actions_rows.html) both post here by
+    # action_id alone - neither has a referral in its URL the way the modal's
+    # own Updates step does (that step is reached from within an edit, always
+    # inside a referral's Add Action modal). visible_actions_for is the same
+    # sensitivity gate _my_actions_context/inclusion_panel_actions already
+    # filter their rows through, so a 404 here means the row itself
+    # shouldn't have rendered an add affordance in the first place, not a
+    # second independent check drifting from theirs.
+    current_staff = _current_staff(request)
+    action = get_object_or_404(
+        visible_actions_for(current_staff, Action.objects.all()), pk=action_id,
+    )
+    return _post_action_update(request, action)
+
+
 def inclusion_panel_actions(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     school_key = current_school_key(request)
@@ -349,15 +385,9 @@ def inclusion_panel_action_new(request, referral_id):
         # redirect so the thread grows in place without throwing away the
         # half-filled form around it.
         if request.POST.get('form_action') == form_actions.ADD_ACTION_UPDATE:
-            body = request.POST.get('body', '').strip()
-            if not action or not body:
+            if not action:
                 return JsonResponse({'success': False})
-            update = ActionUpdate.objects.create(
-                action=action, author=_current_staff(request), body=body,
-            )
-            return JsonResponse({'success': True, 'html': render_to_string(
-                'hubs/inclusion/panel/_action_update_entry.html', {'update': update}, request=request,
-            )})
+            return _post_action_update(request, action)
 
         category_id = request.POST.get('category') or None
         if category_id and not categories.filter(pk=category_id).exists():

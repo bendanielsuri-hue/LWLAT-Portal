@@ -69,6 +69,16 @@
     pointer-events: none;
 }
 
+/* Same round-trip dimming as the status form above, for the inline Add
+   Update forms (#232) - those don't get a card/row replace on success to
+   clear this for free, so wireActionForms/wireActionRowUpdateForms remove
+   it themselves in both the success and failure paths. */
+[data-action-inline-update-form].is-submitting,
+[data-action-row-update-form].is-submitting {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 /* View Actions as a discreet (.btn-subtle) trigger sat directly beside the
    completion count it applies to, rather than grouped with the row's other
    actions below - it's a detail of that one stat line, not a general row
@@ -168,3 +178,37 @@
    show-more control; the full text is one click away on the Action edit
    page for the rare case someone needs it in full. */
 .action-row-description { font-size: var(--font-sm); color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Inline one-line Add Update (#232) - My Actions card
+   (_my_actions_card.html) and the Actions list row (_actions_rows.html)
+   both use this same pair, same shape as Panel Discussion's own quick Add
+   Note form (.panel-toolbar-notes-form, discussion.css) but a single-line
+   <input> rather than a <textarea>: both surfaces are a compact row/card,
+   not the discussion page's own dedicated notes card. flash()
+   (components/flash.js) adds/removes agenda-flash-added on a successful
+   post - reusing the shared class rather than inventing a second
+   confirmation animation. */
+.action-inline-update-form { display: flex; gap: var(--space-xs); align-items: stretch; min-width: 0; }
+
+/* Same `[hidden]` vs. unconditional `display` trap as panel-group.css/
+   status-pills.css already document - any author-origin declaration beats
+   the browser's own `[hidden] { display: none }` UA hint regardless of
+   specificity, so the bare rule above would otherwise leave the Actions
+   list row's toggled-closed form rendering anyway. */
+.action-inline-update-form[hidden] { display: none; }
+
+.row-btn-row-stacked + .action-inline-update-form { margin-top: var(--space-xs); }
+
+.action-inline-update-form.agenda-flash-added { background-color: color-mix(in srgb, var(--color-positive) 12%, transparent); }
+
+.action-inline-update-input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: var(--font-sm);
+    font-family: inherit;
+}
