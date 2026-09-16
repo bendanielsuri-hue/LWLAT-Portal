@@ -44,6 +44,7 @@ animate in when a count goes from 0 back up.
         <button type="button" data-action-tab="incomplete" data-count="{{ actions_incomplete_count }}" class="{% if not actions_incomplete_count %}tab-collapsed{% endif %}"{% if not actions_incomplete_count %} tabindex="-1"{% endif %}>Incomplete <span class="count">({{ actions_incomplete_count }})</span></button>
         <button type="button" data-action-tab="complete" data-count="{{ actions_complete_count }}" class="{% if not actions_complete_count %}tab-collapsed{% endif %}"{% if not actions_complete_count %} tabindex="-1"{% endif %}>Complete <span class="count">({{ actions_complete_count }})</span></button>
         <button type="button" data-action-tab="not_needed" data-count="{{ actions_not_needed_count }}" class="{% if not actions_not_needed_count %}tab-collapsed{% endif %}"{% if not actions_not_needed_count %} tabindex="-1"{% endif %}>Not Required <span class="count">({{ actions_not_needed_count }})</span></button>
+        <button type="button" data-action-tab="due_soon" data-count="{{ due_soon_actions }}" class="{% if not due_soon_actions %}tab-collapsed{% endif %}"{% if not due_soon_actions %} tabindex="-1"{% endif %}>Due Soon <span class="count">({{ due_soon_actions }})</span></button>
         <button type="button" data-action-tab="overdue" data-count="{{ overdue_actions }}" class="{% if not overdue_actions %}tab-collapsed{% endif %}"{% if not overdue_actions %} tabindex="-1"{% endif %}>Overdue <span class="count">({{ overdue_actions }})</span></button>
     </div>
     {% endif %}
@@ -52,7 +53,7 @@ animate in when a count goes from 0 back up.
     <div class="action-carousel-fade-l"></div>
     <ul class="stack-list" id="my-actions-list" data-selectable="single">
         {% for action in my_actions %}
-        <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}">
+        <li class="selectable" tabindex="0" role="button" aria-pressed="false" data-status="{{ action.status }}" data-overdue="{% if action.is_overdue %}true{% else %}false{% endif %}" data-due-soon="{% if action.is_due_soon %}true{% else %}false{% endif %}">
             <div class="stack-item-body stack-item-body--two-col">
                 <div class="stack-item-col stack-item-col--student">
                     <div class="stack-item-thumb-row">
@@ -124,7 +125,16 @@ animate in when a count goes from 0 back up.
                     {% comment %} Same prominent row-title treatment as the Referral Details modal's own Actions section heading (_action_row.html). Overdue now shares this line with the category (reusing .referral-category-row, home.html's own My Referrals category+pill row) rather than sitting on the Due Date line below - live feedback: "the Overdue Pill should move to the Action Category row". {% endcomment %}
                     <div class="referral-category-row">
                         <span class="referral-row-title">{{ action.category|default:"No category" }}</span>
-                        {% if action.is_overdue %}<div class="stack-item-pills"><span class="status-pill danger">Overdue</span></div>{% endif %}
+                        {% comment %}
+                        Same 3-tier band as InclusionReferral's own follow-up
+                        pill (status-pill review_scheduled/awaiting_review/
+                        overdue_review, status-pills.css) rather than a flat
+                        Overdue-only pill (#245) - review_scheduled (more than
+                        a week out) isn't urgent enough to earn a pill at all,
+                        same as before for anything not yet overdue.
+                        {% endcomment %}
+                        {% if action.due_band == 'overdue_review' %}<div class="stack-item-pills"><span class="status-pill overdue_review">Overdue</span></div>
+                        {% elif action.due_band == 'awaiting_review' %}<div class="stack-item-pills"><span class="status-pill awaiting_review">Due Soon</span></div>{% endif %}
                     </div>
                     <div class="stack-item-note">{{ action.description|default:"No description." }}</div>
                     <div class="stack-item-meta-group">
@@ -133,6 +143,9 @@ animate in when a count goes from 0 back up.
                         </div>
                         {% if action.status == 'complete' %}
                         <div class="stack-item-meta">Completed: {{ action.completed_at|date:"d/m/Y"|default:"—" }}</div>
+                        {% endif %}
+                        {% if action.assigned_to_group %}
+                        <div class="stack-item-meta">Assigned to: {{ action.assigned_to_group }}</div>
                         {% endif %}
                     </div>
                 </div>
