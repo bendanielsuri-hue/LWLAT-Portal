@@ -12,6 +12,7 @@
 
 import { initListPage } from '../../../js/list-page/list-page.js';
 import { debounceTrailing } from '../../../js/components/debounce.js';
+import { showNotRequiredPrompt } from '../components/action-not-required-prompt.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     var filterBar = document.querySelector('form.filter-bar');
@@ -22,6 +23,35 @@ document.addEventListener('DOMContentLoaded', function () {
     initListPage(container, {
         filterBar: filterBar,
         buttonRowSelector: '.action-row-buttons',
+    });
+
+    // Not Required note prompt (#235) - one delegated listener on the list
+    // root survives every innerHTML swap (filter re-fetch, infinite scroll),
+    // so rows added after this runs are covered without re-wiring. The
+    // segmented control's own submit is a real page navigation (no AJAX on
+    // this page) - intercepted only for the one transition that needs the
+    // prompt; every other status change submits exactly as before.
+    container.addEventListener('submit', function (e) {
+        var form = e.target.closest('.action-status-segmented-form');
+        if (!form) return;
+        var submitter = e.submitter;
+        if (!submitter || submitter.value !== 'not_needed' || submitter.classList.contains('active')) return;
+        e.preventDefault();
+        showNotRequiredPrompt(form, {
+            onResolve: function (note) {
+                var noteInput = document.createElement('input');
+                noteInput.type = 'hidden';
+                noteInput.name = 'note';
+                noteInput.value = note;
+                form.appendChild(noteInput);
+                var statusInput = document.createElement('input');
+                statusInput.type = 'hidden';
+                statusInput.name = 'status';
+                statusInput.value = 'not_needed';
+                form.appendChild(statusInput);
+                form.submit();
+            },
+        });
     });
 
     // Wrap-detection for the 481-1179px tablet band (panel.css) - lighter

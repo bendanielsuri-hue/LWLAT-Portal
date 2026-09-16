@@ -11,6 +11,7 @@
 import { closeModalWithFadeOut, animateModalHeightChange as sharedAnimateModalHeightChange } from '../../../js/components/modal.js';
 import { snapshotFormValues, formValuesDirty, confirmModalDiscard } from '../../../js/components/form-dirty.js';
 import { enhanceFormControls } from '../../../js/components/form-controls.js';
+import { showNotRequiredPrompt } from '../components/action-not-required-prompt.js';
 
 (function () {
     var dialog = document.getElementById('new-referral-dialog');
@@ -302,21 +303,49 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
         var container = select.closest('[data-action-toggle-form]');
         if (!container) return;
 
-        var body = new FormData();
-        container.querySelectorAll('input').forEach(function (input) {
-            body.append(input.name, input.value);
-        });
-        body.append(select.name, select.value);
+        var previousStatus = select.dataset.currentStatus;
+        var newStatus = select.value;
 
-        fetch(container.dataset.actionUrl, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: body,
-        }).then(function (res) { return res.text(); })
-            .then(function (html) {
-                dialog.innerHTML = html;
-                enhanceFormControls(dialog);
-                wireStudentPicker();
+        function postStatus(note) {
+            var body = new FormData();
+            container.querySelectorAll('input').forEach(function (input) {
+                body.append(input.name, input.value);
             });
+            body.append(select.name, newStatus);
+            if (note) body.append('note', note);
+
+            fetch(container.dataset.actionUrl, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: body,
+            }).then(function (res) { return res.text(); })
+                .then(function (html) {
+                    dialog.innerHTML = html;
+                    enhanceFormControls(dialog);
+                    wireStudentPicker();
+                });
+        }
+
+        // Not Required note prompt (#235) - a native <select>'s own displayed
+        // value already changed the instant the option was picked, unlike
+        // the segmented-button controls elsewhere (nothing visibly changes
+        // there until the server responds), so this is the one status
+        // control that has to actively snap back to the old value while the
+        // prompt is open - otherwise cancelling it would leave the row
+        // looking like the change had half-happened.
+        if (newStatus === 'not_needed' && previousStatus !== 'not_needed') {
+            select.value = previousStatus;
+            if (select._uiSelect) select._uiSelect.refresh();
+            showNotRequiredPrompt(container, {
+                onResolve: function (note) {
+                    select.value = newStatus;
+                    if (select._uiSelect) select._uiSelect.refresh();
+                    postStatus(note);
+                },
+            });
+            return;
+        }
+
+        postStatus('');
     });
 })();

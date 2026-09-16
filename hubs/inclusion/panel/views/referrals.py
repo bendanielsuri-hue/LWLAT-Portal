@@ -47,6 +47,7 @@ from .shared import (
     _safe_next,
     _term_choices_and_ranges,
     _token_name_filter,
+    apply_action_status,
     visible_actions_for,
 )
 
@@ -614,9 +615,7 @@ def inclusion_panel_action_status_update(request, referral_id):
         action = get_object_or_404(Action, pk=request.POST.get('action_id'), referral=referral)
         status = request.POST.get('status')
         if status in dict(Action.STATUS_CHOICES):
-            action.status = status
-            action.completed_at = timezone.now() if status == 'complete' else None
-            action.save()
+            apply_action_status(action, status, request.POST.get('note', ''), current_staff)
 
     question_groups = _grouped_questions()
     existing_answers = {r.question_id: r.answer for r in referral.responses.all()}

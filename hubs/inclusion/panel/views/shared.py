@@ -9,13 +9,14 @@ only one page calls stays with that page.
 
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from core.models import SafeguardingNote, Term
 from core.school_scope import SchoolScope
 from core.term_dates import upcoming_review_terms
 
-from ..models import ActionCategory, PanelGroupMember
+from ..models import ActionCategory, ActionUpdate, PanelGroupMember
 
 def _next_term_option(school, as_of):
     # The single immediate-next term for a "Due in..." preset (Add Action's
@@ -65,6 +66,22 @@ def _is_panel_staff(staff):
     if staff is None:
         return False
     return PanelGroupMember.objects.filter(staff=staff, is_active=True).exists()
+
+
+def apply_action_status(action, status, note, author):
+    # Sets Action.status/completed_at and, when `note` is non-blank, files it
+    # as an ordinary ActionUpdate - the one-line "what happened?" box offered
+    # only on the Not Required transition (#235), everywhere status can be
+    # changed (Actions list row, Home's My Actions card, Discussion's inline
+    # row, Referral Details' Actions section). One entry point so a new
+    # status-change surface can't reintroduce the prompt without the note
+    # actually being saved.
+    action.status = status
+    action.completed_at = timezone.now() if status == 'complete' else None
+    action.save()
+    note = (note or '').strip()
+    if note:
+        ActionUpdate.objects.create(action=action, author=author, body=note)
 
 
 def visible_categories_for(staff, categories=None):

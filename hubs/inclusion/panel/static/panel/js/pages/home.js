@@ -16,6 +16,7 @@ import { initSelectable } from '../../../js/components/selectable.js';
 import { setupOverflowTabs } from '../../../js/components/overflow-tabs.js';
 import { initCarousel } from '../../../js/components/carousel.js';
 import { touchMql, phoneMql } from '../../../js/layout/breakpoints.js';
+import { showNotRequiredPrompt } from '../components/action-not-required-prompt.js';
 
 // Shared by both tab rows (My Referrals' setupTabs below, My Actions'
 // initActionTabs) - "All" is always first and never collapses on its own
@@ -621,24 +622,45 @@ function wireActionForms() {
         form.dataset.ajaxWired = 'true';
         form.addEventListener('submit', function (e) {
             e.preventDefault();
-            // Dims the segmented control it's on for the round trip - on a
-            // slow connection there was previously no feedback at all
-            // between the tap and the card refreshing, which could read as
-            // unresponsive. The success path doesn't need to remove this
-            // itself - refreshMyActionsCard replaces the whole card (this
-            // form included), so the class just goes with it; only the
-            // failure path needs to clean up manually, since then the old
-            // form is what's left on screen.
-            form.classList.add('is-submitting');
-            fetch(form.action, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: new FormData(form, e.submitter),
-            }).then(function (res) { return res.text(); })
-                .then(function (html) { refreshMyActionsCard(html); })
-                .catch(function () { form.classList.remove('is-submitting'); });
+            var submitter = e.submitter;
+            // Not Required note prompt (#235) - only on the one transition
+            // that needs it (see action-not-required-prompt.js); every other
+            // status change posts immediately, same as before.
+            if (submitter && submitter.value === 'not_needed' && !submitter.classList.contains('active')) {
+                showNotRequiredPrompt(form, {
+                    onResolve: function (note) { postActionStatusForm(form, submitter, note); },
+                });
+                return;
+            }
+            postActionStatusForm(form, submitter, '');
         });
     });
+}
+
+// FormData(form, submitter) picks up the clicked option's own name/value
+// pair, same as Panel Discussion's inline Actions column (panel/js/
+// components/action-assign.js). `note` rides along as an extra field the
+// server only turns into an Action Update when non-blank (apply_action_status,
+// views/shared.py) - blank on every ordinary status change.
+function postActionStatusForm(form, submitter, note) {
+    // Dims the segmented control it's on for the round trip - on a
+    // slow connection there was previously no feedback at all
+    // between the tap and the card refreshing, which could read as
+    // unresponsive. The success path doesn't need to remove this
+    // itself - refreshMyActionsCard replaces the whole card (this
+    // form included), so the class just goes with it; only the
+    // failure path needs to clean up manually, since then the old
+    // form is what's left on screen.
+    form.classList.add('is-submitting');
+    var body = new FormData(form, submitter);
+    body.append('note', note);
+    fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: body,
+    }).then(function (res) { return res.text(); })
+        .then(function (html) { refreshMyActionsCard(html); })
+        .catch(function () { form.classList.remove('is-submitting'); });
 }
 
 // Swaps in the freshly-rendered My Actions card fragment, then diffs the old

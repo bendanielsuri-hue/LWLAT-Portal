@@ -8,6 +8,7 @@
 
 import { animateModalHeightChange } from '../../../js/components/modal.js';
 import { enhanceFormControls } from '../../../js/components/form-controls.js';
+import { showNotRequiredPrompt } from './action-not-required-prompt.js';
 
 // Panel Discussion's Actions column (see #51) - no Edit button, every field
 // on an action row autosaves in place instead. One <form data-inline-action-
@@ -18,11 +19,13 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
     var actionsList = document.querySelector('[data-actions-list]');
     if (!actionsList) return;
 
-    function submitInlineForm(form, submitter) {
+    function submitInlineForm(form, submitter, note) {
+        var body = new FormData(form, submitter);
+        if (note) body.append('note', note);
         fetch(form.dataset.actionUrl, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: new FormData(form, submitter),
+            body: body,
         }).then(function (res) { return res.text(); })
             .then(function (html) {
                 var wrapper = document.createElement('div');
@@ -87,12 +90,22 @@ import { enhanceFormControls } from '../../../js/components/form-controls.js';
     // Status is a segmented control of real submit buttons (see
     // _discussion_action_item.html) - intercept the row's own 'submit' so
     // clicking one autosaves like every other field here instead of a real
-    // page navigation.
+    // page navigation. Not Required note prompt (#235) - only on that one
+    // transition (action-not-required-prompt.js); every other status click
+    // autosaves immediately as before.
     actionsList.addEventListener('submit', function (e) {
         var form = e.target.closest('[data-inline-action-form]');
         if (!form) return;
         e.preventDefault();
-        submitInlineForm(form, e.submitter);
+        var submitter = e.submitter;
+        if (submitter && submitter.matches('.ui-segmented--action-status .ui-segmented-option')
+            && submitter.value === 'not_needed' && !submitter.classList.contains('active')) {
+            showNotRequiredPrompt(submitter.closest('.ui-segmented--action-status'), {
+                onResolve: function (note) { submitInlineForm(form, submitter, note); },
+            });
+            return;
+        }
+        submitInlineForm(form, submitter);
     });
 })();
 
