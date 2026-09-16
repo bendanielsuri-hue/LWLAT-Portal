@@ -55,6 +55,7 @@ from .meeting_shared import (
     _apply_attendance_action,
     _attendance_dialog_context,
     _due_followups,
+    _estimated_discussion_durations,
     _is_group_member,
     _mat_panel_group,
     _mat_panel_running,

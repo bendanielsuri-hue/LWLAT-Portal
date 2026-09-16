@@ -127,6 +127,9 @@ regardless if the browser closes entirely before that happens.
         <span>Students {% if agenda_readonly %}deferred{% else %}pending discussion{% endif %}: {{ pending|length }}</span>
         <span>Students discussed: {{ discussed|length }}</span>
         <span>Progress: {{ progress_pct }}%</span>
+        {% if not agenda_readonly and pending_estimated_total %}
+        <span title="Estimated remaining discussion time for the {{ pending_estimated_count }} pending item{{ pending_estimated_count|pluralize }} with an estimate, based on past discussion durations">Est. remaining: {{ pending_estimated_total }} for {{ pending_estimated_count }} item{{ pending_estimated_count|pluralize }}</span>
+        {% endif %}
         {% if is_running_long %}<span class="status-pill danger" title="This meeting has been running well past this group's typical length — consider ending it if it's finished">Running long</span>{% endif %}
     </div>
     <div class="btn-row">
@@ -294,6 +297,14 @@ regardless if the browser closes entirely before that happens.
                             <div class="entity-meta actions-complete-row">
                                 <span>{{ pr.actions_complete }} of {{ pr.actions_total }} actions complete</span>
                             </div>
+                            {% endif %}
+                            {% if not agenda_readonly and pr.estimated_duration_display %}
+                            {% comment %}
+                            Which of the two averages produced this number is
+                            legible rather than a bare figure - see the
+                            matching row in meeting_setup.html (#244).
+                            {% endcomment %}
+                            <div class="entity-meta">Est. discussion time: {{ pr.estimated_duration_display }} <span class="status-pill" title="{% if pr.estimated_duration_source == 'own' %}Averaged from this referral's own past discussions{% else %}No past discussion of this referral yet - averaged across every past discussion{% endif %}">{% if pr.estimated_duration_source == 'own' %}from history{% else %}portal average{% endif %}</span></div>
                             {% endif %}
                         </div>
                     </div>

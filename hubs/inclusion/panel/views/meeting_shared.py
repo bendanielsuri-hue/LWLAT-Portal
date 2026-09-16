@@ -8,7 +8,7 @@ which is also what keeps meetings.py and agenda.py from importing each other.
 
 import datetime
 
-from django.db.models import Max
+from django.db.models import Avg, Max
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -172,6 +172,49 @@ def _move_agenda_referral(siblings, pr_id, direction):
         a, b = siblings[idx], siblings[swap_idx]
         a.agenda_order, b.agenda_order = b.agenda_order, a.agenda_order
         PanelReferral.objects.bulk_update([a, b], ['agenda_order'])
+
+
+def _estimated_discussion_durations(referral_ids):
+    """Per-referral expected discussion length for the agenda (#244).
+
+    Own history first: if this referral (the same InclusionReferral, possibly
+    discussed at more than one past Panel) has past discussions with a
+    recorded duration, average those - a review_scheduled follow-up coming
+    back is the case where its own history is the honest predictor. A
+    referral with none of its own falls back to one shared average across
+    every past discussion in the app. Either average excludes rows with no
+    recorded duration entirely, rather than counting a missing duration as
+    zero - a discussion that was never timed is absence of data, not a
+    zero-length discussion.
+
+    Returns {referral_id: (estimate_or_None, source)} where source is 'own'
+    or 'group' - callers surface which one produced a number so a chair can
+    judge an estimate drawn from this referral's own single prior discussion
+    differently from one drawn from the whole corpus. (None, None) means
+    there is no history anywhere yet to estimate from.
+    """
+    referral_ids = list(referral_ids)
+    own_by_referral = dict(
+        PanelReferral.objects.filter(
+            referral_id__in=referral_ids, discussion_status='discussed', duration__isnull=False,
+        ).values('referral_id').annotate(avg_duration=Avg('duration')).values_list('referral_id', 'avg_duration')
+    )
+
+    group_average = None
+    if any(rid not in own_by_referral for rid in referral_ids):
+        group_average = PanelReferral.objects.filter(
+            discussion_status='discussed', duration__isnull=False,
+        ).aggregate(avg_duration=Avg('duration'))['avg_duration']
+
+    estimates = {}
+    for rid in referral_ids:
+        if rid in own_by_referral:
+            estimates[rid] = (own_by_referral[rid], 'own')
+        elif group_average:
+            estimates[rid] = (group_average, 'group')
+        else:
+            estimates[rid] = (None, None)
+    return estimates
 
 
 def _due_followups(panel, as_of=None):

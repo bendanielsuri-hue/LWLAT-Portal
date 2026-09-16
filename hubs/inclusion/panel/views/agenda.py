@@ -31,12 +31,35 @@ from .shared import _review_label, visible_actions_for
 from .meeting_shared import (
     _apply_attendance_action,
     _due_followups,
+    _estimated_discussion_durations,
     _is_group_member,
     _mat_panel_running,
     _move_agenda_referral,
     _next_agenda_order,
     _panel_member_roster,
 )
+
+
+def _annotate_estimated_durations(prs):
+    """Sets `estimated_duration`/`estimated_duration_source`/`estimated_duration_display`
+    on each still-to-discuss PanelReferral, and returns (total_display, total_count) - the
+    running total a chair reads to see whether today's agenda is realistically over-booked
+    before starting the meeting (#244). `total_count` only counts rows an estimate could
+    actually be produced for, so a handful of never-estimated rows don't silently understate
+    the total by being folded in as zero.
+    """
+    prs = list(prs)
+    estimates = _estimated_discussion_durations(pr.referral_id for pr in prs)
+    total = datetime.timedelta()
+    total_count = 0
+    for pr in prs:
+        pr.estimated_duration, pr.estimated_duration_source = estimates[pr.referral_id]
+        pr.estimated_duration_display = presenters.short_duration(pr.estimated_duration)
+        if pr.estimated_duration:
+            total += pr.estimated_duration
+            total_count += 1
+    return (presenters.short_duration(total) if total_count else None), total_count
+
 
 def inclusion_panel_meeting_setup(request, panel_id):
     reconcile.reconcile_on_read()
@@ -237,6 +260,8 @@ def inclusion_panel_meeting_setup(request, panel_id):
             pr.actions_total = status_counts['complete'] + status_counts['incomplete']
             pr.actions_complete = status_counts['complete']
 
+    agenda_estimated_total, agenda_estimated_count = _annotate_estimated_durations(agenda)
+
     # The Members section mirrors the Panel Group's live roster directly -
     # not a per-meeting snapshot - so it's always in sync with whatever the
     # "Edit" button's group modal shows, with no separate sync step needed.
@@ -273,6 +298,8 @@ def inclusion_panel_meeting_setup(request, panel_id):
         'followup_entries': followup_entries,
         'referral_selection_entries': referral_selection_entries,
         'priority_choices': InclusionReferral.PRIORITY_CHOICES,
+        'agenda_estimated_total': agenda_estimated_total,
+        'agenda_estimated_count': agenda_estimated_count,
     })
 
 
@@ -462,6 +489,7 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         pr.follow_up_date = prev_pr.follow_up_date if prev_pr else None
         pr.follow_up_overdue = bool(pr.follow_up_date and pr.follow_up_date < today)
         pr.review_label = _review_label(discussed_counts_by_referral[pr.referral_id])
+    pending_estimated_total, pending_estimated_count = _annotate_estimated_durations(pending)
 
     discussed = [pr for pr in panel_referrals if pr.discussion_status == 'discussed']
     for pr in discussed:
@@ -556,4 +584,6 @@ def inclusion_panel_meeting_agenda(request, panel_id):
         'is_running_long': is_running_long,
         'today': today,
         'priority_choices': InclusionReferral.PRIORITY_CHOICES,
+        'pending_estimated_total': pending_estimated_total,
+        'pending_estimated_count': pending_estimated_count,
     })
