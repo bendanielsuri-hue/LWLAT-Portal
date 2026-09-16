@@ -32,6 +32,7 @@ from .shared import (
     _safe_next,
     _term_choices_and_ranges,
     _token_name_filter,
+    apply_action_status,
     visible_actions_for,
     visible_categories_for,
 )
@@ -422,9 +423,7 @@ def inclusion_panel_action_set_status(request, action_id):
     if request.method == 'POST':
         status = request.POST.get('status')
         if status in dict(Action.STATUS_CHOICES):
-            action.status = status
-            action.completed_at = timezone.now() if status == 'complete' else None
-            action.save()
+            apply_action_status(action, status, request.POST.get('note', ''), _current_staff(request))
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         # Fired from the Home page's My Actions card (see home.html) so the
         # tab counts/rows can update in place with the count-delta pulse
@@ -468,9 +467,9 @@ def inclusion_panel_action_inline_update(request, action_id):
         action.due_date = datetime.date.fromisoformat(due_date_value) if due_date_value else None
         new_status = request.POST.get('status', action.status)
         if new_status != action.status:
-            action.completed_at = timezone.now() if new_status == 'complete' else None
-        action.status = new_status
-        action.save()
+            apply_action_status(action, new_status, request.POST.get('note', ''), current_staff)
+        else:
+            action.save()
 
     return render(request, 'hubs/inclusion/panel/_discussion_action_item.html', {
         'action': action,

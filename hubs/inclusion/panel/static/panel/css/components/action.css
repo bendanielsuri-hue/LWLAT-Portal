@@ -152,7 +152,11 @@
 
 .action-row-side { display: flex; flex-direction: column; }
 
-.action-row-status { margin-top: auto; padding-top: var(--space-xs); display: flex; justify-content: flex-end; gap: var(--space-xs); }
+/* flex-wrap: wrap so the Not Required prompt (below) can drop onto its own
+   full-width line under the select instead of squeezing into the same row
+   - harmless the rest of the time, since the select is the only other
+   child and never wraps on its own. */
+.action-row-status { margin-top: auto; padding-top: var(--space-xs); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-xs); }
 
 /* The status <select> gets replaced by main.js's enhanceSelect() with a
    .ui-select wrapper that defaults to width:100% (right, for full-width
@@ -168,3 +172,15 @@
    show-more control; the full text is one click away on the Action edit
    page for the rare case someone needs it in full. */
 .action-row-description { font-size: var(--font-sm); color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Not Required note prompt (#235, showNotRequiredPrompt) - inserted right
+   after whichever status control triggered it (segmented buttons or the
+   Referral Details select), on every surface that can make the change. A
+   small self-contained card rather than matching the surrounding control's
+   own chrome, since it has to look the same dropped into a segmented-button
+   row, a fused select row, or a Discussion form. */
+.action-not-required-prompt { display: flex; flex-direction: column; gap: var(--space-xs); margin-top: var(--space-xs); padding: var(--space-sm); border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-surface-alt); width: 100%; }
+
+.action-not-required-prompt textarea { width: 100%; resize: vertical; }
+
+.action-not-required-prompt .btn-row { justify-content: flex-end; }
