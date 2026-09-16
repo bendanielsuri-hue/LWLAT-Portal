@@ -2,6 +2,7 @@
 
 import datetime
 
+from django.db.models import Q
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -10,13 +11,14 @@ from core.identity import (
     current_staff as _current_staff,
     student_queryset_for_school_key,
 )
+from core.models import StaffGroupMember
 
 # Imported as modules, not as names, so a call site reads
 # `lifecycle.mark_discussed(...)` / `reconcile.reconcile_on_read()` and says
 # which of the two it is - these used to be underscore-private functions in
 # this file, and the whole point of moving them out is that a reader can see
 # where a transition lives.
-from .. import presenters, reconcile
+from .. import lifecycle, presenters, reconcile
 from ..models import Action, InclusionReferral, Panel, PanelReferral
 
 from .base import _panel_base_context
@@ -94,20 +96,44 @@ def _my_actions_context(current_staff):
     # these counts so both stay in sync.
     today = timezone.localdate()
     if current_staff is not None:
-        my_actions = Action.objects.filter(assigned_to_staff=current_staff).select_related('referral__student').order_by('referral__student__last_name', 'referral__student__first_name', 'status', 'due_date')
+        # "Mine" is assigned_to_staff=current_staff directly, OR assigned to
+        # any core.StaffGroup current_staff belongs to (#245) - group-assigned
+        # work is real work someone here is on the hook for, so a chair's Home
+        # silently omitting it would be worse than showing it.
+        my_group_ids = StaffGroupMember.objects.filter(staff=current_staff).values_list('group_id', flat=True)
+        my_actions = Action.objects.filter(
+            Q(assigned_to_staff=current_staff) | Q(assigned_to_group_id__in=my_group_ids)
+        ).select_related('referral__student', 'assigned_to_group').order_by(
+            'referral__student__last_name', 'referral__student__first_name', 'status', 'due_date'
+        )
         my_actions = list(visible_actions_for(current_staff, my_actions))
     else:
         my_actions = []
     for action in my_actions:
-        action.is_overdue = action.status == 'incomplete' and action.due_date and action.due_date < today
+        # due_band mirrors InclusionReferral's own follow-up tiering
+        # (lifecycle.due_date_band) rather than a flat overdue/not-overdue
+        # split, so Home can surface a near-due action before it's actually
+        # overdue (#245) - None for anything not currently incomplete-with-a-
+        # due-date, since a completed/not-needed action has nothing left to
+        # count down.
+        action.due_band = (
+            lifecycle.due_date_band(action.due_date, today)
+            if action.status == 'incomplete' and action.due_date else None
+        )
+        action.is_overdue = action.due_band == 'overdue_review'
+        action.is_due_soon = action.due_band == 'awaiting_review'
     overdue_actions = sum(1 for a in my_actions if a.is_overdue)
+    due_soon_actions = sum(1 for a in my_actions if a.is_due_soon)
     actions_incomplete_count = sum(1 for a in my_actions if a.status == 'incomplete')
     actions_complete_count = sum(1 for a in my_actions if a.status == 'complete')
     actions_not_needed_count = sum(1 for a in my_actions if a.status == 'not_needed')
-    show_action_tabs = sum(1 for c in (actions_incomplete_count, overdue_actions, actions_not_needed_count, actions_complete_count) if c) > 1
+    show_action_tabs = sum(
+        1 for c in (actions_incomplete_count, overdue_actions, due_soon_actions, actions_not_needed_count, actions_complete_count) if c
+    ) > 1
     return {
         'my_actions': my_actions,
         'overdue_actions': overdue_actions,
+        'due_soon_actions': due_soon_actions,
         'actions_incomplete_count': actions_incomplete_count,
         'actions_complete_count': actions_complete_count,
         'actions_not_needed_count': actions_not_needed_count,
@@ -151,6 +177,7 @@ def inclusion_panel_home(request):
     actions_ctx = _my_actions_context(current_staff)
     my_actions = actions_ctx['my_actions']
     overdue_actions = actions_ctx['overdue_actions']
+    due_soon_actions = actions_ctx['due_soon_actions']
     actions_incomplete_count = actions_ctx['actions_incomplete_count']
     actions_complete_count = actions_ctx['actions_complete_count']
     actions_not_needed_count = actions_ctx['actions_not_needed_count']
@@ -218,6 +245,7 @@ def inclusion_panel_home(request):
         'referrals_awaiting_count': referrals_awaiting_count,
         'referrals_discussed_count': referrals_discussed_count,
         'overdue_actions': overdue_actions,
+        'due_soon_actions': due_soon_actions,
         'actions_incomplete_count': actions_incomplete_count,
         'actions_complete_count': actions_complete_count,
         'actions_not_needed_count': actions_not_needed_count,

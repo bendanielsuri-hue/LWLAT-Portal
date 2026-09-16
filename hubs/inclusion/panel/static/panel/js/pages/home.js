@@ -564,6 +564,7 @@ var actionMatchers = {
     all: function (row) { return true; },
     incomplete: function (row) { return row.dataset.status === 'incomplete'; },
     overdue: function (row) { return row.dataset.overdue === 'true'; },
+    due_soon: function (row) { return row.dataset.dueSoon === 'true'; },
     not_needed: function (row) { return row.dataset.status === 'not_needed'; },
     complete: function (row) { return row.dataset.status === 'complete'; },
 };

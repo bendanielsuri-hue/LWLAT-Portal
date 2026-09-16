@@ -174,6 +174,24 @@ def reorder_panel_referrals(panel, ordered_ids):
     PanelReferral.objects.bulk_update(updated, ['agenda_order'])
 
 
+def due_date_band(due_date, today=None):
+    """Three-tier day-based banding by how close `due_date` is: 'review_scheduled'
+    (more than a week away), 'awaiting_review' (within a week either side), or
+    'overdue_review' (more than a week past). Named after sync_referral_status's
+    own follow-up tiering below, which this factors out of - shared rather than
+    reimplemented by any other caller banding a due date the same way (see
+    views/home.py's Actions Due widget, #245).
+    """
+    today = today or timezone.localdate()
+    days_until_due = (due_date - today).days
+    if days_until_due > 7:
+        return 'review_scheduled'
+    elif days_until_due >= -7:
+        return 'awaiting_review'
+    else:
+        return 'overdue_review'
+
+
 def sync_referral_status(referral, today=None):
     """Recompute InclusionReferral.status from its PanelReferral rows.
 
@@ -212,13 +230,7 @@ def sync_referral_status(referral, today=None):
             if s == 'requires_follow_up' and pr.follow_up_date
         ]
         if due_dates:
-            days_until_due = (min(due_dates) - today).days
-            if days_until_due > 7:
-                new_status = 'review_scheduled'
-            elif days_until_due >= -7:
-                new_status = 'awaiting_review'
-            else:
-                new_status = 'overdue_review'
+            new_status = due_date_band(min(due_dates), today)
         else:
             new_status = 'awaiting_review'
     if referral.status != new_status:
