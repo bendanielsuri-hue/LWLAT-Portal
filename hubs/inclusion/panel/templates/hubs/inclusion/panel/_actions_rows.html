@@ -250,6 +250,18 @@ own _students_rows.html/_referrals_rows.html.
                     <span class="row-fact-assignee row-fact-assignee--initials" title="{{ action.created_by|default:"—" }}">By {{ action.created_by|default:"—"|initials }}</span>
                     <span class="row-fact-assignee row-fact-assignee--full" title="{{ action.created_by|default:"—" }}">By {{ action.created_by|default:"—"|full_name }}</span>
                 </div>
+                <div class="row-fact-col" data-col="updates">
+                    {% comment %}
+                    Own column in the same horizontally-scrolling strip as
+                    Due/Created/Referral (row-facts-track, panel.css) rather
+                    than folded into an existing column - #234 wants this
+                    fetched without a per-row query (annotate_action_update_info,
+                    shared.py) and readable at a glance, not squeezed beside
+                    another fact.
+                    {% endcomment %}
+                    <span class="row-fact-label">Updates</span>
+                    <span>{% include "hubs/inclusion/panel/_action_update_indicator.html" %}</span>
+                </div>
                 <div class="row-fact-col row-fact-col-clamp" data-col="referral">
                     <span class="row-fact-label">Referral</span>
                     <span>{{ action.referral.primary_concern_category|default:"—" }}</span>

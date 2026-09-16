@@ -46,6 +46,7 @@ from .base import _panel_base_context
 from .shared import (
     _is_panel_staff,
     _next_term_option,
+    annotate_action_update_info,
     visible_actions_for,
     visible_categories_for,
     visible_notes_for,
@@ -86,7 +87,9 @@ def _discussion_summary_context(pr):
             note_authors.append(note.author)
 
     actions = list(
-        Action.objects.filter(origin_panel_referral=pr).select_related('category', 'assigned_to_staff')
+        annotate_action_update_info(
+            Action.objects.filter(origin_panel_referral=pr).select_related('category', 'assigned_to_staff')
+        )
     )
     today = timezone.localdate()
     for action in actions:
@@ -198,7 +201,7 @@ def inclusion_panel_discussion(request, panel_referral_id):
         ]
 
     actions = referral.actions.select_related('assigned_to_staff', 'category')
-    actions = visible_actions_for(current_staff, actions)
+    actions = annotate_action_update_info(visible_actions_for(current_staff, actions))
 
     # Safeguarding Note (#52, decoupled #77-#81) - the student's whole
     # active note list, most recent first (Meta.ordering) - no more
