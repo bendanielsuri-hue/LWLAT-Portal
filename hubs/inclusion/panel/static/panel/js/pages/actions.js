@@ -157,6 +157,9 @@ document.addEventListener('DOMContentLoaded', function () {
     container.addEventListener('click', function (e) {
         if (closest(e.target, '[data-action-row-update-form]')) e.stopPropagation();
     }, true);
+    container.addEventListener('keydown', function (e) {
+        if (closest(e.target, '[data-action-row-update-form]')) e.stopPropagation();
+    }, true);
 
     container.addEventListener('click', function (e) {
         var toggle = closest(e.target, '[data-add-update-toggle]');

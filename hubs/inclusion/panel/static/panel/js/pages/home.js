@@ -646,16 +646,18 @@ function wireActionForms() {
     // postUpdate), straight from the card. Nothing on the card itself shows
     // a thread to grow in place - that stays the modal's job - so success
     // just clears the input and flashes the form green, rather than
-    // refreshActionsCard's full-card swap which would also wipe out
+    // refreshMyActionsCard's full-card swap which would also wipe out
     // whatever is half-typed in every OTHER card's own input.
     document.querySelectorAll('#actions-card [data-action-inline-update-form]').forEach(function (form) {
         if (form.dataset.ajaxWired) return;
         form.dataset.ajaxWired = 'true';
-        // initSelectable (components/selectable.js) only ignores clicks on
-        // an `a`/`button` - a plain text <input> isn't one, so without this
-        // every tap into the field would also toggle the card's own
-        // .chosen state underneath it.
+        // initSelectable (components/selectable.js) only ignores a click or
+        // Enter/Space keydown on an `a`/`button` - a plain text <input>
+        // isn't one, so without this every tap into the field (or pressing
+        // Enter to submit) would also toggle the card's own .chosen state
+        // underneath it.
         form.addEventListener('click', function (e) { e.stopPropagation(); });
+        form.addEventListener('keydown', function (e) { e.stopPropagation(); });
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             var input = form.querySelector('[data-action-inline-update-input]');
