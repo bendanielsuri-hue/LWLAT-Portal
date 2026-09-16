@@ -24,6 +24,7 @@ from .shared import (
     _is_referral_unassigned,
     _panels_for_school_key,
     _review_label,
+    annotate_action_update_info,
     visible_actions_for,
 )
 from .meeting_shared import _is_group_member
@@ -95,7 +96,8 @@ def _my_actions_context(current_staff):
     today = timezone.localdate()
     if current_staff is not None:
         my_actions = Action.objects.filter(assigned_to_staff=current_staff).select_related('referral__student').order_by('referral__student__last_name', 'referral__student__first_name', 'status', 'due_date')
-        my_actions = list(visible_actions_for(current_staff, my_actions))
+        my_actions = annotate_action_update_info(visible_actions_for(current_staff, my_actions))
+        my_actions = list(my_actions)
     else:
         my_actions = []
     for action in my_actions:

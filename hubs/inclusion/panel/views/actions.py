@@ -32,6 +32,7 @@ from .shared import (
     _safe_next,
     _term_choices_and_ranges,
     _token_name_filter,
+    annotate_action_update_info,
     visible_actions_for,
     visible_categories_for,
 )
@@ -193,7 +194,7 @@ def inclusion_panel_actions(request):
     # only this page's actions go through the per-row lookups below.
     ACTIONS_PAGE_SIZE = 50
     page_obj, page_number, is_continuation = _paginate_for_infinite_scroll(
-        actions_qs, request, is_ajax, ACTIONS_PAGE_SIZE
+        annotate_action_update_info(actions_qs), request, is_ajax, ACTIONS_PAGE_SIZE
     )
     actions = list(page_obj.object_list)
 
@@ -448,7 +449,9 @@ def inclusion_panel_action_inline_update(request, action_id):
     # so the row can be swapped in place without touching any other row
     # mid-edit.
     action = get_object_or_404(
-        Action.objects.select_related('category', 'assigned_to_staff', 'assigned_to_group', 'referral__student'),
+        annotate_action_update_info(
+            Action.objects.select_related('category', 'assigned_to_staff', 'assigned_to_group', 'referral__student')
+        ),
         pk=action_id,
     )
     current_staff = _current_staff(request)

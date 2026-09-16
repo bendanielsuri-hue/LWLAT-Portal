@@ -47,6 +47,7 @@ from .shared import (
     _safe_next,
     _term_choices_and_ranges,
     _token_name_filter,
+    annotate_action_update_info,
     visible_actions_for,
 )
 
@@ -464,7 +465,8 @@ def _referral_detail_context(referral, current_staff):
     review_label_by_pr_id = {d['pr'].id: d['review_label'] for d in discussions}
 
     referral_actions = referral.actions.select_related('category', 'assigned_to_staff', 'origin_panel_referral__panel')
-    referral_actions = list(visible_actions_for(current_staff, referral_actions))
+    referral_actions = annotate_action_update_info(visible_actions_for(current_staff, referral_actions))
+    referral_actions = list(referral_actions)
     for action in referral_actions:
         action.is_overdue = action.status == 'incomplete' and action.due_date and action.due_date < today
         action.origin_review_label = review_label_by_pr_id.get(action.origin_panel_referral_id)

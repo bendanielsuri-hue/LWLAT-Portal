@@ -8,7 +8,7 @@ only one page calls stays with that page.
 """
 
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Max, Q
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from core.models import SafeguardingNote, Term
@@ -82,6 +82,23 @@ def visible_actions_for(staff, actions):
     if _is_panel_staff(staff):
         return actions
     return actions.exclude(category__is_sensitive=True)
+
+
+def annotate_action_update_info(actions_qs):
+    # "Has anyone actually tried?" (#234) - update_count/last_update_at,
+    # annotated onto the queryset itself so every list page's row gets this
+    # without a per-row query. deleted_at__isnull=True on both aggregates
+    # so a soft-deleted ActionUpdate (ThreadEntryQuerySet.visible(), core/
+    # models.py) counts toward neither the number nor the date - filter=,
+    # not .filter() before the join, since that would also drop actions
+    # with zero (or zero *visible*) updates from the queryset entirely.
+    # distinct=True on Count guards against a caller's own prior join
+    # (e.g. Actions list's concern-category filter) fanning out the
+    # `updates` join into duplicate rows and inflating the count.
+    return actions_qs.annotate(
+        update_count=Count('updates', filter=Q(updates__deleted_at__isnull=True), distinct=True),
+        last_update_at=Max('updates__created_at', filter=Q(updates__deleted_at__isnull=True)),
+    )
 
 
 def visible_notes_for(staff, student):
